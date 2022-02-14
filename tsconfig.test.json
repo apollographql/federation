@@ -8,6 +8,5 @@
     { "path": "./query-graphs-js/tsconfig.test.json" },
     { "path": "./query-planner-js/tsconfig.test.json" },
     { "path": "./subgraph-js/tsconfig.test.json" },
-    { "path": "./federation-rs-integration/tsconfig.test.json" }
   ]
 }

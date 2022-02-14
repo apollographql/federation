@@ -118,18 +118,12 @@ jobs:
       NPM_VERSION: 7.10.0
     steps:
       - checkout
-      - run:
-          name: Cloning federation-rs for integration tests
-          command: git clone https://github.com/apollographql/federation-rs ./federation-rs-integration/federation-rs
       - when:
           condition:
             equal: [ *rust_macos_executor, << parameters.platform >> ]
           steps:
             - rust/install:
                 version: stable
-            - restore_cache:
-                keys:
-                  - rust-target-v1-macos-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
             # Installing this with the curl nvm command was proving difficult,
             # so I've opted to just install the .pkg.  Should be the same net
             # result, even if liked the opportunity for symmetry with Linux.
@@ -149,19 +143,12 @@ jobs:
                 command: test "$(npm --version)" = "${NPM_VERSION}"
             - run: npm clean-install
             - run: npm run test:rs:ci
-            - save_cache:
-                key: rust-target-v1-macos-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
-                paths:
-                  - federation-rs-integration/federation-rs/target/
       - when:
           condition:
             equal: [ *rust_linux_executor, << parameters.platform >> ]
           steps:
             - rust/install:
                 version: stable
-            - restore_cache:
-                keys:
-                  - rust-target-v1-linux-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
             - run:
                 name: Install nvm
                 command: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
@@ -180,10 +167,6 @@ jobs:
                 command: test "$(npm --version)" = "${NPM_VERSION}"
             - run: npm clean-install
             - run: npm run test:rs:ci
-            - save_cache:
-                key: rust-target-v1-linux-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
-                paths:
-                  - federation-rs-integration/federation-rs/target/
       - when:
           condition:
             equal: [ *rust_windows_executor, << parameters.platform >> ]
@@ -208,9 +191,6 @@ jobs:
                   [net]
                   git-fetch-with-cli = true
                   "@
-            - restore_cache:
-                keys:
-                  - rust-target-v1-windows-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
             - run:
                 name: Install desired Node.js version with nvm
                 command: |
@@ -245,10 +225,6 @@ jobs:
                 name: npm clean-install
                 command: |
                   npm clean-install
-            - save_cache:
-                key: rust-target-v1-windows-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
-                paths:
-                  - federation-rs-integration/federation-rs/target/
 
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way

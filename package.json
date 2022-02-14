@@ -15,7 +15,6 @@
     "postinstall": "lerna run monorepo-prepare --stream && npm run compile",
     "test": "npm run test:js",
     "test:js": "jest --verbose",
-    "test:rs": "jest --verbose --projects ./federation-rs-integration",
     "test:all": "npm test && npm run test:rs",
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",

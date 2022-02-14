@@ -39,6 +39,3 @@ node_modules/
 
 # Local Netlify folder
 .netlify
-
-# federation-rs repo for integration tests
-federation-rs/
