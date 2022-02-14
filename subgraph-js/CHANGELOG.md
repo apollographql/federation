@@ -8,6 +8,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - _Nothing yet! Stay tuned._
 
+## v2.0.0-alpha.6
+
+- No direct changes.  Just bumping to maintain version alignment with other v2.0.0 alpha packages.
+
+## v2.0.0-alpha.5
+
+- No direct changes.  Just bumping to maintain version alignment with other v2.0.0 alpha packages.
+
 ## v2.0.0-alpha.4
 
 - Print description text for the `schema` definition node, as allowed per the October 2021 edition of the GraphQL specification [PR #1464](https://github.com/apollographql/federation/pull/1464).
