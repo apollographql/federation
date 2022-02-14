@@ -22,7 +22,7 @@ commands:
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
-          command: npm run test:js:ci
+          command: npm run test:ci
           environment:
             JEST_JUNIT_OUTPUT_DIR: "reports/junit/"
       - store_test_results:
