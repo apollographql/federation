@@ -430,3 +430,106 @@ test('handles types having only some of their fields removed in a subgraph corre
   expect(c.type('A')).toBeDefined();
   expect(c.type('B')).toBeDefined();
 })
+
+test('handles unions types having no members in a subgraph correctly', () => {
+  /*
+   * The following supergraph has been generated on version-0.x from:
+   *  - ServiceA:
+   *      type Query {
+   *        q: A
+   *      }
+   *
+   *      union A = B | C
+   *
+   *      type B @key(fields: "b") {
+   *        b: D
+   *      }
+   *
+   *      type C @key(fields: "c"){
+   *        c: D
+   *      }
+   *
+   *      type D {
+   *        d: String
+   *      }
+   *  - ServiceB:
+   *      type D {
+   *        d: String
+   *      }
+   *
+   * This tests is similar to the other test with unions, but because its members are enties, the
+   * members themself with have a join__owner, and that means the removal will hit a different
+   * code path (technically, the union A will be "removed" directly by `extractSubgraphsFromSupergraph`
+   * instead of being removed indirectly through the removal of its members).
+   */
+  const supergraph = `
+    schema
+      @core(feature: "https://specs.apollo.dev/core/v0.2"),
+      @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+    {
+      query: Query
+    }
+
+    directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+
+    directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+    directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+    union A = B | C
+
+    type B @join__owner(graph: SERVICEA) @join__type(graph: SERVICEA, key: "b { d }") {
+      b: D
+    }
+
+    type C @join__owner(graph: SERVICEA) @join__type(graph: SERVICEA, key: "c { d }") {
+      c: D
+    }
+
+    type D {
+      d: String
+    }
+
+    type Query {
+      q: A
+    }
+
+    enum core__Purpose {
+      """
+      \`EXECUTION\` features provide metadata necessary to for operation execution.
+      """
+      EXECUTION
+
+      """
+      \`SECURITY\` features provide metadata necessary to securely resolve fields.
+      """
+      SECURITY
+    }
+
+    scalar join__FieldSet
+
+    enum join__Graph {
+      SERVICEA @join__graph(name: "serviceA" url: "")
+      SERVICEB @join__graph(name: "serviceB" url: "")
+    }
+  `;
+
+  const schema = buildSupergraphSchema(supergraph)[0];
+  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  expect(subgraphs.size()).toBe(2);
+
+  const [a, b] = subgraphs.values().map((s) => s.schema);
+  expect(a.type('A')).toBeDefined();
+  expect(a.type('B')).toBeDefined();
+  expect(a.type('C')).toBeDefined();
+  expect(a.type('D')).toBeDefined();
+
+  expect(b.type('A')).toBeUndefined();
+  expect(b.type('B')).toBeUndefined();
+  expect(b.type('C')).toBeUndefined();
+  expect(a.type('D')).toBeDefined();
+})
