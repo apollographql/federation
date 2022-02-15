@@ -4,9 +4,7 @@
     "query-graphs-js",
     "federation-integration-testsuite-js",
     "gateway-js",
-    "harmonizer",
     "query-planner-js",
-    "router-bridge",
     "subgraph-js",
     "composition-js"
   ],
