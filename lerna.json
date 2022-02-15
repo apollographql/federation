@@ -3,7 +3,6 @@
     "internals-js",
     "query-graphs-js",
     "federation-integration-testsuite-js",
-    "federation-rs-integration",
     "gateway-js",
     "query-planner-js",
     "subgraph-js",
