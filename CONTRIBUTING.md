@@ -76,7 +76,6 @@ It’s important that every piece of code in Apollo packages is reviewed by at l
 This project uses GitHub Actions to run a continuous integration and delivery pipeline. Every code change will be run against a few steps to help keep the project running at its peak ability.
 
 - **CLA Check**: If you haven’t signed the Apollo CLA, a bot will comment on your PR asking you to do this
-- **Tests**: The CI will run the `cargo test` command.
 - **Coverage**: This project runs a job to collect information on how much of the library has been tested using code coverage tools. This is a WIP but you may see a status check related to how you have improved (or lowered 😢) the amount covered. Don’t worry, it happens to all of us and we are here to help out!
 
 After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the README](./README.md#contributing) who will review it and give feedback.

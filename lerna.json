@@ -3,9 +3,7 @@
     "federation-js",
     "federation-integration-testsuite-js",
     "gateway-js",
-    "harmonizer",
     "query-planner-js",
-    "router-bridge",
     "subgraph-js"
   ],
   "version": "independent",

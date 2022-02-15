@@ -5,8 +5,10 @@
   "files": [],
   "include": [],
   "references": [
+    { "path": "./federation-js" },
+    { "path": "./query-planner-js" },
     { "path": "./gateway-js" },
     { "path": "./federation-integration-testsuite-js" },
-    { "path": "./subgraph-js" },
+    { "path": "./subgraph-js" }
   ]
 }
