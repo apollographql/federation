@@ -521,6 +521,13 @@ export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
 }
 
 /**
+ * Builds a "subgraph API" query graph based on the provided supergraph schema.
+ */
+ export function buildSubgraphAPIQueryGraph(supergraph: Schema): QueryGraph {
+  return buildQueryGraph("supergraph", supergraph);
+}
+
+/**
  * Builds a "federated" query graph based on the provided supergraph schema.
  *
  * A "federated" query graph is one that is used to reason about queries made by a
