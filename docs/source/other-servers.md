@@ -123,6 +123,18 @@ The following open-source GraphQL server libraries support acting as a subgraph 
   </tr>
 
   <tr>
+    <td class="sticky">JavaScript</td>
+    <td> <a href="https://mercurius.dev/#/">Mercurius</a></td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>❌</td>
+  </tr>
+
+  <tr>
     <td class="sticky">Java</td>
     <td> <a href="https://github.com/apollographql/federation-jvm">federation-jvm</a></td>
     <td>✔️</td>
@@ -161,6 +173,18 @@ The following open-source GraphQL server libraries support acting as a subgraph 
   <tr>
     <td class="sticky">PHP</td>
     <td> <a href="https://github.com/Skillshare/apollo-federation-php">apollo-federation-php</a></td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>❌</td>
+  </tr>
+
+  <tr>
+    <td class="sticky">PHP</td>
+    <td> <a href="https://lighthouse-php.com">Lighthouse</a> (Laravel)</td>
     <td>✔️</td>
     <td>✔️</td>
     <td>✔️</td>
