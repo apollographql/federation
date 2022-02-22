@@ -57,6 +57,7 @@ export type UpgradeChange =
   ExternalOnTypeExtensionRemoval
   | TypeExtensionRemoval
   | UnusedExternalRemoval
+  | ExternalOnInterfaceRemoval
   | InactiveProvidesOrRequiresRemoval
   | InactiveProvidesOrRequiresFieldsRemoval
   | ShareableFieldAddition
@@ -84,6 +85,16 @@ export class TypeExtensionRemoval {
 
   toString() {
     return `Switched type "${this.type}" from an extension to a definition`;
+  }
+}
+
+export class ExternalOnInterfaceRemoval {
+  readonly id = 'EXTERNAL_ON_INTERFACE_REMOVAL' as const;
+
+  constructor(readonly field: string) {}
+
+  toString() {
+    return `Removed @external directive on interface type field "${this.field}": @external is nonsensical on interface fields`;
   }
 }
 
@@ -322,6 +333,8 @@ class SchemaUpgrader {
 
     this.fixFederationDirectivesArguments();
 
+    this.removeExternalOnInterface();
+
     // Note that we remove all external on type extensions first, so we don't have to care about it later in @key, @provides and @requires.
     this.removeExternalOnTypeExtensions();
 
@@ -392,6 +405,18 @@ class SchemaUpgrader {
               }
             }
           }
+        }
+      }
+    }
+  }
+
+  private removeExternalOnInterface() {
+    for (const itf of this.schema.types<InterfaceType>('InterfaceType')) {
+      for (const field of itf.fields()) {
+        const external = this.external(field);
+        if (external) {
+          this.addChange(new ExternalOnInterfaceRemoval(field.coordinate));
+          external.remove();
         }
       }
     }

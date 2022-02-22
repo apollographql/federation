@@ -20,6 +20,7 @@ test('upgrade complex schema', () => {
 
     interface I @key(fields: "upc") {
       upc: ID!
+      description: String @external
     }
 
     extend type Product implements I @key(fields: "upc") {
@@ -37,7 +38,6 @@ test('upgrade complex schema', () => {
     extend type Random {
       y: Int
     }
-
   `;
 
   // Note that no changes are really expected on that 2nd schema: it is just there to make the example not throw due to
@@ -66,6 +66,10 @@ test('upgrade complex schema', () => {
 
   expect(changeMessages(res, 's1', 'UNUSED_EXTERNAL_REMOVAL')).toStrictEqual([
     'Removed @external field "Product.name" as it was not used in any @key, @provides or @requires'
+  ]);
+
+  expect(changeMessages(res, 's1', 'EXTERNAL_ON_INTERFACE_REMOVAL')).toStrictEqual([
+    'Removed @external directive on interface type field "I.description": @external is nonsensical on interface fields'
   ]);
 
   expect(changeMessages(res, 's1', 'INACTIVE_PROVIDES_OR_REQUIRES_REMOVAL')).toStrictEqual([
@@ -98,6 +102,7 @@ test('upgrade complex schema', () => {
 
     interface I {
       upc: ID!
+      description: String
     }
 
     type Product implements I

@@ -330,13 +330,9 @@ function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any,
  * Checks that all fields marked @external is used in a federation directive (@key, @provides or @requires) _or_ to satisfy an
  * interface implementation. Otherwise, the field declaration is somewhat useless.
  */
-function validateAllExternalFieldsUsed(schema: Schema, errorCollector: GraphQLError[]): void {
-  const metadata = federationMetadata(schema);
-  if (!metadata) {
-    return;
-  }
+function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollector: GraphQLError[]): void {
   const allUsedExternals = collectUsedExternalFieldsCoordinates(metadata);
-  for (const type of schema.types()) {
+  for (const type of metadata.schema.types()) {
     if (!isObjectType(type) && !isInterfaceType(type)) {
       continue;
     }
@@ -349,6 +345,19 @@ function validateAllExternalFieldsUsed(schema: Schema, errorCollector: GraphQLEr
         errorCollector.push(ERRORS.EXTERNAL_UNUSED.err({
           message: `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
           + ' the field declaration has no use and should be removed (or the field should not be @external).',
+          nodes: field.sourceAST,
+        }));
+      }
+    }
+  }
+}
+
+function validateNoExternalOnInterfaceFields(metadata: FederationMetadata, errorCollector: GraphQLError[]) {
+  for (const itf of metadata.schema.types<InterfaceType>('InterfaceType')) {
+    for (const field of itf.fields()) {
+      if (metadata.isFieldExternal(field)) {
+        errorCollector.push(ERRORS.EXTERNAL_ON_INTERFACE.err({
+          message: `Interface type field "${field.coordinate}" is marked @external but @external is not allowed on interface fields (it is nonsensical).`,
           nodes: field.sourceAST,
         }));
       }
@@ -370,7 +379,7 @@ function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | Interfac
  */
 function validateInterfaceRuntimeImplementationFieldsTypes(
   itf: InterfaceType,
-  externalTester: ExternalTester, 
+  metadata: FederationMetadata, 
   errorCollector: GraphQLError[],
 ): void {
   const requiresDirective = federationMetadata(itf.schema())?.requiresDirective();
@@ -386,7 +395,7 @@ function validateInterfaceRuntimeImplementationFieldsTypes(
       if (implemField.sourceAST) {
         nodes.push(implemField.sourceAST);
       }
-      if (externalTester.isExternal(implemField) || implemField.hasAppliedDirective(requiresDirective)) {
+      if (metadata.isFieldExternal(implemField) || implemField.hasAppliedDirective(requiresDirective)) {
         withExternalOrRequires.push(implemField);
       }
       const returnType = implemField.type!;
@@ -678,8 +687,6 @@ export class FederationBlueprint extends SchemaBlueprint {
       return errors;
     }
 
-    const externalTester = new ExternalTester(schema);
-
     // We validate the @key, @requires and @provides.
     const keyDirective = metadata.keyDirective();
     validateAllFieldSet<CompositeType>(
@@ -722,7 +729,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       metadata.providesDirective(),
       field => {
-        if (externalTester.isExternal(field)) {
+        if (metadata.isFieldExternal(field)) {
           throw new GraphQLError(`Cannot have both @provides and @external on field "${field.coordinate}"`, field.sourceAST);
         }
         const type = baseType(field.type!);
@@ -740,7 +747,8 @@ export class FederationBlueprint extends SchemaBlueprint {
       false,
     );
 
-    validateAllExternalFieldsUsed(schema, errors);
+    validateNoExternalOnInterfaceFields(metadata, errors);
+    validateAllExternalFieldsUsed(metadata, errors);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
@@ -752,7 +760,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
 
     for (const itf of schema.types<InterfaceType>('InterfaceType')) {
-      validateInterfaceRuntimeImplementationFieldsTypes(itf, externalTester, errors);
+      validateInterfaceRuntimeImplementationFieldsTypes(itf, metadata, errors);
     }
 
     return errors;

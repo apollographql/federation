@@ -145,6 +145,7 @@ describe('fieldset-based directives', () => {
     `
     expect(buildForErrors(subgraph)).toStrictEqual([
       ['REQUIRES_UNSUPPORTED_ON_INTERFACE', '[S] Cannot use @requires on field "T.g" of parent type "T": @requires is not yet supported within interfaces' ],
+      ['EXTERNAL_ON_INTERFACE', '[S] Interface type field "T.f" is marked @external but @external is not allowed on interface fields (it is nonsensical).' ],
     ]);
   });
 

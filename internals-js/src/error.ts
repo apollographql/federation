@@ -240,6 +240,11 @@ const EXTERNAL_ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
 );
 
+const EXTERNAL_ON_INTERFACE = makeCodeDefinition(
+  'EXTERNAL_ON_INTERFACE',
+  'The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical',
+);
+
 const FIELD_TYPE_MISMATCH = makeCodeDefinition(
   'FIELD_TYPE_MISMATCH',
   'A field has a type that is incompatible with other declarations of that field in other subgraphs.',
@@ -336,6 +341,7 @@ export const ERRORS = {
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
+  EXTERNAL_ON_INTERFACE,
   FIELD_TYPE_MISMATCH,
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
