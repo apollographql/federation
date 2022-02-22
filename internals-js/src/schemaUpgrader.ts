@@ -33,20 +33,20 @@ import {
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
 import { FEDERATION_SPEC_TYPES } from "./federationSpec";
-import { collectUsedExternalFieldsCoordinates, forEachFieldSetArgument } from ".";
+import { collectUsedExternalFieldsCoordinates, collectTargetFields } from ".";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
 type UpgradeChanges = MultiMap<UpgradeChangeID, UpgradeChange>;
 
 export type UpgradeSuccess = {
-  upgraded: Subgraphs,
+  subgraphs: Subgraphs,
   changes: Map<string, UpgradeChanges>,
   errors?: never, 
 }
 
 export type UpgradeFailure = {
-  upgraded?: never,
+  subgraphs?: never,
   changes?: never,
   errors: GraphQLError[],
 }
@@ -83,7 +83,7 @@ export class TypeExtensionRemoval {
   constructor(readonly type: string) {}
 
   toString() {
-    return `Switched type "${this.type}" from an extension to a defintion`;
+    return `Switched type "${this.type}" from an extension to a definition`;
   }
 }
 
@@ -163,7 +163,7 @@ export class ProvidesOnNonCompositeRemoval {
   constructor(readonly field: string, readonly type: string) {}
 
   toString() {
-    return `Removed @provides directive on field "${this.field}" as it is of non-composite type "${this.type}": while not rejected by federation 0.x, such @provide is non-sensical and was ignored`;
+    return `Removed @provides directive on field "${this.field}" as it is of non-composite type "${this.type}": while not rejected by federation 0.x, such @provide is nonsensical and was ignored`;
   }
 }
 
@@ -177,29 +177,29 @@ export class FieldsArgumentCoercionToString {
   }
 }
 
-export function upgradeSubgraphsIfNecessary(subgraphs: Subgraphs): UpgradeResult {
+export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
   const changes: Map<string, UpgradeChanges> = new Map();
-  if (subgraphs.values().every((s) => s.isFed2Subgraph())) {
-    return { upgraded: subgraphs, changes };
+  if (inputs.values().every((s) => s.isFed2Subgraph())) {
+    return { subgraphs: inputs, changes };
   }
 
-  const upgraded = new Subgraphs();
+  const subgraphs = new Subgraphs();
   let errors: GraphQLError[] = [];
-  for (const subgraph of subgraphs.values()) {
+  for (const subgraph of inputs.values()) {
     if (subgraph.isFed2Subgraph()) {
-      upgraded.add(subgraph);
+      subgraphs.add(subgraph);
     } else {
-      const otherSubgraphs = subgraphs.values().filter((s) => s.name !== subgraph.name);
+      const otherSubgraphs = inputs.values().filter((s) => s.name !== subgraph.name);
       const res = new SchemaUpgrader(subgraph, otherSubgraphs).upgrade();
       if (res.errors) {
         errors = errors.concat(res.errors);
       } else {
-        upgraded.add(res.upgraded);
+        subgraphs.add(res.upgraded);
         changes.set(subgraph.name, res.changes);
       }
     }
   }
-  return errors.length === 0 ? { upgraded, changes } : { errors };
+  return errors.length === 0 ? { subgraphs, changes } : { errors };
 }
 
 /**
@@ -434,18 +434,17 @@ class SchemaUpgrader {
         continue;
       }
       for (const keyApplication of type.appliedDirectivesOf(this.metadata.keyDirective())) {
-        forEachFieldSetArgument({
+        collectTargetFields({
           parentType: type,
           directive: keyApplication,
-          callback: field => {
-            const external = this.external(field);
-            if (external) {
-              this.addChange(new ExternalOnTypeExtensionRemoval(field.coordinate));
-              external.remove();
-            }
-          },
           includeInterfaceFieldsImplementations: false,
           validate: false,
+        }).forEach((field) => {
+          const external = this.external(field);
+          if (external) {
+            this.addChange(new ExternalOnTypeExtensionRemoval(field.coordinate));
+            external.remove();
+          }
         });
       }
     }

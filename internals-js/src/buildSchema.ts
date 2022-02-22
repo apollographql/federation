@@ -25,7 +25,6 @@ import { Maybe } from "graphql/jsutils/Maybe";
 import {
   SchemaBlueprint,
   Schema,
-  defaultSchemaBlueprint,
   newNamedType,
   NamedTypeKind,
   NamedType,
@@ -75,11 +74,7 @@ export function buildSchemaFromAST(
   documentNode: DocumentNode,
   options?: BuildSchemaOptions,
 ): Schema {
-  const { blueprint, validate } = {
-    blueprint: options?.blueprint ?? defaultSchemaBlueprint,
-    validate: options?.validate ?? true,
-  }
-  const schema = new Schema(blueprint);
+  const schema = new Schema(options?.blueprint);
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
   const { directiveDefinitions, schemaDefinitions, schemaExtensions } = buildNamedTypeAndDirectivesShallow(documentNode, schema);
@@ -99,7 +94,7 @@ export function buildSchemaFromAST(
     buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, schema.schemaDefinition.newExtension());
   }
 
-  blueprint.onDirectiveDefinitionAndSchemaParsed(schema);
+  schema.blueprint.onDirectiveDefinitionAndSchemaParsed(schema);
 
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
@@ -112,7 +107,7 @@ export function buildSchemaFromAST(
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
-        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, blueprint);
+        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, schema.blueprint);
         break;
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
@@ -123,12 +118,12 @@ export function buildSchemaFromAST(
         const toExtend = schema.type(definitionNode.name.value)!;
         const extension = toExtend.newExtension();
         extension.sourceAST = definitionNode;
-        buildNamedTypeInner(definitionNode, toExtend, blueprint, extension);
+        buildNamedTypeInner(definitionNode, toExtend, schema.blueprint, extension);
         break;
     }
   }
 
-  if (validate) {
+  if (options?.validate ?? true) {
     schema.validate();
   }
 

@@ -972,22 +972,22 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'include',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => [['if', new NonNullType(schema.booleanType())]]
+    argumentFct: (schema) => [{ name: 'if', type: new NonNullType(schema.booleanType()) }]
   }),
   createDirectiveSpecification({
     name: 'skip',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => [['if', new NonNullType(schema.booleanType())]]
+    argumentFct: (schema) => [{ name: 'if', type: new NonNullType(schema.booleanType()) }]
   }),
   createDirectiveSpecification({
     name: 'deprecated',
     locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION],
-    argumentFct: (schema) => [['reason', schema.stringType(), 'No longer supported']]
+    argumentFct: (schema) => [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }]
   }),
   createDirectiveSpecification({
     name: 'specifiedBy',
     locations: [DirectiveLocation.SCALAR],
-    argumentFct: (schema) => [['url', new NonNullType(schema.stringType())]]
+    argumentFct: (schema) => [{ name: 'url', type: new NonNullType(schema.stringType()) }]
   }),
 ];
 

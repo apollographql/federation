@@ -37,7 +37,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
     return { errors: upgradeResult.errors };
   }
 
-  const toMerge = upgradeResult.upgraded;
+  const toMerge = upgradeResult.subgraphs;
   const validationErrors = toMerge.validate();
   if (validationErrors) {
     return { errors: validationErrors };

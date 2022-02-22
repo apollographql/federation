@@ -152,9 +152,18 @@ export function extractCoreFeatureImports(directive: Directive<SchemaDefinition,
   const importArg = args.import;
   const imports: CoreImport[] = importArg ? importArg.map((a) => typeof a === 'string' ? { name: a } : a) : [];
   for (const i of imports) {
-    if (i.as && i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
+    if (!i.as) {
+      continue;
+    }
+    if (i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
       throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
         message: `Invalid @link import renaming: directive ${i.name} imported name should starts with a '@' character, but got "${i.as}"`,
+        nodes: directive.sourceAST
+      });
+    }
+    if (i.name.charAt(0) !== '@' && i.as.charAt(0) === '@') {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+        message: `Invalid @link import renaming: type ${i.name} imported name should not starts with a '@' character, but got "${i.as}" (or, if @${i.name} is a directive, then it should be refered to with a '@')`,
         nodes: directive.sourceAST
       });
     }
@@ -182,7 +191,7 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
   const args = directive.arguments();
   try {
     const url = FeatureUrl.parse(args[urlArg.name] as string);
-    if (url.identity == coreIdentity) {
+    if (url.identity === coreIdentity) {
       return directive.name === (args.as ?? 'core');
     } else {
       return url.identity === linkIdentity &&  directive.name === (args.as ?? linkDirectiveDefaultName);

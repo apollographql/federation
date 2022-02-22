@@ -1340,13 +1340,13 @@ export function parseSelectionSet({
   variableDefinitions,
   fragments,
   fieldAccessor,
-  validate,
+  validate = true,
 }: {
   parentType: CompositeType,
   source: string | SelectionSetNode,
   variableDefinitions?: VariableDefinitions,
   fragments?: NamedFragments,
-  fieldAccessor?: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined,
+  fieldAccessor?: (type: CompositeType, fieldName: string) => (FieldDefinition<any> | undefined),
   validate?: boolean,
 }): SelectionSet {
   // TODO: we should maybe allow the selection, when a string, to contain fragment definitions?
@@ -1355,7 +1355,7 @@ export function parseSelectionSet({
     : source;
   const selectionSet = new SelectionSet(parentType, fragments);
   selectionSet.addSelectionSetNode(node, variableDefinitions ?? new VariableDefinitions(), fieldAccessor);
-  if (validate === undefined || validate)
+  if (validate)
     selectionSet.validate();
   return selectionSet;
 }

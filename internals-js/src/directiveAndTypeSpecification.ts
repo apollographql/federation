@@ -28,9 +28,17 @@ export type TypeSpecification = {
   checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => GraphQLError[],
 }
 
-export type ArgumentSpecification = [string, InputType, any?];
+export type ArgumentSpecification = {
+  name: string,
+  type: InputType,
+  defaultValue?: any,
+}
 
-export type FieldSpecification = [string, OutputType, ArgumentSpecification[]];
+export type FieldSpecification = {
+  name: string,
+  type: OutputType,
+  args?: ArgumentSpecification[],
+};
 
 export function createDirectiveSpecification({
   name,
@@ -55,8 +63,8 @@ export function createDirectiveSpecification({
         const directive = schema.addDirectiveDefinition(new DirectiveDefinition(actualName, asBuiltIn));
         directive.repeatable = repeatable;
         directive.addLocations(...locations);
-        for (const [argName, argType, defaultValue] of args) {
-          directive.addArgument(argName, argType, defaultValue);
+        for (const { name, type, defaultValue } of args) {
+          directive.addArgument(name, type, defaultValue);
         }
         return [];
       }
@@ -99,11 +107,11 @@ export function createObjectTypeSpecification({
           return errors;
         }
         assert(isObjectType(existing), 'Should be an object type');
-        for (const [expectedFieldName, expectedFieldType, expectedFieldArgs] of expectedFields) {
-          const existingField = existing.field(expectedFieldName);
+        for (const { name, type, args } of expectedFields) {
+          const existingField = existing.field(name);
           if (!existingField) {
             errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-              message: `Invalid definition of type ${name}: missing field ${expectedFieldName}`,
+              message: `Invalid definition of type ${name}: missing field ${name}`,
               nodes: existing.sourceAST
             }));
             continue;
@@ -111,27 +119,27 @@ export function createObjectTypeSpecification({
           // We allow adding non-nullability because we've seen redefinition of the federation _Service type with type String! for the `sdl` field
           // and we don't want to break backward compatibility as this doesn't feel too harmful.
           let existingType = existingField.type!;
-          if (!isNonNullType(expectedFieldType) && isNonNullType(existingType)) {
+          if (!isNonNullType(type) && isNonNullType(existingType)) {
             existingType = existingType.ofType;
           }
-          if (!sameType(expectedFieldType, existingType)) {
+          if (!sameType(type, existingType)) {
             errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-              message: `Invalid definition for field ${expectedFieldName} of type ${name}: should have type ${expectedFieldType} but found type ${existingField.type}`,
+              message: `Invalid definition for field ${name} of type ${name}: should have type ${type} but found type ${existingField.type}`,
               nodes: existingField.sourceAST
             }));
           }
           errors = errors.concat(ensureSameArguments(
-            { name: expectedFieldName, args: expectedFieldArgs},
+            { name, args },
             existingField,
             `field ${existingField.coordinate}`,
           ));
         }
         return errors;
       } else {
-        const type = schema.addType(new ObjectType(actualName, asBuiltIn));
-        for (const [fieldName, fieldType, fieldArgs] of expectedFields) {
-          const field = type.addField(fieldName, fieldType);
-          for (const [argName, argType, defaultValue] of fieldArgs) {
+        const createdType = schema.addType(new ObjectType(actualName, asBuiltIn));
+        for (const { name, type, args } of expectedFields) {
+          const field = createdType.addField(name, type);
+          for (const { name: argName, type: argType, defaultValue } of args ?? []) {
             field.addArgument(argName, argType, defaultValue);
           }
         }
@@ -229,12 +237,12 @@ function ensureSameDirectiveStructure(
 function ensureSameArguments(
   expected: {
     name: string,
-    args: ArgumentSpecification[]
+    args?: ArgumentSpecification[]
   },
   actual: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): readonly ArgumentDefinition<any>[] },
   what: string,
 ): GraphQLError[] {
-  const expectedArguments = expected.args;
+  const expectedArguments = expected.args ?? [];
   const foundArguments = actual.arguments();
   if (expectedArguments.length !== foundArguments.length) {
     return [ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
@@ -242,23 +250,23 @@ function ensureSameArguments(
     })];
   }
   let errors: GraphQLError[] = [];
-  for (const [expectedName, expectedType, expectedDefault] of expectedArguments) {
-    const actualArgument = actual.argument(expectedName)!;
+  for (const { name, type, defaultValue } of expectedArguments) {
+    const actualArgument = actual.argument(name)!;
     let actualType = actualArgument.type!;
-    if (isNonNullType(actualType) && !isNonNullType(expectedType)) {
+    if (isNonNullType(actualType) && !isNonNullType(type)) {
       // It's ok to redefine an optional argument as mandatory. For instance, if you want to force people on your team to provide a "deprecation reason", you can
       // redefine @deprecated as `directive @deprecated(reason: String!)...` to get validation. In other words, you are allowed to always pass an argument that
       // is optional if you so wish.
       actualType = actualType.ofType;
     }
-    if (!sameType(expectedType, actualType)) {
+    if (!sameType(type, actualType)) {
       errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition of ${what}: ${expectedName} should have type ${expectedType} but found type ${actualArgument.type!}`,
+        message: `Invalid definition of ${what}: ${name} should have type ${type} but found type ${actualArgument.type!}`,
         nodes: actualArgument.sourceAST
       }));
-    } else if (!isNonNullType(actualType) && !valueEquals(expectedDefault, actualArgument.defaultValue)) {
+    } else if (!isNonNullType(actualType) && !valueEquals(defaultValue, actualArgument.defaultValue)) {
       errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition of ${what}: ${expectedName} should have default value ${valueToString(expectedDefault)} but found default value ${valueToString(actualArgument.defaultValue)}`,
+        message: `Invalid definition of ${what}: ${name} should have default value ${valueToString(defaultValue)} but found default value ${valueToString(actualArgument.defaultValue)}`,
         nodes: actualArgument.sourceAST
       }));
     }

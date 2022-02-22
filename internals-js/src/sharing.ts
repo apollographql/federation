@@ -1,10 +1,10 @@
 import {
-    assert,
+  assert,
   baseType,
   CompositeType,
   federationMetadata,
   FieldDefinition,
-  forEachFieldSetArgument,
+  collectTargetFields,
   InterfaceType,
   ObjectType,
   Schema
@@ -24,13 +24,12 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
   const shareableFields: Set<String> = new Set();
   const addKeyFields = (type: CompositeType) => {
     for (const key of type.appliedDirectivesOf(keyDirective)) {
-      forEachFieldSetArgument({
+      collectTargetFields({
         parentType: type,
         directive: key,
-        callback: (f) => shareableFields.add(f.coordinate),
         includeInterfaceFieldsImplementations: true,
         validate: false,
-      });
+      }).forEach((f) => shareableFields.add(f.coordinate));
     }
   };
 
@@ -44,13 +43,12 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
         shareableFields.add(field.coordinate);
       }
       for (const provides of field.appliedDirectivesOf(providesDirective)) {
-        forEachFieldSetArgument({
+        collectTargetFields({
           parentType: baseType(field.type!) as CompositeType,
           directive: provides,
-          callback: (f) => shareableFields.add(f.coordinate),
           includeInterfaceFieldsImplementations: true,
           validate: false,
-        });
+        }).forEach((f) => shareableFields.add(f.coordinate));
       }
     }
   }

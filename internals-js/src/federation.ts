@@ -73,7 +73,7 @@ import {
   tagDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
 } from "./federationSpec";
-import { defaultPrintOptions, Options as PrintOptions, printSchema } from "./print";
+import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -316,17 +316,13 @@ function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any,
     // a bunch of other errors that says some external fields are unused that are just a consequence of not considering that
     // particular `fields` argument. In other words, this avoid cascading errors that would be confusing to the user without
     // being of any concrete use.
-    forEachFieldSetArgument({
+    collectTargetFields({
       parentType: type,
       directive: application as Directive<any, {fields: any}>,
-      callback: field => {
-        if (metadata.isFieldExternal(field)) {
-          usedExternalCoordinates.add(field.coordinate);
-        }
-      },
       includeInterfaceFieldsImplementations: true,
       validate: false,
-    });
+    }).filter((field) => metadata.isFieldExternal(field))
+      .forEach((field) => usedExternalCoordinates.add(field.coordinate));
   }
 }
 
@@ -1010,19 +1006,18 @@ export function parseFieldSetArgument({
   }
 }
 
-export function forEachFieldSetArgument({
+export function collectTargetFields({
   parentType,
   directive,
-  callback,
   includeInterfaceFieldsImplementations,
-  validate,
+  validate = true,
 }: {
   parentType: CompositeType,
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
-  callback: (field: FieldDefinition<CompositeType>) => void,
   includeInterfaceFieldsImplementations: boolean,
   validate?: boolean,
-}) {
+}): FieldDefinition<CompositeType>[] {
+  const fields: FieldDefinition<CompositeType>[] = [];
   try {
     parseFieldSetArgument({
       parentType,
@@ -1030,12 +1025,12 @@ export function forEachFieldSetArgument({
       fieldAccessor: (t, f) => {
         const field = t.field(f);
         if (field) {
-          callback(field);
+          fields.push(field);
           if (includeInterfaceFieldsImplementations && isInterfaceType(t)) {
             for (const implType of t.possibleRuntimeTypes()) {
               const implField = implType.field(f);
               if (implField) {
-                callback(implField);
+                fields.push(implField);
               }
             }
           }
@@ -1045,12 +1040,14 @@ export function forEachFieldSetArgument({
       validate,
     });
   } catch (e) {
-    // If we explicitely requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it.
+    // If we explicitely requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it
+    // (returning a partial result, but we assume it is fine).
     const isGraphQLError = errorCauses(e) !== undefined
-    if (!isGraphQLError || validate === undefined || validate) {
+    if (!isGraphQLError || validate) {
       throw e;
     }
   }
+  return fields;
 }
 
 function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
@@ -1167,7 +1164,7 @@ export const anyTypeSpec = createScalarTypeSpecification({ name: '_Any' });
 
 export const serviceTypeSpec = createObjectTypeSpecification({
   name: '_Service',
-  fieldsFct: (schema) => [['sdl', schema.stringType(), []]],
+  fieldsFct: (schema) => [{ name: 'sdl', type: schema.stringType() }],
 });
 
 export const entityTypeSpec = createUnionTypeSpecification({
@@ -1354,30 +1351,25 @@ class ExternalTester {
       if (!(key.ofExtension() || parentType.hasAppliedDirective(extendsDirective))) {
         continue;
       }
-      forEachFieldSetArgument({
+      collectTargetFields({
         parentType,
         directive: key as Directive<any, {fields: any}>,
-        callback: (field) => {
-          if (field.hasAppliedDirective(this.externalDirective)) {
-            this.fakeExternalFields.add(field.coordinate);
-          }
-        },
         includeInterfaceFieldsImplementations: false,
         validate: false,
-      });
+      }).filter((field) => field.hasAppliedDirective(this.externalDirective))
+        .forEach((field) => this.fakeExternalFields.add(field.coordinate));
     }
   }
 
   private collectProvidedFields() {
     for (const provides of this.metadata().providesDirective().applications()) {
       const parent = provides.parent as FieldDefinition<CompositeType>;
-      forEachFieldSetArgument({
+      collectTargetFields({
         parentType: baseType(parent.type!) as CompositeType,
         directive: provides as Directive<any, {fields: any}>,
-        callback: (f) => this.providedFields.add(f.coordinate),
         includeInterfaceFieldsImplementations: true,
         validate: false,
-      });
+      }).forEach((f) => this.providedFields.add(f.coordinate));
     }
   }
 

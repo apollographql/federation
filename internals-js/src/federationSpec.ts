@@ -5,6 +5,7 @@ import {
 } from "./definitions";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
+  ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
 } from "./directiveAndTypeSpecification";
@@ -59,12 +60,12 @@ export const tagDirectiveSpec = createDirectiveSpecification({
   name:'tag',
   locations: tagLocations,
   argumentFct: (schema) => {
-    return [['name', new NonNullType(schema.stringType()), undefined]];
+    return [{ name: 'name', type: new NonNullType(schema.stringType()) }];
   }
 });
 
-function fieldsArgument(schema: Schema): [string, InputType, any] {
-  return ['fields', fieldSetType(schema), undefined];
+function fieldsArgument(schema: Schema): ArgumentSpecification {
+  return { name: 'fields', type: fieldSetType(schema) };
 }
 
 function fieldSetType(schema: Schema): InputType {

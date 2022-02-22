@@ -61,7 +61,7 @@ test('upgrade complex schema', () => {
   ]);
 
   expect(changeMessages(res, 's1', 'TYPE_EXTENSION_REMOVAL')).toStrictEqual([
-    'Switched type "Product" from an extension to a defintion'
+    'Switched type "Product" from an extension to a definition'
   ]);
 
   expect(changeMessages(res, 's1', 'UNUSED_EXTERNAL_REMOVAL')).toStrictEqual([
@@ -81,10 +81,10 @@ test('upgrade complex schema', () => {
   ]);
 
   expect(changeMessages(res, 's1', 'PROVIDES_ON_NON_COMPOSITE_REMOVAL')).toStrictEqual([
-    'Removed @provides directive on field "Random.x" as it is of non-composite type "Int": while not rejected by federation 0.x, such @provide is non-sensical and was ignored'
+    'Removed @provides directive on field "Random.x" as it is of non-composite type "Int": while not rejected by federation 0.x, such @provide is nonsensical and was ignored'
   ]);
 
-  expect(res.upgraded?.get('s1')?.toString()).toMatchString(`
+  expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
     schema
       @link(url: "https://specs.apollo.dev/link/v1.0")
       @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
@@ -140,7 +140,7 @@ test('update federation directive non-string arguments', () => {
     'Coerced "fields" argument for directive @key for "A" into a string: coerced from @key(fields: ["id", "x"]) to @key(fields: "id x")',
   ]);
 
-  expect(res.upgraded?.get('s')?.toString()).toMatchString(`
+  expect(res.subgraphs?.get('s')?.toString()).toMatchString(`
     schema
       @link(url: "https://specs.apollo.dev/link/v1.0")
       @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])

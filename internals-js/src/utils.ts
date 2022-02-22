@@ -327,13 +327,24 @@ export function printHumanReadableList(
     return prefix ? prefix + ' ' + names[0] : names[0];
   }
   const cutoff = cutoff_output_length ?? DEFAULT_HUMAN_READABLE_LIST_CUTOFF_LENGTH;
-  let toDisplay = names;
-  let totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
-  // In case the name we list have absurdly long names, let's ensure we at least display one.
-  while (totalLength > cutoff && toDisplay.length > 1) {
-    toDisplay = toDisplay.slice(0, toDisplay.length - 1);
-    totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
-  }
+
+  const { lastIdx } = names.reduce(
+    ({ lastIdx, length }, name) => {
+      if (length + name.length > cutoff) {
+        return {
+          lastIdx,
+          length,
+        };
+      }
+      return {
+        lastIdx: lastIdx + 1,
+        length: length + name.length,
+      };
+    },
+    { lastIdx: 0, length: 0}
+  );
+  // In case the name we list have absurdly long names, we cut it off but ensure we at least display one.
+  const toDisplay = names.slice(0, Math.max(1, lastIdx));
   const actualPrefix = prefixPlural
     ? prefixPlural + ' '
     : (prefix ? prefix + ' ' : '');

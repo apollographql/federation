@@ -26,8 +26,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
-    const name = this.directiveNameInSchema(schema, 'inaccessible')!;
-    return this.directive(schema, name)!;
+    return this.directive(schema, 'inaccessible')!;
   }
 }
 
