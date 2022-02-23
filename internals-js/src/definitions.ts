@@ -102,6 +102,10 @@ function checkDefaultSchemaRoot(type: NamedType): SchemaRootKind | undefined {
   }
 }
 
+export function isSchemaRootType(type: NamedType): boolean {
+  return isObjectType(type) && type.isRootType();
+}
+
 export type Type = NamedType | WrapperType;
 export type NamedType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | InputObjectType;
 export type OutputType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | ListType<any> | NonNullType<any>;

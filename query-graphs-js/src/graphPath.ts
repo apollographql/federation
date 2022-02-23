@@ -22,6 +22,7 @@ import {
   mapValues,
   federationMetadata,
   isEntityType,
+  isSchemaRootType,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
@@ -467,8 +468,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     if (!isRootVertex(this.root)) {
       return false;
     }
-    // We walk the vertices and as soon as we take a field (or move out of the Query type),
-    // we know we're not on the top-level query root anymore. The reason we don't
+    // We walk the vertices and as soon as we take a field (or move out of the root type),
+    // we know we're not on the top-level query/mutation/subscription root anymore. The reason we don't
     // just check that size <= 1 is that we could have top-level `... on Query`
     // conditions that don't actually move us.
     let vertex: Vertex = this.root;
@@ -477,7 +478,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       if (!edge) {
         continue;
       }
-      if (edge.transition.kind === 'FieldCollection' || edge.tail.type.name !== "Query") {
+      if (edge.transition.kind === 'FieldCollection' || !isSchemaRootType(edge.tail.type)) {
         return false;
       }
       vertex = edge.tail;
@@ -652,6 +653,10 @@ export type Unadvanceable = {
 
 export class Unadvanceables {
   constructor(readonly reasons: Unadvanceable[]) {}
+
+  toString() {
+    return '[' + this.reasons.map((r) => `[${r.reason}](${r.sourceSubgraph}->${r.destSubgraph}) ${r.details}`).join(', ') + ']';
+  }
 }
 
 export function isUnadvanceable<V extends Vertex>(result: GraphPath<Transition, V>[] | Unadvanceables): result is Unadvanceables {
