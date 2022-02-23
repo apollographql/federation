@@ -10,13 +10,15 @@ For complete documentation, see the [Apollo Gateway API reference](https://www.a
 
 ```js
 const { ApolloServer } = require("apollo-server");
-const { ApolloGateway } = require("@apollo/gateway");
+const { ApolloGateway, IntrospectAndCompose } = require("@apollo/gateway");
 
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: "accounts", url: "http://localhost:4001/graphql" },
-    // List of federation-capable GraphQL endpoints...
-  ]
+  supergraphSdl: new IntrospectAndCompose({
+    subgraphs: [
+       { name: "accounts", url: "http://localhost:4001/graphql" }
+       // List of federation-capable GraphQL endpoints...
+    ],
+  }),
 });
 
 const server = new ApolloServer({ gateway });
