@@ -1910,7 +1910,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   value(name: string): EnumValue | undefined {
-    return this._values.find(v => v.name == name);
+    return this._values.find(v => v.name === name);
   }
 
   addValue(value: EnumValue): EnumValue;

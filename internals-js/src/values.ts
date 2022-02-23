@@ -83,7 +83,12 @@ export function valueToString(v: any, expectedType?: InputType): string {
   if (typeof v === 'string') {
     if (expectedType) {
       if (isEnumType(expectedType)) {
-        return v;
+        // If the value is essentially invalid (not one of the enum value), then we display it as a string. This
+        // avoid strange syntax errors if the string itself is not even valid graphQL. Note that validation will
+        // reject such a value at some point with a proper error message, but this isn't the right place to error
+        // out and generate something syntactially invalid is dodgy (in particular because the input from which this
+        // value comes was probably syntactially valid, so the value was probably inputed as a string there).
+        return expectedType.value(v) ? v : JSON.stringify(v);
       }
       if (expectedType === expectedType.schema().idType() && integerStringRegExp.test(v)) {
         return v;
@@ -149,7 +154,6 @@ export function argumentsEquals(args1: {[key: string]: any}, args2: {[key: strin
   }
   return objectEquals(args1, args2);
 }
-
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
@@ -634,7 +638,7 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
   assert(false, () => `Unexpected input type ${expectedType} of kind ${expectedType.kind}.`);
 }
 
-function valueFromASTUntyped(node: ValueNode): any {
+export function valueFromASTUntyped(node: ValueNode): any {
   switch (node.kind) {
     case Kind.NULL:
       return null;

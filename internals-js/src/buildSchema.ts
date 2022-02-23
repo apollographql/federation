@@ -11,7 +11,6 @@ import {
   SchemaDefinitionNode,
   Source,
   TypeNode,
-  valueFromASTUntyped,
   ValueNode,
   NamedTypeNode,
   ArgumentNode,
@@ -22,6 +21,7 @@ import {
   Kind,
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
+import { valueFromASTUntyped } from "./values";
 import {
   SchemaBlueprint,
   Schema,
@@ -50,14 +50,6 @@ import {
 } from "./definitions";
 
 function buildValue(value?: ValueNode): any {
-  // TODO: Should we rewrite a version of valueFromAST instead of using valueFromASTUntyped? Afaict, what we're missing out on is
-  // 1) coercions, which concretely, means:
-  //   - for enums, we get strings
-  //   - for int, we don't get the validation that it should be a 32bit value.
-  //   - for ID, which accepts strings and int, we don't get int converted to string.
-  //   - for floats, we get either int or float, we don't get int converted to float.
-  //   - we don't get any custom coercion (but neither is buildSchema in graphQL-js anyway).
-  // 2) type validation.
   return value ? valueFromASTUntyped(value) : undefined;
 }
 

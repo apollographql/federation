@@ -17,7 +17,7 @@ import {
   VariableDefinitions
 } from "./definitions";
 import { assertName, ASTNode, GraphQLError } from "graphql";
-import { isValidValue } from "./values";
+import { isValidValue, valueToString } from "./values";
 import { isIntrospectionName } from "./introspection";
 import { isSubtype, sameType } from "./types";
 
@@ -264,6 +264,12 @@ class Validator {
       this.errors.push(new GraphQLError(
         `Required argument ${arg.coordinate} cannot be deprecated.`,
         sourceASTs(arg.appliedDirectivesOf('deprecated')[0], arg)
+      ));
+    }
+    if (arg.defaultValue !== undefined && !isValidValue(arg.defaultValue, arg, new VariableDefinitions())) {
+      this.errors.push(new GraphQLError(
+        `Invalid default value (got: ${valueToString(arg.defaultValue)}) provided for argument ${arg.coordinate} of type ${arg.type}.`,
+        sourceASTs(arg)
       ));
     }
   }
