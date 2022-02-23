@@ -48,7 +48,13 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
           directive: provides,
           includeInterfaceFieldsImplementations: true,
           validate: false,
-        }).forEach((f) => shareableFields.add(f.coordinate));
+        }).forEach((f) => {
+          // Fed2 schema reject provides on non-external field, but fed1 doesn't (at least not always), and we actually
+          // call this on fed1 schema upgrader. So let's make sure we do ignore non-external fields.
+          if (metadata.isFieldExternal(f)) {
+            shareableFields.add(f.coordinate);
+          }
+        });
       }
     }
   }
