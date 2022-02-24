@@ -113,3 +113,9 @@ You can provide a comma-separated list of Uplink URLs as the value of the `APOLL
 ```bash
 APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/,https://uplink.api.apollographql.com/
 ```
+
+## Legacy endpoint (deprecated)
+
+Instead of using Uplink, `@apollo/gateway` versions 0.33 and earlier poll a Google Cloud Storage URL to obtain their subgraph schemas and then run composition locally. **This polling method is deprecated and might be removed in the future.**
+
+If you're using an earlier version of `@apollo/gateway`, we strongly recommend updating to the latest version to poll Uplink instead.
