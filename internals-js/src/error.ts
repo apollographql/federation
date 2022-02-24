@@ -159,6 +159,13 @@ const EXTERNAL_UNUSED = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const TYPE_WITH_ONLY_UNUSED_EXTERNAL = makeCodeDefinition(
+  'TYPE_WITH_ONLY_UNUSED_EXTERNAL',
+  'A federation 1 schema has a composite type comprised only of unused external fields.'
+  + ` Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code ${EXTERNAL_UNUSED.code} will be raised in that case).`
+  + ' But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automaticaly removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised',
+);
+
 const PROVIDES_ON_NON_OBJECT_FIELD = makeCodeDefinition(
   'PROVIDES_ON_NON_OBJECT_FIELD',
   'A `@provides` directive is used to mark a field whose base type is not an object type.'
@@ -322,6 +329,7 @@ export const ERRORS = {
   PROVIDES_UNSUPPORTED_ON_INTERFACE,
   REQUIRES_UNSUPPORTED_ON_INTERFACE,
   EXTERNAL_UNUSED,
+  TYPE_WITH_ONLY_UNUSED_EXTERNAL,
   PROVIDES_ON_NON_OBJECT_FIELD,
   KEY_INVALID_FIELDS_TYPE,
   PROVIDES_INVALID_FIELDS_TYPE,

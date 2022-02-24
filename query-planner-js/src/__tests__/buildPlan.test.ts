@@ -326,7 +326,7 @@ describe('@provides', () => {
         }
 
         type Value {
-          a: Int
+          a: Int @shareable
         }
 
         type T1 implements I @key(fields: "id") {

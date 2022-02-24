@@ -23,6 +23,8 @@ import {
 } from "./definitions";
 import {
   addSubgraphToError,
+  collectTargetFields,
+  collectUsedExternalFieldsCoordinates,
   federationMetadata,
   FederationMetadata,
   printSubgraphNames,
@@ -33,7 +35,6 @@ import {
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
 import { FEDERATION_SPEC_TYPES } from "./federationSpec";
-import { collectUsedExternalFieldsCoordinates, collectTargetFields } from ".";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
@@ -57,6 +58,7 @@ export type UpgradeChange =
   ExternalOnTypeExtensionRemoval
   | TypeExtensionRemoval
   | UnusedExternalRemoval
+  | TypeWithOnlyUnusedExternalRemoval
   | ExternalOnInterfaceRemoval
   | InactiveProvidesOrRequiresRemoval
   | InactiveProvidesOrRequiresFieldsRemoval
@@ -105,6 +107,16 @@ export class UnusedExternalRemoval {
 
   toString() {
     return `Removed @external field "${this.field}" as it was not used in any @key, @provides or @requires`;
+  }
+}
+
+export class TypeWithOnlyUnusedExternalRemoval {
+  readonly id = 'TYPE_WITH_ONLY_UNUSED_EXTERNAL_REMOVAL' as const;
+
+  constructor(readonly type: string) {}
+
+  toString() {
+    return `Removed type ${this.type} that is not referenced in the schema and only declares unused @external fields`;
   }
 }
 
@@ -220,8 +232,10 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
  * And we recognize federation 1 type extensions as type extension that:
  *  1. are on object type or interface type (note that federation 1 don't really handle interface type extension properly but it "accepts" them
  *     so we do it here too).
- *  2. have a @key.
- *  3. do not have a definition for the same type in the same subgraph (this is a GraphQL extension otherwise).
+ *  2. do not have a definition for the same type in the same subgraph (this is a GraphQL extension otherwise).
+ *
+ * Not that type extensions in federation 1 generally have a @key but in really the code consider something a type extension even without
+ * it (which I'd argue is a unintended bug of fed1 since this leads to various problems) so we don't check for the presence of @key here. 
  */
 function isFederationTypeExtension(type: NamedType): boolean {
   const metadata = federationMetadata(type.schema());
@@ -229,7 +243,6 @@ function isFederationTypeExtension(type: NamedType): boolean {
   const hasExtend = type.hasAppliedDirective(metadata.extendsDirective());
   return (type.hasExtensionElements() || hasExtend)
     && (isObjectType(type) || isInterfaceType(type))
-    && type.hasAppliedDirective(metadata.keyDirective())
     && (hasExtend || !type.hasNonExtensionElements());
 }
 
@@ -259,6 +272,7 @@ class SchemaUpgrader {
   private readonly schema: Schema;
   private readonly subgraph: Subgraph;
   private readonly metadata: FederationMetadata;
+  private readonly errors: GraphQLError[] = [];
 
   constructor(private readonly originalSubgraph: Subgraph, private readonly otherSubgraphs: Subgraph[]) {
     // Note that as we clone the original schema, the 'sourceAST' values in the elements of the new schema will be those of the original schema
@@ -269,6 +283,10 @@ class SchemaUpgrader {
     setSchemaAsFed2Subgraph(this.schema);
     this.subgraph = new Subgraph(originalSubgraph.name, originalSubgraph.url, this.schema);
     this.metadata = this.subgraph.metadata();
+  }
+
+  private addError(e: GraphQLError): void {
+    this.errors.push(addSubgraphToError(e, this.subgraph.name, ERRORS.INVALID_GRAPHQL));
   }
 
   private renameFederationTypes() {
@@ -295,41 +313,36 @@ class SchemaUpgrader {
     this.changes.add(change.id, change);
   }
 
-  private checkForExtensionWithNoBase(type: NamedType): GraphQLError[] {
+  private checkForExtensionWithNoBase(type: NamedType): void {
     // The checks that if the type is a "federation 1" type extension, then another subgraph has a proper definition
     // for that type.
-    if (!isFederationTypeExtension(type)) {
-      return [];
+    if (isRootTypeExtension(type) || !isFederationTypeExtension(type)) {
+      return;
     }
 
     const extensionAST = firstOf<Extension<any>>(type.extensions().values())?.sourceAST;
     for (const subgraph of this.otherSubgraphs) {
       const otherType = subgraph.schema.type(type.name);
       if (otherType && otherType.hasNonExtensionElements()) {
-        return [];
+        return;
       }
     }
 
     // We look at all the other subgraphs and didn't found a (non-extension) definition of that type
-    return [ERRORS.EXTENSION_WITH_NO_BASE.err({
+    this.addError(ERRORS.EXTENSION_WITH_NO_BASE.err({
       message: `Type "${type}" is an extension type, but there is no type definition for "${type}" in any subgraph.`,
       nodes: extensionAST,
-    })];
+    }));
   }
 
-  private preUpgradeValidations(): GraphQLError[] {
-    let errors: GraphQLError[] = [];
+  private preUpgradeValidations(): void {
     for (const type of this.schema.types()) {
-      errors = errors.concat(this.checkForExtensionWithNoBase(type));
+     this.checkForExtensionWithNoBase(type);
     }
-    return errors;
   }
 
   upgrade(): { upgraded: Subgraph, changes: UpgradeChanges, errors?: never } | { errors: GraphQLError[] } {
-    const errors = this.preUpgradeValidations();
-    if (errors.length > 0) {
-      return { errors: errors.map((e) => addSubgraphToError(e, this.subgraph.name, ERRORS.INVALID_GRAPHQL)) };
-    }
+    this.preUpgradeValidations();
 
     this.fixFederationDirectivesArguments();
 
@@ -353,6 +366,12 @@ class SchemaUpgrader {
 
     this.addShareable();
 
+    // If we had errors during the upgrade, we throw them before trying to validate the resulting subgraph, because any invalidity in the
+    // migrated subgraph may well due to those migration errors and confuse users.
+    if (this.errors.length > 0) {
+      return { errors: this.errors };
+    }
+
     try {
       this.subgraph.validate();
       return {
@@ -364,6 +383,11 @@ class SchemaUpgrader {
       if (!errors) {
         throw e;
       }
+      // Do note that it's genuinely possible to return errors here, because federation validations (validating @key, @provides, ...) is mostly
+      // not done on the input schema and will only be triggered now, on the upgraded schema. Importantly, the errors returned here shouldn't
+      // be due to the upgrade process, but either due to the fed1 schema being invalid in the first place, or due to validation of fed2 that
+      // cannot be dealt with by the upgrade process (like, for instance, the fact that fed1 doesn't always reject fields mentioned in a @key
+      // that are not defined in the subgraph, but fed2 consistently do).
       return { errors };
     }
   }
@@ -458,19 +482,72 @@ class SchemaUpgrader {
       if (!isFederationTypeExtension(type) && !isRootTypeExtension(type)) {
         continue;
       }
-      for (const keyApplication of type.appliedDirectivesOf(this.metadata.keyDirective())) {
-        collectTargetFields({
-          parentType: type,
-          directive: keyApplication,
-          includeInterfaceFieldsImplementations: false,
-          validate: false,
-        }).forEach((field) => {
-          const external = this.external(field);
-          if (external) {
-            this.addChange(new ExternalOnTypeExtensionRemoval(field.coordinate));
-            external.remove();
+
+      const keyApplications = type.appliedDirectivesOf(this.metadata.keyDirective());
+      if (keyApplications.length > 0) {
+        // If the type extension has keys, then fed1 will essentially consider the key fields not external ...
+        for (const keyApplication of type.appliedDirectivesOf(this.metadata.keyDirective())) {
+          collectTargetFields({
+            parentType: type,
+            directive: keyApplication,
+            includeInterfaceFieldsImplementations: false,
+            validate: false,
+          }).forEach((field) => {
+            // We only consider "top-level" fields, the one of the type on which the key is, because that's what fed1 does.
+            if (field.parent !== type) {
+              return;
+            }
+            const external = this.external(field);
+            if (external) {
+              this.addChange(new ExternalOnTypeExtensionRemoval(field.coordinate));
+              external.remove();
+            }
+          });
+        }
+      } else {
+        // ... but if the extension does _not_ have a key, then if the extension has a field that is
+        // part of the _1st_ key on the subgraph owning the type, then this field is not considered
+        // external (yes, it's pretty damn random, and it's even worst in that even if the extension
+        // does _not_ have the "field of the _1st_ key on the subraph owning the type", then the
+        // query planner will still request it to the subgraph, generating an invalid query; but
+        // we ignore that here). Note however that because other subgraphs may have already been
+        // upgraded, we don't know which is the "type owner", so instead we look up at the first
+        // key of every other subgraph. It's not 100% what fed1 does, but we're in very-strange
+        // case territory in the first place, so this is probably good enough (that is, there is
+        // customer schema for which what we do here matter but not that I know of for which it's
+        // not good enough).
+        for (const other of this.otherSubgraphs) {
+          const typeInOther = other.schema.type(type.name);
+          if (!typeInOther) {
+            continue;
           }
-        });
+          assert(isCompositeType(typeInOther), () => `Type ${type} is of kind ${type.kind} in ${this.subgraph.name} but ${typeInOther.kind} in ${other.name}`);
+          const keysInOther = typeInOther.appliedDirectivesOf(other.metadata().keyDirective()); 
+          if (keysInOther.length === 0) {
+            continue;
+          }
+          collectTargetFields({
+            parentType: typeInOther,
+            directive: keysInOther[0],
+            includeInterfaceFieldsImplementations: false,
+            validate: false,
+          }).forEach((field) => {
+            if (field.parent !== typeInOther) {
+              return;
+            }
+            // Remark that we're iterating on the fields of _another_ subgraph that the one we're upgrading.
+            // We only consider "top-level" fields, the one of the type on which the key is, because that's what fed1 does.
+            const ownField = type.field(field.name);
+            if (!ownField) {
+              return;
+            }
+            const external = this.external(ownField);
+            if (external) {
+              this.addChange(new ExternalOnTypeExtensionRemoval(ownField.coordinate));
+              external.remove();
+            }
+          });
+        }
       }
     }
   }
@@ -497,6 +574,19 @@ class SchemaUpgrader {
         if (this.metadata.isFieldExternal(field) && !usedExternalFieldsCoordinates.has(field.coordinate)) {
           this.addChange(new UnusedExternalRemoval(field.coordinate));
           field.remove();
+        }
+      }
+      if (!type.hasFields()) {
+        if (type.isReferenced()) {
+          this.addError(ERRORS.TYPE_WITH_ONLY_UNUSED_EXTERNAL.err({
+            message: `Type ${type} contains only external fields and all those fields are all unused (they do not appear in any @key, @provides or @requires).`,
+            nodes: type.sourceAST
+          }));
+        } else {
+          // The type only had unused externals, but it is also unreferenced in the subgraph. Unclear why
+          // it was there in the first place, but we can remove it and move on.
+          this.addChange(new TypeWithOnlyUnusedExternalRemoval(type.name));
+          type.remove();
         }
       }
     }
