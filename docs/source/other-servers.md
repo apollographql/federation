@@ -4,6 +4,7 @@ title: Subgraph-compatible server libraries
 
 The following open-source GraphQL server libraries support acting as a subgraph in a federated graph, and their support is tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility). Check out the repository for details on the compatibility tests listed in the table below.
 
+<<<<<<< HEAD
 <div class="table-container">
 
 <table>
@@ -253,6 +254,27 @@ The following open-source GraphQL server libraries support acting as a subgraph 
 </tbody>
 
 </table>
+=======
+<div class="sticky-table">
+
+| Language      | Framework                                                                    | \_service | @key (single) | @key (multi) | @key (composite) | @requires | @provides | ftv1                                                                          |
+| ------------- | ---------------------------------------------------------------------------- | --------- | ------------- | ------------ | ---------------- | --------- | --------- | ----------------------------------------------------------------------------- |
+| AppSync       | [aws-appsync](https://aws.amazon.com/appsync/)                               | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ❌                                                                            |
+| Dotnet        | [graphql-dotnet](https://github.com/graphql-dotnet/graphql-dotnet)           | ✔️        | ✔️            | ❌           | ❌               | ❌        | ❌        | ❌                                                                            |
+| Elixir        | [absinthe_federation](https://github.com/DivvyPayHQ/absinthe_federation)     | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ❌ ([in progress](https://github.com/DivvyPayHQ/absinthe_federation/pull/25)) |
+| Go            | [gqlgen](https://gqlgen.com/)                                                | ✔️        | ✔️\*          | ✔️\*         | ❌               | ✔️        | ✔️        | ❌                                                                            |
+| JavaScript    | [apollo-server](https://github.com/apollographql/apollo-server/)             | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ✔️                                                                            |
+| Java          | [federation-jvm](https://github.com/apollographql/federation-jvm)            | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ❌                                                                            |
+| Java / Kotlin | [dgs](https://github.com/netflix/dgs-framework/)                             | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ✔️                                                                            |
+| Kotlin        | [graphql-kotlin](https://github.com/ExpediaGroup/graphql-kotlin)             | ✔️        | ✔️\*          | ✔️\*         | ✔️\*             | ✔️        | ✔️        | ✔️                                                                            |
+| PHP           | [apollo-federation-php](https://github.com/Skillshare/apollo-federation-php) | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ❌                                                                            |
+| Python        | [graphene](https://github.com/preply/graphene-federation)                    | ✔️        | ✔️            | ✔️           | ❌               | ✔️        | ✔️        | ❌                                                                            |
+| Python        | [ariadne](https://github.com/mirumee/ariadne)                                | ✔️        | ✔️\*          | ✔️\*         | ✔️\*             | ✔️        | ✔️        | ❌                                                                            |
+| Python        | [strawberry-graphql](https://strawberry.rocks/docs)                          | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ❌                                                                            |
+| Ruby          | [apollo-federation-ruby](https://github.com/Gusto/apollo-federation-ruby)    | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ✔️                                                                            |
+| Rust          | [async-graphql](https://async-graphql.github.io/async-graphql/)              | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ❌                                                                            |
+| Scala         | [caliban](https://ghostdogpr.github.io/caliban/docs/federation.html)         | ✔️        | ✔️            | ✔️           | ✔️               | ✔️        | ✔️        | ✔️                                                                            |
+>>>>>>> Use a markdown table
 
 </div>
 
