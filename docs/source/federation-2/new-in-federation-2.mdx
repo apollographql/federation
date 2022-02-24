@@ -1,11 +1,11 @@
 ---
-title: What's new in the Federation 2 alpha
-sidebar_title: ☀️ New in the alpha
+title: What's new in the Federation 2 preview
+sidebar_title: ☀️ New in the preview
 ---
 
 import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
 
-> ⚠️ **Apollo Federation 2 is in public alpha.** It is not yet feature-complete, and breaking changes might occur between this release and general availability. [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
+> ⚠️ **Apollo Federation 2 is in public preview.** It is not yet feature-complete, and breaking changes might occur between this release and general availability. [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
 
 **Apollo Federation 2** provides developer experience improvements to the original specification for Apollo Federation (called **Federation 1** in these docs). If your organization has an existing Federation 1 graph, this article summarizes the upcoming benefits of [moving to Federation 2](./moving-to-federation-2/).
 
@@ -26,9 +26,9 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
 
 Let's look at some examples!
 
-## Object and interface fields
+## Type and field sharing
 
-In Federation 1, multiple subgraphs can define the same object or interface type, but those definitions must all be _identical_. These shared types are called **value types**:
+In Federation 1, multiple subgraphs can define the same type, but those definitions must all be _identical_. These identical shared types are called **value types**:
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
 
@@ -52,7 +52,13 @@ type Book {
 
 </CodeColumns>
 
-In Federation 2, value types can _differ_ in certain ways:
+In Federation 2, this "identical definition" constraint is removed. Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions. With this change, the term "value type" is not used in Federation 2.
+
+Let's look at some examples!
+
+### Objects and interfaces
+
+In Federation 2, an object or interface type can be shared between subgraphs like so:
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
 
@@ -60,7 +66,7 @@ In Federation 2, value types can _differ_ in certain ways:
 
 ```graphql
 # Subgraph A
-type Book {
+type Book @shareable {
   title: String!
   author: String!
 }
@@ -68,7 +74,7 @@ type Book {
 
 ```graphql{4-5}
 # Subgraph B
-type Book {
+type Book @shareable {
   title: String!
   author: String  # Nullable
   isbn: String!   # Not in A
@@ -77,45 +83,17 @@ type Book {
 
 </CodeColumns>
 
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the `@shareable` directive, which indicates that a type or field is allowed to be defined in multiple subgraphs.
+
 This flexibility is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
 
-### Valid field differences between subgraphs
+#### Valid field differences between subgraphs
 
-* The return type of a value type's field can vary in nullability (`String` / `String!`).
-* Value types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
+* The return type of a field can vary in nullability (`String` / `String!`).
+* Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
-> For details on how these field differences are handled, see [Value types](../federated-types/value-types/).
+> For details on how these field differences are handled, see [Sharing types](../federated-types/value-types/).
 
-## Shared enum / union types
+### Enums and unions
 
-In Federation 1, shared enum and union types follow the same rule as other value types—they must be defined identically in every subgraph:
-
-<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
-
-<CodeColumns>
-
-```graphql
-# Subgraph A
-union Media = Book | Movie
-
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-```
-
-```graphql
-# Subgraph B
-union Media = Book | Movie
-
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-```
-
-</CodeColumns>
-
-In Federation 2, shared enums and union definitions can differ between subgraphs. For details, see [Enums and unions](../federated-types/value-types/#enums-and-unions).
+In Federation 2, shared enum and union definitions can differ between subgraphs. For details, see [Enums and unions](../federated-types/value-types/#enums-and-unions).

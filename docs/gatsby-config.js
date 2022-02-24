@@ -16,11 +16,6 @@ module.exports = {
         subtitle: 'Federation',
         description: 'A guide to using Apollo Federation',
         githubRepo: 'apollographql/federation',
-        defaultVersion: '1',
-        versions: {
-          '1': 'version-0.x',
-          '2': 'main',
-        },
         sidebarCategories: {
           null: [ 'index', ],
           'Federation 2 Updates': [
