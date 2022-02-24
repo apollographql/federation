@@ -25,7 +25,7 @@
     "error-code-doc:check": "npm run error-code-doc && git diff --exit-code"
   },
   "engines": {
-    "node": ">=12.13.0 <17.0",
+    "node": ">=12.13.0 <18.0",
     "npm": ">=7 <9"
   },
   "dependencies": {

@@ -64,6 +64,12 @@ jobs:
     steps:
       - common_test_steps
 
+  NodeJS 17:
+    docker:
+      - image: cimg/node:17.0.0
+    steps:
+      - common_test_steps
+
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
@@ -119,6 +125,9 @@ workflows:
           <<: *common_non_publish_filters
       - NodeJS 16:
           name: "JS: Node 16"
+          <<: *common_non_publish_filters
+      - NodeJS 17:
+          name: "JS: Node 17"
           <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
