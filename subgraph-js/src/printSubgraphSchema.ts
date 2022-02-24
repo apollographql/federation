@@ -187,9 +187,15 @@ function printImplementedInterfaces(
  *    the `extensionASTNodes` property was undefined, where now it comes as an empty {@link Array}
  *  - not have fields on the `astNode` since that Abstract Syntax Tree doesn't exist;
  * @param type
+ * @return boolean
  */
-function checksIfTypeIsExtension(type: GraphQLObjectType) {
-  return type.extensionASTNodes?.length && type.astNode && !type.astNode.fields;
+function checksIfTypeIsExtension(type: GraphQLObjectType): boolean {
+  return (
+      Array.isArray(type.extensionASTNodes) &&
+      type.extensionASTNodes?.length &&
+      type.astNode &&
+      !type.astNode.fields
+  );
 }
 
 function printObject(type: GraphQLObjectType): string {
