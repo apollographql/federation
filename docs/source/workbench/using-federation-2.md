@@ -9,7 +9,7 @@ Each design's Federation version is shown in the navigation panel:
 
 <img class="screenshot" src="../images/workbench/apollo-federation-version.jpg" alt="Federation version switcher in Workbench" width="300"/>
 
-To switch a design's Federation version, click the current version in the navigation panel. A confirmation dialog appears that describes the alpha status of Federation 2:
+To switch a design's Federation version, click the current version in the navigation panel. A confirmation dialog appears that describes the preview status of Federation 2:
 
 <img class="screenshot" src="../images/workbench/apollo-federation-version-dialog.jpg" alt="Federation version switch confirmation" width="400"/>
 
