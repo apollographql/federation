@@ -178,22 +178,25 @@ function printImplementedInterfaces(
     : '';
 }
 
-function printObject(type: GraphQLObjectType): string {
-  // Apollo change: print `extend` keyword on type extensions.
-  //
-  // The implementation assumes that an owned type will have fields defined
-  // since that is required for a valid schema. Types that are *only*
-  // extensions will not have fields on the astNode since that ast doesn't
-  // exist.
-  //
-  // XXX revist extension checking
-  const isExtension =
-    type.extensionASTNodes && type.astNode && !type.astNode.fields;
+/**
+ * Method that checks if a type is an extension
+ *
+ * The implementation assumes that an owned type will have fields defined
+ * since that is required for a valid schema. Types that are *only* extensions will:
+ *  - have the `extensionASTNodes` defined and with at least 1 field. This is because prior GraphQL v16
+ *    the `extensionASTNodes` property was undefined, where now it comes as an empty {@link Array}
+ *  - not have fields on the `astNode` since that Abstract Syntax Tree doesn't exist;
+ * @param type
+ */
+function checksIfTypeIsExtension(type: GraphQLObjectType) {
+  return type.extensionASTNodes?.length && type.astNode && !type.astNode.fields;
+}
 
+function printObject(type: GraphQLObjectType): string {
   return (
     printDescription(type) +
     // Apollo addition: print `extend` keyword on type extensions
-    (isExtension ? 'extend ' : '') +
+    (checksIfTypeIsExtension(type) ? 'extend ' : '') +
     `type ${type.name}` +
     printImplementedInterfaces(type) +
     // Apollo addition: print @key usages
@@ -205,17 +208,10 @@ function printObject(type: GraphQLObjectType): string {
 }
 
 function printInterface(type: GraphQLInterfaceType): string {
-  // Apollo change: print `extend` keyword on type extensions.
-  // See printObject for assumptions made.
-  //
-  // XXX revist extension checking
-  const isExtension =
-    type.extensionASTNodes && type.astNode && !type.astNode.fields;
-
   return (
     printDescription(type) +
     // Apollo change: print `extend` keyword on interface extensions
-    (isExtension ? 'extend ' : '') +
+    (checksIfTypeIsExtension(type) ? 'extend ' : '') +
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
     printFederationDirectives(type) +
