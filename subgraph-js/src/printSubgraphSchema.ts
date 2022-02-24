@@ -189,7 +189,7 @@ function printImplementedInterfaces(
  * @param type
  * @return boolean
  */
-function checksIfTypeIsExtension(type: GraphQLObjectType): boolean {
+function checksIfTypeIsExtension(type: GraphQLObjectType | GraphQLInterfaceType): boolean {
   return (
       Array.isArray(type.extensionASTNodes) &&
       type.extensionASTNodes?.length &&
