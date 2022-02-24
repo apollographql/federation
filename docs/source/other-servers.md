@@ -4,20 +4,6 @@ title: Subgraph-compatible server libraries
 
 The following open-source GraphQL server libraries support acting as a subgraph in a federated graph, and their support is tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility). Check out the repository for details on the compatibility tests listed in the table below.
 
-<style>
-.sticky {
-  position: sticky;
-  left: 0;
-  background: white;
-  border-right: 1px solid #DEE2E7;
-}
-
-.table-container {
-  box-shadow: inset 0px 0px 5px 0px #666;
-}
-</style>
-
-
 <div class="table-container">
 
 <table>
