@@ -35,8 +35,9 @@ module.exports = {
           'Federated Schemas': [
             'federated-types/overview',
             'federated-types/composition',
-            'entities',
             'federated-types/value-types',
+            'entities',
+            'entities-advanced',
           ],
           'Managed Federation': [
             'managed-federation/overview',

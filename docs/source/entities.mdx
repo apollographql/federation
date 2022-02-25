@@ -1,0 +1,317 @@
+---
+title: Entities in Apollo Federation
+sidebar_title: Entities (basics)
+description: Resolve types across multiple subgraphs
+---
+
+import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
+
+> ⚠️ Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/).
+
+In a federated graph, an **entity** is an object type that defines its fields across multiple subgraphs. Each subgraph is responsible for resolving whichever fields it defines for an entity.
+
+Here, the `Product` entity's fields are defined across two subgraphs:
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+Types _besides_ object types (unions, interfaces, etc.) _cannot_ be entities.
+
+## Defining an entity
+
+In a subgraph schema, you can designate any existing object type as an entity by adding the `@key` directive to its definition, like so:
+
+```graphql{2}
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In this example, the `Product` entity's primary key is its `id` field.
+
+**Any given instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your gateway to associate data from _different_ subgraphs with the _same_ entity instance.
+
+> An entity's `@key` cannot include fields that return a union or interface.
+
+## Referencing an entity
+
+After you define an entity in one subgraph, _other_ subgraphs can then reference that entity in their schema.
+
+Recall our example `Product` entity from the Products subgraph:
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+With this definition in place, the Reviews subgraph can then add a field of type `Product` to its `Review` type, like so:
+
+```graphql{3}
+# Reviews subgraph
+type Review {
+  product: Product!
+  score: Int!
+}
+
+# This is a required "stub" of the Product entity (see below)
+type Product {
+  id: ID!
+}
+```
+
+To reference the `Product` entity, the Reviews subgraph needs to define a **stub** of it to make its own schema valid. The stub _doesn't_ need to include all `Product` fields. It _only_ needs to include `id`, because that's the entity's `@key` field. Without this field, the gateway doesn't know how to fetch the correct `Product` for a given `Review`.
+
+> Notice that the stub doesn't even need a `@key` directive! That's because the Reviews subgraph isn't adding any of its _own_ fields to `Product`. We'll see that later in [Extending entities](#extending-entities).
+
+This syntax has several benefits:
+
+* It's standard GraphQL grammar.
+* It enables you to run the `reviews` subgraph standalone with a valid schema, including a `Product` type with a single `id` field.
+* It provides strong typing information that lets you catch mistakes at schema composition time.
+
+## Resolving entities
+
+Let's say our Reviews subgraph from [Referencing an entity](#referencing-an-entity) defines the following `Query` type:
+
+```graphql:title=reviews
+type Query {
+  latestReviews: [Review!]
+}
+```
+
+That means the following query is valid against our federated graph:
+
+```graphql{6}
+query GetReviewsAndProducts {
+  latestReviews {
+    score
+    product {
+      id
+      price # Not defined in Reviews!
+    }
+  }
+}
+```
+
+Now we have a problem: this query starts its execution in the Reviews subgraph (where `latestReviews` is defined), but that subgraph _doesn't_ know that `Product` entities have a `price` field! Remember, the Reviews subgraph only knows about the `id` field of `Product`.
+
+Because of this, the gateway needs to fetch `price` from the Products subgraph instead. But how does the gateway know _which_ products it needs to fetch the prices for?
+
+To solve this, we add a resolver to _each_ subgraph:
+
+* A resolver in Reviews to generate [representations](#entity-representations) of `Product` entities
+* A [reference resolver](#reference-resolvers) in Products to return full `Product` objects from representations
+
+### Entity representations
+
+In our example, the Reviews subgraph needs to define a resolver for its stub version of the `Product` entity. The Reviews subgraph doesn't know much about `Product`s, but fortunately, it doesn't need to. All it needs to do is return data for the fields it _does_ know about, like so:
+
+```js{3-10}:title=resolvers.js
+// Reviews subgraph
+const resolvers = {
+  Review: {
+    product(review) {
+      return {
+        __typename: "Product",
+        id: review.productID
+      };
+    }
+  },
+  // ...
+}
+```
+
+This resolver's return value is a **representation** of a `Product` entity. A representation always consists of:
+
+* A `__typename` field
+* Values for the entity's `@key` fields (`id` in this example)
+
+Because an entity can be uniquely identified by its `@key` fields, this is all the information the gateway needs to fetch additional fields for a particular `Product` object.
+
+### Reference resolvers
+
+As a reminder, here's the example query we're executing across our subgraphs:
+
+```graphql{6}
+query GetReviewsAndProducts {
+  latestReviews {
+    score
+    product {
+      id
+      price # Not defined in Reviews!
+    }
+  }
+}
+```
+
+The gateway knows it can't fetch `Product.price` from the Reviews subgraph, so _first_ it executes the following query on Reviews:
+
+```graphql{4-7}
+query {
+  latestReviews {
+    score
+    product { # List of Product representations
+      __typename
+      id
+    }
+  }
+}
+```
+
+Notice that this query _omits_ `price` but _adds_ `__typename`, even though it wasn't in the original query string! This is because the gateway knows it needs _all_ of the fields in each `Product`'s representation, including `__typename`.
+
+With these representations available, the gateway can now execute a _second_ query on the Products subgraph to fetch each product's `price`. To support this special query, the Products subgraph needs to define a **reference resolver** for the `Product` entity:
+
+```js{4-6}:title=resolvers.js
+// Products subgraph
+const resolvers = {
+  Product: {
+    __resolveReference(reference) {
+      return fetchProductByID(reference.id);
+    }
+  },
+  // ...
+}
+```
+
+> In the example above, `fetchProductByID` is a hypothetical function that fetches a `Product`'s full details from a data store based on its `id`.
+
+A reference resolver (always called `__resolveReference`) provides the gateway direct access to a particular entity's fields, without needing to use a custom query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations), which is why we created the resolver in the Reviews subgraph first!
+
+> To learn more about `__resolveReference`, see the [API docs](/api/apollo-subgraph/#__resolvereference).
+
+After fetching the `price` field from Products via a reference resolver, the gateway can use the shared `@key` field `id` to intelligently merge the data it obtained from its two queries into a single result and return that result to the querying client.
+
+## Extending entities
+
+A subgraph can add its own fields to an entity that's already defined in other subgraphs. This is called **extending** the entity:
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+When a subgraph extends an entity, no _other_ subgraph knows about the added fields—only the gateway does thanks to the composed supergraph schema.
+
+
+### Example #1
+
+Let's say we want to add a `reviews` field to our `Product` entity. This field will return a list of reviews for the associated product. Because this field returns `Review` objects, it makes sense to define it in the Reviews subgraph.
+
+To handle this case, we can expand our `Product` stub from [Referencing an entity](#referencing-an-entity), like so:
+
+<CodeColumns>
+
+```graphql
+# Reviews subgraph BEFORE
+type Product {
+  id: ID!
+}
+```
+
+```graphql{2,4}
+# Reviews subgraph AFTER
+type Product @key(fields: "id") {
+  id: ID!
+  reviews: [Review!]!
+}
+```
+
+</CodeColumns>
+
+Notice that in addition to adding the `reviews` field to our stub, we've added the `@key` directive. This directive is required if a subgraph defines at least one _non-`@key`_ field for an entity (which is now the case).
+
+Whenever a subgraph extends an entity with a new field, it's also responsible for _resolving_ that field. The gateway is automatically aware of this responsibility. In our example:
+
+1. The gateway first fetches the `upc` field for each `Product` from the `products` subgraph.
+2. The gateway then passes those `upc` values to the `reviews` subgraph, where you can access them on the object passed to your `Product.reviews` resolver:
+
+```js:title=resolvers.js
+const resolvers = {
+  Product: {
+    reviews(product) {
+      return fetchReviewsForProduct(product.id);
+    }
+  },
+  // ...
+}
+```
+
+### Example #2
+
+Let's say we want to be able to query for the `inStock` status of a product. That information lives in the Inventory subgraph, so we'll extend the entity there:
+
+```graphql{4}:title=inventory
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+And here we resolve our newly defined field:
+
+```js:title=resolvers.js
+{
+  Product: {
+    inStock(product): {
+      return fetchInStockStatusForProduct(product.id);
+    }
+  }
+}
+```
+
+Similar to the previous example, the gateway fetches the required `id` field from the Products subgraph and passes it to the Inventory subgraph, even if the original query didn't ask for the `id`:
+
+```graphql
+# This query fetches id from the Products subgraph even though
+# it isn't a requested field. Otherwise, the Inventory subgraph
+# can't know which products to return the inStock status for.
+query GetTopProductAvailability {
+  topProducts {
+    name
+    inStock
+  }
+}
+```
