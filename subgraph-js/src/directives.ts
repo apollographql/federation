@@ -18,7 +18,10 @@ import {
   print,
   ASTNode,
   visit,
+  GraphQLSchema,
+  GraphQLList,
 } from 'graphql';
+import { LinkImportType } from './types';
 
 export const KeyDirective = new GraphQLDirective({
   name: 'key',
@@ -76,12 +79,32 @@ export const TagDirective = new GraphQLDirective({
   },
 });
 
+export const ShareableDirective = new GraphQLDirective({
+  name: 'shareable',
+  locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT],
+});
+
+export const LinkDirective = new GraphQLDirective({
+  name: 'link',
+  locations: [DirectiveLocation.SCHEMA],
+  args: {
+    url: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+    import: {
+      type: new GraphQLList(LinkImportType),
+    }
+  },
+});
+
 export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
   ExternalDirective,
   RequiresDirective,
   ProvidesDirective,
+  ShareableDirective,
+  LinkDirective,
 ];
 
 export function isFederationDirective(directive: GraphQLDirective): boolean {
@@ -122,7 +145,7 @@ function hasDirectives(
 }
 
 export function gatherDirectives(
-  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any>,
+  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any> | GraphQLSchema,
 ): DirectiveNode[] {
   let directives: DirectiveNode[] = [];
   if ('extensionASTNodes' in type && type.extensionASTNodes) {

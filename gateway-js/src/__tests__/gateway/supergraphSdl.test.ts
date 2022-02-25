@@ -53,6 +53,8 @@ afterEach(async () => {
   }
 });
 
+const testingFixturesDefaultCompositionId = createHash('sha256').update(getTestingSupergraphSdl()).digest('hex');
+
 describe('Using supergraphSdl static configuration', () => {
   it('successfully starts and serves requests to the proper services', async () => {
     const server = await getSupergraphSdlGatewayServer();
@@ -187,7 +189,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const { state, compositionId } = gateway.__testing();
     expect(state.phase).toEqual('loaded');
     expect(compositionId).toEqual(
-      'd20cfb7a9c51179aa494ed9e98153f0042892bd225437af064bf1c1aa68eab86',
+      testingFixturesDefaultCompositionId,
     );
 
     await gateway.stop();
@@ -212,7 +214,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const { state, compositionId } = gateway.__testing();
     expect(state.phase).toEqual('loaded');
     expect(compositionId).toEqual(
-      'd20cfb7a9c51179aa494ed9e98153f0042892bd225437af064bf1c1aa68eab86',
+      testingFixturesDefaultCompositionId,
     );
 
     await expect(healthCheckCallback!(supergraphSdl)).resolves.toBeUndefined();
@@ -294,7 +296,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       const { state, compositionId } = gateway.__testing();
       expect(state.phase).toEqual('loaded');
       expect(compositionId).toEqual(
-        'd20cfb7a9c51179aa494ed9e98153f0042892bd225437af064bf1c1aa68eab86',
+        testingFixturesDefaultCompositionId
       );
 
       await expect(healthCheckCallback!(supergraphSdl)).rejects.toThrowError(

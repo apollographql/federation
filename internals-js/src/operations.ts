@@ -1319,7 +1319,12 @@ function operationFromAST(
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
   return new Operation(
     operation.operation,
-    parseSelectionSet(rootType.type, operation.selectionSet, variableDefinitions, fragments),
+    parseSelectionSet({
+      parentType: rootType.type,
+      source: operation.selectionSet,
+      variableDefinitions,
+      fragments,
+    }),
     variableDefinitions,
     operation.name?.value
   );
@@ -1329,20 +1334,29 @@ export function parseOperation(schema: Schema, operation: string, operationName?
   return operationFromDocument(schema, parse(operation), operationName);
 }
 
-export function parseSelectionSet(
+export function parseSelectionSet({
+  parentType,
+  source,
+  variableDefinitions,
+  fragments,
+  fieldAccessor,
+  validate = true,
+}: {
   parentType: CompositeType,
   source: string | SelectionSetNode,
-  variableDefinitions: VariableDefinitions = new VariableDefinitions(),
+  variableDefinitions?: VariableDefinitions,
   fragments?: NamedFragments,
-  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
-): SelectionSet {
+  fieldAccessor?: (type: CompositeType, fieldName: string) => (FieldDefinition<any> | undefined),
+  validate?: boolean,
+}): SelectionSet {
   // TODO: we should maybe allow the selection, when a string, to contain fragment definitions?
   const node = typeof source === 'string'
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;
   const selectionSet = new SelectionSet(parentType, fragments);
-  selectionSet.addSelectionSetNode(node, variableDefinitions, fieldAccessor);
-  selectionSet.validate();
+  selectionSet.addSelectionSetNode(node, variableDefinitions ?? new VariableDefinitions(), fieldAccessor);
+  if (validate)
+    selectionSet.validate();
   return selectionSet;
 }
 

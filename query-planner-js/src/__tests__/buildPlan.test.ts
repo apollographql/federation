@@ -1,6 +1,6 @@
 import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
-import { assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode } from '../QueryPlan';
@@ -10,7 +10,9 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  const compositionResults = composeServices(services);
+  const compositionResults = composeServices(
+    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
+  );
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
@@ -23,7 +25,7 @@ test('can use same root operation from multiple subgraphs in parallel', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        me: User!
+        me: User! @shareable
       }
 
       type User @key(fields: "id") {
@@ -37,7 +39,7 @@ test('can use same root operation from multiple subgraphs in parallel', () => {
     name: 'Subgraph2',
     typeDefs: gql`
       type Query {
-        me: User!
+        me: User! @shareable
       }
 
       type User @key(fields: "id") {
@@ -224,7 +226,7 @@ describe('@provides', () => {
       typeDefs: gql`
         type SubSubResponse @key(fields: "id") {
           id: ID!
-          subSubResponseValue: Int
+          subSubResponseValue: Int @shareable
         }
       `
     }
@@ -324,7 +326,7 @@ describe('@provides', () => {
         }
 
         type Value {
-          a: Int
+          a: Int @shareable
         }
 
         type T1 implements I @key(fields: "id") {
@@ -343,18 +345,18 @@ describe('@provides', () => {
       name: 'Subgraph2',
       typeDefs: gql`
         type Value {
-          a: Int
+          a: Int @shareable
           b: Int
         }
 
         type T1 @key(fields: "id") {
           id: ID!
-          v: Value
+          v: Value @shareable
         }
 
         type T2 @key(fields: "id") {
           id: ID!
-          v: Value
+          v: Value @shareable
         }
       `
     }
@@ -543,12 +545,12 @@ describe('@provides', () => {
       typeDefs: gql`
         type T1 @key(fields: "id") {
           id: ID!
-          a: Int
+          a: Int @shareable
         }
 
         type T2 @key(fields: "id") {
           id: ID!
-          b: Int
+          b: Int @shareable
         }
       `
     }
@@ -777,8 +779,8 @@ describe('@provides', () => {
 
         type T2 @key(fields: "id") {
           id: ID!
-          a: Int
-          b: Int
+          a: Int @shareable
+          b: Int @shareable
         }
       `
     }
@@ -1075,11 +1077,11 @@ test('Correctly handle case where there is too many plans to consider', () => {
 
   const typeDefs = gql`
     type Query {
-      t: T
+      t: T @shareable
     }
 
     type T {
-      ${fields.map((f) => `${f}: Int\n`)}
+      ${fields.map((f) => `${f}: Int @shareable\n`)}
     }
   `;
 

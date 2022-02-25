@@ -27,34 +27,35 @@ import {
   valueToString,
   InputFieldDefinition,
   allSchemaRootKinds,
-  isFederationType,
   Directive,
   isFederationField,
   SchemaRootKind,
   CompositeType,
   Subgraphs,
-  federationBuiltIns,
   CORE_VERSIONS,
   JOIN_VERSIONS,
   TAG_VERSIONS,
   NamedSchemaElement,
   executableDirectiveLocations,
   errorCauses,
-  tagDirectiveName,
   isObjectType,
   SubgraphASTNode,
   addSubgraphToASTNode,
   firstOf,
   Extension,
   DEFAULT_SUBTYPING_RULES,
-  providesDirectiveName,
-  requiresDirectiveName,
-  ExternalTester,
   isInterfaceType,
   sourceASTs,
   ErrorCodeDefinition,
   ERRORS,
   joinStrings,
+  FederationMetadata,
+  printSubgraphNames,
+  Subgraph,
+  federationIdentity,
+  linkIdentity,
+  coreIdentity,
+  FEDERATION_OPERATION_TYPES,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -82,10 +83,6 @@ import {
 const coreSpec = CORE_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
-
-// When displaying a list of something in a human readable form, after what size (in
-// number of characters) we start displaying only a subset of the list.
-const MAX_HUMAN_READABLE_LIST_LENGTH = 100;
 
 const MERGED_TYPE_SYSTEM_DIRECTIVES = ['inaccessible', 'deprecated', 'specifiedBy', 'tag'];
 
@@ -125,33 +122,8 @@ export function isMergeFailure(mergeResult: MergeResult): mergeResult is MergeFa
 }
 
 export function mergeSubgraphs(subgraphs: Subgraphs, options: CompositionOptions = {}): MergeResult {
+  assert(subgraphs.values().every((s) => s.isFed2Subgraph()), 'Merging should only be applied to federation 2 subgraphs');
   return new Merger(subgraphs, { ...defaultCompositionOptions, ...options }).merge();
-}
-
-function printHumanReadableList(names: string[], prefixSingle?: string, prefixPlural?: string): string {
-  assert(names.length > 0, 'Should not have been called with no names');
-  if (names.length == 1) {
-    return prefixSingle ? prefixSingle + ' ' + names[0] : names[0];
-  }
-  let toDisplay = names;
-  let totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
-  // In case the name we list have absurdly long names, let's ensure we at least display one.
-  while (totalLength > MAX_HUMAN_READABLE_LIST_LENGTH && toDisplay.length > 1) {
-    toDisplay = toDisplay.slice(0, toDisplay.length - 1);
-    totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
-  }
-  const prefix = prefixPlural
-    ? prefixPlural + ' '
-    : (prefixSingle ? prefixSingle + ' ' : '');
-  if (toDisplay.length === names.length) {
-    return prefix + joinStrings(toDisplay);
-  } else {
-    return prefix + toDisplay.join(', ') + ', ...';
-  }
-}
-
-function printSubgraphNames(names: string[]): string {
-  return printHumanReadableList(names.map(n => `"${n}"`), 'subgraph', 'subgraphs');
 }
 
 function copyTypeReference(source: Type, dest: Schema): Type {
@@ -167,8 +139,16 @@ function copyTypeReference(source: Type, dest: Schema): Type {
   }
 }
 
+const NON_MERGED_CORE_FEATURES = [ federationIdentity, linkIdentity, coreIdentity ];
+
 function isMergedType(type: NamedType): boolean {
-  return !isFederationType(type) && !type.isIntrospectionType();
+  if (type.isIntrospectionType() || FEDERATION_OPERATION_TYPES.map((s) => s.name).includes(type.name)) {
+    return false;
+  }
+
+  const coreFeatures = type.schema().coreFeatures;
+  const typeFeature = coreFeatures?.sourceFeature(type)?.url.identity;
+  return !(typeFeature && NON_MERGED_CORE_FEATURES.includes(typeFeature));
 }
 
 function isMergedField(field: InputFieldDefinition | FieldDefinition<CompositeType>): boolean {
@@ -231,9 +211,8 @@ function typeKindToString(t: NamedType): string {
   return t.kind.replace("Type", " Type");
 }
 
-function hasTagUsage(subgraph: Schema): boolean {
-  const directive = subgraph.directive(tagDirectiveName);
-  return !!directive && directive.applications().length > 0;
+function hasTagUsage(subgraph: Subgraph): boolean {
+  return subgraph.metadata().tagDirective().applications().length > 0;
 }
 
 function locationString(locations: DirectiveLocation[]): string {
@@ -250,13 +229,11 @@ class Merger {
   readonly hints: CompositionHint[] = [];
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
-  readonly externalTesters: readonly ExternalTester[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
-    this.externalTesters = this.subgraphsSchema.map(schema => new ExternalTester(schema));
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -266,7 +243,7 @@ class Merger {
     coreSpec.addToSchema(this.merged);
     coreSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
 
-    if (this.subgraphsSchema.some(hasTagUsage)) {
+    if (this.subgraphs.values().some(hasTagUsage)) {
       coreSpec.applyFeatureToSchema(this.merged, tagSpec);
     }
 
@@ -275,6 +252,10 @@ class Merger {
 
   private joinSpecName(subgraphIndex: number): string {
     return this.subgraphNamesToJoinSpecName.get(this.names[subgraphIndex])!;
+  }
+
+  private metadata(idx: number): FederationMetadata {
+    return this.subgraphs.values()[idx].metadata();
   }
 
   merge(): MergeResult {
@@ -692,14 +673,14 @@ class Merger {
       }
 
       // There is either 1 join__type per-key, or if there is no key, just one for the type.
-      const sourceSchema = this.subgraphsSchema[idx];
-      const keys = source.appliedDirectivesOf(federationBuiltIns.keyDirective(sourceSchema));
+      const sourceMetadata = this.subgraphs.values()[idx].metadata();
+      const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name });
       } else {
         for (const key of keys) {
-          const extension = key.ofExtension() || source.hasAppliedDirective(federationBuiltIns.extendsDirective(sourceSchema)) ? true : undefined;
+          const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
           dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension });
         }
       }
@@ -723,6 +704,7 @@ class Merger {
         }
         const subgraphFields = sources.map(t => t?.field(destField.name));
         this.mergeField(subgraphFields, destField);
+        this.validateFieldSharing(subgraphFields, destField);
       }
     }
   }
@@ -814,7 +796,11 @@ class Merger {
   }
 
   private isExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
-    return this.externalTesters[sourceIdx].isExternal(field);
+    return this.metadata(sourceIdx).isFieldExternal(field);
+  }
+
+  private isFullyExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.metadata(sourceIdx).isFieldFullyExternal(field);
   }
 
   private withoutExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {
@@ -823,6 +809,10 @@ class Merger {
 
   private hasExternal(sources: (FieldDefinition<any> | undefined)[]): boolean {
     return sources.some((s, i) => s !== undefined && this.isExternal(i, s));
+  }
+
+  private isShareable(sourceIdx: number, field: FieldDefinition<any>): boolean {
+    return this.metadata(sourceIdx).isFieldShareable(field);
   }
 
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
@@ -853,6 +843,35 @@ class Merger {
     }
 
     this.addJoinField(sources, dest, allTypesEqual);
+  }
+
+  private validateFieldSharing(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
+    const shareableSources: number[] = [];
+    const nonShareableSources: number[] = [];
+    const allResolving: FieldDefinition<any>[] = [];
+    for (const [i, source] of sources.entries()) {
+      if (!source || this.isFullyExternal(i, source)) {
+        continue;
+      }
+
+      allResolving.push(source);
+      if (this.isShareable(i, source)) {
+        shareableSources.push(i);
+      } else {
+        nonShareableSources.push(i);
+      }
+    }
+
+    if (nonShareableSources.length > 0 && (shareableSources.length > 0 || nonShareableSources.length > 1)) {
+      const resolvingSubgraphs = nonShareableSources.concat(shareableSources).map((s) => this.names[s]);
+      const nonShareables = shareableSources.length > 0
+        ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
+        : 'all of them';
+      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err({
+        message: `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
+        nodes: sourceASTs(...allResolving),
+      }));
+    }
   }
 
   private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>, allTypesEqual: boolean) {
@@ -949,9 +968,10 @@ class Merger {
     //   3) none of the field is @external.
     for (const [idx, source] of sources.entries()) {
       if (source) {
+        const sourceMeta = this.subgraphs.values()[idx].metadata();
         if (this.isExternal(idx, source)
-          || source.hasAppliedDirective(providesDirectiveName)
-          || source.hasAppliedDirective(requiresDirectiveName)
+          || source.hasAppliedDirective(sourceMeta.providesDirective())
+          || source.hasAppliedDirective(sourceMeta.requiresDirective())
         ) {
           return true;
         }
@@ -980,11 +1000,12 @@ class Merger {
       }
 
       const external = this.isExternal(idx, source);
+      const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
       dest.applyDirective(joinFieldDirective, {
         graph: name,
-        requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
-        provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx])),
+        requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
+        provides: this.getFieldSet(source, sourceMeta.providesDirective()),
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
       });

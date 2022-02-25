@@ -7,6 +7,7 @@ import {
   ServiceDefinition,
   subgraphsFromServiceList,
   ERRORS,
+  upgradeSubgraphsIfNecessary,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -31,7 +32,18 @@ export interface CompositionSuccess {
 }
 
 export function compose(subgraphs: Subgraphs): CompositionResult {
-  const mergeResult = mergeSubgraphs(subgraphs);
+  const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
+  if (upgradeResult.errors) {
+    return { errors: upgradeResult.errors };
+  }
+
+  const toMerge = upgradeResult.subgraphs;
+  const validationErrors = toMerge.validate();
+  if (validationErrors) {
+    return { errors: validationErrors };
+  }
+
+  const mergeResult = mergeSubgraphs(toMerge);
   if (mergeResult.errors) {
     return { errors: mergeResult.errors };
   }

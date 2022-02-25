@@ -291,3 +291,66 @@ export function joinStrings(toJoin: string[], sep: string = ', ', firstSep?: str
   }
   return first + (firstSep ? firstSep : sep) + toJoin.slice(1, toJoin.length - 1) + lastSep + last;
 }
+
+// When displaying a list of something in a human readable form, after what size (in
+// number of characters) we start displaying only a subset of the list.
+const DEFAULT_HUMAN_READABLE_LIST_CUTOFF_LENGTH = 100;
+
+/**
+ * Like `joinStrings`, joins an array of string, but with a few twists, namely:
+ *  - If the resulting list to print is "too long", it only display a subset of the elements and use some elipsis (...). In other
+ *    words, this method is for case where, where the list ot print is too long, it is more useful to avoid flooding the output than
+ *    printing everything.
+ *  - it allows to prefix the whole list, and to use a different prefix for a single element than for > 1 elements.
+ *  - it forces the use of ',' as separator, but allow a different lastSeparator.
+ */
+export function printHumanReadableList(
+  names: string[],
+  {
+    emptyValue,
+    prefix,
+    prefixPlural,
+    lastSeparator,
+    cutoff_output_length,
+  } : {
+    emptyValue?: string,
+    prefix?: string,
+    prefixPlural?: string,
+    lastSeparator?: string,
+    cutoff_output_length?: number,
+  }
+): string {
+  if (names.length === 0) {
+    return emptyValue ?? '';
+  }
+  if (names.length == 1) {
+    return prefix ? prefix + ' ' + names[0] : names[0];
+  }
+  const cutoff = cutoff_output_length ?? DEFAULT_HUMAN_READABLE_LIST_CUTOFF_LENGTH;
+
+  const { lastIdx } = names.reduce(
+    ({ lastIdx, length }, name) => {
+      if (length + name.length > cutoff) {
+        return {
+          lastIdx,
+          length,
+        };
+      }
+      return {
+        lastIdx: lastIdx + 1,
+        length: length + name.length,
+      };
+    },
+    { lastIdx: 0, length: 0}
+  );
+  // In case the name we list have absurdly long names, we cut it off but ensure we at least display one.
+  const toDisplay = names.slice(0, Math.max(1, lastIdx));
+  const actualPrefix = prefixPlural
+    ? prefixPlural + ' '
+    : (prefix ? prefix + ' ' : '');
+  if (toDisplay.length === names.length) {
+    return actualPrefix + joinStrings(toDisplay, ', ', undefined, lastSeparator);
+  } else {
+    return actualPrefix + joinStrings(toDisplay, ', ', undefined, ', ') + ', ...';
+  }
+}

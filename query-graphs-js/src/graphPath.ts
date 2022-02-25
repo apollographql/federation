@@ -14,16 +14,15 @@ import {
   CompositeType,
   isAbstractType,
   newDebugLogger,
-  externalDirectiveName,
   isCompositeType,
-  federationBuiltIns,
   parseFieldSetArgument,
-  keyDirectiveName,
-  providesDirectiveName,
   possibleRuntimeTypes,
   ObjectType,
   isObjectType,
   mapValues,
+  federationMetadata,
+  isEntityType,
+  isSchemaRootType,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
@@ -469,8 +468,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     if (!isRootVertex(this.root)) {
       return false;
     }
-    // We walk the vertices and as soon as we take a field (or move out of the Query type),
-    // we know we're not on the top-level query root anymore. The reason we don't
+    // We walk the vertices and as soon as we take a field (or move out of the root type),
+    // we know we're not on the top-level query/mutation/subscription root anymore. The reason we don't
     // just check that size <= 1 is that we could have top-level `... on Query`
     // conditions that don't actually move us.
     let vertex: Vertex = this.root;
@@ -479,7 +478,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       if (!edge) {
         continue;
       }
-      if (edge.transition.kind === 'FieldCollection' || edge.tail.type.name !== "Query") {
+      if (edge.transition.kind === 'FieldCollection' || !isSchemaRootType(edge.tail.type)) {
         return false;
       }
       vertex = edge.tail;
@@ -654,6 +653,10 @@ export type Unadvanceable = {
 
 export class Unadvanceables {
   constructor(readonly reasons: Unadvanceable[]) {}
+
+  toString() {
+    return '[' + this.reasons.map((r) => `[${r.reason}](${r.sourceSubgraph}->${r.destSubgraph}) ${r.details}`).join(', ') + ']';
+  }
 }
 
 export function isUnadvanceable<V extends Vertex>(result: GraphPath<Transition, V>[] | Unadvanceables): result is Unadvanceables {
@@ -821,7 +824,7 @@ export function advancePathWithTransition<V extends Vertex>(
       if (type && isCompositeType(type) && type.field(fieldName)) {
         // That subgraph has the type we look for, but we have recorded no dead-ends. This means there is no edge to that type,
         // and thus that it has no keys.
-        assert(!type.hasAppliedDirective(keyDirectiveName), () => `Expected type ${type} in ${subgraph} to not have keys`);
+        assert(!isEntityType(type), () => `Expected type ${type} in ${subgraph} to not have keys`);
         allDeadEnds.push({
           sourceSubgraph: subgraphPath.tail.source,
           destSubgraph: subgraph,
@@ -1190,16 +1193,18 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
   // on their key field. The problem is that doing that make the key field truly external, and that could easily make @require
   // condition no satisfiable (because the key you'd need to get the require is now external). To help user locate that mistake
   // we add a specific pointer to this potential problem is the type is indeed an entity.
-  const keyDirective = federationBuiltIns.keyDirective(type.schema());
+  const metadata = federationMetadata(type.schema());
+  assert(metadata, "Type should originate from a federation subgraph schema");
+  const keyDirective = metadata.keyDirective();
   const keys = type.appliedDirectivesOf(keyDirective);
   if (keys.length === 0) {
     return "";
   }
   const keyFieldMarkedExternal: string[] = [];
   for (const key of keys) {
-    const fieldSet = parseFieldSetArgument(type, key);
+    const fieldSet = parseFieldSetArgument({ parentType: type, directive: key });
     for (const selection of fieldSet.selections()) {
-      if (selection.kind === 'FieldSelection' && selection.field.definition.hasAppliedDirective(externalDirectiveName)) {
+      if (selection.kind === 'FieldSelection' && selection.field.definition.hasAppliedDirective(metadata.externalDirective())) {
         const fieldName = selection.field.name;
         if (!keyFieldMarkedExternal.includes(fieldName)) {
           keyFieldMarkedExternal.push(fieldName);
@@ -1217,11 +1222,13 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
 
 export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex): SelectionSet | undefined  {
   const type = typeVertex.type as CompositeType;
-  const externalTester = graph.externalTester(typeVertex.source);
-  const keyDirective = federationBuiltIns.keyDirective(type.schema());
+  const schema = graph.sources.get(typeVertex.source);
+  const metadata = schema ? federationMetadata(schema) : undefined;
+  assert(metadata, () => `Could not find federation metadata for source ${typeVertex.source}`);
+  const keyDirective = metadata.keyDirective();
   for (const key of type.appliedDirectivesOf(keyDirective)) {
-    const selection = parseFieldSetArgument(type, key);
-    if (!externalTester.selectsAnyExternalField(selection)) {
+    const selection = parseFieldSetArgument({ parentType: type, directive: key });
+    if (!metadata.selectionSelectsAnyExternalField(selection)) {
       return selection;
     }
   }
@@ -1512,10 +1519,12 @@ function flatCartesianProduct<V>(arr:V[][][]): V[][] {
 }
 
 function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): boolean {
+  const metadata = federationMetadata(itf.schema());
+  assert(metadata, "Interface should have come from a federation subgraph");
   for (const implem of itf.possibleRuntimeTypes()) {
     const field = implem.field(fieldName);
     // Note that this should only be called if field exists, but no reason to fail otherwise.
-    if (field && field.hasAppliedDirective(providesDirectiveName)) {
+    if (field && field.hasAppliedDirective(metadata.providesDirective())) {
       return true;
     }
   }

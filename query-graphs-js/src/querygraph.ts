@@ -14,7 +14,6 @@ import {
   UnionType,
   baseType,
   SelectionSet,
-  federationBuiltIns,
   isFederationSubgraphSchema,
   CompositeType,
   extractSubgraphsFromSupergraph,
@@ -29,9 +28,9 @@ import {
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
   ALL_SUBTYPING_RULES,
-  externalDirectiveName,
-  requiresDirectiveName,
-  ExternalTester,
+  federationMetadata,
+  FederationMetadata,
+  DirectiveDefinition,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
@@ -243,12 +242,6 @@ export class Edge {
  * that points to "reachable" types (reachable from any kind of operations).
  */
 export class QueryGraph {
-  // Because of the "fake externals" of type extension that we still support for fed1 backward compatibility, checking
-  // is a field is truly external or not is kind of expensive and that's why we have `ExternalTester` which is costly
-  // to build initially but then allow checking field cheaply. Anyway, we sometimes need those for the source schema
-  // of the query graph, and storing it here is convenient if a bit hacky. Those testers are lazily created.
-  private readonly externalTesters: Map<string, ExternalTester> = new Map();
-
   /**
    * Creates a new query graph.
    *
@@ -359,16 +352,6 @@ export class QueryGraph {
   verticesForType(typeName: string): Vertex[] {
     const indexes = this.typesToVertices.get(typeName);
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
-  }
-
-  externalTester(source: string): ExternalTester {
-    let tester = this.externalTesters.get(source);
-    if (!tester) {
-      const schema = this.sources.get(source);
-      assert(schema, () => `Unknown source: ${source}`);
-      tester = new ExternalTester(schema);
-    }
-    return tester;
   }
 }
 
@@ -600,8 +583,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // copying vertex and their edges, and it's easier to reason about this if we know all keys have already been created.
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
-    const keyDirective = federationBuiltIns.keyDirective(subgraphSchema);
-    const requireDirective = federationBuiltIns.requiresDirective(subgraphSchema);
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const keyDirective = subgraphMetadata.keyDirective();
+    const requireDirective = subgraphMetadata.requiresDirective();
     simpleTraversal(
       subgraph,
       v => {
@@ -619,7 +604,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // restriction, and this may be useful at least temporarily to allow convert a type to
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
-          const conditions = parseFieldSetArgument(type, keyApplication);
+          const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
           for (const [j, otherSubgraph] of subgraphs.entries()) {
             if (i == j) {
               continue;
@@ -648,7 +633,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
-            const conditions = parseFieldSetArgument(type, requiresApplication);
+            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication });
             const head = copyPointers[i].copiedVertex(e.head);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
             // this to not be the case at this point so...
@@ -663,7 +648,9 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // Now we handle @provides
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
-    const providesDirective = federationBuiltIns.providesDirective(subgraphSchema);
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const providesDirective = subgraphMetadata.providesDirective();
     simpleTraversal(
       subgraph,
       _ => undefined,
@@ -676,7 +663,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
             assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
-            const provided = parseFieldSetArgument(fieldType, providesApplication);
+            const provided = parseFieldSetArgument({ parentType: fieldType, directive: providesApplication });
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
@@ -926,6 +913,11 @@ class GraphBuilderFromSchema extends GraphBuilder {
     this.forceTypeExplosion = supergraphSchema !== undefined && isFed1Supergraph(supergraphSchema);
   }
 
+  private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
+    const metadata = federationMetadata(this.schema);
+    return !!metadata && field.hasAppliedDirective(directiveFct(metadata));
+  }
+
   /**
    * Adds a vertex for the provided root object type (marking that vertex as a root vertex for the
    * provided `kind`) and recursively descend into the type definition to adds the related vertices
@@ -980,7 +972,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (field.isSchemaIntrospectionField() || field.hasAppliedDirective(externalDirectiveName)) {
+      if (field.isSchemaIntrospectionField() || this.hasDirective(field, (m) => m.externalDirective())) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -1000,7 +992,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
     //      need to type-explode to make we handle that @require).
-    return field && !field.hasAppliedDirective(externalDirectiveName) && !field.hasAppliedDirective(requiresDirectiveName);
+    return field && !this.hasDirective(field, (m) => m.externalDirective()) && !this.hasDirective(field, (m) => m.requiresDirective());
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -1024,7 +1016,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external himself, and it must be provided on every of the runtime types
-      if (field.hasAppliedDirective(externalDirectiveName) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      if (this.hasDirective(field, (m) => m.externalDirective()) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);

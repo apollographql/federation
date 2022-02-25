@@ -12,6 +12,8 @@ describe('printSubgraphSchema', () => {
         mutation: Mutation
       }
 
+      extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@shareable\\", \\"@tag\\", \\"@extends\\"])
+
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
@@ -26,6 +28,13 @@ describe('printSubgraphSchema', () => {
       }
 
       scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+
+      type RootQuery {
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
+        user(id: ID!): User
+        me: User
+      }
 
       type PasswordAccount @key(fields: \\"email\\") {
         email: String!
@@ -46,7 +55,7 @@ describe('printSubgraphSchema', () => {
       type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") {
         id: ID! @tag(name: \\"accounts\\")
         name: Name
-        username: String
+        username: String @shareable
         birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         account: AccountType
         metadata: [UserMetadata]
@@ -62,15 +71,8 @@ describe('printSubgraphSchema', () => {
         login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
       }
 
-      extend type RootQuery {
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
-        user(id: ID!): User
-        me: User
-      }
-
-      extend type Library @key(fields: \\"id\\") {
-        id: ID! @external
+      type Library @key(fields: \\"id\\") {
+        id: ID!
         name: String @external
         userAccount(id: ID! = 1): User @requires(fields: \\"name\\")
       }
@@ -95,11 +97,19 @@ describe('printSubgraphSchema', () => {
   it('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "directive @stream on FIELD
+      "extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@shareable\\", \\"@tag\\", \\"@extends\\"])
+
+      directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
 
       directive @tag(name: String!) repeatable on INTERFACE | FIELD_DEFINITION | OBJECT | UNION
+
+      type Query {
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
+        topReviews(first: Int = 5): [Review]
+      }
 
       type Review @key(fields: \\"id\\") {
         id: ID!
@@ -114,36 +124,12 @@ describe('printSubgraphSchema', () => {
         body: String
       }
 
-      input ReviewProduct {
-        upc: String!
-        body: String!
-        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
-      }
-
-      type KeyValue {
-        key: String!
-        value: String!
-      }
-
-      type Error {
-        code: Int
-        message: String
-      }
-
-      union MetadataOrError = KeyValue | Error
-
-      extend type Query {
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
-        topReviews(first: Int = 5): [Review]
-      }
-
-      extend type UserMetadata {
+      type UserMetadata {
         address: String @external
       }
 
-      extend type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
-        id: ID! @external
+      type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
+        id: ID!
         username: String @external @tag(name: \\"on-external\\")
         reviews: [Review]
         numberOfReviews: Int!
@@ -151,43 +137,61 @@ describe('printSubgraphSchema', () => {
         goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
       }
 
-      extend interface Product @tag(name: \\"from-reviews\\") {
+      interface Product @tag(name: \\"from-reviews\\") {
         reviews: [Review]
       }
 
-      extend type Furniture implements Product @key(fields: \\"upc\\") {
-        upc: String! @external
+      type Furniture implements Product @key(fields: \\"upc\\") {
+        upc: String!
         reviews: [Review]
       }
 
-      extend type Book implements Product @key(fields: \\"isbn\\") {
-        isbn: String! @external
+      type Book implements Product @key(fields: \\"isbn\\") {
+        isbn: String!
         reviews: [Review]
         similarBooks: [Book]! @external
         relatedReviews: [Review!]! @requires(fields: \\"similarBooks { isbn }\\")
       }
 
-      extend interface Vehicle {
+      interface Vehicle {
         retailPrice: String
       }
 
-      extend type Car implements Vehicle @key(fields: \\"id\\") {
-        id: String! @external
+      type Car implements Vehicle @key(fields: \\"id\\") {
+        id: String!
         price: String @external
         retailPrice: String @requires(fields: \\"price\\")
       }
 
-      extend type Van implements Vehicle @key(fields: \\"id\\") {
-        id: String! @external
+      type Van implements Vehicle @key(fields: \\"id\\") {
+        id: String!
         price: String @external
         retailPrice: String @requires(fields: \\"price\\")
       }
 
-      extend type Mutation {
+      input ReviewProduct {
+        upc: String!
+        body: String!
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
+      }
+
+      type Mutation {
         reviewProduct(input: ReviewProduct!): Product
         updateReview(review: UpdateReviewInput!): Review
         deleteReview(id: ID!): Boolean
       }
+
+      type KeyValue @shareable {
+        key: String!
+        value: String!
+      }
+
+      type Error @shareable {
+        code: Int
+        message: String
+      }
+
+      union MetadataOrError = KeyValue | Error
       "
     `);
   });

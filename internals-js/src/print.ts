@@ -23,7 +23,7 @@ import {
 import { assert } from "./utils";
 import { valueToString } from "./values";
 
-export type Options = {
+export type PrintOptions = {
   indentString: string;
   definitionsOrder: ('schema' | 'types' | 'directives')[],
   rootTypesOrder: SchemaRootKind[],
@@ -31,21 +31,24 @@ export type Options = {
   directiveCompareFn?: (d1: DirectiveDefinition, d2: DirectiveDefinition) => number;
   mergeTypesAndExtensions: boolean;
   showAllBuiltIns: boolean;
-  showNonGraphQLBuiltIns: boolean;
   noDescriptions: boolean;
+  directiveDefinitionFilter?: (d: DirectiveDefinition) => boolean,
+  typeFilter: (t: NamedType) => boolean,
+  fieldFilter: (f: FieldDefinition<any>) => boolean,
 }
 
-export const defaultPrintOptions: Options = {
+export const defaultPrintOptions: PrintOptions = {
   indentString: "  ",
   definitionsOrder: ['schema', 'directives', 'types'],
   rootTypesOrder: ['query', 'mutation', 'subscription'],
   mergeTypesAndExtensions: false,
   showAllBuiltIns: false,
-  showNonGraphQLBuiltIns: false,
   noDescriptions: false,
+  typeFilter: () => true,
+  fieldFilter: () => true,
 }
 
-export function orderPrintedDefinitions(options: Options): Options {
+export function orderPrintedDefinitions(options: PrintOptions): PrintOptions {
   return {
     ...options,
     typeCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
@@ -53,26 +56,32 @@ export function orderPrintedDefinitions(options: Options): Options {
   };
 }
 
-function isDefinitionOrderValid(options: Options): boolean {
+function isDefinitionOrderValid(options: PrintOptions): boolean {
   return options.definitionsOrder.length === 3
     && options.definitionsOrder.indexOf('schema') >= 0
     && options.definitionsOrder.indexOf('types') >= 0
     && options.definitionsOrder.indexOf('directives') >= 0;
 }
 
-function validateOptions(options: Options) {
+function validateOptions(options: PrintOptions) {
   if (!isDefinitionOrderValid(options)) {
     throw new Error(`'definitionsOrder' should be a 3-element array containing 'schema', 'types' and 'directives' in the desired order (got: [${options.definitionsOrder.join(', ')}])`);
   }
 }
 
-export function printSchema(schema: Schema, options: Options = defaultPrintOptions): string {
+export function printSchema(schema: Schema, options: PrintOptions = defaultPrintOptions): string {
   validateOptions(options);
-  let directives = options.showAllBuiltIns ? schema.allDirectives() : schema.directives(options.showNonGraphQLBuiltIns);
+  let directives = options.showAllBuiltIns ? schema.allDirectives() : schema.directives();
+  if (options.directiveDefinitionFilter) {
+    directives = directives.filter(options.directiveDefinitionFilter);
+  }
   if (options.directiveCompareFn) {
     directives = directives.concat().sort(options.directiveCompareFn);
   }
-  let types = options.showAllBuiltIns ? schema.allTypes() : schema.types(undefined, options.showNonGraphQLBuiltIns);
+  let types = options.showAllBuiltIns ? schema.allTypes() : schema.types();
+  if (options.typeFilter) {
+    types = types.filter(options.typeFilter);
+  }
   if (options.typeCompareFn) {
     types = types.concat().sort(options.typeCompareFn);
   }
@@ -83,21 +92,18 @@ export function printSchema(schema: Schema, options: Options = defaultPrintOptio
   return definitions.flat().join('\n\n');
 }
 
-function definitionAndExtensions<T extends ExtendableElement>(element: {extensions(): ReadonlySet<Extension<T>>}, options: Options): (Extension<any> | null | undefined)[] {
+function definitionAndExtensions<T extends ExtendableElement>(element: {extensions(): ReadonlySet<Extension<T>>}, options: PrintOptions): (Extension<any> | null | undefined)[] {
   return options.mergeTypesAndExtensions ? [undefined] : [null, ...element.extensions()];
 }
 
-function printSchemaDefinitionAndExtensions(schemaDefinition: SchemaDefinition, options: Options): string[] {
-  if (isSchemaOfCommonNames(schemaDefinition)) {
-    return [];
-  }
+function printSchemaDefinitionAndExtensions(schemaDefinition: SchemaDefinition, options: PrintOptions): string[] {
   return printDefinitionAndExtensions(schemaDefinition, options, printSchemaDefinitionOrExtension);
 }
 
 function printDefinitionAndExtensions<T extends {extensions(): ReadonlySet<Extension<any>>}>(
   t: T,
-  options: Options,
-  printer: (t: T, options: Options, extension?: Extension<any> | null) => string | undefined
+  options: PrintOptions,
+  printer: (t: T, options: PrintOptions, extension?: Extension<any> | null) => string | undefined
 ): string[] {
   return definitionAndExtensions(t, options)
     .map(ext => printer(t, options, ext))
@@ -115,13 +121,13 @@ function forExtension<T extends {ofExtension(): Extension<any> | undefined}>(ts:
   return ts.filter(r => (r.ofExtension() ?? null) === extension);
 }
 
-function orderRoots(roots: readonly RootType[], options: Options): RootType[] {
+function orderRoots(roots: readonly RootType[], options: PrintOptions): RootType[] {
   return roots.concat().sort((r1, r2) => options.rootTypesOrder.indexOf(r1.rootKind) - options.rootTypesOrder.indexOf(r2.rootKind));
 }
 
 function printSchemaDefinitionOrExtension(
   schemaDefinition: SchemaDefinition,
-  options: Options,
+  options: PrintOptions,
   extension?: Extension<SchemaDefinition> | null
 ): string | undefined {
   const roots = forExtension(schemaDefinition.roots(),  extension);
@@ -129,13 +135,17 @@ function printSchemaDefinitionOrExtension(
   if (!roots.length && !directives.length) {
     return undefined;
   }
+  if (!extension && !directives.length && isSchemaOfCommonNames(schemaDefinition)) {
+    return undefined;
+  }
   const rootEntries = orderRoots(roots, options).map((rootType) => `${options.indentString}${rootType.rootKind}: ${rootType.type}`);
-  return printDescription(schemaDefinition, options)
+  // Note that that the description is never written with the extension as `extend schema` doesn _not_ support descriptions
+  return (extension ? '' : printDescription(schemaDefinition, options))
     + printIsExtension(extension)
     + 'schema'
-    + printAppliedDirectives(directives, options, true)
+    + printAppliedDirectives(directives, options, true, rootEntries.length !== 0)
     + (directives.length === 0 ? ' ' : '')
-    + '{\n' + rootEntries.join('\n') + '\n}';
+    + (rootEntries.length === 0 ? '' : '{\n' + rootEntries.join('\n') + '\n}');
 }
 
 /**
@@ -151,20 +161,20 @@ function printSchemaDefinitionOrExtension(
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
-  return schema.appliedDirectives.length === 0 && !schema.description && schema.roots().every(r => r.isDefaultRootName());
+  return !schema.description && schema.roots().every(r => r.isDefaultRootName());
 }
 
 /**
  * Convenience function that assumes `printTypeDefinitionAndExtensions` returns a single result and return that result.
  * Throw an error if there `printTypeDefinitionAndExtensions` returns multiple results.
  */
-export function printType(type: NamedType, options: Options = defaultPrintOptions): string {
+export function printType(type: NamedType, options: PrintOptions = defaultPrintOptions): string {
   const definitionAndExtensions = printTypeDefinitionAndExtensions(type, options);
   assert(definitionAndExtensions.length == 1, `Type ${type} is built from more than 1 definition or extension`);
   return definitionAndExtensions[0];
 }
 
-export function printTypeDefinitionAndExtensions(type: NamedType, options: Options = defaultPrintOptions): string[] {
+export function printTypeDefinitionAndExtensions(type: NamedType, options: PrintOptions = defaultPrintOptions): string[] {
   switch (type.kind) {
     case 'ScalarType': return printDefinitionAndExtensions(type, options, printScalarDefinitionOrExtension);
     case 'ObjectType': return printDefinitionAndExtensions(type, options, (t, options, ext) => printFieldBasedTypeDefinitionOrExtension('type', t, options, ext));
@@ -175,14 +185,14 @@ export function printTypeDefinitionAndExtensions(type: NamedType, options: Optio
   }
 }
 
-export function printDirectiveDefinition(directive: DirectiveDefinition, options: Options): string {
+export function printDirectiveDefinition(directive: DirectiveDefinition, options: PrintOptions): string {
   const locations = directive.locations.join(' | ');
   return `${printDescription(directive, options)}directive ${directive}${printArgs(directive.arguments(), options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(
   appliedDirectives: readonly Directive<any>[],
-  options: Options,
+  options: PrintOptions,
   onNewLines: boolean = false,
   endWithNewLine: boolean = onNewLines
 ): string {
@@ -196,7 +206,7 @@ function printAppliedDirectives(
 
 function printDescription(
   element: SchemaElement<any, any>,
-  options: Options,
+  options: PrintOptions,
   indentation: string = '',
   firstInBlock: boolean = true
 ): string {
@@ -212,7 +222,7 @@ function printDescription(
   return prefix + blockString.replace(/\n/g, '\n' + indentation) + '\n';
 }
 
-function printScalarDefinitionOrExtension(type: ScalarType, options: Options, extension?: Extension<any> | null): string | undefined {
+function printScalarDefinitionOrExtension(type: ScalarType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   if (extension && !directives.length) {
     return undefined;
@@ -226,10 +236,13 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
     : '';
 }
 
-function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: Options, extension?: Extension<any> | null): string | undefined {
+function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension<Directive<ObjectType | InterfaceType>>(type.appliedDirectives, extension);
   const interfaces = forExtension<InterfaceImplementation<any>>(type.interfaceImplementations(), extension);
-  const fields = forExtension<FieldDefinition<any>>(type.fields(options.showNonGraphQLBuiltIns), extension);
+  let fields = forExtension<FieldDefinition<any>>(type.fields(), extension);
+  if (options.fieldFilter) {
+    fields = fields.filter(options.fieldFilter);
+  }
   if (!directives.length && !interfaces.length && !fields.length) {
     return undefined;
   }
@@ -242,7 +255,7 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
     + printFields(fields, options);
 }
 
-function printUnionDefinitionOrExtension(type: UnionType, options: Options, extension?: Extension<any> | null): string | undefined {
+function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const members = forExtension(type.members(), extension);
   if (!directives.length && !members.length) {
@@ -256,7 +269,7 @@ function printUnionDefinitionOrExtension(type: UnionType, options: Options, exte
     + possibleTypes;
 }
 
-function printEnumDefinitionOrExtension(type: EnumType, options: Options, extension?: Extension<any> | null): string | undefined {
+function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const values = forExtension(type.values, extension);
   if (!directives.length && !values.length) {
@@ -275,7 +288,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
     + printBlock(vals);
 }
 
-function printInputDefinitionOrExtension(type: InputObjectType, options: Options, extension?: Extension<any> | null): string | undefined {
+function printInputDefinitionOrExtension(type: InputObjectType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const fields = forExtension(type.fields(), extension);
   if (!directives.length && !fields.length) {
@@ -289,7 +302,7 @@ function printInputDefinitionOrExtension(type: InputObjectType, options: Options
     + printFields(fields, options);
 }
 
-function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefinition)[], options: Options): string {
+function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefinition)[], options: PrintOptions): string {
   return printBlock(fields.map((f, i) =>
     printDescription(f, options, options.indentString, !i)
     + options.indentString
@@ -297,7 +310,7 @@ function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefiniti
     + printAppliedDirectives(f.appliedDirectives, options)));
 }
 
-function printField(field: FieldDefinition<any> | InputFieldDefinition, options: Options): string {
+function printField(field: FieldDefinition<any> | InputFieldDefinition, options: PrintOptions): string {
   const args = field.kind == 'FieldDefinition' ? printArgs(field.arguments(), options, options.indentString) : '';
   const defaultValue = field.kind === 'InputFieldDefinition' && field.defaultValue !== undefined
     ? ' = ' + valueToString(field.defaultValue, field.type)
@@ -305,7 +318,7 @@ function printField(field: FieldDefinition<any> | InputFieldDefinition, options:
   return `${field.name}${args}: ${field.type}${defaultValue}`;
 }
 
-function printArgs(args: readonly ArgumentDefinition<any>[], options: Options, indentation = '') {
+function printArgs(args: readonly ArgumentDefinition<any>[], options: PrintOptions, indentation = '') {
   if (args.length === 0) {
     return '';
   }
@@ -324,7 +337,7 @@ function printArgs(args: readonly ArgumentDefinition<any>[], options: Options, i
   return `(\n${formattedArgs}\n${indentation})`;
 }
 
-function printArg(arg: ArgumentDefinition<any>, options: Options) {
+function printArg(arg: ArgumentDefinition<any>, options: PrintOptions) {
   return `${arg}${printAppliedDirectives(arg.appliedDirectives, options)}`;
 }
 

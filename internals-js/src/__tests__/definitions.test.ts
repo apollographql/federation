@@ -7,19 +7,18 @@ import {
   EnumType,
   SchemaElement,
   UnionType,
-  BuiltIns
 } from '../../dist/definitions';
 import {
   printSchema as printGraphQLjsSchema
 } from 'graphql';
 import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
-import { federationBuiltIns } from '../../dist/federation';
+import { buildSubgraph, federationMetadata, newEmptyFederation2Schema } from '../../dist/federation';
 import './matchers';
 
-function parseSchema(schema: string, builtIns?: BuiltIns): Schema {
+function parseSchema(schema: string): Schema {
   try {
-    return buildSchema(schema, builtIns);
+    return buildSchema(schema);
   } catch (e) {
     throw new Error(e.toString());
   }
@@ -113,10 +112,10 @@ expect.extend({
 });
 
 test('building a simple schema programatically', () => {
-  const schema = new Schema(federationBuiltIns);
+  const schema = newEmptyFederation2Schema();
   const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
   const typeA = schema.addType(new ObjectType('A'));
-  const key = federationBuiltIns.keyDirective(schema);
+  const key = federationMetadata(schema)!.keyDirective();
 
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
@@ -165,7 +164,7 @@ test('parse schema and modify', () => {
 });
 
 test('removal of all directives of a schema', () => {
-  const schema = parseSchema(`
+  const subgraph = buildSubgraph('foo', '', `
     schema @foo {
       query: Query
     }
@@ -189,13 +188,14 @@ test('removal of all directives of a schema', () => {
     directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
     directive @foobar on UNION
     directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
-  `, federationBuiltIns);
+  `).validate();
 
+  const schema = subgraph.schema;
   for (const element of schema.allSchemaElement()) {
     element.appliedDirectives.forEach(d => d.remove());
   }
 
-  expect(printSchema(schema)).toMatchString(`
+  expect(subgraph.toString()).toMatchString(`
     directive @inaccessible on FIELD_DEFINITION
 
     directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
@@ -221,7 +221,7 @@ test('removal of all directives of a schema', () => {
 });
 
 test('removal of all inaccessible elements of a schema', () => {
-  const schema = parseSchema(`
+  const subgraph = buildSubgraph('foo', '', `
     schema @foo {
       query: Query
     }
@@ -244,8 +244,9 @@ test('removal of all inaccessible elements of a schema', () => {
     directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION | UNION
     directive @foo on SCHEMA | FIELD_DEFINITION
     directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
-  `, federationBuiltIns);
+  `);
 
+  const schema = subgraph.schema;
   const inaccessibleDirective = schema.directive('inaccessible')!;
   for (const element of schema.allNamedSchemaElement()) {
     if (element.hasAppliedDirective(inaccessibleDirective)) {
@@ -253,7 +254,7 @@ test('removal of all inaccessible elements of a schema', () => {
     }
   }
 
-  expect(printSchema(schema)).toMatchString(`
+  expect(subgraph.toString()).toMatchString(`
     schema
       @foo
     {
@@ -496,11 +497,12 @@ test('handling of extensions', () => {
     extend union AUnion = AType3
   `;
 
-  // Note that we mark it as a subgraph because validation of extension is relaxed. In other words, it'
-  // expected that this will fail validation without `federationBuiltIns` even though we don't use any
+  // Note that we mark it as a subgraph because validation of extension is relaxed. In other words, it's
+  // expected that this will fail validation as a normal schema even though we don't use any
   // federation directives.
-  const schema = parseSchema(sdl, federationBuiltIns);
-  expect(printSchema(schema)).toMatchString(sdl);
+  const subgraph = buildSubgraph('foo', '', sdl);
+  expect(subgraph.toString()).toMatchString(sdl);
+  const schema = subgraph.schema;
 
   const atype = schema.type('AType');
   expectObjectType(atype);
@@ -511,7 +513,7 @@ test('handling of extensions', () => {
   expectUnionType(aunion);
   expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
 
-  expect(printSchema(schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
+  expect(subgraph.toString({ ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
     directive @foo on SCALAR
 
     type Query {

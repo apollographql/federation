@@ -110,10 +110,20 @@ const INVALID_GRAPHQL = makeCodeDefinition(
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
 );
 
-const TAG_DEFINITION_INVALID = makeCodeDefinition(
-  'TAG_DIRECTIVE_DEFINITION_INVALID',
-  'The @tag directive has an invalid defintion in the schema.',
-  { addedIn: FED1_CODE },
+const DIRECTIVE_DEFINITION_INVALID = makeCodeDefinition(
+  'DIRECTIVE_DEFINITION_INVALID',
+  'A built-in or federation directive has an invalid definition in the schema.',
+  { ...DEFAULT_METADATA, replaces: ['TAG_DEFINITION_INVALID'] },
+);
+
+const TYPE_DEFINITION_INVALID = makeCodeDefinition(
+  'TYPE_DEFINITION_INVALID',
+  'A built-in or federation type has an invalid definition in the schema.',
+);
+
+const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
+  'UNKNOWN_FEDERATION_LINK_VERSION',
+  'The version of federation in a @link directive on the schema is unknown.',
 );
 
 const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
@@ -147,6 +157,13 @@ const EXTERNAL_UNUSED = makeCodeDefinition(
   'EXTERNAL_UNUSED',
   'An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implememtation.',
   { addedIn: FED1_CODE },
+);
+
+const TYPE_WITH_ONLY_UNUSED_EXTERNAL = makeCodeDefinition(
+  'TYPE_WITH_ONLY_UNUSED_EXTERNAL',
+  'A federation 1 schema has a composite type comprised only of unused external fields.'
+  + ` Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code ${EXTERNAL_UNUSED.code} will be raised in that case).`
+  + ' But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automaticaly removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised',
 );
 
 const PROVIDES_ON_NON_OBJECT_FIELD = makeCodeDefinition(
@@ -230,6 +247,11 @@ const EXTERNAL_ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
 );
 
+const EXTERNAL_ON_INTERFACE = makeCodeDefinition(
+  'EXTERNAL_ON_INTERFACE',
+  'The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical',
+);
+
 const FIELD_TYPE_MISMATCH = makeCodeDefinition(
   'FIELD_TYPE_MISMATCH',
   'A field has a type that is incompatible with other declarations of that field in other subgraphs.',
@@ -269,6 +291,16 @@ const INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH = makeCodeDefinition(
   'For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257)'
 );
 
+const INVALID_FIELD_SHARING = makeCodeDefinition(
+  'INVALID_FIELD_SHARING',
+  'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
+);
+
+const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
+  'INVALID_LINK_DIRECTIVE_USAGE',
+  'An application of the @link directive is invalid/does not respect the specification.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -285,7 +317,9 @@ export const ERROR_CATEGORIES = {
 
 export const ERRORS = {
   INVALID_GRAPHQL,
-  TAG_DEFINITION_INVALID,
+  DIRECTIVE_DEFINITION_INVALID,
+  TYPE_DEFINITION_INVALID,
+  UNKNOWN_FEDERATION_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
   REQUIRES_FIELDS_HAS_ARGS,
@@ -295,6 +329,7 @@ export const ERRORS = {
   PROVIDES_UNSUPPORTED_ON_INTERFACE,
   REQUIRES_UNSUPPORTED_ON_INTERFACE,
   EXTERNAL_UNUSED,
+  TYPE_WITH_ONLY_UNUSED_EXTERNAL,
   PROVIDES_ON_NON_OBJECT_FIELD,
   KEY_INVALID_FIELDS_TYPE,
   PROVIDES_INVALID_FIELDS_TYPE,
@@ -314,6 +349,7 @@ export const ERRORS = {
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
+  EXTERNAL_ON_INTERFACE,
   FIELD_TYPE_MISMATCH,
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
@@ -321,6 +357,8 @@ export const ERRORS = {
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
+  INVALID_FIELD_SHARING,
+  INVALID_LINK_DIRECTIVE_USAGE,
   SATISFIABILITY_ERROR,
 };
 

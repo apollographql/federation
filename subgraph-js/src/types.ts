@@ -39,6 +39,11 @@ export const AnyType = new GraphQLScalarType({
   },
 });
 
+export const LinkImportType = new GraphQLScalarType({
+  name: 'link__Import',
+  specifiedByURL: null
+});
+
 function isPromise<T>(value: PromiseOrValue<T>): value is Promise<T> {
   return Boolean(value && 'then' in value && typeof value.then === 'function');
 }
@@ -114,6 +119,7 @@ export const federationTypes: GraphQLNamedType[] = [
   ServiceType,
   AnyType,
   EntityType,
+  LinkImportType,
 ];
 
 export function isFederationType(type: GraphQLType): boolean {

@@ -1,5 +1,5 @@
-import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '../resolverMap';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'accounts';
 export const url = `https://${name}.api.com.invalid`;
@@ -30,7 +30,7 @@ export const typeDefs = gql`
     mutation: Mutation
   }
 
-  extend type RootQuery {
+  type RootQuery {
     user(id: ID!): User
     me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
   }
@@ -54,7 +54,7 @@ export const typeDefs = gql`
   type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
     id: ID! @tag(name: "accounts")
     name: Name @cacheControl(inheritMaxAge: true)
-    username: String
+    username: String @shareable # Provided by the 'reviews' subgraph
     birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]
@@ -74,8 +74,8 @@ export const typeDefs = gql`
     ): User
   }
 
-  extend type Library @key(fields: "id") {
-    id: ID! @external
+  type Library @key(fields: "id") {
+    id: ID!
     name: String @external
     userAccount(id: ID! = "1"): User @requires(fields: "name")
   }

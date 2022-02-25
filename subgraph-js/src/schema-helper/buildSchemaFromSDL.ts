@@ -226,6 +226,9 @@ export function buildSchemaFromSDL(
       description = definition.description;
     } else if (definition.kind === Kind.SCHEMA_EXTENSION) {
       schemaExtensions.push(definition);
+      schemaDirectives.push(
+        ...(definition.directives ? definition.directives : [])
+      );
     }
   }
 
@@ -279,14 +282,13 @@ export function buildSchemaFromSDL(
 
   let operationTypeMap: { [operation in OperationTypeNode]?: string };
 
-  if (schemaDefinitions.length > 0 || schemaExtensions.length > 0) {
+  const operationTypes = [...schemaDefinitions, ...schemaExtensions]
+    .map(node => node.operationTypes)
+    .filter(isNotNullOrUndefined)
+    .flat();
+
+  if (operationTypes.length > 0) {
     operationTypeMap = {};
-
-    const operationTypes = [...schemaDefinitions, ...schemaExtensions]
-        .map(node => node.operationTypes)
-        .filter(isNotNullOrUndefined)
-        .flat();
-
     for (const { operation, type } of operationTypes) {
       operationTypeMap[operation] = type.name.value;
     }

@@ -11,7 +11,6 @@ import {
   SchemaDefinitionNode,
   Source,
   TypeNode,
-  valueFromASTUntyped,
   ValueNode,
   NamedTypeNode,
   ArgumentNode,
@@ -22,10 +21,10 @@ import {
   Kind,
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
+import { valueFromASTUntyped } from "./values";
 import {
-  BuiltIns,
+  SchemaBlueprint,
   Schema,
-  graphQLBuiltIns,
   newNamedType,
   NamedTypeKind,
   NamedType,
@@ -51,57 +50,56 @@ import {
 } from "./definitions";
 
 function buildValue(value?: ValueNode): any {
-  // TODO: Should we rewrite a version of valueFromAST instead of using valueFromASTUntyped? Afaict, what we're missing out on is
-  // 1) coercions, which concretely, means:
-  //   - for enums, we get strings
-  //   - for int, we don't get the validation that it should be a 32bit value.
-  //   - for ID, which accepts strings and int, we don't get int converted to string.
-  //   - for floats, we get either int or float, we don't get int converted to float.
-  //   - we don't get any custom coercion (but neither is buildSchema in graphQL-js anyway).
-  // 2) type validation.
   return value ? valueFromASTUntyped(value) : undefined;
 }
 
-export function buildSchema(source: string | Source, builtIns: BuiltIns = graphQLBuiltIns, validate: boolean = true): Schema {
-  return buildSchemaFromAST(parse(source), builtIns, validate);
+export type BuildSchemaOptions = {
+  blueprint?: SchemaBlueprint,
+  validate?: boolean,
 }
 
-export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIns = graphQLBuiltIns, validate: boolean = true): Schema {
-  const schema = new Schema(builtIns);
+export function buildSchema(source: string | Source, options?: BuildSchemaOptions): Schema {
+  return buildSchemaFromAST(parse(source), options);
+}
+
+export function buildSchemaFromAST(
+  documentNode: DocumentNode,
+  options?: BuildSchemaOptions,
+): Schema {
+  const schema = new Schema(options?.blueprint);
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
-  const directiveDefinitionNodes = buildNamedTypeAndDirectivesShallow(documentNode, schema);
+  const { directiveDefinitions, schemaDefinitions, schemaExtensions } = buildNamedTypeAndDirectivesShallow(documentNode, schema);
 
   // We then deal with directive definition first. This is mainly for the sake of core schemas: the core schema
   // handling in `Schema` detects that the schema is a core one when it see the application of `@core(feature: ".../core/...")`
   // to the schema element. But that detection necessitates that the corresponding directive definition has been fully
   // populated (and at this point, we don't really know the name of the `@core` directive since it can be renamed, so
   // we just handle all directives).
-  for (const directiveDefinitionNode of directiveDefinitionNodes) {
+  for (const directiveDefinitionNode of directiveDefinitions) {
     buildDirectiveDefinitionInner(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!);
   }
+  for (const schemaDefinition of schemaDefinitions) {
+    buildSchemaDefinitionInner(schemaDefinition, schema.schemaDefinition);
+  }
+  for (const schemaExtension of schemaExtensions) {
+    buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, schema.schemaDefinition.newExtension());
+  }
+
+  schema.blueprint.onDirectiveDefinitionAndSchemaParsed(schema);
 
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
       case 'OperationDefinition':
       case 'FragmentDefinition':
         throw new GraphQLError("Invalid executable definition found while building schema", definitionNode);
-      case 'SchemaDefinition':
-        buildSchemaDefinitionInner(definitionNode, schema.schemaDefinition);
-        break;
-      case 'SchemaExtension':
-        buildSchemaDefinitionInner(
-          definitionNode,
-          schema.schemaDefinition,
-          schema.schemaDefinition.newExtension());
-        break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
       case 'InterfaceTypeDefinition':
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
-        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!);
+        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, schema.blueprint);
         break;
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
@@ -112,23 +110,34 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
         const toExtend = schema.type(definitionNode.name.value)!;
         const extension = toExtend.newExtension();
         extension.sourceAST = definitionNode;
-        buildNamedTypeInner(definitionNode, toExtend, extension);
+        buildNamedTypeInner(definitionNode, toExtend, schema.blueprint, extension);
         break;
     }
   }
 
-  Schema.prototype['forceSetCachedDocument'].call(schema, documentNode);
-  if (validate) {
+  if (options?.validate ?? true) {
     schema.validate();
   }
 
   return schema;
 }
 
-function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema): DirectiveDefinitionNode[] {
-  const directiveDefinitionNodes = [];
+function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema): {
+  directiveDefinitions: DirectiveDefinitionNode[],
+  schemaDefinitions: SchemaDefinitionNode[],
+  schemaExtensions: SchemaExtensionNode[],
+}  {
+  const directiveDefinitions = [];
+  const schemaDefinitions = [];
+  const schemaExtensions = [];
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
+      case 'SchemaDefinition':
+        schemaDefinitions.push(definitionNode);
+        break;
+      case 'SchemaExtension':
+        schemaExtensions.push(definitionNode);
+        break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
       case 'InterfaceTypeDefinition':
@@ -149,12 +158,16 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
         }
         break;
       case 'DirectiveDefinition':
-        directiveDefinitionNodes.push(definitionNode);
+        directiveDefinitions.push(definitionNode);
         schema.addDirectiveDefinition(definitionNode.name.value);
         break;
     }
   }
-  return directiveDefinitionNodes;
+  return {
+    directiveDefinitions,
+    schemaDefinitions,
+    schemaExtensions,
+  }
 }
 
 type NodeWithDirectives = {directives?: ReadonlyArray<DirectiveNode>};
@@ -206,7 +219,9 @@ function buildSchemaDefinitionInner(
       opTypeNode);
   }
   schemaDefinition.sourceAST = schemaNode;
-  schemaDefinition.description = 'description' in schemaNode ? schemaNode.description?.value : undefined;
+  if ('description' in schemaNode) {
+    schemaDefinition.description = schemaNode.description?.value;
+  }
   buildAppliedDirectives(schemaNode, schemaDefinition, extension);
 }
 
@@ -235,7 +250,8 @@ function buildArgs(argumentsNode: NodeWithArguments): Record<string, any> {
 function buildNamedTypeInner(
   definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription,
   type: NamedType,
-  extension?: Extension<any>
+  blueprint: SchemaBlueprint,
+  extension?: Extension<any>,
 ) {
   switch (definitionNode.kind) {
     case 'ObjectTypeDefinition':
@@ -244,6 +260,9 @@ function buildNamedTypeInner(
     case 'InterfaceTypeExtension':
       const fieldBasedType = type as ObjectType | InterfaceType;
       for (const fieldNode of definitionNode.fields ?? []) {
+        if (blueprint.ignoreParsedField(type, fieldNode.name.value)) {
+          continue;
+        }
         const field = fieldBasedType.addField(fieldNode.name.value);
         field.setOfExtension(extension);
         buildFieldDefinitionInner(fieldNode, field);

@@ -16,8 +16,8 @@ import {
   UnionType,
   VariableDefinitions
 } from "./definitions";
-import { ASTNode, GraphQLError, isValidNameError } from "graphql";
-import { isValidValue } from "./values";
+import { assertName, ASTNode, GraphQLError } from "graphql";
+import { isValidValue, valueToString } from "./values";
 import { isIntrospectionName } from "./introspection";
 import { isSubtype, sameType } from "./types";
 
@@ -25,7 +25,6 @@ import { isSubtype, sameType } from "./types";
 // This mostly apply the validations that graphQL-js does in `validateSchema` which we don't reuse because it applies to
 // a `GraphQLSchema` (but note that the bulk of the validation is done by `validateSDL` which we _do_ reuse in `Schema.validate`).
 export function validateSchema(schema: Schema): GraphQLError[] {
-  // TODO: There is quite a few more needed additional graphqQL validations.
   return new Validator(schema).validate();
 }
 
@@ -143,14 +142,15 @@ class Validator {
     if (isIntrospectionName(elt.name)) {
       return;
     }
-    const error = isValidNameError(elt.name);
-    if (error) {
-      this.errors.push(elt.sourceAST ? new GraphQLError(error.message, elt.sourceAST) : error);
+    try {
+      assertName(elt.name);
+    } catch (e) {
+      this.errors.push(elt.sourceAST ? new GraphQLError(e.message, elt.sourceAST) : e);
     }
   }
 
   private validateObjectOrInterfaceType(type: ObjectType | InterfaceType) {
-    if (!type.hasFields(true)) {
+    if (!type.hasFields()) {
       this.errors.push(new GraphQLError(`Type ${type.name} must define one or more fields.`, type.sourceAST));
     }
     for (const field of type.fields()) {
@@ -264,6 +264,12 @@ class Validator {
       this.errors.push(new GraphQLError(
         `Required argument ${arg.coordinate} cannot be deprecated.`,
         sourceASTs(arg.appliedDirectivesOf('deprecated')[0], arg)
+      ));
+    }
+    if (arg.defaultValue !== undefined && !isValidValue(arg.defaultValue, arg, new VariableDefinitions())) {
+      this.errors.push(new GraphQLError(
+        `Invalid default value (got: ${valueToString(arg.defaultValue)}) provided for argument ${arg.coordinate} of type ${arg.type}.`,
+        sourceASTs(arg)
       ));
     }
   }

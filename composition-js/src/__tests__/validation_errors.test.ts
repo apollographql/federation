@@ -1,6 +1,7 @@
-import { CompositionResult, composeServices } from '../compose';
+import { CompositionResult } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
+import { composeAsFed2Subgraphs } from './compose.test';
 
 function errorMessages(r: CompositionResult): string[] {
   return r.errors?.map(e => e.message) ?? [];
@@ -34,7 +35,7 @@ describe('@requires', () => {
       `
     };
 
-    const result = composeServices([subgraphA, subgraphB]);
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
     expect(result.errors).toBeDefined();
     expect(errorMessages(result)).toMatchStringArray([
       `
@@ -81,7 +82,7 @@ describe('@requires', () => {
         }
 
         type T1 {
-          id: Int!
+          id: Int! @shareable
           f1: String @external
           f2: T2! @requires(fields: "f1")
         }
@@ -92,7 +93,7 @@ describe('@requires', () => {
       `
     };
 
-    const result = composeServices([subgraphA, subgraphB]);
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
     expect(result.errors).toBeDefined();
     expect(errorMessages(result)).toMatchStringArray([
       `
@@ -110,5 +111,4 @@ describe('@requires', () => {
       `
     ]);
   });
-
 });

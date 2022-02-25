@@ -1,5 +1,5 @@
-import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '../resolverMap';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'reviews';
 export const url = `https://${name}.api.com.invalid`;
@@ -12,7 +12,7 @@ export const typeDefs = gql`
     | OBJECT
     | UNION
 
-  extend type Query {
+  type Query {
     topReviews(first: Int = 5): [Review]
   }
 
@@ -29,12 +29,12 @@ export const typeDefs = gql`
     body: String
   }
 
-  extend type UserMetadata {
+  type UserMetadata {
     address: String @external
   }
 
-  extend type User @key(fields: "id") @tag(name: "from-reviews") {
-    id: ID! @external
+  type User @key(fields: "id") @tag(name: "from-reviews") {
+    id: ID!
     username: String @external @tag(name: "on-external")
     reviews: [Review]
     numberOfReviews: Int!
@@ -42,34 +42,34 @@ export const typeDefs = gql`
     goodAddress: Boolean @requires(fields: "metadata { address }")
   }
 
-  extend interface Product @tag(name: "from-reviews") {
+  interface Product @tag(name: "from-reviews") {
     reviews: [Review]
   }
 
-  extend type Furniture implements Product @key(fields: "upc") {
-    upc: String! @external
+  type Furniture implements Product @key(fields: "upc") {
+    upc: String!
     reviews: [Review]
   }
 
-  extend type Book implements Product @key(fields: "isbn") {
-    isbn: String! @external
+  type Book implements Product @key(fields: "isbn") {
+    isbn: String!
     reviews: [Review]
     similarBooks: [Book]! @external
     relatedReviews: [Review!]! @requires(fields: "similarBooks { isbn }")
   }
 
-  extend interface Vehicle {
+  interface Vehicle {
     retailPrice: String
   }
 
-  extend type Car implements Vehicle @key(fields: "id") {
-    id: String! @external
+  type Car implements Vehicle @key(fields: "id") {
+    id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
   }
 
-  extend type Van implements Vehicle @key(fields: "id") {
-    id: String! @external
+  type Van implements Vehicle @key(fields: "id") {
+    id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
   }
@@ -80,20 +80,20 @@ export const typeDefs = gql`
     stars: Int @deprecated(reason: "Stars are no longer in use")
   }
 
-  extend type Mutation {
+  type Mutation {
     reviewProduct(input: ReviewProduct!): Product
     updateReview(review: UpdateReviewInput!): Review
     deleteReview(id: ID!): Boolean
   }
 
   # Value type
-  type KeyValue {
+  type KeyValue @shareable {
     key: String!
     value: String!
   }
 
   # Value type
-  type Error {
+  type Error @shareable {
     code: Int
     message: String
   }
