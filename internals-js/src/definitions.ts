@@ -1091,6 +1091,9 @@ export class Schema {
     Element.prototype['setParent'].call(this._schemaDefinition, this);
     builtIns.addBuiltInTypes(this);
     builtIns.addBuiltInDirectives(this);
+    // horrible hack to manually add the _Any type so we can use it later to build the _entities query
+    const _any = new ScalarType("_Any", false)
+    this.addType(_any);
     this.isConstructed = true;
   }
 
@@ -1264,7 +1267,11 @@ export class Schema {
     const existing = this.type(type.name);
     // Like for directive, we let use shadow built-in types, but validation will ensure the definition is compatible.
     if (existing && !existing.isBuiltIn) {
-      throw error(`Type ${type} already exists in this schema`);
+      // horrible hack to avoid an error when trying to add the _Any type, because
+      // I added it manually at graph creation
+      //throw error(`Type ${type} already exists in this schema`);
+      console.log(`Type ${type} already exists in this schema`)
+      return type;
     }
     if (type.isAttached()) {
       // For convenience, let's not error out on adding an already added type.
