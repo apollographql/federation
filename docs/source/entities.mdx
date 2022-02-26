@@ -50,7 +50,7 @@ type Product @key(fields: "id") {
 
 The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In this example, the `Product` entity's primary key is its `id` field.
 
-**Any given instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your gateway to associate data from _different_ subgraphs with the _same_ entity instance.
+**Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your gateway to associate data from _different_ subgraphs with the _same_ entity instance.
 
 > An entity's `@key` cannot include fields that return a union or interface.
 
@@ -108,7 +108,7 @@ That means the following query is valid against our federated graph:
 
 ```graphql{6}
 query GetReviewsAndProducts {
-  latestReviews {
+  latestReviews { # Defined in Reviews
     score
     product {
       id
@@ -207,6 +207,10 @@ A reference resolver (always called `__resolveReference`) provides the gateway d
 
 After fetching the `price` field from Products via a reference resolver, the gateway can use the shared `@key` field `id` to intelligently merge the data it obtained from its two queries into a single result and return that result to the querying client.
 
+### Default reference resolver
+
+TODO
+
 ## Extending entities
 
 A subgraph can add its own fields to an entity that's already defined in other subgraphs. This is called **extending** the entity:
@@ -262,7 +266,7 @@ type Product @key(fields: "id") {
 
 Notice that in addition to adding the `reviews` field to our stub, we've added the `@key` directive. This directive is required if a subgraph defines at least one _non-`@key`_ field for an entity (which is now the case).
 
-Whenever a subgraph extends an entity with a new field, it's also responsible for _resolving_ that field. The gateway is automatically aware of this responsibility. In our example:
+Whenever a subgraph extends an entity with a new field, it's also responsible for _resolving_ that field. The gateway is automatically aware of this responsibility. In our example: TODO
 
 1. The gateway first fetches the `upc` field for each `Product` from the `products` subgraph.
 2. The gateway then passes those `upc` values to the `reviews` subgraph, where you can access them on the object passed to your `Product.reviews` resolver:
