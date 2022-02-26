@@ -3,11 +3,17 @@ title: Advanced topics on federated entities
 sidebar_title: Entities (advanced)
 ---
 
-## Advanced primary keys
+import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
 
-### Multiple primary keys
+This article describes complex behaviors of federated entities beyond those covered in [entity basics](./entities/).
 
-You can define more than one primary key for an entity, when applicable.
+## Advanced `@key`s
+
+A single entity can have multiple `@key`s. Additionally, a `@key` can include multiple fields, and even arbitrarily nested fields.
+
+### Multiple `@key`s
+
+You can define more than one `@key` for an entity, when applicable.
 
 In this example, a `Product` entity can be uniquely identified by either its `id` _or_ its `sku`:
 
@@ -23,7 +29,7 @@ type Product @key(fields: "id") @key(fields: "sku") {
 
 This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a `reviews` subgraph might refer to products by their ID, whereas an `inventory` subgraph might use SKUs.
 
-A subgraph that [references an entity](./entities/#referencing-an-entity) without extending it can include the fields of any valid `@key` in its stub definition:
+A subgraph that [references an entity](./entities/#referencing-an-entity) without extending it can include the fields of any `@key` in its stub definition:
 
 ```graphql
 # Reviews subgraph
@@ -40,9 +46,9 @@ type Product {
 
 ```
 
-### Compound primary keys
+### Compound `@key`s
 
-A single primary key can consist of multiple fields, and even _nested_ fields.
+A single `@key` can consist of multiple fields, and even _nested_ fields.
 
 In this example, the `User` entity's primary key consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
 
@@ -59,7 +65,7 @@ type Organization {
 
 ## Migrating entities and fields
 
-As your federated graph grows, you might decide that you want an entity (or a particular field of an entity) to originate in a different subgraph. This section describes how to perform these migrations.
+As your federated graph grows, you might decide that you want to move an entity's definition (or a particular _field_ of an entity) to a different subgraph. This section describes how to perform these migrations.
 
 ### Entity migration
 
@@ -81,7 +87,7 @@ type Payment {
 
 </CodeColumns>
 
-Then, we add a dedicated Billing subgraph to our federated graph. It now makes sense for the `Bill` entity to originate in the Billing subgraph instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
+Then, we add a dedicated Billing subgraph to our federated graph. It now makes sense to define the `Bill` entity there instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
 
 <CodeColumns>
 
@@ -106,21 +112,7 @@ The exact steps depend on how you perform schema composition:
 
 <ExpansionPanel title="With Rover CLI composition">
 
-1. In the Billing subgraph's schema, define the `Bill` entity just as it's defined in the Payments subgraph (do _not_ extend it):
-
-    <CodeColumns>
-
-    ```graphql
-    # Payments subgraph
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-
-    type Payment {
-      # ...
-    }
-    ```
+1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
     ```graphql{2-5}
     # Billing subgraph
@@ -130,15 +122,11 @@ The exact steps depend on how you perform schema composition:
     }
     ```
 
-    </CodeColumns>
-
-    * Note that if you perform composition at this point, it produces an error because the `Bill` entity can't originate in more than one subgraph. That's okay! We aren't running composition yet, and we'll resolve this error in a couple of steps.
-
-2. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
+3. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
 
 3. Deploy the updated Billing subgraph to your environment.
 
-    * Again, this technically deploys a composition error. However, your gateway isn't aware of this! It's still using the original supergraph schema, which indicates that `Bill` originates only in the Payments subgraph.
+    At this point, the Billing subgraph can successfully resolve `Bill` objects, but the gateway doesn't _know_ this yet because its supergraph schema hasn't been updated.
 
 4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
 
@@ -161,10 +149,8 @@ The exact steps depend on how you perform schema composition:
 
     </CodeColumns>
 
-    * This takes care of the composition error in your local environment.
-
 5. Compose an updated supergraph schema with your usual configuration using `rover supergraph compose`.
-    * This updated supergraph schema indicates that `Bill` originates in the Billing subgraph.
+    * This updated supergraph schema indicates that the Billing subgraph resolves `Bill` entities, and the Payments subgraph _doesn't_.
 
 6. Assuming CI completes successfully, deploy an updated version of your _gateway_ with the new supergraph schema.
     * When this deployment completes, the gateway begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
@@ -172,13 +158,13 @@ The exact steps depend on how you perform schema composition:
 7. Deploy an updated version of your Payments subgraph without the `Bill` entity.
     * At this point it's safe to remove this definition, because the gateway is never resolving `Bill` with the Payments subgraph.
 
-We're done! `Bill` now originates in a new subgraph, and it was resolvable during each step of the migration process.
+We're done! `Bill` is now resolved in a new subgraph, and it was resolvable during each step of the migration process.
 
 </ExpansionPanel>
 
 <ExpansionPanel title="With managed federation">
 
-1. In the Billing subgraph's schema, define the `Bill` entity just as it's defined in the Payments subgraph (do _not_ extend it):
+1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
     <CodeColumns>
 
@@ -206,9 +192,9 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 2. Publish the updated Billing subgraph schema to Apollo.
 
-    * Note that you're publishing a composition error, because the `Bill` entity now originates in more than one subgraph. This creates a failed [launch](https://www.apollographql.com/docs/studio/launches/) in Apollo Studio. That's okay! Apollo Uplink continues to serve the most recent _valid_ supergraph schema to your gateway.
+    * Note that you're publishing a composition error, because multiple subgraphs define the same fields of `Bill` without marking them [`@shareable`](#using-shareable). This creates a failed [launch](https://www.apollographql.com/docs/studio/launches/) in Apollo Studio. That's okay! Apollo Uplink continues to serve the most recent _valid_ supergraph schema to your gateway.
 
-3. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
+3. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
 
 4. Deploy the updated Billing subgraph to your environment.
 
@@ -237,13 +223,13 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 6. Deploy the updated Payments subgraph to your environment.
 
-    * This resolves the composition error, because `Bill` now originates in a single subgraph. Apollo composes an updated supergraph schema, which your gateway automatically obtains when it polls the Apollo Uplink.
+    * This resolves the composition error, because all `Bill` fields are now resolved by a single subgraph. Apollo composes an updated supergraph schema, which your gateway automatically obtains when it polls the Apollo Uplink.
 
 We're done! `Bill` now originates in a new subgraph, and it was resolvable during each step of the migration process.
 
 </ExpansionPanel>
 
-<ExpansionPanel title="With `IntrospectAndCompose`">
+<ExpansionPanel title="With IntrospectAndCompose">
 
 > ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](./gateway/#limitations-of-introspectandcompose).
 
@@ -251,7 +237,7 @@ When you provide `IntrospectAndCompose` to `ApolloGateway`, it performs composit
 
 To minimize downtime for your graph, you need to make sure all of your subgraph schemas successfully compose whenever your gateway starts up. When migrating an entity, this requires a **coordinated deployment** of your modified subgraphs and a restart of the gateway itself.
 
-1. In the Billing subgraph's schema, define the `Bill` entity just as it's defined in the Payments subgraph (do _not_ extend it):
+1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
     <CodeColumns>
 
@@ -277,7 +263,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
 
     </CodeColumns>
 
-2. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
+2. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
 
 3. In the Payments subgraph's schema, remove the `Bill` entity and its associated resolvers:
 
@@ -338,8 +324,8 @@ type Product @key(fields: "id") {
 
 ```graphql
 # Inventory subgraph
-extend type Product @key(fields: "id") {
-  id: ID! @external
+type Product @key(fields: "id") {
+  id: ID!
   inStock: Boolean!
 }
 ```
@@ -349,7 +335,7 @@ extend type Product @key(fields: "id") {
 
 We can perform this migration with the following steps (additional commentary on each step is provided in [Entity migration](#entity-migration)):
 
-1. In the Inventory subgraph's schema, [extend](#extending-entities) the `Product` entity to add the `inStock` field:
+1. In the Inventory subgraph's schema, define the `Product` entity and include the `inStock` field:
 
     <CodeColumns>
 
@@ -363,8 +349,8 @@ We can perform this migration with the following steps (additional commentary on
 
     ```graphql
     # Inventory subgraph
-    extend type Product @key(fields: "id") {
-      id: ID! @external
+    type Product @key(fields: "id") {
+      id: ID!
       inStock: Boolean!
     }
     ```
@@ -390,8 +376,8 @@ We can perform this migration with the following steps (additional commentary on
 
     ```graphql
     # Inventory subgraph
-    extend type Product @key(fields: "id") {
-      id: ID! @external
+    type Product @key(fields: "id") {
+      id: ID!
       inStock: Boolean!
     }
     ```
@@ -408,28 +394,32 @@ We can perform this migration with the following steps (additional commentary on
 
 ## Extending an entity with computed fields
 
-When you [extend an entity](#extending-entities), you can define fields that depend on fields in the entity's originating subgraph. For example, a `shipping` subgraph might extend the `Product` entity with a `shippingEstimate` field, which is calculated based on the product's `size` and `weight`:
+You can define fields of an entity that are computed based on the values of _other_ entity fields that are resolved by a _different_ subgraph.
 
-```graphql{5}:title=shipping
-extend type Product @key(fields: "sku") {
-  sku: ID! @external
+For example, this Shipping subgraph adds a `shippingEstimate` field to the `Product` entity. This field is calculated based on the product's `size` and `weight`, which are defined in the Products subgraph:
+
+```graphql{4-6}
+# Shipping subgraph
+type Product @key(fields: "id") {
+  id: ID!
   size: Int @external
   weight: Int @external
   shippingEstimate: String @requires(fields: "size weight")
 }
 ```
 
-As shown, you use the `@requires` directive to indicate which fields (and subfields) from the entity's originating subgraph are required.
+As shown, you use the `@requires` directive to indicate which fields (and subfields) from _other_ subgraphs are required. You also need to _define_ the required fields and apply the `@external` directive to them. This directive tells the gateway, "This subgraph knows that these fields exist, but it _can't_ resolve them itself."
 
->You **cannot** require fields that are defined in a subgraph besides the entity's originating subgraph.
+In the above example, if a query requests a product's `shippingEstimate`, the gateway does the following, in order:
 
-In the above example, if a client requests a product's `shippingEstimate`, the gateway will first obtain the product's `size` and `weight` from the `products` subgraph, then pass those values to the `shipping` subgraph. This enables you to access those values directly from your resolver:
+1. It queries the Products subgraph for the product's `size` and `weight`.
+2. It queries the Shipping subgraph for the product's `shippingEstimate`. The `size` and `weight` are included in the `Product` object passed to the resolver for `shippingEstimate`:
 
 ```js{4}
 {
   Product: {
     shippingEstimate(product) {
-      return computeShippingEstimate(product.sku, product.size, product.weight);
+      return computeShippingEstimate(product.id, product.size, product.weight);
     }
   }
 }
@@ -439,21 +429,24 @@ In the above example, if a client requests a product's `shippingEstimate`, the g
 
 If a computed field `@requires` a field that returns an object type, you also specify which _subfields_ of that object are required. You list those subfields with the following syntax:
 
-```graphql{4}:title=shipping
-extend type Product @key(fields: "sku") {
-  sku: ID! @external
+```graphql{4}
+# Shipping subgraph
+type Product @key(fields: "id") {
+  id: ID!
   dimensions: ProductDimensions @external
   shippingEstimate: String @requires(fields: "dimensions { size weight }")
 }
 ```
 
-In this modification of the previous example, `size` and `weight` are now subfields of a `ProductDimensions` object. Note that the `ProductDimensions` object must be defined in both the entity's extending subgraph _and_ its originating subgraph, either as an entity or as a [value type](./value-types/).
+In this modification of the previous example, `size` and `weight` are now subfields of a `ProductDimensions` object. Note that the `ProductDimensions` type must be defined in both the Products _and_ Shipping subgraphs for this to be valid.
 
 ## Resolving another subgraph's field
 
-By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with a few exceptions, like `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
+By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with some exceptions, like `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
 
-You can enable multiple subgraphs to resolve a particular entity field with one of the following directives:
+You can enable multiple subgraphs to resolve a particular entity field. **This is a completely optional optimization.** When the gateway plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
+
+You achieve this with one of the following directives:
 
 * [`@shareable`](#using-shareable)
 * [`@provides`](#using-provides)
@@ -467,35 +460,76 @@ graph TB;
   resolve--"Only certain query paths"-->provides("@provides");
 ```
 
-> If you aren't sure whether your subgraph can always resolve a field, see [Using `@provides`](#using-provides) for an example of a subgraph that _can't_.
+If you aren't sure whether your subgraph can always resolve a field, see [Using `@provides`](#using-provides) for an example of a subgraph that _can't_.
+
+> ⚠️ **Important:** If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
 ### Using `@shareable`
 
-TODO
+The `@shareable` directive indicates that a particular field can be resolved by more than one subgraph:
 
-### Using `@provides`
+<CodeColumns>
 
-When you [extend an entity](./entities/#extending-an-entity) in this case, you can specify that the extending subgraph `@provides` the field, like so:
-
-```graphql{4,10-11}:title=inventory
-# Inventory subgraph
-
-type InStockCount {
-  product: Product! @provides(fields: "name price")
-  quantity: Int!
-}
-
-extend type Product @key(fields: "sku") {
-  sku: String! @external
-  name: String @external
-  price: Int @external
+```graphql{4}
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  price: Int
 }
 ```
 
-**This is a completely optional optimization.** When the gateway plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
+```graphql{4}
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  inStock: Boolean!
+}
+```
 
-Keep the following in mind when using the `@provides` directive:
+</CodeColumns>
 
-* Each subgraph that `@provides` a field must also define a resolver for that field. **That resolver's behavior must match the behavior of the resolver in the field's originating subgraph.**
-* When an entity's field can be fetched from multiple subgraphs, there is no guarantee as to _which_ subgraph will resolve that field for a particular query.
-* If a subgraph `@provides` a field, it must still list that field as `@external`, because the field originates in another subgraph.
+In this example, both the Products and Inventory subgraphs can resolve `Product.name`. This increases the likelihood that a client's query can be resolved by fewer total subgraphs.
+
+> If a field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or `@external` in _every_ subgraph that defines it. Otherwise, composition fails.
+
+
+### Using `@provides`
+
+The `@provides` directive indicates that a particular field can be resolved by a subgraph _at a particular query path_. Let's look at an example.
+
+Here, our Products subgraph defines a `Product.name` field and marks it `@shareable` (this means other subgraphs are allowed to resolve it):
+
+```graphql{4}
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  price: Int
+}
+```
+
+Meanwhile, our Inventory subgraph can _also_ resolve a product's name, but _only_ when that product is part of an `InStockCount`:
+
+```graphql{4,10}:title=inventory
+# Inventory subgraph
+
+type InStockCount {
+  product: Product! @provides(fields: "name")
+  quantity: Int!
+}
+
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @external
+  inStock: Boolean!
+}
+```
+
+Here we're using two directives in combination: `@provides` and `@external`.
+
+* The `@provides` directive tells the gateway, "This subgraph can resolve the `name` of any `Product` object returned by `InStockCount.product`."
+* The `@external` directive tells the gateway, "This subgraph _can't_ resolve the `name` of a `Product` object, _except_ wherever indicated by `@provides`."
+
+> Note that to include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in every subgraph that defines it.
