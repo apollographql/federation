@@ -160,10 +160,10 @@ type Product @key(fields: "upc") {
   nameLowerCase: String!
 }
 
-# Review subgraph
+# Reviews subgraph
 
-extend type Product @key(fields: "upc") {
-  upc: ID! @external
+type Product @key(fields: "upc") {
+  upc: ID!
   reviews: [Review]! @requires(fields: "nameLowercase")
   nameLowercase: String! @external
 }
@@ -182,8 +182,8 @@ type Product @key(fields: "upc") {
 
 # Reviews subgraph
 
-extend type Product @key(fields: "upc") {
-  upc: ID! @external
+type Product @key(fields: "upc") {
+  upc: ID!
   nameLowercase: String! @external
   name: String! @external
   reviews: [Review]! @requires(fields: "name")

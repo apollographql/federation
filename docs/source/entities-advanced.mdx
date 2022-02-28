@@ -29,19 +29,19 @@ type Product @key(fields: "id") @key(fields: "sku") {
 
 This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a `reviews` subgraph might refer to products by their ID, whereas an `inventory` subgraph might use SKUs.
 
-A subgraph that [references an entity](./entities/#referencing-an-entity) without extending it can include the fields of any `@key` in its stub definition:
+A subgraph that [references an entity](./entities/#referencing-an-entity) without contributing any fields of its own can include the fields of any `@key` in its stub definition:
 
 ```graphql
 # Reviews subgraph
 
 # Either:
 type Product {
-  id: ID!
+  id: ID! @shareable
 }
 
 # Or:
 type Product {
-  sku: String!
+  sku: String! @shareable
 }
 
 ```
@@ -392,7 +392,7 @@ We can perform this migration with the following steps (additional commentary on
 
 5. Deploy the updated Products subgraph to your environment.
 
-## Extending an entity with computed fields
+## Contributing computed entity fields
 
 You can define fields of an entity that are computed based on the values of _other_ entity fields that are resolved by a _different_ subgraph.
 
@@ -462,9 +462,20 @@ graph TB;
 
 If you aren't sure whether your subgraph can always resolve a field, see [Using `@provides`](#using-provides) for an example of a subgraph that _can't_.
 
-> ⚠️ **Important:** If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
+### Ensure resolver consistency
+
+If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results to clients depending on which subgraph resolves the field.
+
+This is especially important to keep in mind when making changes to an _existing_ resolver. If you don't make the resolver changes to each subgraph simultaneously, clients might observe inconsistent results.
+
+Common inconsistent resolver behaviors to look out for include:
+
+* Returning a different default value
+* Throwing different errors in the same scenario
 
 ### Using `@shareable`
+
+> ⚠️ Before using `@shareable`, see [Ensure resolver consistency](#ensure-resolver-consistency).
 
 The `@shareable` directive indicates that a particular field can be resolved by more than one subgraph:
 
@@ -490,12 +501,13 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-In this example, both the Products and Inventory subgraphs can resolve `Product.name`. This increases the likelihood that a client's query can be resolved by fewer total subgraphs.
+In this example, both the Products and Inventory subgraphs can resolve `Product.name`. This means that a query that includes `Product.name` might be resolvable by fetching from fewer total subgraphs.
 
 > If a field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or `@external` in _every_ subgraph that defines it. Otherwise, composition fails.
 
-
 ### Using `@provides`
+
+> ⚠️ Before using `@provides`, see [Ensure resolver consistency](#ensure-resolver-consistency).
 
 The `@provides` directive indicates that a particular field can be resolved by a subgraph _at a particular query path_. Let's look at an example.
 
@@ -532,4 +544,10 @@ Here we're using two directives in combination: `@provides` and `@external`.
 * The `@provides` directive tells the gateway, "This subgraph can resolve the `name` of any `Product` object returned by `InStockCount.product`."
 * The `@external` directive tells the gateway, "This subgraph _can't_ resolve the `name` of a `Product` object, _except_ wherever indicated by `@provides`."
 
-> Note that to include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in every subgraph that defines it.
+#### Rules for using `@provides`
+
+* If a subgraph includes a field in any `@provides` directive, that subgraph _must_ mark the field as `@external` and _must not_ mark it as `@shareable`.
+  * Remember, a `@shareable` field can _always_ be resolved by a particular subgraph, which removes the need for `@provides`.
+* To include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in _every_ subgraph that defines it.
+
+Violating any of these rules causes composition to fail.

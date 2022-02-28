@@ -238,7 +238,7 @@ type User @key(fields: "id") {
 
 ```graphql
 # Subgraph B
-extend type User @key(fields: "id") {
+type User @key(fields: "id") {
   id: ID!
   age: Int!
 }

@@ -52,7 +52,10 @@ The `@key` directive defines the entity's **primary key**, which consists of one
 
 **Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your gateway to associate data from _different_ subgraphs with the _same_ entity instance.
 
-> An entity's `@key` cannot include fields that return a union or interface.
+**An entity's `@key` _cannot_ include:**
+
+* Fields that return a union or interface
+* Fields that take arguments
 
 ## Referencing an entity
 
@@ -69,7 +72,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-With this definition in place, the Reviews subgraph can then add a field of type `Product` to its `Review` type, like so:
+With this definition in place, we can create a Reviews subgraph that includes a field of type `Product` to its `Review` type, like so:
 
 ```graphql{3}
 # Reviews subgraph
@@ -80,13 +83,13 @@ type Review {
 
 # This is a required "stub" of the Product entity (see below)
 type Product {
-  id: ID!
+  id: ID! @shareable
 }
 ```
 
 To reference the `Product` entity, the Reviews subgraph needs to define a **stub** of it to make its own schema valid. The stub _doesn't_ need to include all `Product` fields. It _only_ needs to include `id`, because that's the entity's `@key` field. Without this field, the gateway doesn't know how to fetch the correct `Product` for a given `Review`.
 
-> Notice that the stub doesn't even need a `@key` directive! That's because the Reviews subgraph isn't adding any of its _own_ fields to `Product`. We'll see that later in [Extending entities](#extending-entities).
+> Notice that the stub doesn't even need a `@key` directive! That's because the Reviews subgraph isn't adding any of its _own_ fields to `Product`. We'll see that later in [Contributing entity fields](#contributing-entity-fields).
 
 This syntax has several benefits:
 
@@ -131,13 +134,17 @@ To solve this, we add a resolver to _each_ subgraph:
 
 In our example, the Reviews subgraph needs to define a resolver for its stub version of the `Product` entity. The Reviews subgraph doesn't know much about `Product`s, but fortunately, it doesn't need to. All it needs to do is return data for the fields it _does_ know about, like so:
 
-```js{3-10}:title=resolvers.js
+```js{9-13}:title=resolvers.js
 // Reviews subgraph
 const resolvers = {
+  Query: {
+    latestReviews(_, __, { db }) {
+      return db.getLatestReviews();
+    }
+  },
   Review: {
     product(review) {
       return {
-        __typename: "Product",
         id: review.productID
       };
     }
@@ -146,10 +153,12 @@ const resolvers = {
 }
 ```
 
-This resolver's return value is a **representation** of a `Product` entity. A representation always consists of:
+In this example, the `Query.latestReviews` resolver fetches a list of the latest reviews from a database. The returned list includes each review's associated `productID`, which is then passed to the resolver for each `Review.product`.
 
-* A `__typename` field
+The `Review.product` resolver uses the `productID` to return a **representation** of a `Product` entity. A representation always consists of:
+
 * Values for the entity's `@key` fields (`id` in this example)
+* The `__typename` field (Apollo Server adds this automatically when resolving any object type)
 
 Because an entity can be uniquely identified by its `@key` fields, this is all the information the gateway needs to fetch additional fields for a particular `Product` object.
 
@@ -201,9 +210,11 @@ const resolvers = {
 
 > In the example above, `fetchProductByID` is a hypothetical function that fetches a `Product`'s full details from a data store based on its `id`.
 
-A reference resolver (always called `__resolveReference`) provides the gateway direct access to a particular entity's fields, without needing to use a custom query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations), which is why we created the resolver in the Reviews subgraph first!
+A reference resolver (always named `__resolveReference` if you're using Apollo Server for your subgraphs) provides the gateway direct access to a particular entity's fields, without needing to use a custom query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations), which is why we created the resolver in the Reviews subgraph first!
 
-> To learn more about `__resolveReference`, see the [API docs](/api/apollo-subgraph/#__resolvereference).
+> To learn more about `__resolveReference` in Apollo Server, see the [API docs](/api/apollo-subgraph/#__resolvereference).
+>
+> If you're using another [subgraph-compatible library](./other-servers/), see its documentation for creating reference resolvers.
 
 After fetching the `price` field from Products via a reference resolver, the gateway can use the shared `@key` field `id` to intelligently merge the data it obtained from its two queries into a single result and return that result to the querying client.
 
@@ -211,9 +222,9 @@ After fetching the `price` field from Products via a reference resolver, the gat
 
 TODO
 
-## Extending entities
+## Contributing entity fields
 
-A subgraph can add its own fields to an entity that's already defined in other subgraphs. This is called **extending** the entity:
+Any number of subgraphs can contribute their own fields to an entity definition. Here, the Products and Inventory subgraphs contribute different fields to the `Product` entity:
 
 <CodeColumns>
 
@@ -236,7 +247,7 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-When a subgraph extends an entity, no _other_ subgraph knows about the added fields—only the gateway does thanks to the composed supergraph schema.
+When a subgraph contributes entity fields, no _other_ subgraph knows about those fields—only the gateway does thanks to the composed supergraph schema.
 
 
 ### Example #1
@@ -266,7 +277,7 @@ type Product @key(fields: "id") {
 
 Notice that in addition to adding the `reviews` field to our stub, we've added the `@key` directive. This directive is required if a subgraph defines at least one _non-`@key`_ field for an entity (which is now the case).
 
-Whenever a subgraph extends an entity with a new field, it's also responsible for _resolving_ that field. The gateway is automatically aware of this responsibility. In our example: TODO
+Whenever a subgraph contributes an entity field, it's also responsible for _resolving_ that field. The gateway is automatically aware of this responsibility. In our example: TODO
 
 1. The gateway first fetches the `upc` field for each `Product` from the `products` subgraph.
 2. The gateway then passes those `upc` values to the `reviews` subgraph, where you can access them on the object passed to your `Product.reviews` resolver:
@@ -284,7 +295,7 @@ const resolvers = {
 
 ### Example #2
 
-Let's say we want to be able to query for the `inStock` status of a product. That information lives in the Inventory subgraph, so we'll extend the entity there:
+Let's say we want to be able to query for the `inStock` status of a product. That information lives in the Inventory subgraph, so we'll contribute the field there:
 
 ```graphql{4}:title=inventory
 # Inventory subgraph

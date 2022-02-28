@@ -27,7 +27,7 @@ graph BT;
 
 Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
 
-The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. Each subgraph's schema can even reference and extend types that are also defined in _another_ subgraph.
+The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives.
 
 This architecture enables clients to query data from _all_ subgraphs _simultaneously_, just by querying the gateway. It also enables different teams to own independent parts of a unified graph.
 
@@ -100,7 +100,7 @@ enum CURRENCY_CODE {
   EUR
 }
 
-extend type Query {
+type Query {
   bestSellers(category: ProductCategory = ALL): [Product]
   categories: [Department]
   product(id: ID!): Product
@@ -125,7 +125,7 @@ type ReviewSummary {
   averageRating: Float
 }
 
-extend type Product @key(fields: "id") {
+type Product @key(fields: "id") {
   id: ID! @external
   reviews: [Review]
   reviewSummary: ReviewSummary
@@ -289,7 +289,7 @@ Do the following in your project's root directory:
       EUR
     }
 
-    extend type Query {
+    type Query {
       bestSellers(category: ProductCategory = ALL): [Product]
       categories: [Department]
       product(id: ID!): Product
@@ -314,8 +314,8 @@ Do the following in your project's root directory:
       averageRating: Float
     }
 
-    extend type Product @key(fields: "id") {
-      id: ID! @external
+    type Product @key(fields: "id") {
+      id: ID!
       reviews: [Review]
       reviewSummary: ReviewSummary
     }

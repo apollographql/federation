@@ -53,7 +53,7 @@ There are detailed examples below that illustrate the resulting behavior when ov
 
 ## Example `maxAge` calculations
 
-### Entity extensions
+### Multi-subgraph entities
 
 Consider the following subgraph schemas:
 
@@ -78,8 +78,8 @@ type Mission {
   endDate: String
 }
 
-extend type Astronaut @key(fields: "id") {
-  id: ID! @external
+type Astronaut @key(fields: "id") {
+  id: ID!
   missions: [Mission]
 }
 
@@ -108,7 +108,7 @@ The `cache-control` header in the response from the astronauts subgraph will be 
 
 The missions subgraph, however, does not include a `cache-control` header in its response to the gateway, thus indicating that it is not cacheable. Consequently, the entire response sent to the client is not cacheable. At first glance, this behavior might seem unexpected because the `@cacheControl(maxAge: 10)` directive is applied to the `mission` root query field. But upon closer inspection, we see that this field returns the `Mission` type which contains a non-scalar `Astronaut` field and this type will have a [default `maxAge` of `0` applied](https://www.apollographql.com/docs/apollo-server/performance/caching/#default-maxage).
 
-The missions subgraph isn't aware of the cache hint set on the `Astronaut` type in its owning subgraph, so there are two ways to address this. The first option is to apply an `@cacheControl` directive to the `Astronaut` entity extension with the `inheritMaxAge` argument set to `true`:
+The missions subgraph isn't aware of the cache hint set on the `Astronaut` type in the astronauts subgraph, so there are two ways to address this. The first option is to apply the `@cacheControl` directive to the `Astronaut` entity in the missions subgraph, with the `inheritMaxAge` argument set to `true`:
 
 ```graphql{3}:title=Missions%20Subgraph
 type Mission {
@@ -122,16 +122,16 @@ type Mission {
 
 Applying this argument will ensure that the `Astronaut` type inherits the `maxAge` set for its parent field (in this example, that's the `mission` field).
 
-The second option is to set an `@cacheControl` directive for the `Astronaut` entity extension with the appropriate `maxAge` value instead:
+The second option is to set the `@cacheControl` directive for the `Astronaut` entity with the appropriate `maxAge` value instead:
 
 ```graphql{1}:title=Missions%20Subgraph
-extend type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
-  id: ID! @external
+type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
+  id: ID!
   missions: [Mission]
 }
 ```
 
-Setting the `maxAge` property on the extended `Astronaut` type in the missions subgraph raises an important consideration about whether subgraphs should explicitly set these values for any entity types that they extend. In most cases, it's likely be preferable to apply `@cacheControl(inheritMaxAge: true)` wherever an extended entity type is used as a field's return type to avoid ambiguity. Depending on your requirements, you might want to disallow this entirely using custom linting for your subgraphs to ensure that entity type extensions do not set the `maxAge` or `scope` arguments when applying the `@cacheControl` directive.
+Setting the `maxAge` property on the `Astronaut` type in the missions subgraph raises an important consideration about whether _every_ subgraph should explicitly set these values for any entity types that they include. In most cases, it's likely preferable to apply `@cacheControl(inheritMaxAge: true)` wherever an entity type is used as a field's return type to avoid ambiguity. Depending on your requirements, you might want to disallow this entirely using custom linting for your subgraphs to ensure that multiple subgraphs do not set the `maxAge` or `scope` arguments when applying the `@cacheControl` directive.
 
 ### Gateway override
 
@@ -158,8 +158,8 @@ type Mission {
   endDate: String
 }
 
-extend type Astronaut @key(fields: "id") {
-  id: ID! @external
+type Astronaut @key(fields: "id") {
+  id: ID!
   missions: [Mission]
 }
 

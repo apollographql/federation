@@ -73,21 +73,21 @@ type Review {
   product: Product
 }
 
-extend type User @key(fields: "id") {
-  id: ID! @external
+type User @key(fields: "id") {
+  id: ID!
   username: String! @external
   reviews: [Review]
 }
 
-extend type Product @key(fields: "upc") {
-  upc: String! @external
+type Product @key(fields: "upc") {
+  upc: String!
   reviews: [Review]
 }
 ```
 
 </CodeColumns>
 
-As these schemas show, a subgraph can define and even extend types that are defined in _other_ subgraphs. For example, the Reviews subgraph extends the `User` type (from the Users subgraph) and adds a `reviews` field to it.
+As these schemas show, multiple subgraphs can contribute unique fields to a single type. For example, the Products subgraph and the Reviews subgraph both contribute fields to the `Product` type.
 
 ## Supergraph schema
 
