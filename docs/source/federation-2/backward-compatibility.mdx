@@ -58,7 +58,7 @@ This `@key` should _break_ composition because it doesn't include at least one s
 
 #### Invalid `@requires` directives
 
-An entity's extending subgraph can use the `@requires` directive to define [computed fields](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) that depend on fields and subfields in the entity's _originating_ subgraph:
+A subgraph can mark an entity field with the [`@requires` directive](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) to indicate that it depends on fields and subfields from _another_ subgraph:
 
 <p style="margin-bottom: 0">✅</p>
 

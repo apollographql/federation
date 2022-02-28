@@ -56,8 +56,8 @@ type Cart @key(fields:"id"){
   email: String
 }
 
-extend type User @key(fields:"id") {
-  id: ID! @external
+type User @key(fields:"id") {
+  id: ID!
   activeCart: Cart
 }
 ```

@@ -59,7 +59,7 @@ npm install @apollo/subgraph
 
 ### Defining an entity
 
-As part of our federated architecture, we want _other_ subgraphs to be able to extend the `User` type this subgraph defines. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
+As part of our federated architecture, we want _other_ subgraphs to be able to contribute fields to the `User` type. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
 
 ```js:title=index.js
 const { ApolloServer, gql } = require('apollo-server');
