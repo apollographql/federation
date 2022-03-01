@@ -17,6 +17,7 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
 
 * Most importantly, **Federation 2 is backward compatible with most Federation 1 graphs.** You can probably move your existing graph to Federation 2 without needing to make any changes.
     * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-for-federation-2)
+    * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
 
 * Subgraph servers have _no_ additional requirements. Any [subgraph-compatible library](../other-servers/) is automatically compatible with Federation 2.
 

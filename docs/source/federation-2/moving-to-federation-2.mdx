@@ -3,15 +3,24 @@ title: Moving to Apollo Federation 2
 sidebar_title: 🚚 Moving your graph
 ---
 
+import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
+
 > ⚠️ **Until Federation 2 is generally available, do not move business-critical graphs to Federation 2.** [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
 
 This article describes how to move an existing federated graph to Apollo Federation 2. If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
-Moving a federated graph to Apollo Federation 2 requires very few changes. Moving _back_ to Federation 1 is more complex if you then make incompatible changes to your subgraphs, so we recommend starting with a test instance of your graph.
+There are two high-level phases for moving to Federation 2:
 
-## 1. Update `@apollo/gateway`
+1. Use Federation 2 composition logic with your _unmodified_ Federation 1  subgraph schemas
+2. Modify your Federation 1 subgraph schemas to convert them to true Federation 2 subgraph schemas
 
-Update your gateway's `@apollo/gateway` library to version `2.0.0-alpha.6` or later. This enables your gateway to interact with supergraph schemas composed with Federation 2.
+Phase 1 requires very few changes that are straightforward to move _back_ to Federation 1. However, Phase 2 requires schema changes that _remove_ backward compatibility with Federation 1. We strongly recommend performing Phase 2 with a test instance of your graph first.
+
+## Phase 1: Use new composition logic
+
+### Update `@apollo/gateway`
+
+Update your gateway's `@apollo/gateway` library to version `2.0.0-alpha.6` or later. This enables your gateway to interact with supergraph schemas composed with Federation 2 logic.
 
 You can install the _latest_ Federation 2 gateway with the following command:
 
@@ -21,14 +30,11 @@ npm install @apollo/gateway@latest-2
 
 These updated versions of `@apollo/gateway` continue to support Federation 1, so you can deploy this update without breaking your existing graph.
 
-## 2. Use new composition logic
+### Configure your composition method
 
-Federation 2 uses [more flexible rules](./new-in-federation-2/#more-flexible-composition) for schema composition. Moving to Federation 2 primarily involves switching to use this logic. Follow the instructions for your current composition method:
+Federation 2 uses [more flexible rules](./new-in-federation-2/#more-flexible-composition) for schema composition. Follow the instructions for your current composition method:
 
-* [Using the Rover CLI](#using-the-rover-cli)
-* [Using managed federation](#using-managed-federation)
-
-### Using the Rover CLI
+<ExpansionPanel title="Using the Rover CLI">
 
 If you perform composition with the Rover CLI, do the following:
 
@@ -68,7 +74,10 @@ rover fed2 supergraph compose --config ./supergraph.yaml
 
 This command's requirements, options, and output format are all identical to those of [`supergraph compose`](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema). It just uses Federation 2 composition logic instead of Federation 1.
 
-### Using managed federation
+</ExpansionPanel>
+
+
+<ExpansionPanel title="Using managed federation">
 
 If you're using [managed federation](../managed-federation/overview/), you move individual variants of your graph to Federation 2 in the Apollo Studio UI.
 
@@ -102,14 +111,178 @@ graph LR;
   class uplink secondary;
 ```
 
-## 3. Modify your subgraphs
+</ExpansionPanel>
 
-Congratulations, your federated graph is now using Federation 2! The natural next question is, "What does this change about my graph's behavior?" And at this point, the answer is: nothing!
+## Phase 2: Modify subgraph schemas
 
-Currently, your subgraph schemas are probably fully compatible with both Federation 1 _and_ 2. You could switch back and forth between Federation 1 and Federation 2, and everything would work as expected.
+Your unmodified Federation 1 graph is now using Federation 2 composition! The natural next question is, "What does this change about my graph's behavior?" And right now, the answer is: nothing!
 
-> If your graph does _not_ successfully compose with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+> If your graph is _not_ successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
 
-To get the most out of Federation 2, you modify your subgraph schemas to take advantage of flexible composition rules that help your teams work independently.
+If you want to take full advantage of Federation 2 features like improved control for type sharing, you now need to make some changes to your subgraph schemas.
 
-> [Learn more about more flexible composition in Federation 2!](./new-in-federation-2/#more-flexible-composition)
+### Opt in to Federation 2
+
+First, add the following definition to _all_ of your subgraph schemas:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@requires", "@shareable"])
+```
+
+This definition identifies a schema as a true Federation 2 schema. Without this definition, Federation 2 assumes a subgraph schema is a Federation 1 schema and uses intelligent defaults to support backward compatibility.
+
+### Mark all value types as `@shareable`
+
+By default in Federation 2, most schema fields are resolvable by only a _single subgraph_. In Federation 1, this is _not_ true for [value types](https://www.apollographql.com/docs/federation/value-types/):
+
+<p style="margin-bottom: 0;"><strong>Fed. 1</strong> (invalid in Fed. 2)</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Position {
+  x: Int!
+  y: Int!
+}
+```
+
+```graphql
+# Subgraph B
+type Position {
+  x: Int!
+  y: Int!
+}
+```
+
+</CodeColumns>
+
+For both subgraphs to resolve the above fields in Federation 2, the `@shareable` directive is required in both schemas:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql{3-4}
+# Subgraph A
+type Position {
+  x: Int! @shareable
+  y: Int! @shareable
+}
+```
+
+```graphql{3-4}
+# Subgraph B
+type Position {
+  x: Int! @shareable
+  y: Int! @shareable
+}
+```
+
+</CodeColumns>
+
+> You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to _all_ of that type's fields.
+
+In Federation 2, the term "value type" is no longer used. For details, see [Sharing types](../federated-types/value-types/).
+
+### Update entity definitions
+
+Federation 2 makes subtle but powerful changes to [entities](../entities/) that require corresponding changes to their definitions in your subgraph schemas.
+
+#### Remove unnecessary syntax
+
+In Federation 1, an entity originates in _one_ subgraph, and then other subgraphs _extend_ the entity to add fields:
+
+<p style="margin-bottom: 0;"><strong>Fed. 1</strong></p>
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+# (originating)
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql
+# Inventory subgraph
+# (extending)
+extend type Product @key(fields: "id") {
+  id: ID! @external
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+In Federation 2, entities no longer have an originating subgraph. Instead, each subgraph can define the entity and contribute fields to it:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql{2-3}
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+Note the following in the above example:
+
+* The Inventory subgraph no longer `extend`s the `Product` entity.
+* The Inventory subgraph no longer marks the `Product.id` field as `@external`.
+    * The `@external` directive is no longer required for `@key` fields, but it _is_ still required for [`@requires`](./entities-advanced/#contributing-computed-entity-fields) and [`@provides`](../entities-advanced/#using-provides).
+* Both subgraphs can resolve `Product.id`, but it isn't marked as `@shareable`.
+    * Unlike most fields, `@key` fields such as `Product.id` are `@shareable` by default! This is necessary for `@key` fields, because the gateway uses them to associate data from different subgraphs with the same object.
+
+#### Mark `@provides` fields as `@shareable`
+
+The `@provides` directive enables a subgraph to resolve a particular field _only_ for specific query paths. It's supported in Federation 2 as it is in Federation 1.
+
+However, if a subgraph `@provides` a particular field, that field must be marked as `@shareable` in the subgraphs where it's _always_ resolvable:
+
+<CodeColumns>
+
+```graphql{4}
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  price: Int
+}
+```
+
+```graphql{4,9}
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @external
+  inStock: Boolean!
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "name")
+}
+```
+
+</CodeColumns>
+
+Here, `Query.outOfStockProducts` in the Inventory subgraph `@provides` the `Product.name` field. Therefore, that field must be marked as `@shareable` in the Products subgraph (and `@external` in the Inventory subgraph, as in Federation 1). Otherwise, a composition error occurs.
