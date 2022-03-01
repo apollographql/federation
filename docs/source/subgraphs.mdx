@@ -77,7 +77,7 @@ const typeDefs = gql`
 `;
 ```
 
-The `@key` directive tells other subgraphs which field(s) of the `User` type to use to uniquely identify a particular instance. In this case, subgraphs should use the single field `id`.
+The `@key` directive tells the gateway which field(s) of the `User` type to use to uniquely identify a particular instance. In this case, the gateway should use the single field `id`.
 
 Next, we add a **reference resolver** for the `User` type. A reference resolver tells the gateway how to fetch an entity by its `@key` fields:
 
