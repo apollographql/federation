@@ -6,11 +6,16 @@ description: FAQ
 
 import { ExpansionPanel } from 'gatsby-theme-apollo-docs';
 
-## Do I need to modify my subgraph schemas for Federation 2?
+## Do I need to modify my subgraph schemas to use Federation 2?
 
-**Probably not.** You can move most existing graphs to Federation 2 and they compose successfully with no changes.
+**Eventually.** The process of [moving to Federation 2](./moving-to-federation-2/) has two phases:
 
-> Graphs that _do_ require changes are graphs that _should_ cause certain composition errors that Federation 1 fails to detect. [See below.](#breaking-changes)
+1. Use Federation 2 composition with your Federation 1 subgraph schemas.
+2. Convert your Federation 1 subgraph schemas to true Federation 2 subgraph schemas.
+
+Phase 1 usually requires _no_ changes to your subgraph schemas. Schemas that _do_ require changes are schemas that _should_ cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
+
+Phase 2 _does_ require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#phase-2-modify-subgraph-schemas).
 
 ### Breaking changes
 
@@ -127,9 +132,9 @@ This `@requires` directive should _break_ composition because it depends on subf
 </ExpansionPanel>
 
 
-## Can Federation 1 compose my Federation 2 graph?
+## Can Federation 1 compose my Federation 2 subgraph schemas?
 
-**Probably not.** Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. If you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
+**Probably not.** Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
 
 ## Does `@apollo/gateway` v2 support Federation 1?
 

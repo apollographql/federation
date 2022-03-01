@@ -11,10 +11,10 @@ This article describes how to move an existing federated graph to Apollo Federat
 
 There are two high-level phases for moving to Federation 2:
 
-1. Use Federation 2 composition logic with your _unmodified_ Federation 1  subgraph schemas
-2. Modify your Federation 1 subgraph schemas to convert them to true Federation 2 subgraph schemas
+1. Use Federation 2 composition logic with your _unmodified_ Federation 1  subgraph schemas.
+2. Modify your Federation 1 subgraph schemas to convert them to true Federation 2 subgraph schemas.
 
-Phase 1 requires very few changes that are straightforward to move _back_ to Federation 1. However, Phase 2 requires schema changes that _remove_ backward compatibility with Federation 1. We strongly recommend performing Phase 2 with a test instance of your graph first.
+Phase 1 requires very few changes, and it's straightforward to move _back_ to Federation 1 after making them. However, Phase 2 requires schema changes that _remove_ backward compatibility with Federation 1. Because of this, we strongly recommend moving a test instance of your graph to Federation 2 first.
 
 ## Phase 1: Use new composition logic
 
@@ -131,7 +131,7 @@ extend schema
         import: ["@key", "@requires", "@shareable"])
 ```
 
-This definition identifies a schema as a true Federation 2 schema. Without this definition, Federation 2 assumes a subgraph schema is a Federation 1 schema and uses intelligent defaults to support backward compatibility.
+This definition identifies a schema as a true Federation 2 schema. Without this definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
 
 ### Mark all value types as `@shareable`
 
@@ -189,7 +189,7 @@ In Federation 2, the term "value type" is no longer used. For details, see [Shar
 
 ### Update entity definitions
 
-Federation 2 makes subtle but powerful changes to [entities](../entities/) that require corresponding changes to their definitions in your subgraph schemas.
+Federation 2 introduces subtle but powerful changes to [entities](../entities/). These changes require corresponding updates to their definitions in your subgraph schemas.
 
 #### Remove unnecessary syntax
 
@@ -220,7 +220,7 @@ extend type Product @key(fields: "id") {
 
 </CodeColumns>
 
-In Federation 2, entities no longer have an originating subgraph. Instead, each subgraph can define the entity and contribute fields to it:
+In Federation 2, entities no longer have an originating subgraph. Instead, each subgraph can define an entity and contribute fields to it:
 
 <p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
 
@@ -245,19 +245,19 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-Note the following in the above example:
+Note the following in the Federation 2 subgraphs above:
 
 * The Inventory subgraph no longer `extend`s the `Product` entity.
 * The Inventory subgraph no longer marks the `Product.id` field as `@external`.
     * The `@external` directive is no longer required for `@key` fields, but it _is_ still required for [`@requires`](../entities-advanced/#contributing-computed-entity-fields) and [`@provides`](../entities-advanced/#using-provides).
-* Both subgraphs can resolve `Product.id`, but it isn't marked as `@shareable`.
-    * Unlike most fields, `@key` fields such as `Product.id` are `@shareable` by default! This is necessary for `@key` fields, because the gateway uses them to associate data from different subgraphs with the same object.
+* Both subgraphs can resolve `Product.id`, even though it isn't marked as `@shareable`!
+    * Unlike most fields, `@key` fields such as `Product.id` are `@shareable` by default. This is necessary for `@key` fields, because the gateway uses them to associate data from different subgraphs with the same object.
 
 #### Mark `@provides` fields as `@shareable`
 
 The `@provides` directive enables a subgraph to resolve a particular field _only_ for specific query paths. It's supported in Federation 2 as it is in Federation 1.
 
-However, if a subgraph `@provides` a particular field, that field must be marked as `@shareable` in the subgraphs where it's _always_ resolvable:
+However, if a subgraph `@provides` a particular field, that field must be marked as `@shareable` in each subgraph where it's _always_ resolvable:
 
 <CodeColumns>
 
