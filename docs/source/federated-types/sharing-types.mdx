@@ -1,60 +1,132 @@
 ---
-title: Value types
-sidebar_title: Reusing types (value types)
-description: Define the same type in multiple subgraphs
+title: Sharing types and fields
+sidebar_title: Sharing types
+description: Sharing types and fields across multiple subgraphs
 ---
 
 import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-In Apollo Federation, a **value type** is any type that's defined in multiple subgraphs but _isn't_ an [entity](../entities/). In the following example, both `Position` and `Color` are value types:
+> ⚠️ Sharing types across multiple subgraphs has changed significantly in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/#type-and-field-sharing). For more information about value types within Federation 1, you can view the [previous version of this article here](https://www.apollographql.com/docs/federation/v1/value-types/).
+
+ <!-- Add note for taking a Federation 1 schema to Federation 2 -->
+
+In a federated graph it's common to want to share and reuse a GraphQL type across multiple [subgraphs](./subgraphs/). 
+
+For example, you might define and reuse a generic `Position` type across multiple subgraphs:
+
+```graphql
+type Position {
+  x: Int!
+  y: Int!
+}
+```
+
+This article describes how to define the fields in a type as shareable in a federated graph, along with scenarios where improper sharing can [break composition](./composition/#breaking-composition).
+
+## The @shareable directive
+
+The `@shareable` directive enables you to share all of the fields on a **type**, or selected individual **fields**, across multiple subgraphs. 
+
+To enable the `@shareable` directive you must first add the following snippet to the top of **each subgraph** that will have one or more shareable fields:
+
+```
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+       import: ["@shareable"])
+```
+
+You can now add `@shareable` to the fields or types that you'd like to share across subgraphs:
 
 <CodeColumns>
 
 ```graphql
 # Subgraph A
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
 }
-
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
 ```
 
-```graphql
+```graphql{4-5}
 # Subgraph B
-type Position {
-  x: Int
-  y: Int
-}
-
-enum Color {
-  CYAN
-  MAGENTA
-  YELLOW
+type Position @shareable {
+  x: Int!
+  y: Int!
 }
 ```
 
 </CodeColumns>
 
-> As this example shows, a value type's definition can differ between subgraphs in Federation 2. This is _not_ true in Federation 1.
->
-> Whenever a value type definition varies in a valid way, composition generates _warnings_, but not _errors_.
+Note that **each type** you are sharing must have the `@shareable` directive. 
 
-This article describes how to define value types in a federated graph, along with scenarios where value type definitions can [break composition](./composition/#breaking-composition).
+You can also choose to share individual fields if you don't need to share the entire type:
 
-## Objects
+<CodeColumns>
 
-The fields of an object value type can differ between subgraphs in _certain ways:_
+```graphql
+# Subgraph A
+type Book {
+  title: String! @sharable # These fields are shared across subgraphs 
+  author: String!
+}
+```
 
-* A field's return type can vary in nullability (`Int` vs. `Int!`).
-    * A field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A field can be _omitted_ from a subgraph entirely if that field is always **resolvable**.
+```graphql
+# Subgraph B
+type Book {
+  title: String!  @sharable # These fields are shared across subgraphs 
+  numPages: Int!
+}
+```
 
-See the following subsections for details.
+</CodeColumns>
+
+
+Using our previous example, you can share the fields for both of the `Error` interface and the `ErrorCode` enum across multiple subgraphs by adding the `@shareable` directive:
+
+</CodeColumns>
+
+
+
+You can also choose to instead apply `@sharable` to individual fields to share just those fields with other subgraphs. 
+
+These types don't "originate" in a particular subgraph. Instead, they are _shared_ across all of the subgraphs that use them. Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions. 
+
+
+
+### Valid shared field differences between subgraphs
+
+Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions. 
+
+
+For example, look at how our `Position` type and `Color` types differ below:
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+```
+
+```graphql
+# Subgraph B
+type Position @shareable {
+  x: Int
+  y: Int
+  z: Int!   # Not in A
+}
+```
+
+</CodeColumns>
+
+Shared fields can differ in a few ways:
+* The return type of a field can vary in nullability (`String` / `String!`).
+* Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
+
+<!-- TODO: figure out where to introduce that two types with duplicate fields will break composition -->
 
 ### Varying field return types
 
@@ -90,7 +162,7 @@ Next, look at these varying definitions for the `Position` object type:
 
 ```graphql
 # Subgraph A
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
 }
@@ -98,7 +170,7 @@ type Position {
 
 ```graphql
 # Subgraph B
-type Position {
+type Position @shareable {
   x: Int
   y: Int
 }
@@ -111,14 +183,12 @@ The `x` and `y` fields are _non-nullable_ in subgraph A, but they're _nullable_ 
 <CodeColumns>
 
 ```graphql
-# Supergraph schema
+# Supergraph schema "shares" the fields between subgraphs
 type Position {
   x: Int
   y: Int
 }
 ```
-
-<></>
 
 </CodeColumns>
 
@@ -150,6 +220,8 @@ type Position {
   z: Int!
 }
 ```
+
+<></>
 
 </CodeColumns>
 

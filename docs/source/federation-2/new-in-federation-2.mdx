@@ -87,7 +87,7 @@ The two `Book` type definitions above differ in terms of the fields they include
 
 This flexibility is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
 
-#### Valid field differences between subgraphs
+#### Valid shared field differences between subgraphs
 
 * The return type of a field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
