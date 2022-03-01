@@ -93,8 +93,9 @@ Breaking composition is a helpful feature of federation! Whenever a team modifie
 
 In Federation 2, your subgraph schemas must follow **all** of these rules to successfully compose into a supergraph schema:
 
-* If multiple subgraphs define the same field, that field must have a compatible return type _and_ compatible argument types across each defining subgraph.
-    * For examples of compatible and incompatible field return types, see [Varying field return types](./value-types/#varying-field-return-types).
+* If multiple subgraphs define the same field, that field must be [shared](./sharing-types).
+* A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
+    * For examples of compatible and incompatible field return types, see [Varying field return types](./sharing-types/#varying-field-return-types).
 * If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
     * This rule is the most complex and the most essential to Federation 2. [Let's look at it more closely.](#unresolvable-field-example)
 
@@ -114,7 +115,7 @@ type Query {
   positionA: Position!
 }
 
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
 }
@@ -126,7 +127,7 @@ type Query {
   positionB: Position!
 }
 
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int!
@@ -200,7 +201,7 @@ If every subgraph that defines a type _could_ resolve every field of that type w
 
 ```graphql{5}
 # Subgraph A
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int
@@ -209,7 +210,7 @@ type Position {
 
 ```graphql
 # Subgraph B
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int!
