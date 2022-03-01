@@ -12,6 +12,7 @@ import { ExpansionPanel } from 'gatsby-theme-apollo-docs';
 
 > Graphs that _do_ require changes are graphs that _should_ cause certain composition errors that Federation 1 fails to detect. [See below.](#breaking-changes)
 
+
 ### Breaking changes
 
 As mentioned above, the following Federation 1 examples _should_ produce composition errors, but they aren't detected. If your subgraph schemas include syntax that matches any of these, you need to update those schemas before moving to Federation 2.
@@ -136,3 +137,8 @@ This `@requires` directive should _break_ composition because it depends on subf
 **Yes.** If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version _before_ you're ready to [move your graph to Federation 2](./moving-to-federation-2/).
 
 **Your plugins and customizations for `@apollo/gateway` `0.x` will continue to work as expected in `@apollo/gateway` `2.x`**.
+
+
+## Supporting Fed 2
+
+<!-- TODO: figure out where to introduce that two types with duplicate fields will break composition -->

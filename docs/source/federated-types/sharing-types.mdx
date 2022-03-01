@@ -1,14 +1,12 @@
 ---
 title: Sharing types and fields
-sidebar_title: Sharing types
+sidebar_title: Sharing types and fields
 description: Sharing types and fields across multiple subgraphs
 ---
 
 import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-> ⚠️ Sharing types across multiple subgraphs has changed significantly in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/#type-and-field-sharing). For more information about value types within Federation 1, you can view the [previous version of this article here](https://www.apollographql.com/docs/federation/v1/value-types/).
-
- <!-- Add note for taking a Federation 1 schema to Federation 2 -->
+> ⚠️ Sharing fields across multiple subgraphs has changed significantly in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/#type-and-field-sharing). For more information about value types within Federation 1, you can view the [previous version of this article here](https://www.apollographql.com/docs/federation/v1/value-types/).
 
 In a federated graph it's common to want to share and reuse a GraphQL type across multiple [subgraphs](./subgraphs/). 
 
@@ -25,7 +23,7 @@ This article describes how to define the fields in a type as shareable in a fede
 
 ## The @shareable directive
 
-The `@shareable` directive enables you to share all of the fields on a **type**, or selected individual **fields**, across multiple subgraphs. 
+The `@shareable` directive indicates that a particular field can be resolved by more than one subgraph. This enables you to share all of the fields on a **type**, or selected individual **fields**, across multiple subgraphs. 
 
 To enable the `@shareable` directive you must first add the following snippet to the top of **each subgraph** that will have one or more shareable fields:
 
@@ -54,6 +52,10 @@ type Position @shareable {
   y: Int!
 }
 ```
+
+> If a field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or `@external` in _every_ subgraph that defines it. Otherwise, composition fails.
+
+When you apply the `@shareable` directive to a type you are effectively making all the fields within that type shared. By default fields are not shared unless you directly make them so using `@shareable` or another direction such as  `@key` or `@requires`.
 
 </CodeColumns>
 
@@ -98,7 +100,6 @@ These types don't "originate" in a particular subgraph. Instead, they are _share
 
 Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions. 
 
-
 For example, look at how our `Position` type and `Color` types differ below:
 
 <CodeColumns>
@@ -126,7 +127,6 @@ Shared fields can differ in a few ways:
 * The return type of a field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
-<!-- TODO: figure out where to introduce that two types with duplicate fields will break composition -->
 
 ### Varying field return types
 
@@ -284,7 +284,7 @@ And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, 
 
 ## Enums and unions
 
-In Federation 2, enum and union value type definitions can differ between subgraphs:
+In Federation 2, enum and union type definitions can differ between subgraphs:
 
 <CodeColumns>
 

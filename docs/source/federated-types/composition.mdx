@@ -250,3 +250,55 @@ extend type User @key(fields: "id") {
 If you make a shared type an [entity](../entities/), different subgraphs can define any number of different fields for that type, as long as they all define **key fields** for it.
 
 This is a useful solution when a type corresponds closely to an entry in a data store that one or more of your subgraphs has access to (e.g., a `Users` database).
+
+
+## Fields not being shared leading to unresolvable fields
+
+If you define a type across multiple subgraphs with the same fields you recieve and error when you attempt composition. 
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Date {
+  year: Int
+  month: Int
+}
+```
+
+```graphql
+# Subgraph B
+type Date {
+  year: Int
+  month: Int
+}
+```
+
+</CodeColumns>
+
+To successfully compose, you must mark the fields you'd like to share across subgraphs withe the `@shareable` directive, like so:
+
+<p style="margin-bottom: 0">✅</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Date @shareable {
+  year: Int
+  month: Int
+}
+```
+
+```graphql
+# Subgraph B
+type Date @shareable {
+  year: Int
+  month: Int
+}
+```
+
+</CodeColumns>
+
