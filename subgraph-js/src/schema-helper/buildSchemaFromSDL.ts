@@ -22,6 +22,7 @@ import {
   ConstDirectiveNode,
   ASTNode,
   StringValueNode,
+  print,
 } from 'graphql';
 
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
@@ -36,6 +37,8 @@ import { SDLValidationRule } from "graphql/validation/ValidationContext";
 
 import { specifiedSDLRules } from 'graphql/validation/specifiedRules';
 import { GraphQLSchemaValidationError } from './error';
+import Schema from '@apollo/core-schema';
+import { ATLAS, SUBGRAPH_BASE } from '../federation-atlas';
 
 function isNotNullOrUndefined<T>(
   value: T | null | undefined,
@@ -177,10 +180,11 @@ export function buildSchemaFromSDL(
 ): GraphQLSchema {
   const modules = modulesFromSDL(modulesOrSDL);
 
-  const documentAST = concatAST(modules.map(module => module.typeDefs));
+  const documentAST = subgraphSchema(modules).document
 
   const errors = validateSDL(documentAST, schemaToExtend, sdlRules);
   if (errors.length > 0) {
+    console.log(print(documentAST))
     throw new GraphQLSchemaValidationError(errors);
   }
 
@@ -322,4 +326,9 @@ export function buildSchemaFromSDL(
   }
 
   return schema;
+}
+
+export function subgraphSchema(modules: GraphQLSchemaModule[]) {
+  const mergedDocument = concatAST(modules.map(module => module.typeDefs));
+  return Schema.from(mergedDocument, SUBGRAPH_BASE).compile(ATLAS)
 }
