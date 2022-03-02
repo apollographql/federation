@@ -59,9 +59,9 @@ With these change, the term "value type" is not used in Federation 2.
 
 For details, see the sections below, along with [Shared types](../value-types/).
 
-### Objects and interfaces
+### Objects
 
-In Federation 2, an object or interface type can be shared between subgraphs like so:
+In Federation 2, an object type can be shared between subgraphs like so:
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
 
@@ -86,7 +86,7 @@ type Book @shareable {
 
 </CodeColumns>
 
-The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new `@shareable` directive, which is required to indicate that a field can be resolved by multiple subgraphs.
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](../federated-types/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
 
 > Marking a _type_ as `@shareable` (as with `Book` above) is equivalent to marking _all_ of its fields as `@shareable`.
 
@@ -94,12 +94,12 @@ This flexibility is especially helpful when an organization has multiple standal
 
 #### Valid shared field differences between subgraphs
 
-* The return type of a field can vary in nullability (`String` / `String!`).
+* The return type of a shared field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
 > For details on how these field differences are handled, see [Sharing types](../federated-types/sharing-types/).
 
-### Enums and unions
+### Enums, interfaces and unions
 
 In Federation 2, shared enum and union definitions can differ between subgraphs. For details, see [Enums and unions](../federated-types/value-types/#enums-and-unions).
 
