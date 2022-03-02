@@ -681,7 +681,8 @@ class Merger {
       } else {
         for (const key of keys) {
           const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
-          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension });
+          const { resolvable } = key.arguments();
+          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable });
         }
       }
     }
