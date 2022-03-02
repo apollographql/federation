@@ -76,7 +76,7 @@ The `@key` directive effectively tells the gateway, "This subgraph can resolve a
 
 > ⚠️ **This section describes how to create reference resolvers in Apollo Server.** If you're using another [subgraph-compatible library](./other-servers/), see its documentation for creating reference resolvers.
 
-For the `Product` entity defined [above](#define-a-key), the reference resolver might look like this:
+For the `Product` entity defined [above](#1-define-a-key), the reference resolver might look like this:
 
 ```js{4-6}:title=resolvers.js
 // Products subgraph
@@ -310,6 +310,10 @@ These representations are passed individually to the `Product` [reference resolv
 ```
 
 Nice! The gateway can merge this `price` data with the `Product` objects returned by its first query. After doing so, the gateway returns a single, combined result to the client.
+
+## Default reference resolver
+
+TODO
 
 ## Advanced topics
 
