@@ -46,6 +46,7 @@ module.exports = {
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
           'Third-Party Support': ['other-servers', 'federation-spec'],
+          'API Reference': ['api/apollo-subgraph', 'api/apollo-gateway'],
           'Apollo Workbench': [
             'workbench/overview',
             'workbench/setup',
@@ -56,7 +57,6 @@ module.exports = {
             'workbench/mocking',
             'workbench/exporting',
           ],
-          'API Reference': ['api/apollo-subgraph', 'api/apollo-gateway'],
         },
       },
     },
