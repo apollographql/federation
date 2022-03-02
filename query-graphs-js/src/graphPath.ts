@@ -278,6 +278,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.props.edgeTriggers[this.size - 1];
   }
 
+  /** The possible runtime types the tail of the path can be (this is deduplicated). */
   tailPossibleRuntimeTypes(): readonly ObjectType[] {
     return this.props.runtimeTypesOfTail;
   }
@@ -851,7 +852,7 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
 // the actual tree, which we need for query planning, or simply returning "undefined" which means "The condition can be satisfied but I didn't
 // bother computing a tree for it", which we use for simple validation.
 
-// Returns undefined if there is no way to advance the path with this transition. Otherwise, it returns a list of options (paths) we can be in after advancing the transition.
+// Returns some a `Unadvanceables` object if there is no way to advance the path with this transition. Otherwise, it returns a list of options (paths) we can be in after advancing the transition.
 // The lists of options can be empty, which has the special meaning that the transition is guaranteed to have no results (it corresponds to unsatisfiable conditions),
 // meaning that as far as composition validation goes, we can ignore that transition (and anything that follows) and otherwise continue.
 export function advancePathWithTransition<V extends Vertex>(

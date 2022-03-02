@@ -791,8 +791,7 @@ describe('composition', () => {
       });
 
       it('merges subtypes within lists', () => {
-        // This example merge types that differs both on interface subtyping
-        // and on nullability
+        // This example merge types that differs interface subtyping within lists
         const subgraphA = {
           name: 'subgraphA',
           typeDefs: gql`
@@ -877,8 +876,7 @@ describe('composition', () => {
       });
 
       it('merges subtypes within non-nullable', () => {
-        // This example merge types that differs both on interface subtyping
-        // and on nullability
+        // This example merge types that differs both on interface subtyping and are non-nullable
         const subgraphA = {
           name: 'subgraphA',
           typeDefs: gql`
@@ -926,7 +924,7 @@ describe('composition', () => {
         assertCompositionSuccess(result);
 
         const [_, api, subgraphs] = schemas(result);
-        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        // We expect `f` to be `I!` as that is the supertype between itself and `A`.
         expect(printSchema(api)).toMatchString(`
           type A implements I {
             a: Int
