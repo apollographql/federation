@@ -330,5 +330,7 @@ export function buildSchemaFromSDL(
 
 export function subgraphSchema(modules: GraphQLSchemaModule[]) {
   const mergedDocument = concatAST(modules.map(module => module.typeDefs));
-  return Schema.from(mergedDocument, SUBGRAPH_BASE).compile(ATLAS)
+  return Schema.from(mergedDocument, SUBGRAPH_BASE)
+    .fill(ATLAS)
+    .toCore()
 }

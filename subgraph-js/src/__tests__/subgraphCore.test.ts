@@ -9,8 +9,11 @@ describe('subgraphSchema', () => {
       subgraphSchema([{ typeDefs: fixtures[0].typeDefs }]),
     ).getResult();
     if (result.didThrow()) throw result.error;
-    expect([...result.errors()].length).toBe(0)
-    expect(print(result.data.document)).toBe(`directive @stream on FIELD
+    expect([...result.errors()].length).toBe(0);
+    expect(print(result.data.document))
+      .toBe(`extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v2.0", import: "@key @requires @provides @external @shareable @tag @extends") @link(url: "https://specs.apollo.dev/id/v1.0")
+
+directive @stream on FIELD
 
 directive @transform(from: String!) on FIELD
 
@@ -76,10 +79,6 @@ type Library @key(fields: "id") {
   userAccount(id: ID! = "1"): User @requires(fields: "name")
 }
 
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
-
-extend schema
-
 directive @key(fields: federation__FieldSet!) repeatable on OBJECT
 
 directive @shareable on FIELD_DEFINITION
@@ -97,5 +96,98 @@ scalar link__Url
 scalar link__Name
 
 scalar link__Imports`);
+  });
+
+  it('links against federation 1.0 by default', () => {
+    const doc = fixtures[0].typeDefs;
+    const result = recall(() =>
+      subgraphSchema([
+        {
+          typeDefs: {
+            ...doc,
+            definitions: doc.definitions.slice(0, doc.definitions.length - 1),
+          },
+        },
+      ]),
+    ).getResult();
+    if (result.didThrow()) throw result.error;
+    expect([...result.errors()].length).toBe(0);
+    expect(print(result.data.document)).toMatchInlineSnapshot(`
+      "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v1.0\\", import: \\"@key @requires @provides @external\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
+
+      directive @stream on FIELD
+
+      directive @transform(from: String!) on FIELD
+
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+
+      enum CacheControlScope {
+        PUBLIC
+        PRIVATE
+      }
+
+      directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+
+      schema {
+        query: RootQuery
+        mutation: Mutation
+      }
+
+      type RootQuery {
+        user(id: ID!): User
+        me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
+      }
+
+      type PasswordAccount @key(fields: \\"email\\") {
+        email: String!
+      }
+
+      type SMSAccount @key(fields: \\"number\\") {
+        number: String
+      }
+
+      union AccountType @tag(name: \\"from-accounts\\") = PasswordAccount | SMSAccount
+
+      type UserMetadata {
+        name: String
+        address: String
+        description: String
+      }
+
+      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") {
+        id: ID! @tag(name: \\"accounts\\")
+        name: Name @cacheControl(inheritMaxAge: true)
+        username: String @shareable
+        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
+        account: AccountType
+        metadata: [UserMetadata]
+        ssn: String
+      }
+
+      type Name {
+        first: String
+        last: String
+      }
+
+      type Mutation {
+        login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
+      }
+
+      type Library @key(fields: \\"id\\") {
+        id: ID!
+        name: String @external
+        userAccount(id: ID! = \\"1\\"): User @requires(fields: \\"name\\")
+      }
+
+      directive @key(fields: federation__FieldSet!) repeatable on OBJECT
+
+      directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
+
+      directive @requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+      scalar federation__FieldSet"
+    `);
   });
 });
