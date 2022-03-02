@@ -15,9 +15,9 @@ If you're just getting started with Federation, check out the [Quickstart](../qu
 
 Before covering what's new, here's what _isn't_ changing in Federation 2:
 
-* Most importantly, **Federation 2 is backward compatible with most Federation 1 graphs.** You can probably move your existing graph to Federation 2 without needing to make any changes.
+* Most importantly, **Federation 2 is backward compatible with most Federation 1 graphs.** You can probably move your existing graph to use Federation 2 composition without making any changes.
     * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2)
-    * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
+    * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes incrementally at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
 
 * Subgraph servers have _no_ additional requirements. Any [subgraph-compatible library](../other-servers/) is automatically compatible with Federation 2.
 
@@ -27,7 +27,7 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
 
 Let's look at some examples!
 
-## Type and field sharing
+## Value types
 
 In Federation 1, multiple subgraphs can define the same type, but those definitions must all be _identical_. These identical shared types are called **value types**:
 
@@ -53,9 +53,11 @@ type Book {
 
 </CodeColumns>
 
-In Federation 2, this "identical definition" constraint is removed. Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions. With this change, the term "value type" is not used in Federation 2.
+In Federation 2, this "identical definition" constraint is removed. Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions.
 
-Let's look at some examples!
+With these change, the term "value type" is not used in Federation 2.
+
+For details, see the sections below, along with [Shared types](../value-types/).
 
 ### Objects and interfaces
 
@@ -84,7 +86,9 @@ type Book @shareable {
 
 </CodeColumns>
 
-The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the `@shareable` directive, which indicates that a type or field is allowed to be defined in multiple subgraphs.
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new `@shareable` directive, which is required to indicate that a field can be resolved by multiple subgraphs.
+
+> Marking a _type_ as `@shareable` (as with `Book` above) is equivalent to marking _all_ of its fields as `@shareable`.
 
 This flexibility is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
 
@@ -98,3 +102,137 @@ This flexibility is especially helpful when an organization has multiple standal
 ### Enums and unions
 
 In Federation 2, shared enum and union definitions can differ between subgraphs. For details, see [Enums and unions](../federated-types/value-types/#enums-and-unions).
+
+## Entities
+
+Federation 2 introduces subtle but powerful changes to [entities](../entities/).
+
+### Originating subgraphs
+
+In Federation 1, an [entity](../entities/) _originates_ in one subgraph and is then _extended_ in other subgraphs:
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+# (originating)
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql
+# Inventory subgraph
+# (extending)
+extend type Product @key(fields: "id") {
+  id: ID! @external
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+In Federation 2, entities _do not_ have an "originating subgraph." Instead, each subgraph can define an entity and contribute fields to it:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+For details, see [Contributing entity fields](../entities/#contributing-entity-fields).
+
+### Shared entity fields
+
+In Federation 1, each entity field is resolved by exactly one subgraph (unless it's a `@key` field or part of a `@provides` directive). In Federation 2, multiple subgraphs can resolve the same entity field if they all mark it with the `@shareable` directive:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql{4}
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  price: Int
+}
+```
+
+```graphql{4}
+# Inventory subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+For more information, see [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
+
+### Changes to `@key`
+
+In Federation 1, every entity definition in every subgraph requires a `@key`. In Federation 2, _most_ entity definitions require a `@key`, but _not_ if a particular subgraph contributes _no fields_ to an entity.
+
+For example:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql{2-4}
+# Reviews subgraph
+type Product {
+  id: ID! @shareable
+}
+
+type Review {
+  product: Product!
+  score: Int!
+}
+```
+
+</CodeColumns>
+
+In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any fields to the entity. Therefore, the "stub" definition of `Product` in the Reviews subgraph needs to include _only_ the `@key` field for `Product` (`id` in this case) and mark it as `@shareable`.
+
+For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+
+#### Why this change?
+
+In a Federation 2 subgraph, the `@key` directive indicates the following to the gateway:
+
+* This subgraph provides a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity.
+* To use the reference resolver, the gateway must provide values for the fields specified by the `@key`.
+
+If a particular subgraph contributes no fields to an entity, the gateway _never_ needs to use a reference resolver for the entity in that subgraph. Therefore, the `@key` directive is unnecessary.
