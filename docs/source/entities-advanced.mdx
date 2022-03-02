@@ -29,7 +29,7 @@ type Product @key(fields: "id") @key(fields: "sku") {
 
 This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a `reviews` subgraph might refer to products by their ID, whereas an `inventory` subgraph might use SKUs.
 
-A subgraph that [references an entity](./entities/#referencing-an-entity) without contributing any fields of its own can include the fields of any `@key` in its stub definition:
+A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can include the fields of any `@key` in its stub definition:
 
 ```graphql
 # Reviews subgraph
