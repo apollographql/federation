@@ -178,11 +178,59 @@ describe('removeInaccessibleElements', () => {
       union Bar = Foo
     `);
 
-    expect(() => {
-      removeInaccessibleElements(schema);
-    }).toThrow(
-      `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself`,
-    );
+    try {
+      // Assert that an AggregateError is thrown, then allow the error to be caught for further validation
+      expect(removeInaccessibleElements(schema)).toThrow(AggregateError);
+    } catch (err) {
+      expect(err.errors).toHaveLength(1);
+      expect(err.errors[0].toString()).toMatch(
+        `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.`
+      );
+    }
+  });
+
+  it(`throws an AggregateError when there are multiple problems`, () => {
+    const schema = buildSchema(`
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+      {
+        query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      type Query {
+        fooField: Foo
+        fooderationField: Foo
+      }
+
+      type Foo @inaccessible {
+        someField: String
+      }
+
+      union Bar = Foo
+    `);
+
+    try {
+      // Assert that an AggregateError is thrown, then allow the error to be caught for further validation
+      expect(removeInaccessibleElements(schema)).toThrow(AggregateError);
+    } catch (err) {
+      expect(err.errors).toHaveLength(2);
+      expect(err.errors[0].toString()).toMatch(
+        `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.`
+      );
+      expect(err.errors[1].toString()).toMatch(
+        `Field Query.fooderationField returns an @inaccessible type without being marked @inaccessible itself.`
+      );
+    }
   });
 
   it(`removes @inaccessible query root type`, () => {
