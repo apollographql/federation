@@ -27,7 +27,7 @@ This article describes how to share a [GraphQL object type's](https://www.apollo
 
 The `@shareable` directive enables multiple subgraphs to resolve a particular object field (or set of object fields).
 
-To use it in a subgraph schema, you first need to add the following snippet to that schema to [opt in to Federation 2](../federation-2/moving-to-federation-2/#opt-in-to-federation-2):
+To use `@shareable` in a subgraph schema, you first need to add the following snippet to that schema to [opt in to Federation 2](../federation-2/moving-to-federation-2/#opt-in-to-federation-2):
 
 ```graphql
 extend schema
@@ -64,14 +64,14 @@ The `@shareable` directive enables multiple subgraphs to resolve shared fields. 
 
 > ⚠️ **Important:** If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
-Applying the `@shareable` directive to a type is equivalent to applying it to every _field_ of that type. You can also share individual fields, like so:
+Applying the `@shareable` directive to a type is equivalent to applying it to every _field_ of that type. You can also mark individual fields as `@shareable`, like so:
 
 <CodeColumns>
 
 ```graphql{3}
 # Subgraph A
 type Food {
-  name: String! @sharable
+  name: String! @shareable
   cost: Int!
 }
 ```
@@ -79,7 +79,7 @@ type Food {
 ```graphql{3}
 # Subgraph B
 type Food {
-  name: String!  @sharable
+  name: String!  @shareable
   inStock: Boolean!
 }
 ```
@@ -88,13 +88,13 @@ type Food {
 
 </CodeColumns>
 
-If you'd like to learn how shared fields can differ across subgraphs, see [Varying shared fields](#varying-shared-fields).
+To learn how shared fields can differ across subgraphs, see [Varying shared fields](#varying-shared-fields).
 
 ## Explicit and implicit type sharing
 
 ### Objects
 
-By default, in Federation 2 schemas, Object type **fields** are not shared. This means that you cannot redefine an existing Object type's field without explicitly sharing that field.
+By default in Federation 2, a single object field _can't_ be defined in more than one subgraph schema. To enable multiple subgraphs to define the same object field, you must first mark that field as `@shareable`.
 
 For example, let's say you'd like to define a `Product` type in two subgraphs:
 
@@ -122,7 +122,7 @@ type Product {
 
 Attempting to compose these two subgraph schemas together will [**break composition**](./composition/#breaking-composition). The gateway doesn't know _which subgraph_ is responsible for resolving the `Product` type's fields.
 
-If we'd like both Subgraph A _and_ Subgraph B to be able to resolve the fields for `Product`, we can [explicitly share](#using-shareable) that type:
+If we want both Subgraph A _and_ Subgraph B to be able to resolve the fields of `Product`, we can explicitly mark those fields as [`@shareable`](#using-shareable):
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -148,7 +148,7 @@ type Product @shareable {
 
 Both subgraphs A and B can now resolve the `name` and `price` fields for the `Product` type, and our subgraph schema will successfully compose into a supergraph schema.
 
-As an alternate course of action, if you wanted Subgraph A and B to resolve their own fields, you could instead define `Product` as an [entity](../entities). 
+> As an alternative, if you want Subgraphs A and B to resolve _different_ fields of `Product`, you can designate the `Product` type as an [entity](../entities). 
 
 ### Enums, unions, and interfaces
 
@@ -206,7 +206,7 @@ enum Color {
   YELLOW
 }
 
-# The object types that implement this interface will be
+# The object types that implement this interface are
 # responsible for resolving these fields.
 interface User {
   name: String!
@@ -229,7 +229,7 @@ For example, take a look at the shared `Food` type below:
 
 ```graphql{4}
 # Subgraph A
-type Food @sharable {
+type Food @shareable {
   name: String!
   cost: Int!
 }
@@ -237,7 +237,7 @@ type Food @sharable {
 
 ```graphql{4,5}
 # Subgraph B
-type Food @sharable {
+type Food @shareable {
   name: String!  
   cost: Int # Nullable
   inStock: Boolean! # Not in A
