@@ -35,7 +35,7 @@ import {
   gatherDirectives,
   federationDirectives,
   otherKnownDirectives,
-  isFederationDirective,
+  // isFederationDirective,
 } from './directives';
 
 export function printSubgraphSchema(schema: GraphQLSchema): string {
@@ -44,7 +44,7 @@ export function printSubgraphSchema(schema: GraphQLSchema): string {
     // Apollo change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
+    (n) => !isSpecifiedDirective(n),
     isDefinedType,
   );
 }

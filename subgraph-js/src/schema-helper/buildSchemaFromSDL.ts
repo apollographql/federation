@@ -22,7 +22,6 @@ import {
   ConstDirectiveNode,
   ASTNode,
   StringValueNode,
-  print,
 } from 'graphql';
 
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
@@ -184,7 +183,6 @@ export function buildSchemaFromSDL(
 
   const errors = validateSDL(documentAST, schemaToExtend, sdlRules);
   if (errors.length > 0) {
-    console.log(print(documentAST))
     throw new GraphQLSchemaValidationError(errors);
   }
 
