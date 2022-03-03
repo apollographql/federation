@@ -81,6 +81,7 @@ export interface ServiceDefinitionUpdate {
 export interface SupergraphSdlUpdate {
   id: string;
   supergraphSdl: string;
+  minDelaySeconds?: number;
 }
 
 export function isSupergraphSdlUpdate(

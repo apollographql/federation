@@ -31,6 +31,7 @@ export class UplinkFetcher implements SupergraphManager {
     process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
   private compositionId?: string;
   private fetchCount: number = 0;
+  private minDelayPolling: number | null = null;
 
   constructor(options: UplinkFetcherOptions) {
     this.config = options;
@@ -46,7 +47,11 @@ export class UplinkFetcher implements SupergraphManager {
 
     let initialSupergraphSdl: string | null = null;
     try {
-      initialSupergraphSdl = await this.updateSupergraphSdl();
+      const result = await this.updateSupergraphSdl();
+      initialSupergraphSdl = result?.supergraphSdl || null;
+      if (result?.minDelaySeconds) {
+        this.minDelayPolling = 1000 * result?.minDelaySeconds;
+      }
     } catch (e) {
       this.logUpdateFailure(e);
       throw e;
@@ -91,7 +96,8 @@ export class UplinkFetcher implements SupergraphManager {
       this.compositionId = result.id;
       // the healthCheck fn is only assigned if it's enabled in the config
       await this.healthCheck?.(result.supergraphSdl);
-      return result.supergraphSdl;
+      const { supergraphSdl, minDelaySeconds } = result;
+      return { supergraphSdl, minDelaySeconds };
     }
   }
 
@@ -107,7 +113,11 @@ export class UplinkFetcher implements SupergraphManager {
 
         this.state.pollingPromise = pollingPromise;
         try {
-          const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
+          const result = await this.updateSupergraphSdl();
+          const maybeNewSupergraphSdl = result?.supergraphSdl || null;
+          if (result?.minDelaySeconds) {
+            this.minDelayPolling = 1000 * result?.minDelaySeconds;
+          }
           if (maybeNewSupergraphSdl) {
             this.update?.(maybeNewSupergraphSdl);
           }
@@ -118,7 +128,7 @@ export class UplinkFetcher implements SupergraphManager {
       }
 
       this.poll();
-    }, this.config.pollIntervalInMs);
+    }, this.minDelayPolling || this.config.pollIntervalInMs);
   }
 
   private logUpdateFailure(e: any) {

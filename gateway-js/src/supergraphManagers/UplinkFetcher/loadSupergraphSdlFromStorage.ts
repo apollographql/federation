@@ -13,6 +13,7 @@ export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
       ... on RouterConfigResult {
         id
         supergraphSdl: supergraphSDL
+        minDelaySeconds
       }
       ... on FetchError {
         code
@@ -176,9 +177,10 @@ export async function loadSupergraphSdlFromStorage({
     const {
       id,
       supergraphSdl,
+      minDelaySeconds,
       // messages,
     } = routerConfig;
-    return { id, supergraphSdl: supergraphSdl! };
+    return { id, supergraphSdl: supergraphSdl!, minDelaySeconds };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
