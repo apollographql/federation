@@ -92,7 +92,7 @@ Breaking composition is a helpful feature of federation! Whenever a team modifie
 ## Rules of composition
 In Federation 2, your subgraph schemas must follow **all** of these rules to successfully compose into a supergraph schema:
 
-* Multiple subgraphs can not [redefine the same field on an Object type](./sharing-types/#explicit-and-implicit-type-sharing) _unless_ that field is shared.
+* Multiple subgraphs can't define the same field on an object type, _unless_ that field is [shared](./sharing-types/#explicit-and-implicit-type-sharing).
 * A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
     * For examples of compatible and incompatible field return types, see [Varying shared fields](./sharing-types/#varying-shared-fields).
 * If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
@@ -184,7 +184,7 @@ If the gateway sent this query to Subgraph A, it would return an error. And with
 
 Composition recognizes this potential issue, and it fails. The hypothetical supergraph schema above would never actually be generated.
 
-`Position.z` is an example of a shared field that is _not_ always resolvable. So now, how do we make sure that such a field _is_ always resolvable?
+`Position.z` is an example of a field that is _not_ always resolvable. So now, how do we make sure that such a field _is_ always resolvable?
 
 ### Solutions for unresolvable fields
 
@@ -192,7 +192,7 @@ There are multiple solutions for making sure that a field of a shared type is al
 
 #### Define the field in every subgraph that defines the type.
 
-If every subgraph that defines a type _could_ resolve every shared field of that type without introducing complexity, a straightforward solution is to define and resolve all fields in all of those subgraphs:
+If every subgraph that defines a type _could_ resolve every field of that type without introducing complexity, a straightforward solution is to define and resolve all fields in all of those subgraphs:
 
 <p style="margin-bottom: 0">✅</p>
 

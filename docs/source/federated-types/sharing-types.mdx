@@ -21,13 +21,13 @@ type Position {
 }
 ```
 
-This article describes how to share a [GraphQL Object type's](https://www.apollographql.com/docs/apollo-server/schema/schema/#object-types) fields in a federated graph, enabling multiple subgraphs to **redefine** and **resolve** those shared fields. 
+This article describes how to share a [GraphQL object type's](https://www.apollographql.com/docs/apollo-server/schema/schema/#object-types) fields in a federated graph, enabling multiple subgraphs to define and resolve those shared fields. 
 
 ## Using `@shareable`
 
-The `@shareable` directive enables multiple subgraphs to resolve a particular field, or set of fields, on an Object type across multiple subgraphs.
+The `@shareable` directive enables multiple subgraphs to resolve a particular object field (or set of object fields).
 
-The `@shareable` directive is new in Federation 2. To enable it, you first need to add the following snippet to the top of **all of your subgraph files** to [opt-in to Federation 2](../federation-2/moving-to-federation-2/#opt-in-to-federation-2):
+To use it in a subgraph schema, you first need to add the following snippet to that schema to [opt in to Federation 2](../federation-2/moving-to-federation-2/#opt-in-to-federation-2):
 
 ```graphql
 extend schema
@@ -64,7 +64,7 @@ The `@shareable` directive enables multiple subgraphs to resolve shared fields. 
 
 > ⚠️ **Important:** If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
-Adding the `@shareable` directive to a type is a shortcut to sharing every field within that type. You can also share individual fields, like so:
+Applying the `@shareable` directive to a type is equivalent to applying it to every _field_ of that type. You can also share individual fields, like so:
 
 <CodeColumns>
 
