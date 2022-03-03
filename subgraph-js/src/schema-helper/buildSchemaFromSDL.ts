@@ -180,7 +180,7 @@ export function buildSchemaFromSDL(
 ): GraphQLSchema {
   const modules = modulesFromSDL(modulesOrSDL);
 
-  const documentAST = subgraphSchema(modules).document
+  const documentAST = subgraphCore(modules).document
 
   const errors = validateSDL(documentAST, schemaToExtend, sdlRules);
   if (errors.length > 0) {
@@ -328,9 +328,7 @@ export function buildSchemaFromSDL(
   return schema;
 }
 
-export function subgraphSchema(modules: GraphQLSchemaModule[]) {
+export function subgraphCore(modules: GraphQLSchemaModule[]) {
   const mergedDocument = concatAST(modules.map(module => module.typeDefs));
-  return Schema.from(mergedDocument, SUBGRAPH_BASE)
-    .fill(ATLAS)
-    .toCore()
+  return Schema.from(mergedDocument, SUBGRAPH_BASE).compile(ATLAS)
 }

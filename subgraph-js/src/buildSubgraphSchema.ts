@@ -17,7 +17,7 @@ import {
   buildSchemaFromSDL,
 } from './schema-helper';
 
-import { federationDirectives, typeIncludesDirective } from './directives';
+import { typeIncludesDirective } from './directives';
 
 import { serviceField, entitiesField, EntityType } from './types';
 
@@ -67,7 +67,7 @@ export function buildSubgraphSchema(
     modules,
     new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...federationDirectives],
+      directives: [...specifiedDirectives],
     }),
   );
 
