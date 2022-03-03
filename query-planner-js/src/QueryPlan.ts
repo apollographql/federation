@@ -31,6 +31,7 @@ export interface FetchNode {
   variableUsages?: string[];
   requires?: QueryPlanSelectionNode[];
   operation: string;
+  operationName: string | undefined;
   operationKind: OperationTypeNode;
 }
 

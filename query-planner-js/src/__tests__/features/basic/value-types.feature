@@ -47,7 +47,8 @@ Scenario: resolves value types within their respective services
           "serviceName": "product",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "{topProducts(first:10){__typename ...on Book{__typename isbn upc}...on Furniture{__typename upc metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
+          "operation": "query ProducsWithMetadata_product_0{topProducts(first:10){__typename ...on Book{__typename isbn upc}...on Furniture{__typename upc metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}",
+          "operationName": "ProducsWithMetadata_product_0"
         },
         {
           "kind": "Parallel",
@@ -78,7 +79,8 @@ Scenario: resolves value types within their respective services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}...on Furniture{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}}"
+                "operation": "query ProducsWithMetadata_reviews_1($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}...on Furniture{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}}",
+                "operationName": "ProducsWithMetadata_reviews_1"
               }
             },
             {
@@ -99,7 +101,8 @@ Scenario: resolves value types within their respective services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
+                "operation": "query ProducsWithMetadata_books_2($representations:[_Any!]!){_entities(representations:$representations){...on Book{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}",
+                "operationName": "ProducsWithMetadata_books_2"
               }
             }
           ]
@@ -108,4 +111,3 @@ Scenario: resolves value types within their respective services
     }
   }
   """
-

@@ -1372,6 +1372,7 @@ export function operationToDocument(operation: Operation): DocumentNode {
   const operationAST: OperationDefinitionNode = {
     kind: Kind.OPERATION_DEFINITION,
     operation: operation.rootKind as OperationTypeNode,
+    name: operation.name ? { kind: Kind.NAME, value: operation.name } : undefined,
     selectionSet: operation.selectionSet.toSelectionSetNode(),
     variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes(),
   };
