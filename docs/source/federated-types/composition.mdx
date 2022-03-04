@@ -85,7 +85,7 @@ type Event {
 
 One subgraph defines `Event.timestamp` as a `String`, and the other defines it as an `Int`. Composition doesn't know which type to use, so it fails.
 
-> For examples of _valid_ inconsistencies in field return types, see [Varying shared field return types](./sharing-types/#varying-shared-fields).
+> For examples of _valid_ inconsistencies in field return types, see [Varying shared field return types](./sharing-types/#varying-shared-object-fields).
 
 Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your gateway, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
@@ -94,7 +94,7 @@ In Federation 2, your subgraph schemas must follow **all** of these rules to suc
 
 * Multiple subgraphs can't define the same field on an object type, _unless_ that field is [shared](./sharing-types/#explicit-and-implicit-type-sharing).
 * A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
-    * For examples of compatible and incompatible field return types, see [Varying shared fields](./sharing-types/#varying-shared-fields).
+    * For examples of compatible and incompatible field return types, see [Varying shared fields](./sharing-types/#varying-shared-object-fields).
 * If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
     * This rule is the most complex and the most essential to Federation 2. [Let's look at it more closely.](#unresolvable-field-example)
 
