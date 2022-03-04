@@ -1,16 +1,16 @@
 ---
-title: Sharing types and fields
+title: Value types in Apollo Federation
 sidebar_title: Sharing types and fields
-description: Sharing types and fields across multiple subgraphs
+description: Share types and fields across multiple subgraphs
 ---
 
 import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-> ⚠️ The field sharing model has changed significantly in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/#value-types). 
+> ⚠️ The field sharing model has changed significantly in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/#value-types).
 >
 >For more information about using value types in Federation 1, you can view the [previous version of this article](https://www.apollographql.com/docs/federation/value-types/).
 
-In a federated graph, it's common to want to reuse a GraphQL type in multiple [subgraphs](../subgraphs/). 
+In a federated graph, it's common to want to reuse a GraphQL type in multiple [subgraphs](../subgraphs/).
 
 For example, suppose you want to define and reuse a generic `Position` type in different subgraphs:
 
@@ -21,9 +21,42 @@ type Position {
 }
 ```
 
-This article describes how to share a [GraphQL object type's](https://www.apollographql.com/docs/apollo-server/schema/schema/#object-types) fields in a federated graph, enabling multiple subgraphs to define and resolve those shared fields. 
+Types like this are called **value types**. This article describes how to share value types and their fields in federated graph, enabling multiple subgraphs to define and resolve them.
 
 ## Sharing object types
+
+By default in Federation 2, a single object field _can't_ be defined or resolved by more than one subgraph schema.
+
+Consider the following `Position` example:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql{3-4}
+# Subgraph A
+type Position {
+  x: Int!
+  y: Int!
+}
+```
+
+```graphql{3-4}
+# Subgraph B
+type Position {
+  x: Int!
+  y: Int!
+}
+```
+<></>
+
+</CodeColumns>
+
+Attempting to compose these two subgraph schemas together will [break composition](./composition/#breaking-composition). The gateway doesn't know _which subgraph_ is responsible for resolving `Position.x` and `Position.y`. To enable multiple subgraphs to resolve these fields, you must first mark that field as [`@shareable`](#using-shareable).
+
+> As an alternative, if you want Subgraphs A and B to resolve _different_ fields of `Position`, you can designate the `Position` type as an [entity](../entities).
+
+### Using `@shareable`
 
 The `@shareable` directive enables multiple subgraphs to resolve a particular object field (or set of object fields).
 
@@ -35,39 +68,7 @@ extend schema
        import: ["@key", "@requires", "@shareable"])
 ```
 
-
-By default in Federation 2 schemas, a single object field _can't_ be defined in more than one subgraph schema.
-
-Take our `Position` example; let's say you'd like to define the `Position` type in two subgraphs that each can resolve for that type:
-
-<p style="margin-bottom: 0">❌</p>
-
-<CodeColumns>
-
-```graphql{2}
-# Subgraph A
-type Position {
-  x: Int!
-  y: Int!
-}
-```
-
-```graphql{2}
-# Subgraph B
-type Position {
-  x: Int!
-  y: Int!
-}
-```
-<></>
-
-</CodeColumns>
-
-Attempting to compose these two subgraph schemas together will [**break composition**](./composition/#breaking-composition). The gateway doesn't know _which subgraph_ is responsible for resolving the `Position` type's fields. To enable multiple subgraphs to define the same object field, you must first mark that field as `@shareable`. 
-
-> As an alternative, if you want Subgraphs A and B to resolve _different_ fields of `Position`, you can designate the `Position` type as an [entity](../entities). 
-
-Applying the `@shareable` directive to an object type shares that type's fields across multiple subgraphs:
+Then you can apply the `@shareable` directive to an object type, or to _individual fields_ of that type:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -81,46 +82,25 @@ type Position @shareable {
 }
 ```
 
-```graphql{2}
+```graphql{3-4}
 # Subgraph B
-type Position @shareable {
-  x: Int!
-  y: Int!
+type Position {
+  x: Int! @shareable
+  y: Int! @shareable
 }
 ```
 <></>
 
 </CodeColumns>
 
-> If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
+> Marking a type as `@shareable` is equivalent to marking _all_ of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
 
 Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schema will successfully compose into a supergraph schema.
 
-> ⚠️ **Important:** If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
+#### ⚠️ Important considerations for `@shareable`
 
-Applying the `@shareable` directive to a type is equivalent to applying it to every _field_ of that type. You can also mark individual fields as `@shareable`, like so:
-
-<CodeColumns>
-
-```graphql{3}
-# Subgraph A
-type Food {
-  name: String! @shareable
-  cost: Int!
-}
-```
-
-```graphql{3}
-# Subgraph B
-type Food {
-  name: String!  @shareable
-  inStock: Boolean!
-}
-```
-
-<></>
-
-</CodeColumns>
+* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
+* If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
 ### Varying shared object fields
 
@@ -144,7 +124,7 @@ type Food @shareable {
 ```graphql{4,5}
 # Subgraph B
 type Food @shareable {
-  name: String!  
+  name: String!
   cost: Int # Nullable
   inStock: Boolean! # Not in A
 }
@@ -154,7 +134,7 @@ type Food @shareable {
 
 </CodeColumns>
 
-The above `Food` types differ in the nullability of their fields _and_ the fields included in each type. 
+The above `Food` types differ in the nullability of their fields _and_ the fields included in each type.
 
 #### Differing return types
 
@@ -212,7 +192,7 @@ The `x` and `y` fields are _non-nullable_ in Subgraph A, but they're _nullable_ 
 
 
 ```graphql
-# Supergraph schema 
+# Supergraph schema
 type Position {
   x: Int
   y: Int
@@ -311,8 +291,7 @@ And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, 
 
 ## Enums, unions, and interfaces
 
-In Federation 2, `enum`, `interface`, and `union` type definitions can differ between subgraphs without explicit sharing:
-
+In Federation 2, `enum`, `interface`, and `union` type definitions can be shared between subgraphs by default, _and_ those definitions can differ:
 <CodeColumns>
 
 ```graphql{2, 4, 10}
