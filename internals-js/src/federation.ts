@@ -52,7 +52,7 @@ import {
   ERRORS,
   withModifiedErrorMessage,
 } from "./error";
-import { computeShareables } from "./sharing";
+import { computeKeys, computeShareables } from "./precompute";
 import {
   CoreSpecDefinition,
   FeatureVersion,
@@ -71,6 +71,7 @@ import {
   externalDirectiveSpec,
   extendsDirectiveSpec,
   shareableDirectiveSpec,
+  overrideDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
   ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
   FEDERATION2_ONLY_SPEC_DIRECTIVES,
@@ -262,21 +263,21 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   }
 }
 
-export function collectUsedExternalFieldsCoordinates(metadata: FederationMetadata): Set<string> {
-  const usedExternalCoordinates = new Set<string>();
+export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefinition<CompositeType>> {
+  const usedFields = new Set<FieldDefinition<CompositeType>>();
 
   // Collects all external fields used by a key, requires or provides
   collectUsedExternaFieldsForDirective<CompositeType>(
     metadata,
     metadata.keyDirective(),
     type => type,
-    usedExternalCoordinates,
+    usedFields,
   );
   collectUsedExternaFieldsForDirective<FieldDefinition<CompositeType>>(
     metadata,
     metadata.requiresDirective(),
     field => field.parent!,
-    usedExternalCoordinates,
+    usedFields,
   );
   collectUsedExternaFieldsForDirective<FieldDefinition<CompositeType>>(
     metadata,
@@ -285,7 +286,7 @@ export function collectUsedExternalFieldsCoordinates(metadata: FederationMetadat
       const type = baseType(field.type!);
       return isCompositeType(type) ? type : undefined;
     },
-    usedExternalCoordinates,
+    usedFields,
   );
 
   // Collects all external fields used to satisfy an interface constraint
@@ -295,20 +296,20 @@ export function collectUsedExternalFieldsCoordinates(metadata: FederationMetadat
       for (const runtimeType of runtimeTypes) {
         const implemField = runtimeType.field(field.name);
         if (implemField && metadata.isFieldExternal(implemField)) {
-          usedExternalCoordinates.add(implemField.coordinate);
+          usedFields.add(implemField);
         }
       }
     }
   }
 
-  return usedExternalCoordinates;
+  return usedFields;
 }
 
 function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any, any>>(
   metadata: FederationMetadata,
   definition: DirectiveDefinition<{fields: any}>,
   targetTypeExtractor: (element: TParent) => CompositeType | undefined,
-  usedExternalCoordinates: Set<string>
+  usedExternalCoordinates: Set<FieldDefinition<CompositeType>>
 ) {
   for (const application of definition.applications()) {
     const type = targetTypeExtractor(application.parent! as TParent);
@@ -327,7 +328,7 @@ function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any,
       includeInterfaceFieldsImplementations: true,
       validate: false,
     }).filter((field) => metadata.isFieldExternal(field))
-      .forEach((field) => usedExternalCoordinates.add(field.coordinate));
+      .forEach((field) => usedExternalCoordinates.add(field));
   }
 }
 
@@ -336,13 +337,12 @@ function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any,
  * interface implementation. Otherwise, the field declaration is somewhat useless.
  */
 function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollector: GraphQLError[]): void {
-  const allUsedExternals = collectUsedExternalFieldsCoordinates(metadata);
   for (const type of metadata.schema.types()) {
     if (!isObjectType(type) && !isInterfaceType(type)) {
       continue;
     }
     for (const field of type.fields()) {
-      if (!metadata.isFieldExternal(field) || allUsedExternals.has(field.coordinate)) {
+      if (!metadata.isFieldExternal(field) || metadata.isFieldUsed(field)) {
         continue;
       }
 
@@ -425,6 +425,8 @@ function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<Obje
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
+  private _keysPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
+  private _fieldUsedPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
   private _isFed2Schema?: boolean;
 
   constructor(readonly schema: Schema) {
@@ -433,7 +435,9 @@ export class FederationMetadata {
   private onInvalidate() {
     this._externalTester = undefined;
     this._sharingPredicate = undefined;
+    this._keysPredicate = undefined;
     this._isFed2Schema = undefined;
+    this._fieldUsedPredicate = undefined;
   }
 
   isFed2Schema(): boolean {
@@ -462,6 +466,25 @@ export class FederationMetadata {
     return this._sharingPredicate;
   }
 
+  private keysPredicate(): (field: FieldDefinition<CompositeType>) => boolean {
+    if (!this._keysPredicate) {
+      this._keysPredicate = computeKeys(this.schema);
+    }
+    return this._keysPredicate;
+  }
+
+  private fieldUsedPredicate(): (field: FieldDefinition<CompositeType>) => boolean {
+    if (!this._fieldUsedPredicate) {
+      const usedFields = Array.from(collectUsedFields(this));
+      this._fieldUsedPredicate = (field: FieldDefinition<CompositeType>) => !!usedFields.find((f) => f.coordinate === field.coordinate);
+    }
+    return this._fieldUsedPredicate;
+  }
+
+  isFieldUsed(field: FieldDefinition<CompositeType>): boolean {
+    return this.fieldUsedPredicate()(field);
+  }
+
   isFieldExternal(field: FieldDefinition<any> | InputFieldDefinition) {
     return this.externalTester().isExternal(field);
   }
@@ -484,6 +507,10 @@ export class FederationMetadata {
 
   isFieldShareable(field: FieldDefinition<any>): boolean {
     return this.sharingPredicate()(field);
+  }
+
+  isKeyField(field: FieldDefinition<any>): boolean {
+    return this.keysPredicate()(field);
   }
 
   federationDirectiveNameInSchema(name: string): string {
@@ -533,6 +560,10 @@ export class FederationMetadata {
     return this.getFederationDirective(keyDirectiveSpec.name);
   }
 
+  overrideDirective(): DirectiveDefinition<{from: string}> {
+    return this.getFederationDirective(overrideDirectiveSpec.name);
+  }
+
   extendsDirective(): DirectiveDefinition<Record<string, never>> {
     return this.getFederationDirective(extendsDirectiveSpec.name);
   }
@@ -562,7 +593,7 @@ export class FederationMetadata {
   }
 
   allFederationDirectives(): DirectiveDefinition[] {
-    const baseDirectives = [
+    const baseDirectives: DirectiveDefinition<any>[] = [
       this.keyDirective(),
       this.externalDirective(),
       this.requiresDirective(),
@@ -571,7 +602,7 @@ export class FederationMetadata {
       this.extendsDirective(),
     ];
     return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective())
+      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective())
       : baseDirectives;
   }
 
@@ -804,7 +835,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         }
       } else {
         return withModifiedErrorMessage(
-          error, 
+          error,
           `${error.message} If you meant the "@${unknownDirectiveName}" federation 2 directive, note that this schema is a federation 1 schema. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`
         );
       }
@@ -813,7 +844,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       const suggestions = suggestionList(unknownDirectiveName, FEDERATION2_ONLY_SPEC_DIRECTIVES.map((spec) => spec.name));
       if (suggestions.length > 0) {
         return withModifiedErrorMessage(
-          error, 
+          error,
           `${error.message}${didYouMean(suggestions.map((s) => '@' + s))} If so, note that ${suggestions.length === 1 ? 'it is a federation 2 directive' : 'they are federation 2 directives'} but this schema is a federation 1 one. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`
         );
       }
@@ -876,7 +907,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible"])';
+export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {

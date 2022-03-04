@@ -559,6 +559,8 @@ describe('@core/@link handling', () => {
 
     directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
+    directive @federation__override(from: String!) on FIELD_DEFINITION
+
     type T
       @key(fields: "k")
     {

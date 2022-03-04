@@ -24,7 +24,6 @@ import {
 import {
   addSubgraphToError,
   collectTargetFields,
-  collectUsedExternalFieldsCoordinates,
   federationMetadata,
   FederationMetadata,
   printSubgraphNames,
@@ -43,7 +42,7 @@ type UpgradeChanges = MultiMap<UpgradeChangeID, UpgradeChange>;
 export type UpgradeSuccess = {
   subgraphs: Subgraphs,
   changes: Map<string, UpgradeChanges>,
-  errors?: never, 
+  errors?: never,
 }
 
 export type UpgradeFailure = {
@@ -235,7 +234,7 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
  *  2. do not have a definition for the same type in the same subgraph (this is a GraphQL extension otherwise).
  *
  * Not that type extensions in federation 1 generally have a @key but in really the code consider something a type extension even without
- * it (which I'd argue is a unintended bug of fed1 since this leads to various problems) so we don't check for the presence of @key here. 
+ * it (which I'd argue is a unintended bug of fed1 since this leads to various problems) so we don't check for the presence of @key here.
  */
 function isFederationTypeExtension(type: NamedType): boolean {
   const metadata = federationMetadata(type.schema());
@@ -522,7 +521,7 @@ class SchemaUpgrader {
             continue;
           }
           assert(isCompositeType(typeInOther), () => `Type ${type} is of kind ${type.kind} in ${this.subgraph.name} but ${typeInOther.kind} in ${other.name}`);
-          const keysInOther = typeInOther.appliedDirectivesOf(other.metadata().keyDirective()); 
+          const keysInOther = typeInOther.appliedDirectivesOf(other.metadata().keyDirective());
           if (keysInOther.length === 0) {
             continue;
           }
@@ -564,14 +563,12 @@ class SchemaUpgrader {
   }
 
   private removeUnusedExternals() {
-    const usedExternalFieldsCoordinates = collectUsedExternalFieldsCoordinates(this.metadata);
-
     for (const type of this.schema.types()) {
       if (!isObjectType(type) && !isInterfaceType(type)) {
         continue;
       }
       for (const field of type.fields()) {
-        if (this.metadata.isFieldExternal(field) && !usedExternalFieldsCoordinates.has(field.coordinate)) {
+        if (this.metadata.isFieldExternal(field) && !this.metadata.isFieldUsed(field)) {
           this.addChange(new UnusedExternalRemoval(field.coordinate));
           field.remove();
         }

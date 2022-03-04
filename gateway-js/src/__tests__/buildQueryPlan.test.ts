@@ -1,4 +1,7 @@
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { Schema, parseOperation } from '@apollo/federation-internals';
@@ -6,14 +9,13 @@ import { Schema, parseOperation } from '@apollo/federation-internals';
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
-
 describe('buildQueryPlan', () => {
   let schema: Schema;
   let queryPlanner: QueryPlanner;
 
   const buildPlan = (operation: string): QueryPlan => {
     return queryPlanner.buildQueryPlan(parseOperation(schema, operation));
-  }
+  };
 
   beforeEach(() => {
     expect(
@@ -515,7 +517,7 @@ describe('buildQueryPlan', () => {
 
   describe(`when requesting a composite field with subfields from another service`, () => {
     it(`should add key fields to the parent selection set and use a dependent fetch`, () => {
-       const operationString = `#graphql
+      const operationString = `#graphql
         query {
           topReviews {
             body
@@ -1164,6 +1166,33 @@ describe('buildQueryPlan', () => {
                     text
                   }
                 }
+              }
+            }
+          },
+        }
+      `);
+    });
+  });
+
+  describe('overridden fields and type', () => {
+    it(`query plan of overridden field`, () => {
+      const operationString = `#graphql
+        query {
+          library (id: "3") {
+            name
+            description
+          }
+        }
+      `;
+
+      const queryPlan = buildPlan(operationString);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "books") {
+            {
+              library(id: 3) {
+                name
+                description
               }
             }
           },

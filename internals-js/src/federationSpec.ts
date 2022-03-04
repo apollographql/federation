@@ -66,6 +66,15 @@ export const shareableDirectiveSpec = createDirectiveSpecification({
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
 });
 
+export const overrideDirectiveSpec = createDirectiveSpecification({
+  name: 'override',
+  locations: [DirectiveLocation.FIELD_DEFINITION],
+  argumentFct: (schema) => ({
+    args: [{ name: 'from', type: new NonNullType(schema.stringType()) }],
+    errors: [],
+  }),
+});
+
 function fieldsArgument(schema: Schema): ArgumentSpecification {
   return { name: 'fields', type: fieldSetType(schema) };
 }
@@ -79,6 +88,7 @@ function fieldSetType(schema: Schema): InputType {
 export const FEDERATION2_ONLY_SPEC_DIRECTIVES = [
   shareableDirectiveSpec,
   inaccessibleDirectiveSpec,
+  overrideDirectiveSpec,
 ];
 
 // Note that this is only used for federation 2+ (federation 1 adds the same directive, but not through a core spec).

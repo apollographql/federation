@@ -120,6 +120,16 @@ export const InaccessibleDirective = new GraphQLDirective({
   ],
 });
 
+export const OverrideDirective = new GraphQLDirective({
+  name: 'override',
+  locations: [DirectiveLocation.FIELD_DEFINITION],
+  args: {
+    from: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+  },
+});
+
 export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
@@ -130,6 +140,7 @@ export const federationDirectives = [
   LinkDirective,
   TagDirective,
   InaccessibleDirective,
+  OverrideDirective,
 ];
 
 export function isFederationDirective(directive: GraphQLDirective): boolean {

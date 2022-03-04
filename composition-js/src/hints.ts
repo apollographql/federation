@@ -122,6 +122,24 @@ export const hintInconsistentArgumentPresence = new HintID(
   'the argument with mismatched types'
 );
 
+export const hintFromSubgraphDoesNotExist = new HintID(
+  'FromSubgraphDoesNotExist',
+  'Source subgraph specified by @override directive does not exist',
+  'the argument with non-existent subgraph'
+);
+
+export const hintOverriddenFieldCanBeRemoved = new HintID(
+  'OverriddenFieldCanBeRemoved',
+  'Field has been overridden by another subgraph. Consider removing.',
+  'the overridden field'
+);
+
+export const hintOverrideDirectiveCanBeRemoved = new HintID(
+  'OverrideDirectiveCanBeRemoved',
+  'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
+  'the field with the override directive'
+);
+
 export class CompositionHint {
   public readonly nodes?: readonly SubgraphASTNode[];
 

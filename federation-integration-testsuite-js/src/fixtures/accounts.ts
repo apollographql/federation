@@ -83,6 +83,7 @@ export const typeDefs = gql`
     id: ID!
     name: String @external
     userAccount(id: ID! = "1"): User @requires(fields: "name")
+    description: String
   }
 `;
 

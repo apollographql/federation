@@ -7,8 +7,32 @@ import {
   collectTargetFields,
   InterfaceType,
   ObjectType,
-  Schema
+  Schema,
 } from ".";
+
+export const computeKeys = (schema: Schema) => {
+  const metadata = federationMetadata(schema);
+  assert(metadata, 'Schema should be a federation subgraph');
+  const fields: Set<string> = new Set();
+
+  const keyDirective = metadata.keyDirective();
+  const addKeyFields = (type: CompositeType) => {
+    for (const key of type.appliedDirectivesOf(keyDirective)) {
+      collectTargetFields({
+        parentType: type,
+        directive: key,
+        includeInterfaceFieldsImplementations: true,
+        validate: false,
+      }).forEach((f) => fields.add(f.coordinate));
+    }
+  };
+
+  for (const type of schema.types<ObjectType>('ObjectType')) {
+    addKeyFields(type);
+  }
+
+  return (field: FieldDefinition<any>) => fields.has(field.coordinate);
+};
 
 export function computeShareables(schema: Schema): (field: FieldDefinition<CompositeType>) => boolean {
   const metadata = federationMetadata(schema);
@@ -65,4 +89,3 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
 
   return (field) => shareableFields.has(field.coordinate);
 }
-

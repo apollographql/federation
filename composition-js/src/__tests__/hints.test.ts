@@ -20,6 +20,9 @@ import {
   hintInconsistentExecutionDirectiveLocations,
   hintInconsistentArgumentPresence,
   hintInconsistentDescription,
+  hintFromSubgraphDoesNotExist,
+  hintOverrideDirectiveCanBeRemoved,
+  hintOverriddenFieldCanBeRemoved,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 
@@ -604,4 +607,79 @@ test('hints on inconsistent description for field', () => {
     + '  I don\'t know what I\'m doing\n'
     + '  """'
   );
-})
+});
+
+describe('hint tests related to the @override directive', () => {
+  it('hint when from subgraph does not exist', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph3")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintFromSubgraphDoesNotExist,
+      `Source subgraph "Subgraph3" for field "T.f" on subgraph "Subgraph1" does not exist. Did you mean "Subgraph1" or "Subgraph2"?`,
+    );
+  });
+
+  it('hint when @override directive can be removed', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph2")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverrideDirectiveCanBeRemoved,
+      `Field "T.f" on subgraph "Subgraph1" no longer exists in the from subgraph. The @override directive can be removed.`,
+    );
+  });
+
+  it('hint overridden field can be removed', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph2")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+      f: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverriddenFieldCanBeRemoved,
+      `Field "T.f" on subgraph "Subgraph2" is overridden. Consider removing it.`,
+    );
+  });
+});
