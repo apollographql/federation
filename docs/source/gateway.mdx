@@ -23,7 +23,7 @@ npm install @apollo/gateway@latest-2 apollo-server graphql
 
 The `@apollo/gateway` package includes the [`ApolloGateway` class](/api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
-```js:title=index.js
+```js{8-12,14-17}:title=index.js
 const { ApolloServer, gql } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');

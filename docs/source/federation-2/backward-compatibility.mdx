@@ -135,10 +135,24 @@ This `@requires` directive should _break_ composition because it depends on subf
 
 ## Can Federation 1 compose my Federation 2 subgraph schemas?
 
-**Probably not.** Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
+**No,** not after you [convert at least one subgraph schema](#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2) to a true Federation 2 schema.
+
+Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
 
 ## Does `@apollo/gateway` v2 support Federation 1?
 
 **Yes.** If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version _before_ you're ready to [move your graph to Federation 2](./moving-to-federation-2/).
 
 **Your plugins and customizations for `@apollo/gateway` `0.x` will continue to work as expected in `@apollo/gateway` `2.x`**.
+
+## Is official support for `@apollo/gateway` v0.x being removed?
+
+**No,** at _least_ through the end of 2022. We'll announce more specific updates about `@apollo/gateway` v0.x support as they're available.
+
+## Compatibility table
+
+| | Federation 1<br/>Composition | Federation 2<br/>Composition |
+|-|--------------|--------------|
+| `@apollo/gateway` v0.x | ✔️ | ❌ |
+| `@apollo/gateway` v2.x | ✔️ | ✔️ |
+| [Apollo Router](https://www.apollographql.com/docs/router/) | ✔️ | ✔️ |

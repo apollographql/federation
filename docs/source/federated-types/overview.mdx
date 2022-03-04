@@ -50,6 +50,13 @@ type User @key(fields: "id") {
   id: ID!
   username: String!
 }
+
+# (Subgraph schemas include
+# this to opt in to
+# Federation 2 features.)
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable"])
 ```
 
 ```graphql
@@ -63,6 +70,10 @@ type Product @key(fields: "upc") {
   name: String!
   price: Int
 }
+
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable"])
 ```
 
 ```graphql
@@ -83,6 +94,10 @@ type Product @key(fields: "upc") {
   upc: String!
   reviews: [Review]
 }
+
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable"])
 ```
 
 </CodeColumns>
