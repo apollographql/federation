@@ -53,11 +53,9 @@ type Book {
 
 </CodeColumns>
 
-In Federation 2, this "identical definition" constraint is removed. Types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions.
+In Federation 2, this "identical definition" constraint is removed. Value types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions.
 
-With these change, the term "value type" is not used in Federation 2.
-
-For details, see the sections below, along with [Shared types](../federated-types/sharing-types/).
+For details, see the sections below, along with [Value types](../federated-types/sharing-types/).
 
 ### Objects
 
@@ -109,7 +107,7 @@ Federation 2 introduces subtle but powerful changes to [entities](../entities/).
 
 ### Originating subgraphs
 
-In Federation 1, an [entity](../entities/) _originates_ in one subgraph and is then _extended_ in other subgraphs:
+In Federation 1, an entity _originates_ in one subgraph and is then _extended_ in other subgraphs:
 
 <CodeColumns>
 
