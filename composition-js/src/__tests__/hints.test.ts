@@ -365,10 +365,9 @@ test('hints on enum value not being in all subgraphs', () => {
   );
 })
 
-test('hints on type system directives having inconsistent repeatable', () => {
-  // Note that the code currently only merge a handful of hard-coded type system directive, so we have
-  // to use of the known names. We use 'tag'.
-
+// Skipped for now because we don't merge any type system directives and so
+// this cannot be properly tested.
+test.skip('hints on type system directives having inconsistent repeatable', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -389,7 +388,9 @@ test('hints on type system directives having inconsistent repeatable', () => {
   );
 })
 
-test('hints on type system directives having inconsistent locations', () => {
+// Skipped for now because we don't merge any type system directives and so
+// this cannot be properly tested.
+test.skip('hints on type system directives having inconsistent locations', () => {
   // Same as above, we kind of have to use tag.
   const subgraph1 = gql`
     type Query {

@@ -1436,6 +1436,34 @@ describe('composition', () => {
         ['EXTERNAL_MISSING_ON_BASE', 'Field "A.f" is marked @external on all the subgraphs in which it is listed (subgraph "subgraphB").'],
       ]);
     });
+
+    it('errors if a mandatory argument is not in all subgraphs', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q(a: Int!): String @shareable
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            q: String @shareable
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
+          'Argument "Query.q(a:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"']
+      ]);
+    });
   });
 
   describe('post-merge validation', () => {

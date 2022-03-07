@@ -301,6 +301,11 @@ const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'An application of the @link directive is invalid/does not respect the specification.'
 );
 
+const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
+  'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
+  'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all subgraphs that define the field or directive definition.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -359,6 +364,7 @@ export const ERRORS = {
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_LINK_DIRECTIVE_USAGE,
+  REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   SATISFIABILITY_ERROR,
 };
 

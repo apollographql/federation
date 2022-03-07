@@ -115,12 +115,10 @@ export const hintInconsistentDescription = new HintID(
   'the element with inconsistent description'
 );
 
-// Note that we keep the hint somewhat generic, but it is currently only used for execution directive so we specify
-// this in the description for clarity.
 export const hintInconsistentArgumentPresence = new HintID(
   'InconsistentArgumentPresence',
-  'Indicates that an argument of an execution directive definition is not present in all subgraphs '
-  + 'and will not be part of the supergraph',
+  'Indicates that an (optional) argument (of a field or directive definition) is not present in all subgraphs '
+  + ' and will not be part of the supergraph',
   'the argument with mismatched types'
 );
 
