@@ -65,6 +65,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       compositionId: "originalId-1234",
       maxRetries: 1,
       roundRobinSeed: 0,
+      earliestFetchTime: null,
     });
 
     expect(result).toMatchObject({
@@ -88,6 +89,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         compositionId: "originalId-1234",
         maxRetries: 1,
         roundRobinSeed: 0,
+        earliestFetchTime: null,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -388,6 +390,7 @@ describe("loadSupergraphSdlFromUplinks", () => {
       compositionId: "id-1234",
       maxRetries: 5,
       roundRobinSeed: 0,
+      earliestFetchTime: null,
     });
 
     expect(result).toBeNull();
