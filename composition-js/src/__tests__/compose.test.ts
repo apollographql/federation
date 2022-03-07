@@ -1781,6 +1781,46 @@ describe('composition', () => {
         ['INVALID_FIELD_SHARING', 'Non-shareable field "E.c" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
       ]);
     });
+
+    it ('applies @shareable on type only to the field within the definition', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            e: E
+          }
+
+          type E @shareable {
+            id: ID!
+            a: Int
+          }
+
+          extend type E {
+            b: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type E @shareable {
+            id: ID!
+            a: Int
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      // We want the @shareable to only apply to `a` but not `b` in the first
+      // subgraph, so this should _not_ compose.
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.b" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+      ]);
+    });
   });
 
   it('handles renamed federation directives', () => {
