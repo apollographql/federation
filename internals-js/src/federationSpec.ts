@@ -22,7 +22,10 @@ export const keyDirectiveSpec = createDirectiveSpecification({
   name:'key',
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
   repeatable: true,
-  argumentFct: (schema) => [fieldsArgument(schema)]
+  argumentFct: (schema) => [
+    fieldsArgument(schema),
+    { name: 'resolvable', type: schema.booleanType(), defaultValue: true },
+  ]
 });
 
 export const extendsDirectiveSpec = createDirectiveSpecification({

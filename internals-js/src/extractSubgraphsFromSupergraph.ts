@@ -101,7 +101,8 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           subgraphType = schema.addType(newNamedType(type.kind, type.name));
         }
         if (args.key) {
-          const directive = subgraphType.applyDirective('key', {'fields': args.key});
+          const { resolvable } = args;
+          const directive = subgraphType.applyDirective('key', {'fields': args.key, resolvable});
           if (args.extension) {
             directive.setOfExtension(subgraphType.newExtension());
           }

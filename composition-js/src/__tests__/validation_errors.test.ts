@@ -112,3 +112,49 @@ describe('@requires', () => {
     ]);
   });
 });
+
+describe('non-resolvable keys', () => {
+  it('fails if key is declared non-resolvable but would be needed', () => {
+    global.console = require('console');
+
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type T @key(fields: "id", resolvable: false) {
+          id: ID!
+          f: String
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Query {
+          getTs: [T]
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      The following supergraph API query:
+      {
+        getTs {
+          f
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "B":
+        - cannot find field "T.f".
+        - cannot move to subgraph "A", which has field "T.f", because none of the @key defined on type "T" in subgraph "A" are resolvable (they are all declared with their "resolvable" argument set to false).
+      `
+    ]);
+  });
+});
