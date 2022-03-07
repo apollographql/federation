@@ -31,7 +31,8 @@ export class UplinkFetcher implements SupergraphManager {
     process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
   private compositionId?: string;
   private fetchCount: number = 0;
-  private minDelayPolling: number | null = null;
+  private minDelayMs: number | null = null;
+  private earliestFetchTime: Date | null = null;
 
   constructor(options: UplinkFetcherOptions) {
     this.config = options;
@@ -50,7 +51,8 @@ export class UplinkFetcher implements SupergraphManager {
       const result = await this.updateSupergraphSdl();
       initialSupergraphSdl = result?.supergraphSdl || null;
       if (result?.minDelaySeconds) {
-        this.minDelayPolling = 1000 * result?.minDelaySeconds;
+        this.minDelayMs = 1000 * result?.minDelaySeconds;
+        this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
       }
     } catch (e) {
       this.logUpdateFailure(e);
@@ -88,6 +90,7 @@ export class UplinkFetcher implements SupergraphManager {
       compositionId: this.compositionId ?? null,
       maxRetries: this.config.maxRetries,
       roundRobinSeed: this.fetchCount++,
+      earliestFetchTime: this.earliestFetchTime,
     });
 
     if (!result) {
@@ -116,7 +119,8 @@ export class UplinkFetcher implements SupergraphManager {
           const result = await this.updateSupergraphSdl();
           const maybeNewSupergraphSdl = result?.supergraphSdl || null;
           if (result?.minDelaySeconds) {
-            this.minDelayPolling = 1000 * result?.minDelaySeconds;
+            this.minDelayMs = 1000 * result?.minDelaySeconds;
+            this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
           }
           if (maybeNewSupergraphSdl) {
             this.update?.(maybeNewSupergraphSdl);
@@ -128,7 +132,7 @@ export class UplinkFetcher implements SupergraphManager {
       }
 
       this.poll();
-    }, this.minDelayPolling || this.config.pollIntervalInMs);
+    }, this.minDelayMs ? Math.max(this.minDelayMs, this.config.pollIntervalInMs) : this.config.pollIntervalInMs);
   }
 
   private logUpdateFailure(e: any) {
