@@ -1196,7 +1196,7 @@ describe('fetch operation names', () => {
       }
     `);
     const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
-    
+
     expect(fetch.operation).toMatch(/^query myOp___42__1.*/i);
   });
 });

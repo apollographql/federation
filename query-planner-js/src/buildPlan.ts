@@ -833,7 +833,6 @@ class FetchGroup {
           operationName,
         );
 
-    try {
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       serviceName: this.subgraphName,
@@ -851,11 +850,6 @@ class FetchGroup {
         path: this.mergeAt!,
         node: fetchNode,
       };
-    } catch (e) {
-      console.log(`Got ${e} with ${operation}`);
-      console.log(print(operationToDocument(operation)));
-      throw e;
-    }
   }
 
   toString(): string {
