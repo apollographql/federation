@@ -261,6 +261,8 @@ The `@provides` directive enables a subgraph to resolve a particular field _only
 
 However, if a subgraph `@provides` a particular field, that field must be marked as `@shareable` in each subgraph where it's _always_ resolvable:
 
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
 <CodeColumns>
 
 ```graphql{4}
@@ -288,3 +290,67 @@ type Query {
 </CodeColumns>
 
 Here, `Query.outOfStockProducts` in the Inventory subgraph `@provides` the `Product.name` field. Therefore, that field must be marked as `@shareable` in the Products subgraph (and `@external` in the Inventory subgraph, as in Federation 1). Otherwise, a composition error occurs.
+
+#### Remove unnecessary `@key`s
+
+In certain cases, a subgraph _references_ an entity without contributing any fields to it. In Federation 1, these cases look like the following:
+
+<p style="margin-bottom: 0;"><strong>Fed. 1</strong></p>
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql{2-4,7}
+# Reviews subgraph
+type Product @key(fields: "id") {
+  id: ID!
+}
+
+type Review {
+  product: Product!
+  score: Int!
+}
+```
+
+</CodeColumns>
+
+In Federation 2, the Reviews subgraph above does _not_ need to provide a `@key` for the `Product` entity, because it doesn't contribute any fields to `Product`. Instead, it only uses `Product` as a return type for `Review.product`.
+
+Therefore, the Reviews subgraph can change its `Product` definition to the following:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql{2-4}
+# Reviews subgraph
+type Product {
+  id: ID! @shareable
+}
+
+type Review {
+  product: Product!
+  score: Int!
+}
+```
+
+</CodeColumns>
+
+Note the lack of a `@key` on `Product`, _and_ the addition of the new `@shareable` directive to `Product.id`. The Products subgraph _doesn't_ need to apply `@shareable`, because `id` is a `@key` field in that subgraph (`@key` fields are `@shareable` by default).
