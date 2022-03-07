@@ -84,7 +84,11 @@ const coreSpec = CORE_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
 
-const MERGED_TYPE_SYSTEM_DIRECTIVES = ['inaccessible', 'deprecated', 'specifiedBy', 'tag'];
+// We're currently not really "merging" any type-system directives. Though this is
+// a misleading because `tag` is included in the subgraph if and only if it is
+// used in subgraphs, so it is kind of "merged", but this is currently handled
+// specially.
+const MERGED_TYPE_SYSTEM_DIRECTIVES: string[] = [];
 
 export type MergeResult = MergeSuccess | MergeFailure;
 
@@ -1103,27 +1107,41 @@ class Merger {
   }
 
   private addArgumentsShallow<T extends FieldDefinition<any> | DirectiveDefinition>(sources: (T | undefined)[], dest: T) {
+    const argNames = new Set<string>();
     for (const source of sources) {
       if (!source) {
         continue;
       }
-      for (const argument of source.arguments()) {
-        if (!dest.argument(argument.name)) {
-          dest.addArgument(argument.name);
-        }
-      }
+      source.arguments().forEach((arg) => argNames.add(arg.name));
     }
-  }
 
-  private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>, useIntersection: boolean = false) {
-    if (useIntersection) {
-      for (const source of sources) {
-        if (!source) {
+    for (const argName of argNames) {
+      // We add the arguement unconditionally even if we're going to remove it in
+      // some path. Done because this helps reusing our "reportMismatchHint" method
+      // in those cases.
+      const arg = dest.addArgument(argName);
+      // If all the sources that have the field have the argument, we do merge it
+      // and we're good, but otherwise ...
+      if (sources.some((s) => s && !s.argument(argName))) {
+        // ... we don't merge the argument: some subgraphs wouldn't know what
+        // to make of it and that would be dodgy at best. If the argument is
+        // optional in all sources, then we can compose properly and just issue a
+        // hint. But if it is mandatory, then we have to fail composition, otherwise
+        // the query planner would have no choice but to generate invalidate queries.
+        const nonOptionalSources = sources.map((s, i) => s && s.argument(argName)?.isRequired() ? this.names[i] : undefined).filter((s) => !!s) as string[];
+        if (nonOptionalSources.length > 0) {
+          const nonOptionalSubgraphs = printSubgraphNames(nonOptionalSources);
+          const missingSources = printSubgraphNames(sources.map((s, i) => s && !s.argument(argName) ? this.names[i] : undefined).filter((s) => !!s) as string[]);
+          this.errors.push(ERRORS.REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH.err({
+            message: `Argument "${arg.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
+            nodes: sourceASTs(...sources.map((s) => s?.argument(argName))),
+          }));
+        } else {
           this.reportMismatchHint(
             hintInconsistentArgumentPresence,
-            `Argument "${dest.coordinate}" will not be added to "${dest.parent}" in the supergraph as it does not appear in all subgraphs: `,
-            dest,
-            sources,
+            `Argument "${arg.coordinate}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
+            arg,
+            sources.map((s) => s ? s.argument(argName) : undefined),
             _ => 'yes',
             // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
             (_, subgraphs) => `it is defined in ${subgraphs}`,
@@ -1131,12 +1149,14 @@ class Merger {
             undefined,
             true // Do include undefined sources, that's the point
           );
-          // Note that we remove the element after the hint because we access the parent in the hint message.
-          dest.remove();
-          return;
         }
+        // Note that we remove the element after the hint/error because we access the parent in the hint message.
+        arg.remove();
       }
     }
+  }
+
+  private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>) {
     this.mergeDescription(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     this.mergeTypeReference(sources, dest, true);
@@ -1334,7 +1354,7 @@ class Merger {
     this.mergeDescription(sources, dest);
     if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(dest.name)) {
       this.mergeTypeSystemDirectiveDefinition(sources, dest);
-    } else {
+    } else if (sources.some((s) => s && isMergedDirective(s))) {
       this.mergeExecutionDirectiveDefinition(sources, dest);
     }
   }
@@ -1498,7 +1518,7 @@ class Merger {
     this.addArgumentsShallow(sources, dest);
     for (const destArg of dest.arguments()) {
       const subgraphArgs = sources.map(f => f?.argument(destArg.name));
-      this.mergeArgument(subgraphArgs, destArg, true);
+      this.mergeArgument(subgraphArgs, destArg);
     }
   }
 
