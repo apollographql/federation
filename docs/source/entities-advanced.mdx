@@ -164,13 +164,39 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
 <ExpansionPanel title="With managed federation">
 
-1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
+> During the Federation 2 preview, this process uses the `@shareable` directive to make sure your supergraph schema composes during each step of the migration process. The full release of Federation 2 will include a different mechanism _specifically_ designed for migrating fields.
+
+1. In the Payments subgraph's schema, add the `@shareable` directive to the `Bill` entity's definition:
+
+    <CodeColumns>
+
+    ```graphql{2}
+    # Payments subgraph
+    type Bill @key(fields: "id") @shareable {
+      id: ID!
+      amount: Int!
+    }
+
+    type Payment {
+      # ...
+    }
+    ```
+
+    </CodeColumns>
+
+    This allows other subgraphs to resolve all `Bill` fields defined in Payments.
+
+2. Publish the updated Payments subgraph schema to Apollo.
+
+    * When the gateway fetches its new supergraph schema, its behavior doesn't change. Even though the `Bill` entity is now `@shareable`, the Payments subgraph is still the only subgraph that defines it.
+
+3. In the Billing subgraph's schema, define the `Bill` entity exactly as it's now defined in the Payments subgraph:
 
     <CodeColumns>
 
     ```graphql
     # Payments subgraph
-    type Bill @key(fields: "id") {
+    type Bill @key(fields: "id") @shareable {
       id: ID!
       amount: Int!
     }
@@ -182,7 +208,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     ```graphql{2-5}
     # Billing subgraph
-    type Bill @key(fields: "id") {
+    type Bill @key(fields: "id") @shareable {
       id: ID!
       amount: Int!
     }
@@ -190,17 +216,17 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     </CodeColumns>
 
-2. Publish the updated Billing subgraph schema to Apollo.
+4. Also in the Billing subgraph, define resolvers for each field of `Bill` that's currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
 
-    * Note that you're publishing a composition error, because multiple subgraphs define the same fields of `Bill` without marking them [`@shareable`](#using-shareable). This creates a failed [launch](https://www.apollographql.com/docs/studio/launches/) in Apollo Studio. That's okay! Apollo Uplink continues to serve the most recent _valid_ supergraph schema to your gateway.
+5. Deploy the updated Billing subgraph to your environment.
 
-3. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
+    * This change is currently invisible to your gateway, which is not yet aware that the Billing subgraph defines the `Bill` entity.
 
-4. Deploy the updated Billing subgraph to your environment.
+6. Publish the updated Billing subgraph schema to Apollo.
 
-    * This change is invisible to your gateway, which is not yet aware that the Billing subgraph defines the `Bill` entity.
+    * When the gateway fetches its new supergraph schema, it detects that both the Payments _and_ Billing subgraphs can resolve fields of the `Bill` entity.
 
-5. In the Payments subgraph, remove the `Bill` entity and its associated resolvers:
+7. In the Payments subgraph, _remove_ the `Bill` entity and its associated resolvers:
 
     <CodeColumns>
 
@@ -221,9 +247,34 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     </CodeColumns>
 
-6. Deploy the updated Payments subgraph to your environment.
+8. Publish the updated Payments subgraph schema to Apollo.
 
-    * This resolves the composition error, because all `Bill` fields are now resolved by a single subgraph. Apollo composes an updated supergraph schema, which your gateway automatically obtains when it polls the Apollo Uplink.
+    * When the gateway fetches its new supergraph schema, it detects that _only_ the Billing subgraph can resolve fields of the `Bill` entity.
+
+9. Deploy the updated Payments subgraph to your environment.
+
+10. Remove the `@shareable` directive from the `Bill` entity in the Billing subgraph:
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql{2}
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+11. Publish the updated Billing subgraph schema to Apollo and deploy the updated Billing subgraph to your environment.
 
 We're done! `Bill` now originates in a new subgraph, and it was resolvable during each step of the migration process.
 
@@ -297,6 +348,12 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
 
 The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#entity-migration).
 
+> ⚠️ If you're using managed federation, follow the steps in the **With managed federation** section above, but apply the `@shareable` directive to the _individual field_ you're migrating instead of the entity.
+
+If you're using local composition with Rover, see below for a field migration example.
+
+#### Local composition example
+
 Let's say our Products subgraph defines a `Product` entity, which includes the boolean field `inStock`:
 
 <CodeColumns>
@@ -357,8 +414,6 @@ We can perform this migration with the following steps (additional commentary on
 
     </CodeColumns>
 
-    * If you're using managed federation, register this schema change with Apollo.
-
 2. In the Inventory subgraph, add a resolver for the `inStock` field. This subgraph should resolve the field with the exact same logic as the resolver in the Products subgraph.
 
 3. Deploy the updated Inventory subgraph to your environment.
@@ -384,13 +439,9 @@ We can perform this migration with the following steps (additional commentary on
 
     </CodeColumns>
 
-    * If you're using managed federation, register this schema change with Studio.
+5. Compose a new supergraph schema. Deploy a new version of your gateway that uses the updated schema.
 
-5. **If you're using Rover composition,** compose a new supergraph schema. Deploy a new version of your gateway that uses the updated schema.
-
-    * Skip this step if you're using managed federation.
-
-5. Deploy the updated Products subgraph to your environment.
+6. Deploy the updated Products subgraph to your environment.
 
 ## Contributing computed entity fields
 
