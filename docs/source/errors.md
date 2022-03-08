@@ -43,6 +43,7 @@ The following errors may be raised by composition:
 | `KEY_INVALID_FIELDS` | The `fields` argument of a `@key` directive is invalid (it has invalid syntax, includes unknown fields, ...). | 2.0.0 |  |
 | `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
+| `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | 2.0.0 |  |
 | `PROVIDES_FIELDS_HAS_ARGS` | The `fields` argument of a `@provides` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
 | `PROVIDES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@provides` directive includes a field that is not marked as `@external`. | 0.x |  |
 | `PROVIDES_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@provides` directive is not a string. | 2.0.0 |  |

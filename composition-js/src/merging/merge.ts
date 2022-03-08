@@ -159,6 +159,16 @@ function isMergedField(field: InputFieldDefinition | FieldDefinition<CompositeTy
   return field.kind !== 'FieldDefinition' || !isFederationField(field);
 }
 
+function isGraphQLBuiltInDirective(def: DirectiveDefinition): boolean {
+  // `def.isBuiltIn` is not entirely reliable here because if it will be `false`
+  // if the user has manually redefined the built-in directive (if they do,
+  // we validate the definition is "compabitle" with the built-in version, but
+  // otherwise return the use one). But when merging, we want to essentially
+  // ignore redefinitions, so we instead just check if the "name" is that of
+  // built-in directive.
+  return !!def.schema().builtInDirective(def.name);
+}
+
 function isMergedDirective(definition: DirectiveDefinition | Directive): boolean {
   // Currently, we only merge "executable" directives, and a small subset of well-known type-system directives.
   // Note that some user directive definitions may have both executable and non-executable locations.
@@ -167,9 +177,14 @@ function isMergedDirective(definition: DirectiveDefinition | Directive): boolean
   if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(definition.name)) {
     return true;
   }
-  // If it's a directive application, then we skip it (even if the definition itself allows executable locations,
-  // this particular application is an type-system element and we don't want to merge it).
+  // If it's a directive application, then we skip it unless it's a graphQL built-in
+  // (even if the definition itself allows executable locations, this particular
+  // application is an type-system element and we don't want to merge it).
   if (definition instanceof Directive) {
+    return isGraphQLBuiltInDirective(definition.definition!);
+  } else if (isGraphQLBuiltInDirective(definition)) {
+    // We never "merge" graphQL built-in definitions, since they are built-in and
+    // don't need to be defined.
     return false;
   }
   return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
@@ -1591,9 +1606,28 @@ class Merger {
 
     while (perSource.length > 0) {
       const directive = this.pickNextDirective(perSource);
-      // TODO: should we bother copying the args?
-      dest.applyDirective(directive.name, directive.arguments(false));
-      perSource = this.removeDirective(directive, perSource);
+      if (!directive.definition?.repeatable && dest.hasAppliedDirective(directive.name)) {
+        this.reportMismatchError(
+          ERRORS.NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH,
+          `Non-repeatable directive @${directive.name} is applied to "${(dest as any)['coordinate'] ?? dest}" in multiple subgraphs but with incompatible arguments: it uses `,
+          dest,
+          sources,
+          (elt) => {
+            const args = elt.appliedDirectivesOf(directive.name).pop()?.arguments();
+            return args === undefined
+              ? undefined
+              : Object.values(args).length === 0 ? 'no arguments' : (`arguments ${valueToString(args)}`);
+          }
+        );
+        // We only want to report the error once, so we remove any remaining instance of
+        // the directive
+        perSource = perSource
+          .map((ds) => ds.filter((d) => d.name !== directive.name))
+          .filter((ds) => ds.length > 0) ;
+      } else {
+        dest.applyDirective(directive.name, directive.arguments(false));
+        perSource = this.removeDirective(directive, perSource);
+      }
     }
   }
 
