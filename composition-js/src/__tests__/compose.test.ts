@@ -1553,6 +1553,131 @@ describe('composition', () => {
     })
   });
 
+  describe('merging of directives', () => {
+    it('propagates graphQL built-in directives', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          a: String @deprecated(reason: "bad")
+        }
+      `);
+    });
+
+    it('merges graphQL built-in directives', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          a: String @deprecated(reason: "bad")
+        }
+      `);
+    });
+
+    it('errors on incompatible non-repeatable (built-in) directives', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
+          'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments: it uses arguments {reason: "bad"} in subgraph "subgraphA" but no arguments in subgraph "subgraphB"'],
+      ]);
+    });
+
+    it('propagates graphQL built-in directives even if redefined in the subgarph', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @deprecated
+          }
+
+          # Do note that the code validates that this definition below
+          # is "compatible" with the "real one", which it is.
+          directive @deprecated on FIELD_DEFINITION
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            b: String
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          a: String @deprecated
+          b: String
+        }
+      `);
+    });
+  });
+
   it('is not broken by similar field argument signatures (#1100)', () => {
     // This test is about validating the case from https://github.com/apollographql/federation/issues/1100 is fixed.
 
