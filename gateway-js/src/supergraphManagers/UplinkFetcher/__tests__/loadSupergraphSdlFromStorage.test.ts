@@ -396,5 +396,41 @@ describe("loadSupergraphSdlFromUplinks", () => {
     expect(result).toBeNull();
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
+
+  it("Waits the correct time before retrying", async () => {
+    //jest.useFakeTimers();
+    //jest.spyOn(global, 'setTimeout');
+
+    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
+    mockSupergraphSdlRequestIfAfter('originalId-1234', mockCloudConfigUrl2).reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'originalId-1234',
+            supergraphSdl: getTestingSupergraphSdl()
+          },
+        },
+      }),
+    );
+
+    const fetcher = getDefaultFetcher();
+    await loadSupergraphSdlFromUplinks({
+      graphRef,
+      apiKey,
+      endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
+      errorReportingEndpoint: undefined,
+      fetcher,
+      compositionId: "originalId-1234",
+      maxRetries: 1,
+      roundRobinSeed: 0,
+      earliestFetchTime: new Date(Date.now() + 1000),
+    });
+    //jest.runAllTimers();
+    //jest.useRealTimers();
+    expect(setTimeout).toHaveBeenCalledTimes(2);
+    expect(setTimeout).toHaveBeenLastCalledWith(1)
+  });
 });
 
