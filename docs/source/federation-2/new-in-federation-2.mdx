@@ -193,7 +193,7 @@ For more information, see [Resolving another subgraph's field](../entities-advan
 
 ### Changes to `@key`
 
-In Federation 1, every entity definition in every subgraph requires a `@key`. In Federation 2, _most_ entity definitions require a `@key`, but _not_ if a particular subgraph contributes _no fields_ to an entity.
+Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph _can't_ resolve a particular entity.
 
 For example:
 
@@ -210,10 +210,10 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql{2-4}
+```graphql{2}
 # Reviews subgraph
-type Product {
-  id: ID! @shareable
+type Product @key(fields: "id", resolvable: false) {
+  id: ID!
 }
 
 type Review {
@@ -224,15 +224,23 @@ type Review {
 
 </CodeColumns>
 
-In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any fields to the entity. Therefore, the "stub" definition of `Product` in the Reviews subgraph needs to include _only_ the `@key` field for `Product` (`id` in this case) and mark it as `@shareable`.
+In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any fields to the entity. Therefore, the "stub" definition of `Product` in the Reviews subgraph needs to include _only_ the `@key` field for `Product` (`id` in this case) and indicate that it can't resolve any other fields.
 
 For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
 
-#### Why this change?
+## Interfaces implementing interfaces
 
-In a Federation 2 subgraph, the `@key` directive indicates the following to the gateway:
+Federation 1 composition incorrectly fails if an interface type implements _another_ interface type. This issue is resolved in Federation 2:
 
-* This subgraph provides a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity.
-* To use the reference resolver, the gateway must provide values for the fields specified by the `@key`.
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
 
-If a particular subgraph contributes no fields to an entity, the gateway _never_ needs to use a reference resolver for the entity in that subgraph. Therefore, the `@key` directive is unnecessary.
+```graphql
+interface Media {
+  title: String!
+}
+
+interface Book implements Media {
+  title: String!
+  author: String!
+}
+```

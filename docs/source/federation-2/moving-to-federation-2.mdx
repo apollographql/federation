@@ -135,6 +135,27 @@ extend schema
 
 This definition identifies a schema as a true Federation 2 schema. Without this definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
 
+### Add schema definitions to non-Apollo subgraphs
+
+During this preview, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
+
+<ExpansionPanel title="Click to expand">
+
+```graphql
+directive @shareable on FIELD_DEFINITION | OBJECT
+
+scalar link__Import
+
+directive @link(
+  url: String!,
+  import: [link__Import],
+) repeatable on SCHEMA
+```
+
+</ExpansionPanel>
+
+We'll be working with library maintainers to help automatically add these schema definitions in libraries besides `@apollo/subgraph`.
+
 ### Mark all value types as `@shareable`
 
 By default in Federation 2, most schema fields are resolvable by only a _single subgraph_. In Federation 1, this is _not_ true for [value types](https://www.apollographql.com/docs/federation/value-types/):
@@ -291,7 +312,7 @@ type Query {
 
 Here, `Query.outOfStockProducts` in the Inventory subgraph `@provides` the `Product.name` field. Therefore, that field must be marked as `@shareable` in the Products subgraph (and `@external` in the Inventory subgraph, as in Federation 1). Otherwise, a composition error occurs.
 
-#### Remove unnecessary `@key`s
+#### Modify `@key`s for entity stubs
 
 In certain cases, a subgraph _references_ an entity without contributing any fields to it. In Federation 1, these cases look like the following:
 
@@ -322,9 +343,9 @@ type Review {
 
 </CodeColumns>
 
-In Federation 2, the Reviews subgraph above does _not_ need to provide a `@key` for the `Product` entity, because it doesn't contribute any fields to `Product`. Instead, it only uses `Product` as a return type for `Review.product`.
+The Reviews subgraph above uses `Product` as the return type of the `Review.product` field, so it needs to define a "stub" of the `Product` entity. This stub includes just enough information to identify a unique instance.
 
-Therefore, the Reviews subgraph can change its `Product` definition to the following:
+In Federation 2, stubs like `Product` should include `resolvable: false` in their `@key` arguments, like so:
 
 <p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
 
@@ -339,10 +360,10 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql{2-4}
+```graphql{2}
 # Reviews subgraph
-type Product {
-  id: ID! @shareable
+type Product @key(fields: "id", resolvable: false) {
+  id: ID!
 }
 
 type Review {
@@ -353,4 +374,4 @@ type Review {
 
 </CodeColumns>
 
-Note the lack of a `@key` on `Product`, _and_ the addition of the new `@shareable` directive to `Product.id`. The Products subgraph _doesn't_ need to apply `@shareable`, because `id` is a `@key` field in that subgraph (`@key` fields are `@shareable` by default).
+Setting `resolvable: false` is a helpful hint to the gateway to indicate that a subgraph [references an entity without contributing fields to it](../entities/#referencing-an-entity-without-contributing-fields).

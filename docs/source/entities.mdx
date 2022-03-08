@@ -134,9 +134,9 @@ By default, each subgraph must contribute _different_ fields, with the important
 
 As mentioned previously, each subgraph that _does_ contribute fields to an entity must [define a reference resolver](#2-define-a-reference-resolver) for that entity.
 
-## Referencing an entity _without_ contributing fields
+## Referencing an entity without contributing fields
 
-Your subgraphs can use an entity as a field's return type _without_ contributing any fields to that entity. This requires much less code than the steps in [Defining an entity](#defining-an-entity).
+Your subgraphs can use an entity as a field's return type _without_ contributing any fields to that entity. This requires less code than the steps in [Defining an entity](#defining-an-entity).
 
 Take a look at this `Product` entity in the Products subgraph:
 
@@ -170,15 +170,12 @@ type Review {
   score: Int!
 }
 
-type Product {
-  id: ID! @shareable
+type Product @key(fields: "id", resolvable: false) {
+  id: ID!
 }
 ```
 
-As you can see, this stub definition includes _only_ the `@key` fields of `Product` (just `id` in this case). It also marks the `id` field as `@shareable`, which is required because the field is resolved by multiple subgraphs.
-
-> The `@shareable` directive isn't required for `id` in the Products subgraph because `id` is included in the `@key` directive there. Fields listed in a `@key` directive are automatically `@shareable`.
-
+As you can see, this stub definition includes _only_ the `@key` fields of `Product` (just `id` in this case). It also includes `resolvable: false` in the `@key` directive to indicate that this subgraph can't resolve any non-`@key` fields of `Product`.
 
 ## Example query flow
 
