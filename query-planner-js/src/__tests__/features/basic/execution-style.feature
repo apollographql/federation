@@ -24,16 +24,16 @@ Scenario: supports parallel root fields
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUserAndReviews_accounts_0{me{username}}",
-          "operationName": "GetUserAndReviews_accounts_0"
+          "operation": "query GetUserAndReviews__accounts__0{me{username}}",
+          "operationName": "GetUserAndReviews__accounts__0"
         },
         {
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUserAndReviews_reviews_1{topReviews{body}}",
-          "operationName": "GetUserAndReviews_reviews_1"
+          "operation": "query GetUserAndReviews__reviews__1{topReviews{body}}",
+          "operationName": "GetUserAndReviews__reviews__1"
         }
       ]
     }

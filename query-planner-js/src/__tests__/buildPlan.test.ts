@@ -3,7 +3,7 @@ import { composeServices } from '@apollo/composition';
 import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
-import { FetchNode } from '../QueryPlan';
+import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -1062,6 +1062,143 @@ describe('@requires', () => {
       }
     `);
   })
+});
+
+describe('fetch operation names', () => {
+  test('handle subgraph with - in the name', () => {
+    const subgraph1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'non-graphql-name',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query myOp {
+        t {
+          x
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "non-graphql-name") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+    expect(fetch.operation).toMatch(/^query myOp__non_graphqlname__1.*/i);
+  });
+
+  test('handle very non-graph subgraph name', () => {
+    const subgraph1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: '42!',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query myOp {
+        t {
+          x
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "42!") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+
+    expect(fetch.operation).toMatch(/^query myOp___42__1.*/i);
+  });
 });
 
 test('Correctly handle case where there is too many plans to consider', () => {
