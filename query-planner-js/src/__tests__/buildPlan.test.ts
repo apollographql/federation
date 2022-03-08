@@ -1129,7 +1129,74 @@ describe('fetch operation names', () => {
       }
     `);
     const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
-    expect(fetch.operation).toMatch(/^query myOp__non_graphqlname__1.*/i);
+    expect(fetch.operation).toMatch(/^query myOp__non_graphql_name__1.*/i);
+  });
+
+  test('ensures sanitization applies repeatedly', () => {
+    const subgraph1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'a-na&me-with-plen&ty-replace*ments',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query myOp {
+        t {
+          x
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "a-na&me-with-plen&ty-replace*ments") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+    expect(fetch.operation).toMatch(/^query myOp__a_name_with_plenty_replacements__1.*/i);
   });
 
   test('handle very non-graph subgraph name', () => {
