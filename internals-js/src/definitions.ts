@@ -910,7 +910,8 @@ export class CoreFeature {
 
   isFeatureDefinition(element: NamedType | DirectiveDefinition): boolean {
     return element.name.startsWith(this.nameInSchema + '__')
-      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema);
+      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema)
+      || !!this.imports.find((i) => element.name === (i.as ?? i.name));
   }
 
   directiveNameInSchema(name: string): string {
@@ -2748,9 +2749,9 @@ export class Directive<
     this.onModification();
     const coreFeatures = this.schema().coreFeatures;
     if (coreFeatures && this.name === coreFeatures.coreItself.nameInSchema) {
-      // We're removing a @core directive application, so we remove it from the list of core features. And
+      // We're removing a @core/@link directive application, so we remove it from the list of core features. And
       // if it is @core itself, we clean all features (to avoid having things too inconsistent).
-      const url = FeatureUrl.parse(this._args['feature']!);
+      const url = FeatureUrl.parse(this._args[coreFeatures.coreDefinition.urlArgName()]!);
       if (url.identity === coreFeatures.coreItself.url.identity) {
         // Note that we unmark first because the loop after that will nuke our parent.
         Schema.prototype['unmarkAsCoreSchema'].call(this.schema());
