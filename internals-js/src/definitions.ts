@@ -1241,7 +1241,11 @@ export class Schema {
 
   directive(name: string): DirectiveDefinition | undefined {
     const directive = this._directives.get(name);
-    return directive ? directive : this._builtInDirectives.get(name);
+    return directive ? directive : this.builtInDirective(name);
+  }
+
+  builtInDirective(name: string): DirectiveDefinition | undefined {
+    return this._builtInDirectives.get(name);
   }
 
   *allNamedSchemaElement(): Generator<NamedSchemaElement<any, any, any>, void, undefined> {

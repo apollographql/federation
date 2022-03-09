@@ -269,7 +269,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       i++;
     }
     // `i` is the smallest index of an element having the same number or less options than the first one,
-    // so we switch that first branch with the element "before" `i` (which has more elements). 
+    // so we switch that first branch with the element "before" `i` (which has more elements).
     this.closedBranches[0] = this.closedBranches[i - 1];
     this.closedBranches[i - 1] = firstBranch;
   }
@@ -510,7 +510,7 @@ export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: 
 
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
-  const processor = fetchGroupToPlanProcessor(operation.variableDefinitions, operation.selectionSet.fragments);
+  const processor = fetchGroupToPlanProcessor(operation.variableDefinitions, operation.selectionSet.fragments, operation.name);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
@@ -617,12 +617,30 @@ function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
   });
 }
 
+function toValidGraphQLName(subgraphName: string): string {
+  // We have almost no limitations on subgraph names, so we cannot use them inside query names
+  // without some cleaning up. GraphQL names can only be: [_A-Za-z][_0-9A-Za-z]*.
+  // To do so, we:
+  //  1. replace '-' by '_' because the former is not allowed but it's probably pretty
+  //   common and using the later should be fairly readable.
+  //  2. remove any character in what remains that is not allowed.
+  //  3. Unsure the first character is not a number, and if it is, add a leading `_`.
+  // Note that this could theoretically lead to substantial changes to the name but should
+  // work well in practice (and if it's a huge problem for someone, we can change it).
+  const sanitized = subgraphName
+    .replace(/-/ig, '_')
+    .replace(/[^_0-9A-Za-z]/ig, '');
+  return sanitized.match(/^[0-9].*/i) ? '_' + sanitized : sanitized;
+}
+
 function fetchGroupToPlanProcessor(
   variableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
+  operationName?: string
 ): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
+  let counter = 0;
   return {
-    onFetchGroup: (group: FetchGroup) => group.toPlanNode(variableDefinitions, fragments),
+    onFetchGroup: (group: FetchGroup) => group.toPlanNode(variableDefinitions, fragments, operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined),
     reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
     finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
@@ -788,7 +806,7 @@ class FetchGroup {
     this.dependencyGraph.onMergedIn(this, toMerge);
   }
 
-  toPlanNode(variableDefinitions: VariableDefinitions, fragments?: NamedFragments) : PlanNode {
+  toPlanNode(variableDefinitions: VariableDefinitions, fragments?: NamedFragments, operationName?: string) : PlanNode {
     addTypenameFieldForAbstractTypes(this.selection);
 
     this.selection.validate();
@@ -800,8 +818,20 @@ class FetchGroup {
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
     const operation = this.isEntityFetch
-      ? operationForEntitiesFetch(this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!, this.selection, variableDefinitions, fragments)
-      : operationForQueryFetch(this.rootKind, this.selection, variableDefinitions, fragments);
+      ? operationForEntitiesFetch(
+          this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
+          this.selection,
+          variableDefinitions,
+          fragments,
+          operationName,
+        )
+      : operationForQueryFetch(
+          this.rootKind,
+          this.selection,
+          variableDefinitions,
+          fragments,
+          operationName,
+        );
 
     const fetchNode: FetchNode = {
       kind: 'Fetch',
@@ -810,6 +840,7 @@ class FetchGroup {
       variableUsages: this.selection.usedVariables().map(v => v.name),
       operation: stripIgnoredCharacters(print(operationToDocument(operation))),
       operationKind:schemaRootKindToOperationKind(operation.rootKind),
+      operationName: operation.name,
     };
 
     return this.isTopLevel
@@ -1709,25 +1740,39 @@ function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
+  operationName?: string
 ): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
-  variableDefinitions.addAll(allVariableDefinitions.filter(selectionSet.usedVariables()));
+  variableDefinitions.addAll(
+    allVariableDefinitions.filter(selectionSet.usedVariables()),
+  );
 
   const queryType = subgraphSchema.schemaDefinition.rootType('query');
-  assert(queryType, `Subgraphs should always have a query root (they should at least provides _entities)`);
+  assert(
+    queryType,
+    `Subgraphs should always have a query root (they should at least provides _entities)`,
+  );
 
   const entities = queryType.field(entitiesFieldName);
   assert(entities, `Subgraphs should always have the _entities field`);
 
   const entitiesCall: SelectionSet = new SelectionSet(queryType);
-  entitiesCall.add(new FieldSelection(
-    new Field(entities, { 'representations': representationsVariable }, variableDefinitions),
-    selectionSet
-  ));
+  entitiesCall.add(
+    new FieldSelection(
+      new Field(
+        entities,
+        { representations: representationsVariable },
+        variableDefinitions,
+      ),
+      selectionSet,
+    ),
+  );
 
-  return new Operation('query', entitiesCall, variableDefinitions).optimize(fragments);
+  return new Operation('query', entitiesCall, variableDefinitions, operationName).optimize(
+    fragments,
+  );
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
@@ -1753,7 +1798,8 @@ function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
+  operationName?: string
 ): Operation {
-  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
+  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName).optimize(fragments);
 }

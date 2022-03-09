@@ -274,6 +274,11 @@ const ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.',
 );
 
+const NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH = makeCodeDefinition(
+  'NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
+  'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
+);
+
 const EXTENSION_WITH_NO_BASE = makeCodeDefinition(
   'EXTENSION_WITH_NO_BASE',
   'A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph.',
@@ -299,6 +304,11 @@ const INVALID_FIELD_SHARING = makeCodeDefinition(
 const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'INVALID_LINK_DIRECTIVE_USAGE',
   'An application of the @link directive is invalid/does not respect the specification.'
+);
+
+const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
+  'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
+  'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all subgraphs that define the field or directive definition.'
 );
 
 const SATISFIABILITY_ERROR = makeCodeDefinition(
@@ -354,11 +364,13 @@ export const ERRORS = {
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
   ARGUMENT_DEFAULT_MISMATCH,
+  NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH,
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_LINK_DIRECTIVE_USAGE,
+  REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   SATISFIABILITY_ERROR,
 };
 

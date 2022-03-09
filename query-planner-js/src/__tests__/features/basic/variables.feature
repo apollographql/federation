@@ -22,7 +22,8 @@ Scenario: passes variables to root fields
           "serviceName": "product",
           "variableUsages": ["upc"],
           "operationKind": "query",
-          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Flatten",
@@ -42,7 +43,8 @@ Scenario: passes variables to root fields
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
+            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}",
+            "operationName": "GetProduct__books__1"
           }
         },
         {
@@ -65,7 +67,8 @@ Scenario: passes variables to root fields
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+            "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+            "operationName": "GetProduct__product__2"
           }
         }
       ]
@@ -95,7 +98,8 @@ Scenario: supports default variables in a variable definition
           "serviceName": "product",
           "variableUsages": ["upc"],
           "operationKind": "query",
-          "operation": "query($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
+          "operation": "query GetProduct__product__0($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Flatten",
@@ -115,7 +119,8 @@ Scenario: supports default variables in a variable definition
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
+            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}",
+            "operationName": "GetProduct__books__1"
           }
         },
         {
@@ -138,7 +143,8 @@ Scenario: supports default variables in a variable definition
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+            "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+            "operationName": "GetProduct__product__2"
           }
         }
       ]
@@ -170,7 +176,8 @@ Scenario: passes variables to nested services
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "{me{__typename id}}"
+          "operation": "query GetProductsForUser__accounts__0{me{__typename id}}",
+          "operationName": "GetProductsForUser__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -190,7 +197,8 @@ Scenario: passes variables to nested services
             ],
             "variableUsages": ["format"],
             "operationKind": "query",
-            "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
+            "operation": "query GetProductsForUser__reviews__1($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}",
+            "operationName": "GetProductsForUser__reviews__1"
           }
         }
       ]
@@ -225,7 +233,8 @@ Scenario: works with default variables in the schema
           "serviceName": "books",
           "variableUsages": ["libraryId"],
           "operationKind": "query",
-          "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
+          "operation": "query LibraryUser__books__0($libraryId:ID!){library(id:$libraryId){__typename id name}}",
+          "operationName": "LibraryUser__books__0"
         },
         {
           "kind": "Flatten",
@@ -246,7 +255,8 @@ Scenario: works with default variables in the schema
             ],
             "variableUsages": ["userId"],
             "operationKind": "query",
-            "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name{first}}}}}"
+            "operation": "query LibraryUser__accounts__1($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name{first}}}}}",
+            "operationName": "LibraryUser__accounts__1"
           }
         }
       ]
