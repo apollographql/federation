@@ -8,6 +8,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.48.2
+
+- Only transitive dependency updates with no other notable changes.
+
 ## v0.48.1
 
 - Use specific error classes when throwing errors due Apollo Uplink being unreacheable or returning an invalid response [PR #1473](https://github.com/apollographql/federation/pull/1473)

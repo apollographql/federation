@@ -8,6 +8,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.3.2
+
+- Transitive dependency updates with no other notable changes.
+
 ## v0.3.1
 
 - Improve typings for `GraphQLResolverMap` which previously prevented users from typing their `args` parameter on a resolver correctly. [PR #1499](https://github.com/apollographql/federation/pull/1499)

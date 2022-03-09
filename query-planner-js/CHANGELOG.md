@@ -8,6 +8,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.8.1
+
+- Transitive dependency updates with no other notable changes.
+
 ## v0.8.0
 
 - __BREAKING__ Bump graphql@15 peer to ^15.8.0. Fix TS error related to `OperationTypeNode` enum in v16 which doesn't exist in v15. [PR #1482](https://github.com/apollographql/federation/pull/1482)
