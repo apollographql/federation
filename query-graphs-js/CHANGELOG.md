@@ -6,6 +6,10 @@
 
 - _Nothing yet! Stay tuned._
 
+## v2.0.0-preview.2
+
+- Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
+
 ## v2.0.0-preview.1
 
 - No-op publish to account for publishing difficulties.
