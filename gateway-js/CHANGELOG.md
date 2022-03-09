@@ -8,7 +8,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
-## v0.48.2
+## v0.48.3
 
 - Only transitive dependency updates with no other notable changes.
 
