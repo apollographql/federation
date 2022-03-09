@@ -1,6 +1,7 @@
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
+  ErrGraphQLValidationFailed,
   FieldDefinition,
   isCompositeType,
   isInterfaceType,
@@ -88,6 +89,6 @@ export function removeInaccessibleElements(schema: Schema) {
   }
 
   if (errors.length) {
-    throw new AggregateError(errors)
+    throw ErrGraphQLValidationFailed(errors)
   }
 }

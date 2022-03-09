@@ -1,4 +1,5 @@
-import { ObjectType } from '../definitions';
+import { GraphQLErrorExt } from "@apollo/core-schema/dist/error";
+import { errorCauses, ObjectType } from '../definitions';
 import { buildSchema } from '../buildSchema';
 import { removeInaccessibleElements } from '../inaccessibleSpec';
 
@@ -180,16 +181,18 @@ describe('removeInaccessibleElements', () => {
 
     try {
       // Assert that an AggregateError is thrown, then allow the error to be caught for further validation
-      expect(removeInaccessibleElements(schema)).toThrow(AggregateError);
+      expect(removeInaccessibleElements(schema)).toThrow(GraphQLErrorExt);
     } catch (err) {
-      expect(err.errors).toHaveLength(1);
-      expect(err.errors[0].toString()).toMatch(
+      const causes = errorCauses(err);
+      expect(causes).toBeTruthy();
+      expect(err.causes).toHaveLength(1);
+      expect(err.causes[0].toString()).toMatch(
         `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.`
       );
     }
   });
 
-  it(`throws an AggregateError when there are multiple problems`, () => {
+  it(`throws when there are multiple problems`, () => {
     const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
@@ -221,13 +224,15 @@ describe('removeInaccessibleElements', () => {
 
     try {
       // Assert that an AggregateError is thrown, then allow the error to be caught for further validation
-      expect(removeInaccessibleElements(schema)).toThrow(AggregateError);
+      expect(removeInaccessibleElements(schema)).toThrow(GraphQLErrorExt);
     } catch (err) {
-      expect(err.errors).toHaveLength(2);
-      expect(err.errors[0].toString()).toMatch(
+      const causes = errorCauses(err);
+      expect(causes).toBeTruthy();
+      expect(err.causes).toHaveLength(2);
+      expect(err.causes[0].toString()).toMatch(
         `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.`
       );
-      expect(err.errors[1].toString()).toMatch(
+      expect(err.causes[1].toString()).toMatch(
         `Field Query.fooderationField returns an @inaccessible type without being marked @inaccessible itself.`
       );
     }
