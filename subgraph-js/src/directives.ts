@@ -20,6 +20,7 @@ import {
   visit,
   GraphQLSchema,
   GraphQLList,
+  GraphQLBoolean,
 } from 'graphql';
 import { LinkImportType } from './types';
 
@@ -30,6 +31,10 @@ export const KeyDirective = new GraphQLDirective({
     fields: {
       type: new GraphQLNonNull(GraphQLString),
     },
+    resolvable: {
+      type: GraphQLBoolean,
+      defaultValue: true
+    }
   },
 });
 

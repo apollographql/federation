@@ -20,8 +20,8 @@ Scenario: does not have to go to another service when field is given
       "serviceName": "reviews",
       "variableUsages": [],
       "operationKind": "query",
-      "operation": "query GetReviewers_reviews_0{topReviews{author{username}}}",
-      "operationName": "GetReviewers_reviews_0"
+      "operation": "query GetReviewers__reviews__0{topReviews{author{username}}}",
+      "operationName": "GetReviewers__reviews__0"
     }
   }
   """
@@ -53,8 +53,8 @@ Scenario: does not load fields provided even when going to other service
           "serviceName": "reviews",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetReviewers_reviews_0{topReviews{author{__typename id username}}}",
-          "operationName": "GetReviewers_reviews_0"
+          "operation": "query GetReviewers__reviews__0{topReviews{author{__typename id username}}}",
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -74,8 +74,8 @@ Scenario: does not load fields provided even when going to other service
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetReviewers_accounts_1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
-            "operationName": "GetReviewers_accounts_1"
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]

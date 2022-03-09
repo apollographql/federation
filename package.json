@@ -53,10 +53,10 @@
     "@types/lodash.xorby": "4.7.6",
     "@types/loglevel": "1.5.4",
     "@types/nock": "10.0.3",
-    "@types/node": "12.20.46",
+    "@types/node": "12.20.47",
     "@types/node-fetch": "2.6.1",
     "@types/whatwg-url": "8.2.1",
-    "@typescript-eslint/eslint-plugin": "5.13.0",
+    "@typescript-eslint/eslint-plugin": "5.14.0",
     "apollo-server": "3.6.3",
     "apollo-server-env": "4.2.1",
     "bunyan": "1.8.15",
@@ -92,6 +92,6 @@
   },
   "volta": {
     "node": "16.14.0",
-    "npm": "8.5.2"
+    "npm": "8.5.3"
   }
 }

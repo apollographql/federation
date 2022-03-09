@@ -77,7 +77,7 @@ describe('composition', () => {
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
       enum core__Purpose {
         """
@@ -1436,6 +1436,34 @@ describe('composition', () => {
         ['EXTERNAL_MISSING_ON_BASE', 'Field "A.f" is marked @external on all the subgraphs in which it is listed (subgraph "subgraphB").'],
       ]);
     });
+
+    it('errors if a mandatory argument is not in all subgraphs', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q(a: Int!): String @shareable
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            q: String @shareable
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
+          'Argument "Query.q(a:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"']
+      ]);
+    });
   });
 
   describe('post-merge validation', () => {
@@ -1523,6 +1551,131 @@ describe('composition', () => {
         ['INTERFACE_FIELD_NO_IMPLEM', 'Interface field "J.a" is declared in subgraph \"subgraphA\" but type "B", which implements "J" only in subgraph \"subgraphB\" does not have field "a".'],
       ]);
     })
+  });
+
+  describe('merging of directives', () => {
+    it('propagates graphQL built-in directives', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          a: String @deprecated(reason: "bad")
+        }
+      `);
+    });
+
+    it('merges graphQL built-in directives', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          a: String @deprecated(reason: "bad")
+        }
+      `);
+    });
+
+    it('errors on incompatible non-repeatable (built-in) directives', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated(reason: "bad")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            a: String @shareable @deprecated
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
+          'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments: it uses arguments {reason: "bad"} in subgraph "subgraphA" but no arguments in subgraph "subgraphB"'],
+      ]);
+    });
+
+    it('propagates graphQL built-in directives even if redefined in the subgarph', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            a: String @deprecated
+          }
+
+          # Do note that the code validates that this definition below
+          # is "compatible" with the "real one", which it is.
+          directive @deprecated on FIELD_DEFINITION
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            b: String
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          a: String @deprecated
+          b: String
+        }
+      `);
+    });
   });
 
   it('is not broken by similar field argument signatures (#1100)', () => {
@@ -1753,6 +1906,46 @@ describe('composition', () => {
         ['INVALID_FIELD_SHARING', 'Non-shareable field "E.c" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
       ]);
     });
+
+    it ('applies @shareable on type only to the field within the definition', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            e: E
+          }
+
+          type E @shareable {
+            id: ID!
+            a: Int
+          }
+
+          extend type E {
+            b: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type E @shareable {
+            id: ID!
+            a: Int
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      // We want the @shareable to only apply to `a` but not `b` in the first
+      // subgraph, so this should _not_ compose.
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.b" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+      ]);
+    });
   });
 
   it('handles renamed federation directives', () => {
@@ -1833,7 +2026,7 @@ describe('composition', () => {
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
       enum core__Purpose {
         """

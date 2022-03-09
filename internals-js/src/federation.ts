@@ -529,7 +529,7 @@ export class FederationMetadata {
     return directive as DirectiveDefinition<TApplicationArgs>;
   }
 
-  keyDirective(): DirectiveDefinition<{fields: any}> {
+  keyDirective(): DirectiveDefinition<{fields: any, resolvable?: boolean}> {
     return this.getFederationDirective(keyDirectiveSpec.name);
   }
 

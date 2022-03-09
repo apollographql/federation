@@ -21,8 +21,8 @@ import {
   isObjectType,
   mapValues,
   federationMetadata,
-  isEntityType,
   isSchemaRootType,
+  Directive,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
@@ -824,12 +824,18 @@ export function advancePathWithTransition<V extends Vertex>(
       if (type && isCompositeType(type) && type.field(fieldName)) {
         // That subgraph has the type we look for, but we have recorded no dead-ends. This means there is no edge to that type,
         // and thus that it has no keys.
-        assert(!isEntityType(type), () => `Expected type ${type} in ${subgraph} to not have keys`);
+        const metadata = federationMetadata(schema);
+        const keys: Directive<CompositeType, {fields: any, resolvable?: boolean}>[] = metadata ? type.appliedDirectivesOf(metadata.keyDirective()) : [];
+        const allNonResolvable = keys.length > 0 && keys.every((k) => !(k.arguments().resolvable ?? true));
+        assert(keys.length === 0 || allNonResolvable, () => `Expected type ${type} in ${subgraph} to have no resolvable keys`);
+        const explanation = keys.length === 0
+          ? `type "${typeName}" has no @key defined in subgraph "${subgraph}"`
+          : `none of the @key defined on type "${typeName}" in subgraph "${subgraph}" are resolvable (they are all declared with their "resolvable" argument set to false)`;
         allDeadEnds.push({
           sourceSubgraph: subgraphPath.tail.source,
           destSubgraph: subgraph,
           reason: UnadvanceableReason.UNREACHABLE_TYPE,
-          details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because type "${typeName}" has no @key defined in subgraph "${subgraph}"`
+          details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because ${explanation}`
         });
       }
     }

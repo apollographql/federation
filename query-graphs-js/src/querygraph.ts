@@ -592,6 +592,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
       v => {
         const type = v.type;
         for (const keyApplication of type.appliedDirectivesOf(keyDirective)) {
+          if (!(keyApplication.arguments().resolvable ?? true)) {
+            continue;
+          }
+
           // The @key directive creates an edge from every other subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
           // that the service of the current subgraph can be queried for the entity (through

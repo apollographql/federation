@@ -62,6 +62,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     joinType.addArgument('key', joinFieldSet);
     if (!this.isV01()) {
       joinType.addArgument('extension', new NonNullType(schema.booleanType()), false);
+      joinType.addArgument('resolvable', new NonNullType(schema.booleanType()), true);
     }
 
     const joinField = this.addDirective(schema, 'field').addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION);
@@ -132,7 +133,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'graph')!;
   }
 
-  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string, extension?: boolean}> {
+  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string, extension?: boolean, resolvable?: boolean}> {
     return this.directive(schema, 'type')!;
   }
 
