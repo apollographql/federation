@@ -6,6 +6,14 @@
 
 - _Nothing yet! Stay tuned._
 
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Initial "preview" release.
+
 ## v2.0.0-alpha.6
 
 - No direct changes, only transitive updates to `@apollo/federation-internals`.

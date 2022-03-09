@@ -8,6 +8,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - _Nothing yet! Stay tuned!_
 
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Initial "preview" release.
+
 ## v2.0.0-alpha.6
 
 - Avoid incomplete subgraphs when extracting them from the supergraph. [PR #1511](https://github.com/apollographql/federation/pull/1511) (via fix to `@apollo/federation-internals`)
