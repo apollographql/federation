@@ -8,6 +8,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - _Nothing yet! Stay tuned._
 
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Initial "preview" release.
+
 ## v2.0.0-alpha.6
 
 - No direct changes.  Just bumping to maintain version alignment with other v2.0.0 alpha packages.
