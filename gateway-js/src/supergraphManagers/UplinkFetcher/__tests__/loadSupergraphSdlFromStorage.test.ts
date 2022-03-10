@@ -398,8 +398,7 @@ describe("loadSupergraphSdlFromUplinks", () => {
   });
 
   it("Waits the correct time before retrying", async () => {
-    //jest.useFakeTimers();
-    //jest.spyOn(global, 'setTimeout');
+    jest.spyOn(global, 'setTimeout');
 
     mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
     mockSupergraphSdlRequestIfAfter('originalId-1234', mockCloudConfigUrl2).reply(
@@ -414,23 +413,23 @@ describe("loadSupergraphSdlFromUplinks", () => {
         },
       }),
     );
-
     const fetcher = getDefaultFetcher();
+
     await loadSupergraphSdlFromUplinks({
       graphRef,
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: undefined,
-      fetcher,
+      fetcher: fetcher,
       compositionId: "originalId-1234",
       maxRetries: 1,
       roundRobinSeed: 0,
       earliestFetchTime: new Date(Date.now() + 1000),
     });
-    //jest.runAllTimers();
-    //jest.useRealTimers();
-    expect(setTimeout).toHaveBeenCalledTimes(2);
-    expect(setTimeout).toHaveBeenLastCalledWith(1)
+
+    // test what setTimeout was called with like this to deal with time jitter
+    expect((setTimeout as unknown as jest.MockedFn<typeof setTimeout>).mock.calls[1][1]).toBeLessThanOrEqual(1000);
+    expect((setTimeout as unknown as jest.MockedFn<typeof setTimeout>).mock.calls[1][1]).toBeGreaterThanOrEqual(900);
   });
 });
 
