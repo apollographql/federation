@@ -299,7 +299,9 @@ function buildNamedTypeInner(
       const enumType = type as EnumType;
       for (const enumVal of definitionNode.values ?? []) {
         const v = enumType.addValue(enumVal.name.value);
-        v.description = enumVal.description?.value;
+        if (enumVal.description) {
+          v.description = enumVal.description.value;
+        }
         v.setOfExtension(extension);
         buildAppliedDirectives(enumVal, v);
       }
@@ -315,7 +317,9 @@ function buildNamedTypeInner(
       break;
   }
   buildAppliedDirectives(definitionNode, type, extension);
-  type.description = definitionNode.description?.value;
+  if (definitionNode.description) {
+    type.description = definitionNode.description.value;
+  }
   type.sourceAST = definitionNode;
 }
 
