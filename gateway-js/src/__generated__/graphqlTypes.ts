@@ -139,7 +139,7 @@ export type SupergraphSdlQueryVariables = Exact<{
 }>;
 
 
-export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'Unchanged' } };
+export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, minDelaySeconds: number, supergraphSdl: string } | { __typename: 'Unchanged' } };
 
 export type OobReportMutationVariables = Exact<{
   input?: InputMaybe<ApiMonitoringReport>;
