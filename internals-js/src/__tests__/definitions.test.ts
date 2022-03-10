@@ -427,6 +427,10 @@ test('handling of descriptions', () => {
       pages: Int @Important
     }
 
+    extend type Book {
+      author: String
+    }
+
     type DVD implements Product {
       id: ID!
       description: String!
