@@ -15,7 +15,7 @@ import {
   GraphQLError,
   GraphQLCompositeType,
 } from 'graphql';
-import { transformSchema } from '../schema-helper';
+import { transformSchema, GraphQLSchemaValidationError } from '../schema-helper';
 
 export function removeInaccessibleElements(
   schema: GraphQLSchema,
@@ -110,6 +110,7 @@ export function removeInaccessibleElements(
     const newFieldMapConfig: GraphQLFieldConfigMap<any, any> =
       Object.create(null);
 
+    const errors = [];
     for (const [fieldName, fieldConfig] of Object.entries(fieldMapConfig)) {
       if (
         fieldConfig.astNode &&
@@ -117,14 +118,18 @@ export function removeInaccessibleElements(
       ) {
         continue;
       } else if (typesToRemove.has(getNamedType(fieldConfig.type))) {
-        throw new GraphQLError(
+        errors.push(new GraphQLError(
           `Field ${type.name}.${fieldName} returns ` +
             `an @inaccessible type without being marked @inaccessible itself.`,
           fieldConfig.astNode,
-        );
+        ));
       }
 
       newFieldMapConfig[fieldName] = fieldConfig;
+    }
+
+    if (errors.length) {
+      throw new GraphQLSchemaValidationError(errors);
     }
 
     return newFieldMapConfig;

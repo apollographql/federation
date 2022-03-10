@@ -184,6 +184,43 @@ describe('removeInaccessibleElements', () => {
     );
   });
 
+  it(`throws when there are multiple problems`, () => {
+    let schema = buildSchema(`
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+      {
+        query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      type Query {
+        fooField: Foo
+        fooderationField: Foo
+      }
+
+      type Foo @inaccessible {
+        someField: String
+      }
+
+      union Bar = Foo
+    `);
+
+    expect(() => {
+      removeInaccessibleElements(schema);
+    }).toThrow(
+      `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.\n\nField Query.fooderationField returns an @inaccessible type without being marked @inaccessible itself.`,
+    );
+  });
+
   it(`removes @inaccessible query root type`, () => {
     let schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
