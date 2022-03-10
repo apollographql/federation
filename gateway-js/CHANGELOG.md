@@ -8,6 +8,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - _Nothing yet.  Stay tuned!_
 
+## v2.0.0-preview.3
+
+- Fix issue that created type extensions with descriptions, which is invalid graphQL syntax [PR #1582](https://github.com/apollographql/federation/pull/1582).
+
 ## v2.0.0-preview.2
 
 - Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
