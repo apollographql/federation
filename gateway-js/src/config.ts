@@ -165,7 +165,7 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
    */
   uplinkEndpoints?: string[];
   uplinkMaxRetries?: number;
-    /**
+  /**
    * @deprecated use `fallbackPollIntervalInMs` instead
    */
   pollIntervalInMs?: number;

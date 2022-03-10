@@ -110,29 +110,34 @@ export class UplinkFetcher implements SupergraphManager {
   }
 
   private poll() {
-    this.timerRef = setTimeout(async () => {
-      if (this.state.phase === 'polling') {
-        const pollingPromise = resolvable();
+    this.timerRef = setTimeout(
+      async () => {
+        if (this.state.phase === 'polling') {
+          const pollingPromise = resolvable();
 
-        this.state.pollingPromise = pollingPromise;
-        try {
-          const result = await this.updateSupergraphSdl();
-          const maybeNewSupergraphSdl = result?.supergraphSdl || null;
-          if (result?.minDelaySeconds) {
-            this.minDelayMs = 1000 * result?.minDelaySeconds;
-            this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
+          this.state.pollingPromise = pollingPromise;
+          try {
+            const result = await this.updateSupergraphSdl();
+            const maybeNewSupergraphSdl = result?.supergraphSdl || null;
+            if (result?.minDelaySeconds) {
+              this.minDelayMs = 1000 * result?.minDelaySeconds;
+              this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
+            }
+            if (maybeNewSupergraphSdl) {
+              this.update?.(maybeNewSupergraphSdl);
+            }
+          } catch (e) {
+            this.logUpdateFailure(e);
           }
-          if (maybeNewSupergraphSdl) {
-            this.update?.(maybeNewSupergraphSdl);
-          }
-        } catch (e) {
-          this.logUpdateFailure(e);
+          pollingPromise.resolve();
         }
-        pollingPromise.resolve();
-      }
 
-      this.poll();
-    }, this.minDelayMs ? Math.max(this.minDelayMs, this.config.fallbackPollIntervalInMs) : this.config.fallbackPollIntervalInMs);
+        this.poll();
+      },
+      this.minDelayMs
+        ? Math.max(this.minDelayMs, this.config.fallbackPollIntervalInMs)
+        : this.config.fallbackPollIntervalInMs,
+    );
   }
 
   private logUpdateFailure(e: any) {

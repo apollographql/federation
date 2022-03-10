@@ -202,7 +202,7 @@ export class ApolloGateway implements GraphQLService {
 
     if (isManagedConfig(this.config)) {
       this.pollIntervalInMs =
-      this.config.fallbackPollIntervalInMs ?? this.config.pollIntervalInMs;
+        this.config.fallbackPollIntervalInMs ?? this.config.pollIntervalInMs;
     } else if (isServiceListConfig(this.config)) {
       this.pollIntervalInMs = this.config?.pollIntervalInMs;
     }
@@ -430,7 +430,6 @@ export class ApolloGateway implements GraphQLService {
       schema: this.schema!,
       executor: this.executor,
     };
-
   }
 
   private getUplinkEndpoints(config: ManagedGatewayConfig) {
