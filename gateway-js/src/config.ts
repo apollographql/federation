@@ -126,11 +126,6 @@ interface GatewayConfigBase {
   // experimental observability callbacks
   experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
-  /**
-   * @deprecated use `pollIntervalInMs` instead
-   */
-  experimental_pollInterval?: number;
-  pollIntervalInMs?: number;
   experimental_approximateQueryPlanStoreMiB?: number;
   experimental_autoFragmentization?: boolean;
   fetcher?: typeof fetch;
@@ -151,6 +146,7 @@ export interface ServiceListGatewayConfig extends GatewayConfigBase {
     | ((
         service: ServiceEndpointDefinition,
       ) => Promise<HeadersInit> | HeadersInit);
+  pollIntervalInMs?: number;
 }
 
 export interface ManagedGatewayConfig extends GatewayConfigBase {
@@ -169,6 +165,11 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
    */
   uplinkEndpoints?: string[];
   uplinkMaxRetries?: number;
+    /**
+   * @deprecated use `fallbackPollIntervalInMs` instead
+   */
+  pollIntervalInMs?: number;
+  fallbackPollIntervalInMs?: number;
 }
 
 // TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
@@ -177,6 +178,7 @@ interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
    * @deprecated: use `supergraphSdl` instead (either as a `SupergraphSdlHook` or `SupergraphManager`)
    */
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
+  pollIntervalInMs?: number;
 }
 
 // TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
@@ -186,6 +188,7 @@ interface ExperimentalManuallyManagedSupergraphSdlGatewayConfig
    * @deprecated: use `supergraphSdl` instead (either as a `SupergraphSdlHook` or `SupergraphManager`)
    */
   experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl;
+  pollIntervalInMs?: number;
 }
 
 export function isManuallyManagedSupergraphSdlGatewayConfig(
@@ -239,7 +242,7 @@ type ManuallyManagedGatewayConfig =
   | ManuallyManagedServiceDefsGatewayConfig
   | ExperimentalManuallyManagedSupergraphSdlGatewayConfig
   | ManuallyManagedSupergraphSdlGatewayConfig
-  // TODO(trevor:removeServiceList
+  // TODO(trevor:removeServiceList)
   | ServiceListGatewayConfig;
 
 // TODO(trevor:removeServiceList)
@@ -323,6 +326,7 @@ export function isManagedConfig(
   return (
     'schemaConfigDeliveryEndpoint' in config ||
     'uplinkEndpoints' in config ||
+    'fallbackPollIntervalInMs' in config ||
     (!isLocalConfig(config) &&
       !isStaticSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))

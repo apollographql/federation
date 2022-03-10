@@ -6,7 +6,7 @@ import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '../..'
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 
 export interface UplinkFetcherOptions {
-  pollIntervalInMs: number;
+  fallbackPollIntervalInMs: number;
   subgraphHealthCheck?: boolean;
   graphRef: string;
   apiKey: string;
@@ -132,7 +132,7 @@ export class UplinkFetcher implements SupergraphManager {
       }
 
       this.poll();
-    }, this.minDelayMs ? Math.max(this.minDelayMs, this.config.pollIntervalInMs) : this.config.pollIntervalInMs);
+    }, this.minDelayMs ? Math.max(this.minDelayMs, this.config.fallbackPollIntervalInMs) : this.config.fallbackPollIntervalInMs);
   }
 
   private logUpdateFailure(e: any) {

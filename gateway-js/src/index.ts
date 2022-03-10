@@ -200,8 +200,12 @@ export class ApolloGateway implements GraphQLService {
     this.experimental_didUpdateSupergraph =
       config?.experimental_didUpdateSupergraph;
 
-    this.pollIntervalInMs =
-      config?.pollIntervalInMs ?? config?.experimental_pollInterval;
+    if (isManagedConfig(this.config)) {
+      this.pollIntervalInMs =
+      this.config.fallbackPollIntervalInMs ?? this.config.pollIntervalInMs;
+    } else if (isServiceListConfig(this.config)) {
+      this.pollIntervalInMs = this.config?.pollIntervalInMs;
+    }
 
     this.issueConfigurationWarningsIfApplicable();
 
@@ -252,7 +256,7 @@ export class ApolloGateway implements GraphQLService {
         'Polling Apollo services at a frequency of less than once per 10 ' +
           'seconds (10000) is disallowed. Instead, the minimum allowed ' +
           'pollInterval of 10000 will be used. Please reconfigure your ' +
-          '`pollIntervalInMs` accordingly. If this is problematic for ' +
+          '`fallbackPollIntervalInMs` accordingly. If this is problematic for ' +
           'your team, please contact support.',
       );
     }
@@ -286,9 +290,11 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
-    if ('experimental_pollInterval' in this.config) {
+    if (isManagedConfig(this.config) && 'pollIntervalInMs' in this.config) {
       this.logger.warn(
-        'The `experimental_pollInterval` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent `pollIntervalInMs` configuration option.',
+        'The `pollIntervalInMs` option is deprecated and will be removed in a future version of `@apollo/gateway`. ' +
+        'Please migrate to the equivalent `fallbackPollIntervalInMs` configuration option. ' +
+        'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
       );
     }
   }
@@ -406,7 +412,7 @@ export class ApolloGateway implements GraphQLService {
           subgraphHealthCheck: this.config.serviceHealthCheck,
           fetcher: this.fetcher,
           logger: this.logger,
-          pollIntervalInMs: this.pollIntervalInMs ?? 10000,
+          fallbackPollIntervalInMs: this.pollIntervalInMs ?? 10000,
         }),
       );
     }
@@ -424,6 +430,7 @@ export class ApolloGateway implements GraphQLService {
       schema: this.schema!,
       executor: this.executor,
     };
+
   }
 
   private getUplinkEndpoints(config: ManagedGatewayConfig) {
