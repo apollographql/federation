@@ -40,8 +40,8 @@
   "devDependencies": {
     "@apollo/client": "3.5.10",
     "@graphql-codegen/cli": "2.6.2",
-    "@graphql-codegen/typescript": "2.4.6",
-    "@graphql-codegen/typescript-operations": "2.3.3",
+    "@graphql-codegen/typescript": "2.4.7",
+    "@graphql-codegen/typescript-operations": "2.3.4",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
     "@types/async-retry": "^1.4.3",
