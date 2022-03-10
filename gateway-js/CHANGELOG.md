@@ -6,7 +6,24 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Adds an optional `resolvable` argument to the `@key` directive. [PR #1561](https://github.com/apollographql/federation/pull/1561).
+- _Nothing yet.  Stay tuned!_
+
+## v2.0.0-preview.2
+
+- Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
+
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Fix merging of arguments by composition [PR #1567](https://github.com/apollographql/federation/pull/1567).
+- Adds an optional `resolvable` argument to the `@key` directive [PR #1561](https://github.com/apollographql/federation/pull/1561).
+- Generates operation names in query plans when the original query is named [PR #1550](https://github.com/apollographql/federation/pull/1550);
+- Allow `@key` to be used on fields with a list type [PR #1510](https://github.com/apollographql/federation/pull/1510)
+- Identifies federation 2 schema using new `@link` directive to link to the federation 2 spec. Schema not linking to federation 2 are interpreted as federation 0.x schema and automatically converted before composition [PR #1510](https://github.com/apollographql/federation/pull/1510).
+- Adds `@shareable` directive to control when fields are allowed to be resolved by multiple subgraphs [PR #1510](https://github.com/apollographql/federation/pull/1510).
 
 ## v2.0.0-alpha.6
 
