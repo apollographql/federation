@@ -398,7 +398,7 @@ describe("loadSupergraphSdlFromUplinks", () => {
   });
 
   it("Waits the correct time before retrying", async () => {
-    jest.spyOn(global, 'setTimeout');
+    const timeoutSpy = jest.spyOn(global, 'setTimeout');
 
     mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
     mockSupergraphSdlRequestIfAfter('originalId-1234', mockCloudConfigUrl2).reply(
@@ -427,9 +427,12 @@ describe("loadSupergraphSdlFromUplinks", () => {
       earliestFetchTime: new Date(Date.now() + 1000),
     });
 
-    // test what setTimeout was called with like this to deal with time jitter
-    expect((setTimeout as unknown as jest.MockedFn<typeof setTimeout>).mock.calls[1][1]).toBeLessThanOrEqual(1000);
-    expect((setTimeout as unknown as jest.MockedFn<typeof setTimeout>).mock.calls[1][1]).toBeGreaterThanOrEqual(900);
+    // test if setTimeout was called with a value in range to deal with time jitter
+    const setTimeoutCall = timeoutSpy.mock.calls[1][1];
+    expect(setTimeoutCall).toBeLessThanOrEqual(1000);
+    expect(setTimeoutCall).toBeGreaterThanOrEqual(900);
+
+    timeoutSpy.mockRestore();
   });
 });
 
