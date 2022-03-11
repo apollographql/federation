@@ -292,11 +292,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
       if (isFed1) {
         // Note that this could be a bug with the code handling fed1 as well, but it's more helpful to ask users to recompose their subgraphs with fed2 as either
         // it'll solve the issue and that's good, or we'll hit the other message anyway.
-        const msg = `Error extracting subgraph ${subgraph.name} from the supergraph: this might due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
-          + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the errors and generate a correct federation 2 supergraph.';
+        const msg = `Error extracting subgraph "${subgraph.name}" from the supergraph: this might due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
+          + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph';
         throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}`);
       } else {
-        const msg = `Unexpected error extracting subgraph ${subgraph.name} from the supergraph: this is either a bug, or the supergraph has been corrupted.`;
+        const msg = `Unexpected error extracting subgraph ${subgraph.name} from the supergraph: this is either a bug, or the supergraph has been corrupted`;
         const dumpMsg = maybeDumpSubgraphSchema(subgraph);
         throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}\n\n${dumpMsg}`);
       }
@@ -479,7 +479,19 @@ function addExternalFieldsFromDirectiveFieldSet(
     }
     return created;
   };
-  parseFieldSetArgument({parentType, directive, fieldAccessor});
+  try {
+    parseFieldSetArgument({parentType, directive, fieldAccessor, validate: false});
+  } catch (e) {
+    // Ignored on purpose: for fed1 supergraphs, it's possible that some of the fields defined in a federation directive
+    // was _not_ defined in the subgraph because fed1 was not validating this properly (the validation wasn't handling
+    // nested fields as it should), which may result in an error when trying to add those as an external field.
+    // However, this is not the right place to throw. Instead, we ignore the problem and thus exit without having added
+    // all the necessary fields, and so this very same directive will fail validation at the end of the extraction when
+    // we do the final validation of the extracted subgraph (see end of `extractSubgraphsFromSupergraph`). And we prefer
+    // failing then because 1) that later validation will collect all errors instead of failing on the first one and
+    // 2) we already have special error messages and the ability to dump the extracted subgraphs for debug at that point,
+    // so it's a much better place.
+  }
 }
 
 function addExternalFieldsFromInterface(metadata: FederationMetadata, type: ObjectType | InterfaceType) {
