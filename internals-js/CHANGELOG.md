@@ -6,6 +6,10 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v2.0.0-preview.4
+
+- Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
+
 ## v2.0.0-preview.3
 
 - Fix issue that created type extensions with descriptions, which is invalid graphQL syntax [PR #1582](https://github.com/apollographql/federation/pull/1582).
