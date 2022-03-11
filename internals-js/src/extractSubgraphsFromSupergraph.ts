@@ -292,7 +292,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
       if (isFed1) {
         // Note that this could be a bug with the code handling fed1 as well, but it's more helpful to ask users to recompose their subgraphs with fed2 as either
         // it'll solve the issue and that's good, or we'll hit the other message anyway.
-        const msg = `Error extracting subgraph "${subgraph.name}" from the supergraph: this might due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
+        const msg = `Error extracting subgraph "${subgraph.name}" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
           + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph';
         throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}`);
       } else {

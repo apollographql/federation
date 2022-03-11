@@ -590,7 +590,7 @@ test('throw meaningful error for invalid federation directive fieldSet', () => {
 
   const schema = buildSupergraphSchema(supergraph)[0];
   expect(() => extractSubgraphsFromSupergraph(schema)).toThrow(
-    'Error extracting subgraph "serviceB" from the supergraph: this might due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
+    'Error extracting subgraph "serviceB" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
     + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph.\n'
     + '\n'
     + 'Details:\n'
