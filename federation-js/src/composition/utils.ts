@@ -638,7 +638,7 @@ export function diffTypeNodes(
       ? []
       : [firstNode.name.value, secondNode.name.value];
 
-  const kindDiff: Kind[keyof Kind][] =
+  const kindDiff: typeof Kind[keyof typeof Kind][] =
     firstNode.kind === secondNode.kind ? [] : [firstNode.kind, secondNode.kind];
 
   return {
