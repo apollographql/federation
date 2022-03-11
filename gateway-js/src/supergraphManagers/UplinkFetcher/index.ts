@@ -6,7 +6,7 @@ import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '../..'
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 
 export interface UplinkFetcherOptions {
-  pollIntervalInMs: number;
+  fallbackPollIntervalInMs: number;
   subgraphHealthCheck?: boolean;
   graphRef: string;
   apiKey: string;
@@ -31,6 +31,8 @@ export class UplinkFetcher implements SupergraphManager {
     process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
   private compositionId?: string;
   private fetchCount: number = 0;
+  private minDelayMs: number | null = null;
+  private earliestFetchTime: Date | null = null;
 
   constructor(options: UplinkFetcherOptions) {
     this.config = options;
@@ -46,7 +48,12 @@ export class UplinkFetcher implements SupergraphManager {
 
     let initialSupergraphSdl: string | null = null;
     try {
-      initialSupergraphSdl = await this.updateSupergraphSdl();
+      const result = await this.updateSupergraphSdl();
+      initialSupergraphSdl = result?.supergraphSdl || null;
+      if (result?.minDelaySeconds) {
+        this.minDelayMs = 1000 * result?.minDelaySeconds;
+        this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
+      }
     } catch (e) {
       this.logUpdateFailure(e);
       throw e;
@@ -83,6 +90,7 @@ export class UplinkFetcher implements SupergraphManager {
       compositionId: this.compositionId ?? null,
       maxRetries: this.config.maxRetries,
       roundRobinSeed: this.fetchCount++,
+      earliestFetchTime: this.earliestFetchTime,
     });
 
     if (!result) {
@@ -91,7 +99,8 @@ export class UplinkFetcher implements SupergraphManager {
       this.compositionId = result.id;
       // the healthCheck fn is only assigned if it's enabled in the config
       await this.healthCheck?.(result.supergraphSdl);
-      return result.supergraphSdl;
+      const { supergraphSdl, minDelaySeconds } = result;
+      return { supergraphSdl, minDelaySeconds };
     }
   }
 
@@ -101,24 +110,34 @@ export class UplinkFetcher implements SupergraphManager {
   }
 
   private poll() {
-    this.timerRef = setTimeout(async () => {
-      if (this.state.phase === 'polling') {
-        const pollingPromise = resolvable();
+    this.timerRef = setTimeout(
+      async () => {
+        if (this.state.phase === 'polling') {
+          const pollingPromise = resolvable();
 
-        this.state.pollingPromise = pollingPromise;
-        try {
-          const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
-          if (maybeNewSupergraphSdl) {
-            this.update?.(maybeNewSupergraphSdl);
+          this.state.pollingPromise = pollingPromise;
+          try {
+            const result = await this.updateSupergraphSdl();
+            const maybeNewSupergraphSdl = result?.supergraphSdl || null;
+            if (result?.minDelaySeconds) {
+              this.minDelayMs = 1000 * result?.minDelaySeconds;
+              this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
+            }
+            if (maybeNewSupergraphSdl) {
+              this.update?.(maybeNewSupergraphSdl);
+            }
+          } catch (e) {
+            this.logUpdateFailure(e);
           }
-        } catch (e) {
-          this.logUpdateFailure(e);
+          pollingPromise.resolve();
         }
-        pollingPromise.resolve();
-      }
 
-      this.poll();
-    }, this.config.pollIntervalInMs);
+        this.poll();
+      },
+      this.minDelayMs
+        ? Math.max(this.minDelayMs, this.config.fallbackPollIntervalInMs)
+        : this.config.fallbackPollIntervalInMs,
+    );
   }
 
   private logUpdateFailure(e: any) {

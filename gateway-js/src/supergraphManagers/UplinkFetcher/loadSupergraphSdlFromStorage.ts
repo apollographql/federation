@@ -13,6 +13,7 @@ export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
       ... on RouterConfigResult {
         id
         supergraphSdl: supergraphSDL
+        minDelaySeconds
       }
       ... on FetchError {
         code
@@ -56,6 +57,7 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId,
   maxRetries,
   roundRobinSeed,
+  earliestFetchTime,
 }: {
   graphRef: string;
   apiKey: string;
@@ -65,6 +67,7 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId: string | null;
   maxRetries: number,
   roundRobinSeed: number,
+  earliestFetchTime: Date | null
 }) : Promise<SupergraphSdlUpdate | null> {
   // This Promise resolves with either an updated supergraph or null if no change.
   // This Promise can reject in the case that none of the retries are successful,
@@ -81,6 +84,10 @@ export async function loadSupergraphSdlFromUplinks({
       }),
     {
       retries: maxRetries,
+      onRetry: async () => {
+        const delayMS = earliestFetchTime ? earliestFetchTime.getTime() - Date.now(): 0;
+        if (delayMS > 0) await new Promise(resolve => setTimeout(resolve, delayMS));
+      }
     },
   );
 
@@ -176,9 +183,10 @@ export async function loadSupergraphSdlFromStorage({
     const {
       id,
       supergraphSdl,
+      minDelaySeconds,
       // messages,
     } = routerConfig;
-    return { id, supergraphSdl: supergraphSdl! };
+    return { id, supergraphSdl: supergraphSdl!, minDelaySeconds };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
