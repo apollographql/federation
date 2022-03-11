@@ -443,15 +443,4 @@ describe('deprecation warnings', () => {
       'The `schemaConfigDeliveryEndpoint` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent (array form) `uplinkEndpoints` configuration option.',
     );
   });
-
-  it('warns with `experimental_pollInterval` option set', async () => {
-    new ApolloGateway({
-      experimental_pollInterval: 10000,
-      logger,
-    });
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      'The `experimental_pollInterval` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent `pollIntervalInMs` configuration option.',
-    );
-  });
 });

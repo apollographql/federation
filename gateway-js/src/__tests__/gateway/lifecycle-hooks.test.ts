@@ -177,7 +177,7 @@ describe('lifecycle hooks', () => {
     );
   });
 
-  it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
+  it('registers schema change callbacks when pollIntervalInMs is set for unmanaged configs', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions =
       jest.fn(async (_config) => {
         return { serviceDefinitions, isNewSchema: true };
