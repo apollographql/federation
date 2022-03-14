@@ -85,16 +85,16 @@ type Event {
 
 One subgraph defines `Event.timestamp` as a `String`, and the other defines it as an `Int`. Composition doesn't know which type to use, so it fails.
 
-> For examples of _valid_ inconsistencies in field return types, see [Varying field return types](./value-types/#varying-field-return-types).
+> For examples of _valid_ inconsistencies in field return types, see [Varying shared field return types](./sharing-types/#varying-shared-object-fields).
 
 Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your gateway, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
 ## Rules of composition
-
 In Federation 2, your subgraph schemas must follow **all** of these rules to successfully compose into a supergraph schema:
 
-* If multiple subgraphs define the same field, that field must have a compatible return type _and_ compatible argument types across each defining subgraph.
-    * For examples of compatible and incompatible field return types, see [Varying field return types](./value-types/#varying-field-return-types).
+* Multiple subgraphs can't define the same field on an object type, _unless_ that field is [shareable](./sharing-types/#using-shareable).
+* A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
+    * For examples of compatible and incompatible field return types, see [Varying shared fields](./sharing-types/#varying-shared-object-fields).
 * If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
     * This rule is the most complex and the most essential to Federation 2. [Let's look at it more closely.](#unresolvable-field-example)
 
@@ -114,7 +114,7 @@ type Query {
   positionA: Position!
 }
 
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
 }
@@ -126,21 +126,21 @@ type Query {
   positionB: Position!
 }
 
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int!
 }
 ```
 
+
 </CodeColumns>
 
 Note the following about these two subgraphs:
 
-* They both define a `Position` type.
+* They both define a shared `Position` type.
 * They both define a top-level `Query` field that returns a `Position`.
-* Subgraph B's `Position` includes a `z` field, whereas Subgraph A's definition only includes `x` and `y`.
-
+* Subgraph B's `Position` includes a `z` field, whereas Subgraph A's definition only includes shared `x` and `y` fields.
 
 Individually, these subgraph schemas are perfectly valid. However, if they're combined, **they break composition**. Why?
 
@@ -184,7 +184,7 @@ If the gateway sent this query to Subgraph A, it would return an error. And with
 
 Composition recognizes this potential issue, and it fails. The hypothetical supergraph schema above would never actually be generated.
 
-`Position.z` is an example of a field in a shared type that is _not_ always resolvable. So now, how do we make sure that such a field _is_ always resolvable?
+`Position.z` is an example of a field that is _not_ always resolvable. So now, how do we make sure that such a field _is_ always resolvable?
 
 ### Solutions for unresolvable fields
 
@@ -200,7 +200,7 @@ If every subgraph that defines a type _could_ resolve every field of that type w
 
 ```graphql{5}
 # Subgraph A
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int
@@ -209,7 +209,7 @@ type Position {
 
 ```graphql
 # Subgraph B
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int!
@@ -238,7 +238,7 @@ type User @key(fields: "id") {
 
 ```graphql
 # Subgraph B
-extend type User @key(fields: "id") {
+type User @key(fields: "id") {
   id: ID!
   age: Int!
 }

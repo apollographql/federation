@@ -40,8 +40,9 @@ module.exports = {
           'Federated Schemas': [
             'federated-types/overview',
             'federated-types/composition',
+            'federated-types/sharing-types',
             'entities',
-            'federated-types/value-types',
+            'entities-advanced',
           ],
           'Managed Federation': [
             'managed-federation/overview',
@@ -50,6 +51,7 @@ module.exports = {
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
           'Third-Party Support': ['other-servers', 'federation-spec'],
+          'API Reference': ['api/apollo-subgraph', 'api/apollo-gateway'],
           'Apollo Workbench': [
             'workbench/overview',
             'workbench/setup',
@@ -60,7 +62,6 @@ module.exports = {
             'workbench/mocking',
             'workbench/exporting',
           ],
-          'API Reference': ['api/apollo-subgraph', 'api/apollo-gateway'],
         },
       },
     },

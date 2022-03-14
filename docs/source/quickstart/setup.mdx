@@ -27,7 +27,7 @@ graph BT;
 
 Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
 
-The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. Each subgraph's schema can even reference and extend types that are also defined in _another_ subgraph.
+The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives.
 
 This architecture enables clients to query data from _all_ subgraphs _simultaneously_, just by querying the gateway. It also enables different teams to own independent parts of a unified graph.
 
@@ -100,7 +100,7 @@ enum CURRENCY_CODE {
   EUR
 }
 
-extend type Query {
+type Query {
   bestSellers(category: ProductCategory = ALL): [Product]
   categories: [Department]
   product(id: ID!): Product
@@ -125,7 +125,7 @@ type ReviewSummary {
   averageRating: Float
 }
 
-extend type Product @key(fields: "id") {
+type Product @key(fields: "id") {
   id: ID! @external
   reviews: [Review]
   reviewSummary: ReviewSummary
@@ -140,7 +140,9 @@ extend type Product @key(fields: "id") {
 
 ### Core binary
 
-> ⚠️ If you already have Rover globally installed and you installed it with `npm`, first _uninstall_ that version with `npm uninstall @apollo/rover`. This is required for the Federation 2 alpha.
+> ⚠️ If you already have Rover globally installed and you installed it with `npm`, first _uninstall_ that version with `npm uninstall @apollo/rover`. This is required for the Federation 2 preview.
+>
+> The Federation 2 preview requires Rover v0.4.5 or later.
 
 Install the core Rover binary with the appropriate command for your system:
 
@@ -169,7 +171,7 @@ iwr https://rover.apollo.dev/plugins/rover-fed2/win/latest | iex
 
 After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully.
 
-> During the Federation 2 alpha, your installed versions of Rover and its Federation 2 plugin must be _identical_. If you encounter an error when using the plugin, try updating _both_ binaries to their latest version.
+> During the Federation 2 preview, your installed versions of Rover and its Federation 2 plugin must be _identical_. If you encounter an error when using the plugin, try updating _both_ binaries to their latest version.
 
 ## 2. Create a new gateway project
 
@@ -189,7 +191,7 @@ Next, install the following required libraries:
 npm install apollo-server @apollo/gateway@latest-2 graphql
 ```
 
-> ⚠️ To support the Federation 2 alpha, you need to install `@apollo/gateway@latest-2` specifically, _not_ `@apollo/gateway`.
+> ⚠️ To support the Federation 2 preview, you need to install `@apollo/gateway@latest-2` specifically, _not_ `@apollo/gateway`.
 
 Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
 
@@ -289,7 +291,7 @@ Do the following in your project's root directory:
       EUR
     }
 
-    extend type Query {
+    type Query {
       bestSellers(category: ProductCategory = ALL): [Product]
       categories: [Department]
       product(id: ID!): Product
@@ -314,8 +316,8 @@ Do the following in your project's root directory:
       averageRating: Float
     }
 
-    extend type Product @key(fields: "id") {
-      id: ID! @external
+    type Product @key(fields: "id") {
+      id: ID!
       reviews: [Review]
       reviewSummary: ReviewSummary
     }

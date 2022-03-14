@@ -1,5 +1,5 @@
 ---
-title: Apollo Federation 2 alpha
+title: Apollo Federation 2 public preview
 sidebar_title: Introduction
 description: Combine APIs into a unified graph
 ---
@@ -10,12 +10,12 @@ import { Link } from 'gatsby';
 import { colors } from 'gatsby-theme-apollo-core';
 import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-> 📣 **Apollo Federation 2 is in public alpha.**
+> 📣 **Apollo Federation 2 is in public preview.**
 >
 > * [See what's new!](./federation-2/new-in-federation-2/)
 > * [Move a test graph over](./federation-2/moving-to-federation-2)
 >
-> Unchanged portions of the federation docs are omitted for clarity. These portions are available in the [Federation 1 docs](https://www.apollographql.com/docs/federation/).
+> Unchanged portions of the [Federation 1 docs](https://www.apollographql.com/docs/federation/) docs are omitted for clarity.
 
 **Apollo Federation** is a powerful open-source architecture that helps you create a **unified graph** that combines multiple GraphQL APIs:
 
@@ -74,7 +74,7 @@ A **gateway** serves as the public access point for your supergraph. It receives
 
 ### Combining subgraph schemas
 
-Every subgraph has its own schema (just like any other GraphQL API):
+Like any other GraphQL API, each subgraph has its own schema:
 
 <CodeColumns>
 
@@ -98,7 +98,7 @@ type Product {
 
 To communicate with all of your subgraphs, the gateway uses a special **supergraph schema** that _combines_ these subgraph schemas.
 
-To create a supergraph schema, Apollo Federation uses a special process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
+To create a supergraph schema, you use a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
 
 ```graphql
 # Supergraph schema (simplified)
@@ -134,7 +134,8 @@ graph BT;
 ```
 
 * The gateway runs Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library.
-* Subgraphs can _also_ run Apollo Server (using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library), _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs can even use different server libraries.
+    * Alternatively, the gateway can be an instance of [the Apollo Router](https://www.apollographql.com/docs/router/), a highly performant Rust-based graph router that is currently in public pre-alpha.
+* Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs in the same supergraph can even use different server libraries.
 
 
 ## Benefits of federation
@@ -257,6 +258,7 @@ When thinking about how to divide your graph's functionality across subgraphs, i
 ```graphql
 # Users subgraph
 type User {
+  id: ID!
   name: String
   reviews: [Review]
   purchases: [Product]
@@ -266,6 +268,7 @@ type User {
 ```graphql
 # Products subgraph
 type Product {
+  id: ID!
   name: String
   price: String
   reviews: [Review]
@@ -275,6 +278,7 @@ type Product {
 ```graphql
 # Reviews subgraph
 type Review {
+  id: ID!
   body: String
   author: User
   product: Product
@@ -296,6 +300,8 @@ By defining the `User.purchases` field in the Products subgraph instead:
 
 The following schema uses Apollo Federation to divide the same set of types and fields across the same three subgraphs:
 
+> Some federation-specific directives are omitted here for clarity. For details, see [Entities](./entities/).
+
 <p style="margin-bottom: 0">✅</p>
 
 <CodeColumns cols="3">
@@ -303,6 +309,7 @@ The following schema uses Apollo Federation to divide the same set of types and 
 ```graphql
 # Users subgraph
 type User {
+  id: ID!
   name: String
 }
 ```
@@ -310,12 +317,14 @@ type User {
 ```graphql
 # Products subgraph
 type Product {
+  id: ID!
   name: String
   price: String
   reviews: [Review]
 }
 
 type User {
+  id: ID!
   purchases: [Product]
 }
 ```
@@ -323,16 +332,19 @@ type User {
 ```graphql
 # Reviews subgraph
 type Review {
+  id: ID!
   body: String
   author: User
   product: Product
 }
 
 type User {
+  id: ID!
   reviews: [Review]
 }
 
 type Product {
+  id: ID!
   reviews: [Review]
 }
 ```

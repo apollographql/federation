@@ -519,7 +519,7 @@ For an in-depth exploration of the errors as data approach, please see the [200 
 
 ## Best practice #8: Manage cross-cutting concerns carefully
 
-Sharing [value types](/value-types/) (scalars, objects, interfaces, enums, unions, and inputs) and [executable directives](/gateway/#executable-directives) across subgraphs' schemas leads to cross-cutting concerns. As a general rule, where subgraphs share value types, then those types must be identical in name, contents, and logic, or composition errors will occur. Similarly, executable directives must be defined consistently in the schemas of all subgraphs using the same locations, arguments, and argument types, or composition errors will also result.
+Sharing [value types](/federated-types/sharing-types/) (scalars, objects, interfaces, enums, unions, and inputs) and [executable directives](/gateway/#executable-directives) across subgraphs' schemas leads to cross-cutting concerns. As a general rule, where subgraphs share value types, then those types must be identical in name, contents, and logic, or composition errors will occur. Similarly, executable directives must be defined consistently in the schemas of all subgraphs using the same locations, arguments, and argument types, or composition errors will also result.
 
 In some instances, it will make sense for subgraphs to share ownership of certain types instead of assigning that type to one service and exposing it as an entity. For example, when a GraphQL API supports Relay-style pagination, it may be necessary to share an identical `PageInfo` object type across multiple services that require these pagination-related fields:
 

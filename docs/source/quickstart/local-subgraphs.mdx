@@ -47,7 +47,7 @@ And that's it! You can now perform all of the same subgraph setup on your _own_ 
 
 In a federated graph, each subgraph's schema can define or reference types and fields that are present in _another_ subgraph's schema.
 
-Consider the `Product` type in our composed supergraph schema from [Part 3](./quickstart/local-composition/#2-perform-composition). This type includes the following fields:
+Consider the `Product` type in our composed supergraph schema from [Part 3](./local-composition/#2-perform-composition). This type includes the following fields:
 
 ```graphql
 type Product
@@ -65,11 +65,11 @@ type Product
 
 As the federation-specific `@join__field` directive suggests, these four fields of the same object type are defined across two _different_ subgraphs!
 
-This is possible because our `products` subgraph schema defines the `Product` object type as an **entity**. Entities are objects that _other_ subgraphs can **extend** with additional fields.
+This is possible because our `products` subgraph schema defines the `Product` object type as an **entity**. Entities are object types that multiple subgraphs can contribute fields to.
 
 It makes logical sense that the `reviews` field of a `Product` should be resolved by the `reviews` subgraph instead of the `products` subgraph. This reflects the design principle of [separation of concerns](../#separation-of-concerns).
 
-[Learn how to define and extend entities.](../entities/)
+[Learn how to work with entities.](../entities/)
 
 ## 3. Try out schema checks
 

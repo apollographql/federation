@@ -50,6 +50,13 @@ type User @key(fields: "id") {
   id: ID!
   username: String!
 }
+
+# (Subgraph schemas include
+# this to opt in to
+# Federation 2 features.)
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable"])
 ```
 
 ```graphql
@@ -63,6 +70,10 @@ type Product @key(fields: "upc") {
   name: String!
   price: Int
 }
+
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable"])
 ```
 
 ```graphql
@@ -73,21 +84,25 @@ type Review {
   product: Product
 }
 
-extend type User @key(fields: "id") {
-  id: ID! @external
+type User @key(fields: "id") {
+  id: ID!
   username: String! @external
   reviews: [Review]
 }
 
-extend type Product @key(fields: "upc") {
-  upc: String! @external
+type Product @key(fields: "upc") {
+  upc: String!
   reviews: [Review]
 }
+
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable"])
 ```
 
 </CodeColumns>
 
-As these schemas show, a subgraph can define and even extend types that are defined in _other_ subgraphs. For example, the Reviews subgraph extends the `User` type (from the Users subgraph) and adds a `reviews` field to it.
+As these schemas show, multiple subgraphs can contribute unique fields to a single type. For example, the Products subgraph and the Reviews subgraph both contribute fields to the `Product` type.
 
 ## Supergraph schema
 
