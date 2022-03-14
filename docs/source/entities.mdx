@@ -210,7 +210,7 @@ const resolvers = {
 
 A reference resolver (always called `__resolveReference`) provides the gateway direct access to a particular entity's fields, without needing to use a custom query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations), which is why we created the resolver in the `reviews` subgraph first!
 
-> To learn more about `__resolveReference`, see the [API docs](/api/apollo-subgraph/#__resolvereference).
+> To learn more about `__resolveReference`, see the [API docs](./api/apollo-subgraph/#__resolvereference).
 
 After fetching the `price` field from `products` via a reference resolver, the gateway can intelligently merge the data it obtained from its two queries into a single result and return that result to the querying client.
 
