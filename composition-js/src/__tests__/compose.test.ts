@@ -24,10 +24,14 @@ function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
 // Note that tests for composition involving fed1 subgraph are in `composeFed1Subgraphs.test.ts` so all the test of this
 // file are on fed2 subgraphs, but to avoid needing to add the proper `@link(...)` everytime, we inject it here automatically.
 export function composeAsFed2Subgraphs(services: ServiceDefinition[]): CompositionResult {
-  return composeServices(services.map((s) => ({
-    ...s,
-    typeDefs: asFed2SubgraphDocument(s.typeDefs)
-  })));
+  return composeServices(services.map((s) => asFed2Service(s)));
+}
+
+export function asFed2Service(service: ServiceDefinition): ServiceDefinition {
+  return {
+    ...service,
+    typeDefs: asFed2SubgraphDocument(service.typeDefs)
+  };
 }
 
 describe('composition', () => {
@@ -2115,6 +2119,10 @@ describe('composition', () => {
       it('works for fed1 subgraphs', () => {
         validatePropagation(composeServices([subgraphA, subgraphB]));
       });
+
+      it('works for mixed fed1/fed2 subgraphs', () => {
+        validatePropagation(composeServices([subgraphA, asFed2Service(subgraphB)]));
+      });
     });
 
     describe('merges multiple @tag on an element', () => {
@@ -2187,6 +2195,17 @@ describe('composition', () => {
       it('works for fed1 subgraphs', () => {
         validatePropagation(composeServices([subgraphA, subgraphB]));
       });
+
+      it('works for mixed fed1/fed2 subgraphs', () => {
+        const sB = buildSubgraph(subgraphB.name, '', asFed2SubgraphDocument(subgraphB.typeDefs));
+        sB.schema.type('Name')?.applyDirective('shareable');
+        const updatedSubgraphB = {
+          ...subgraphB,
+          typeDefs: sB.schema.toAST(),
+        };
+
+        validatePropagation(composeServices([subgraphA, updatedSubgraphB]));
+      });
     });
 
     describe('rejects @tag and @external together', () => {
@@ -2232,6 +2251,10 @@ describe('composition', () => {
 
       it('works for fed1 subgraphs', () => {
         validateError(composeServices([subgraphA, subgraphB]));
+      });
+
+      it('works for mixed fed1/fed2 subgraphs', () => {
+        validateError(composeServices([subgraphA, asFed2Service(subgraphB)]));
       });
     });
 
