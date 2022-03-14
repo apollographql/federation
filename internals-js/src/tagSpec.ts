@@ -22,6 +22,7 @@ export class TagSpecDefinition extends FeatureDefinition {
 
   addElementsToSchema(schema: Schema) {
     const directive = this.addDirective(schema, 'tag').addLocations(...tagLocations);
+    directive.repeatable = true;
     directive.addArgument("name", new NonNullType(schema.stringType()));
   }
 

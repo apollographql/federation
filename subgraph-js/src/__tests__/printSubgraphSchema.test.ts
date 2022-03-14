@@ -130,7 +130,7 @@ describe('printSubgraphSchema', () => {
 
       type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
         id: ID!
-        username: String @external @tag(name: \\"on-external\\")
+        username: String @external
         reviews: [Review]
         numberOfReviews: Int!
         metadata: [UserMetadata] @external

@@ -1,4 +1,4 @@
-import { asFed2SubgraphDocument, buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, assert, buildSchema, buildSubgraph, extractSubgraphsFromSupergraph, isObjectType, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -2065,4 +2065,175 @@ describe('composition', () => {
       }
     `);
   })
+
+  describe('@tag', () => {
+    describe('propagates @tag to the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            users: [User] @tag(name: "aTaggedOperation")
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String! @tag(name: "aTaggedField")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") @tag(name: "aTaggedType") {
+            id: ID!
+            birthdate: String!
+            age: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const validatePropagation = (result: CompositionResult) => {
+        assertCompositionSuccess(result);
+        const supergraph = result.schema;
+        const tagOnOp = supergraph.schemaDefinition.rootType('query')?.field('users')?.appliedDirectivesOf('tag').pop();
+        expect(tagOnOp?.arguments()['name']).toBe('aTaggedOperation');
+
+        const userType = supergraph.type('User');
+        assert(userType && isObjectType(userType), `Should be an object type`);
+        const tagOnType = userType.appliedDirectivesOf('tag').pop();
+        expect(tagOnType?.arguments()['name']).toBe('aTaggedType');
+
+        const tagOnField = userType?.field('name')?.appliedDirectivesOf('tag').pop();
+        expect(tagOnField?.arguments()['name']).toBe('aTaggedField');
+      };
+
+      it('works for fed2 subgraphs', () => {
+        validatePropagation(composeAsFed2Subgraphs([subgraphA, subgraphB]));
+      });
+
+      it('works for fed1 subgraphs', () => {
+        validatePropagation(composeServices([subgraphA, subgraphB]));
+      });
+    });
+
+    describe('merges multiple @tag on an element', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            user: [User]
+          }
+
+          type User @key(fields: "id") @tag(name: "aTagOnTypeFromSubgraphA") @tag(name: "aMergedTagOnType") {
+            id: ID!
+            name1: Name!
+          }
+
+          type Name {
+            firstName: String @tag(name: "aTagOnFieldFromSubgraphA")
+            lastName: String @tag(name: "aMergedTagOnField")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") @tag(name: "aTagOnTypeFromSubgraphB") @tag(name: "aMergedTagOnType") {
+            id: ID!
+            name2: String!
+          }
+
+          type Name {
+            firstName: String @tag(name: "aTagOnFieldFromSubgraphB")
+            lastName: String @tag(name: "aMergedTagOnField")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const validatePropagation = (result: CompositionResult) => {
+        assertCompositionSuccess(result);
+        const supergraph = result.schema;
+
+        const userType = supergraph.type('User');
+        assert(userType && isObjectType(userType), `Should be an object type`);
+        const tagsOnType = userType.appliedDirectivesOf('tag');
+        expect(tagsOnType?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aTagOnTypeFromSubgraphA', 'aMergedTagOnType', 'aTagOnTypeFromSubgraphB']);
+
+        const nameType = supergraph.type('Name');
+        assert(nameType && isObjectType(nameType), `Should be an object type`);
+        const tagsOnFirstName = nameType?.field('firstName')?.appliedDirectivesOf('tag');
+        expect(tagsOnFirstName?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aTagOnFieldFromSubgraphA', 'aTagOnFieldFromSubgraphB']);
+
+        const tagsOnLastName = nameType?.field('lastName')?.appliedDirectivesOf('tag');
+        expect(tagsOnLastName?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aMergedTagOnField']);
+      };
+
+      it('works for fed2 subgraphs', () => {
+        // We need to mark the `Name` type shareable.
+        const subgraphs = [subgraphA, subgraphB].map((s) => {
+          const subgraph = buildSubgraph(s.name, '', asFed2SubgraphDocument(s.typeDefs));
+          subgraph.schema.type('Name')?.applyDirective('shareable');
+          return {
+            ...s,
+            typeDefs: subgraph.schema.toAST(),
+          };
+        });
+        // Note that we've already converted the subgraphs to fed2 ones above, so we just call `composeServices` now.
+        validatePropagation(composeServices(subgraphs));
+      });
+
+      it('works for fed1 subgraphs', () => {
+        validatePropagation(composeServices([subgraphA, subgraphB]));
+      });
+    });
+
+    describe('rejects @tag and @external together', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            user: [User]
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String!
+            birthdate: Int! @external @tag(name: "myTag")
+            age: Int! @requires(fields: "birthdate")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            birthdate: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const validateError = (result: CompositionResult) => {
+        console.log(result.supergraphSdl);
+
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphA] Cannot apply merged directive @tag(name: "myTag") to external field "User.birthdate"']
+        ]);
+      };
+
+      it('works for fed2 subgraphs', () => {
+        // Note that we've already converted the subgraphs to fed2 ones above, so we just call `composeServices` now.
+        validateError(composeAsFed2Subgraphs([subgraphA, subgraphB]));
+      });
+
+      it('works for fed1 subgraphs', () => {
+        validateError(composeServices([subgraphA, subgraphB]));
+      });
+    });
+
+  });
 });
