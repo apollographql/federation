@@ -6,6 +6,10 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v2.0.0-preview.5
+
+- Fix propagation of `@tag` to the supergraph and allows @tag to be repeated. Additionally, merged directives (only `@tag` and `@deprecated` currently) are not allowed on external fields anymore [PR #1592](https://github.com/apollographql/federation/pull/1592).
+
 ## v2.0.0-preview.4
 
 - Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
