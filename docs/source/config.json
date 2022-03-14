@@ -4,7 +4,7 @@
   "sidebar": {
     "Introduction": "/",
     "Federation 2 Updates": {
-      "☀️ New in the alpha": "/federation-2/new-in-federation-2",
+      "☀️ New in the preview": "/federation-2/new-in-federation-2",
       "🚚 Moving your graph": "/federation-2/moving-to-federation-2",
       "⬅️ Backward compatibility": "/federation-2/backward-compatibility",
       "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
@@ -23,8 +23,9 @@
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
       "Composition": "/federated-types/composition",
-      "Entities": "/entities",
-      "Reusing types (value types)": "/federated-types/value-types"
+      "Sharing types (value types)": "/federated-types/sharing-types",
+      "Entities (basics)": "/entities",
+      "Entities (advanced)": "/entities-advanced"
     },
     "Managed Federation": {
       "Overview": "/managed-federation/overview",
@@ -36,6 +37,10 @@
       "Subgraph-compatible libraries": "/other-servers",
       "Subgraph specification": "/federation-spec"
     },
+    "API Reference": {
+      "@apollo/subgraph": "/api/apollo-subgraph",
+      "@apollo/gateway": "/api/apollo-gateway"
+    },
     "Apollo Workbench": {
       "Overview": "/workbench/overview",
       "Setup": "/workbench/setup",
@@ -45,10 +50,6 @@
       "Setting up Managed Federation": "/workbench/design-to-studio",
       "Testing graphs locally": "/workbench/mocking",
       "Exporting designs": "/workbench/exporting"
-    },
-    "API Reference": {
-      "@apollo/subgraph": "/api/apollo-subgraph",
-      "@apollo/gateway": "/api/apollo-gateway"
     }
   }
 }
