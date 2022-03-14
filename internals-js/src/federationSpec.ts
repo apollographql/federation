@@ -62,6 +62,7 @@ export const shareableDirectiveSpec = createDirectiveSpecification({
 export const tagDirectiveSpec = createDirectiveSpecification({
   name:'tag',
   locations: tagLocations,
+  repeatable: true,
   argumentFct: (schema) => {
     return [{ name: 'name', type: new NonNullType(schema.stringType()) }];
   }
