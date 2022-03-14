@@ -46,6 +46,7 @@ Scenario: should not confuse union types with overlapping field names
         "kind": "Fetch",
         "serviceName": "documents",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}"
       }
     }

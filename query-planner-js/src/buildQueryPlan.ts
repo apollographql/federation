@@ -133,8 +133,10 @@ export function buildQueryPlan(
   debug.groupEnd('Computed groups:');
   debug.groupedValues(groups, debugPrintGroup);
 
+  let counterByReference = { counter: 0 };
+
   const nodes = groups.map(group =>
-    executionNodeForGroup(context, group, rootType),
+    executionNodeForGroup(context, group, counterByReference, rootType),
   );
 
   return {
@@ -310,6 +312,22 @@ function walkConditionalTreeNode(
   }
 }
 
+function toValidGraphQLName(subgraphName: string): string {
+  // We have almost no limitations on subgraph names, so we cannot use them inside query names
+  // without some cleaning up. GraphQL names can only be: [_A-Za-z][_0-9A-Za-z]*.
+  // To do so, we:
+  //  1. replace '-' by '_' because the former is not allowed but it's probably pretty
+  //   common and using the later should be fairly readable.
+  //  2. remove any character in what remains that is not allowed.
+  //  3. Unsure the first character is not a number, and if it is, add a leading `_`.
+  // Note that this could theoretically lead to substantial changes to the name but should
+  // work well in practice (and if it's a huge problem for someone, we can change it).
+  const sanitized = subgraphName
+    .replace('-', '_')
+    .replace(/[^_0-9A-Za-z]/i, '');
+  return sanitized.match(/^[0-9].*/i) ? '_' + sanitized : sanitized;
+}
+
 function executionNodeForGroup(
   context: QueryPlanningContext,
   {
@@ -320,8 +338,14 @@ function executionNodeForGroup(
     mergeAt,
     dependentGroups,
   }: FetchGroup,
+  counterByReference: { counter: number },
   parentType?: GraphQLCompositeType,
 ): PlanNode {
+  const operationName = context.operation.name
+    ? `${context.operation.name.value}__${toValidGraphQLName(
+        serviceName,
+      )}__${counterByReference.counter++}`
+    : undefined;
   const selectionSet = selectionSetFromFieldSet(fields, parentType);
   const requires =
     requiredFields.length > 0
@@ -337,12 +361,14 @@ function executionNodeForGroup(
         selectionSet,
         variableUsages,
         internalFragments,
+        operationName,
       })
     : operationForRootFetch({
         selectionSet,
         variableUsages,
         internalFragments,
         operation: context.operation.operation,
+        operationName,
       });
 
   const inclusionConditions = collectInclusionConditions(operation);
@@ -350,10 +376,13 @@ function executionNodeForGroup(
   const fetchNode: FetchNode = {
     kind: 'Fetch',
     serviceName,
-    requires: requires ? trimSelectionNodes(requires?.selections) : undefined,
+    ...(requires ? { requires: trimSelectionNodes(requires?.selections) } : {}),
     variableUsages: Object.keys(variableUsages),
     operation: stripIgnoredCharacters(print(operation)),
     ...(inclusionConditions ? { inclusionConditions } : {}),
+    ...(operationName ? { operationName } : {}),
+    operationKind: (operation.definitions[0] as OperationDefinitionNode)
+      .operation,
   };
 
   const node: PlanNode =
@@ -366,8 +395,8 @@ function executionNodeForGroup(
       : fetchNode;
 
   if (dependentGroups.length > 0) {
-    const dependentNodes = dependentGroups.map(dependentGroup =>
-      executionNodeForGroup(context, dependentGroup),
+    const dependentNodes = dependentGroups.map((dependentGroup) =>
+      executionNodeForGroup(context, dependentGroup, counterByReference),
     );
 
     return flatWrap('Sequence', [node, flatWrap('Parallel', dependentNodes)]);
@@ -391,11 +420,13 @@ function operationForRootFetch({
   variableUsages,
   internalFragments,
   operation = 'query' as any,
+  operationName,
 }: {
   selectionSet: SelectionSetNode;
   variableUsages: VariableUsages;
   internalFragments: Set<FragmentDefinitionNode>;
   operation?: OperationTypeNode;
+  operationName?: string;
 }): DocumentNode {
   return {
     kind: Kind.DOCUMENT,
@@ -405,6 +436,14 @@ function operationForRootFetch({
         operation,
         selectionSet,
         variableDefinitions: mapFetchNodeToVariableDefinitions(variableUsages),
+        ...(operationName
+          ? {
+              name: {
+                kind: Kind.NAME,
+                value: operationName,
+              },
+            }
+          : {}),
       },
       ...internalFragments,
     ],
@@ -415,10 +454,12 @@ function operationForEntitiesFetch({
   selectionSet,
   variableUsages,
   internalFragments,
+  operationName
 }: {
   selectionSet: SelectionSetNode;
   variableUsages: VariableUsages;
   internalFragments: Set<FragmentDefinitionNode>;
+  operationName?: string;
 }): DocumentNode {
   const representationsVariable: VariableNode = {
     kind: Kind.VARIABLE,
@@ -431,27 +472,27 @@ function operationForEntitiesFetch({
       {
         kind: Kind.OPERATION_DEFINITION,
         operation: 'query' as any,
-        variableDefinitions: ([
-          {
-            kind: Kind.VARIABLE_DEFINITION,
-            variable: representationsVariable,
-            type: {
-              kind: Kind.NON_NULL_TYPE,
+        variableDefinitions: (
+          [
+            {
+              kind: Kind.VARIABLE_DEFINITION,
+              variable: representationsVariable,
               type: {
-                kind: Kind.LIST_TYPE,
+                kind: Kind.NON_NULL_TYPE,
                 type: {
-                  kind: Kind.NON_NULL_TYPE,
+                  kind: Kind.LIST_TYPE,
                   type: {
-                    kind: Kind.NAMED_TYPE,
-                    name: { kind: Kind.NAME, value: '_Any' },
+                    kind: Kind.NON_NULL_TYPE,
+                    type: {
+                      kind: Kind.NAMED_TYPE,
+                      name: { kind: Kind.NAME, value: '_Any' },
+                    },
                   },
                 },
               },
             },
-          },
-        ] as VariableDefinitionNode[]).concat(
-          mapFetchNodeToVariableDefinitions(variableUsages),
-        ),
+          ] as VariableDefinitionNode[]
+        ).concat(mapFetchNodeToVariableDefinitions(variableUsages)),
         selectionSet: {
           kind: Kind.SELECTION_SET,
           selections: [
@@ -472,6 +513,14 @@ function operationForEntitiesFetch({
             },
           ],
         },
+        ...(operationName
+          ? {
+              name: {
+                kind: Kind.NAME,
+                value: operationName,
+              },
+            }
+          : {}),
       },
       ...internalFragments,
     ],

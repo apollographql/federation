@@ -329,6 +329,7 @@ async function executeFetch<TContext>(
             context,
             fetch.operation,
             variables,
+            fetch.operationName
         );
 
         for (const entity of entities) {
@@ -364,6 +365,7 @@ async function executeFetch<TContext>(
             context,
             fetch.operation,
             {...variables, representations},
+            fetch.operationName
         );
 
         if (!dataReceivedFromService) {
@@ -405,6 +407,7 @@ async function executeFetch<TContext>(
     context: ExecutionContext<TContext>,
     source: string,
     variables: Record<string, any>,
+    operationName: string | undefined
   ): Promise<ResultMap | void | null> {
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
@@ -433,6 +436,7 @@ async function executeFetch<TContext>(
       request: {
         query: source,
         variables,
+        operationName,
         http,
       },
       incomingRequestContext: context.requestContext,

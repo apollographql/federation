@@ -27,6 +27,7 @@ Scenario: should not confuse union types with overlapping field names
         "kind": "Fetch",
         "serviceName": "documents",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}"
       }
     }
@@ -49,6 +50,7 @@ Scenario: should use a single fetch when requesting a root field from one servic
         "kind": "Fetch",
         "serviceName": "accounts",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{me{name}}"
       }
     }
@@ -77,6 +79,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
             "kind": "Fetch",
             "serviceName": "accounts",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{me{name}}"
           },
           {
@@ -86,6 +89,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
                 "kind": "Fetch",
                 "serviceName": "product",
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "{topProducts{__typename ...on Book{__typename isbn}...on Furniture{name}}}"
               },
               {
@@ -105,6 +109,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
                     }
                   ],
                   "variableUsages": [],
+                  "operationKind": "query",
                   "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
                 }
               },
@@ -127,6 +132,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
                     }
                   ],
                   "variableUsages": [],
+                  "operationKind": "query",
                   "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
                 }
               }
@@ -160,6 +166,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
             "kind": "Fetch",
             "serviceName": "product",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topProducts{__typename ...on Book{__typename isbn}...on Furniture{name}}product(upc:\"1\"){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
           },
           {
@@ -185,6 +192,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
                     }
                   },
@@ -207,6 +215,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
                     }
                   }
@@ -232,6 +241,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
                     }
                   },
@@ -254,6 +264,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
                     }
                   }
@@ -288,6 +299,7 @@ Scenario: should use a single fetch when requesting relationship subfields from 
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{topReviews{body author{reviews{body}}}}"
       }
     }
@@ -316,6 +328,7 @@ Scenario: should use a single fetch when requesting relationship subfields and p
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{topReviews{body author{id reviews{body}}}}"
       }
     }
@@ -344,6 +357,7 @@ Scenario: when requesting an extension field from another service, it should add
             "kind": "Fetch",
             "serviceName": "accounts",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{me{name __typename id}}"
           },
           {
@@ -363,6 +377,7 @@ Scenario: when requesting an extension field from another service, it should add
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}}}}"
             }
           }
@@ -393,6 +408,7 @@ Scenario: when requesting an extension field from another service, when the pare
             "kind": "Fetch",
             "serviceName": "accounts",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{me{__typename id}}"
           },
           {
@@ -412,6 +428,7 @@ Scenario: when requesting an extension field from another service, when the pare
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}}}}"
             }
           }
@@ -443,6 +460,7 @@ Scenario: when requesting an extension field from another service, should only a
             "kind": "Fetch",
             "serviceName": "accounts",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{me{__typename id}}"
           },
           {
@@ -462,6 +480,7 @@ Scenario: when requesting an extension field from another service, should only a
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}numberOfReviews}}}"
             }
           }
@@ -493,6 +512,7 @@ Scenario: when requesting a composite field with subfields from another service,
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topReviews{body author{__typename id}}}"
           },
           {
@@ -512,6 +532,7 @@ Scenario: when requesting a composite field with subfields from another service,
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
             }
           }
@@ -540,6 +561,7 @@ Scenario: when requesting a composite field with subfields from another service,
             "kind": "Fetch",
             "serviceName": "product",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topCars{__typename id price}}"
           },
           {
@@ -560,6 +582,7 @@ Scenario: when requesting a composite field with subfields from another service,
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Car{retailPrice}}}"
             }
           }
@@ -590,6 +613,7 @@ Scenario: when requesting a composite field with subfields from another service,
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topReviews{author{__typename id}}}"
           },
           {
@@ -609,6 +633,7 @@ Scenario: when requesting a composite field with subfields from another service,
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
             }
           }
@@ -639,6 +664,7 @@ Scenario: when requesting a relationship field with extension subfields from a d
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topReviews{author{__typename id}}}"
           },
           {
@@ -658,6 +684,7 @@ Scenario: when requesting a relationship field with extension subfields from a d
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{birthDate}}}"
             }
           }
@@ -683,6 +710,7 @@ Scenario: for abstract types, it should add __typename when fetching objects of 
         "kind": "Fetch",
         "serviceName": "product",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{topProducts{__typename ...on Book{price}...on Furniture{price}}}"
       }
     }
@@ -711,6 +739,7 @@ Scenario: should break up when traversing an extension field on an interface typ
             "kind": "Fetch",
             "serviceName": "product",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topProducts{__typename ...on Book{price __typename isbn}...on Furniture{price __typename upc}}}"
           },
           {
@@ -738,6 +767,7 @@ Scenario: should break up when traversing an extension field on an interface typ
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}}...on Furniture{reviews{body}}}}"
             }
           }
@@ -771,6 +801,7 @@ Scenario: interface fragments should expand into possible types only
             "kind": "Fetch",
             "serviceName": "books",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{books{__typename isbn title year}}"
           },
           {
@@ -792,6 +823,7 @@ Scenario: interface fragments should expand into possible types only
                 }
               ],
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
             }
           }
@@ -819,6 +851,7 @@ Scenario: interface inside interface should expand into possible types only
         "kind": "Fetch",
         "serviceName": "product",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{product(upc:\"\"){__typename ...on Book{details{country}}...on Furniture{details{country}}}}"
       }
     }
@@ -860,6 +893,7 @@ Scenario: should properly expand nested unions with inline fragments
         "kind": "Fetch",
         "serviceName": "documents",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold}}}}"
       }
     }
@@ -902,6 +936,7 @@ Scenario: deduplicates fields / selections regardless of adjacency and type cond
         "kind": "Fetch",
         "serviceName": "documents",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{body{__typename ...on Text{attributes{bold text}}}}"
       }
     }
@@ -937,6 +972,7 @@ Scenario: deduplicates fields / selections regardless of adjacency and type cond
         "kind": "Fetch",
         "serviceName": "documents",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{body{__typename ...on Text{attributes{bold text}}}}"
       }
     }
@@ -962,7 +998,9 @@ Scenario: supports basic, single-service mutation
         "username",
         "password"
       ],
-      "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){id}}"
+      "operationKind": "mutation",
+      "operation": "mutation Login__accounts__0($username:String!$password:String!){login(username:$username password:$password){id}}",
+      "operationName": "Login__accounts__0"
     }
   }
   """
@@ -995,7 +1033,9 @@ Scenario: supports mutations with a cross-service request
             "username",
             "password"
           ],
-          "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+          "operationKind": "mutation",
+          "operation": "mutation Login__accounts__0($username:String!$password:String!){login(username:$username password:$password){__typename id}}",
+          "operationName": "Login__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -1022,7 +1062,9 @@ Scenario: supports mutations with a cross-service request
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
+            "operationKind": "query",
+            "operation": "query Login__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}",
+            "operationName": "Login__reviews__1"
           }
         },
         {
@@ -1053,7 +1095,9 @@ Scenario: supports mutations with a cross-service request
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+            "operationKind": "query",
+            "operation": "query Login__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}",
+            "operationName": "Login__product__2"
           }
         }
       ]
@@ -1087,7 +1131,9 @@ Scenario: returning across service boundaries
             "upc",
             "body"
           ],
-          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
+          "operationKind": "mutation",
+          "operation": "mutation Review__reviews__0($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}",
+          "operationName": "Review__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -1114,7 +1160,9 @@ Scenario: returning across service boundaries
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+            "operationKind": "query",
+            "operation": "query Review__product__1($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}",
+            "operationName": "Review__product__1"
           }
         }
       ]
@@ -1160,7 +1208,9 @@ Scenario: supports multiple root mutations
             "username",
             "password"
           ],
-          "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+          "operationKind": "mutation",
+          "operation": "mutation LoginAndReview__accounts__0($username:String!$password:String!){login(username:$username password:$password){__typename id}}",
+          "operationName": "LoginAndReview__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -1187,7 +1237,9 @@ Scenario: supports multiple root mutations
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
+            "operationKind": "query",
+            "operation": "query LoginAndReview__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}",
+            "operationName": "LoginAndReview__reviews__1"
           }
         },
         {
@@ -1218,7 +1270,9 @@ Scenario: supports multiple root mutations
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+            "operationKind": "query",
+            "operation": "query LoginAndReview__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}",
+            "operationName": "LoginAndReview__product__2"
           }
         },
         {
@@ -1228,7 +1282,9 @@ Scenario: supports multiple root mutations
             "upc",
             "body"
           ],
-          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
+          "operationKind": "mutation",
+          "operation": "mutation LoginAndReview__reviews__3($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}",
+          "operationName": "LoginAndReview__reviews__3"
         },
         {
           "kind": "Flatten",
@@ -1255,7 +1311,9 @@ Scenario: supports multiple root mutations
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+            "operationKind": "query",
+            "operation": "query LoginAndReview__product__4($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}",
+            "operationName": "LoginAndReview__product__4"
           }
         }
       ]
@@ -1309,7 +1367,9 @@ Scenario: multiple root mutations with correct service order
             "body",
             "updatedReview"
           ],
-          "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
+          "operationKind": "mutation",
+          "operation": "mutation LoginAndReview__reviews__0($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}",
+          "operationName": "LoginAndReview__reviews__0"
         },
         {
           "kind": "Fetch",
@@ -1318,7 +1378,9 @@ Scenario: multiple root mutations with correct service order
             "username",
             "password"
           ],
-          "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+          "operationKind": "mutation",
+          "operation": "mutation LoginAndReview__accounts__1($username:String!$password:String!){login(username:$username password:$password){__typename id}}",
+          "operationName": "LoginAndReview__accounts__1"
         },
         {
           "kind": "Flatten",
@@ -1345,7 +1407,9 @@ Scenario: multiple root mutations with correct service order
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
+            "operationKind": "query",
+            "operation": "query LoginAndReview__reviews__2($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}",
+            "operationName": "LoginAndReview__reviews__2"
           }
         },
         {
@@ -1376,7 +1440,9 @@ Scenario: multiple root mutations with correct service order
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+            "operationKind": "query",
+            "operation": "query LoginAndReview__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}",
+            "operationName": "LoginAndReview__product__3"
           }
         },
         {
@@ -1385,7 +1451,9 @@ Scenario: multiple root mutations with correct service order
           "variableUsages": [
             "reviewId"
           ],
-          "operation": "mutation($reviewId:ID!){deleteReview(id:$reviewId)}"
+          "operationKind": "mutation",
+          "operation": "mutation LoginAndReview__reviews__4($reviewId:ID!){deleteReview(id:$reviewId)}",
+          "operationName": "LoginAndReview__reviews__4"
         }
       ]
     }

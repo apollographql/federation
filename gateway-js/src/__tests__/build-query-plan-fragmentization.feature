@@ -29,6 +29,7 @@ Scenario: experimental compression to downstream services should generate fragme
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{topReviews{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_1__ on Review{body author product{...__QueryPlanFragment_0__}}fragment __QueryPlanFragment_0__ on Product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}"
           },
           {
@@ -54,6 +55,7 @@ Scenario: experimental compression to downstream services should generate fragme
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
                     }
                   },
@@ -76,6 +78,7 @@ Scenario: experimental compression to downstream services should generate fragme
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
                     }
                   }
@@ -106,6 +109,7 @@ Scenario: experimental compression to downstream services should generate fragme
                     }
                   ],
                   "variableUsages": [],
+                  "operationKind": "query",
                   "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name price details{country}}...on Book{price details{country}}}}"
                 }
               }
@@ -135,6 +139,7 @@ Scenario: experimental compression to downstream services shouldn't generate fra
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{topReviews{body author}}"
       }
     }
@@ -160,6 +165,7 @@ Scenario: experimental compression to downstream services should generate fragme
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{topReviews{...__QueryPlanFragment_0__}}fragment __QueryPlanFragment_0__ on Review{id body author}"
       }
     }
@@ -194,6 +200,7 @@ Scenario: experimental compression to downstream services should generate fragme
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "{reviews:topReviews{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_1__ on Review{content:body author product{...__QueryPlanFragment_0__}}fragment __QueryPlanFragment_0__ on Product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}"
           },
           {
@@ -219,6 +226,7 @@ Scenario: experimental compression to downstream services should generate fragme
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
                     }
                   },
@@ -241,6 +249,7 @@ Scenario: experimental compression to downstream services should generate fragme
                         }
                       ],
                       "variableUsages": [],
+                      "operationKind": "query",
                       "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
                     }
                   }
@@ -271,6 +280,7 @@ Scenario: experimental compression to downstream services should generate fragme
                     }
                   ],
                   "variableUsages": [],
+                  "operationKind": "query",
                   "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name cost:price details{origin:country}}...on Book{cost:price details{origin:country}}}}"
                 }
               }
