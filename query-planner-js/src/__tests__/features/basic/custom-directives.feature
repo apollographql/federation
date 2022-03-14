@@ -31,7 +31,9 @@ Scenario: successfully passes directives and their variables along in requests t
     topReviews {
       body @stream
       author @transform(from: "JSON") {
-        name @stream
+        name @stream {
+          first
+        }
       }
     }
   }

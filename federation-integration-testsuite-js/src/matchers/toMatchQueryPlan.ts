@@ -1,4 +1,4 @@
-import { QueryPlan } from '@apollo/query-planner';
+import { QueryPlan, serializeQueryPlan } from '@apollo/query-planner';
 import { MatcherHintOptions } from 'jest-matcher-utils';
 import { diffFormatted, indentLines, printExpectedFormatted } from './utils';
 
@@ -18,7 +18,9 @@ expect.extend({
       promise: this.promise,
     };
 
-    const pass = this.equals(received, expected);
+    const pass = this.equals(received, expected, [
+      (a, b) => serializeQueryPlan(a) === serializeQueryPlan(b),
+    ]);
 
     const message = pass
       ? () =>

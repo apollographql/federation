@@ -4,7 +4,7 @@ Feature: Query Planning > requires
 Scenario: supports passing additional fields defined by a requires
   Given query
   """
-  query GetReviwedBookNames {
+  query GetReviewedBookNames {
     me {
       reviews {
         product {

@@ -23,7 +23,7 @@ Scenario: handles an abstract type from the base service
           "serviceName": "product",
           "variableUsages": ["upc"],
           "operationKind": "query",
-          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn upc price}...on Furniture{upc name price}}}",
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{upc __typename isbn price}...on Furniture{upc name price}}}",
           "operationName": "GetProduct__product__0"
         },
         {
@@ -44,7 +44,7 @@ Scenario: handles an abstract type from the base service
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}",
+            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
             "operationName": "GetProduct__books__1"
           }
         },
@@ -345,7 +345,7 @@ Scenario: fetches interfaces returned from other services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query GetUserAndProducts__books__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}",
+                "operation": "query GetUserAndProducts__books__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}",
                 "operationName": "GetUserAndProducts__books__2"
               }
             },
@@ -367,7 +367,7 @@ Scenario: fetches interfaces returned from other services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query GetUserAndProducts__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}",
+                "operation": "query GetUserAndProducts__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}",
                 "operationName": "GetUserAndProducts__product__3"
               }
             }
@@ -485,7 +485,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                     ],
                     "variableUsages": [],
                     "operationKind": "query",
-                    "operation": "query GetUserAndProducts__books__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}",
+                    "operation": "query GetUserAndProducts__books__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
                     "operationName": "GetUserAndProducts__books__3"
                   }
                 },

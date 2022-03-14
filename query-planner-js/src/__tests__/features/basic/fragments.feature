@@ -56,7 +56,7 @@ Scenario: supports inline fragments (multi level)
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUser__accounts__0{me{__typename id username}}",
+          "operation": "query GetUser__accounts__0{me{username __typename id}}",
           "operationName": "GetUser__accounts__0"
         },
         {
@@ -168,7 +168,9 @@ Scenario: supports multiple named fragments (one level, mixed ordering)
   Given query
   """
   fragment userInfo on User {
-    name
+    name {
+      first
+    }
   }
   query GetUser {
     me {
@@ -227,7 +229,7 @@ Scenario: supports multiple named fragments (multi level, mixed ordering)
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUser__accounts__0{me{__typename id username}}",
+          "operation": "query GetUser__accounts__0{me{username __typename id}}",
           "operationName": "GetUser__accounts__0"
         },
         {
@@ -286,7 +288,7 @@ Scenario: supports variables within fragments
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUser__accounts__0{me{__typename id username}}",
+          "operation": "query GetUser__accounts__0{me{username __typename id}}",
           "operationName": "GetUser__accounts__0"
         },
         {

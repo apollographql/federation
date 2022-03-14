@@ -34,7 +34,9 @@ Scenario: does not load fields provided even when going to other service
     topReviews {
       author {
         username
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -51,7 +53,7 @@ Scenario: does not load fields provided even when going to other service
           "serviceName": "reviews",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetReviewers__reviews__0{topReviews{author{__typename id username}}}",
+          "operation": "query GetReviewers__reviews__0{topReviews{author{username __typename id}}}",
           "operationName": "GetReviewers__reviews__0"
         },
         {
