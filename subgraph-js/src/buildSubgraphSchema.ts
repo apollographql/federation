@@ -7,6 +7,8 @@ import {
   GraphQLUnionType,
   GraphQLObjectType,
   specifiedDirectives,
+  visit,
+  GraphQLDirective,
 } from 'graphql';
 import {
   GraphQLSchemaModule,
@@ -29,6 +31,23 @@ type LegacySchemaModule = {
 };
 
 export { GraphQLSchemaModule };
+
+function missingFederationDirectives(modules: GraphQLSchemaModule[]): GraphQLDirective[] {
+  // Copying the array as we're going to modify it.
+  const missingDirectives = federationDirectives.concat();
+  for (const mod of modules) {
+    visit(mod.typeDefs, {
+      DirectiveDefinition: (def) => {
+        const matchingFedDirectiveIdx = missingDirectives.findIndex((d) => d.name === def.name.value);
+        if (matchingFedDirectiveIdx >= 0) {
+          missingDirectives.splice(matchingFedDirectiveIdx, 1);
+        }
+        return def;
+      }
+    });
+  }
+  return missingDirectives;
+}
 
 export function buildSubgraphSchema(
   modulesOrSDL:
@@ -67,7 +86,7 @@ export function buildSubgraphSchema(
     modules,
     new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...federationDirectives],
+      directives: [...specifiedDirectives, ...missingFederationDirectives(modules)],
     }),
   );
 

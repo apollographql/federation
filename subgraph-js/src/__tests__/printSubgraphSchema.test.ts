@@ -18,8 +18,6 @@ describe('printSubgraphSchema', () => {
 
       directive @transform(from: String!) on FIELD
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
-
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       enum CacheControlScope {
@@ -102,8 +100,6 @@ describe('printSubgraphSchema', () => {
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
-
-      directive @tag(name: String!) repeatable on INTERFACE | FIELD_DEFINITION | OBJECT | UNION
 
       type Query {
         _entities(representations: [_Any!]!): [_Entity]!
