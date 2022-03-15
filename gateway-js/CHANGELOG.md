@@ -6,6 +6,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- Automatically add the `@tag` directive definition in `buildSubgraphSchema` (but still support it if the definition is present in the input document) [PR #1600](https://github.com/apollographql/federation/pull/1600).
+
 ## v2.0.0-preview.5
 
 - Fix propagation of `@tag` to the supergraph and allows @tag to be repeated. Additionally, merged directives (only `@tag` and `@deprecated` currently) are not allowed on external fields anymore [PR #1592](https://github.com/apollographql/federation/pull/1592).
