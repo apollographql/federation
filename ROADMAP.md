@@ -16,57 +16,62 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 ## Table of Contents
 
 * [What's next](#whats-next)
-  * [Federation 2 Preview](#federation-2-preview)
   * [Federation 2 GA](#federation-2-ga)
   * [Federation 2 Post-GA](#federation-2-post-ga)
-  * [General Federation Enhancements](#general-federation-enhancements)
   * [Under Consideration](#under-consideration)
 
 * [Released](#released)
+  * [Federation 2 Preview](#federation-2-preview)
   * [Federation 2 Alpha](#federation-2-alpha)
+  * [Gateway Performance Enhancements](#gateway-performance-enhancements)
   * [Federation 1](#federation-1)
   * [Subgraph Compatibility Test Results](#subgraph-compatibility-test-results)
 
 ## What's Next
 
-### Federation 2 Preview
-
-* Expanded use of [core schemas](https://github.com/apollographql/core-schema-js) to compose your own directives in subgraphs.
-* Type merging that can be relaxed even further with:
-  * `@default` - [#1187](https://github.com/apollographql/federation/issues/1187)
-  * `@inaccessible` - [#1178](https://github.com/apollographql/federation/issues/1178) and [core feature spec](https://specs.apollo.dev/)
-* New directives that support a stronger source of truth with:
-  * `@final` and `@shared` - [#1176](https://github.com/apollographql/federation/issues/1176)
-* Field migration across subgraphs with:
-  * `@override` - [#1177](https://github.com/apollographql/federation/issues/1177)
-* Harmonizing shared value types across subgraphs to steward core common types to a desired state.
-* Process subgraph and supergraph schemas with a new [core-schema-js](https://github.com/apollographql/core-schema-js) library.
-* Additional composition strategies for user-defined core features
-* Updated [join spec](https://specs.apollo.dev/join/v0.1/) with Federation 2 enhancements
-* Updated docs
-* Enhanced test automation
-
 ### Federation 2 GA
 
-* Enhanced backwards compatibility test automation
-* Migration guide from Fed 1 to Fed 2 with minimal changes.
+* Incorporate community feedback on Preview
+* Type merging that can be relaxed even further with:
+  * `@inaccessible` - [#1178](https://github.com/apollographql/federation/issues/1178) and [core feature spec](https://specs.apollo.dev/)
+* Field migration across subgraphs with `@override` - [#1177](https://github.com/apollographql/federation/issues/1177)
+* Updated [Fed 2 docs](https://www.apollographql.com/docs/federation/v2/) & [migration guide](https://www.apollographql.com/docs/federation/v2/federation-2/moving-to-federation-2)
+* Enhanced test automation
 
 ### Federation 2 Post-GA
 
-* Importing shared types into subgraph schemas, to keep things more DRY.
-* `Entity interfaces` can be spread across multiple subgraphs & interface queries without knowledge of implementing concrete types.
-* Nested `@provides` support beyond what Fed 2 alpha already supports natively.
+* Compose user-defined directives in subgraphs
+* Harmonizing shared value types across subgraphs to a canonical desired state.
 * Advanced caching, auth, demand control, rate limiting, governance, and more!
-
-### General Federation Enhancements
-
-* Improved Gateway performance via AS shape/op-based reporting
+* Importing shared types into subgraph schemas, to keep things more DRY.
+* `Entity interfaces` can be spread across multiple subgraphs & interface queries.
+* Nested `@provides` support beyond what Fed 2 alpha already supports natively.
+* Process subgraph and supergraph schemas with a new [core-schema-js](https://github.com/apollographql/core-schema-js) library.
+* Expanded use of [core schemas](https://github.com/apollographql/core-schema-js) to compose your own directives in subgraphs.
+* Type merging that can be relaxed even further with `@default` - [#1187](https://github.com/apollographql/federation/issues/1187)
+* Lots more!
 
 ### Under Consideration
 
 * Replace `serviceList` API with more flexible, reactive option - [#1180](https://github.com/apollographql/federation/issues/1180)
 
 ## Released
+
+### Federation 2 Preview
+
+* [Federation Authorship UX design](https://github.com/apollographql/federation/blob/main/designs/Federation%202%20GA%20authorship%20UX.md)
+* New `@link` directive for subgraphs to `import` [using new Fed 2 subgraph syntax](https://github.com/apollographql/federation/blob/main/designs/Federation%202%20GA%20authorship%20UX.md#using-federation-2)
+* Enhanced [shared ownership model & field sharing](https://github.com/apollographql/federation/blob/main/designs/Federation%202%20GA%20authorship%20UX.md#field-sharing)
+  * All fields have a single source of truth by default:
+  * relax ownership with `@shareable` to denormalize for performance [#1176](https://github.com/apollographql/federation/issues/1176)
+  * `@shareable` required to `@provides` a field
+* Updated [join spec](https://specs.apollo.dev/join/v0.1/) with Federation 2 enhancements
+* Automatic conversion of Fed 1 subgraphs to equivalent Fed 2 subgraphs during Fed 2 composition
+* Enhanced backwards compatibility test automation
+* [`rover` support for Fed 2 composition](https://www.apollographql.com/docs/federation/v2/quickstart/setup#1-install-the-rover-cli)
+* [@apollo/gateway v2.0.0-preview](https://www.npmjs.com/package/@apollo/gateway/v/2.0.0-preview.7?activeTab=versions)
+* [@apollo/subgraph v2.0.0-preview](https://www.npmjs.com/package/@apollo/subgraph/v/2.0.0-preview.7?activeTab=versions)
+* Updated [Fed 2 docs](https://www.apollographql.com/docs/federation/v2/) & [migration guide](https://www.apollographql.com/docs/federation/v2/federation-2/moving-to-federation-2)
 
 ### Federation 2 Alpha
 
@@ -106,6 +111,18 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 * For the latest Federation 2 release info see the `CHANGELOG.md` in each sub-project on the [main branch](https://github.com/apollographql/federation).
 
 * Let us know what you think on the [Community Forum](https://community.apollographql.com/t/announcing-apollo-federation-2/1821)
+
+### Gateway Performance Enhancements
+
+* Improved Gateway performance via new op-shape-based field usage reporting
+  * With [Apollo Server 3.6+ expensive subgraph traces are not needed](https://www.apollographql.com/docs/apollo-server/api/plugin/usage-reporting/#fieldlevelinstrumentation) for field usage reporting.
+  * Set `fieldLevelInstrumentation` to 0.01 to sample 1% of requests for detailed field statistics.
+  * Use `fieldLevelInstrumentation` for trace sampling instead of includeRequest for performance.
+
+* Improved Gateway performance with connection pooling for subgraph fetches by default
+  * Ensure fetcher in `RemoteGraphQLDatasource` uses connection pooling / keep-alive.
+  * `make-fetch-happen` does this by default. significant gains in [our benchmark testing](https://www.apollographql.com/blog/announcement/backend/apollo-router-our-graphql-federation-runtime-in-rust/).
+  * [Gateway 2.x uses `make-fetch-happen` by default](https://github.com/apollographql/federation/pull/1284); [backported to Gateway 0.46](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md#v0460)
 
 ### Federation 1
 
