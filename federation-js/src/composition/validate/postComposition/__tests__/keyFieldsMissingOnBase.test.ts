@@ -70,7 +70,7 @@ describe('keyFieldsMissingOnBase', () => {
         type ProductCatalog @key(fields: "products { sku }"){
           products: [Product!]! @provides(fields: "price")
         }
-        extend type Product {
+        extend type Product @key(fields: "sku") {
           sku: String! @external
           price: Int! @requires(fields: "sku")
         }
