@@ -184,9 +184,9 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
                 ]
               }
             ],
-            "variableUsages": ["skip"],
+            "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!$skip:Boolean!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
             "operationName": "GetReviewers__accounts__1"
           }
         }
@@ -332,9 +332,9 @@ Scenario: supports @include when a boolean condition is met (variable driven)
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["include"],
+          "operationKind": "query",
           "operation": "query GetReviewers__reviews__0($include:Boolean!){topReviews{body author@include(if:$include){__typename id}}}",
-          "operationName": "GetReviewers__reviews__0",
-          "operationKind": "query"
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -352,10 +352,10 @@ Scenario: supports @include when a boolean condition is met (variable driven)
                 ]
               }
             ],
-            "variableUsages": ["include"],
-            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!$include:Boolean!){_entities(representations:$representations){...on User{name{first}}}}",
-            "operationName": "GetReviewers__accounts__1",
-            "operationKind": "query"
+            "variableUsages": [],
+            "operationKind": "query",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]

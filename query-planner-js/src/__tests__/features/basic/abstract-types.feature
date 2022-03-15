@@ -266,7 +266,7 @@ Scenario: prunes unfilled type conditions
 Scenario: fetches interfaces returned from other services
   Given query
   """
-  query GetUserAndProducts {
+  query GetUserAndProductsWithPriceAndTitle {
     me {
       reviews {
         product {
@@ -291,8 +291,8 @@ Scenario: fetches interfaces returned from other services
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUserAndProducts__accounts__0{me{__typename id}}",
-          "operationName": "GetUserAndProducts__accounts__0"
+          "operation": "query GetUserAndProductsWithPriceAndTitle__accounts__0{me{__typename id}}",
+          "operationName": "GetUserAndProductsWithPriceAndTitle__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -312,8 +312,8 @@ Scenario: fetches interfaces returned from other services
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetUserAndProducts__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
-            "operationName": "GetUserAndProducts__reviews__1"
+            "operation": "query GetUserAndProductsWithPriceAndTitle__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
+            "operationName": "GetUserAndProductsWithPriceAndTitle__reviews__1"
           }
         },
         {
@@ -345,8 +345,8 @@ Scenario: fetches interfaces returned from other services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query GetUserAndProducts__books__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}",
-                "operationName": "GetUserAndProducts__books__2"
+                "operation": "query GetUserAndProductsWithPriceAndTitle__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}",
+                "operationName": "GetUserAndProductsWithPriceAndTitle__product__2"
               }
             },
             {
@@ -367,8 +367,8 @@ Scenario: fetches interfaces returned from other services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query GetUserAndProducts__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}",
-                "operationName": "GetUserAndProducts__product__3"
+                "operation": "query GetUserAndProductsWithPriceAndTitle__books__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}",
+                "operationName": "GetUserAndProductsWithPriceAndTitle__books__3"
               }
             }
           ]
@@ -381,7 +381,7 @@ Scenario: fetches interfaces returned from other services
 Scenario: fetches composite fields from a foreign type casted to an interface [@provides field
   Given query
   """
-  query GetUserAndProducts {
+  query GetUserAndProductsWithPriceAndName {
     me {
       reviews {
         product {
@@ -406,8 +406,8 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUserAndProducts__accounts__0{me{__typename id}}",
-          "operationName": "GetUserAndProducts__accounts__0"
+          "operation": "query GetUserAndProductsWithPriceAndName__accounts__0{me{__typename id}}",
+          "operationName": "GetUserAndProductsWithPriceAndName__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -427,8 +427,8 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetUserAndProducts__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
-            "operationName": "GetUserAndProducts__reviews__1"
+            "operation": "query GetUserAndProductsWithPriceAndName__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
+            "operationName": "GetUserAndProductsWithPriceAndName__reviews__1"
           }
         },
         {
@@ -460,8 +460,8 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query GetUserAndProducts__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}",
-                "operationName": "GetUserAndProducts__product__2"
+                "operation": "query GetUserAndProductsWithPriceAndName__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}",
+                "operationName": "GetUserAndProductsWithPriceAndName__product__2"
               }
             },
             {
@@ -485,8 +485,8 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                     ],
                     "variableUsages": [],
                     "operationKind": "query",
-                    "operation": "query GetUserAndProducts__books__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
-                    "operationName": "GetUserAndProducts__books__3"
+                    "operation": "query GetUserAndProductsWithPriceAndName__books__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+                    "operationName": "GetUserAndProductsWithPriceAndName__books__3"
                   }
                 },
                 {
@@ -509,8 +509,8 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                     ],
                     "variableUsages": [],
                     "operationKind": "query",
-                    "operation": "query GetUserAndProducts__product__4($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
-                    "operationName": "GetUserAndProducts__product__4"
+                    "operation": "query GetUserAndProductsWithPriceAndName__product__4($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+                    "operationName": "GetUserAndProductsWithPriceAndName__product__4"
                   }
                 }
               ]
@@ -586,7 +586,7 @@ Scenario: allows for extending an interface from another service with fields
 Scenario: handles unions from the same service
   Given query
   """
-  query GetUserAndProducts {
+  query GetUserAndProductsWithBrandInfo {
     me {
       reviews {
         product {
@@ -618,8 +618,8 @@ Scenario: handles unions from the same service
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query GetUserAndProducts__accounts__0{me{__typename id}}",
-          "operationName": "GetUserAndProducts__accounts__0"
+          "operation": "query GetUserAndProductsWithBrandInfo__accounts__0{me{__typename id}}",
+          "operationName": "GetUserAndProductsWithBrandInfo__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -639,8 +639,8 @@ Scenario: handles unions from the same service
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetUserAndProducts__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
-            "operationName": "GetUserAndProducts__reviews__1"
+            "operation": "query GetUserAndProductsWithBrandInfo__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
+            "operationName": "GetUserAndProductsWithBrandInfo__reviews__1"
           }
         },
         {
@@ -669,8 +669,8 @@ Scenario: handles unions from the same service
             ],
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "query GetUserAndProducts__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price brand{__typename ...on Ikea{asile}...on Amazon{referrer}}}}}",
-            "operationName": "GetUserAndProducts__product__2"
+            "operation": "query GetUserAndProductsWithBrandInfo__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price brand{__typename ...on Ikea{asile}...on Amazon{referrer}}}}}",
+            "operationName": "GetUserAndProductsWithBrandInfo__product__2"
           }
         }
       ]

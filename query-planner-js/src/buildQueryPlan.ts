@@ -376,11 +376,11 @@ function executionNodeForGroup(
   const fetchNode: FetchNode = {
     kind: 'Fetch',
     serviceName,
-    ...(requires ? { requires: trimSelectionNodes(requires?.selections) } : {}),
+    requires: requires?.selections && trimSelectionNodes(requires?.selections),
     variableUsages: Object.keys(variableUsages),
     operation: stripIgnoredCharacters(print(operation)),
     ...(inclusionConditions ? { inclusionConditions } : {}),
-    ...(operationName ? { operationName } : {}),
+    operationName,
     operationKind: (operation.definitions[0] as OperationDefinitionNode)
       .operation,
   };
