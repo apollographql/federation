@@ -1,6 +1,5 @@
 ---
 title: Federation error codes
-sidebar_title: Error codes
 ---
 
 When Apollo Gateway attempts to **compose** the schemas provided by your [subgraphs](./subgraphs/) into a **supergraph schema**, it confirms that:
@@ -98,4 +97,4 @@ If Apollo Gateway encounters an error, composition fails. This document lists co
 
 | Code | Description |
 |---|---|
-| Unique type names | Type definitions cannot be duplicated across subgraphs, with the exception of enums, scalars, and [value types](/value-types/). This is a modified version of the `graphql-js` validation with exclusions for enums and scalars, because those are required to be duplicated across subgraphs. |
+| Unique type names | Type definitions cannot be duplicated across subgraphs, with the exception of enums, scalars, and [value types](./value-types/). This is a modified version of the `graphql-js` validation with exclusions for enums and scalars, because those are required to be duplicated across subgraphs. |

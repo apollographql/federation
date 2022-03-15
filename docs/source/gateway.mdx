@@ -1,10 +1,6 @@
 ---
-title: "The gateway"
+title: The gateway
 ---
-
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **gateway** to sit in front of your subgraphs. The gateway executes incoming operations across those subgraphs.
 
@@ -20,9 +16,9 @@ First, let's install the necessary packages:
 npm install @apollo/gateway apollo-server
 ```
 
-The `@apollo/gateway` package includes the [`ApolloGateway` class](/api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
+The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
@@ -59,7 +55,7 @@ On startup, the gateway processes your `supergraphSdl`, which includes routing i
 
 In the above example, we provide a _static_ supergraph schema to the gateway. This approach requires the gateway to restart in order to update the supergraph schema. This is undesirable for many applications, so we also provide the ability to update the supergraph schema dynamically.
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFile } = require('fs/promises');
@@ -95,7 +91,7 @@ With the `update` function, we can now programatically update the supergraph. Po
 
 The code below demonstrates a more complete example using a file watcher. In this example, assume that we're updating the `supergraphSdl.graphql` file with the Rover CLI.
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { watch } = require('fs');
@@ -157,7 +153,7 @@ In a more complex application, you might want to create a class that handles the
 
 Alternatively, you can provide a `subgraph` array to the `IntrospectAndCompose` constructor, like so:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloGateway, IntrospectAndCompose } = require('@apollo/gateway');
 
 const gateway = new ApolloGateway({
@@ -228,7 +224,7 @@ After adding the `userId` to the shared `context` object, the gateway can then a
 
 <ExpansionPanel title="Expand example">
 
-```javascript{4-10,17-19,28-35}
+```javascript {4-10,17-19,28-35}
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
@@ -363,11 +359,11 @@ server.listen().then(({ url }) => {
 
 > In this example, multiple calls to `didReceiveResponse` are `push`ing a value onto the shared `context.serverIds` array. The order of these calls cannot be guaranteed. If you write logic that modifies the shared `context` object, make sure that modifications are not destructive, and that the order of modifications doesn't matter.
 
-To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](/api/apollo-gateway/).
+To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](./api/apollo-gateway/).
 
 ## Custom directive support
 
-The `@apollo/gateway` library supports the use of custom [directives](https://www.apollographql.com/docs/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
+The `@apollo/gateway` library supports the use of custom [directives](/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
 
 ### Type system directives
 

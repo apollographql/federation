@@ -4,8 +4,6 @@ sidebar_title: Entities
 description: Reference and extend types across subgraphs
 ---
 
-import {CodeColumns, ExpansionPanel} from 'gatsby-theme-apollo-docs';
-
 In Apollo Federation, an **entity** is an object type that you define canonically in _one_ subgraph and can then reference and extend in _other_ subgraphs.
 
 Entities are the core building block of a federated graph.
@@ -14,7 +12,7 @@ Entities are the core building block of a federated graph.
 
 In a GraphQL schema, you can designate any object type as an entity by adding a `@key` directive to its definition, like so:
 
-```graphql{1}:title=products
+```graphql {1} title="products"
 type Product @key(fields: "upc") {
   upc: String!
   name: String!
@@ -37,7 +35,7 @@ You can define more than one primary key for an entity, when applicable.
 
 In the following example, a `Product` entity can be uniquely identified by either its `upc` _or_ its `sku`:
 
-```graphql{1}:title=products
+```graphql {1} title="products"
 type Product @key(fields: "upc") @key(fields: "sku") {
   upc: String!
   sku: String!
@@ -53,7 +51,7 @@ A single primary key can consist of multiple fields, and even nested fields.
 
 The following example shows a primary key that consists of both a user's `id` _and_ the `id` of that user's associated organization:
 
-```graphql{1}:title=directory
+```graphql {1} title="directory"
 type User @key(fields: "id organization { id }") {
   id: ID!
   organization: Organization!
@@ -70,7 +68,7 @@ After you define an entity in one subgraph, _other_ subgraphs can then reference
 
 For example, let's say we have a `products` subgraph that defines the following `Product` entity:
 
-```graphql:title=products
+```graphql title="products"
 type Product @key(fields: "upc") {
   upc: String!
   name: String!
@@ -80,7 +78,7 @@ type Product @key(fields: "upc") {
 
 A `reviews` subgraph can then add a field of type `Product` to its `Review` type, like so:
 
-```graphql{3}:title=reviews
+```graphql {3} title="reviews"
 type Review {
   score: Int!
   product: Product!
@@ -107,7 +105,7 @@ This explicit syntax has several benefits:
 
 Let's say our `reviews` subgraph from [Referencing entities](#referencing-entities) defines the following `Query` type:
 
-```graphql:title=reviews
+```graphql title="reviews"
 type Query {
   latestReviews: [Review!]
 }
@@ -115,7 +113,7 @@ type Query {
 
 That means the following query is valid against our federated graph:
 
-```graphql{6}
+```graphql {6}
 query GetReviewsAndProducts {
   latestReviews {
     score
@@ -140,7 +138,7 @@ To solve this, we add a resolver to _each_ subgraph:
 
 In our example, the `reviews` subgraph needs to define a resolver for its stub version of the `Product` entity. The `reviews` subgraph doesn't know much about `Product`s, but fortunately, it doesn't need to. All it needs to do is return data for the fields it _does_ know about, like so:
 
-```js{3-10}:title=resolvers.js
+```js {3-10} title="resolvers.js"
 // Reviews subgraph
 const resolvers = {
   Review: {
@@ -196,7 +194,7 @@ Notice that this query _omits_ `price` but _adds_ `__typename`, even though it w
 
 With these representations available, the gateway can now execute a _second_ query on the `products` subgraph to fetch each product's `price`. To support this special query, the `products` subgraph needs to define a **reference resolver** for the `Product` entity:
 
-```js{4-6}:title=resolvers.js
+```js {4-6} title="resolvers.js"
 // Products subgraph
 const resolvers = {
   Product: {
@@ -212,7 +210,7 @@ const resolvers = {
 
 A reference resolver (always called `__resolveReference`) provides the gateway direct access to a particular entity's fields, without needing to use a custom query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations), which is why we created the resolver in the `reviews` subgraph first!
 
-> To learn more about `__resolveReference`, see the [API docs](/api/apollo-subgraph/#__resolvereference).
+> To learn more about `__resolveReference`, see the [API docs](./api/apollo-subgraph/#__resolvereference).
 
 After fetching the `price` field from `products` via a reference resolver, the gateway can intelligently merge the data it obtained from its two queries into a single result and return that result to the querying client.
 
@@ -230,7 +228,7 @@ Let's say we want to add a `reviews` field to the `Product` entity. This field w
 
 To handle this case, we can extend the `Product` entity in the `reviews` subgraph, like so:
 
-```graphql{3}:title=reviews
+```graphql {3} title="reviews"
 extend type Product @key(fields: "upc") {
   upc: String! @external
   reviews: [Review]
@@ -258,7 +256,7 @@ Whenever a subgraph extends an entity with a new field, it's also responsible fo
 
 Let's say we want to be able to query for the `inStock` status of a product. That information lives in an `inventory` subgraph, so we'll add the type extension there:
 
-```graphql{3}:title=inventory
+```graphql {3} title="inventory"
 extend type Product @key(fields: "upc") {
   upc: ID! @external
   inStock: Boolean
@@ -295,7 +293,7 @@ In Apollo Federation, the `Query` and `Mutation` base types originate in the gra
 
 For example, the `products` subgraph might extend the root `Query` type to add a `topProducts` query, like so:
 
-```graphql:title=products
+```graphql title="products"
 type Query {
   topProducts(first: Int = 5): [Product]
 }
@@ -366,7 +364,7 @@ The exact steps depend on how you perform schema composition:
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -438,7 +436,7 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -511,7 +509,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -654,7 +652,7 @@ We can perform this migration with the following steps (additional commentary on
 
 When you [extend an entity](#extending-entities), you can define fields that depend on fields in the entity's originating subgraph. For example, a `shipping` subgraph might extend the `Product` entity with a `shippingEstimate` field, which is calculated based on the product's `size` and `weight`:
 
-```graphql{5}:title=shipping
+```graphql {5} title="shipping"
 extend type Product @key(fields: "sku") {
   sku: ID! @external
   size: Int @external
@@ -669,7 +667,7 @@ As shown, you use the `@requires` directive to indicate which fields (and subfie
 
 In the above example, if a client requests a product's `shippingEstimate`, the gateway will first obtain the product's `size` and `weight` from the `products` subgraph, then pass those values to the `shipping` subgraph. This enables you to access those values directly from your resolver:
 
-```js{4}
+```js {4}
 {
   Product: {
     shippingEstimate(product) {
@@ -683,7 +681,7 @@ In the above example, if a client requests a product's `shippingEstimate`, the g
 
 If a computed field `@requires` a field that returns an object type, you also specify which _subfields_ of that object are required. You list those subfields with the following syntax:
 
-```graphql{4}:title=shipping
+```graphql {4} title="shipping"
 extend type Product @key(fields: "sku") {
   sku: ID! @external
   dimensions: ProductDimensions @external
@@ -699,7 +697,7 @@ Sometimes, multiple subgraphs are capable of resolving a particular field for an
 
 When you [extend an entity](#extending-entities) in this case, you can specify that the extending subgraph `@provides` the field, like so:
 
-```graphql{2,8-9}:title=inventory
+```graphql {2,8-9} title="inventory"
 type InStockCount {
   product: Product! @provides(fields: "name price")
   quantity: Int!

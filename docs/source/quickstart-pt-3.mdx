@@ -1,13 +1,7 @@
 ---
-title: "Federation quickstart"
-sidebar_title: "Part 3 - Working with subgraphs"
-description: "Part 3 - Working with subgraphs"
+title: Federation quickstart
+description: Part 3 - Working with subgraphs
 ---
-
-import {Button} from '@apollo/space-kit/Button';
-import {Link} from 'gatsby';
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
-import { VideoFrame } from 'gatsby-theme-apollo-docs';
 
 In [Part 1](./quickstart/) and [Part 2](./quickstart-pt-2/), we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
 
@@ -27,13 +21,13 @@ npm install @apollo/subgraph
 
 Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 
-```js:title=index.js
+```js title="index.js"
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 ```
 
 Finally, modify your `ApolloServer` constructor by passing it a `schema` option instead of `typeDefs` and `resolvers`, like so:
 
-```js:title=index.js
+```js title="index.js"
 const server = new ApolloServer({
   schema: buildSubgraphSchema({ typeDefs, resolvers })
 });

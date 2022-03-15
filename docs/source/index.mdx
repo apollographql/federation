@@ -1,13 +1,9 @@
 ---
 title: Introduction to Apollo Federation
-sidebar_title: Introduction
 description: Implement a single graph across multiple services
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 > 📣 **Apollo Federation 2 is available in public preview.** [View the Federation 2 docs.](https://www.apollographql.com/docs/federation/v2/)
 
@@ -34,7 +30,7 @@ Apollo Server provides libraries for acting both as a subgraph and as a gateway,
 
 The following presentation by [Mandi Wise](https://twitter.com/mandiwise) further describes the architecture of Apollo Federation and walks through implementing a federated graph:
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/v_1bn2sHdk4?start=81" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<YouTube youTubeId="v_1bn2sHdk4" />
 
 ## Design principles
 
@@ -44,7 +40,7 @@ Like the rest of the Apollo platform, Apollo Federation can (and should) be
 adopted **incrementally**:
 
 * If you currently use a monolithic GraphQL server, you can break its functionality out one service at a time.
-* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](/migrating-from-stitching/).
+* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](./migrating-from-stitching/).
 
 In both of these cases, all of your clients will continue to work throughout your incremental migration. In fact, clients have no way to distinguish between different graph implementations.
 
@@ -103,7 +99,7 @@ Let's look at an example!
 
 Below, we define the schemas for three subgraphs in a basic e-commerce application. Each subgraph is implemented as a standalone back-end service:
 
-```graphql:title=accounts
+```graphql title="accounts"
 extend type Query {
   me: User
 }
@@ -114,7 +110,7 @@ type User @key(fields: "id") {
 }
 ```
 
-```graphql:title=products
+```graphql title="products"
 extend type Query {
   topProducts(first: Int = 5): [Product]
 }
@@ -126,7 +122,7 @@ type Product @key(fields: "upc") {
 }
 ```
 
-```graphql:title=reviews
+```graphql title="reviews"
 type Review {
   body: String
   author: User @provides(fields: "username")
@@ -279,7 +275,7 @@ type User {
 
 You provide a composed [supergraph schema](#supergraph-schema) to the `ApolloGateway` constructor, like so:
 
-```js{1,4}
+```js {1,4}
 const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 const gateway = new ApolloGateway({

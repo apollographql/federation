@@ -1,22 +1,18 @@
 ---
-title: "Subgraphs"
+title: Subgraphs
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 This article describes how to create a **subgraph** for a federated graph using Apollo Server.
 
 ## Defining a subgraph
 
-> To be part of a supergraph, a subgraph must conform to the [Apollo Federation specification](/federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
+> To be part of a supergraph, a subgraph must conform to the [Apollo Federation specification](./federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
 
 Converting an existing monolithic graph into a single subgraph is a convenient first step in building a federated supergraph. To start, here's a *non-federated* Apollo Server setup:
 
-```javascript:title=index.js
+```javascript title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 
 const typeDefs = gql`
@@ -60,7 +56,7 @@ npm install @apollo/subgraph
 
 As part of our federated architecture, we want _other_ subgraphs to be able to extend the `User` type this subgraph defines. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 
@@ -80,7 +76,7 @@ The `@key` directive tells other subgraphs which field(s) of the `User` type to 
 
 Next, we add a **reference resolver** for the `User` type. A reference resolver tells the gateway how to fetch an entity by its `@key` fields:
 
-```js:title=index.js
+```js title="index.js"
 const resolvers = {
   Query: {
     me() {
@@ -103,7 +99,7 @@ const resolvers = {
 
 Finally, we use the `buildSubgraphSchema` function from the `@apollo/subgraph` package to augment our schema definition with federation support. We provide the result of this function to the `ApolloServer` constructor:
 
-```js:title=index.js
+```js title="index.js"
 const server = new ApolloServer({
   schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
@@ -119,7 +115,7 @@ The server is now ready to act as a subgraph in a federated graph!
 
 Here are the snippets above combined (again, note that for this sample to be complete, you must define the `fetchUserById` function for your data source):
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 
@@ -216,7 +212,7 @@ _entities(representations: [_Any!]!): [_Entity]!
 
 You can query this field like so, providing a value for the `$representations` variable as shown:
 
-```graphql:title=Query
+```graphql title="Query"
 query ($representations: [_Any!]!) {
   _entities(representations: $representations) {
     ... on User {
@@ -227,7 +223,7 @@ query ($representations: [_Any!]!) {
 }
 ```
 
-```json:title=Variable
+```json title="Variable"
 {
   "representations": [
     {
@@ -290,7 +286,7 @@ const server = new ApolloServer({
 
 <ExpansionPanel title="Expand example">
 
-```js{15-17}
+```js {15-17}
 const { ApolloServer, gql, SchemaDirectiveVisitor } = require("apollo-server");
 
 // typeDefs and resolvers defined here
