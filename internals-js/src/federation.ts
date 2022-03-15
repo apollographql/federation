@@ -50,6 +50,7 @@ import {
   ErrorCodeDefinition,
   ERROR_CATEGORIES,
   ERRORS,
+  withModifiedErrorMessage,
 } from "./error";
 import { computeShareables } from "./sharing";
 import {
@@ -72,9 +73,12 @@ import {
   shareableDirectiveSpec,
   tagDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
+  ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
+  FEDERATION2_ONLY_SPEC_DIRECTIVES,
 } from "./federationSpec";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
+import { didYouMean, suggestionList } from "./suggestions";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -417,16 +421,6 @@ function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<Obje
   return `${joinStrings(implems.map(printFieldCoordinate))} ${implems.length == 1 ? 'has' : 'have'} type "${type}"`;
 }
 
-function checkIfFed2Schema(schema: Schema): boolean {
-  const core = schema.coreFeatures;
-  if (!core) {
-    return false
-  }
-
-  const federationFeature = core.getByIdentity(federationSpec.identity);
-  return !!federationFeature && federationFeature.url.version.satisfies(new FeatureVersion(2, 0));
-}
-
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
@@ -443,9 +437,14 @@ export class FederationMetadata {
 
   isFed2Schema(): boolean {
     if (!this._isFed2Schema) {
-      this._isFed2Schema = checkIfFed2Schema(this.schema);
+      const feature = this.federationFeature();
+      this._isFed2Schema = !!feature && feature.url.version.satisfies(new FeatureVersion(2, 0))
     }
     return this._isFed2Schema;
+  }
+
+  federationFeature(): CoreFeature | undefined {
+    return this.schema.coreFeatures?.getByIdentity(federationSpec.identity);
   }
 
   private externalTester(): ExternalTester {
@@ -768,6 +767,52 @@ export class FederationBlueprint extends SchemaBlueprint {
 
   validationRules(): readonly SDLValidationRule[] {
     return FEDERATION_VALIDATION_RULES;
+  }
+
+  onUnknownDirectiveValidationError(schema: Schema, unknownDirectiveName: string, error: GraphQLError): GraphQLError {
+    const metadata = federationMetadata(schema);
+    assert(metadata, `This method should only have been called on a subgraph schema`)
+    if (ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES.includes(unknownDirectiveName)) {
+      // The directive name is "unknown" but it is a default federation directive name. So it means one of a few things
+      // happened:
+      //  1. it's a fed1 schema but the directive is a fed2 only one (only possible case for fed1 schema).
+      //  2. the directive has not been imported at all (so needs to be prefixed for it to work).
+      //  3. the directive has an `import`, but it's been aliased to another name.
+      if (metadata.isFed2Schema()) {
+        const federationFeature = metadata.federationFeature();
+        assert(federationFeature, 'Fed2 subgraph _must_ link to the federation feature')
+        const directiveNameInSchema = federationFeature.directiveNameInSchema(unknownDirectiveName);
+        console.log(`For ${unknownDirectiveName}, name in schema = ${directiveNameInSchema}`);
+        if (directiveNameInSchema.startsWith(federationFeature.nameInSchema + '__')) {
+          // There is no import for that directive
+          return withModifiedErrorMessage(
+            error, 
+            `${error.message} If you meant the "@${unknownDirectiveName}" federation directive, you should use fully-qualified name "@${directiveNameInSchema}" or add "@${unknownDirectiveName}" to the \`import\` argument of the @link to the federation specification.`
+          );
+        } else {
+          // There's an import, but it's renamed
+          return withModifiedErrorMessage(
+            error, 
+            `${error.message} If you meant the "@${unknownDirectiveName}" federation directive, you should use "@${directiveNameInSchema}" as it is imported under that name in the @link to the federation specification of this schema.`
+          );
+        }
+      } else {
+        return withModifiedErrorMessage(
+          error, 
+          `${error.message} If you meant the "@${unknownDirectiveName}" federation 2 directive, note that this schema is a federation 1 schema. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`
+        );
+      }
+    } else if (!metadata.isFed2Schema()) {
+      // We could get here in the case where a fed1 schema has tried to use a fed2 directive but mispelled it.
+      const suggestions = suggestionList(unknownDirectiveName, FEDERATION2_ONLY_SPEC_DIRECTIVES.map((spec) => spec.name));
+      if (suggestions.length > 0) {
+        return withModifiedErrorMessage(
+          error, 
+          `${error.message}${didYouMean(suggestions.map((s) => '@' + s))} If so, note that ${suggestions.length === 1 ? 'it is a federation 2 directive' : 'they are federation 2 directives'} but this schema is a federation 1 one. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`
+        );
+      }
+    }
+    return error;
   }
 }
 

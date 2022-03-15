@@ -2257,6 +2257,5 @@ describe('composition', () => {
         validateError(composeServices([subgraphA, asFed2Service(subgraphB)]));
       });
     });
-
   });
 });
