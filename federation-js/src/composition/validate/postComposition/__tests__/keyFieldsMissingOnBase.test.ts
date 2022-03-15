@@ -48,8 +48,6 @@ describe('keyFieldsMissingOnBase', () => {
 
   it('returns no warnings with proper @key usage for provided field', () => {
     const serviceA = {
-      // FIXME: add second key "upc" when duplicate directives are supported
-      // i.e. @key(fields: "sku") @key(fields: "upc")
       typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
