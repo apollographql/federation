@@ -72,7 +72,7 @@ describe('keyFieldsMissingOnBase', () => {
         }
         extend type Product @key(fields: "sku") {
           sku: String! @external
-          price: Int! @requires(fields: "sku")
+          price: Int!
         }
       `,
       name: 'serviceB',
