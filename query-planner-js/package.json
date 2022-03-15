@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-planner",
-  "version": "2.0.0-preview.5",
+  "version": "2.0.0-preview.7",
   "description": "Apollo Query Planner",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
