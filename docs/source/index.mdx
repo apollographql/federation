@@ -1,21 +1,17 @@
 ---
 title: Apollo Federation 2 public preview
-sidebar_title: Introduction
 description: Combine APIs into a unified graph
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-import { Button } from '@apollo/space-kit/Button';
 import { Link } from 'gatsby';
-import { colors } from 'gatsby-theme-apollo-core';
-import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
 > 📣 **Apollo Federation 2 is in public preview.**
 >
 > * [See what's new!](./federation-2/new-in-federation-2/)
 > * [Move a test graph over](./federation-2/moving-to-federation-2)
 >
-> Unchanged portions of the [Federation 1 docs](https://www.apollographql.com/docs/federation/) docs are omitted for clarity.
+> Unchanged portions of the [Federation 1 docs](/federation/) docs are omitted for clarity.
 
 **Apollo Federation** is a powerful open-source architecture that helps you create a **unified graph** that combines multiple GraphQL APIs:
 
@@ -34,21 +30,22 @@ With federation, you can responsibly share ownership of your graph across any nu
 
 Federation also supports a free managed mode with Apollo Studio, which helps you modify and grow your graph without any downtime.
 
-<p>
+<div>
   <Button
-    color={colors.primary}
-    as={<Link to="https://www.apollographql.com/docs/federation/v2/quickstart/setup/" />}
-    style={{marginRight: 16, marginBottom: 16}}
+    colorScheme="indigo"
+    as={Link}
+    to="./quickstart/setup/"
+    mr="4"
   >
     Get started with Federation
   </Button>
-
   <Button
-    as={<Link to="#how-it-works" />}
+    as="a"
+    href="#how-it-works"
   >
     Learn more
   </Button>
-</p>
+</div>
 
 ## How it works
 
@@ -239,7 +236,7 @@ In this structure, the "graph team" might be a separate team that's dedicated to
 As with the rest of the Apollo platform, you can (and should) adopt Apollo Federation **incrementally**:
 
 * If you currently use a monolithic GraphQL server, you can break its functionality out one subgraph at a time.
-* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](/migrating-from-stitching/).
+* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](./migrating-from-stitching/).
 
 In both of these cases, all of your clients continue to work throughout your incremental adoption. In fact, clients have no way to distinguish between different graph implementations.
 

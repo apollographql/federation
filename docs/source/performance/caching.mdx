@@ -57,7 +57,7 @@ There are detailed examples below that illustrate the resulting behavior when ov
 
 Consider the following subgraph schemas:
 
-```graphql:title=Astronauts%20Subgraph
+```graphql title="Astronauts Subgraph"
 type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
   id: ID!
   name: String
@@ -69,7 +69,7 @@ type Query {
 }
 ```
 
-```graphql:title=Missions%20Subgraph
+```graphql title="Missions Subgraph"
 type Mission {
   id: ID!
   crew: [Astronaut]
@@ -110,7 +110,7 @@ The missions subgraph, however, does not include a `cache-control` header in its
 
 The missions subgraph isn't aware of the cache hint set on the `Astronaut` type in the astronauts subgraph, so there are two ways to address this. The first option is to apply the `@cacheControl` directive to the `Astronaut` entity in the missions subgraph, with the `inheritMaxAge` argument set to `true`:
 
-```graphql{3}:title=Missions%20Subgraph
+```graphql {3} title="Missions Subgraph"
 type Mission {
   id: ID!
   crew: [Astronaut] @cacheControl(inheritMaxAge: true)
@@ -124,7 +124,7 @@ Applying this argument will ensure that the `Astronaut` type inherits the `maxAg
 
 The second option is to set the `@cacheControl` directive for the `Astronaut` entity with the appropriate `maxAge` value instead:
 
-```graphql{1}:title=Missions%20Subgraph
+```graphql {1} title="Missions Subgraph"
 type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
   id: ID!
   missions: [Mission]
@@ -137,7 +137,7 @@ Setting the `maxAge` property on the `Astronaut` type in the missions subgraph r
 
 For these subgraph schemas:
 
-```graphql:title=Astronauts%20Subgraph
+```graphql title="Astronauts Subgraph"
 type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
   id: ID!
   name: String
@@ -149,7 +149,7 @@ type Query {
 }
 ```
 
-```graphql:title=Missions%20Subgraph
+```graphql title="Missions Subgraph"
 type Mission {
   id: ID!
   crew: [Astronaut] @cacheControl(inheritMaxAge: true)

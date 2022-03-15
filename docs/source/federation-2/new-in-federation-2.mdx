@@ -1,9 +1,6 @@
 ---
 title: What's new in the Federation 2 preview
-sidebar_title: ☀️ New in the preview
 ---
-
-import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
 
 > ⚠️ **Apollo Federation 2 is in public preview.** It is not yet feature-complete, and breaking changes might occur between this release and general availability. [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
 
@@ -73,7 +70,7 @@ type Book @shareable {
 }
 ```
 
-```graphql{4-5}
+```graphql {4-5}
 # Subgraph B
 type Book @shareable {
   title: String!
@@ -169,7 +166,7 @@ In Federation 1, each entity field is resolved by exactly one subgraph (unless i
 
 <CodeColumns>
 
-```graphql{4}
+```graphql {4}
 # Products subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -178,7 +175,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql{4}
+```graphql {4}
 # Inventory subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -210,7 +207,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql{2}
+```graphql {2}
 # Reviews subgraph
 type Product @key(fields: "id", resolvable: false) {
   id: ID!

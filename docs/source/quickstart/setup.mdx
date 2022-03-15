@@ -1,10 +1,7 @@
 ---
-title: "Federation 2 quickstart"
-sidebar_title: "1️⃣ Project setup"
-description: "Part 1 - Project setup"
+title: Federation 2 quickstart
+description: Part 1 - Project setup
 ---
-
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 > 📣 **Federation 2 demo:** In addition to completing this tutorial, you can [clone our Federation 2 demo on GitHub](https://github.com/apollographql/supergraph-demo-fed2). The demo is distinct from the project you create in this tutorial, and it helps demonstrate many concepts of Federation 2.
 
@@ -52,7 +49,7 @@ This tutorial uses two Apollo-hosted subgraphs for an example application: a Pro
 
 URL: `https://rover.apollo.dev/quickstart/products/graphql`
 
-```graphql:title=Products
+```graphql title="Products"
 type Product @key(fields: "id") {
   id: ID!
   title: String
@@ -113,7 +110,7 @@ type Query {
 
 URL: `https://rover.apollo.dev/quickstart/reviews/graphql`
 
-```graphql:title=Reviews
+```graphql title="Reviews"
 type Review @key(fields: "id") {
   id: ID!
   rating: Float
@@ -195,7 +192,7 @@ npm install apollo-server @apollo/gateway@latest-2 graphql
 
 Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 
@@ -243,7 +240,7 @@ Do the following in your project's root directory:
 
     <ExpansionPanel title="Products">
 
-    ```graphql:title=products.graphql
+    ```graphql title="products.graphql"
     type Product @key(fields: "id") {
       id: ID!
       title: String
@@ -304,7 +301,7 @@ Do the following in your project's root directory:
 
     <ExpansionPanel title="Reviews">
 
-    ```graphql:title=reviews.graphql
+    ```graphql title="reviews.graphql"
     type Review @key(fields: "id") {
       id: ID!
       rating: Float

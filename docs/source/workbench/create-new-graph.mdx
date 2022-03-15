@@ -1,6 +1,5 @@
 ---
-title: "Creating a new graph in Workbench"
-sidebar_title: "Creating a new graph"
+title: Creating a new graph in Workbench
 ---
 
 This article helps you create a new federated graph design from scratch in Apollo Workbench.
@@ -25,7 +24,7 @@ You're ready to add a subgraph to your design. Click the **+** button next to **
 
 Next, you need to define your subgraph's schema. Click the newly created subgraph in the navigation panel to open its schema file. Paste in the following schema and save the file:
 
-```graphql:title=Users
+```graphql title="Users"
 type User @key(fields:"id"){
   id: ID!
   name: String
@@ -49,7 +48,7 @@ Let's add another subgraph to take full advantage of Apollo Federation. Follow t
 
 Paste the following schema and save:
 
-```graphql:title=Carts
+```graphql title="Carts"
 type Cart @key(fields:"id"){
   id: ID!
   name: String

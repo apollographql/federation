@@ -1,10 +1,7 @@
 ---
-title: "Federation 2 quickstart"
-sidebar_title: "2️⃣ Composition in Apollo Studio"
-description: "Part 2 - Composition in Apollo Studio"
+title: Federation 2 quickstart
+description: Part 2 - Composition in Apollo Studio
 ---
-
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 Now that our project and tools are set up, we can start composing our supergraph schema with Apollo Studio.
 
@@ -57,7 +54,7 @@ Let's return to our gateway project. We can now use Rover's `subgraph publish` c
 
 Run the following from your project directory, substituting your Studio graph's **graph ref** where indicated:
 
-```shell{1}
+```shell {1}
 rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
   --routing-url https://rover.apollo.dev/quickstart/products/graphql \
   --schema ./products.graphql \
@@ -94,7 +91,7 @@ Nice! If you open your graph's details in Studio now, you'll see types and field
 
 Now, let's do the same thing for our `reviews` subgraph, **again substituting your graph ref where indicated**:
 
-```shell{1}
+```shell {1}
 rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
   --routing-url https://rover.apollo.dev/quickstart/reviews/graphql \
   --schema ./reviews.graphql \

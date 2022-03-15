@@ -1,6 +1,5 @@
 ---
 title: Using Workbench with Federation 2
-sidebar_title: Using with Federation 2
 ---
 
 Workbench enables you to use Federation 1 or Federation 2 composition with any design. By default, all designs use Federation 1 until the general availability of Federation 2.

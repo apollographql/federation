@@ -1,12 +1,9 @@
 ---
 title: Entities in Apollo Federation
-sidebar_title: Entities (basics)
 description: Resolve types across multiple subgraphs
 ---
 
-import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
-
-> ⚠️ Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new](/federation-2/new-in-federation-2/).
+> ⚠️ Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new](./federation-2/new-in-federation-2/).
 
 In a federated graph, an **entity** is an object type that can resolve its fields across multiple subgraphs. Each subgraph can contribute different fields to the entity and is responsible for resolving only the fields that it contributes.
 
@@ -78,7 +75,7 @@ The `@key` directive effectively tells the gateway, "This subgraph can resolve a
 
 For the `Product` entity defined [above](#1-define-a-key), the reference resolver might look like this:
 
-```js{4-6}:title=resolvers.js
+```js {4-6} title="resolvers.js"
 // Products subgraph
 const resolvers = {
   Product: {
@@ -101,7 +98,7 @@ Let's break this example down:
 
 _Every_ subgraph that contributes at least one field to an entity must define a reference resolver for that entity.
 
-> To learn more about `__resolveReference` in Apollo Server, see the [API docs](/api/apollo-subgraph/#__resolvereference).
+> To learn more about `__resolveReference` in Apollo Server, see the [API docs](./api/apollo-subgraph/#__resolvereference).
 
 ## Contributing entity fields
 
