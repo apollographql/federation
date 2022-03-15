@@ -1,3 +1,5 @@
+/federation-2/*  /docs/federation/v2/federation-2/:splat
+
 /core-concepts/ /docs/federation/implementing-services/
 /implementing-services/ /docs/federation/subgraphs/
 /managed-federation/advanced-topics/ /docs/federation/managed-federation/overview/
