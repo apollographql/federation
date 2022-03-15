@@ -1,7 +1,0 @@
-.DS_Store
-Thumbs.db
-*.log
-node_modules/
-.deploy*/
-.cache
-public/
