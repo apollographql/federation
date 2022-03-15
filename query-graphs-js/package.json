@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-graphs",
-  "version": "2.0.0-preview.5",
+  "version": "2.0.0-preview.6",
   "description": "Apollo Federation library to work with 'query graphs'",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
