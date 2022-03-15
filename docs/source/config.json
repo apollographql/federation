@@ -1,6 +1,15 @@
 {
   "title": "Federation",
   "version": "v2",
+  "algoliaFilters": [
+    "docset:federation",
+    [
+      "docset:server",
+      "docset:rover",
+      "docset:router",
+      "docset:studio"
+    ]
+  ],
   "sidebar": {
     "Introduction": "/",
     "Federation 2 Updates": {
