@@ -55,10 +55,7 @@ Scenario: resolves value types within their respective services
           "nodes": [
             {
               "kind": "Flatten",
-              "path": [
-                "topProducts",
-                "@"
-              ],
+              "path": [ "topProducts", "@" ],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "books",
@@ -67,14 +64,8 @@ Scenario: resolves value types within their respective services
                     "kind": "InlineFragment",
                     "typeCondition": "Book",
                     "selections": [
-                      {
-                        "kind": "Field",
-                        "name": "__typename"
-                      },
-                      {
-                        "kind": "Field",
-                        "name": "isbn"
-                      }
+                      { "kind": "Field", "name": "__typename" },
+                      { "kind": "Field", "name": "isbn" }
                     ]
                   }
                 ],
@@ -86,10 +77,7 @@ Scenario: resolves value types within their respective services
             },
             {
               "kind": "Flatten",
-              "path": [
-                "topProducts",
-                "@"
-              ],
+              "path": [ "topProducts", "@" ],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "reviews",
@@ -98,28 +86,16 @@ Scenario: resolves value types within their respective services
                     "kind": "InlineFragment",
                     "typeCondition": "Book",
                     "selections": [
-                      {
-                        "kind": "Field",
-                        "name": "__typename"
-                      },
-                      {
-                        "kind": "Field",
-                        "name": "isbn"
-                      }
+                      { "kind": "Field", "name": "__typename" },
+                      { "kind": "Field", "name": "isbn" }
                     ]
                   },
                   {
                     "kind": "InlineFragment",
                     "typeCondition": "Furniture",
                     "selections": [
-                      {
-                        "kind": "Field",
-                        "name": "__typename"
-                      },
-                      {
-                        "kind": "Field",
-                        "name": "upc"
-                      }
+                      { "kind": "Field", "name": "__typename" },
+                      { "kind": "Field", "name": "upc" }
                     ]
                   }
                 ],
@@ -135,3 +111,4 @@ Scenario: resolves value types within their respective services
     }
   }
   """
+  

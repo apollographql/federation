@@ -376,7 +376,7 @@ function executionNodeForGroup(
   const fetchNode: FetchNode = {
     kind: 'Fetch',
     serviceName,
-    requires: requires?.selections && trimSelectionNodes(requires?.selections),
+    requires: requires ? trimSelectionNodes(requires?.selections) : undefined,
     variableUsages: Object.keys(variableUsages),
     operation: stripIgnoredCharacters(print(operation)),
     ...(inclusionConditions ? { inclusionConditions } : {}),

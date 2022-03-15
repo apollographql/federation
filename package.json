@@ -51,7 +51,7 @@
     "apollo-server": "3.6.3",
     "apollo-server-env": "4.2.1",
     "bunyan": "1.8.15",
-    "graphql": "^15.8.0",
+    "graphql": "16.3.0",
     "graphql-tag": "2.12.6",
     "jest": "27.5.1",
     "jest-config": "27.5.1",

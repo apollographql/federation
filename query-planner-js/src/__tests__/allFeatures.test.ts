@@ -61,11 +61,7 @@ for (const directory of directories) {
                 buildOperationContext(schema, queryDocument),
               );
 
-              try {
-                var expectedQueryPlan = JSON.parse(expectedQueryPlanString);
-              } catch {
-                debugger;
-              }
+              const expectedQueryPlan = JSON.parse(expectedQueryPlanString);
 
               expect(queryPlan).toMatchQueryPlan(expectedQueryPlan);
             });
