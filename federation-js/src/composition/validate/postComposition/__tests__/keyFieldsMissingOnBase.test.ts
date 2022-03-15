@@ -46,6 +46,46 @@ describe('keyFieldsMissingOnBase', () => {
     expect(warnings).toHaveLength(0);
   });
 
+  it('returns no warnings with proper @key usage for provided field', () => {
+    const serviceA = {
+      // FIXME: add second key "upc" when duplicate directives are supported
+      // i.e. @key(fields: "sku") @key(fields: "upc")
+      typeDefs: gql`
+        type Product @key(fields: "sku") {
+          sku: String!
+          upc: String!
+          color: Color!
+        }
+
+        type Color {
+          id: ID!
+          value: String!
+        }
+      `,
+      name: 'serviceA',
+    };
+
+    const serviceB = {
+      typeDefs: gql`
+        type ProductCatalog @key(fields: "products { sku }"){
+          products: [Product!]! @provides(fields: "price")
+        }
+        extend type Product {
+          sku: String! @external
+          price: Int! @requires(fields: "sku")
+        }
+      `,
+      name: 'serviceB',
+    };
+
+    const serviceList = [serviceA, serviceB];
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
+    const warnings = validateKeyFieldsMissingOnBase({ schema, serviceList });
+    expect(warnings).toHaveLength(0);
+  });
+
   it('warns if @key references a field added by another service', () => {
     const serviceA = {
       typeDefs: gql`

@@ -37,7 +37,7 @@ export const keyFieldsMissingOnBase: PostCompositionValidator = ({
 
               const fieldFederationMetadata = getFederationMetadata(matchingField);
               // warn if not from base type OR IF IT WAS OVERWITTEN
-              if (fieldFederationMetadata?.serviceName) {
+              if (fieldFederationMetadata?.serviceName && fieldFederationMetadata.serviceName !== serviceName) {
                 errors.push(
                   errorWithCode(
                     'KEY_FIELDS_MISSING_ON_BASE',
