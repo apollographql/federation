@@ -34,7 +34,6 @@ import { isFederationType, Maybe } from './types';
 import {
   gatherDirectives,
   federationDirectives,
-  otherKnownDirectives,
   isFederationDirective,
 } from './directives';
 
@@ -213,8 +212,6 @@ function printObject(type: GraphQLObjectType): string {
     printImplementedInterfaces(type) +
     // Apollo addition: print @key usages
     printFederationDirectives(type) +
-    // Apollo addition: print @tag usages (or other known directives)
-    printKnownDirectiveUsagesOnTypeOrField(type) +
     printFields(type)
   );
 }
@@ -233,8 +230,8 @@ function printInterface(type: GraphQLInterfaceType): string {
     (isExtension ? 'extend ' : '') +
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
+    // Apollo addition: print @key usages
     printFederationDirectives(type) +
-    printKnownDirectiveUsagesOnTypeOrField(type) +
     printFields(type)
   );
 }
@@ -247,7 +244,7 @@ function printUnion(type: GraphQLUnionType): string {
     'union ' +
     type.name +
     // Apollo addition: print @tag usages
-    printKnownDirectiveUsagesOnTypeOrField(type) +
+    printFederationDirectives(type) +
     possibleTypes
   );
 }
@@ -284,8 +281,7 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
       String(f.type) +
       printDeprecated(f.deprecationReason) +
       // Apollo addition: print Apollo directives on fields
-      printFederationDirectives(f) +
-      printKnownDirectiveUsagesOnTypeOrField(f),
+      printFederationDirectives(f),
   );
   return printBlock(fields);
 }
@@ -305,25 +301,6 @@ function printFederationDirectives(
   const dedupedDirectives = [...new Set(federationDirectivesOnTypeOrField)];
 
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
-}
-
-// Apollo addition: print `@tag` directive usages (and possibly other future known
-// directive usages) found in subgraph SDL.
-function printKnownDirectiveUsagesOnTypeOrField(
-  typeOrField: GraphQLNamedType | GraphQLField<any, any>,
-): string {
-  if (!typeOrField.astNode) return '';
-  if (isInputObjectType(typeOrField)) return '';
-
-  const knownSubgraphDirectivesOnTypeOrField = gatherDirectives(typeOrField)
-    .filter((n) =>
-      otherKnownDirectives.some((directive) => directive.name === n.name.value),
-    )
-    .map(print);
-
-  return knownSubgraphDirectivesOnTypeOrField.length > 0
-    ? ' ' + knownSubgraphDirectivesOnTypeOrField.join(' ')
-    : '';
 }
 
 function printBlock(items: string[]) {

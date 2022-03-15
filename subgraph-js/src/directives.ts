@@ -110,21 +110,11 @@ export const federationDirectives = [
   ProvidesDirective,
   ShareableDirective,
   LinkDirective,
+  TagDirective,
 ];
 
 export function isFederationDirective(directive: GraphQLDirective): boolean {
   return federationDirectives.some(({ name }) => name === directive.name);
-}
-
-export const otherKnownDirectives = [TagDirective];
-
-export const knownSubgraphDirectives = [
-  ...federationDirectives,
-  ...otherKnownDirectives,
-];
-
-export function isKnownSubgraphDirective(directive: GraphQLDirective): boolean {
-  return knownSubgraphDirectives.some(({ name }) => name === directive.name);
 }
 
 export type ASTNodeWithDirectives =
