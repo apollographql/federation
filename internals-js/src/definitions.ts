@@ -968,7 +968,7 @@ export class CoreFeatures {
     if (existing) {
       throw error(`Duplicate inclusion of feature ${url.identity}`);
     }
-    const imports = extractCoreFeatureImports(typedDirective);
+    const imports = extractCoreFeatureImports(url, typedDirective);
     const feature = new CoreFeature(url, args.as ?? url.name, directive, imports, args.for);
     this.add(feature);
     directive.schema().blueprint.onAddedCoreFeature(directive.schema(), feature);
@@ -1440,7 +1440,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
       const schemaDirective = applied as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>;
       const args = schemaDirective.arguments();
       const url = FeatureUrl.parse((args.url ?? args.feature)!);
-      const imports = extractCoreFeatureImports(schemaDirective);
+      const imports = extractCoreFeatureImports(url, schemaDirective);
       const core = new CoreFeature(url, args.as ?? url.name, schemaDirective, imports, args.for);
       Schema.prototype['markAsCoreSchema'].call(schema, core);
     } else if (coreFeatures) {

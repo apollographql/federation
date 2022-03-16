@@ -786,13 +786,13 @@ export class FederationBlueprint extends SchemaBlueprint {
         if (directiveNameInSchema.startsWith(federationFeature.nameInSchema + '__')) {
           // There is no import for that directive
           return withModifiedErrorMessage(
-            error, 
+            error,
             `${error.message} If you meant the "@${unknownDirectiveName}" federation directive, you should use fully-qualified name "@${directiveNameInSchema}" or add "@${unknownDirectiveName}" to the \`import\` argument of the @link to the federation specification.`
           );
         } else {
           // There's an import, but it's renamed
           return withModifiedErrorMessage(
-            error, 
+            error,
             `${error.message} If you meant the "@${unknownDirectiveName}" federation directive, you should use "@${directiveNameInSchema}" as it is imported under that name in the @link to the federation specification of this schema.`
           );
         }

@@ -13,6 +13,7 @@ import { DirectiveLocation } from "graphql";
 import { assert } from "./utils";
 import { tagLocations } from "./tagSpec";
 import { federationMetadata } from "./federation";
+import { registerKnownFeature } from "./knownCoreFeatures";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -88,9 +89,11 @@ export const FEDERATION2_SPEC_DIRECTIVES = [
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
+  // This is here to preserve the order of this array prior of the introduction of this constant. And that's done because
+  // changing the order would require changing the outputs of a bunch of tests (not a big deal, just annoying).
+  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
   tagDirectiveSpec,
   extendsDirectiveSpec, // TODO: should we stop supporting that?
-  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
 ];
 
 // Note that this is meant to contain _all_ federation directive names ever supported, regardless of which version.
@@ -119,7 +122,15 @@ export class FederationSpecDefinition extends FeatureDefinition {
       directive.checkOrAdd(schema, feature.directiveNameInSchema(directive.name));
     }
   }
+
+  allElementNames(): string[] {
+    return FEDERATION2_SPEC_DIRECTIVES.map((spec) => `@${spec.name}`).concat([
+      fieldSetTypeSpec.name,
+    ])
+  }
 }
 
 export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)));
+
+registerKnownFeature(FEDERATION_VERSIONS);

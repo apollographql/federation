@@ -48,6 +48,7 @@ import {
   EnumType,
   Extension,
   ErrGraphQLValidationFailed,
+  errorCauses,
 } from "./definitions";
 
 function buildValue(value?: ValueNode): any {
@@ -203,17 +204,20 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode, errors: G
   try {
     operation();
   } catch (e) {
-    if (e instanceof GraphQLError) {
-      const allNodes: ASTNode | ASTNode[] = e.nodes ? [node, ...e.nodes] : node;
-      errors.push(new GraphQLError(
-        e.message,
-        allNodes,
-        e.source,
-        e.positions,
-        e.path,
-        e,
-        e.extensions
-      ));
+    const causes = errorCauses(e);
+    if (causes) {
+      for (const cause of causes) {
+        const allNodes: ASTNode | ASTNode[] = cause.nodes ? [node, ...cause.nodes] : node;
+        errors.push(new GraphQLError(
+          cause.message,
+          allNodes,
+          cause.source,
+          cause.positions,
+          cause.path,
+          cause,
+          cause.extensions
+        ));
+      }
     } else {
       throw e;
     }
