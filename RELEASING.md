@@ -42,8 +42,6 @@ Each changelog should be updated when creating a release. If there are no change
 1. [internals-js/CHANGELOG.md](internals-js/CHANGELOG.md)
 1. [query-graphs-js/CHANGELOG.md](query-graphs-js/CHANGELOG.md)
 
----
-
 ## `lerna version`
 
 Important part is tagging with e.g.`@apollo/federation-internals@2.0.0-preview.7`, etc in each sub-repo
@@ -52,13 +50,9 @@ Important part is tagging with e.g.`@apollo/federation-internals@2.0.0-preview.7
 
 `npm version` is getting called due to [lerna version lifecycle hooks](https://github.com/lerna/lerna/tree/main/commands/version#lifecycle-scripts), which calls `npm i --package-lock-only` causing the package lock to get regenerated (this is a good thing)
 
----
-
 ## Publishing
 
 The important part is creating a `publish/*` tag
-
----
 
 ## Troubleshooting
 
