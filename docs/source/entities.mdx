@@ -164,7 +164,7 @@ Because an entity can be uniquely identified by its primary key fields, this is 
 
 As a reminder, here's the example query we're executing across our subgraphs:
 
-```graphql{6}
+```graphql {6}
 query GetReviewsAndProducts {
   latestReviews {
     score
@@ -178,7 +178,7 @@ query GetReviewsAndProducts {
 
 The gateway knows it can't fetch `Product.price` from the `reviews` subgraph, so _first_ it executes the following query on `reviews`:
 
-```graphql{4-7}
+```graphql {4-7}
 query {
   latestReviews {
     score
