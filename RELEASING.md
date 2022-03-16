@@ -11,7 +11,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 1. `git add ':/*CHANGELOG.md'` to add only changelogs to the commit
 1. `git commit --message "Update CHANGELOGs for v$FEDERATION_RELEASE_VERSION release"`
 1. `git push -u origin "release-$FEDERATION_RELEASE_VERSION"`
-1. `open "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?quick_pull=1&title=Release+$FEDERATION_RELEASE_VERSION"&template=APOLLO_RELEASE_TEMPLATE.md` to open PR in Github
+1. `open "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?title=Release+$FEDERATION_RELEASE_VERSION&template=APOLLO_RELEASE_TEMPLATE.md"` to open PR in Github
 
 #### Bump version and tag release
 
