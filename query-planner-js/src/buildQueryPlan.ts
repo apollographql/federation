@@ -323,8 +323,8 @@ function toValidGraphQLName(subgraphName: string): string {
   // Note that this could theoretically lead to substantial changes to the name but should
   // work well in practice (and if it's a huge problem for someone, we can change it).
   const sanitized = subgraphName
-    .replace('-', '_')
-    .replace(/[^_0-9A-Za-z]/i, '');
+    .replace(/-/ig, '_')
+    .replace(/[^_0-9A-Za-z]/ig, '');
   return sanitized.match(/^[0-9].*/i) ? '_' + sanitized : sanitized;
 }
 
