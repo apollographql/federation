@@ -49,14 +49,14 @@ This will list the packages that will have their versions bumped in the next ste
 
 ### Step 2: Bump the version
 
-To bump the version, use the `release:version-bump` npm script.
+To bump the version, use the `lerna version` command.
 
    __Option 1__: Bump all packages by the same version bump (e.g. `patch`, `minor`, `prerelease`, etc.).
 
    > __Note__: Be sure to replace `<version-bump>` in the following command with the appropriate [version bump keyword](https://github.com/lerna/lerna/tree/f6e7a13e60/commands/version#semver-bump)
 
    ```
-   npm run release:version-bump -- <version-bump>
+   npx lerna version <version-bump>
    ```
 
    __Option 2__: Be interactively prompted for each new version.
@@ -64,7 +64,7 @@ To bump the version, use the `release:version-bump` npm script.
    This option works reasonably well in this federation repositiory since there are not all that many packages.  If no parameters are passed, a prompt will be displayed for each package asking for the new version.
 
    ```
-   npm run release:version-bump
+   npx lerna version
    ```
 
 
