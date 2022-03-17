@@ -158,6 +158,14 @@ describe('printSupergraphSdl', () => {
         userAccount(id: ID! = 1): User @join__field(graph: ACCOUNTS, requires: \\"name\\")
       }
 
+      type LibraryAccount
+        @join__owner(graph: ACCOUNTS)
+        @join__type(graph: ACCOUNTS, key: \\"library{id}\\")
+      {
+        description: String! @join__field(graph: ACCOUNTS)
+        library: Library! @join__field(graph: ACCOUNTS, provides: \\"name\\")
+      }
+
       union MetadataOrError = Error | KeyValue
 
       type Mutation {
@@ -214,6 +222,7 @@ describe('printSupergraphSdl', () => {
         book(isbn: String!): Book @join__field(graph: BOOKS)
         books: [Book] @join__field(graph: BOOKS)
         library(id: ID!): Library @join__field(graph: BOOKS)
+        libraryAccount: LibraryAccount @join__field(graph: ACCOUNTS)
         me: User @join__field(graph: ACCOUNTS)
         product(upc: String!): Product @join__field(graph: PRODUCT)
         topCars(first: Int = 5): [Car] @join__field(graph: PRODUCT)

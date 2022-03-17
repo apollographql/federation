@@ -33,6 +33,7 @@ export const typeDefs = gql`
   extend type RootQuery {
     user(id: ID!): User
     me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
+    libraryAccount: LibraryAccount
   }
 
   type PasswordAccount @key(fields: "email") {
@@ -78,6 +79,11 @@ export const typeDefs = gql`
     id: ID! @external
     name: String @external
     userAccount(id: ID! = "1"): User @requires(fields: "name")
+  }
+
+  type LibraryAccount @key(fields: "library { id }") {
+    library: Library! @provides(fields: "name")
+    description: String!
   }
 `;
 

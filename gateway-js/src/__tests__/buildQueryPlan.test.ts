@@ -1941,6 +1941,45 @@ describe('buildQueryPlan', () => {
     });
   });
 
+  it(`when key is marked external inside another type`, () => {
+    const operationString = `#graphql
+      query {
+          libraryAccount {
+            description
+            library {
+              id
+              name
+            }
+          }
+        }
+    `;
+
+    const operationDocument = gql(operationString);
+
+    const queryPlan = queryPlanner.buildQueryPlan(
+      buildOperationContext({
+        schema,
+        operationDocument,
+      }),
+    );
+
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "accounts") {
+          {
+            libraryAccount {
+              description
+              library {
+                id
+                name
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+  
   describe('fetch operation names', () => {
     it('handle subgraph with - in the name', () => {
       const subgraph1 = {
