@@ -11,8 +11,7 @@ For example, this `Product` entity's fields are defined and resolved across two 
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -20,8 +19,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql
-# Inventory subgraph
+```graphql title="Inventory subgraph"
 type Product @key(fields: "id") {
   id: ID!
   inStock: Boolean!
@@ -47,8 +45,7 @@ To fully define an entity within a single subgraph, you do the following:
 
 In a subgraph schema, you can designate any existing object type as an entity by adding the `@key` directive to its definition, like so:
 
-```graphql{2}
-# Products subgraph
+```graphql {1} title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -106,8 +103,7 @@ Any number of different subgraphs can contribute fields to an entity definition.
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -115,8 +111,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql
-# Inventory subgraph
+```graphql title="Inventory subgraph"
 type Product @key(fields: "id") {
   id: ID!
   inStock: Boolean!
@@ -137,8 +132,7 @@ Your subgraphs can use an entity as a field's return type _without_ contributing
 
 Take a look at this `Product` entity in the Products subgraph:
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -148,8 +142,7 @@ type Product @key(fields: "id") {
 
 Now, let's say we want to create a Reviews subgraph that includes the following `Review` type:
 
-```graphql{3}
-# Reviews subgraph
+```graphql {2} title="Reviews subgraph"
 type Review {
   product: Product!
   score: Int!
@@ -160,8 +153,7 @@ This is possible! However, this subgraph schema is currently invalid because it 
 
 To fix this, we can add a **stub** of the `Product` entity to the Reviews schema, like so:
 
-```graphql{7-9}
-# Reviews subgraph
+```graphql {6-8} title="Reviews subgraph"
 type Review {
   product: Product!
   score: Int!
@@ -182,8 +174,7 @@ Let's say we have these two subgraphs that both define the `Product` entity:
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -191,10 +182,9 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql
-# Reviews subgraph
-type Product {
-  id: ID! @shareable
+```graphql title="Reviews subgraph"
+type Product @key(fields: "id", resolvable: false) {
+  id: ID!
 }
 
 type Review {
@@ -214,7 +204,7 @@ type Query {
 
 The Reviews subgraph defines one entry point into our schema: `Query.latestReviews`. This means that the following query is valid against our gateway:
 
-```graphql{6}
+```graphql {6}
 query GetReviewsWithProducts {
   latestReviews { # Defined in Reviews
     score
@@ -243,7 +233,7 @@ With our example query above, the gateway knows the following:
 
 Using this information, the gateway's query plan starts with this query to the Reviews subgraph:
 
-```graphql{5}
+```graphql {5}
 query {
   latestReviews {
     score
