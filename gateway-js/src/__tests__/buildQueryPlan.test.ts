@@ -1940,8 +1940,10 @@ describe('buildQueryPlan', () => {
     const operationString = `#graphql
       query {
           libraryAccount {
+            description
             library {
               id
+              name
             }
           }
         }
@@ -1961,8 +1963,10 @@ describe('buildQueryPlan', () => {
         Fetch(service: "accounts") {
           {
             libraryAccount {
+              description
               library {
                 id
+                name
               }
             }
           }

@@ -162,7 +162,8 @@ describe('printSupergraphSdl', () => {
         @join__owner(graph: ACCOUNTS)
         @join__type(graph: ACCOUNTS, key: \\"library{id}\\")
       {
-        library: Library! @join__field(graph: ACCOUNTS)
+        description: String! @join__field(graph: ACCOUNTS)
+        library: Library! @join__field(graph: ACCOUNTS, provides: \\"name\\")
       }
 
       union MetadataOrError = Error | KeyValue

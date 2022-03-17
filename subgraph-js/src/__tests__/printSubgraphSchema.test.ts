@@ -63,7 +63,8 @@ describe('printSubgraphSchema', () => {
       }
 
       type LibraryAccount @key(fields: \\"library { id }\\") {
-        library: Library!
+        library: Library! @provides(fields: \\"name\\")
+        description: String!
       }
 
       extend type RootQuery {

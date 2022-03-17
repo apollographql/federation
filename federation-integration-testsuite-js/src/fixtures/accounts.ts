@@ -82,7 +82,8 @@ export const typeDefs = gql`
   }
 
   type LibraryAccount @key(fields: "library { id }") {
-    library: Library!
+    library: Library! @provides(fields: "name")
+    description: String!
   }
 `;
 
