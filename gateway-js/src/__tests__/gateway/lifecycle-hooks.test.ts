@@ -135,13 +135,13 @@ describe('lifecycle hooks', () => {
 
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
-    const expectedFirstId = '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b'
+    const expectedFirstId = '441d4e065623b268d8e6083b6eac7a822c5298f0633ac057ea2c1d2bb1c3129d'
     expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
     expect(firstCall[1]).toBeUndefined();
 
     expect(secondCall[0]!.compositionId).toEqual(
-      '0ced02894592ade4376276d11735b46723eb84850c32765cb78502ba5c29a563',
+      'f70bfbb5cc62416a1e77628f809e10d75240740f0cfe2bb3c9e28672154277a5',
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);

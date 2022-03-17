@@ -184,7 +184,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const { state, compositionId } = gateway.__testing();
     expect(state.phase).toEqual('loaded');
     expect(compositionId).toEqual(
-      '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b',
+      '441d4e065623b268d8e6083b6eac7a822c5298f0633ac057ea2c1d2bb1c3129d',
     );
 
     await gateway.stop();
@@ -209,7 +209,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const { state, compositionId } = gateway.__testing();
     expect(state.phase).toEqual('loaded');
     expect(compositionId).toEqual(
-      '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b',
+      '441d4e065623b268d8e6083b6eac7a822c5298f0633ac057ea2c1d2bb1c3129d',
     );
 
     await expect(healthCheckCallback!(supergraphSdl)).resolves.toBeUndefined();
@@ -291,7 +291,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       const { state, compositionId } = gateway.__testing();
       expect(state.phase).toEqual('loaded');
       expect(compositionId).toEqual(
-        '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b',
+        '441d4e065623b268d8e6083b6eac7a822c5298f0633ac057ea2c1d2bb1c3129d',
       );
 
       await expect(healthCheckCallback!(supergraphSdl)).rejects.toThrowError(

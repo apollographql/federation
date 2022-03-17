@@ -1935,4 +1935,39 @@ describe('buildQueryPlan', () => {
       );
     });
   });
+
+  it(`when key is marked external inside another type`, () => {
+    const operationString = `#graphql
+      query {
+          libraryAccount {
+            library {
+              id
+            }
+          }
+        }
+    `;
+
+    const operationDocument = gql(operationString);
+
+    const queryPlan = queryPlanner.buildQueryPlan(
+      buildOperationContext({
+        schema,
+        operationDocument,
+      }),
+    );
+
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "accounts") {
+          {
+            libraryAccount {
+              library {
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
 });

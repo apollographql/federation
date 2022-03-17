@@ -62,11 +62,16 @@ describe('printSubgraphSchema', () => {
         login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
       }
 
+      type LibraryAccount @key(fields: \\"library { id }\\") {
+        library: Library!
+      }
+
       extend type RootQuery {
         _entities(representations: [_Any!]!): [_Entity]!
         _service: _Service!
         user(id: ID!): User
         me: User
+        libraryAccount: LibraryAccount
       }
 
       extend type Library @key(fields: \\"id\\") {
@@ -79,7 +84,9 @@ describe('printSubgraphSchema', () => {
   });
 
   it('prints a scalar without a directive correctly', () => {
-    const schema = gql`scalar JSON`;
+    const schema = gql`
+      scalar JSON
+    `;
     const subgraphSchema = buildSubgraphSchema(schema);
 
     expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
