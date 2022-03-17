@@ -53,6 +53,7 @@ describe('keyFieldsMissingOnBase', () => {
           sku: String!
           upc: String!
           color: Color!
+          price: Int!
         }
 
         type Color {

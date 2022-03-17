@@ -8,6 +8,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - Respect the `minDelaySeconds` returning from Uplink when polling and retrying to fetch the supergraph schema from Uplink [PR #1564](https://github.com/apollographql/federation/pull/1564)
 - Remove the previously deprecated `experimental_pollInterval` config option and deprecate `pollIntervalInMs` in favour of `fallbackPollIntervalInMs` (for managed mode only). [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Fixes composition error when @provides is combined with @key which references an external field [PR #1604](https://github.com/apollographql/federation/pull/1604)
 
 ## v0.48.3
 
