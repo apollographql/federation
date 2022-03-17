@@ -7,7 +7,12 @@ import {
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlanner, FetchNode } from '@apollo/query-planner';
+import {
+  QueryPlanner,
+  FetchNode,
+  SequenceNode,
+  FlattenNode,
+} from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -1973,5 +1978,232 @@ describe('buildQueryPlan', () => {
         },
       }
     `);
+  });
+  
+  describe('fetch operation names', () => {
+    it('handle subgraph with - in the name', () => {
+      const subgraph1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+          type T @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const subgraph2 = {
+        name: 'non-graphql-name',
+        typeDefs: gql`
+          extend type T @key(fields: "id") {
+            id: ID! @external
+            x: Int
+          }
+        `,
+      };
+
+      ({ schema, queryPlanner } = getFederatedTestingSchema([
+        subgraph1,
+        subgraph2,
+      ]));
+
+      const operationDocument = gql`
+        query myOp {
+          t {
+            x
+          }
+        }
+      `;
+
+      const plan = queryPlanner.buildQueryPlan(
+        buildOperationContext({ schema, operationDocument }),
+      );
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "non-graphql-name") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    x
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode)
+        .node as FetchNode;
+      expect(fetch.operation).toMatch(/^query myOp__non_graphql_name__1.*/i);
+    });
+
+    it('ensures sanitization applies repeatedly', () => {
+      const subgraph1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+          type T @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const subgraph2 = {
+        name: 'a-na&me-with-plen&ty-replace*ments',
+        typeDefs: gql`
+          extend type T @key(fields: "id") {
+            id: ID! @external
+            x: Int
+          }
+        `,
+      };
+
+      ({ schema, queryPlanner } = getFederatedTestingSchema([
+        subgraph1,
+        subgraph2,
+      ]));
+
+      const operationDocument = gql`
+        query myOp {
+          t {
+            x
+          }
+        }
+      `;
+
+      const plan = queryPlanner.buildQueryPlan(
+        buildOperationContext({ schema, operationDocument }),
+      );
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "a-na&me-with-plen&ty-replace*ments") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    x
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode)
+        .node as FetchNode;
+      expect(fetch.operation).toMatch(
+        /^query myOp__a_name_with_plenty_replacements__1.*/i,
+      );
+    });
+
+    it('handle very non-graph subgraph name', () => {
+      const subgraph1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+          type T @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const subgraph2 = {
+        name: '42!',
+        typeDefs: gql`
+          extend type T @key(fields: "id") {
+            id: ID! @external
+            x: Int
+          }
+        `,
+      };
+
+      ({ schema, queryPlanner } = getFederatedTestingSchema([
+        subgraph1,
+        subgraph2,
+      ]));
+
+      const operationDocument = gql`
+        query myOp {
+          t {
+            x
+          }
+        }
+      `;
+
+      const plan = queryPlanner.buildQueryPlan(
+        buildOperationContext({ schema, operationDocument }),
+      );
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "42!") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    x
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode)
+        .node as FetchNode;
+
+      expect(fetch.operation).toMatch(/^query myOp___42__1.*/i);
+    });
   });
 });

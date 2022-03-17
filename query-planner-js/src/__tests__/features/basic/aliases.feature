@@ -22,7 +22,9 @@ Scenario: supports simple aliases
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
-          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name}}}"
+          "operationKind": "query",
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Flatten",
@@ -41,7 +43,9 @@ Scenario: supports simple aliases
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operationKind": "query",
+            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+            "operationName": "GetProduct__books__1"
           }
         },
         {
@@ -63,7 +67,9 @@ Scenario: supports simple aliases
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name title:name}}}"
+            "operationKind": "query",
+            "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name title:name}}}",
+            "operationName": "GetProduct__product__2"
           }
         }
       ]
@@ -98,7 +104,9 @@ Scenario: supports aliases of root fields on subservices
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
-          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name __typename upc}}}"
+          "operationKind": "query",
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name __typename upc}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Parallel",
@@ -123,7 +131,9 @@ Scenario: supports aliases of root fields on subservices
                       }
                     ],
                     "variableUsages": [],
-                    "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                    "operationKind": "query",
+                    "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+                    "operationName": "GetProduct__books__1"
                   }
                 },
                 {
@@ -145,7 +155,9 @@ Scenario: supports aliases of root fields on subservices
                       }
                     ],
                     "variableUsages": [],
-                    "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name title:name}}}"
+                    "operationKind": "query",
+                    "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name title:name}}}",
+                    "operationName": "GetProduct__product__2"
                   }
                 }
               ]
@@ -175,7 +187,9 @@ Scenario: supports aliases of root fields on subservices
                   }
                 ],
                 "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}productReviews:reviews{body}}...on Furniture{reviews{body}productReviews:reviews{body}}}}"
+                "operationKind": "query",
+                "operation": "query GetProduct__reviews__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}productReviews:reviews{body}}...on Furniture{reviews{body}productReviews:reviews{body}}}}",
+                "operationName": "GetProduct__reviews__3"
               }
             }
           ]
@@ -216,7 +230,9 @@ Scenario: supports aliases of nested fields on subservices
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
-          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name __typename upc}}}"
+          "operationKind": "query",
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name __typename upc}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Parallel",
@@ -241,7 +257,9 @@ Scenario: supports aliases of nested fields on subservices
                       }
                     ],
                     "variableUsages": [],
-                    "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                    "operationKind": "query",
+                    "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+                    "operationName": "GetProduct__books__1"
                   }
                 },
                 {
@@ -263,7 +281,9 @@ Scenario: supports aliases of nested fields on subservices
                       }
                     ],
                     "variableUsages": [],
-                    "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name title:name}}}"
+                    "operationKind": "query",
+                    "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name title:name}}}",
+                    "operationName": "GetProduct__product__2"
                   }
                 }
               ]
@@ -293,7 +313,9 @@ Scenario: supports aliases of nested fields on subservices
                   }
                 ],
                 "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}...on Furniture{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}}}"
+                "operationKind": "query",
+                "operation": "query GetProduct__reviews__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}...on Furniture{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}}}",
+                "operationName": "GetProduct__reviews__3"
               }
             }
           ]

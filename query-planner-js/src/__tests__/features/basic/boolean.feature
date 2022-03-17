@@ -7,7 +7,9 @@ Scenario: supports @skip when a boolean condition is met
     topReviews {
       body
       author @skip(if: true) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -23,7 +25,9 @@ Scenario: supports @skip when a boolean condition is met
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
-          "operation": "{topReviews{body author@skip(if:true){__typename id}}}"
+          "operationKind": "query",
+          "operation": "query GetReviewers__reviews__0{topReviews{body author@skip(if:true){__typename id}}}",
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -42,7 +46,9 @@ Scenario: supports @skip when a boolean condition is met
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]
@@ -70,7 +76,9 @@ Scenario: supports @skip when a boolean condition is met (variable driven)
       "kind": "Fetch",
       "serviceName": "reviews",
       "variableUsages": ["skip"],
-      "operation": "query($skip:Boolean!=true){topReviews{body author@skip(if:$skip){username}}}"
+      "operationKind": "query",
+      "operation": "query GetReviewers__reviews__0($skip:Boolean!=true){topReviews{body author@skip(if:$skip){username}}}",
+      "operationName": "GetReviewers__reviews__0"
     }
   }
   """
@@ -82,7 +90,9 @@ Scenario: supports @skip when a boolean condition is not met
     topReviews {
       body
       author @skip(if: false) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -98,7 +108,9 @@ Scenario: supports @skip when a boolean condition is not met
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
-          "operation": "{topReviews{body author@skip(if:false){__typename id}}}"
+          "operationKind": "query",
+          "operation": "query GetReviewers__reviews__0{topReviews{body author@skip(if:false){__typename id}}}",
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -117,7 +129,9 @@ Scenario: supports @skip when a boolean condition is not met
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]
@@ -132,7 +146,9 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
     topReviews {
       body
       author @skip(if: $skip) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -148,7 +164,9 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["skip"],
-          "operation": "query($skip:Boolean!){topReviews{body author@skip(if:$skip){__typename id}}}"
+          "operationKind": "query",
+          "operation": "query GetReviewers__reviews__0($skip:Boolean!){topReviews{body author@skip(if:$skip){__typename id}}}",
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -167,7 +185,9 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]
@@ -195,7 +215,9 @@ Scenario: supports @include when a boolean condition is not met
       "kind": "Fetch",
       "serviceName": "reviews",
       "variableUsages": [],
-      "operation": "{topReviews{body author@include(if:false){username}}}"
+      "operationKind": "query",
+      "operation": "query GetReviewers__reviews__0{topReviews{body author@include(if:false){username}}}",
+      "operationName": "GetReviewers__reviews__0"
     }
   }
   """
@@ -220,7 +242,9 @@ Scenario: supports @include when a boolean condition is not met (variable driven
       "kind": "Fetch",
       "serviceName": "reviews",
       "variableUsages": ["include"],
-      "operation": "query($include:Boolean!=false){topReviews{body author@include(if:$include){username}}}"
+      "operationKind": "query",
+      "operation": "query GetReviewers__reviews__0($include:Boolean!=false){topReviews{body author@include(if:$include){username}}}",
+      "operationName": "GetReviewers__reviews__0"
     }
   }
   """
@@ -232,7 +256,9 @@ Scenario: supports @include when a boolean condition is met
     topReviews {
       body
       author @include(if: true) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -248,7 +274,9 @@ Scenario: supports @include when a boolean condition is met
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
-          "operation": "{topReviews{body author@include(if:true){__typename id}}}"
+          "operationKind": "query",
+          "operation": "query GetReviewers__reviews__0{topReviews{body author@include(if:true){__typename id}}}",
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -267,7 +295,9 @@ Scenario: supports @include when a boolean condition is met
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]
@@ -284,7 +314,9 @@ Scenario: supports @include when a boolean condition is met (variable driven)
     topReviews {
       body
       author @include(if: $include) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -300,7 +332,9 @@ Scenario: supports @include when a boolean condition is met (variable driven)
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["include"],
-          "operation": "query($include:Boolean!){topReviews{body author@include(if:$include){__typename id}}}"
+          "operationKind": "query",
+          "operation": "query GetReviewers__reviews__0($include:Boolean!){topReviews{body author@include(if:$include){__typename id}}}",
+          "operationName": "GetReviewers__reviews__0"
         },
         {
           "kind": "Flatten",
@@ -319,7 +353,9 @@ Scenario: supports @include when a boolean condition is met (variable driven)
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewers__accounts__1($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}",
+            "operationName": "GetReviewers__accounts__1"
           }
         }
       ]
