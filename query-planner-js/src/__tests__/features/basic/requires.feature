@@ -4,7 +4,7 @@ Feature: Query Planning > requires
 Scenario: supports passing additional fields defined by a requires
   Given query
   """
-  query GetReviwedBookNames {
+  query GetReviewedBookNames {
     me {
       reviews {
         product {
@@ -27,7 +27,9 @@ Scenario: supports passing additional fields defined by a requires
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{__typename id}}"
+          "operationKind": "query",
+          "operation": "query GetReviewedBookNames__accounts__0{me{__typename id}}",
+          "operationName": "GetReviewedBookNames__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -46,7 +48,9 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewedBookNames__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}",
+            "operationName": "GetReviewedBookNames__reviews__1"
           }
         },
         {
@@ -66,7 +70,9 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewedBookNames__books__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+            "operationName": "GetReviewedBookNames__books__2"
           }
         },
         {
@@ -88,7 +94,9 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviewedBookNames__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+            "operationName": "GetReviewedBookNames__product__3"
           }
         }
       ]

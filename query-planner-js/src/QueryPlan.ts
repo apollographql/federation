@@ -1,4 +1,4 @@
-import { Kind, SelectionNode as GraphQLJSSelectionNode } from 'graphql';
+import { Kind, OperationTypeNode, SelectionNode as GraphQLJSSelectionNode } from 'graphql';
 import prettyFormat from 'pretty-format';
 import { queryPlanSerializer, astSerializer } from './snapshotSerializers';
 
@@ -31,6 +31,8 @@ export interface FetchNode {
     skip: string | boolean | null;
     include: string | boolean | null;
   }[]
+  operationName?: string;
+  operationKind: OperationTypeNode;
 }
 
 export interface FlattenNode {
