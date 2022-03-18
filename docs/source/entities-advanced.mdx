@@ -14,7 +14,7 @@ You can define more than one `@key` for an entity, when applicable.
 
 In this example, a `Product` entity can be uniquely identified by either its `id` _or_ its `sku`:
 
-```graphql{2}
+```graphql {2}
 # Products subgraph
 type Product @key(fields: "id") @key(fields: "sku") {
   id: ID!
@@ -49,7 +49,7 @@ A single `@key` can consist of multiple fields, and even _nested_ fields.
 
 In this example, the `User` entity's primary key consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
 
-```graphql{1}:title=directory
+```graphql {1}:title=directory
 type User @key(fields: "id organization { id }") {
   id: ID!
   organization: Organization!
@@ -111,7 +111,7 @@ The exact steps depend on how you perform schema composition:
 
 1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -167,7 +167,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     <CodeColumns>
 
-    ```graphql{2}
+    ```graphql {2}
     # Payments subgraph
     type Bill @key(fields: "id") @shareable {
       id: ID!
@@ -203,7 +203,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") @shareable {
       id: ID!
@@ -261,7 +261,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
     }
     ```
 
-    ```graphql{2}
+    ```graphql {2}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -301,7 +301,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -446,7 +446,7 @@ You can define fields of an entity that are computed based on the values of _oth
 
 For example, this Shipping subgraph adds a `shippingEstimate` field to the `Product` entity. This field is calculated based on the product's `size` and `weight`, which are defined in the Products subgraph:
 
-```graphql{4-6}
+```graphql {4-6}
 # Shipping subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -463,7 +463,7 @@ In the above example, if a query requests a product's `shippingEstimate`, the ga
 1. It queries the Products subgraph for the product's `size` and `weight`.
 2. It queries the Shipping subgraph for the product's `shippingEstimate`. The `size` and `weight` are included in the `Product` object passed to the resolver for `shippingEstimate`:
 
-```js{4}
+```js {4}
 {
   Product: {
     shippingEstimate(product) {
@@ -477,7 +477,7 @@ In the above example, if a query requests a product's `shippingEstimate`, the ga
 
 If a computed field `@requires` a field that returns an object type, you also specify which _subfields_ of that object are required. You list those subfields with the following syntax:
 
-```graphql{4}
+```graphql {4}
 # Shipping subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -529,7 +529,7 @@ The `@shareable` directive indicates that a particular field can be resolved by 
 
 <CodeColumns>
 
-```graphql{4}
+```graphql {4}
 # Products subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -538,7 +538,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql{4}
+```graphql {4}
 # Inventory subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -561,7 +561,7 @@ The `@provides` directive indicates that a particular field can be resolved by a
 
 Here, our Products subgraph defines a `Product.name` field and marks it `@shareable` (this means other subgraphs are allowed to resolve it):
 
-```graphql{4}
+```graphql {4}
 # Products subgraph
 type Product @key(fields: "id") {
   id: ID!
@@ -572,7 +572,7 @@ type Product @key(fields: "id") {
 
 Meanwhile, our Inventory subgraph can _also_ resolve a product's name, but _only_ when that product is part of an `InStockCount`:
 
-```graphql{4,10}:title=inventory
+```graphql {4,10}:title=inventory
 # Inventory subgraph
 
 type InStockCount {
