@@ -1122,6 +1122,7 @@ export {
   CompositionInfo,
   IntrospectAndCompose,
   LocalCompose,
+  UplinkFetcher
 };
 
 export * from './datasources';
@@ -1135,4 +1136,4 @@ export {
 } from './config';
 
 export { UplinkFetcherError } from "./supergraphManagers"
-
+export { UplinkFetcherOptions } from './supergraphManagers/UplinkFetcher';
