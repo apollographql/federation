@@ -6,10 +6,17 @@ import { asFed2SubgraphDocument, buildSubgraph } from "../federation"
 // Builds the provided subgraph (using name 'S' for the subgraph) and, if the
 // subgraph is invalid/has errors, return those errors as a list of [code, message].
 // If the subgraph is valid, return undefined.
-function buildForErrors(subgraphDefs: DocumentNode, subgraphName: string = 'S'): [string, string][] | undefined {
+function buildForErrors(
+  subgraphDefs: DocumentNode,
+  options?: {
+    subgraphName?: string,
+    asFed2?: boolean,
+  }
+): [string, string][] | undefined {
   try {
-    const doc = asFed2SubgraphDocument(subgraphDefs);
-    buildSubgraph(subgraphName, `http://${subgraphName}`, doc).validate();
+    const doc = (options?.asFed2 ?? true) ? asFed2SubgraphDocument(subgraphDefs) : subgraphDefs;
+    const name = options?.subgraphName ?? 'S';
+    buildSubgraph(name, `http://${name}`, doc).validate();
     return undefined;
   } catch (e) {
     const causes = errorCauses(e);
@@ -436,7 +443,6 @@ describe('root types', () => {
   });
 });
 
-
 it('validates all implementations of interface field have same type if any has @external', () => {
   const subgraph = gql`
     type Query {
@@ -464,3 +470,56 @@ it('validates all implementations of interface field have same type if any has @
       ['INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH', '[S] Some of the runtime implementations of interface field "I.f" are marked @external or have a @require ("T3.f") so all the implementations should use the same type (a current limitation of federation; see https://github.com/apollographql/federation/issues/1257), but "T1.f" and "T3.f" have type "Int" while "T2.f" has type "Int!".'],
     ]);
 })
+
+describe('custom error message for misnamed directives', () => {
+  it.each([
+    { name: 'fed1', extraMsg: ' If so, note that it is a federation 2 directive but this schema is a federation 1 one. To be a federation 2 schema, it needs to @link to the federation specifcation v2.' },
+    { name: 'fed2', extraMsg: '' },
+
+  ])('has suggestions if a federation directive name is mispelled in $name', ({name, extraMsg}) => {
+    const subgraph = gql`
+      type T @keys(fields: "id") {
+        id: Int @foo
+        foo: String @sharable
+      }
+    `;
+
+    expect(buildForErrors(subgraph, { asFed2 : name === 'fed2' })).toStrictEqual([
+      ['INVALID_GRAPHQL', `[S] Unknown directive "@foo".`],
+      ['INVALID_GRAPHQL', `[S] Unknown directive "@sharable". Did you mean "@shareable"?${extraMsg}`],
+      ['INVALID_GRAPHQL', `[S] Unknown directive "@keys". Did you mean "@key"?`],
+    ]);
+  });
+
+  it('has suggestions if a fed2 directive is used in fed1', () => {
+    const subgraph = gql`
+      type T @key(fields: "id") {
+        id: Int
+        foo: String @shareable
+      }
+    `;
+
+    expect(buildForErrors(subgraph, { asFed2 : false })).toStrictEqual([
+      ['INVALID_GRAPHQL', `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation 2 directive, note that this schema is a federation 1 schema. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`],
+    ]);
+  });
+
+  it('has suggestions if a fed2 directive is used under the wrong name (for the schema)', () => {
+    const subgraph = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0",
+              import: [ { name: "@key", as: "@myKey"} ])
+
+      type T @key(fields: "id") {
+        id: Int
+        foo: String @shareable
+      }
+    `;
+
+    // Note: it's a fed2 schema, but we manually add the @link, so we pass `asFed2: false` to avoid having added twice.
+    expect(buildForErrors(subgraph, { asFed2 : false })).toStrictEqual([
+      ['INVALID_GRAPHQL', `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation directive, you should use fully-qualified name "@federation__shareable" or add "@shareable" to the \`import\` argument of the @link to the federation specification.`],
+      ['INVALID_GRAPHQL', `[S] Unknown directive "@key". If you meant the "@key" federation directive, you should use "@myKey" as it is imported under that name in the @link to the federation specification of this schema.`],
+    ]);
+  });
+});

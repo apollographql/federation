@@ -2,6 +2,7 @@ import { DirectiveLocation, GraphQLError } from "graphql";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
 import { ERRORS } from "./error";
+import { registerKnownFeature } from "./knownCoreFeatures";
 import { sameType } from "./types";
 
 export const tagIdentity = 'https://specs.apollo.dev/tag';
@@ -43,7 +44,13 @@ export class TagSpecDefinition extends FeatureDefinition {
     }
     return undefined;
   }
+
+  allElementNames(): string[] {
+    return ["@tag"];
+  }
 }
 
 export const TAG_VERSIONS = new FeatureDefinitions<TagSpecDefinition>(tagIdentity)
   .add(new TagSpecDefinition(new FeatureVersion(0, 1)));
+
+registerKnownFeature(TAG_VERSIONS);
