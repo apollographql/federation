@@ -14,8 +14,7 @@ You can define more than one `@key` for an entity, when applicable.
 
 In this example, a `Product` entity can be uniquely identified by either its `id` _or_ its `sku`:
 
-```graphql {2}
-# Products subgraph
+```graphql {1} title="Products subgraph"
 type Product @key(fields: "id") @key(fields: "sku") {
   id: ID!
   sku: String!
@@ -28,17 +27,15 @@ This pattern is helpful when different subgraphs interact with different fields 
 
 A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can include the fields of any `@key` in its stub definition:
 
-```graphql
-# Reviews subgraph
-
+```graphql title="Reviews subgraph"
 # Either:
-type Product {
-  id: ID! @shareable
+type Product @key(fields: "id", resolvable: false) {
+  id: ID!
 }
 
 # Or:
-type Product {
-  sku: String! @shareable
+type Product @key(fields: "sku", resolvable: false) {
+  sku: String!
 }
 
 ```
@@ -49,7 +46,7 @@ A single `@key` can consist of multiple fields, and even _nested_ fields.
 
 In this example, the `User` entity's primary key consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
 
-```graphql {1}:title=directory
+```graphql {1} title="Users subgraph"
 type User @key(fields: "id organization { id }") {
   id: ID!
   organization: Organization!
@@ -70,8 +67,7 @@ Let's say our Payments subgraph defines a `Bill` entity:
 
 <CodeColumns>
 
-```graphql
-# Payments subgraph
+```graphql title="Payments subgraph"
 type Bill @key(fields: "id") {
   id: ID!
   amount: Int!
@@ -88,15 +84,13 @@ Then, we add a dedicated Billing subgraph to our federated graph. It now makes s
 
 <CodeColumns>
 
-```graphql
-# Payments subgraph
+```graphql title="Payments subgraph"
 type Payment {
   # ...
 }
 ```
 
-```graphql
-# Billing subgraph
+```graphql title="Billing subgraph"
 type Bill @key(fields: "id") {
   id: ID!
   amount: Int!
@@ -111,8 +105,7 @@ The exact steps depend on how you perform schema composition:
 
 1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
-    ```graphql {2-5}
-    # Billing subgraph
+    ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -123,21 +116,19 @@ The exact steps depend on how you perform schema composition:
 
 3. Deploy the updated Billing subgraph to your environment.
 
-    At this point, the Billing subgraph can successfully resolve `Bill` objects, but the gateway doesn't _know_ this yet because its supergraph schema hasn't been updated.
+    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the gateway doesn't _know_ this yet because its supergraph schema hasn't been updated.
 
 4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
 
     <CodeColumns>
 
-    ```graphql
-    # Payments subgraph
+    ```graphql title="Payments subgraph"
     type Payment {
       # ...
     }
     ```
 
-    ```graphql
-    # Billing subgraph
+    ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -167,8 +158,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     <CodeColumns>
 
-    ```graphql {2}
-    # Payments subgraph
+    ```graphql {1} title="Payments subgraph"
     type Bill @key(fields: "id") @shareable {
       id: ID!
       amount: Int!
@@ -191,8 +181,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     <CodeColumns>
 
-    ```graphql
-    # Payments subgraph
+    ```graphql title="Payments subgraph"
     type Bill @key(fields: "id") @shareable {
       id: ID!
       amount: Int!
@@ -203,8 +192,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
     }
     ```
 
-    ```graphql {2-5}
-    # Billing subgraph
+    ```graphql {1-4} title="Billing subgraph"
     type Bill @key(fields: "id") @shareable {
       id: ID!
       amount: Int!
@@ -227,15 +215,13 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     <CodeColumns>
 
-    ```graphql
-    # Payments subgraph
+    ```graphql title="Payments subgraph"
     type Payment {
       # ...
     }
     ```
 
-    ```graphql
-    # Billing subgraph
+    ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -254,15 +240,13 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     <CodeColumns>
 
-    ```graphql
-    # Payments subgraph
+    ```graphql title="Payments subgraph"
     type Payment {
       # ...
     }
     ```
 
-    ```graphql {2}
-    # Billing subgraph
+    ```graphql {1} title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -289,8 +273,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
 
     <CodeColumns>
 
-    ```graphql
-    # Payments subgraph
+    ```graphql title="Payments subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -301,8 +284,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
     }
     ```
 
-    ```graphql {2-5}
-    # Billing subgraph
+    ```graphql {1-4} title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -317,15 +299,13 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
 
     <CodeColumns>
 
-    ```graphql
-    # Payments subgraph
+    ```graphql title="Payments subgraph"
     type Payment {
       # ...
     }
     ```
 
-    ```graphql
-    # Billing subgraph
+    ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -355,8 +335,7 @@ Let's say our Products subgraph defines a `Product` entity, which includes the b
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   inStock: Boolean!
@@ -369,15 +348,13 @@ Then, we add an Inventory subgraph to our federated graph. It now makes sense fo
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
 }
 ```
 
-```graphql
-# Inventory subgraph
+```graphql title="Inventory subgraph"
 type Product @key(fields: "id") {
   id: ID!
   inStock: Boolean!
@@ -393,16 +370,14 @@ We can perform this migration with the following steps (additional commentary on
 
     <CodeColumns>
 
-    ```graphql
-    # Products subgraph
+    ```graphql title="Products subgraph"
     type Product @key(fields: "id") {
       id: ID!
       inStock: Boolean!
     }
     ```
 
-    ```graphql
-    # Inventory subgraph
+    ```graphql title="Inventory subgraph"
     type Product @key(fields: "id") {
       id: ID!
       inStock: Boolean!
@@ -419,15 +394,13 @@ We can perform this migration with the following steps (additional commentary on
 
     <CodeColumns>
 
-    ```graphql
-    # Products subgraph
+    ```graphql title="Products subgraph"
     type Product @key(fields: "id") {
       id: ID!
     }
     ```
 
-    ```graphql
-    # Inventory subgraph
+    ```graphql title="Inventory subgraph"
     type Product @key(fields: "id") {
       id: ID!
       inStock: Boolean!
@@ -446,8 +419,7 @@ You can define fields of an entity that are computed based on the values of _oth
 
 For example, this Shipping subgraph adds a `shippingEstimate` field to the `Product` entity. This field is calculated based on the product's `size` and `weight`, which are defined in the Products subgraph:
 
-```graphql {4-6}
-# Shipping subgraph
+```graphql {3-5} title="Shipping subgraph"
 type Product @key(fields: "id") {
   id: ID!
   size: Int @external
@@ -477,8 +449,7 @@ In the above example, if a query requests a product's `shippingEstimate`, the ga
 
 If a computed field `@requires` a field that returns an object type, you also specify which _subfields_ of that object are required. You list those subfields with the following syntax:
 
-```graphql {4}
-# Shipping subgraph
+```graphql {3} title="Shipping subgraph"
 type Product @key(fields: "id") {
   id: ID!
   dimensions: ProductDimensions @external
@@ -529,8 +500,7 @@ The `@shareable` directive indicates that a particular field can be resolved by 
 
 <CodeColumns>
 
-```graphql {4}
-# Products subgraph
+```graphql {3} title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String! @shareable
@@ -538,8 +508,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql {4}
-# Inventory subgraph
+```graphql {3} title="Inventory subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String! @shareable
@@ -561,8 +530,7 @@ The `@provides` directive indicates that a particular field can be resolved by a
 
 Here, our Products subgraph defines a `Product.name` field and marks it `@shareable` (this means other subgraphs are allowed to resolve it):
 
-```graphql {4}
-# Products subgraph
+```graphql {3} title="Products subgraph"
 type Product @key(fields: "id") {
   id: ID!
   name: String! @shareable
@@ -572,9 +540,7 @@ type Product @key(fields: "id") {
 
 Meanwhile, our Inventory subgraph can _also_ resolve a product's name, but _only_ when that product is part of an `InStockCount`:
 
-```graphql {4,10}:title=inventory
-# Inventory subgraph
-
+```graphql {2,8} title="Inventory subgraph"
 type InStockCount {
   product: Product! @provides(fields: "name")
   quantity: Int!

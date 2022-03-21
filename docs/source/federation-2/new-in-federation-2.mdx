@@ -32,16 +32,14 @@ In Federation 1, multiple subgraphs can define the same type, but those definiti
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Book {
   title: String!
   author: String!
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type Book {
   title: String!
   author: String!
@@ -62,16 +60,14 @@ In Federation 2, an object type can be shared between subgraphs like so:
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Book @shareable {
   title: String!
   author: String!
 }
 ```
 
-```graphql {4-5}
-# Subgraph B
+```graphql {3-4} title="Subgraph B"
 type Book @shareable {
   title: String!
   author: String  # Nullable
@@ -110,9 +106,7 @@ In Federation 1, an entity _originates_ in one subgraph and is then _extended_ i
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
-# (originating)
+```graphql title="Products (originating)"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -120,9 +114,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql
-# Inventory subgraph
-# (extending)
+```graphql title="Inventory (extending)"
 extend type Product @key(fields: "id") {
   id: ID! @external
   inStock: Boolean!
@@ -137,8 +129,7 @@ In Federation 2, entities _do not_ have an "originating subgraph." Instead, each
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -146,8 +137,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql
-# Inventory subgraph
+```graphql title="Inventory"
 type Product @key(fields: "id") {
   id: ID!
   inStock: Boolean!
@@ -166,8 +156,7 @@ In Federation 1, each entity field is resolved by exactly one subgraph (unless i
 
 <CodeColumns>
 
-```graphql {4}
-# Products subgraph
+```graphql {3} title="Products"
 type Product @key(fields: "id") {
   id: ID!
   name: String! @shareable
@@ -175,8 +164,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql {4}
-# Inventory subgraph
+```graphql {3} title="Inventory"
 type Product @key(fields: "id") {
   id: ID!
   name: String! @shareable
@@ -198,8 +186,7 @@ For example:
 
 <CodeColumns>
 
-```graphql
-# Products subgraph
+```graphql title="Products"
 type Product @key(fields: "id") {
   id: ID!
   name: String!
@@ -207,8 +194,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-```graphql {2}
-# Reviews subgraph
+```graphql {1} title="Reviews"
 type Product @key(fields: "id", resolvable: false) {
   id: ID!
 }

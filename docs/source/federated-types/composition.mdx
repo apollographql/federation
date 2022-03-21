@@ -105,8 +105,7 @@ Consider these subgraph schemas:
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Query {
   positionA: Position!
 }
@@ -117,8 +116,7 @@ type Position @shareable {
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type Query {
   positionB: Position!
 }
@@ -145,8 +143,7 @@ The composition process attempts to merge inconsistent type definitions into a _
 
 <p style="margin-bottom: 0">❌</p>
 
-```graphql
-# Hypothetical supergraph schema
+```graphql title="Hypothetical supergraph schema"
 type Query {
   # From A
   positionA: Position!
@@ -195,8 +192,7 @@ If every subgraph that defines a type _could_ resolve every field of that type w
 
 <CodeColumns>
 
-```graphql {5}
-# Subgraph A
+```graphql {4} title="Subgraph A"
 type Position @shareable {
   x: Int!
   y: Int!
@@ -204,8 +200,7 @@ type Position @shareable {
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type Position @shareable {
   x: Int!
   y: Int!
@@ -225,16 +220,14 @@ This is a useful solution for shared types that encapsulate simple scalar data.
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type User @key(fields: "id") {
   id: ID!
   name: String!
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type User @key(fields: "id") {
   id: ID!
   age: Int!

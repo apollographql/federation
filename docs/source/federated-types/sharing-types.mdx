@@ -30,16 +30,14 @@ Consider the following `Position` example:
 
 <CodeColumns>
 
-```graphql{3-4}
-# Subgraph A
+```graphql {2-3} title="Subgraph A"
 type Position {
   x: Int!
   y: Int!
 }
 ```
 
-```graphql{3-4}
-# Subgraph B
+```graphql {2-3} title="Subgraph B"
 type Position {
   x: Int!
   y: Int!
@@ -71,16 +69,14 @@ Then you can apply the `@shareable` directive to an object type, or to _individu
 
 <CodeColumns>
 
-```graphql{2}
-# Subgraph A
+```graphql {1} title="Subgraph A"
 type Position @shareable {
   x: Int!
   y: Int!
 }
 ```
 
-```graphql{3-4}
-# Subgraph B
+```graphql {2-3} title="Subgraph B"
 type Position {
   x: Int! @shareable
   y: Int! @shareable
@@ -110,16 +106,14 @@ For example, take a look at the shared `Food` type below:
 
 <CodeColumns>
 
-```graphql{4}
-# Subgraph A
+```graphql {3} title="Subgraph A"
 type Food @shareable {
   name: String!
   cost: Int!
 }
 ```
 
-```graphql{4,5}
-# Subgraph B
+```graphql {3-4} title="Subgraph B"
 type Food @shareable {
   name: String!
   cost: Int # Nullable
@@ -141,15 +135,13 @@ Let's say two subgraphs both define an `Event` object type with a `timestamp` fi
 
 <CodeColumns>
 
-```graphql{3}
-# Subgraph A
+```graphql {2} title="Subgraph A"
 type Event @shareable {
   timestamp: Int!
 }
 ```
 
-```graphql{3}
-# Subgraph B
+```graphql {2} title="Subgraph B"
 type Event @shareable {
   timestamp: String!
 }
@@ -165,16 +157,14 @@ Next, look at these varying definitions for the `Position` object type:
 
 <CodeColumns>
 
-```graphql{3,4}
-# Subgraph A
+```graphql {2-3} title="Subgraph A"
 type Position @shareable {
   x: Int!
   y: Int!
 }
 ```
 
-```graphql{3,4}
-# Subgraph B
+```graphql {2-3} title="Subgraph B"
 type Position @shareable {
   x: Int
   y: Int
@@ -188,8 +178,7 @@ type Position @shareable {
 The `x` and `y` fields are _non-nullable_ in Subgraph A, but they're _nullable_ in Subgraph B. **This is valid!** Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
 
 
-```graphql
-# Supergraph schema
+```graphql title="Supergraph schema"
 type Position {
   x: Int
   y: Int
@@ -208,16 +197,14 @@ Look at these two definitions of a `Position` object type:
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Position @shareable {
   x: Int!
   y: Int!
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type Position @shareable {
   x: Int!
   y: Int!
@@ -233,8 +220,7 @@ Subgraph B defines a `z` field, but Subgraph A doesn't. In this case, when compo
 
 <CodeColumns>
 
-```graphql
-# Supergraph schema
+```graphql title="Supergraph schema"
 type Position {
   x: Int!
   y: Int!
@@ -250,8 +236,7 @@ type Position {
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Query {
   currentPosition: Position!
 }
@@ -291,8 +276,7 @@ And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, 
 In Federation 2, `enum`, `interface`, and `union` type definitions can be shared between subgraphs by default, _and_ those definitions can differ:
 <CodeColumns>
 
-```graphql{2, 4, 10}
-# Subgraph A
+```graphql {1, 3, 9} title="Subgraph A"
 union Media = Book | Movie
 
 enum Color {
@@ -306,8 +290,7 @@ interface User {
 }
 ```
 
-```graphql{2, 4, 10}
-# Subgraph B
+```graphql {1, 3, 9} title="Subgraph B"
 union Media = Book | Podcast
 
 enum Color {
@@ -328,8 +311,7 @@ interface User {
 
 Compositional logic merges these definitions in your supergraph schema:
 
-```graphql
-# Supergraph schema
+```graphql title="Supergraph schema"
 union Media = Book | Movie | Podcast
 
 enum Color {
