@@ -295,7 +295,7 @@ class Merger {
 
     for (const type of this.merged.types()) {
       // We've already merged unions above
-      if (type.kind === 'UnionType' || [linkSpec, joinSpec].some((s) => s.isSpecType(type))) {
+      if (type.kind === 'UnionType' || linkSpec.isSpecType(type) || joinSpec.isSpecType(type)) {
         continue;
       }
       this.mergeType(this.subgraphsTypes(type), type);
