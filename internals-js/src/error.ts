@@ -325,6 +325,12 @@ const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'An application of the @link directive is invalid/does not respect the specification.'
 );
 
+const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
+  'LINK_IMPORT_NAME_MISMATCH',
+  'The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs.'
+);
+
+
 const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
   'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
   'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all subgraphs that define the field or directive definition.'
@@ -390,6 +396,7 @@ export const ERRORS = {
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_LINK_DIRECTIVE_USAGE,
+  LINK_IMPORT_NAME_MISMATCH,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   SATISFIABILITY_ERROR,
 };
