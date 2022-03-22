@@ -113,6 +113,12 @@ You can provide a comma-separated list of Uplink URLs as the value of the `APOLL
 APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/,https://uplink.api.apollographql.com/
 ```
 
+## Schema size limit
+
+Supergraph schemas provided by Uplink cannot exceed 6MB in size. The _vast_ majority of supergraph schemas are well below this limit.
+
+If your supergraph schema _does_ exceed 6MB, you can set up a [build status webhook](/studio/build-status-notification/) for your graph. Whenever you're notified of a successful supergraph schema composition, your webhook can fetch the latest supergraph schema via the Rover CLI.
+
 ## Legacy endpoint (deprecated)
 
 Instead of using Uplink, `@apollo/gateway` versions 0.33 and earlier poll a Google Cloud Storage URL to obtain their subgraph schemas and then run composition locally. **This polling method is deprecated and might be removed in the future.**
