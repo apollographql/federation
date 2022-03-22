@@ -17,9 +17,8 @@ This is a quick and opinionated set of commands for building and releasing a new
 
 1. `npx lerna version --no-push --force-publish=\* "$FEDERATION_RELEASE_VERSION"` ([more info](#lerna-version))
     1. TODO: remove `--no-push` when these instructions are ready. Or should we tell people to push as a next step?
-1. `APOLLO_DIST_TAG=latest-2 npm run release:start-ci-publish` ([more info](#publishing))
-    1. TODO: Can we change `latest-2` to `next` (that seems to be a bespoke standard)?
-1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=all` to approve
+1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish` ([more info](#publishing))
+1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=all` to approve publishing to NPM
     1. TODO: Make it easier to get to the build job
 1. `npm view @apollo/subgraph versions` to ensure the version that was just published shows up in the NPM registry
 
@@ -33,7 +32,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 
 ## Changelogs
 
-Each changelog should be updated when creating a release. If there are no changes for a given package, add an entry that states `Released in sync with other federation packages but no changes to this package.`
+Changelogs should be updated when creating a release. If there are no changes for a given package, add an entry that states `Released in sync with other federation packages but no changes to this package.`
 
 1. [gateway-js/CHANGELOG.md](gateway-js/CHANGELOG.md) all changes should be reflected in here, since it's essentially a rollup of all packages
 1. [composition-js/CHANGELOG.md](composition-js/CHANGELOG.md)
@@ -44,11 +43,11 @@ Each changelog should be updated when creating a release. If there are no change
 
 ## `lerna version`
 
-Important part is tagging with e.g.`@apollo/federation-internals@2.0.0-preview.7`, etc in each sub-repo
+Learn more about the [`lerna version` command](https://github.com/lerna/lerna/tree/main/commands/version). For our purposes, the important part is that `lerna` will create a tag for each package (e.g. `@apollo/federation-internals@2.0.0-preview.7`).
 
 #### Why does `package-lock.json` get updated?
 
-`npm version` is getting called due to [lerna version lifecycle hooks](https://github.com/lerna/lerna/tree/main/commands/version#lifecycle-scripts), which calls `npm i --package-lock-only` causing the package lock to get regenerated (this is a good thing)
+`npm version` is getting called due to [lerna version lifecycle hooks](https://github.com/lerna/lerna/tree/main/commands/version#lifecycle-scripts), which calls `npm i --package-lock-only` causing the package lock to get regenerated (this is a good thing).
 
 ## Publishing
 

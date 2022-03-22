@@ -2,7 +2,7 @@
 
 This document is __a work-in-progress__ which aims to describe various tips for __developing and working with this repository itself__.  It is not intended as a guide on how to use the project within another project, which should be covered elsewhere in the project's documentation.
 
-For now, this will be a collection of tips and tricks for the maintainers of the project.
+Currently, it's mostly in-depth info about creating, publishing, and finishing a release. A more succinct document for creating a release can be found in [RELEASING.md](./RELEASING.md).
 
 ## Staging a release as a PR
 
@@ -102,7 +102,7 @@ DEBUG=lerna NPM_CONFIG_USERCONFIG="$HOME/.npmrc-apollo-bot" npx lerna publish fr
 
 ### Step 4: Update GitHub Milestones
 
-The [milestones](./milestones) should be updated, as appropriatee.  If the milestone didn't didn't have a concrete version as its name, it should be renamed to the version that was finally released.
+The [milestones](./milestones) should be updated, as appropriate. If the milestone didn't didn't have a concrete version as its name, it should be renamed to the version that was finally released.
 
 Then, any remaining issues or PRs which did not land in this version should be moved to a newly-created milestone which reflects the newly intended release for them.
 
