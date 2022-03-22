@@ -122,8 +122,8 @@ First, add the following definition to your subgraph schema:
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
-        import: ["@key", "@requires", "@shareable"])
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 ```
 
 This definition identifies a schema as a true Federation 2 schema. Without this definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
