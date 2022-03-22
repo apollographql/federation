@@ -1,10 +1,13 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLValidationFailed, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert } from './utils';
 import { ERRORS } from "./error";
+import { valueToString } from "./values";
+import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
+import { didYouMean, suggestionList } from "./suggestions";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 export const linkIdentity = 'https://specs.apollo.dev/link';
@@ -63,6 +66,8 @@ export abstract class FeatureDefinition {
 
   abstract addElementsToSchema(schema: Schema): void;
 
+  abstract allElementNames(): string[];
+
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
     return feature?.nameInSchema;
@@ -73,9 +78,9 @@ export abstract class FeatureDefinition {
     return feature ? feature.directiveNameInSchema(directiveName) : undefined;
   }
 
-  protected typeNameInSchema(schema: Schema, directiveName: string): string | undefined {
+  protected typeNameInSchema(schema: Schema, typeName: string): string | undefined {
     const feature = this.featureInSchema(schema);
-    return feature ? feature.typeNameInSchema(directiveName) : undefined;
+    return feature ? feature.typeNameInSchema(typeName) : undefined;
   }
 
   protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
@@ -144,31 +149,113 @@ export type CoreImport = {
   as?: string,
 };
 
-export function extractCoreFeatureImports(directive: Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>): CoreImport[] {
+export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>): CoreImport[] {
+  // Note: up to this point, we've kind of cheated with typing and force-casted the arguments to `CoreOrLinkDirectiveArgs`, and while this
+  // graphQL type validations ensure this is "mostly" true, the `import' arg is an exception becuse it uses the `link__Import` scalar,
+  // and so there is no fine-grained graphQL-side validation of the values. So we'll need to double-check that the values are indeed
+  // either a string or a valid `CoreImport` value.
   const args = directive.arguments();
-  if (!('import' in args)) {
+  if (!('import' in args) || !args.import) {
     return [];
   }
-  const importArg = args.import;
-  const imports: CoreImport[] = importArg ? importArg.map((a) => typeof a === 'string' ? { name: a } : a) : [];
-  for (const i of imports) {
-    if (!i.as) {
+  const importArgValue = args.import;
+  const definition = coreFeatureDefinitionIfKnown(url);
+  const knownElements = definition?.allElementNames();
+  const errors: GraphQLError[] = [];
+  const imports: CoreImport[] = [];
+
+  importArgLoop:
+  for (const elt of importArgValue) {
+    if (typeof elt === 'string') {
+      imports.push({ name: elt });
+      validateImportedName(elt, knownElements, errors, directive);
       continue;
     }
-    if (i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-        message: `Invalid @link import renaming: directive ${i.name} imported name should starts with a '@' character, but got "${i.as}"`,
+    if (typeof elt !== 'object') {
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+        message: `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: values should be either strings or input object values of the form { name: "<importedElement>", as: "<alias>" }.`,
         nodes: directive.sourceAST
-      });
+      }));
+      continue;
     }
-    if (i.name.charAt(0) !== '@' && i.as.charAt(0) === '@') {
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-        message: `Invalid @link import renaming: type ${i.name} imported name should not starts with a '@' character, but got "${i.as}" (or, if @${i.name} is a directive, then it should be refered to with a '@')`,
+    let name: string | undefined;
+    for (const [key, value] of Object.entries(elt)) {
+      switch (key) {
+        case 'name':
+          if (typeof value !== 'string') {
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+              message: `Invalid value for the "name" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              nodes: directive.sourceAST
+            }));
+            continue importArgLoop;
+          }
+          name = value;
+          break;
+        case 'as':
+          if (typeof value !== 'string') {
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+              message: `Invalid value for the "as" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              nodes: directive.sourceAST
+            }));
+            continue importArgLoop;
+          }
+          break;
+        default:
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+            message: `Unknown field "${key}" for sub-value ${valueToString(elt)} of @link(import:) argument.`,
+            nodes: directive.sourceAST
+          }));
+          continue importArgLoop;
+      }
+    }
+    if (name) {
+      const i = elt as CoreImport;
+      imports.push(i);
+      if (i.as) {
+        if (i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+            message: `Invalid @link import renaming: directive "${i.name}" imported name should start with a '@' character, but got "${i.as}".`,
+            nodes: directive.sourceAST
+          }));
+        }
+        else if (i.name.charAt(0) !== '@' && i.as.charAt(0) === '@') {
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+            message: `Invalid @link import renaming: type "${i.name}" imported name should not start with a '@' character, but got "${i.as}" (or, if @${i.name} is a directive, then it should be referred to with a '@').`,
+            nodes: directive.sourceAST
+          }));
+        }
+      }
+      validateImportedName(name, knownElements, errors, directive);
+    } else {
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+        message: `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: missing mandatory "name" field.`,
         nodes: directive.sourceAST
-      });
+      }));
     }
   }
+
+  if (errors.length > 0) {
+    throw ErrGraphQLValidationFailed(errors);
+  }
   return imports;
+}
+
+function validateImportedName(name: string, knownElements: string[] | undefined, errors: GraphQLError[], directive: Directive<SchemaDefinition>) {
+  if (knownElements && !knownElements.includes(name)) {
+    let details = '';
+    if (!name.startsWith('@') && knownElements.includes('@' + name)) {
+      details = ` Did you mean directive "@${name}"?`;
+    } else {
+      const suggestions = suggestionList(name, knownElements);
+      if (suggestions) {
+        details = didYouMean(suggestions);
+      }
+    }
+    errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+      message: `Cannot import unknown element "${name}".${details}`,
+      nodes: directive.sourceAST
+    }));
+  }
 }
 
 export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefinition, any>): directive is Directive<SchemaDefinition, CoreOrLinkDirectiveArgs> {
@@ -210,6 +297,8 @@ export class CoreSpecDefinition extends FeatureDefinition {
     // Core is special and the @core directive is added in `addToSchema` below
   }
 
+  // TODO: we may want to allow some `import` as argument to this method. When we do, we need to watch for imports of
+  // `Purpose` and `Import` and add the types under their imported name.
   addToSchema(schema: Schema, as?: string) {
     const existing = schema.coreFeatures;
     if (existing) {
@@ -234,9 +323,6 @@ export class CoreSpecDefinition extends FeatureDefinition {
       core.addArgument('for', purposeEnum);
     }
     if (this.supportImport()) {
-      if (schema.type(`${nameInSchema}__Import`)) {
-        console.trace();
-      }
       const importType = schema.addType(new ScalarType(`${nameInSchema}__Import`));
       core.addArgument('import', new ListType(importType));
     }
@@ -248,6 +334,21 @@ export class CoreSpecDefinition extends FeatureDefinition {
       args.as = as;
     }
     schema.schemaDefinition.applyDirective(nameInSchema, args);
+  }
+
+  /**
+   * The list of all the element names that can be "imported" from this feature. Importantly, directive names
+   * must start with a `@`.
+   */
+  allElementNames(): string[] {
+    const names = [ `@${this.url.name}` ];
+    if (this.supportPurposes()) {
+      names.push('Purpose');
+    }
+    if (this.supportImport()) {
+      names.push('Import');
+    }
+    return names;
   }
 
   private supportPurposes() {
@@ -292,7 +393,6 @@ export class CoreSpecDefinition extends FeatureDefinition {
     schema.schemaDefinition.applyDirective(coreDirective, args);
     feature.addElementsToSchema(schema);
   }
-
   extractFeatureUrl(args: CoreOrLinkDirectiveArgs): FeatureUrl {
     return FeatureUrl.parse(args[this.urlArgName()]!);
   }
@@ -547,6 +647,9 @@ export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIden
 
 export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIdentity)
   .add(new CoreSpecDefinition(new FeatureVersion(1, 0)));
+
+registerKnownFeature(CORE_VERSIONS);
+registerKnownFeature(LINK_VERSIONS);
 
 export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
   // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature

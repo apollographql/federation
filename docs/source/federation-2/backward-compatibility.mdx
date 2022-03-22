@@ -65,8 +65,7 @@ A subgraph can mark an entity field with the [`@requires` directive](https://www
 
 <p style="margin-bottom: 0">✅</p>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Product @key(fields:"sku") {
   sku: ID!
   dimensions: ProductDimensions!
@@ -78,8 +77,7 @@ type ProductDimensions {
 }
 ```
 
-```graphql {5}
-# Subgraph B
+```graphql {4} title="Subgraph B"
 extend type Product @key(fields:"sku") {
   sku: ID! @external
   dimensions: ProductDimensions! @external
@@ -98,8 +96,7 @@ Federation 1 _incorrectly_ allows a `@requires` directive such as the following:
 
 <p style="margin-bottom: 0">❌</p>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Product @key(fields:"sku") {
   sku: ID!
   dimensions: ProductDimensions!
@@ -111,8 +108,7 @@ type ProductDimensions {
 }
 ```
 
-```graphql {5}
-# Subgraph B
+```graphql {4} title="Subgraph B"
 extend type Product @key(fields:"sku") {
   sku: ID! @external
   dimensions: ProductDimensions! @external

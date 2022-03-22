@@ -34,8 +34,7 @@ Below are the schemas for three subgraphs in a basic e-commerce application. Eac
 
 <CodeColumns cols="3">
 
-```graphql
-# Users subgraph
+```graphql title="Users"
 type Query {
   me: User
 }
@@ -53,8 +52,7 @@ extend schema
           import: ["@key", "@requires", "@shareable"])
 ```
 
-```graphql
-# Products subgraph
+```graphql title="Products"
 type Query {
   topProducts(first: Int = 5): [Product]
 }
@@ -70,8 +68,7 @@ extend schema
           import: ["@key", "@requires", "@shareable"])
 ```
 
-```graphql
-# Reviews subgraph
+```graphql title="Reviews"
 type Review {
   body: String
   author: User @provides(fields: "username")

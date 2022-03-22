@@ -8,6 +8,7 @@ import {
   Schema,
 } from "./definitions";
 import { GraphQLError, DirectiveLocation } from "graphql";
+import { registerKnownFeature } from "./knownCoreFeatures";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 
@@ -28,10 +29,16 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
     return this.directive(schema, 'inaccessible')!;
   }
+
+  allElementNames(): string[] {
+    return ['@inaccessible'];
+  }
 }
 
 export const INACCESSIBLE_VERSIONS = new FeatureDefinitions<InaccessibleSpecDefinition>(inaccessibleIdentity)
   .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)));
+
+registerKnownFeature(INACCESSIBLE_VERSIONS);
 
 export function removeInaccessibleElements(schema: Schema) {
   const coreFeatures = schema.coreFeatures;

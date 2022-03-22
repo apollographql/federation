@@ -105,6 +105,20 @@ export function errorCodeDef(e: GraphQLError | string): ErrorCodeDefinition | un
   return code ? codeDefByCode[code] : undefined;
 }
 
+export function withModifiedErrorMessage(e: GraphQLError, newMessage: string): GraphQLError {
+  return new GraphQLError(
+    newMessage,
+    {
+      nodes: e.nodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
 const INVALID_GRAPHQL = makeCodeDefinition(
   'INVALID_GRAPHQL',
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
