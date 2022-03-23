@@ -16,9 +16,12 @@ This is a quick and opinionated set of commands for building and releasing a new
 #### Bump version and tag release
 
 1. `npx lerna version --no-push --force-publish=\* "$FEDERATION_RELEASE_VERSION"` ([more info](#lerna-version))
-    1. TODO: remove `--no-push` when these instructions are ready. Or should we tell people to push as a next step?
+    1. `git show --pretty="" --name-only HEAD` to see the files in the commit
+    1. `git --no-pager tag --points-at HEAD` to see the tags that were created
+1. `git push --follow-tags origin` to push the version bumps & tags created by lerna in the previous step
 1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish` ([more info](#publishing))
 1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=all` to approve publishing to NPM
+    1. There will also be a message posted to #team-atlas in slack that has a link to the approval job
     1. TODO: Make it easier to get to the build job
 1. `npm view @apollo/subgraph versions` to ensure the version that was just published shows up in the NPM registry
 
@@ -51,7 +54,7 @@ Learn more about the [`lerna version` command](https://github.com/lerna/lerna/tr
 
 ## Publishing
 
-The important part is creating a `publish/*` tag
+The important part is creating a `publish/*` tag, which starts a job in CircleCI to start the publishing process.
 
 ## Troubleshooting
 
