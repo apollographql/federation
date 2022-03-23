@@ -67,13 +67,11 @@ describe('composition', () => {
 
     expect(result.supergraphSdl).toMatchString(`
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.2")
-        @core(feature: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
       {
         query: Query
       }
-
-      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
@@ -83,7 +81,18 @@ describe('composition', () => {
 
       directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-      enum core__Purpose {
+      directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
+        SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
+      }
+
+      scalar link__Import
+
+      enum link__Purpose {
         """
         \`SECURITY\` features provide metadata necessary to securely resolve fields.
         """
@@ -93,13 +102,6 @@ describe('composition', () => {
         \`EXECUTION\` features provide metadata necessary for operation execution.
         """
         EXECUTION
-      }
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
-        SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
       }
 
       type Query
@@ -2016,13 +2018,11 @@ describe('composition', () => {
      */
     expect(printSchema(supergraph)).toMatchString(`
       schema
-        @core(feature: \"https://specs.apollo.dev/core/v0.2\")
-        @core(feature: \"https://specs.apollo.dev/join/v0.2\", for: EXECUTION)
+        @link(url: \"https://specs.apollo.dev/link/v1.0\")
+        @link(url: \"https://specs.apollo.dev/join/v0.2\", for: EXECUTION)
       {
         query: Query
       }
-
-      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
@@ -2032,7 +2032,18 @@ describe('composition', () => {
 
       directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-      enum core__Purpose {
+      directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPHA @join__graph(name: "subgraphA", url: "")
+        SUBGRAPHB @join__graph(name: "subgraphB", url: "")
+      }
+
+      scalar link__Import
+
+      enum link__Purpose {
         """
         \`SECURITY\` features provide metadata necessary to securely resolve fields.
         """
@@ -2042,13 +2053,6 @@ describe('composition', () => {
         \`EXECUTION\` features provide metadata necessary for operation execution.
         """
         EXECUTION
-      }
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        SUBGRAPHA @join__graph(name: "subgraphA", url: "")
-        SUBGRAPHB @join__graph(name: "subgraphB", url: "")
       }
 
       type Query

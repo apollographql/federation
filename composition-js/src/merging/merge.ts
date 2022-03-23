@@ -32,7 +32,6 @@ import {
   SchemaRootKind,
   CompositeType,
   Subgraphs,
-  CORE_VERSIONS,
   JOIN_VERSIONS,
   TAG_VERSIONS,
   NamedSchemaElement,
@@ -56,6 +55,7 @@ import {
   linkIdentity,
   coreIdentity,
   FEDERATION_OPERATION_TYPES,
+  LINK_VERSIONS,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -78,7 +78,7 @@ import {
   hintInconsistentDescription,
 } from "../hints";
 
-const coreSpec = CORE_VERSIONS.latest();
+const linkSpec = LINK_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
 
@@ -250,11 +250,11 @@ class Merger {
     // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and
     // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to
     // the supergraph outside of a few well-known ones, we don't bother yet.
-    coreSpec.addToSchema(this.merged);
-    coreSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
+    linkSpec.addToSchema(this.merged);
+    linkSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
 
     if (this.subgraphs.values().some(hasTagUsage)) {
-      coreSpec.applyFeatureToSchema(this.merged, tagSpec);
+      linkSpec.applyFeatureToSchema(this.merged, tagSpec);
     }
 
     return joinSpec.populateGraphEnum(this.merged, this.subgraphs);
@@ -295,7 +295,7 @@ class Merger {
 
     for (const type of this.merged.types()) {
       // We've already merged unions above
-      if (type.kind === 'UnionType' || joinSpec.isSpecType(type)) {
+      if (type.kind === 'UnionType' || linkSpec.isSpecType(type) || joinSpec.isSpecType(type)) {
         continue;
       }
       this.mergeType(this.subgraphsTypes(type), type);
@@ -303,7 +303,7 @@ class Merger {
 
     for (const definition of this.merged.directives()) {
       // we should skip the supergraph specific directives, that is the @core and @join directives.
-      if (coreSpec.isSpecDirective(definition) || joinSpec.isSpecDirective(definition)) {
+      if (linkSpec.isSpecDirective(definition) || joinSpec.isSpecDirective(definition)) {
         continue;
       }
       this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
