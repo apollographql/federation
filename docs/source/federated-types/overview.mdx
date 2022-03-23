@@ -49,7 +49,7 @@ type User @key(fields: "id") {
 # Federation 2 features.)
 extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 ```
 
 ```graphql title="Products"
@@ -65,7 +65,7 @@ type Product @key(fields: "upc") {
 
 extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 ```
 
 ```graphql title="Reviews"
@@ -88,7 +88,7 @@ type Product @key(fields: "upc") {
 
 extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 ```
 
 </CodeColumns>
