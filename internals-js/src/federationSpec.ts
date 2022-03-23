@@ -14,6 +14,7 @@ import { assert } from "./utils";
 import { tagLocations } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
+import { inaccessibleLocations } from "./inaccessibleSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -69,6 +70,11 @@ export const tagDirectiveSpec = createDirectiveSpecification({
   }
 });
 
+export const inaccessibleDirectiveSpec = createDirectiveSpecification({
+  name:'inaccessible',
+  locations: inaccessibleLocations,
+});
+
 function fieldsArgument(schema: Schema): ArgumentSpecification {
   return { name: 'fields', type: fieldSetType(schema) };
 }
@@ -81,6 +87,7 @@ function fieldSetType(schema: Schema): InputType {
 
 export const FEDERATION2_ONLY_SPEC_DIRECTIVES = [
   shareableDirectiveSpec,
+  inaccessibleDirectiveSpec,
 ];
 
 // Note that this is only used for federation 2+ (federation 1 adds the same directive, but not through a core spec).
@@ -89,19 +96,15 @@ export const FEDERATION2_SPEC_DIRECTIVES = [
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
-  // This is here to preserve the order of this array prior of the introduction of this constant. And that's done because
-  // changing the order would require changing the outputs of a bunch of tests (not a big deal, just annoying).
-  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
   tagDirectiveSpec,
   extendsDirectiveSpec, // TODO: should we stop supporting that?
+  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
 ];
 
 // Note that this is meant to contain _all_ federation directive names ever supported, regardless of which version.
 // But currently, fed2 directives are a superset of fed1's so ... (but this may change if we stop supporting `@extends`
 // in fed2).
 export const ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES = FEDERATION2_SPEC_DIRECTIVES.map((spec) => spec.name);
-
-
 
 export const FEDERATION_SPEC_TYPES = [
   fieldSetTypeSpec,

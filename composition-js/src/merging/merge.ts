@@ -34,6 +34,7 @@ import {
   Subgraphs,
   JOIN_VERSIONS,
   TAG_VERSIONS,
+  INACCESSIBLE_VERSIONS,
   NamedSchemaElement,
   executableDirectiveLocations,
   errorCauses,
@@ -58,6 +59,8 @@ import {
   federationMetadata,
   FeatureDefinition,
   Subgraph,
+  errorCode,
+  withModifiedErrorNodes,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -82,7 +85,6 @@ import {
 
 const linkSpec = LINK_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
-const tagSpec = TAG_VERSIONS.latest();
 
 export type MergeResult = MergeSuccess | MergeFailure;
 
@@ -169,7 +171,8 @@ type MergedDirectiveInfo = {
 }
 
 const MERGED_FEDERATION_DIRECTIVES: MergedDirectiveInfo[] = [
-  { specInSupergraph: tagSpec, definitionInSubgraph: (subgraph) => subgraph.metadata().tagDirective() },
+  { specInSupergraph: TAG_VERSIONS.latest(), definitionInSubgraph: (subgraph) => subgraph.metadata().tagDirective() },
+  { specInSupergraph: INACCESSIBLE_VERSIONS.latest(), definitionInSubgraph: (subgraph) => subgraph.metadata().inaccessibleDirective() },
 ];
 
 // Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
@@ -367,10 +370,13 @@ class Merger {
           // to subgraphs appropriately). and then simply _assert_ that `Schema.validate()` doesn't throw as a sanity
           // check.
           this.merged.validate();
+          // Lastly, we validate that the API schema of the supergraph can be successfully compute, which currently will surface issues around
+          // misuses of `@inaccessible` (there should be other errors in theory, but if there is, better find it now rather than later).
+          this.merged.toAPISchema();
         } catch (e) {
           const causes = errorCauses(e);
           if (causes) {
-            this.errors.push(...causes);
+            this.errors.push(...this.updateInaccessibleErrorsWithLinkToSubgraphs(causes));
           } else {
             // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
             throw e;
@@ -1766,5 +1772,27 @@ class Merger {
         }
       }
     }
+  }
+
+  private updateInaccessibleErrorsWithLinkToSubgraphs(errors: GraphQLError[]): GraphQLError[] {
+    return errors.map((e) => {
+      if (errorCode(e) !== ERRORS.REFERENCED_INACCESSIBLE.code) {
+        return e;
+      }
+
+      const reference = e.extensions['inaccessible_reference'];
+      const referenceNodes = reference && typeof reference === 'string'
+        ? sourceASTs(...this.subgraphsSchema.map((schema) => schema.elementByCoordinate(reference)))
+        : [];
+      const element = e.extensions['inaccessible_element'];
+      // We only point to subgraphs where the element is marked inaccesssible, as other subgraph are not relevant.
+      const elementNodes = element && typeof element === 'string'
+        ? sourceASTs(...this.subgraphsSchema.map((schema) => schema.elementByCoordinate(element)).filter((elt) => elt?.hasAppliedDirective(federationMetadata(elt.schema())!.inaccessibleDirective())))
+        : [];
+
+      // Note that the error we get will likely have some AST nodes, but those will be to the supergraph and that's not
+      // useful to the user so we completely discard them.
+      return withModifiedErrorNodes(e, [...referenceNodes, ...elementNodes]);
+    });
   }
 }

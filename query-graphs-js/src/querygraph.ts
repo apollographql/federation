@@ -476,7 +476,11 @@ export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
 }
 
 function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractTypeEdges: boolean, supergraphSchema?: Schema): QueryGraph {
-  const builder = new GraphBuilderFromSchema(name, schema, supergraphSchema);
+  const builder = new GraphBuilderFromSchema(
+    name,
+    schema,
+    supergraphSchema ? { apiSchema: supergraphSchema?.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
+  );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
   }
@@ -500,7 +504,7 @@ function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractT
  * @returns the built query graph.
  */
 export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
-  return buildQueryGraph("supergraph", supergraph);
+  return buildQueryGraph("supergraph", supergraph.toAPISchema());
 }
 
 /**
@@ -907,14 +911,14 @@ class GraphBuilderFromSchema extends GraphBuilder {
   constructor(
     private readonly name: string,
     private readonly schema: Schema,
-    private readonly supergraphSchema?: Schema
+    private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
   ) {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
-    assert(!this.isFederatedSubgraph || supergraphSchema, `Missing supergraph schema for building the federated subgraph graph`);
+    assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
     // The join spec 0.1 used by "fed1" does not preserve the information on where (in which subgraphs)
     // an interface is defined, so we cannot ever safely avoid type explosion.
-    this.forceTypeExplosion = supergraphSchema !== undefined && isFed1Supergraph(supergraphSchema);
+    this.forceTypeExplosion = supergraph !== undefined && supergraph.isFed1;
   }
 
   private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
@@ -1000,8 +1004,8 @@ class GraphBuilderFromSchema extends GraphBuilder {
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
-    assert(this.supergraphSchema, 'Missing supergraph schema when building a subgraph');
-    const supergraphType = this.supergraphSchema.type(type.name);
+    assert(this.supergraph, 'Missing supergraph schema when building a subgraph');
+    const supergraphType = this.supergraph.apiSchema.type(type.name);
     // In theory, the interface might have been marked inaccessible and not be in the supergraph. If that's the case,
     // we just don't add direct edges at all (adding interface edges is an optimization and if the interface is inaccessible, it
     // probably doesn't play any role in query planning anyway, so it doesn't matter).

@@ -72,6 +72,7 @@ import {
   extendsDirectiveSpec,
   shareableDirectiveSpec,
   tagDirectiveSpec,
+  inaccessibleDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
   ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
   FEDERATION2_ONLY_SPEC_DIRECTIVES,
@@ -105,6 +106,7 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 ];
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
+
 
 // Returns a list of the coordinate of all the fields in the selection that are marked external.
 function validateFieldSetSelections(
@@ -556,6 +558,10 @@ export class FederationMetadata {
     return this.getFederationDirective(tagDirectiveSpec.name);
   }
 
+  inaccessibleDirective(): DirectiveDefinition<{}> {
+    return this.getFederationDirective(inaccessibleDirectiveSpec.name);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives = [
       this.keyDirective(),
@@ -566,7 +572,7 @@ export class FederationMetadata {
       this.extendsDirective(),
     ];
     return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective())
+      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective())
       : baseDirectives;
   }
 
@@ -861,6 +867,10 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
   );
   completeSubgraphSchema(schema);
 }
+
+// This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
+// subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
+export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {
