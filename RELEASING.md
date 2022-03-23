@@ -20,9 +20,8 @@ This is a quick and opinionated set of commands for building and releasing a new
     1. `git --no-pager tag --points-at HEAD` to see the tags that were created
 1. `git push --follow-tags origin` to push the version bumps & tags created by lerna in the previous step
 1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish` ([more info](#publishing))
-1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=all` to approve publishing to NPM
+1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` to approve publishing to NPM
     1. There will also be a message posted to #team-atlas in slack that has a link to the approval job
-    1. TODO: Make it easier to get to the build job
 1. `npm view @apollo/subgraph versions` to ensure the version that was just published shows up in the NPM registry
 
 #### Merge the release PR
