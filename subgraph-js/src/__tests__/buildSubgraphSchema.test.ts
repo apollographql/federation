@@ -118,11 +118,6 @@ describe('buildSubgraphSchema', () => {
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
     expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-      """a description of the schema. yo."""
-      schema {
-        query: Query
-      }
-
       extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
@@ -660,7 +655,8 @@ describe('buildSubgraphSchema', () => {
     }`;
 
     const validateTag = async (header: string) => {
-      const schema = buildSubgraphSchema(gql`${header}
+      const schema = buildSubgraphSchema(gql`
+        ${header}
         type User @key(fields: "email") @tag(name: "tagOnType") {
           email: String @tag(name: "tagOnField")
         }
@@ -674,7 +670,8 @@ describe('buildSubgraphSchema', () => {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`${header}type User @key(fields: "email") @tag(name: "tagOnType") {
+      expect((data?._service as any).sdl)
+        .toEqual(`${header}type User @key(fields: "email") @tag(name: "tagOnType") {
   email: String @tag(name: "tagOnField")
 }
 
@@ -687,9 +684,13 @@ union UserButAUnion @tag(name: "tagOnUnion") = User
     };
 
     it.each([
-      {name: 'fed1', header: ''},
-      {name: 'fed2', header: 'extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])\n\n' }
-    ])('adds it for $name schema', async ({header}) => {
+      { name: 'fed1', header: '' },
+      {
+        name: 'fed2',
+        header:
+          'extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")\n\n',
+      },
+    ])('adds it for $name schema', async ({ header }) => {
       await validateTag(header);
     });
   });

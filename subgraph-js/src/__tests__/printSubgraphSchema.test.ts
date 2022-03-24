@@ -19,6 +19,8 @@ describe('printSubgraphSchema', () => {
 
       directive @transform(from: String!) on FIELD
 
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
