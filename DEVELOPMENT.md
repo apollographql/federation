@@ -102,7 +102,7 @@ DEBUG=lerna NPM_CONFIG_USERCONFIG="$HOME/.npmrc-apollo-bot" npx lerna publish fr
 
 ### Step 4: Update GitHub Milestones
 
-The [milestones](./milestones) should be updated, as appropriate. If the milestone didn't didn't have a concrete version as its name, it should be renamed to the version that was finally released.
+The [milestones](./milestones) should be updated, as appropriate. If the milestone didn't have a concrete version as its name, it should be renamed to the version that was finally released.
 
 Then, any remaining issues or PRs which did not land in this version should be moved to a newly-created milestone which reflects the newly intended release for them.
 
