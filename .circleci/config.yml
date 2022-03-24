@@ -93,9 +93,6 @@ jobs:
 #     to do this!
 common_non_publish_filters: &common_non_publish_filters
   filters:
-    branches:
-      # If 'docs' is found, with word boundaries on either side, skip.
-      ignore: /.*?\bdocs\b.*/
     # Ensure every job has `tags` filters since the publish steps have tags.
     # This is some wild configuration thing that's pretty hard to figure out.
     tags:

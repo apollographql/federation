@@ -140,7 +140,7 @@ function printSchemaDefinitionOrExtension(
   }
   const rootEntries = orderRoots(roots, options).map((rootType) => `${options.indentString}${rootType.rootKind}: ${rootType.type}`);
   // Note that that the description is never written with the extension as `extend schema` doesn _not_ support descriptions
-  return (extension ? '' : printDescription(schemaDefinition, options))
+  return printDescription(schemaDefinition, options, extension)
     + printIsExtension(extension)
     + 'schema'
     + printAppliedDirectives(directives, options, true, rootEntries.length !== 0)
@@ -187,7 +187,7 @@ export function printTypeDefinitionAndExtensions(type: NamedType, options: Print
 
 export function printDirectiveDefinition(directive: DirectiveDefinition, options: PrintOptions): string {
   const locations = directive.locations.join(' | ');
-  return `${printDescription(directive, options)}directive ${directive}${printArgs(directive.arguments(), options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
+  return `${printDescription(directive, options, null)}directive ${directive}${printArgs(directive.arguments(), options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(
@@ -207,10 +207,12 @@ function printAppliedDirectives(
 function printDescription(
   element: SchemaElement<any, any>,
   options: PrintOptions,
+  extension: Extension<any> | undefined | null,
   indentation: string = '',
   firstInBlock: boolean = true
 ): string {
-  if (element.description === undefined || options.noDescriptions) {
+  // Note that extensions cannot have descriptions (it's not syntactically valid)
+  if (extension || element.description === undefined || options.noDescriptions) {
     return '';
   }
 
@@ -227,7 +229,7 @@ function printScalarDefinitionOrExtension(type: ScalarType, options: PrintOption
   if (extension && !directives.length) {
     return undefined;
   }
-  return `${printDescription(type, options)}${printIsExtension(extension)}scalar ${type.name}${printAppliedDirectives(directives, options, true, false)}`
+  return `${printDescription(type, options, extension)}${printIsExtension(extension)}scalar ${type.name}${printAppliedDirectives(directives, options, true, false)}`
 }
 
 function printImplementedInterfaces(implementations: readonly InterfaceImplementation<any>[]): string {
@@ -246,7 +248,7 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
   if (!directives.length && !interfaces.length && !fields.length) {
     return undefined;
   }
-  return printDescription(type, options)
+  return printDescription(type, options, extension)
     + printIsExtension(extension)
     + kind + ' ' + type
     + printImplementedInterfaces(interfaces)
@@ -262,7 +264,7 @@ function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions,
     return undefined;
   }
   const possibleTypes = members.length ? ' = ' + members.map(m => m.type).join(' | ') : '';
-  return printDescription(type, options)
+  return printDescription(type, options, extension)
     + printIsExtension(extension)
     + 'union ' + type
     + printAppliedDirectives(directives, options, true, members.length > 0)
@@ -276,11 +278,11 @@ function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, e
     return undefined;
   }
   const vals = values.map((v, i) =>
-    printDescription(v, options, options.indentString, !i)
+    printDescription(v, options, extension, options.indentString, !i)
     + options.indentString
     + v
     + printAppliedDirectives(v.appliedDirectives, options));
-  return printDescription(type, options)
+  return printDescription(type, options, extension)
     + printIsExtension(extension)
     + 'enum ' + type
     + printAppliedDirectives(directives, options, true, vals.length > 0)
@@ -294,7 +296,7 @@ function printInputDefinitionOrExtension(type: InputObjectType, options: PrintOp
   if (!directives.length && !fields.length) {
     return undefined;
   }
-  return printDescription(type, options)
+  return printDescription(type, options, extension)
     + printIsExtension(extension)
     + 'input ' + type
     + printAppliedDirectives(directives, options, true, fields.length > 0)
@@ -304,7 +306,7 @@ function printInputDefinitionOrExtension(type: InputObjectType, options: PrintOp
 
 function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefinition)[], options: PrintOptions): string {
   return printBlock(fields.map((f, i) =>
-    printDescription(f, options, options.indentString, !i)
+    printDescription(f, options, undefined, options.indentString, !i)
     + options.indentString
     + printField(f, options)
     + printAppliedDirectives(f.appliedDirectives, options)));
@@ -332,7 +334,7 @@ function printArgs(args: readonly ArgumentDefinition<any>[], options: PrintOptio
   }
 
   const formattedArgs = args
-    .map((arg, i) => printDescription(arg, options, '  ' + indentation, !i) + '  ' + indentation + printArg(arg, options))
+    .map((arg, i) => printDescription(arg, options, null, '  ' + indentation, !i) + '  ' + indentation + printArg(arg, options))
     .join('\n');
   return `(\n${formattedArgs}\n${indentation})`;
 }

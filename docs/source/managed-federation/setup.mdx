@@ -1,10 +1,8 @@
 ---
 title: Setting up managed federation
-sidebar_title: Setup
 ---
 
 import ObtainGraphApiKey from '../../shared/obtain-graph-api-key.mdx';
-import ProjectConfigPanel from 'gatsby-theme-apollo-docs/shared/project-config-panel.mdx';
 import RegisterFederatedCli from '../../shared/register-federated-cli.mdx';
 
 This article describes how to set up Apollo Studio for a graph that uses Apollo Federation.
@@ -30,7 +28,7 @@ If you haven't yet, complete the first two steps from the Apollo Studio getting 
 
 If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl`, like this:
 
-```js{2}
+```js {2}
 const gateway = new ApolloGateway({
   supergraphSdl
 });
@@ -64,7 +62,7 @@ Like your subgraphs, your gateway uses a graph API key to identify itself to Stu
 
 After obtaining your graph API key, you set two environment variables in your gateway's environment. If you're using a `.env` file with a library like [`dotenv`](https://www.npmjs.com/package/dotenv), those environment variables look like this:
 
-```sh:title=.env
+```sh title=".env"
 APOLLO_KEY=<YOUR_GRAPH_API_KEY>
 APOLLO_GRAPH_REF=<YOUR_GRAPH_ID>@<VARIANT>
 ```

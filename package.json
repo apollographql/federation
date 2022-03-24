@@ -40,8 +40,8 @@
   "devDependencies": {
     "@apollo/client": "3.5.10",
     "@graphql-codegen/cli": "2.6.2",
-    "@graphql-codegen/typescript": "2.4.7",
-    "@graphql-codegen/typescript-operations": "2.3.4",
+    "@graphql-codegen/typescript": "2.4.8",
+    "@graphql-codegen/typescript-operations": "2.3.5",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
     "@types/async-retry": "^1.4.3",
@@ -56,8 +56,8 @@
     "@types/node": "12.20.47",
     "@types/node-fetch": "2.6.1",
     "@types/whatwg-url": "8.2.1",
-    "@typescript-eslint/eslint-plugin": "5.14.0",
-    "apollo-server": "3.6.3",
+    "@typescript-eslint/eslint-plugin": "5.15.0",
+    "apollo-server": "3.6.4",
     "apollo-server-env": "4.2.1",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
@@ -68,11 +68,11 @@
     "jest-cucumber": "3.0.1",
     "jest-junit": "13.0.0",
     "lerna": "4.0.0",
-    "log4js": "6.4.2",
+    "log4js": "6.4.3",
     "mocked-env": "1.3.5",
     "nock": "13.2.4",
     "node-fetch": "2.6.7",
-    "prettier": "2.5.1",
+    "prettier": "2.6.0",
     "prompt-confirm": "2.0.4",
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.3",
@@ -91,7 +91,7 @@
     ]
   },
   "volta": {
-    "node": "16.14.0",
-    "npm": "8.5.3"
+    "node": "16.14.2",
+    "npm": "8.5.5"
   }
 }
