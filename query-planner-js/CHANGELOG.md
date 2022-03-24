@@ -8,6 +8,31 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - _Nothing yet! Stay tuned!_
 
+## v2.0.0-preview.7
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.6
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.5
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.4
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.3
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.2
+
+- Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
+
+
 ## v2.0.0-preview.1
 
 - No-op publish to account for publishing difficulties.

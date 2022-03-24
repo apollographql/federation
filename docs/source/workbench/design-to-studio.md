@@ -1,6 +1,5 @@
 ---
-title: "Setting up Managed Federation"
-sidebar_title: "Setting up Managed Federation"
+title: Setting up Managed Federation
 ---
 
 Apollo Workbench enables you to push a design into your Apollo Studio account as a new graph. This comes with an [exported project](./exporting/) that has Managed Federation set up by default.

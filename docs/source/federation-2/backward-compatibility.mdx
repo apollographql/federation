@@ -1,16 +1,19 @@
 ---
 title: Backward compatibility in Federation 2
-sidebar_title: ⬅️ Backward compatibility
 description: FAQ
 ---
 
-import { ExpansionPanel } from 'gatsby-theme-apollo-docs';
+## Do I need to modify my subgraph schemas to use Federation 2?
 
-## Do I need to modify my subgraph schemas for Federation 2?
+**Eventually.** The process of [moving to Federation 2](./moving-to-federation-2/) has two phases:
 
-**Probably not.** You can move most existing graphs to Federation 2 and they compose successfully with no changes.
+1. Use Federation 2 composition with your Federation 1 subgraph schemas.
+2. Convert your Federation 1 subgraph schemas to true Federation 2 subgraph schemas.
 
-> Graphs that _do_ require changes are graphs that _should_ cause certain composition errors that Federation 1 fails to detect. [See below.](#breaking-changes)
+Phase 1 usually requires _no_ changes to your subgraph schemas. Schemas that _do_ require changes are schemas that _should_ cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
+
+Phase 2 _does_ require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#phase-2-modify-subgraph-schemas).
+
 
 ### Breaking changes
 
@@ -24,7 +27,7 @@ An entity's `@key` consists of one or more of the entity's own `fields`. If any 
 
 <p style="margin-bottom: 0">✅</p>
 
-```graphql{1}
+```graphql {1}
 type User @key(fields: "id organization { id }") {
  id: ID!
  organization: Organization!
@@ -42,7 +45,7 @@ Federation 1 composition _incorrectly_ allows a `@key` such as the following:
 
 <p style="margin-bottom: 0">❌</p>
 
-```graphql{1}
+```graphql {1}
 type User @key(fields: "id organization") {
  id: ID!
  organization: Organization!
@@ -58,12 +61,11 @@ This `@key` should _break_ composition because it doesn't include at least one s
 
 #### Invalid `@requires` directives
 
-An entity's extending subgraph can use the `@requires` directive to define [computed fields](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) that depend on fields and subfields in the entity's _originating_ subgraph:
+A subgraph can mark an entity field with the [`@requires` directive](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) to indicate that it depends on fields and subfields from _another_ subgraph:
 
 <p style="margin-bottom: 0">✅</p>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Product @key(fields:"sku") {
   sku: ID!
   dimensions: ProductDimensions!
@@ -75,8 +77,7 @@ type ProductDimensions {
 }
 ```
 
-```graphql{5}
-# Subgraph B
+```graphql {4} title="Subgraph B"
 extend type Product @key(fields:"sku") {
   sku: ID! @external
   dimensions: ProductDimensions! @external
@@ -95,8 +96,7 @@ Federation 1 _incorrectly_ allows a `@requires` directive such as the following:
 
 <p style="margin-bottom: 0">❌</p>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Product @key(fields:"sku") {
   sku: ID!
   dimensions: ProductDimensions!
@@ -108,8 +108,7 @@ type ProductDimensions {
 }
 ```
 
-```graphql{5}
-# Subgraph B
+```graphql {4} title="Subgraph B"
 extend type Product @key(fields:"sku") {
   sku: ID! @external
   dimensions: ProductDimensions! @external
@@ -127,12 +126,26 @@ This `@requires` directive should _break_ composition because it depends on subf
 </ExpansionPanel>
 
 
-## Can Federation 1 compose my Federation 2 graph?
+## Can Federation 1 compose my Federation 2 subgraph schemas?
 
-**Probably not.** Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. If you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
+**No,** not after you [convert at least one subgraph schema](#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2) to a true Federation 2 schema.
+
+Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
 
 ## Does `@apollo/gateway` v2 support Federation 1?
 
 **Yes.** If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version _before_ you're ready to [move your graph to Federation 2](./moving-to-federation-2/).
 
 **Your plugins and customizations for `@apollo/gateway` `0.x` will continue to work as expected in `@apollo/gateway` `2.x`**.
+
+## Is official support for `@apollo/gateway` v0.x being removed?
+
+**No,** at _least_ through the end of 2022. We'll announce more specific updates about `@apollo/gateway` v0.x support as they're available.
+
+## Compatibility table
+
+| | Federation 1<br/>Composition | Federation 2<br/>Composition |
+|-|--------------|--------------|
+| `@apollo/gateway` v0.x | ✔️ | ❌ |
+| `@apollo/gateway` v2.x | ✔️ | ✔️ |
+| [Apollo Router](https://www.apollographql.com/docs/router/) | ✔️ | ✔️ |

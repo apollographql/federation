@@ -1,0 +1,64 @@
+{
+  "title": "Federation",
+  "version": "v2",
+  "algoliaFilters": [
+    "docset:federation",
+    [
+      "docset:server",
+      "docset:rover",
+      "docset:router",
+      "docset:studio"
+    ]
+  ],
+  "sidebar": {
+    "Introduction": "/",
+    "Federation 2 Updates": {
+      "☀️ New in the preview": "/federation-2/new-in-federation-2",
+      "🚚 Moving your graph": "/federation-2/moving-to-federation-2",
+      "⬅️ Backward compatibility": "/federation-2/backward-compatibility",
+      "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
+      "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md"
+    },
+    "Quickstart": {
+      "1️⃣ Project setup": "/quickstart/setup",
+      "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
+      "3️⃣ Local schema composition": "/quickstart/local-composition",
+      "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
+    },
+    "Implementing": {
+      "Subgraphs": "/subgraphs",
+      "The gateway": "/gateway"
+    },
+    "Federated Schemas": {
+      "Overview": "/federated-types/overview",
+      "Composition": "/federated-types/composition",
+      "Sharing types (value types)": "/federated-types/sharing-types",
+      "Entities (basics)": "/entities",
+      "Entities (advanced)": "/entities-advanced"
+    },
+    "Managed Federation": {
+      "Overview": "/managed-federation/overview",
+      "Setup": "/managed-federation/setup",
+      "Deployment best practices": "/managed-federation/deployment",
+      "Studio features": "https://www.apollographql.com/docs/studio/federated-graphs/"
+    },
+    "Third-Party Support": {
+      "Subgraph-compatible libraries": "/other-servers",
+      "Subgraph specification": "/federation-spec"
+    },
+    "API Reference": {
+      "@apollo/subgraph": "/api/apollo-subgraph",
+      "@apollo/gateway": "/api/apollo-gateway"
+    },
+    "Apollo Workbench": {
+      "Overview": "/workbench/overview",
+      "Setup": "/workbench/setup",
+      "Using with Federation 2": "/workbench/using-federation-2",
+      "Creating a new graph": "/workbench/create-new-graph",
+      "Importing a graph from Studio": "/workbench/import-studio-graph",
+      "Setting up Managed Federation": "/workbench/design-to-studio",
+      "Testing graphs locally": "/workbench/mocking",
+      "Exporting designs": "/workbench/exporting"
+    }
+  }
+}

@@ -107,7 +107,7 @@ query {
 
 When paginating fields, it's important to set a maximum number of items that may be returned in a single response. In the example above, you may wish to return a GraphQL error when executing the `posts` field resolver instead of attempting to return 1000 posts for each of the 100 authors.
 
-And as mentioned in the [federated schema design section](/enterprise-guide/federated-schema-design/), with federation, it’s a best practice to consider how you standardize these pagination characteristics of your fields across subgraphs so that client developers have a predictable experience querying different fields of the API. That’s not to say that all fields should be paginated in the same way (for example, only using cursor-based pagination or only using offset-based pagination), but their arguments and their outputs should provide an intuitive experience on the client-side.
+And as mentioned in the [federated schema design section](./federated-schema-design/), with federation, it’s a best practice to consider how you standardize these pagination characteristics of your fields across subgraphs so that client developers have a predictable experience querying different fields of the API. That’s not to say that all fields should be paginated in the same way (for example, only using cursor-based pagination or only using offset-based pagination), but their arguments and their outputs should provide an intuitive experience on the client-side.
 
 #### Validate and sanitize data
 

@@ -533,3 +533,67 @@ test('handles unions types having no members in a subgraph correctly', () => {
   expect(b.type('C')).toBeUndefined();
   expect(a.type('D')).toBeDefined();
 })
+
+test('throw meaningful error for invalid federation directive fieldSet', () => {
+  const supergraph = `
+    schema
+      @core(feature: "https://specs.apollo.dev/core/v0.2"),
+      @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+    {
+      query: Query
+    }
+
+    directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+
+    directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+    directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+    type A @join__owner(graph: SERVICEA) @join__type(graph: SERVICEA, key: "id") @join__type(graph: SERVICEB, key: "id") {
+      id: ID
+      a: Int @join__field(graph: SERVICEB, requires: "b { x }")
+      b: B
+    }
+
+    type B @join__owner(graph: SERVICEA) @join__type(graph: SERVICEA, key: "id") {
+      id: ID
+      x: Int
+    }
+
+    type Query {
+      q: A
+    }
+
+    enum core__Purpose {
+      """
+      \`EXECUTION\` features provide metadata necessary to for operation execution.
+      """
+      EXECUTION
+
+      """
+      \`SECURITY\` features provide metadata necessary to securely resolve fields.
+      """
+      SECURITY
+    }
+
+    scalar join__FieldSet
+
+    enum join__Graph {
+      SERVICEA @join__graph(name: "serviceA" url: "")
+      SERVICEB @join__graph(name: "serviceB" url: "")
+    }
+  `;
+
+  const schema = buildSupergraphSchema(supergraph)[0];
+  expect(() => extractSubgraphsFromSupergraph(schema)).toThrow(
+    'Error extracting subgraph "serviceB" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
+    + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph.\n'
+    + '\n'
+    + 'Details:\n'
+    + '[serviceB] On field "A.a", for @requires(fields: "b { x }"): Cannot query field "b" on type "A" (if the field is defined in another subgraph, you need to add it to this subgraph with @external).'
+  );
+})

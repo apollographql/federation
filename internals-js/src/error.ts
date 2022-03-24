@@ -105,6 +105,20 @@ export function errorCodeDef(e: GraphQLError | string): ErrorCodeDefinition | un
   return code ? codeDefByCode[code] : undefined;
 }
 
+export function withModifiedErrorMessage(e: GraphQLError, newMessage: string): GraphQLError {
+  return new GraphQLError(
+    newMessage,
+    {
+      nodes: e.nodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
 const INVALID_GRAPHQL = makeCodeDefinition(
   'INVALID_GRAPHQL',
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
@@ -252,6 +266,11 @@ const EXTERNAL_ON_INTERFACE = makeCodeDefinition(
   'The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical',
 );
 
+const MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL = makeCodeDefinition(
+  'MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL',
+  'In a subgraph, a field is both marked @external and has a merged directive applied to it',
+);
+
 const FIELD_TYPE_MISMATCH = makeCodeDefinition(
   'FIELD_TYPE_MISMATCH',
   'A field has a type that is incompatible with other declarations of that field in other subgraphs.',
@@ -360,6 +379,7 @@ export const ERRORS = {
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
   EXTERNAL_ON_INTERFACE,
+  MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL,
   FIELD_TYPE_MISMATCH,
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,

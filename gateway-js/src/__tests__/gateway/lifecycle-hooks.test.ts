@@ -137,7 +137,7 @@ describe('lifecycle hooks', () => {
 
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
-    // Note that we've composing our usual test fixtures here 
+    // Note that we've composing our usual test fixtures here
     const expectedFirstId = createHash('sha256').update(getTestingSupergraphSdl()).digest('hex');
     expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
@@ -145,9 +145,9 @@ describe('lifecycle hooks', () => {
 
     // Note that this assertion is a tad fragile in that every time we modify
     // the supergraph (even just formatting differences), this ID will change
-    // and this test will have to updated. 
+    // and this test will have to updated.
     expect(secondCall[0]!.compositionId).toEqual(
-      '3ca7f295b11b070d1e1b56a698cbfabb70cb2b5912a4ff0ecae2fb91e8709838',
+      'cf96012e98a17d3739f90afed59ef6a5d969d42a5780f9a069a790f2a959d711',
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);
@@ -183,7 +183,7 @@ describe('lifecycle hooks', () => {
     );
   });
 
-  it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
+  it('registers schema change callbacks when pollIntervalInMs is set for unmanaged configs', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions =
       jest.fn(async (_config) => {
         return { serviceDefinitions, isNewSchema: true };

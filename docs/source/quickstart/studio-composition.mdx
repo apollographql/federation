@@ -1,10 +1,7 @@
 ---
-title: "Federation 2 quickstart"
-sidebar_title: "2️⃣ Composition in Apollo Studio"
-description: "Part 2 - Composition in Apollo Studio"
+title: Federation 2 quickstart
+description: Part 2 - Composition in Apollo Studio
 ---
-
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 Now that our project and tools are set up, we can start composing our supergraph schema with Apollo Studio.
 
@@ -57,7 +54,7 @@ Let's return to our gateway project. We can now use Rover's `subgraph publish` c
 
 Run the following from your project directory, substituting your Studio graph's **graph ref** where indicated:
 
-```shell{1}
+```shell {1}
 rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
   --routing-url https://rover.apollo.dev/quickstart/products/graphql \
   --schema ./products.graphql \
@@ -94,7 +91,7 @@ Nice! If you open your graph's details in Studio now, you'll see types and field
 
 Now, let's do the same thing for our `reviews` subgraph, **again substituting your graph ref where indicated**:
 
-```shell{1}
+```shell {1}
 rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
   --routing-url https://rover.apollo.dev/quickstart/reviews/graphql \
   --schema ./reviews.graphql \
@@ -107,7 +104,7 @@ Now that we've published our subgraph schemas, Apollo Studio automatically compo
 
 ## 2. Enable Federation 2 support
 
-To try out managed federation with the Federation 2 alpha, you set your graph's federation version in Apollo Studio.
+To try out managed federation with the Federation 2 preview, you set your graph's federation version in Apollo Studio.
 
 Open your graph's Settings page and find the Manage Variants section:
 
@@ -166,7 +163,7 @@ It's time to enable our gateway to fetch its supergraph schema from Apollo! To d
     🚀 Gateway ready at http://localhost:4000/
     ```
 
-> By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](./metrics/)
+> By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
 
 We can quickly open our browser to [studio.apollographql.com/sandbox](https://studio.apollographql.com/sandbox) to explore our composed schema in Apollo Sandbox:
 

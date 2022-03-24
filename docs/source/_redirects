@@ -1,6 +1,10 @@
+/federation-2/*  /docs/federation/v2/federation-2/:splat
+
 /v2/federation-2/coming-to-federation-2/ /docs/federation/v2/federation-2/under-consideration/
 /v2/federated-types/restricting-types-fields/ /docs/federation/v2/federated-types/ownership-directives/
-/v2/federated-types/types-fields/ /docs/federation/v2/federated-types/value-types/
+/v2/federated-types/types-fields/ /docs/federation/v2/federated-types/
+/v2/value-types/ /docs/federation/v2/federated-types/sharing-types/
+/v2/federated-types/value-types/  /docs/federation/v2/federated-types/sharing-types/
 
 /v2/quickstart/ /docs/federation/v2/quickstart/setup/
 /v2/quickstart-pt-2/ /docs/federation/v2/quickstart/studio-composition/
