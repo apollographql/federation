@@ -43,10 +43,11 @@ import { didYouMean, suggestionList } from "./suggestions";
 import { withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
+const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
-export const ErrGraphQLValidationFailed = (causes: GraphQLError[]) =>
+export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   err(validationErrorCode, {
-    message: 'The schema is not a valid GraphQL schema',
+    message,
     causes
   });
 
