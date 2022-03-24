@@ -32,6 +32,7 @@
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
       "Composition": "/federated-types/composition",
+      "Federated directives": "/federated-types/federated-directives",
       "Sharing types (value types)": "/federated-types/sharing-types",
       "Entities (basics)": "/entities",
       "Entities (advanced)": "/entities-advanced"

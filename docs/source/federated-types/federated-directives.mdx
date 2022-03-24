@@ -1,0 +1,100 @@
+---
+title: Federation-specific GraphQL directives
+---
+
+Apollo Federation defines a collection of **directives** that you use in your subgraph schemas to enable certain features.
+
+## Importing directives
+
+To use federated directives in a subgraph schema, that schema must include an `extend schema` definition with the following shape:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
+```
+
+The `import` array must include whichever federated directives your subgraph schema uses. The example above imports the `@key` and `@shareable` directives.
+
+## `@key`
+
+Designates an object type as an [entity](../entities/).
+
+**Valid locations:** Object type definitions
+
+```graphql {1}
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+  
+<tr class="required">
+<td>
+
+##### `fields`
+
+`String`
+</td>
+<td>
+
+**Required.** A comma-separated list of field names that contribute to the entity's primary key.
+
+</td>
+</tr>
+
+<tr class="required">
+<td>
+
+##### `resolvable`
+
+`Boolean`
+</td>
+<td>
+
+If `false`, informs the gateway that this subgraph _can't_ resolve fields of this entity besides `@key` fields. Include this when [referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+
+The default value is `true`.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## `@shareable`
+
+Indicates that an object type's field can be resolved by multiple subgraphs (by default, each field can be resolved by only one subgraph).
+
+**Valid locations:** Field definitions, Object type definitions
+
+```graphql {2-3}
+type Position {
+  x: Int! @shareable
+  y: Int! @shareable
+}
+```
+
+If applied to an object type definition, _all_ of that type's fields are considered `@shareable`:
+
+```graphql {1}
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+```
+
+See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
