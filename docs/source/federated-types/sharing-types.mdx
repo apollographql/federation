@@ -60,7 +60,7 @@ To use `@shareable` in a subgraph schema, you first need to add the following sn
 ```graphql
 extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-       import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 ```
 
 Then you can apply the `@shareable` directive to an object type, or to _individual fields_ of that type:

@@ -68,9 +68,9 @@ For a subgraph to use [new features in Federation 2](./federation-2/new-in-feder
 
 ```js {2-4}
 const typeDefs = gql`
-  extend schema
+extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 
   type Query {
     me: User
@@ -95,7 +95,7 @@ As part of our federated architecture, we want _other_ subgraphs to be able to c
 const typeDefs = gql`
   extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 
   type Query {
     me: User
@@ -158,7 +158,7 @@ const { buildSubgraphSchema } = require('@apollo/subgraph');
 const typeDefs = gql`
   extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable"])
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
 
   type Query {
     me: User
