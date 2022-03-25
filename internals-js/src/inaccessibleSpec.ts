@@ -96,6 +96,6 @@ export function removeInaccessibleElements(schema: Schema) {
   }
 
   if (errors.length > 0) {
-    throw ErrGraphQLValidationFailed(errors, 'Schema has invalid usages of the the @inaccessible directive.');
+    throw ErrGraphQLValidationFailed(errors, `Schema has ${errors.length === 1 ? 'an invalid use' : 'invalid uses'} of the @inaccessible directive.`);
   }
 }
