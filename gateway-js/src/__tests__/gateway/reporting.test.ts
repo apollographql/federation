@@ -229,6 +229,7 @@ describe('reporting', () => {
           "seconds": "1562203363",
         },
         "header": "<HEADER>",
+        "operationCount": 1,
         "tracesPerQuery": Object {
           "# -
       {me{name{first last}}topProducts{name}}": Object {
