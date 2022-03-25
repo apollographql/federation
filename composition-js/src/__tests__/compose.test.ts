@@ -2240,8 +2240,6 @@ describe('composition', () => {
       };
 
       const validateError = (result: CompositionResult) => {
-        console.log(result.supergraphSdl);
-
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphA] Cannot apply merged directive @tag(name: "myTag") to external field "User.birthdate"']
@@ -2261,5 +2259,72 @@ describe('composition', () => {
         validateError(composeServices([subgraphA, asFed2Service(subgraphB)]));
       });
     });
+
+    it('errors out if @tag is imported under mismatched names', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@apolloTag"}])
+
+          type Query {
+            q1: Int @apolloTag(name: "t1")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+          type Query {
+            q2: Int @tag(name: "t2")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@tag" directive is imported with mismatched name between subgraphs: it is imported as "@tag" in subgraph "subgraphB" but "@apolloTag" in subgraph "subgraphA"']
+      ]);
+    });
+
+    it('succeeds if @tag is imported under the same non-default name', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@apolloTag"}])
+
+          type Query {
+            q1: Int @apolloTag(name: "t1")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@apolloTag"}])
+
+          type Query {
+            q2: Int @apolloTag(name: "t2")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = result.schema;
+      const tagOnQ1 = supergraph.schemaDefinition.rootType('query')?.field('q1')?.appliedDirectivesOf('apolloTag').pop();
+      expect(tagOnQ1?.arguments()['name']).toBe('t1');
+
+      const tagOnQ2 = supergraph.schemaDefinition.rootType('query')?.field('q2')?.appliedDirectivesOf('apolloTag').pop();
+      expect(tagOnQ2?.arguments()['name']).toBe('t2');
+    })
   });
 });
