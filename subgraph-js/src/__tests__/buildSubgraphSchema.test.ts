@@ -688,7 +688,7 @@ union UserButAUnion @tag(name: "tagOnUnion") = User
       {
         name: 'fed2',
         header:
-          'extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")\n\n',
+          'extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: "@key")\n\n',
       },
     ])('adds it for $name schema', async ({ header }) => {
       await validateTag(header);

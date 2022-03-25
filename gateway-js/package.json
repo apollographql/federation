@@ -26,7 +26,6 @@
   },
   "dependencies": {
     "@apollo/composition": "file:../composition-js",
-    "@apollo/core-schema": "^0.2.2",
     "@apollo/query-planner": "file:../query-planner-js",
     "@josephg/resolvable": "^1.0.1",
     "@opentelemetry/api": "^1.0.1",

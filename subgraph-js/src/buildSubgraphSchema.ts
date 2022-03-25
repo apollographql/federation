@@ -5,8 +5,7 @@ import {
   isObjectType,
   isUnionType,
   GraphQLUnionType,
-  GraphQLObjectType,
-  specifiedDirectives,
+  GraphQLObjectType
 } from 'graphql';
 import {
   GraphQLSchemaModule,
@@ -67,7 +66,6 @@ export function buildSubgraphSchema(
     modules,
     new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives],
     }),
   );
 

@@ -21,7 +21,7 @@
     "node": ">=12.13.0 <17.0"
   },
   "dependencies": {
-    "@apollo/core-schema": "^0.3"
+    "@apollo/core-schema": "https://github.com/apollographql/core-schema-js#link-import"
   },
   "devDependencies": {
     "@protoplasm/recall": "^0.1.0"
