@@ -346,9 +346,8 @@ const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
 
 const REFERENCED_INACCESSIBLE = makeCodeDefinition(
   'REFERENCED_INACCESSIBLE',
-  'An element is marked as @inaccessible but is referenced by a non-inacessible elemnent (at least in post-merging of the subgraphs)'
+  'An element is marked as @inaccessible but is referenced by a non-inaccessible element.'
 );
-
 
 const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
   'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',

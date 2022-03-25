@@ -479,7 +479,7 @@ function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractT
   const builder = new GraphBuilderFromSchema(
     name,
     schema,
-    supergraphSchema ? { apiSchema: supergraphSchema?.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
+    supergraphSchema ? { apiSchema: supergraphSchema.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
   );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);

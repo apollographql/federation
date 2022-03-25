@@ -1407,6 +1407,11 @@ export class Schema {
     return this.getBuiltInDirective(schema, 'specifiedBy');
   }
 
+  /**
+   * Gets an element of the schema given its "schema coordinate".
+   *
+   * Note that the syntax for schema coordinates is the one from the upcoming GraphQL spec: https://github.com/graphql/graphql-spec/pull/794.
+   */
   elementByCoordinate(coordinate: string): NamedSchemaElement<any, any, any> | undefined {
     if (!coordinate.match(coordinateRegexp)) {
       throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
@@ -1418,7 +1423,7 @@ export class Schema {
     const argName = argStartIdx < 0 ? undefined : coordinate.slice(argStartIdx + 1, coordinate.length - 2);
     const splittedStart = start.split('.');
     const typeOrDirectiveName = splittedStart[0];
-    const fieldOrEnumName = splittedStart.length > 1 ? splittedStart[1] : undefined;
+    const fieldOrEnumName = splittedStart[1];
     const isDirective = typeOrDirectiveName.startsWith('@');
     if (isDirective) {
       if (fieldOrEnumName) {

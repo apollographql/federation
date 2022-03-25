@@ -1787,7 +1787,11 @@ class Merger {
       const element = e.extensions['inaccessible_element'];
       // We only point to subgraphs where the element is marked inaccesssible, as other subgraph are not relevant.
       const elementNodes = element && typeof element === 'string'
-        ? sourceASTs(...this.subgraphsSchema.map((schema) => schema.elementByCoordinate(element)).filter((elt) => elt?.hasAppliedDirective(federationMetadata(elt.schema())!.inaccessibleDirective())))
+        ? sourceASTs(
+            ...this.subgraphsSchema
+              .map((schema) => schema.elementByCoordinate(element))
+              .filter((elt) => elt?.hasAppliedDirective(federationMetadata(elt.schema())!.inaccessibleDirective()))
+          )
         : [];
 
       // Note that the error we get will likely have some AST nodes, but those will be to the supergraph and that's not
