@@ -102,6 +102,16 @@ export const LinkDirective = new GraphQLDirective({
   },
 });
 
+export const InaccessibleDirective = new GraphQLDirective({
+  name: 'inaccessible',
+  locations: [
+    DirectiveLocation.FIELD_DEFINITION,
+    DirectiveLocation.OBJECT,
+    DirectiveLocation.INTERFACE,
+    DirectiveLocation.UNION,
+  ],
+});
+
 export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
@@ -111,6 +121,7 @@ export const federationDirectives = [
   ShareableDirective,
   LinkDirective,
   TagDirective,
+  InaccessibleDirective,
 ];
 
 export function isFederationDirective(directive: GraphQLDirective): boolean {

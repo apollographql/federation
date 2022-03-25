@@ -9,8 +9,16 @@ import {
 } from "./definitions";
 import { GraphQLError, DirectiveLocation } from "graphql";
 import { registerKnownFeature } from "./knownCoreFeatures";
+import { ERRORS } from "./error";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
+
+export const inaccessibleLocations = [
+  DirectiveLocation.FIELD_DEFINITION,
+  DirectiveLocation.OBJECT,
+  DirectiveLocation.INTERFACE,
+  DirectiveLocation.UNION,
+];
 
 export class InaccessibleSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion) {
@@ -18,12 +26,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   }
 
   addElementsToSchema(schema: Schema) {
-    this.addDirective(schema, 'inaccessible').addLocations(
-      DirectiveLocation.FIELD_DEFINITION,
-      DirectiveLocation.OBJECT,
-      DirectiveLocation.INTERFACE,
-      DirectiveLocation.UNION,
-    );
+    this.addDirective(schema, 'inaccessible').addLocations(...inaccessibleLocations);
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
@@ -76,10 +79,16 @@ export function removeInaccessibleElements(schema: Schema) {
         // field type will be `undefined`).
         if (reference.kind === 'FieldDefinition') {
           if (!reference.hasAppliedDirective(inaccessibleDirective)) {
-            throw new GraphQLError(
-              `Field ${reference.coordinate} returns an @inaccessible type without being marked @inaccessible itself.`,
-              reference.sourceAST,
-            );
+            // We ship the inaccessible type and it's invalid reference in the extensions so composition can extract those and add proper links
+            // in the subgraphs for those elements.
+            throw ERRORS.REFERENCED_INACCESSIBLE.err({
+              message: `Field "${reference.coordinate}" returns @inaccessible type "${type}" without being marked @inaccessible itself.`,
+              nodes: reference.sourceAST,
+              extensions: {
+                "inaccessible_element": type.coordinate,
+                "inaccessible_reference": reference.coordinate,
+              }
+            });
           }
         }
         // Other references can be:
