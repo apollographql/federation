@@ -142,6 +142,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "JS: Node 17"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/dry_run:
@@ -151,6 +152,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "JS: Node 17"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/confirmation:
