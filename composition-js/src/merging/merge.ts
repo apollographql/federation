@@ -50,12 +50,14 @@ import {
   joinStrings,
   FederationMetadata,
   printSubgraphNames,
-  Subgraph,
   federationIdentity,
   linkIdentity,
   coreIdentity,
   FEDERATION_OPERATION_TYPES,
   LINK_VERSIONS,
+  federationMetadata,
+  FeatureDefinition,
+  Subgraph,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -161,25 +163,15 @@ function isGraphQLBuiltInDirective(def: DirectiveDefinition): boolean {
   return !!def.schema().builtInDirective(def.name);
 }
 
-function isMergedDirective(definition: DirectiveDefinition | Directive): boolean {
-  // If it's a directive application, then we skip it unless it's a graphQL built-in
-  // (even if the definition itself allows executable locations, this particular
-  // application is an type-system element and we don't want to merge it).
-  if (definition instanceof Directive) {
-    // We have special code in `Merger.prepareSupergraph` to include the _definition_ of @tag in the supergraph
-    // because we want to make sure it's included as a "core feature", and so we want this method
-    // to return `false` for `@tag` definition, but we *do* want to merge `@tag` applications so we
-    // special case it.
-    // Note that this is a temporary solution: a more principled way to have directive propagated
-    // is coming and will remove the hard-coding.
-    return definition.name === 'tag' || isGraphQLBuiltInDirective(definition.definition!);
-  } else if (isGraphQLBuiltInDirective(definition)) {
-    // We never "merge" graphQL built-in definitions, since they are built-in and
-    // don't need to be defined.
-    return false;
-  }
-  return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
+type MergedDirectiveInfo = {
+  specInSupergraph: FeatureDefinition,
+  definitionInSubgraph: (subgraph: Subgraph) => DirectiveDefinition,
 }
+
+const MERGED_FEDERATION_DIRECTIVES: MergedDirectiveInfo[] = [
+  { specInSupergraph: tagSpec, definitionInSubgraph: (subgraph) => subgraph.metadata().tagDirective() },
+];
+
 // Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
 // that only exists due to federation operations. In other words, if a subgraph don't have a query type,
 // but one was automatically added for _entities and _services, this method returns 'undefined'.
@@ -221,10 +213,6 @@ function typeKindToString(t: NamedType): string {
   return t.kind.replace("Type", " Type");
 }
 
-function hasTagUsage(subgraph: Subgraph): boolean {
-  return subgraph.metadata().tagDirective().applications().length > 0;
-}
-
 function locationString(locations: DirectiveLocation[]): string {
   if (locations.length === 0) {
     return "";
@@ -239,6 +227,7 @@ class Merger {
   readonly hints: CompositionHint[] = [];
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
+  readonly mergedFederationDirectiveNames = new Set<string>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -253,11 +242,41 @@ class Merger {
     linkSpec.addToSchema(this.merged);
     linkSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
 
-    if (this.subgraphs.values().some(hasTagUsage)) {
-      linkSpec.applyFeatureToSchema(this.merged, tagSpec);
+    for (const mergedInfo of MERGED_FEDERATION_DIRECTIVES) {
+      this.validateAndMaybeAddSpec(mergedInfo);
     }
 
     return joinSpec.populateGraphEnum(this.merged, this.subgraphs);
+  }
+
+  private validateAndMaybeAddSpec({specInSupergraph, definitionInSubgraph}: MergedDirectiveInfo) {
+    let nameInSupergraph: string | undefined;
+    for (const subgraph of this.subgraphs) {
+      const directive = definitionInSubgraph(subgraph);
+      if (directive.applications().length === 0) {
+        continue;
+      }
+
+      if (!nameInSupergraph) {
+        nameInSupergraph = directive.name;
+      } else if (nameInSupergraph !== directive.name) {
+        this.reportMismatchError(
+          ERRORS.LINK_IMPORT_NAME_MISMATCH,
+          `The federation "@${specInSupergraph.url.name}" directive is imported with mismatched name between subgraphs: it is imported as `,
+          subgraph.metadata().federationFeature()?.directive!,
+          this.subgraphs.values().map((s) => s.metadata().federationFeature()?.directive),
+          (linkDef) => `"@${federationMetadata(linkDef.schema())?.federationFeature()?.directiveNameInSchema(specInSupergraph.url.name)}"`,
+        );
+        return;
+      }
+    }
+
+    // If we get here with `nameInSupergraph` unset, it means there is no usage for the directive at all and we
+    // don't bother adding the spec to the supergraph.
+    if (nameInSupergraph) {
+      this.mergedFederationDirectiveNames.add(nameInSupergraph);
+      linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph);
+    }
   }
 
   private joinSpecName(subgraphIndex: number): string {
@@ -266,6 +285,25 @@ class Merger {
 
   private metadata(idx: number): FederationMetadata {
     return this.subgraphs.values()[idx].metadata();
+  }
+
+  private isMergedDirective(definition: DirectiveDefinition | Directive): boolean {
+    // If it's a directive application, then we skip it unless it's a graphQL built-in
+    // (even if the definition itself allows executable locations, this particular
+    // application is an type-system element and we don't want to merge it).
+    if (definition instanceof Directive) {
+      // We have special code in `Merger.prepareSupergraph` to include the _definition_ of merged federation
+      // directives in the supergraph, so we don't have to merge those _definition_, but we *do* need to merge
+      // the applications.
+      // Note that this is a temporary solution: a more principled way to have directive propagated
+      // is coming and will remove the hard-coding.
+      return this.mergedFederationDirectiveNames.has(definition.name) || isGraphQLBuiltInDirective(definition.definition!);
+    } else if (isGraphQLBuiltInDirective(definition)) {
+      // We never "merge" graphQL built-in definitions, since they are built-in and
+      // don't need to be defined.
+      return false;
+    }
+    return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
   }
 
   merge(): MergeResult {
@@ -380,7 +418,7 @@ class Merger {
     // bit round-about, it's a tad simpler code-wise to do this way.
     for (const subgraph of this.subgraphsSchema) {
       for (const directive of subgraph.allDirectives()) {
-        if (!isMergedDirective(directive)) {
+        if (!this.isMergedDirective(directive)) {
           continue;
         }
         if (!this.merged.directive(directive.name)) {
@@ -401,7 +439,7 @@ class Merger {
     );
   }
 
-  private reportMismatchError<TMismatched extends SchemaElement<any, any>>(
+  private reportMismatchError<TMismatched extends { sourceAST?: ASTNode }>(
     code: ErrorCodeDefinition,
     message: string,
     mismatchedElement:TMismatched,
@@ -424,7 +462,7 @@ class Merger {
     );
   }
 
-  private reportMismatchErrorWithSpecifics<TMismatched extends SchemaElement<any, any>>(
+  private reportMismatchErrorWithSpecifics<TMismatched extends { sourceAST?: ASTNode }>(
     code: ErrorCodeDefinition,
     message: string,
     mismatchedElement: TMismatched,
@@ -452,7 +490,7 @@ class Merger {
     );
   }
 
-  private reportMismatchHint<TMismatched extends SchemaElement<any, any>>(
+  private reportMismatchHint<TMismatched extends { sourceAST?: ASTNode }>(
     hintId: HintID,
     message: string,
     supergraphElement: TMismatched,
@@ -483,7 +521,7 @@ class Merger {
     );
   }
 
-  private reportMismatch<TMismatched extends SchemaElement<any, any>>(
+  private reportMismatch<TMismatched extends { sourceAST?: ASTNode }>(
     supergraphElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
     mismatchAccessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
@@ -823,7 +861,7 @@ class Merger {
         // Note that if we change our mind on this semantic and wanted directives on external to propagate, then we'll also
         // need to update the merging of fields since external fields are filtered out (by this very method).
         for (const directive of source.appliedDirectives) {
-          if (isMergedDirective(directive)) {
+          if (this.isMergedDirective(directive)) {
             // Contrarily to most of the errors during merging that "merge" errors for related elements, we're logging one
             // error for every application here. But this is because there error is somewhat subgraph specific and is
             // unlikely to span multiple subgraphs. In fact, we could almost have thrown this error during subgraph validation
@@ -1380,7 +1418,7 @@ class Merger {
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
     this.mergeDescription(sources, dest);
-    if (sources.some((s) => s && isMergedDirective(s))) {
+    if (sources.some((s) => s && this.isMergedDirective(s))) {
       this.mergeExecutionDirectiveDefinition(sources, dest);
     }
   }
@@ -1573,7 +1611,7 @@ class Merger {
     for (const source of sources) {
       if (source) {
         for (const directive of source.appliedDirectives) {
-          if (isMergedDirective(directive)) {
+          if (this.isMergedDirective(directive)) {
             names.add(directive.name);
           }
         }

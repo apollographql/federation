@@ -2,7 +2,7 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNEXT
+- Fix merging of `@tag` directive when it is renamed in subgraphs [PR #1637](https://github.com/apollographql/federation/pull/1637).
 
 - Handles supergraphs with `@link` instead of `@core`. Note that you should upgrade gateway to this version before upgrading composition [PR #1628](https://github.com/apollographql/federation/pull/1628).
 
