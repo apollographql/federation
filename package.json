@@ -9,6 +9,7 @@
     "compile:clean": "npm run compile -- --clean",
     "watch": "npm run compile && tsc --build tsconfig.json --watch",
     "version": "npm i --package-lock-only && git add package-lock.json",
+    "release:version-bump": "lerna version",
     "release:start-ci-publish": "node -p '`Publish (dist-tag:${process.env.APOLLO_DIST_TAG || \"latest\"})`' | git tag -F - \"publish/$(date -u '+%Y%m%d%H%M%S')\" && git push origin \"$(git describe --match='publish/*' --tags --exact-match HEAD)\"",
     "pretest": "npm run compile && tsc --build tsconfig.test.json",
     "postinstall": "lerna run monorepo-prepare --stream && npm run compile",
