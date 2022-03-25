@@ -646,54 +646,6 @@ describe('buildSubgraphSchema', () => {
       `);
     });
   });
-
-  describe('@tag directive', () => {
-    const query = `query GetServiceDetails {
-      _service {
-        sdl
-      }
-    }`;
-
-    const validateTag = async (header: string) => {
-      const schema = buildSubgraphSchema(gql`
-        ${header}
-        type User @key(fields: "email") @tag(name: "tagOnType") {
-          email: String @tag(name: "tagOnField")
-        }
-
-        interface Thing @tag(name: "tagOnInterface") {
-          name: String
-        }
-
-        union UserButAUnion @tag(name: "tagOnUnion") = User
-      `);
-
-      const { data, errors } = await graphql({ schema, source: query });
-      expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl)
-        .toEqual(`${header}type User @key(fields: "email") @tag(name: "tagOnType") {
-  email: String @tag(name: "tagOnField")
-}
-
-interface Thing @tag(name: "tagOnInterface") {
-  name: String
-}
-
-union UserButAUnion @tag(name: "tagOnUnion") = User
-`);
-    };
-
-    it.each([
-      { name: 'fed1', header: '' },
-      {
-        name: 'fed2',
-        header:
-          'extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: "@key")\n\n',
-      },
-    ])('adds it for $name schema', async ({ header }) => {
-      await validateTag(header);
-    });
-  });
 });
 
 describe('legacy interface', () => {
