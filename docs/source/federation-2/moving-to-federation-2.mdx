@@ -122,11 +122,24 @@ First, add the following definition to your subgraph schema:
 
 ```graphql
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
 ```
 
-This definition identifies a schema as a true Federation 2 schema. Without this definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
+This definition identifies a schema as a true Federation 2 schema, and it `import`s any federation-specific directives that the schema uses.
+
+> **Note:** Most subgraph schemas use the `@key` and `@shareable` directives, so we've included them in the snippet above. Depending on your schema, you might need to add other federated directives to the `import` array, such as:
+>
+> * `@external`
+> * `@provides`
+> * `@requires`
+>
+> See also [Federation-specific GraphQL directives](../federated-types/federated-directives/).
+
+
+_Without_ the above definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
+
+#### Update `@apollo/subgraph`
 
 If your subgraphs use Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` like so:
 
