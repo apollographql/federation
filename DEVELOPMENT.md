@@ -31,11 +31,12 @@ Depending on the size of the release, it may be ideal to have a staging PR which
 
 There is not a root `CHANGELOG.md` on this monorepo.  Instead, there are `CHANGELOG.md` files for specific packages:
  
-- `./query-planner-js/CHANGELOG.md` for `@apollo/query-planner`
-- `./subgraph-js/CHANGELOG.md` for `@apollo/subgraph`
-
-  > Since this is not a direct dependency of our _primary_ consumers, it is best to *also* surface important changes in `@apollo/gateway`'s `CHANGELOG.md`.
-- `./gateway-js/CHANGELOG.md` for `@apollo/gateway`.
+1. [gateway-js/CHANGELOG.md](gateway-js/CHANGELOG.md)
+1. [composition-js/CHANGELOG.md](composition-js/CHANGELOG.md)
+1. [subgraph-js/CHANGELOG.md](subgraph-js/CHANGELOG.md)
+1. [query-planner-js/CHANGELOG.md](query-planner-js/CHANGELOG.md)
+1. [internals-js/CHANGELOG.md](internals-js/CHANGELOG.md)
+1. [query-graphs-js/CHANGELOG.md](query-graphs-js/CHANGELOG.md)
 
 Ensure that the appropriate CHANGELOG.md (using the guide above) within affected packages are up to date prior to bumping the version.  Additionally, it's best to go ahead and predict what the version is going to be published as in the next step and commit that in the CHANGELOG.  This allows the Git tags that will be created in Step 2 to include the changes.
 

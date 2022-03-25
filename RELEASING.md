@@ -15,11 +15,11 @@ This is a quick and opinionated set of commands for building and releasing a new
 
 #### Bump version and tag release
 
-1. `npx lerna version --no-push --force-publish=\* "$FEDERATION_RELEASE_VERSION"` ([more info](#lerna-version))
+1. `npx lerna version --no-push --force-publish=\* "$FEDERATION_RELEASE_VERSION"`[^lerna-version]
     1. `git show --pretty="" --name-only HEAD` to see the files in the commit
     1. `git --no-pager tag --points-at HEAD` to see the tags that were created
 1. `git push --follow-tags origin` to push the version bumps & tags created by lerna in the previous step
-1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish` ([more info](#publishing))
+1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish`[^publishing]
 1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` to approve publishing to NPM
     1. There will also be a message posted to #team-atlas in slack that has a link to the approval job
 1. `npm view @apollo/subgraph versions` to ensure the version that was just published shows up in the NPM registry
@@ -32,29 +32,28 @@ This is a quick and opinionated set of commands for building and releasing a new
 
 ---
 
+# More Context
+
 ## Changelogs
 
 Changelogs should be updated when creating a release. If there are no changes for a given package, add an entry that states `Released in sync with other federation packages but no changes to this package.`
 
-1. [gateway-js/CHANGELOG.md](gateway-js/CHANGELOG.md) all changes should be reflected in here, since it's essentially a rollup of all packages
+1. [gateway-js/CHANGELOG.md](gateway-js/CHANGELOG.md)
 1. [composition-js/CHANGELOG.md](composition-js/CHANGELOG.md)
 1. [subgraph-js/CHANGELOG.md](subgraph-js/CHANGELOG.md)
 1. [query-planner-js/CHANGELOG.md](query-planner-js/CHANGELOG.md)
 1. [internals-js/CHANGELOG.md](internals-js/CHANGELOG.md)
 1. [query-graphs-js/CHANGELOG.md](query-graphs-js/CHANGELOG.md)
 
-## `lerna version`
-
-Learn more about the [`lerna version` command](https://github.com/lerna/lerna/tree/main/commands/version). For our purposes, the important part is that `lerna` will create a tag for each package (e.g. `@apollo/federation-internals@2.0.0-preview.7`).
-
-#### Why does `package-lock.json` get updated?
+## Why does `package-lock.json` get updated?
 
 `npm version` is getting called due to [lerna version lifecycle hooks](https://github.com/lerna/lerna/tree/main/commands/version#lifecycle-scripts), which calls `npm i --package-lock-only` causing the package lock to get regenerated (this is a good thing).
-
-## Publishing
-
-The important part is creating a `publish/*` tag, which starts a job in CircleCI to start the publishing process.
 
 ## Troubleshooting
 
 Mistakes happen. Most of these release steps are recoverable if you mess up.
+
+_except_ don't make any mistakes yet, because we haven't documented troubleshooting steps.
+
+[^lerna-version]: Learn more about the [`lerna version` command](https://github.com/lerna/lerna/tree/main/commands/version). For our purposes, the important parts are that `lerna` will update versions in the necessary `package*.json` files and create a tag for each package (e.g. `@apollo/federation-internals@2.0.0-preview.7`).
+[^publishing]: `npm run release:start-ci-publish` will create a `publish/timestamp-goes-here` looking tag, which starts a job in CircleCI to start the publishing process. There's a confirmation prompt in CircleCI that must be accepted before the package is fully published to NPM.
