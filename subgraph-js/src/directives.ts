@@ -5,7 +5,6 @@ import {
   GraphQLString,
   GraphQLNamedType,
   isInputObjectType,
-  GraphQLInputObjectType,
   DirectiveNode,
   GraphQLField,
   FieldDefinitionNode,
@@ -21,6 +20,10 @@ import {
   GraphQLSchema,
   GraphQLList,
   GraphQLBoolean,
+  GraphQLArgument,
+  GraphQLEnumValue,
+  GraphQLInputField,
+  EnumValueDefinitionNode,
 } from 'graphql';
 import { LinkImportType } from './types';
 
@@ -75,6 +78,12 @@ export const TagDirective = new GraphQLDirective({
     DirectiveLocation.OBJECT,
     DirectiveLocation.INTERFACE,
     DirectiveLocation.UNION,
+    DirectiveLocation.ARGUMENT_DEFINITION,
+    DirectiveLocation.SCALAR,
+    DirectiveLocation.ENUM,
+    DirectiveLocation.ENUM_VALUE,
+    DirectiveLocation.INPUT_OBJECT,
+    DirectiveLocation.INPUT_FIELD_DEFINITION,
   ],
   isRepeatable: true,
   args: {
@@ -131,16 +140,17 @@ export function isFederationDirective(directive: GraphQLDirective): boolean {
 export type ASTNodeWithDirectives =
   | FieldDefinitionNode
   | InputValueDefinitionNode
+  | EnumValueDefinitionNode
   | ExecutableDefinitionNode
   | SchemaDefinitionNode
   | TypeDefinitionNode
   | TypeSystemExtensionNode;
 
-// | GraphQLField<any, any>
-export type GraphQLNamedTypeWithDirectives = Exclude<
-  GraphQLNamedType,
-  GraphQLInputObjectType
->;
+/**
+ * @deprecated This used to be different from GraphQLNamedType, but it's not
+ * anymore. Use GraphQLNamedType instead.
+ */
+export type GraphQLNamedTypeWithDirectives = GraphQLNamedType;
 
 function hasDirectives(
   node: ASTNodeWithDirectives,
@@ -151,19 +161,25 @@ function hasDirectives(
 }
 
 export function gatherDirectives(
-  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any> | GraphQLSchema,
+  element:
+    | GraphQLSchema
+    | GraphQLNamedType
+    | GraphQLField<any, any>
+    | GraphQLArgument
+    | GraphQLEnumValue
+    | GraphQLInputField,
 ): DirectiveNode[] {
-  let directives: DirectiveNode[] = [];
-  if ('extensionASTNodes' in type && type.extensionASTNodes) {
-    for (const node of type.extensionASTNodes) {
+  const directives: DirectiveNode[] = [];
+  if ('extensionASTNodes' in element && element.extensionASTNodes) {
+    for (const node of element.extensionASTNodes) {
       if (hasDirectives(node)) {
-        directives = directives.concat(node.directives);
+        directives.push(...node.directives);
       }
     }
   }
 
-  if (type.astNode && hasDirectives(type.astNode))
-    directives = directives.concat(type.astNode.directives);
+  if (element.astNode && hasDirectives(element.astNode))
+    directives.push(...element.astNode.directives);
 
   return directives;
 }
@@ -173,7 +189,7 @@ export function typeIncludesDirective(
   directiveName: string,
 ): boolean {
   if (isInputObjectType(type)) return false;
-  const directives = gatherDirectives(type as GraphQLNamedTypeWithDirectives);
+  const directives = gatherDirectives(type);
   return directives.some((directive) => directive.name.value === directiveName);
 }
 
