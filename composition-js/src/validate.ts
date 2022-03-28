@@ -47,6 +47,8 @@ import {
   addConditionExclusion,
   SimultaneousPathsWithLazyIndirectPaths,
   advanceOptionsToString,
+  TransitionPathWithLazyIndirectPaths,
+  RootVertex,
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -223,12 +225,12 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
-    const initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
+    const initialState = ValidationState.initial(supergraphPath.graph, supergraphSchema, supergraphPath.root.rootKind, subgraphs, conditionResolver);
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath) {
-      const updated = state.validateTransition(supergraphSchema, edge, conditionResolver);
+      const updated = state.validateTransition(supergraphSchema, edge);
       if (!updated) {
         isIncomplete = true;
         break;
@@ -262,12 +264,21 @@ export class ValidationState {
     // Path in the supergraph corresponding to the current state.
     public readonly supergraphPath: RootPath<Transition>,
     // All the possible paths we could be in the subgraph.
-    public readonly subgraphPaths: RootPath<Transition>[]
+    public readonly subgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[]
   ) {
   }
 
-  static initial(supergraph: QueryGraph, kind: SchemaRootKind, subgraphs: QueryGraph) {
-    return new ValidationState(GraphPath.fromGraphRoot(supergraph, kind)!, initialSubgraphPaths(kind, subgraphs));
+  static initial(
+    supergraph: QueryGraph,
+    supergraphSchema: Schema,
+    kind: SchemaRootKind,
+    subgraphs: QueryGraph,
+    conditionResolver: ConditionValidationResolver,
+  ) {
+    return new ValidationState(
+      GraphPath.fromGraphRoot(supergraph, kind)!,
+      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(supergraphSchema, p, conditionResolver.resolver)),
+    );
   }
 
   // Either return an error (we've found a path that cannot be validated), a new state (we've successfully handled the edge
@@ -277,7 +288,6 @@ export class ValidationState {
   validateTransition(
     supergraphSchema: Schema,
     supergraphEdge: Edge,
-    conditionResolver: ConditionValidationResolver
   ): ValidationState | undefined | ValidationError {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
@@ -291,7 +301,6 @@ export class ValidationState {
         path,
         transition,
         targetType,
-        conditionResolver.resolver
       );
       if (isUnadvanceable(options)) {
         deadEnds.push(options);
@@ -306,7 +315,7 @@ export class ValidationState {
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
     if (newSubgraphPaths.length === 0) {
-      return validationError(newPath, this.subgraphPaths, deadEnds);
+      return validationError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds);
     }
     return new ValidationState(newPath, newSubgraphPaths);
   }
@@ -314,7 +323,7 @@ export class ValidationState {
   currentSubgraphs(): string[] {
     const subgraphs: string[] = [];
     for (const path of this.subgraphPaths) {
-      const source = path.tail.source;
+      const source = path.path.tail.source;
       if (!subgraphs.includes(source)) {
         subgraphs.push(source);
       }
@@ -347,7 +356,13 @@ class ValidationTraversal {
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = firstOf(supergraph.sources.values())!;
     this.conditionResolver = new ConditionValidationResolver(this.supergraphSchema, subgraphs);
-    supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
+    supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(
+      supergraph,
+      this.supergraphSchema,
+      k,
+      subgraphs,
+      this.conditionResolver
+    )));
     this.previousVisits = new QueryGraphState(supergraph);
   }
 
@@ -390,7 +405,7 @@ class ValidationTraversal {
       }
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const newState = state.validateTransition(this.supergraphSchema, edge, this.conditionResolver);
+      const newState = state.validateTransition(this.supergraphSchema, edge);
       if (isValidationError(newState)) {
         debug.groupEnd(`Validation error!`);
         this.validationErrors.push(newState);

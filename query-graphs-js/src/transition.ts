@@ -13,10 +13,10 @@ import { FieldDefinition, CompositeType, SchemaRootKind } from "@apollo/federati
  *  - a key (`KeyResolution`), only found in "federated" query graphs: the edge goes from an
  *    entity type in a particular subgraph to the same entity type but in another subgraph. Edge
   *   with key transition _must_ have `conditions` corresponding to the key fields.
-  * - a query (`QueryResolution`), only found in "federated" query graphs: the edge goes from
-  *   the query root type of a subgraph to the query subgraph of another subgraph. It encodes
-  *   the fact that if a subgraph field returns the query type, any subgraph can be queried
-  *   from there.
+  * - a root type (`RootTypeResolution`), only found in "federated" query graphs: the edge goes from
+  *   a root type (query, mutation or subscription) of a subgraph to the (same) root type of another
+  *   subgraph. It encodes the fact that if a subgraph field returns a root type, any subgraph
+  *   can be queried from there.
   * - a "subgraph entering" edge: this is a special case only used for the edges out of the root
   *   vertices of "federated" query graphs. It does not correspond to any physical graphQL elements
   *   but can be understood as the fact that the gateway is always free to start querying any of
