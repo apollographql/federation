@@ -11,7 +11,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 1. `git add ':/*CHANGELOG.md'` to add only changelogs to the commit
 1. `git commit --message "Update CHANGELOGs for v$FEDERATION_RELEASE_VERSION release"`
 1. `git push -u origin "release-$FEDERATION_RELEASE_VERSION"`
-1. `open "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?quick_pull=1&title=Release+$FEDERATION_RELEASE_VERSION&template=APOLLO_RELEASE_TEMPLATE.md"` to open PR in Github
+1. `echo "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?quick_pull=1&title=Release+$FEDERATION_RELEASE_VERSION&template=APOLLO_RELEASE_TEMPLATE.md"` to open PR in Github
 
 #### Bump version and tag release
 
@@ -20,7 +20,7 @@ This is a quick and opinionated set of commands for building and releasing a new
     - `git --no-pager tag --points-at HEAD` to see the tags that were created
 1. `git push --follow-tags origin` to push the version bumps & tags created by lerna in the previous step
 1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish`[^publishing]
-1. `open https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` to approve publishing to NPM
+1. `echo https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` to approve publishing to NPM
     - There will also be a message posted to #team-atlas in slack that has a link to the approval job
 1. Spot-check a few of the versions in NPM to ensure the packages were published correctly
    - `npm view @apollo/composition@next`
