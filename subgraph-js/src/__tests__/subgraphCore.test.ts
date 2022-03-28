@@ -1,18 +1,17 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { subgraphCore } from '../schema-helper/buildSchemaFromSDL';
 import { print } from 'graphql';
-import recall from '@protoplasm/recall';
+import { getResult } from '@apollo/core-schema';
 import { ATLAS } from '../federation-atlas';
 import raw from '@apollo/core-schema/dist/snapshot-serializers/raw';
 
 describe('subgraphCore', () => {
   it('compiles a subgraph into a core schema', () => {
-    const result = recall(() =>
+    const result = getResult(() =>
       subgraphCore([{ typeDefs: fixtures[0].typeDefs }]),
-    ).getResult();
-    if (result.didThrow()) throw result.error;
-    expect([...result.errors()].length).toBe(0);
-    expect(print(result.data.document)).toMatchInlineSnapshot(`
+    )
+    expect([...result.errors()]).toEqual([]);
+    expect(print(result.unwrap().document)).toMatchInlineSnapshot(`
       "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: \\"@key @requires @provides @external @shareable @tag @extends\\") @link(url: \\"https://specs.apollo.dev/tag/v0.1\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
 
       directive @stream on FIELD
@@ -134,7 +133,7 @@ describe('subgraphCore', () => {
 
   it('links against federation 1.0 by default', () => {
     const doc = fixtures[0].typeDefs;
-    const result = recall(() =>
+    const result = getResult(() =>
       subgraphCore([
         {
           typeDefs: {
@@ -143,11 +142,10 @@ describe('subgraphCore', () => {
           },
         },
       ]),
-    ).getResult();
-    if (result.didThrow()) throw result.error;
-    expect([...result.errors()].length).toBe(0);
-    const schema = result.data;
-    expect([...schema]).toMatchInlineSnapshot(`
+    );
+
+    expect([...result.errors()]).toEqual([]);
+    expect([...result.unwrap()]).toMatchInlineSnapshot(`
       Array [
         <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0"),
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
@@ -177,7 +175,7 @@ describe('subgraphCore', () => {
       ]
     `);
 
-    expect(raw(print(result.data.document))).toMatchInlineSnapshot(`
+    expect(raw(print(result.unwrap().document))).toMatchInlineSnapshot(`
       extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
       directive @stream on FIELD

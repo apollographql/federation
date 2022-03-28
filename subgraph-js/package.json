@@ -18,14 +18,11 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=12.13.0 <17.0"
+    "node": ">=12.13.0"
   },
   "dependencies": {
-    "@apollo/core-schema": "https://github.com/apollographql/core-schema-js#link-import"
-  },
-  "devDependencies": {
-    "@protoplasm/recall": "^0.1.0"
-  },
+    "@apollo/core-schema": "https://github.com/apollographql/core-schema-js"
+  },  
   "publishConfig": {
     "access": "public"
   },

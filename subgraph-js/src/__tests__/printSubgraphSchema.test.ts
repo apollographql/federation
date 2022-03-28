@@ -13,7 +13,7 @@ describe('printSubgraphSchema', () => {
         mutation: Mutation
       }
 
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v2.0", import: "@key @requires @provides @external @shareable @tag @extends") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
       directive @stream on FIELD
 
@@ -107,7 +107,7 @@ describe('printSubgraphSchema', () => {
     const subgraphSchema = buildSubgraphSchema(schema);
 
     expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v1.0\\", as: \\"\\", import: \\"@key @requires @provides @external\\") @link(url: \\"https://specs.apollo.dev/tag/v0.1\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
+      "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v1.0\\", as: \\"\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\"]) @link(url: \\"https://specs.apollo.dev/tag/v0.1\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -129,7 +129,7 @@ describe('printSubgraphSchema', () => {
   it('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: \\"@key @requires @provides @external @shareable @tag @extends\\") @link(url: \\"https://specs.apollo.dev/tag/v0.1\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
+      "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@shareable\\", \\"@tag\\", \\"@extends\\"]) @link(url: \\"https://specs.apollo.dev/tag/v0.1\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
 
       directive @stream on FIELD
 

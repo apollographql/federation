@@ -118,7 +118,7 @@ describe('buildSubgraphSchema', () => {
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
     expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -365,7 +365,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -422,7 +422,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -472,7 +472,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -512,7 +512,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -564,7 +564,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
@@ -620,7 +620,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
         directive @custom on FIELD
 

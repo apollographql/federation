@@ -1,4 +1,4 @@
-import { Atlas, IAtlas, Schema, gql } from "@apollo/core-schema";
+import { Atlas, Schema, gql } from "@apollo/core-schema";
 
 export const SUBGRAPH_BASE = Schema.basic(
   gql `${'builtin:subgraph-base'}
@@ -7,7 +7,7 @@ export const SUBGRAPH_BASE = Schema.basic(
     @link(url: "https://specs.apollo.dev/tag/v0.1")
   `)
 
-export const ATLAS: IAtlas = Atlas.fromSchemas(
+export const ATLAS = Atlas.fromSchemas(
   Schema.basic(gql `${'builtin/tag/v0.1'}
   @id(url: "https://specs.apollo.dev/tag/v0.1")
   directive @tag(name: String!)
