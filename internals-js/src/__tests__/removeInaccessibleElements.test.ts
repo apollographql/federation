@@ -187,7 +187,7 @@ describe('removeInaccessibleElements', () => {
       expect(causes).toBeTruthy();
       expect(err.causes).toHaveLength(1);
       expect(err.causes[0].toString()).toMatch(
-        `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.`
+        `Field "Query.fooField" returns @inaccessible type "Foo" without being marked @inaccessible itself.`
       );
     }
   });
@@ -230,10 +230,10 @@ describe('removeInaccessibleElements', () => {
       expect(causes).toBeTruthy();
       expect(err.causes).toHaveLength(2);
       expect(err.causes[0].toString()).toMatch(
-        `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself.`
+        `Field "Query.fooField" returns @inaccessible type "Foo" without being marked @inaccessible itself.`
       );
       expect(err.causes[1].toString()).toMatch(
-        `Field Query.fooderationField returns an @inaccessible type without being marked @inaccessible itself.`
+        `Field "Query.fooderationField" returns @inaccessible type "Foo" without being marked @inaccessible itself.`
       );
     }
   });

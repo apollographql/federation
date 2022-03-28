@@ -7,6 +7,7 @@ import {
   EnumType,
   SchemaElement,
   UnionType,
+  InputObjectType,
 } from '../../dist/definitions';
 import {
   printSchema as printGraphQLjsSchema
@@ -612,3 +613,77 @@ test('correctly convert to a graphQL-js schema', () => {
   const graphqQLSchema = schema.toGraphQLJSSchema();
   expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
 });
+
+test('retrieving elements by coordinate', () => {
+  const sdl = `
+    directive @foo(bar: Int) on FIELD
+
+    type Query {
+      t: T
+    }
+
+    type T {
+      f1(x: Int): String
+      f2: String
+    }
+
+    interface I {
+      i: String
+    }
+
+    input O {
+      x: Int
+    }
+
+    enum E {
+      FOO
+      BAR
+    }
+
+    scalar Date
+  `;
+  const schema = parseSchema(sdl);
+
+  expect(schema.elementByCoordinate('Query')).toBe(schema.schemaDefinition.rootType('query'));
+  expect(schema.elementByCoordinate('Query.t')).toBe(schema.schemaDefinition.rootType('query')?.field('t'));
+
+  const typeT = schema.type('T') as ObjectType;
+  expect(schema.elementByCoordinate('T')).toBe(typeT);
+  expect(schema.elementByCoordinate('T.f1')).toBe(typeT.field('f1'));
+  expect(schema.elementByCoordinate('T.f2')).toBe(typeT.field('f2'));
+  expect(schema.elementByCoordinate('T.f1(x:)')).toBe(typeT.field('f1')?.argument('x'));
+
+  const typeI = schema.type('I') as InterfaceType;
+  expect(schema.elementByCoordinate('I')).toBe(typeI);
+  expect(schema.elementByCoordinate('I.i')).toBe(typeI.field('i'));
+
+  const typeO = schema.type('O') as InputObjectType;
+  expect(schema.elementByCoordinate('O')).toBe(typeO);
+  expect(schema.elementByCoordinate('O.x')).toBe(typeO.field('x'));
+
+  const typeE = schema.type('E') as EnumType;
+  expect(schema.elementByCoordinate('E')).toBe(typeE);
+  expect(schema.elementByCoordinate('E.FOO')).toBe(typeE.value('FOO'));
+
+  expect(schema.elementByCoordinate('Date')).toBe(schema.type('Date'));
+
+  const directiveFoo = schema.directive('foo')!;
+  expect(schema.elementByCoordinate('@foo')).toBe(directiveFoo);
+  expect(schema.elementByCoordinate('@foo(bar:)')).toBe(directiveFoo.argument('bar'));
+
+  expect(schema.elementByCoordinate('SomeType')).toBeUndefined();
+  expect(schema.elementByCoordinate('T.f3')).toBeUndefined();
+  expect(schema.elementByCoordinate('T.f1(y:)')).toBeUndefined();
+  expect(schema.elementByCoordinate('I.j')).toBeUndefined();
+  expect(schema.elementByCoordinate('I.j(x:)')).toBeUndefined();
+  expect(schema.elementByCoordinate('O.z')).toBeUndefined();
+  expect(schema.elementByCoordinate('@bar')).toBeUndefined();
+  expect(schema.elementByCoordinate('@foo(unknown:)')).toBeUndefined();
+
+  expect(() => schema.elementByCoordinate('foo bar')).toThrow();
+  expect(() => schema.elementByCoordinate('@foo.bar')).toThrow();
+  // Note that because 'O' is an input type, it's field can't have args
+  expect(() => schema.elementByCoordinate('O.x(foo:)')).toThrow();
+  // Note that because 'Date' is a scalar, it cannot have fields
+  expect(() => schema.elementByCoordinate('Date.bar')).toThrow();
+})

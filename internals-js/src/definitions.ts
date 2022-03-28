@@ -1034,6 +1034,10 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   }),
 ];
 
+
+// A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
+const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
+
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
   private readonly _builtInTypes = new MapWithCachedArrays<string, NamedType>();
@@ -1402,6 +1406,56 @@ export class Schema {
 
   specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
     return this.getBuiltInDirective(schema, 'specifiedBy');
+  }
+
+  /**
+   * Gets an element of the schema given its "schema coordinate".
+   *
+   * Note that the syntax for schema coordinates is the one from the upcoming GraphQL spec: https://github.com/graphql/graphql-spec/pull/794.
+   */
+  elementByCoordinate(coordinate: string): NamedSchemaElement<any, any, any> | undefined {
+    if (!coordinate.match(coordinateRegexp)) {
+      throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+    }
+
+    const argStartIdx = coordinate.indexOf('(');
+    const start = argStartIdx < 0 ? coordinate : coordinate.slice(0, argStartIdx);
+    // Argument syntax is `foo(argName:)`, so the arg name start after the open parenthesis and go until the final ':)'.
+    const argName = argStartIdx < 0 ? undefined : coordinate.slice(argStartIdx + 1, coordinate.length - 2);
+    const splittedStart = start.split('.');
+    const typeOrDirectiveName = splittedStart[0];
+    const fieldOrEnumName = splittedStart[1];
+    const isDirective = typeOrDirectiveName.startsWith('@');
+    if (isDirective) {
+      if (fieldOrEnumName) {
+        throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+      const directive = this.directive(typeOrDirectiveName.slice(1));
+      return argName ? directive?.argument(argName) : directive;
+    } else {
+      const type = this.type(typeOrDirectiveName);
+      if (!type || !fieldOrEnumName) {
+        return type;
+      }
+      switch (type.kind) {
+        case 'ObjectType':
+        case 'InterfaceType':
+          const field = type.field(fieldOrEnumName);
+          return argName ? field?.argument(argName) : field;
+        case 'InputObjectType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.field(fieldOrEnumName);
+        case 'EnumType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.value(fieldOrEnumName);
+        default:
+          throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+    }
   }
 }
 
