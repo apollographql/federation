@@ -26,6 +26,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish`[^publishing]
 1. `echo https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` and click the resulting link to approve publishing to NPM
     - There will also be a message posted to #team-atlas in slack that has a link to the approval job
+1. `unset FEDERATION_RELEASE_VERSION` to ensure we don't accidentally use this variable later
 1. Spot-check a few of the versions in NPM to ensure the packages were published correctly
    - `npm view @apollo/composition@next`
    - `npm view @apollo/subgraph@next`
