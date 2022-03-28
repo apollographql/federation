@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.48.3",
+  "version": "0.50.0",
   "description": "Apollo Gateway",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -18,7 +18,7 @@
     "apollo"
   ],
   "engines": {
-    "node": ">=12.13.0 <17.0"
+    "node": ">=12.13.0 <18.0"
   },
   "license": "MIT",
   "publishConfig": {

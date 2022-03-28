@@ -8,6 +8,13 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.10.0
+- Support for Node 17 [PR #1648](https://github.com/apollographql/federation/pull/1648).
+
+## v0.9.0
+
+- Add `operationKind` and generated `operationName`s to `FetchNode`s on the query plan. Backport of #1472, #1550, #1568 (+ follow-up commit 82d810f). [PR #1609](https://github.com/apollographql/federation/pull/1609)
+
 ## v0.8.2
 
 - Transitive dependency updates with no other notable changes.

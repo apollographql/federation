@@ -22,6 +22,7 @@ Feature: Auto fragmentization in Query Planning
         "kind": "Fetch",
         "serviceName": "users",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{field{...__QueryPlanFragment_2__}}fragment __QueryPlanFragment_0__ on B{f1 f2 f4}fragment __QueryPlanFragment_1__ on IFace{__typename ...on IFaceImpl1{x}...on IFaceImpl2{x}}fragment __QueryPlanFragment_2__ on SomeField{a{b{...__QueryPlanFragment_0__}}b{...__QueryPlanFragment_0__}iface{...__QueryPlanFragment_1__}}"
       }
     }
@@ -52,6 +53,7 @@ Feature: Auto fragmentization in Query Planning
         "kind": "Fetch",
         "serviceName": "users",
         "variableUsages": [],
+        "operationKind": "query",
         "operation": "{sender{...__QueryPlanFragment_0__}receiver{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_0__ on SendingUser{name address location}fragment __QueryPlanFragment_1__ on ReceivingUser{name address location}"
       }
     }

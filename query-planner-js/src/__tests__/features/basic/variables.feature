@@ -21,7 +21,9 @@ Scenario: passes variables to root fields
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
-          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
+          "operationKind": "query",
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Flatten",
@@ -40,7 +42,9 @@ Scenario: passes variables to root fields
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operationKind": "query",
+            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+            "operationName": "GetProduct__books__1"
           }
         },
         {
@@ -62,7 +66,9 @@ Scenario: passes variables to root fields
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+            "operationKind": "query",
+            "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+            "operationName": "GetProduct__product__2"
           }
         }
       ]
@@ -91,7 +97,9 @@ Scenario: supports default variables in a variable definition
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
-          "operation": "query($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
+          "operationKind": "query",
+          "operation": "query GetProduct__product__0($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}",
+          "operationName": "GetProduct__product__0"
         },
         {
           "kind": "Flatten",
@@ -110,7 +118,9 @@ Scenario: supports default variables in a variable definition
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operationKind": "query",
+            "operation": "query GetProduct__books__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+            "operationName": "GetProduct__books__1"
           }
         },
         {
@@ -132,7 +142,9 @@ Scenario: supports default variables in a variable definition
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+            "operationKind": "query",
+            "operation": "query GetProduct__product__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+            "operationName": "GetProduct__product__2"
           }
         }
       ]
@@ -163,7 +175,9 @@ Scenario: passes variables to nested services
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{__typename id}}"
+          "operationKind": "query",
+          "operation": "query GetProductsForUser__accounts__0{me{__typename id}}",
+          "operationName": "GetProductsForUser__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -182,7 +196,9 @@ Scenario: passes variables to nested services
               }
             ],
             "variableUsages": ["format"],
-            "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
+            "operationKind": "query",
+            "operation": "query GetProductsForUser__reviews__1($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}",
+            "operationName": "GetProductsForUser__reviews__1"
           }
         }
       ]
@@ -198,7 +214,9 @@ Scenario: works with default variables in the schema
     library(id: $libraryId) {
       userAccount(id: $userId) {
         id
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -214,7 +232,9 @@ Scenario: works with default variables in the schema
           "kind": "Fetch",
           "serviceName": "books",
           "variableUsages": ["libraryId"],
-          "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
+          "operationKind": "query",
+          "operation": "query LibraryUser__books__0($libraryId:ID!){library(id:$libraryId){__typename id name}}",
+          "operationName": "LibraryUser__books__0"
         },
         {
           "kind": "Flatten",
@@ -234,7 +254,9 @@ Scenario: works with default variables in the schema
               }
             ],
             "variableUsages": ["userId"],
-            "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
+            "operationKind": "query",
+            "operation": "query LibraryUser__accounts__1($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name{first}}}}}",
+            "operationName": "LibraryUser__accounts__1"
           }
         }
       ]
@@ -257,6 +279,7 @@ Scenario: String arguments with quotes that need to be escaped.
       "kind": "Fetch",
       "serviceName": "product",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename}}"
     }
   }

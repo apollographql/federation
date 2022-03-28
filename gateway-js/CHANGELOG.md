@@ -8,6 +8,16 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+
+## v0.50.0
+- `diffTypeNodes` function will now return any[] as the type on the kind field. This may result in casting being necessary for some clients. [PR #1636](https://github.com/apollographql/federation/pull/1636)
+- Support for Node 17 [PR #1648](https://github.com/apollographql/federation/pull/1648).
+
+## v0.49.0
+
+- Respect the `minDelaySeconds` returning from Uplink when polling and retrying to fetch the supergraph schema from Uplink [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Remove the previously deprecated `experimental_pollInterval` config option and deprecate `pollIntervalInMs` in favour of `fallbackPollIntervalInMs` (for managed mode only). [PR #1564](https://github.com/apollographql/federation/pull/1564)
+
 ## v0.48.3
 
 - Only transitive dependency updates with no other notable changes.

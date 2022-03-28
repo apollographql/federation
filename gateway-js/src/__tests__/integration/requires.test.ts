@@ -6,7 +6,7 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 it('supports passing additional fields defined by a requires', async () => {
   const query = `#graphql
-    query GetReviwedBookNames {
+    query GetReviewedBookNames {
       me {
         reviews {
           product {

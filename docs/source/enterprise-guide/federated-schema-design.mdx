@@ -1,6 +1,5 @@
 ---
 title: Federated schema design best practices
-sidebar_title: Federated schema design
 ---
 
 GraphQL is a relatively new technology, but from its rapid and widespread adoption has emerged a host of common schema design best practices—both from the large, notable companies that use it at scale every day, as well as from the broader developer community. The majority of best practices that apply to non-federated GraphQL schema design also apply when designing service schemas within a federated graph. However, federated schema design rewards some additional best practices when extracting portions of a graph into subgraphs and determining what extension points to expose between service boundaries.
@@ -9,13 +8,13 @@ Throughout this section, we'll explore some proven best practices for GraphQL sc
 
 ## Best practice #1: Start thinking in entities
 
-[Entities](/entities/) are the core building blocks of a federated graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. While there's no requirement for subgraphs to define any entities at all with Apollo Federation, the federated schema design process often begins by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between services—both today and as the graph evolves in the future.
+[Entities](../entities/) are the core building blocks of a federated graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. While there's no requirement for subgraphs to define any entities at all with Apollo Federation, the federated schema design process often begins by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between services—both today and as the graph evolves in the future.
 
 ### Define, reference, and extend entities as needed
 
-The [Apollo Federation specification](/federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its definition in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
+The [Apollo Federation specification](../federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its definition in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
 
-```graphql:title=Products%20Subgraph
+```graphql title="Products Subgraph"
 type Product @key(fields: "upc") {
   upc: String!
   name: String!
@@ -27,7 +26,7 @@ In other words, setting the `upc` field as the key means that other subgraphs th
 
 After defining an entity in a schema, other subgraphs can reference that entity in their schemas. In order for the referencing service's schema to be valid, it must define a stub of the entity in its schema. For example, we can reference a `Product` type defined in the products subgraph as the return type corresponding to a `product` field on a `Review` type defined in reviews subgraph:
 
-```graphql:title=Reviews%20Subgraph
+```graphql title="Reviews Subgraph"
 type Review {
   rating: Int
   product: Product
@@ -42,7 +41,7 @@ Note that the GraphQL spec-compliant `extend` keyword is used before the referen
 
 Referencing entities is a key feature of federation, but it's only half of the story. While an entity will be owned by a single subgraph, other services may wish to add additional fields to the entity's type to provide a more holistic representation of the entity in the graph. Doing so is a simple as adding the additional field to the extended type in a non-originating service. For example, a reviews service's schema may add a `reviews` field to the extended `Producs` type that was originally defined in the products subgraph:
 
-```graphql:title=Reviews%20Subgraph
+```graphql title="Reviews Subgraph"
 type Review {
   rating: Int
   product: Product
@@ -62,7 +61,7 @@ When migrating from a client-only or monolithic GraphQL pattern, that work begin
 
 Whatever your architectural starting point, Apollo Federation was designed to allow the work of identifying entities and defining subgraph boundaries to be done in an incremental, non-disruptive fashion. Beginning to identify these entities is also the essential prerequisite for adopting the other schema design best practices that will follow.
 
-For more information on entity usage and capabilities, please see the [Entities documentation page](/entities/).
+For more information on entity usage and capabilities, please see the [Entities documentation page](../entities/).
 
 ## Best practice #2: Design schemas in a demand-oriented, abstract way
 
@@ -445,7 +444,7 @@ In these instances, an **errors as data** approach is often preferable to return
 
 There are different ways to describe these happy and unhappy paths in a schema, but one of the most common is to use unions to represent collections of possible related states that may result from a given operation. Take the following example that includes a `User` type defined in an accounts service and extended to include a `suggestedProducts` field in a products service:
 
-```graphql:title=Accounts%20Subgraph
+```graphql title="Accounts Subgraph"
 type User @key(fields: "id") {
   id: ID!
   firstName: String
@@ -458,7 +457,7 @@ extend type Query {
 }
 ```
 
-```graphql:title=Products%20Subgraph
+```graphql title="Products Subgraph"
 type Product @key(fields: "sku") {
   sku: String!
   name: String
@@ -519,7 +518,7 @@ For an in-depth exploration of the errors as data approach, please see the [200 
 
 ## Best practice #8: Manage cross-cutting concerns carefully
 
-Sharing [value types](/value-types/) (scalars, objects, interfaces, enums, unions, and inputs) and [executable directives](/gateway/#executable-directives) across subgraphs' schemas leads to cross-cutting concerns. As a general rule, where subgraphs share value types, then those types must be identical in name, contents, and logic, or composition errors will occur. Similarly, executable directives must be defined consistently in the schemas of all subgraphs using the same locations, arguments, and argument types, or composition errors will also result.
+Sharing [value types](../value-types/) (scalars, objects, interfaces, enums, unions, and inputs) and [executable directives](../gateway/#executable-directives) across subgraphs' schemas leads to cross-cutting concerns. As a general rule, where subgraphs share value types, then those types must be identical in name, contents, and logic, or composition errors will occur. Similarly, executable directives must be defined consistently in the schemas of all subgraphs using the same locations, arguments, and argument types, or composition errors will also result.
 
 In some instances, it will make sense for subgraphs to share ownership of certain types instead of assigning that type to one service and exposing it as an entity. For example, when a GraphQL API supports Relay-style pagination, it may be necessary to share an identical `PageInfo` object type across multiple services that require these pagination-related fields:
 

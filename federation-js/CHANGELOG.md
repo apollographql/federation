@@ -8,6 +8,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.36.0
+- Support for Node 17 [PR #1648](https://github.com/apollographql/federation/pull/1648).
+
+## v0.35.4
+
+- Fixes type incompatibility issue with graphql15. [PR #1585](https://github.com/apollographql/federation/pull/1585)
+- Fixes composition error when @provides is combined with @key which references an external field [PR #1604](https://github.com/apollographql/federation/pull/1604)
+
 ## v0.35.3
 
 - Updates to transitive dependencies.  No other substantial changes.

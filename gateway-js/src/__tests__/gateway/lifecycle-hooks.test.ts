@@ -135,13 +135,13 @@ describe('lifecycle hooks', () => {
 
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
-    const expectedFirstId = '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b'
+    const expectedFirstId = '1cb734eadae95dd1778f3fe3c9df6cbaecb95e80c2bcefed397c63ec72469032'
     expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
     expect(firstCall[1]).toBeUndefined();
 
     expect(secondCall[0]!.compositionId).toEqual(
-      '0ced02894592ade4376276d11735b46723eb84850c32765cb78502ba5c29a563',
+      '5d24c0f42d0d372c2ad671567cee186e3680400dffbcc3430cb57b9dc04b2be2',
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);
@@ -177,7 +177,7 @@ describe('lifecycle hooks', () => {
     );
   });
 
-  it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
+  it('registers schema change callbacks when pollIntervalInMs is set for unmanaged configs', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions =
       jest.fn(async (_config) => {
         return { serviceDefinitions, isNewSchema: true };

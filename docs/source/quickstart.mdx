@@ -1,12 +1,7 @@
 ---
-title: "Federation quickstart"
-sidebar_title: "Part 1 - Local schema composition"
-description: "Part 1 - Local schema composition"
+title: Federation quickstart
+description: Part 1 - Local schema composition
 ---
-
-import {Button} from '@apollo/space-kit/Button';
-import {Link} from 'gatsby';
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 > In addition to completing this tutorial, you can [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates many of the same concepts.
 
@@ -39,7 +34,7 @@ This tutorial uses two Apollo-hosted subgraphs for an example application: a Pro
 
 <ExpansionPanel title="Products">
 
-```graphql:title=Products
+```graphql title="Products"
 enum CURRENCY_CODE {
   USD
 }
@@ -102,7 +97,7 @@ extend type Query {
 
 <ExpansionPanel title="Reviews">
 
-```graphql:title=Reviews
+```graphql title="Reviews"
 extend type Product @key(fields: "id") {
   id: ID! @external
   reviews: [Review]
@@ -161,7 +156,7 @@ npm install apollo-server @apollo/gateway
 
 Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
 
-```js{4,7}:title=index.js
+```js {4,7} title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 
@@ -221,7 +216,7 @@ Because we're using Apollo-hosted example subgraphs, we know their endpoint URLs
 
 We provide subgraph details to the Rover CLI in a YAML file. In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
-```yaml:title=supergraph-config.yaml
+```yaml title="supergraph-config.yaml"
 subgraphs:
   products:
     routing_url: https://rover.apollo.dev/quickstart/products/graphql
@@ -380,7 +375,7 @@ rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
 
 We can now edit our `index.js` file to pull in our composed schema. Replace the file's contents with the following:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');

@@ -8,6 +8,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.4.0
+- Support for Node 17 [PR #1648](https://github.com/apollographql/federation/pull/1648).
+
 ## v0.3.3
 
 - Transitive dependency updates with no other notable changes.

@@ -46,6 +46,45 @@ describe('keyFieldsMissingOnBase', () => {
     expect(warnings).toHaveLength(0);
   });
 
+  it('returns no warnings with proper @key usage for provided field', () => {
+    const serviceA = {
+      typeDefs: gql`
+        type Product @key(fields: "sku") {
+          sku: String!
+          upc: String!
+          color: Color!
+          price: Int!
+        }
+
+        type Color {
+          id: ID!
+          value: String!
+        }
+      `,
+      name: 'serviceA',
+    };
+
+    const serviceB = {
+      typeDefs: gql`
+        type ProductCatalog @key(fields: "products { sku }"){
+          products: [Product!]! @provides(fields: "price")
+        }
+        extend type Product @key(fields: "sku") {
+          sku: String! @external
+          price: Int! @external
+        }
+      `,
+      name: 'serviceB',
+    };
+
+    const serviceList = [serviceA, serviceB];
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
+    const warnings = validateKeyFieldsMissingOnBase({ schema, serviceList });
+    expect(warnings).toHaveLength(0);
+  });
+
   it('warns if @key references a field added by another service', () => {
     const serviceA = {
       typeDefs: gql`

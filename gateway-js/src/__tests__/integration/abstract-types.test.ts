@@ -297,7 +297,7 @@ it('prunes unfilled type conditions', async () => {
 
 it('fetches interfaces returned from other services', async () => {
   const query = `#graphql
-    query GetUserAndProducts {
+    query GetUserAndProductsWithPriceAndTitle {
       me {
         reviews {
           product {
@@ -412,7 +412,7 @@ it('fetches interfaces returned from other services', async () => {
 
 it('fetches composite fields from a foreign type casted to an interface [@provides field]', async () => {
   const query = `#graphql
-    query GetUserAndProducts {
+    query GetUserAndProductsWithPriceAndName {
       me {
         reviews {
           product {
@@ -624,7 +624,7 @@ it('allows for extending an interface from another service with fields', async (
 describe('unions', () => {
   it('handles unions from the same service', async () => {
     const query = `#graphql
-      query GetUserAndProducts {
+      query GetUserAndProductsWithBrandInfo {
         me {
           reviews {
             product {

@@ -14,7 +14,7 @@ Scenario: supports inline fragments (one level)
     """
   Then query plan
     """
-    {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"accounts","variableUsages":[],"operation":"{me{username}}"}}
+    {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"accounts","variableUsages":[],"operationKind": "query","operation":"query GetUser__accounts__0{me{username}}","operationName":"GetUser__accounts__0"}}
     """
 
 # important things: calls [accounts, reviews, products, books]
@@ -55,7 +55,9 @@ Scenario: supports inline fragments (multi level)
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{username __typename id}}"
+          "operationKind": "query",
+          "operation": "query GetUser__accounts__0{me{username __typename id}}",
+          "operationName": "GetUser__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -74,7 +76,9 @@ Scenario: supports inline fragments (multi level)
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
+            "operationKind": "query",
+            "operation": "query GetUser__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}",
+            "operationName": "GetUser__reviews__1"
           }
         },
         {
@@ -97,7 +101,9 @@ Scenario: supports inline fragments (multi level)
                   }
                 ],
                 "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}"
+                "operationKind": "query",
+                "operation": "query GetUser__books__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}",
+                "operationName": "GetUser__books__2"
               }
             },
             {
@@ -117,7 +123,9 @@ Scenario: supports inline fragments (multi level)
                   }
                 ],
                 "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+                "operationKind": "query",
+                "operation": "query GetUser__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}",
+                "operationName": "GetUser__product__3"
               }
             }
           ]
@@ -148,7 +156,9 @@ Scenario: supports named fragments (one level)
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
-      "operation": "{me{username}}"
+      "operationKind": "query",
+      "operation": "query GetUser__accounts__0{me{username}}",
+      "operationName": "GetUser__accounts__0"
     }
   }
   """
@@ -158,7 +168,9 @@ Scenario: supports multiple named fragments (one level, mixed ordering)
   Given query
   """
   fragment userInfo on User {
-    name
+    name {
+      first
+    }
   }
   query GetUser {
     me {
@@ -179,7 +191,9 @@ Scenario: supports multiple named fragments (one level, mixed ordering)
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
-      "operation": "{me{username name}}"
+      "operationKind": "query",
+      "operation": "query GetUser__accounts__0{me{username name{first}}}",
+      "operationName": "GetUser__accounts__0"
     }
   }
   """
@@ -214,7 +228,9 @@ Scenario: supports multiple named fragments (multi level, mixed ordering)
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{username __typename id}}"
+          "operationKind": "query",
+          "operation": "query GetUser__accounts__0{me{username __typename id}}",
+          "operationName": "GetUser__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -233,7 +249,9 @@ Scenario: supports multiple named fragments (multi level, mixed ordering)
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}}}}"
+            "operationKind": "query",
+            "operation": "query GetUser__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}}}}",
+            "operationName": "GetUser__reviews__1"
           }
         }
       ]
@@ -269,7 +287,9 @@ Scenario: supports variables within fragments
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{username __typename id}}"
+          "operationKind": "query",
+          "operation": "query GetUser__accounts__0{me{username __typename id}}",
+          "operationName": "GetUser__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -288,7 +308,9 @@ Scenario: supports variables within fragments
               }
             ],
             "variableUsages": ["format"],
-            "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
+            "operationKind": "query",
+            "operation": "query GetUser__reviews__1($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}",
+            "operationName": "GetUser__reviews__1"
           }
         }
       ]
@@ -315,7 +337,9 @@ Scenario: supports root fragments
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
-      "operation": "{me{username}}"
+      "operationKind": "query",
+      "operation": "query GetUser__accounts__0{me{username}}",
+      "operationName": "GetUser__accounts__0"
     }
   }
   """
@@ -341,5 +365,5 @@ Scenario: supports directives on inline fragments (https://github.com/apollograp
   """
   Then query plan
   """
-  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operation":"{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}"}}
+  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operationKind": "query","operation":"query GetVehicle__product__0{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}","operationName":"GetVehicle__product__0"}}
   """

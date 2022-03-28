@@ -22,7 +22,7 @@ describe('value types', () => {
         }
       }
 
-      query ProducsWithMetadata {
+      query ProductsWithMetadata {
         topProducts(first: 10) {
           upc
           ... on Book {

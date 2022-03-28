@@ -1,12 +1,7 @@
 ---
-title: "Federation quickstart"
-sidebar_title: "Part 2 - Composition in Apollo Studio"
-description: "Part 2 - Composition in Apollo Studio"
+title: Federation quickstart
+description: Part 2 - Composition in Apollo Studio
 ---
-
-import {Button} from '@apollo/space-kit/Button';
-import {Link} from 'gatsby';
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 [Back in Part 1](./quickstart/), we created a federated gateway and used the Rover CLI to compose a supergraph schema for it based on two subgraphs. Next, we'll move that composition process into the cloud.
 
@@ -116,7 +111,7 @@ Right now in `index.js`, we're providing our supergraph schema to our `ApolloGat
 
 Replace the contents of `index.js` with the following:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 
