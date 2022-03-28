@@ -128,7 +128,7 @@ export function removeInaccessibleElements(
       newFieldMapConfig[fieldName] = fieldConfig;
     }
 
-    if (errors.length) {
+    if (errors.length > 0) {
       throw new GraphQLSchemaValidationError(errors);
     }
 
