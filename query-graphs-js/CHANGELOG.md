@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## vNext
+
+- Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
+
 ## v2.0.0-preview.8
 
 - Released in sync with other federation packages but no changes to this package.
