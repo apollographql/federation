@@ -181,7 +181,7 @@ describe('removeInaccessibleElements', () => {
     expect(() => {
       removeInaccessibleElements(schema);
     }).toThrow(
-      `Field Query.fooField returns an @inaccessible type without being marked @inaccessible itself`,
+      `Field "Query.fooField" returns @inaccessible type "Foo" without being marked @inaccessible itself`,
     );
   });
 
