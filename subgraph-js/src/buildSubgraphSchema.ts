@@ -66,11 +66,6 @@ export function buildSubgraphSchema(
 
   let schema = buildASTSchema(document)
 
-  for (const module of modules) {
-    if (!module.resolvers) continue;
-    addResolversToSchema(schema, module.resolvers);
-  }
-
   // At this point in time, we have a schema to be printed into SDL which is
   // representative of what the user defined for their schema. This is before
   // we process any of the federation directives and add custom federation types

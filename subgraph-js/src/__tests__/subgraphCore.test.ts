@@ -4,15 +4,16 @@ import { print } from 'graphql';
 import { getResult } from '@apollo/core-schema';
 import { ATLAS } from '../federation-atlas';
 import raw from '@apollo/core-schema/dist/snapshot-serializers/raw';
+import Schema from '@apollo/core-schema';
 
 describe('subgraphCore', () => {
   it('compiles a subgraph into a core schema', () => {
     const result = getResult(() =>
       subgraphCore([{ typeDefs: fixtures[0].typeDefs }]),
-    )
+    );
     expect([...result.errors()]).toEqual([]);
-    expect(print(result.unwrap().document)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/link/v0.3\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: \\"@key @requires @provides @external @shareable @tag @extends\\") @link(url: \\"https://specs.apollo.dev/tag/v0.1\\") @link(url: \\"https://specs.apollo.dev/id/v1.0\\")
+    expect(raw(print(result.unwrap()))).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
       directive @stream on FIELD
 
@@ -27,7 +28,7 @@ describe('subgraphCore', () => {
 
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
-      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+      scalar JSON @specifiedBy(url: "https://json-spec.dev")
 
       schema {
         query: RootQuery
@@ -39,15 +40,15 @@ describe('subgraphCore', () => {
         me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
       }
 
-      type PasswordAccount @key(fields: \\"email\\") {
+      type PasswordAccount @key(fields: "email") {
         email: String!
       }
 
-      type SMSAccount @key(fields: \\"number\\") {
+      type SMSAccount @key(fields: "number") {
         number: String
       }
 
-      union AccountType @tag(name: \\"from-accounts\\") = PasswordAccount | SMSAccount
+      union AccountType @tag(name: "from-accounts") = PasswordAccount | SMSAccount
 
       type UserMetadata {
         name: String
@@ -55,11 +56,11 @@ describe('subgraphCore', () => {
         description: String
       }
 
-      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") {
-        id: ID! @tag(name: \\"accounts\\")
+      type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
+        id: ID! @tag(name: "accounts")
         name: Name @cacheControl(inheritMaxAge: true)
         username: String @shareable
-        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
+        birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
         account: AccountType
         metadata: [UserMetadata]
         ssn: String
@@ -71,18 +72,18 @@ describe('subgraphCore', () => {
       }
 
       type Mutation {
-        login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
+        login(username: String!, password: String!, userId: String @deprecated(reason: "Use username instead")): User
       }
 
-      type Library @key(fields: \\"id\\") {
+      type Library @key(fields: "id") {
         id: ID!
         name: String @external
-        userAccount(id: ID! = \\"1\\"): User @requires(fields: \\"name\\")
+        userAccount(id: ID! = "1"): User @requires(fields: "name")
       }
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
-      \\"\\"\\"federation 2.0 key directive\\"\\"\\"
+      """federation 2.0 key directive"""
       directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
       directive @shareable on FIELD_DEFINITION | OBJECT
@@ -97,7 +98,7 @@ describe('subgraphCore', () => {
 
       scalar link__Imports
 
-      scalar federation__FieldSet"
+      scalar federation__FieldSet
     `);
   });
 
@@ -138,16 +139,32 @@ describe('subgraphCore', () => {
         {
           typeDefs: {
             ...doc,
+            // remove the last '@link()', which brings in fed2
             definitions: doc.definitions.slice(0, doc.definitions.length - 1),
           },
         },
       ]),
     );
 
-    expect([...result.errors()]).toEqual([]);
-    expect([...result.unwrap()]).toMatchInlineSnapshot(`
+    // shareable isn't in fed1
+    expect([...result.errors()].map((err: any) => raw(err.toString())))
+      .toMatchInlineSnapshot(`
       Array [
-        <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0"),
+        [NoDefinition] no definitions found for reference
+
+      GraphQL request:52:20
+      51 |   name: Name @cacheControl(inheritMaxAge: true)
+      52 |   username: String @shareable # Provided by the 'reviews' subgraph
+         |                    ^
+      53 |   birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev"),
+      ]
+    `);
+
+    const document = result.unwrap();
+
+    expect([...Schema.from(document)]).toMatchInlineSnapshot(`
+      Array [
+        <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0"),
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
         <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
         <https://specs.apollo.dev/tag/v0.1#@>[GraphQL request] 👉directive @tag(name: String!) repeatable on,
@@ -175,8 +192,8 @@ describe('subgraphCore', () => {
       ]
     `);
 
-    expect(raw(print(result.unwrap().document))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key @requires @provides @external") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+    expect(raw(print(document))).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
       directive @stream on FIELD
 

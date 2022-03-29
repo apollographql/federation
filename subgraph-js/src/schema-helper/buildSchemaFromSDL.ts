@@ -285,12 +285,12 @@ export function addResolversToSchema(
 
 export function subgraphCore(modules: GraphQLSchemaModule[]): DocumentNode {
   const mergedDocument = concatAST(modules.map(module => module.typeDefs));
-  const {document} = Schema.from(mergedDocument, SUBGRAPH_BASE).compile(ATLAS)
-  const defs = [...implicitDefinitionNodes(document)]
+  const core = Schema.from(mergedDocument, SUBGRAPH_BASE).compile(ATLAS)
+  const defs = [...implicitDefinitionNodes(core.document)]
   return defs.length ? {
-    ...document,
-    definitions: document.definitions.concat(defs)
-  } : document
+    ...core.document,
+    definitions: core.document.definitions.concat(defs)
+  } : core.document
 }
 
 function *implicitDefinitionNodes(document: DocumentNode): Iterable<DefinitionNode> {
