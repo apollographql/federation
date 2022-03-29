@@ -1582,7 +1582,6 @@ class Merger {
   }
 
   private mergeUnion(sources: (UnionType | undefined)[], dest: UnionType) {
-    this.mergeDescription(sources, dest);
     for (const source of sources) {
       if (!source) {
         continue;
