@@ -21,7 +21,7 @@
     "node": ">=12.13.0"
   },
   "dependencies": {
-    "@apollo/core-schema": "apollographql/core-schema-js"
+    "@apollo/core-schema": "apollographql/core-schema-js#v0.3"
   },  
   "publishConfig": {
     "access": "public"

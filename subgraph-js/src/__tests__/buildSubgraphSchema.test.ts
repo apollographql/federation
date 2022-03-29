@@ -120,34 +120,35 @@ describe('buildSubgraphSchema', () => {
     expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
       extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
+      schema {
+        query: Query
+      }
+
+      "A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text"
+      type User @key(fields: "id") {
+        """The unique ID of the user."""
+        id: ID!
+        "The user's name."
+        name: String
+        username: String
+        foo(
+          "Description 1"
+          arg1: String
+          "Description 2"
+          arg2: String
+          "Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3"
+          arg3: String
+        ): String
+      }
+
+      extend type Query {
+        _dummyField: Boolean
+      }
+
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
       """federation 1.0 key directive"""
       directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
-      """
-      A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
-      """
-      type User @key(fields: "id") {
-        """The unique ID of the user."""
-        id: ID!
-
-        """The user's name."""
-        name: String
-        username: String
-        foo(
-          """Description 1"""
-          arg1: String
-
-          """Description 2"""
-          arg2: String
-
-          """
-          Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3
-          """
-          arg3: String
-        ): String
-      }
 
       scalar link__Url
 
@@ -157,10 +158,7 @@ describe('buildSubgraphSchema', () => {
 
       scalar federation__FieldSet
 
-      extend type Query {
-        _dummyField: Boolean
-      }
-
+      type Query
     `);
   });
 
@@ -367,17 +365,25 @@ describe('buildSubgraphSchema', () => {
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
         extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
+        type Review {
+          id: ID
+        }
+
+        extend type Review {
+          title: String
+        }
+
+        extend type Product @key(fields: "upc") {
+          upc: String @external
+          reviews: [Review]
+        }
+
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
-
-        type Review {
-          id: ID
-          title: String
-        }
 
         scalar link__Url
 
@@ -387,11 +393,7 @@ describe('buildSubgraphSchema', () => {
 
         scalar federation__FieldSet
 
-        extend type Product @key(fields: "upc") {
-          upc: String @external
-          reviews: [Review]
-        }
-
+        type Product
       `);
     });
     it('keeps extension interface when owner interface is not present', async () => {
@@ -424,21 +426,29 @@ describe('buildSubgraphSchema', () => {
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
         extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
-        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
-
-        """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
-        directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
-
         type Review {
           id: ID
+        }
+
+        extend type Review {
           title: String
         }
 
         interface Node @key(fields: "id") {
           id: ID!
         }
+
+        extend interface Product @key(fields: "upc") {
+          upc: String @external
+          reviews: [Review]
+        }
+
+        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
 
         scalar link__Url
 
@@ -448,11 +458,7 @@ describe('buildSubgraphSchema', () => {
 
         scalar federation__FieldSet
 
-        extend interface Product @key(fields: "upc") {
-          upc: String @external
-          reviews: [Review]
-        }
-
+        interface Product
       `);
     });
     it('returns valid sdl for @key directives', async () => {
@@ -474,16 +480,16 @@ describe('buildSubgraphSchema', () => {
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
         extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
-        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
-
-        """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
         type Product @key(fields: "upc") {
           upc: String!
           name: String
           price: Int
         }
+
+        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         scalar link__Url
 
@@ -492,7 +498,6 @@ describe('buildSubgraphSchema', () => {
         scalar link__Imports
 
         scalar federation__FieldSet
-
       `);
     });
     it('returns valid sdl for multiple @key directives', async () => {
@@ -514,16 +519,16 @@ describe('buildSubgraphSchema', () => {
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
         extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
-        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
-
-        """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
         type Product @key(fields: "upc") @key(fields: "name") {
           upc: String!
           name: String
           price: Int
         }
+
+        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         scalar link__Url
 
@@ -532,7 +537,6 @@ describe('buildSubgraphSchema', () => {
         scalar link__Imports
 
         scalar federation__FieldSet
-
       `);
     });
     it('supports all federation directives', async () => {
@@ -566,29 +570,12 @@ describe('buildSubgraphSchema', () => {
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
         extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
 
-        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
-
-        """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
-        directive @provides(fields: federation__FieldSet!) on FIELD_DEFINITION
-
-        directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
-
         type Review @key(fields: "id") {
           id: ID!
           body: String
           author: User @provides(fields: "email")
           product: Product @provides(fields: "upc")
         }
-
-        scalar link__Url
-
-        scalar link__Name
-
-        scalar link__Imports
-
-        scalar federation__FieldSet
 
         extend type User @key(fields: "email") {
           email: String @external
@@ -600,6 +587,26 @@ describe('buildSubgraphSchema', () => {
           reviews: [Review]
         }
 
+        directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        directive @provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
+
+        scalar link__Url
+
+        scalar link__Name
+
+        scalar link__Imports
+
+        scalar federation__FieldSet
+
+        type User
+
+        type Product
       `);
     });
     it('keeps custom directives', async () => {
@@ -624,6 +631,10 @@ describe('buildSubgraphSchema', () => {
 
         directive @custom on FIELD
 
+        extend type User @key(fields: "email") {
+          email: String @external
+        }
+
         directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
         """federation 1.0 key directive"""
@@ -639,10 +650,7 @@ describe('buildSubgraphSchema', () => {
 
         scalar federation__FieldSet
 
-        extend type User @key(fields: "email") {
-          email: String @external
-        }
-
+        type User
       `);
     });
   });

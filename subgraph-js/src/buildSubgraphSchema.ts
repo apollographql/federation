@@ -5,7 +5,9 @@ import {
   isObjectType,
   isUnionType,
   GraphQLUnionType,
-  GraphQLObjectType
+  GraphQLObjectType,
+  buildASTSchema,
+  print
 } from 'graphql';
 import {
   GraphQLSchemaModule,
@@ -13,14 +15,13 @@ import {
   addResolversToSchema,
   modulesFromSDL,
   transformSchema,
-  buildSchemaFromSDL,
+  subgraphCore
 } from './schema-helper';
 
 import { typeIncludesDirective } from './directives';
 
 import { serviceField, entitiesField, EntityType } from './types';
 
-import { printSubgraphSchema } from './printSubgraphSchema';
 
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
@@ -61,13 +62,14 @@ export function buildSubgraphSchema(
   }
 
   const modules = modulesFromSDL(shapedModulesOrSDL);
+  const document = subgraphCore(modules)
 
-  let schema = buildSchemaFromSDL(
-    modules,
-    new GraphQLSchema({
-      query: undefined,
-    }),
-  );
+  let schema = buildASTSchema(document)
+
+  for (const module of modules) {
+    if (!module.resolvers) continue;
+    addResolversToSchema(schema, module.resolvers);
+  }
 
   // At this point in time, we have a schema to be printed into SDL which is
   // representative of what the user defined for their schema. This is before
@@ -77,7 +79,7 @@ export function buildSubgraphSchema(
   // We have to use a modified printSchema from graphql-js which includes
   // support for preserving the *uses* of federation directives while removing
   // their *definitions* from the sdl.
-  const sdl = printSubgraphSchema(schema);
+  const sdl = print(document);
 
   // Add an empty query root type if none has been defined
   if (!schema.getQueryType()) {
