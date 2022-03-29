@@ -73,26 +73,7 @@ import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
   CompositionHint,
   HintID,
-  hintInconsistentArgumentType,
-  hintInconsistentDefaultValue,
-  hintInconsistentEntity,
-  hintInconsistentFieldType,
-  hintInconsistentObjectValueTypeField,
-  hintInconsistentInterfaceValueTypeField,
-  hintInconsistentInputObjectField,
-  hintInconsistentUnionMember,
-  hintInconsistentExecutionDirectivePresence,
-  hintNoExecutionDirectiveLocationsIntersection,
-  hintInconsistentExecutionDirectiveRepeatable,
-  hintInconsistentExecutionDirectiveLocations,
-  hintInconsistentArgumentPresence,
-  hintInconsistentDescription,
-  hintFromSubgraphDoesNotExist,
-  hintOverrideDirectiveCanBeRemoved,
-  hintOverriddenFieldCanBeRemoved,
-  hintUnusedEnumType,
-  hintInconsistentEnumValueForInputEnum,
-  hintInconsistentEnumValueForOutputEnum,
+  HINTS,
 } from "../hints";
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -713,7 +694,7 @@ class Merger {
         // it can more UX wise).
         const name = dest instanceof NamedSchemaElement ? `Element "${dest.coordinate}"` : 'The schema definition';
         this.reportMismatchHint(
-          hintInconsistentDescription,
+          HINTS.INCONSISTENT_DESCRIPTION,
           `${name} has inconsistent descriptions across subgraphs. `,
           dest,
           sources,
@@ -853,7 +834,7 @@ class Merger {
     }
     if (sourceAsEntity.length > 0 && sourceAsNonEntity.length > 0) {
       this.reportMismatchHint(
-        hintInconsistentEntity,
+        HINTS.INCONSISTENT_ENTITY,
         `Type "${dest}" is declared as an entity (has a @key applied) in only some subgraphs: `,
         dest,
         sources,
@@ -877,15 +858,15 @@ class Merger {
     let typeDescription: string;
     switch (dest.kind) {
       case 'ObjectType':
-        hintId = hintInconsistentObjectValueTypeField;
+        hintId = HINTS.INCONSISTENT_OBJECT_VALUE_TYPE_FIELD;
         typeDescription = 'non-entity object'
         break;
       case 'InterfaceType':
-        hintId = hintInconsistentInterfaceValueTypeField;
+        hintId = HINTS.INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD;
         typeDescription = 'interface'
         break;
       case 'InputObjectType':
-        hintId = hintInconsistentInputObjectField;
+        hintId = HINTS.INCONSISTENT_INPUT_OBJECT_FIELD;
         typeDescription = 'input object'
         break;
     }
@@ -1062,7 +1043,7 @@ class Merger {
         const suggestions = suggestionList(sourceSubgraphName, this.names);
         const extraMsg = didYouMean(suggestions);
         this.hints.push(new CompositionHint(
-          hintFromSubgraphDoesNotExist,
+          HINTS.FROM_SUBGRAPH_DOES_NOT_EXIST,
           `Source subgraph "${sourceSubgraphName}" for field "${coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
           coordinate,
           overridingSubgraphASTNode,
@@ -1079,7 +1060,7 @@ class Merger {
         }));
       } else if (subgraphMap[sourceSubgraphName] === undefined) {
         this.hints.push(new CompositionHint(
-          hintOverrideDirectiveCanBeRemoved,
+          HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
           `Field "${coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
           coordinate,
           overridingSubgraphASTNode,
@@ -1110,7 +1091,7 @@ class Merger {
             // The from field is explicitly marked external by the user (which means it is "used" and cannot be completely
             // removed) so the @override can be removed.
             this.hints.push(new CompositionHint(
-              hintOverrideDirectiveCanBeRemoved,
+              HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
               `Field "${coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
               coordinate,
               overridingSubgraphASTNode,
@@ -1118,7 +1099,7 @@ class Merger {
           } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
             result.setUsedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
-              hintOverriddenFieldCanBeRemoved,
+              HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
               `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
               coordinate,
               overriddenSubgraphASTNode,
@@ -1126,7 +1107,7 @@ class Merger {
           } else {
             result.setUnusedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
-              hintOverriddenFieldCanBeRemoved,
+              HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
               `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
               coordinate,
               overriddenSubgraphASTNode,
@@ -1443,7 +1424,7 @@ class Merger {
       // of named types, but if 2 subgraphs differs in kind for the same type name (say one has "X" be a scalar and the
       // other an interface) we know we've already registered an error and the hint her won't matter).
       this.reportMismatchHint(
-        isArgument ? hintInconsistentArgumentType : hintInconsistentFieldType,
+        isArgument ? HINTS.INCONSISTENT_ARGUMENT_TYPE : HINTS.INCONSISTENT_FIELD_TYPE,
         `${elementKind} "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
         dest,
         sources,
@@ -1502,7 +1483,7 @@ class Merger {
           }));
         } else {
           this.reportMismatchHint(
-            hintInconsistentArgumentPresence,
+            HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
             `Argument "${arg.coordinate}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
             arg,
             sources.map((s) => s ? s.argument(argName) : undefined),
@@ -1580,7 +1561,7 @@ class Merger {
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
-        hintInconsistentDefaultValue,
+        HINTS.INCONSISTENT_DEFAULT_VALUE,
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
@@ -1626,7 +1607,7 @@ class Merger {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.hasTypeMember(memberName)) {
         this.reportMismatchHint(
-          hintInconsistentUnionMember,
+          HINTS.INCONSISTENT_UNION_MEMBER,
           // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
           // we can anticipate it since hints will not surface to users if there is a validation error anyway.
           `Member type "${memberName}" in union type "${dest}" is only defined in a subset of subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
@@ -1650,7 +1631,7 @@ class Merger {
       // option. We do raise an hint though so users can notice this.
       usage = { position: 'Output', examples: {}};
       this.hints.push(new CompositionHint(
-        hintUnusedEnumType,
+        HINTS.UNUSED_ENUM_TYPE,
         `Enum type "${dest}" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).`,
         dest.name,
       ));
@@ -1725,7 +1706,7 @@ class Merger {
         // 2. it avoids generating an additional "enum type is empty" error in `mergeEnum` if all the values are inconsistent.
       } else {
         this.reportMismatchHint(
-          hintInconsistentEnumValueForInputEnum,
+          HINTS.INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
           `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
           dest,
           sources,
@@ -1752,7 +1733,7 @@ class Merger {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.value(valueName)) {
         this.reportMismatchHint(
-          hintInconsistentEnumValueForOutputEnum,
+          HINTS.INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
           `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
           dest,
           sources,
@@ -1792,7 +1773,7 @@ class Merger {
           }));
         } else {
           this.reportMismatchHint(
-            hintInconsistentInputObjectField,
+            HINTS.INCONSISTENT_INPUT_OBJECT_FIELD,
             `Input object field "${destField.name}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
             destField,
             sources.map((s) => s ? s.field(name) : undefined),
@@ -1892,7 +1873,7 @@ class Merger {
 
   //  if (inconsistentRepeatable) {
   //    this.reportMismatchHint(
-  //      hintInconsistentTypeSystemDirectiveRepeatable,
+  //      HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
   //      `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
   //      dest,
   //      sources,
@@ -1904,7 +1885,7 @@ class Merger {
   //  }
   //  if (inconsistentLocations) {
   //    this.reportMismatchHint(
-  //      hintInconsistentTypeSystemDirectiveLocations,
+  //      HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
   //      `Type system directive "${dest}" has inconsistent locations across subgraphs `,
   //      dest,
   //      sources,
@@ -1928,7 +1909,7 @@ class Merger {
         const usages = dest.remove();
         assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
         this.reportMismatchHint(
-          hintInconsistentExecutionDirectivePresence,
+          HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE,
           `Execution directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
           dest,
           sources,
@@ -1964,7 +1945,7 @@ class Merger {
           const usages = dest.remove();
           assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
           this.reportMismatchHint(
-            hintNoExecutionDirectiveLocationsIntersection,
+            HINTS.NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION,
             `Execution directive "${dest}" has no location that is common to all subgraphs: `,
             dest,
             sources,
@@ -1983,7 +1964,7 @@ class Merger {
 
     if (inconsistentRepeatable) {
       this.reportMismatchHint(
-        hintInconsistentExecutionDirectiveRepeatable,
+        HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE,
         `Execution directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
         dest,
         sources,
@@ -1995,7 +1976,7 @@ class Merger {
     }
     if (inconsistentLocations) {
       this.reportMismatchHint(
-        hintInconsistentExecutionDirectiveLocations,
+        HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS,
         `Execution directive "${dest}" has inconsistent locations across subgraphs `,
         dest,
         sources,

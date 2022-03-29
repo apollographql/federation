@@ -1,156 +1,173 @@
 import { SubgraphASTNode } from "@apollo/federation-internals";
 import { printLocation } from "graphql";
 
-export class HintID {
-  constructor(
-    readonly code: string,
-    readonly description: string,
-    readonly mainElementDescription: string
-  ) {
-  }
-
-  toString(): string {
-    return `${this.code}: ${this.description}`;
-  }
+export type HintID = {
+  code: string,
+  description: string,
+  mainElementDescription: string,
 }
 
-export const hintInconsistentFieldType = new HintID(
-  'InconsistentFieldType',
-  'Indicates that a field does not have the exact same types in all subgraphs, but that the types are "compatible"'
+const INCONSISTENT_FIELD_TYPE: HintID = {
+  code: 'InconsistentFieldType',
+  description: 'Indicates that a field does not have the exact same types in all subgraphs, but that the types are "compatible"'
     + ' (2 types are compatible if one is a non-nullable version of the other, a list version, a subtype, or a'
     + ' combination of the former).',
-  'the field with mismatched types'
-);
+  mainElementDescription: 'the field with mismatched types',
+};
 
-export const hintInconsistentArgumentType = new HintID(
-  'InconsistentArgumentType',
-  'Indicates that an argument type (of a field/input field/directive definition) does not have the exact same types'
+const INCONSISTENT_ARGUMENT_TYPE: HintID = {
+  code: 'InconsistentArgumentType',
+  description: 'Indicates that an argument type (of a field/input field/directive definition) does not have the exact same types'
     + ' in all subgraphs, but that the types are "compatible" (2 types are compatible if one is a non-nullable'
     + ' version of the other, a list version, a subtype, or a combination of the former).',
-  'the argument with mismatched types'
-);
+  mainElementDescription: 'the argument with mismatched types',
+};
 
-export const hintInconsistentDefaultValue = new HintID(
-  'InconsistentDefaultValuePresence',
-  'Indicates that an argument definition (of a field/input field/directive definition) has a default value in only'
+const INCONSISTENT_DEFAULT_VALUE: HintID = {
+  code: 'InconsistentDefaultValuePresence',
+  description: 'Indicates that an argument definition (of a field/input field/directive definition) has a default value in only'
     + ' some of the subgraphs that define the argument.',
-  'the argument with default values in only some subgraphs'
-);
+  mainElementDescription: 'the argument with default values in only some subgraphs',
+};
 
-export const hintInconsistentEntity = new HintID(
-  'InconsistentEntity',
-  'Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined',
-  'the object that is an entity in only some subgraphs'
-);
+const INCONSISTENT_ENTITY: HintID = {
+  code: 'InconsistentEntity',
+  description: 'Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined.',
+  mainElementDescription: 'the object that is an entity in only some subgraphs',
+};
 
-export const hintInconsistentObjectValueTypeField = new HintID(
-  'InconsistentObjectValueTypeField',
-  'Indicates that a field of an object "value type" (has no `@key` in any subgraph) is not defined in all the subgraphs that declare the type',
-  'the field that is inconsistently declared between subgraphs'
-);
+const INCONSISTENT_OBJECT_VALUE_TYPE_FIELD: HintID = {
+  code: 'InconsistentObjectValueTypeField',
+  description: 'Indicates that a field of an object "value type" (has no `@key` in any subgraph) is not defined in all the subgraphs that declare the type.',
+  mainElementDescription: 'the field that is inconsistently declared between subgraphs',
+};
 
-export const hintInconsistentInterfaceValueTypeField = new HintID(
-  'InconsistentInterfaceValueTypeField',
-  'Indicates that a field of an interface "value type" (has no  `@key` in any subgraph) is not defined in all the subgraphs that declare the type',
-  'the field that is inconsistently declared between subgraphs'
-);
+const INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD: HintID = {
+  code: 'InconsistentInterfaceValueTypeField',
+  description: 'Indicates that a field of an interface "value type" (has no  `@key` in any subgraph) is not defined in all the subgraphs that declare the type.',
+  mainElementDescription: 'the field that is inconsistently declared between subgraphs',
+};
 
-export const hintInconsistentInputObjectField = new HintID(
-  'InconsistentInputObjectField',
-  'Indicates that a field of an input object type definition is only defined in a subset of the subgraphs that declare the input object',
-  'the field that is inconsistently declared between subgraphs'
-);
+const INCONSISTENT_INPUT_OBJECT_FIELD: HintID = {
+  code: 'InconsistentInputObjectField',
+  description: 'Indicates that a field of an input object type definition is only defined in a subset of the subgraphs that declare the input object.',
+  mainElementDescription: 'the field that is inconsistently declared between subgraphs',
+};
 
-export const hintInconsistentUnionMember = new HintID(
-  'InconsistentUnionMember',
-  'Indicates that a member of a union type definition is only defined in a subset of the subgraphs that declare the union',
-  'the union type which has an inconsistent member'
-);
+const INCONSISTENT_UNION_MEMBER: HintID = {
+  code: 'InconsistentUnionMember',
+  description: 'Indicates that a member of a union type definition is only defined in a subset of the subgraphs that declare the union.',
+  mainElementDescription: 'the union type which has an inconsistent member',
+};
 
-export const hintInconsistentEnumValueForInputEnum= new HintID(
-  'InconsistentEnumValueForInputEnum',
-  'Indicates that a value of an enum type definition (that is only used as an Input type) has not been merged into the supergraph because it is defined in only a subset of the subgraphs that declare the enum',
-  'the enum type which has an inconsistent value'
-);
+const INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM: HintID = {
+  code: 'InconsistentEnumValueForInputEnum',
+  description: 'Indicates that a value of an enum type definition (that is only used as an Input type) has not been merged into the supergraph because it is defined in only a subset of the subgraphs that declare the enum',
+  mainElementDescription: 'the enum type which has an inconsistent value',
+};
 
-export const hintInconsistentEnumValueForOutputEnum= new HintID(
-  'InconsistentEnumValueForOutputEnum',
-  'Indicates that a value of an enum type definition (that is only used as an Output type, or is unused) has been merged in the supergraph but is defined in only a subset of the subgraphs that declare the enum',
-  'the enum type which has an inconsistent value'
-);
+const INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM: HintID = {
+  code: 'InconsistentEnumValueForOutputEnum',
+  description: 'Indicates that a value of an enum type definition (that is only used as an Output type, or is unused) has been merged in the supergraph but is defined in only a subset of the subgraphs that declare the enum',
+  mainElementDescription: 'the enum type which has an inconsistent value'
+};
 
-export const hintInconsistentTypeSystemDirectiveRepeatable = new HintID(
-  'InconsistentTypeSystemDirectiveRepeatable',
-  'Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph)',
-  'the inconsistent directive'
-);
+const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE: HintID = {
+  code: 'InconsistentTypeSystemDirectiveRepeatable',
+  description: 'Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph).',
+  mainElementDescription: 'the inconsistent directive',
+};
 
-export const hintInconsistentTypeSystemDirectiveLocations = new HintID(
-  'InconsistentTypeSystemDirectiveLocations',
-  'Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph)',
-  'the inconsistent directive'
-);
+const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS: HintID = {
+  code: 'InconsistentTypeSystemDirectiveLocations',
+  description: 'Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph).',
+  mainElementDescription: 'the inconsistent directive',
+};
 
-export const hintInconsistentExecutionDirectivePresence = new HintID(
-  'InconsistentExecutionDirectivePresence',
-  'Indicates that an execution directive definition is declared in only some of the subgraphs',
-  'the inconsistent directive'
-);
+const INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE: HintID = {
+  code: 'InconsistentExecutionDirectivePresence',
+  description: 'Indicates that an execution directive definition is declared in only some of the subgraphs.',
+  mainElementDescription: 'the inconsistent directive',
+};
 
-export const hintNoExecutionDirectiveLocationsIntersection = new HintID(
-  'NoExecutionDirectiveIntersection',
-  'Indicates that, for an execution directive definition, no location for it appears in all subgraphs',
-  'the inconsistent directive'
-);
+const NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION: HintID = {
+  code: 'NoExecutionDirectiveIntersection',
+  description: 'Indicates that, for an execution directive definition, no location for it appears in all subgraphs.',
+  mainElementDescription: 'the inconsistent directive',
+};
 
-export const hintInconsistentExecutionDirectiveRepeatable = new HintID(
-  'InconsistentExecutionDirectiveRepeatable',
-  'Indicates that an execution directive definition is marked repeatable in only a subset of the subgraphs (and will not be repeatable in the supergraph)',
-  'the inconsistent directive'
-);
+const INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE: HintID = {
+  code: 'InconsistentExecutionDirectiveRepeatable',
+  description: 'Indicates that an execution directive definition is marked repeatable in only a subset of the subgraphs (and will not be repeatable in the supergraph).',
+  mainElementDescription: 'the inconsistent directive',
+};
 
-export const hintInconsistentExecutionDirectiveLocations = new HintID(
-  'InconsistentExecutionDirectiveLocations',
-  'Indicates that an execution directive definition is declared with inconsistent locations across subgraphs (and will use the intersection of all locations in the supergraph)',
-  'the inconsistent directive'
-);
+const INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS: HintID = {
+  code: 'InconsistentExecutionDirectiveLocations',
+  description: 'Indicates that an execution directive definition is declared with inconsistent locations across subgraphs (and will use the intersection of all locations in the supergraph).',
+  mainElementDescription: 'the inconsistent directive',
+};
 
-export const hintInconsistentDescription = new HintID(
-  'InconsistentDescription',
-  'Indicates that an element has a description in more than one subgraph, and the descriptions are not equal',
-  'the element with inconsistent description'
-);
+const INCONSISTENT_DESCRIPTION: HintID = {
+  code: 'InconsistentDescription',
+  description: 'Indicates that an element has a description in more than one subgraph, and the descriptions are not equal.',
+  mainElementDescription: 'the element with inconsistent description',
+};
 
-export const hintInconsistentArgumentPresence = new HintID(
-  'InconsistentArgumentPresence',
-  'Indicates that an (optional) argument (of a field or directive definition) is not present in all subgraphs '
-  + ' and will not be part of the supergraph',
-  'the argument with mismatched types'
-);
+const INCONSISTENT_ARGUMENT_PRESENCE: HintID = {
+  code: 'InconsistentArgumentPresence',
+  description: 'Indicates that an (optional) argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph.',
+  mainElementDescription: 'the argument with mismatched types',
+};
 
-export const hintFromSubgraphDoesNotExist = new HintID(
-  'FromSubgraphDoesNotExist',
-  'Source subgraph specified by @override directive does not exist',
-  'the argument with non-existent subgraph'
-);
+const FROM_SUBGRAPH_DOES_NOT_EXIST: HintID = {
+  code: 'FromSubgraphDoesNotExist',
+  description: 'Source subgraph specified by @override directive does not exist',
+  mainElementDescription: 'the argument with non-existent subgraph',
+};
 
-export const hintOverriddenFieldCanBeRemoved = new HintID(
-  'OverriddenFieldCanBeRemoved',
-  'Field has been overridden by another subgraph. Consider removing.',
-  'the overridden field'
-);
+const OVERRIDDEN_FIELD_CAN_BE_REMOVED: HintID = {
+  code: 'OverriddenFieldCanBeRemoved',
+  description: 'Field has been overridden by another subgraph. Consider removing.',
+  mainElementDescription: 'the overridden field',
+};
 
-export const hintOverrideDirectiveCanBeRemoved = new HintID(
-  'OverrideDirectiveCanBeRemoved',
-  'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
-  'the field with the override directive'
-);
+const OVERRIDE_DIRECTIVE_CAN_BE_REMOVED: HintID = {
+  code: 'OverrideDirectiveCanBeRemoved',
+  description: 'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
+  mainElementDescription: 'the field with the override directive',
+};
 
-export const hintUnusedEnumType = new HintID(
-  'UnusedEnumType',
-  'Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it) and will not be included in the supergraph',
-  'the enum type'
-);
+const UNUSED_ENUM_TYPE: HintID = {
+  code: 'UnusedEnumType',
+  description: 'Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it) and will not be included in the supergraph',
+  mainElementDescription: 'the enum type',
+};
+
+export const HINTS = {
+  INCONSISTENT_FIELD_TYPE,
+  INCONSISTENT_ARGUMENT_TYPE,
+  INCONSISTENT_DEFAULT_VALUE,
+  INCONSISTENT_ENTITY,
+  INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
+  INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD,
+  INCONSISTENT_INPUT_OBJECT_FIELD,
+  INCONSISTENT_UNION_MEMBER,
+  INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
+  INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
+  INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
+  INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
+  INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE,
+  NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION,
+  INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE,
+  INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS,
+  INCONSISTENT_DESCRIPTION,
+  INCONSISTENT_ARGUMENT_PRESENCE,
+  FROM_SUBGRAPH_DOES_NOT_EXIST,
+  OVERRIDDEN_FIELD_CAN_BE_REMOVED,
+  OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
+  UNUSED_ENUM_TYPE,
+}
 
 export class CompositionHint {
   public readonly nodes?: readonly SubgraphASTNode[];
