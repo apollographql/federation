@@ -362,6 +362,63 @@ describe('composition', () => {
     `);
   });
 
+  it('composes core subgraphs', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v0.3")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "k") {
+          k: ID
+        }
+
+        directive @key(fields: federation__FieldSet) on OBJECT
+        scalar federation__FieldSet
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v0.3")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID
+          a: Int
+          b: String
+        }
+
+        directive @key(fields: federation__FieldSet) on OBJECT
+        scalar federation__FieldSet
+      `
+    }
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+
+    const [_, api, _subgraphs] = schemas(result);
+    expect(printSchema(api)).toMatchString(`
+      type Product {
+        sku: String!
+        name: String!
+      }
+
+      type Query {
+        products: [Product!]
+      }
+    `);
+  })
+
   describe('merging of type references', () => {
     describe('for field types', () => {
       it('errors on incompatible types', () => {
