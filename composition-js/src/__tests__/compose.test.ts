@@ -389,7 +389,6 @@ describe('composition', () => {
       url: 'https://Subgraph2',
       typeDefs: gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/link/v1.0")
           @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
 
         type T @key(fields: "k") {
@@ -398,6 +397,10 @@ describe('composition', () => {
           b: String
         }
 
+        directive @link(url: link__Url!, import: link__Imports)
+          repeatable on SCHEMA
+        scalar link__Url
+        scalar link__Imports
         directive @key(fields: federation__FieldSet) on OBJECT
         scalar federation__FieldSet
       `
