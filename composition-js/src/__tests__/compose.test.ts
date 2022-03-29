@@ -368,7 +368,7 @@ describe('composition', () => {
       url: 'https://Subgraph1',
       typeDefs: gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/link/v0.3")
+          @link(url: "https://specs.apollo.dev/link/v1.0")
           @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
 
         type Query {
@@ -389,7 +389,7 @@ describe('composition', () => {
       url: 'https://Subgraph2',
       typeDefs: gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/link/v0.3")
+          @link(url: "https://specs.apollo.dev/link/v1.0")
           @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
 
         type T @key(fields: "k") {
@@ -403,20 +403,11 @@ describe('composition', () => {
       `
     }
 
-    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    const result = composeServices([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
 
     const [_, api, _subgraphs] = schemas(result);
-    expect(printSchema(api)).toMatchString(`
-      type Product {
-        sku: String!
-        name: String!
-      }
-
-      type Query {
-        products: [Product!]
-      }
-    `);
+    expect(printSchema(api)).toMatchInlineSnapshot()
   })
 
   describe('merging of type references', () => {
