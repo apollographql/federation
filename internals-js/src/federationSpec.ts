@@ -11,7 +11,7 @@ import {
 } from "./directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
 import { assert } from "./utils";
-import { tagLocations } from "./tagSpec";
+import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { inaccessibleLocations } from "./inaccessibleSpec";
@@ -63,7 +63,7 @@ export const shareableDirectiveSpec = createDirectiveSpecification({
 
 export const tagDirectiveSpec = createDirectiveSpecification({
   name:'tag',
-  locations: tagLocations,
+  locations: TAG_VERSIONS.latest().tagLocations,
   repeatable: true,
   argumentFct: (schema) => {
     return [{ name: 'name', type: new NonNullType(schema.stringType()) }];
