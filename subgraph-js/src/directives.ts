@@ -4,7 +4,6 @@ import {
   GraphQLNonNull,
   GraphQLString,
   GraphQLNamedType,
-  isInputObjectType,
   DirectiveNode,
   GraphQLField,
   FieldDefinitionNode,
@@ -188,7 +187,6 @@ export function typeIncludesDirective(
   type: GraphQLNamedType,
   directiveName: string,
 ): boolean {
-  if (isInputObjectType(type)) return false;
   const directives = gatherDirectives(type);
   return directives.some((directive) => directive.name.value === directiveName);
 }
