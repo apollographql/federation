@@ -11,9 +11,15 @@ export const typeDefs = gql`
     | INTERFACE
     | OBJECT
     | UNION
+    | ARGUMENT_DEFINITION
+    | SCALAR
+    | ENUM
+    | ENUM_VALUE
+    | INPUT_OBJECT
+    | INPUT_FIELD_DEFINITION
 
-  enum CacheControlScope {
-    PUBLIC
+  enum CacheControlScope @tag(name: "from-reviews") {
+    PUBLIC @tag(name: "from-reviews")
     PRIVATE
   }
 
@@ -23,7 +29,7 @@ export const typeDefs = gql`
     inheritMaxAge: Boolean
   ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
-  scalar JSON @specifiedBy(url: "https://json-spec.dev")
+  scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev")
 
   schema {
     query: RootQuery
@@ -55,7 +61,7 @@ export const typeDefs = gql`
     id: ID! @tag(name: "accounts")
     name: Name @cacheControl(inheritMaxAge: true)
     username: String @shareable # Provided by the 'reviews' subgraph
-    birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
+    birthDate(locale: String @tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]
     ssn: String

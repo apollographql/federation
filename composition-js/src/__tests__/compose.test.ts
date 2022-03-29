@@ -1323,7 +1323,7 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION'],
+        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION'],
       ]);
     });
 

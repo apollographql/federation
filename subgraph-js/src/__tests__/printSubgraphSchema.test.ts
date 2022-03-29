@@ -20,12 +20,12 @@ describe('printSubgraphSchema', () => {
 
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
-      enum CacheControlScope {
-        PUBLIC
+      enum CacheControlScope @tag(name: \\"from-reviews\\") {
+        PUBLIC @tag(name: \\"from-reviews\\")
         PRIVATE
       }
 
-      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\") @tag(name: \\"from-reviews\\")
 
       type RootQuery {
         _entities(representations: [_Any!]!): [_Entity]!
@@ -54,7 +54,7 @@ describe('printSubgraphSchema', () => {
         id: ID! @tag(name: \\"accounts\\")
         name: Name
         username: String @shareable
-        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
+        birthDate(locale: String @tag(name: \\"admin\\")): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         account: AccountType
         metadata: [UserMetadata]
         ssn: String
@@ -79,7 +79,9 @@ describe('printSubgraphSchema', () => {
   });
 
   it('prints a scalar without a directive correctly', () => {
-    const schema = gql`scalar JSON`;
+    const schema = gql`
+      scalar JSON
+    `;
     const subgraphSchema = buildSubgraphSchema(schema);
 
     expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
@@ -115,9 +117,9 @@ describe('printSubgraphSchema', () => {
         metadata: [MetadataOrError]
       }
 
-      input UpdateReviewInput {
+      input UpdateReviewInput @tag(name: \\"from-reviews\\") {
         id: ID!
-        body: String
+        body: String @tag(name: \\"from-reviews\\")
       }
 
       type UserMetadata {
@@ -134,7 +136,7 @@ describe('printSubgraphSchema', () => {
       }
 
       interface Product @tag(name: \\"from-reviews\\") {
-        reviews: [Review]
+        reviews: [Review] @tag(name: \\"from-reviews\\")
       }
 
       type Furniture implements Product @key(fields: \\"upc\\") {
@@ -173,12 +175,12 @@ describe('printSubgraphSchema', () => {
 
       type Mutation {
         reviewProduct(input: ReviewProduct!): Product
-        updateReview(review: UpdateReviewInput!): Review
+        updateReview(review: UpdateReviewInput! @tag(name: \\"from-reviews\\")): Review
         deleteReview(id: ID!): Boolean
       }
 
-      type KeyValue @shareable {
-        key: String!
+      type KeyValue @shareable @tag(name: \\"from-reviews\\") {
+        key: String! @tag(name: \\"from-reviews\\")
         value: String!
       }
 
