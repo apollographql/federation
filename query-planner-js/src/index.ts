@@ -1,5 +1,6 @@
 export { queryPlanSerializer, astSerializer } from './snapshotSerializers';
 export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
+export * from './schema-helper/error';
 
 export * from './QueryPlan';
 import { QueryPlan } from './QueryPlan';

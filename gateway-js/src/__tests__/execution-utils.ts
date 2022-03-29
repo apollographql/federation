@@ -1,5 +1,4 @@
 import {
-  GraphQLSchemaValidationError,
   GraphQLSchemaModule,
   GraphQLResolverMap,
 } from '../schema-helper';
@@ -14,7 +13,7 @@ import {
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { buildComposedSchema, QueryPlanner, QueryPlan } from '@apollo/query-planner';
+import { buildComposedSchema, QueryPlanner, QueryPlan, GraphQLSchemaValidationError } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
