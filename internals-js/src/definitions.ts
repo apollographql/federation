@@ -493,7 +493,8 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
     nameOrDefOrDirective: Directive<TOwnType, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
-    args?: TApplicationArgs
+    args?: TApplicationArgs,
+    asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
     let toAdd: Directive<TOwnType, TApplicationArgs>;
     if (nameOrDefOrDirective instanceof Directive) {
@@ -506,12 +507,15 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       let name: string;
       if (typeof nameOrDefOrDirective === 'string') {
         this.checkUpdate();
-        const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective);
+        const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective, args);
         if (!def) {
           throw this.schema().blueprint.onGraphQLJSValidationError(
             this.schema(),
             new GraphQLError(`Unknown directive "@${nameOrDefOrDirective}".`)
           );
+        }
+        if (Array.isArray(def)) {
+          throw ErrGraphQLValidationFailed(def);
         }
         name = nameOrDefOrDirective;
       } else {
@@ -522,7 +526,11 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       Element.prototype['setParent'].call(toAdd, this);
     }
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
-    this._appliedDirectives.push(toAdd);
+    if (asFirstDirective) {
+      this._appliedDirectives.unshift(toAdd);
+    } else {
+      this._appliedDirectives.push(toAdd);
+    }
     DirectiveDefinition.prototype['addReferencer'].call(toAdd.definition!, toAdd);
     this.onModification();
     return toAdd;
@@ -829,13 +837,14 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 }
 
 export class SchemaBlueprint {
-  onMissingDirectiveDefinition(_schema: Schema, _name: string): DirectiveDefinition | undefined {
+  onMissingDirectiveDefinition(_schema: Schema, _name: string, _args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
     // No-op by default, but used for federation.
     return undefined;
   }
 
-  onDirectiveDefinitionAndSchemaParsed(_: Schema) {
+  onDirectiveDefinitionAndSchemaParsed(_: Schema): GraphQLError[] {
     // No-op by default, but used for federation.
+    return [];
   }
 
   ignoreParsedField(_type: NamedType, _fieldName: string): boolean {
@@ -1015,22 +1024,22 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'include',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => [{ name: 'if', type: new NonNullType(schema.booleanType()) }]
+    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
   }),
   createDirectiveSpecification({
     name: 'skip',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => [{ name: 'if', type: new NonNullType(schema.booleanType()) }]
+    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
   }),
   createDirectiveSpecification({
     name: 'deprecated',
     locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION],
-    argumentFct: (schema) => [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }]
+    argumentFct: (schema) => ({ args: [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }], errors: [] })
   }),
   createDirectiveSpecification({
     name: 'specifiedBy',
     locations: [DirectiveLocation.SCALAR],
-    argumentFct: (schema) => [{ name: 'url', type: new NonNullType(schema.stringType()) }]
+    argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
   }),
 ];
 
@@ -1484,9 +1493,10 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
     nameOrDefOrDirective: Directive<SchemaDefinition, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
-    args?: TApplicationArgs
+    args?: TApplicationArgs,
+    asFirstDirective: boolean = false,
   ): Directive<SchemaDefinition, TApplicationArgs> {
-    const applied = super.applyDirective(nameOrDefOrDirective, args) as Directive<SchemaDefinition, TApplicationArgs>;
+    const applied = super.applyDirective(nameOrDefOrDirective, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
     const schema = this.schema();
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
@@ -1499,6 +1509,10 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
       const imports = extractCoreFeatureImports(url, schemaDirective);
       const core = new CoreFeature(url, args.as ?? url.name, schemaDirective, imports, args.for);
       Schema.prototype['markAsCoreSchema'].call(schema, core);
+      // We also any core features that may have been added before we saw the @link for link itself
+      this.appliedDirectives
+        .filter((a) => a !== applied)
+        .forEach((other) => CoreFeatures.prototype['maybeAddFeature'].call(schema.coreFeatures, other));
     } else if (coreFeatures) {
       CoreFeatures.prototype['maybeAddFeature'].call(coreFeatures, applied);
     }
