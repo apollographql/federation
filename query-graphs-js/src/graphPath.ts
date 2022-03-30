@@ -672,16 +672,14 @@ export function isUnadvanceable(result: any[] | Unadvanceables): result is Unadv
   return result instanceof Unadvanceables;
 }
 
-function createPathTransitionToEdgeFct(supergraph: Schema): (graph: QueryGraph, vertex: Vertex, transition: Transition) => Edge | null | undefined {
-  return (graph: QueryGraph, vertex: Vertex, transition: Transition) => {
-    for (const edge of graph.outEdges(vertex)) {
-      // The edge must match the transition and get us to the target type.
-      if (transition.collectOperationElements && edge.matchesSupergraphTransition(supergraph, transition)) {
-        return edge;
-      }
+function pathTransitionToEdge(graph: QueryGraph, vertex: Vertex, transition: Transition): Edge | null | undefined {
+  for (const edge of graph.outEdges(vertex)) {
+    // The edge must match the transition.
+    if (edge.matchesSupergraphTransition(transition)) {
+      return edge;
     }
-    return undefined;
   }
+  return undefined;
 }
 
 /**
@@ -703,20 +701,14 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
   constructor(
     readonly path: GraphPath<Transition, V>,
     readonly conditionResolver: ConditionResolver,
-    readonly pathTransitionToEdge: (graph: QueryGraph, vertex: Vertex, transition: Transition) => Edge | null | undefined,
   ) {
   }
 
   static initial<V extends Vertex = Vertex>(
-    supergraph: Schema,
     initialPath: GraphPath<Transition, V>,
     conditionResolver: ConditionResolver,
   ): TransitionPathWithLazyIndirectPaths<V> {
-    return new TransitionPathWithLazyIndirectPaths(
-      initialPath,
-      conditionResolver,
-      createPathTransitionToEdgeFct(supergraph),
-    );
+    return new TransitionPathWithLazyIndirectPaths(initialPath, conditionResolver);
   }
 
   indirectOptions(): IndirectPaths<Transition, V> {
@@ -733,8 +725,8 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
       this.conditionResolver,
       [],
       [],
-      t => t,
-      this.pathTransitionToEdge,
+      (t) => t,
+      pathTransitionToEdge,
     );
   }
 
@@ -751,7 +743,6 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
 // The lists of options can be empty, which has the special meaning that the transition is guaranteed to have no results (it corresponds to unsatisfiable conditions),
 // meaning that as far as composition validation goes, we can ignore that transition (and anything that follows) and otherwise continue.
 export function advancePathWithTransition<V extends Vertex>(
-  supergraph: Schema,
   subgraphPath: TransitionPathWithLazyIndirectPaths<V>,
   transition: Transition,
   targetType: NamedType,
@@ -826,7 +817,7 @@ export function advancePathWithTransition<V extends Vertex>(
 
   debug.group(() => `Trying to advance ${subgraphPath} for ${transition}`);
   debug.group('Direct options:');
-  const directOptions = advancePathWithDirectTransition(supergraph, subgraphPath.path, transition, subgraphPath.conditionResolver);
+  const directOptions = advancePathWithDirectTransition(subgraphPath.path, transition, subgraphPath.conditionResolver);
   let options: GraphPath<Transition, V>[];
   const deadEnds: Unadvanceable[] = [];
   if (isUnadvanceable(directOptions)) {
@@ -851,7 +842,7 @@ export function advancePathWithTransition<V extends Vertex>(
     debug.group('Validating indirect options:');
     for (const nonCollectingPath of pathsWithNonCollecting.paths) {
       debug.group(() => `For indirect path ${nonCollectingPath}:`);
-      const pathsWithTransition = advancePathWithDirectTransition(supergraph, nonCollectingPath, transition, subgraphPath.conditionResolver);
+      const pathsWithTransition = advancePathWithDirectTransition(nonCollectingPath, transition, subgraphPath.conditionResolver);
       if (isUnadvanceable(pathsWithTransition)) {
         debug.groupEnd(() => `Cannot be advanced with ${transition}`);
         deadEnds.push(...pathsWithTransition.reasons);
@@ -909,7 +900,6 @@ function createLazyTransitionOptions<V extends Vertex>(
   return options.map(option => new TransitionPathWithLazyIndirectPaths(
     option,
     origin.conditionResolver,
-    origin.pathTransitionToEdge,
   ));
 }
 
@@ -1208,17 +1198,18 @@ function hasValidDirectKeyEdge(
 }
 
 function advancePathWithDirectTransition<V extends Vertex>(
-  supergraph: Schema,
   path: GraphPath<Transition, V>,
   transition: Transition,
   conditionResolver: ConditionResolver
 ) : GraphPath<Transition, V>[] | Unadvanceables {
+  assert(transition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
+
   const options: GraphPath<Transition, V>[] = [];
   const deadEnds: Unadvanceable[] = [];
 
   for (const edge of path.nextEdges()) {
-    // The edge must match the transition and get us to the target type.
-    if (!transition.collectOperationElements || !edge.matchesSupergraphTransition(supergraph, transition)) {
+    // The edge must match the transition. If it doesn't, we cannot use it.
+    if (!edge.matchesSupergraphTransition(transition)) {
       continue;
     }
 
@@ -1258,7 +1249,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
         : undefined;
 
       if (fieldInSubgraph) {
-        // the subgraph has the field but no correspond edge. This should only happen if the field is external.
+        // the subgraph has the field but no corresponding edge. This should only happen if the field is external.
         const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
         assert(
           externalDirective,

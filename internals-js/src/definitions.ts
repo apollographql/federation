@@ -383,8 +383,8 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   }
 }
 
-export function sourceASTs(...elts: ({ sourceAST?: ASTNode } | undefined)[]): ASTNode[] {
-  return elts.map(elt => elt?.sourceAST).filter((elt): elt is ASTNode => elt !== undefined);
+export function sourceASTs<TNode extends ASTNode = ASTNode>(...elts: ({ sourceAST?: TNode } | undefined)[]): TNode[] {
+  return elts.map(elt => elt?.sourceAST).filter((elt): elt is TNode => elt !== undefined);
 }
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
@@ -2021,7 +2021,12 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   protected readonly _values: EnumValue[] = [];
 
   get values(): readonly EnumValue[] {
-    return this._values;
+    // Because our abstractions are mutable, and removal is done by calling
+    // `remove()` on the element to remove, it's not unlikely someone mauy
+    // try to iterate on the result of this method and call `remove()` on
+    // some of the return value based on some condition. But this will break
+    // in an error-prone way if we don't copy, so we do.
+    return Array.from(this._values);
   }
 
   value(name: string): EnumValue | undefined {
@@ -2409,6 +2414,7 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
       return [];
     }
     this.onModification();
+    this.removeAppliedDirectives();
     InputObjectType.prototype['removeFieldInternal'].call(this._parent, this);
     this._parent = undefined;
     this.type = undefined;
@@ -2465,6 +2471,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
       return [];
     }
     this.onModification();
+    this.removeAppliedDirectives();
     if (this._parent instanceof FieldDefinition) {
       FieldDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     } else {
@@ -2523,6 +2530,7 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
       return [];
     }
     this.onModification();
+    this.removeAppliedDirectives();
     EnumType.prototype['removeValueInternal'].call(this._parent, this);
     this._parent = undefined;
     // Enum values have nothing that can reference them outside of their parents

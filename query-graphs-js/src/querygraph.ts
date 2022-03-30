@@ -27,14 +27,12 @@ import {
   mapKeys,
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
-  ALL_SUBTYPING_RULES,
   federationMetadata,
   FederationMetadata,
   DirectiveDefinition,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
-import { isStructuralFieldSubtype } from './structuralSubtyping';
 import { preComputeNonTrivialFollowupEdges } from './nonTrivialEdgePrecomputing';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
@@ -163,27 +161,13 @@ export class Edge {
     return this.transition.kind === 'FieldCollection' && this.transition.definition.name === name;
   }
 
-  matchesSupergraphTransition(supergraph: Schema, otherTransition: Transition): boolean {
+  matchesSupergraphTransition(otherTransition: Transition): boolean {
+    assert(otherTransition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
     const transition = this.transition;
     switch (transition.kind) {
-      case 'FieldCollection':
-        if (otherTransition.kind === 'FieldCollection') {
-          // isStructuralFieldSubtype relies on being about to check subtypes. And when comparing types, we
-          // want to know if types are subtypes 'in the supergraph'.
-          return isStructuralFieldSubtype(
-            transition.definition,
-            otherTransition.definition,
-            ALL_SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
-            (union, maybeMember) => (supergraph.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
-            (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
-          );
-        } else {
-          return false;
-        }
-      case 'DownCast':
-        return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
-      default:
-        return transition.kind === otherTransition.kind;
+      case 'FieldCollection': return otherTransition.kind === 'FieldCollection' && transition.definition.name === otherTransition.definition.name;
+      case 'DownCast': return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
+      default: return false;
     }
   }
 

@@ -11,7 +11,7 @@ import {
   hintInconsistentInterfaceValueTypeField,
   hintInconsistentObjectValueTypeField,
   hintInconsistentUnionMember,
-  hintInconsistentEnumValue,
+  hintInconsistentEnumValueForInputEnum,
   hintInconsistentTypeSystemDirectiveRepeatable,
   hintInconsistentTypeSystemDirectiveLocations,
   hintInconsistentExecutionDirectivePresence,
@@ -23,6 +23,8 @@ import {
   hintFromSubgraphDoesNotExist,
   hintOverrideDirectiveCanBeRemoved,
   hintOverriddenFieldCanBeRemoved,
+  hintUnusedEnumType,
+  hintInconsistentEnumValueForOutputEnum,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 
@@ -296,8 +298,7 @@ test('hints on field of input object value type not being in all subgraphs', () 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentInputObjectField,
-    'Field "T.b" of input object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    'Input object field "b" will not be added to "T" in the supergraph as it does not appear in all subgraphs: it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -342,7 +343,7 @@ test('hints on union member not being in all subgraphs', () => {
   );
 })
 
-test('hints on enum value not being in all subgraphs', () => {
+test('hints on enum type not being used', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -362,8 +363,59 @@ test('hints on enum value not being in all subgraphs', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    hintInconsistentEnumValue,
-    'Value "V2" of enum type "T" is only defined in a subset of the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    hintUnusedEnumType,
+    'Enum type "T" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only use as an output type).'
+  );
+})
+
+test('hints on enum value of input enum type not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      a(t: T): Int
+    }
+
+    enum T {
+      V1
+      V2
+    }
+  `;
+
+  const subgraph2 = gql`
+    enum T {
+      V1
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentEnumValueForInputEnum,
+    'Value "V2" of enum type "T" will not be part of the supergraph as it is not defined in all the subgraphs defining "T": '
+    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+  );
+})
+
+test('hints on enum value of output enum type not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      t: T
+    }
+
+    enum T {
+      V1
+      V2
+    }
+  `;
+
+  const subgraph2 = gql`
+    enum T {
+      V1
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentEnumValueForOutputEnum,
+    'Value "V2" of enum type "T" has been added to the supergraph but is only defined in a subset of the subgraphs defining "T": '
     + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
