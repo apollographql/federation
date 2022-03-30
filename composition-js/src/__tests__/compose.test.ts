@@ -1,17 +1,40 @@
-import { asFed2SubgraphDocument, assert, buildSchema, buildSubgraph, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, isObjectType, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
-import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
-import gql from 'graphql-tag';
-import './matchers';
-import { print } from 'graphql';
+import {
+  asFed2SubgraphDocument,
+  assert,
+  buildSchema,
+  buildSubgraph,
+  extractSubgraphsFromSupergraph,
+  FEDERATION2_LINK_WTH_FULL_IMPORTS,
+  isObjectType,
+  ObjectType,
+  printSchema,
+  Schema,
+  ServiceDefinition,
+  Subgraphs,
+} from "@apollo/federation-internals";
+import {
+  CompositionResult,
+  composeServices,
+  CompositionSuccess,
+} from "../compose";
+import gql from "graphql-tag";
+import "./matchers";
+import { print } from "graphql";
 
-function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
+function assertCompositionSuccess(
+  r: CompositionResult
+): asserts r is CompositionSuccess {
   if (r.errors) {
-    throw new Error(`Expected composition to succeed but got errors:\n${r.errors.join('\n\n')}`);
+    throw new Error(
+      `Expected composition to succeed but got errors:\n${r.errors.join(
+        "\n\n"
+      )}`
+    );
   }
 }
 
 function errors(r: CompositionResult): [string, string][] {
-  return r.errors?.map(e => [e.extensions.code as string, e.message]) ?? [];
+  return r.errors?.map((e) => [e.extensions.code as string, e.message]) ?? [];
 }
 
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
@@ -24,22 +47,24 @@ function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
 
 // Note that tests for composition involving fed1 subgraph are in `composeFed1Subgraphs.test.ts` so all the test of this
 // file are on fed2 subgraphs, but to avoid needing to add the proper `@link(...)` everytime, we inject it here automatically.
-export function composeAsFed2Subgraphs(services: ServiceDefinition[]): CompositionResult {
+export function composeAsFed2Subgraphs(
+  services: ServiceDefinition[]
+): CompositionResult {
   return composeServices(services.map((s) => asFed2Service(s)));
 }
 
 export function asFed2Service(service: ServiceDefinition): ServiceDefinition {
   return {
     ...service,
-    typeDefs: asFed2SubgraphDocument(service.typeDefs)
+    typeDefs: asFed2SubgraphDocument(service.typeDefs),
   };
 }
 
-describe('composition', () => {
-  it('generates a valid supergraph', () => {
+describe("composition", () => {
+  it("generates a valid supergraph", () => {
     const subgraph1 = {
-      name: 'Subgraph1',
-      url: 'https://Subgraph1',
+      name: "Subgraph1",
+      url: "https://Subgraph1",
       typeDefs: gql`
         type Query {
           t: T
@@ -48,20 +73,20 @@ describe('composition', () => {
         type T @key(fields: "k") {
           k: ID
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
-      name: 'Subgraph2',
-      url: 'https://Subgraph2',
+      name: "Subgraph2",
+      url: "https://Subgraph2",
       typeDefs: gql`
         type T @key(fields: "k") {
           k: ID
           a: Int
           b: String
         }
-      `
-    }
+      `,
+    };
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
@@ -134,11 +159,11 @@ describe('composition', () => {
         b: String
       }
     `);
-  })
+  });
 
-  it('preserves descriptions', () => {
+  it("preserves descriptions", () => {
     const subgraph1 = {
-      name: 'Subgraph1',
+      name: "Subgraph1",
       typeDefs: gql`
         "A cool schema"
         schema {
@@ -151,16 +176,13 @@ describe('composition', () => {
         """
         type Query {
           "Returns tea"
-          t(
-            "An argument that is very important"
-            x: String!
-          ): String
+          t("An argument that is very important" x: String!): String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
-      name: 'Subgraph2',
+      name: "Subgraph2",
       typeDefs: gql`
         "An enum"
         enum E {
@@ -169,8 +191,8 @@ describe('composition', () => {
           "The B value"
           B
         }
-      `
-    }
+      `,
+    };
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
@@ -203,9 +225,9 @@ describe('composition', () => {
         ): String
       }
     `);
-  })
+  });
 
-  it('include types from different subgraphs', () => {
+  it("include types from different subgraphs", () => {
     const subgraphA = {
       typeDefs: gql`
         type Query {
@@ -217,7 +239,7 @@ describe('composition', () => {
           name: String!
         }
       `,
-      name: 'subgraphA',
+      name: "subgraphA",
     };
 
     const subgraphB = {
@@ -227,7 +249,7 @@ describe('composition', () => {
           email: String!
         }
       `,
-      name: 'subgraphB',
+      name: "subgraphB",
     };
 
     const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
@@ -251,7 +273,7 @@ describe('composition', () => {
       }
     `);
 
-    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+    expect(subgraphs.get("subgraphA")!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
@@ -269,7 +291,7 @@ describe('composition', () => {
       }
     `);
 
-    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+    expect(subgraphs.get("subgraphB")!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
@@ -296,7 +318,7 @@ describe('composition', () => {
           name: String! @external
         }
       `,
-      name: 'subgraphA',
+      name: "subgraphA",
     };
 
     const subgraphB = {
@@ -306,7 +328,7 @@ describe('composition', () => {
           name: String! @shareable
         }
       `,
-      name: 'subgraphB',
+      name: "subgraphB",
     };
 
     const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
@@ -325,7 +347,7 @@ describe('composition', () => {
     `);
 
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
-    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+    expect(subgraphs.get("subgraphA")!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
@@ -345,7 +367,7 @@ describe('composition', () => {
       }
     `);
 
-    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+    expect(subgraphs.get("subgraphB")!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
@@ -362,10 +384,10 @@ describe('composition', () => {
     `);
   });
 
-  it('composes core subgraphs', () => {
+  it("composes core subgraphs", () => {
     const subgraph1 = {
-      name: 'Subgraph1',
-      url: 'https://Subgraph1',
+      name: "Subgraph1",
+      url: "https://Subgraph1",
       typeDefs: gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
@@ -379,17 +401,17 @@ describe('composition', () => {
           k: ID
         }
 
-        directive @key(fields: federation__FieldSet) on OBJECT
+        directive @key(fields: federation__FieldSet!) on OBJECT
         scalar federation__FieldSet
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
-      name: 'Subgraph2',
-      url: 'https://Subgraph2',
+      name: "Subgraph2",
+      url: "https://Subgraph2",
       typeDefs: gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/link/v0.3")
           @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
 
         type T @key(fields: "k") {
@@ -398,23 +420,33 @@ describe('composition', () => {
           b: String
         }
 
-        directive @key(fields: federation__FieldSet) on OBJECT
+        directive @key(fields: federation__FieldSet!) on OBJECT
         scalar federation__FieldSet
-      `
-    }
+      `,
+    };
 
     const result = composeServices([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
 
     const [_, api, _subgraphs] = schemas(result);
-    expect(printSchema(api)).toMatchInlineSnapshot()
-  })
+    expect(printSchema(api)).toMatchInlineSnapshot(`
+      "type Query {
+        t: T
+      }
 
-  describe('merging of type references', () => {
-    describe('for field types', () => {
-      it('errors on incompatible types', () => {
+      type T {
+        k: ID
+        a: Int
+        b: String
+      }"
+    `);
+  });
+
+  describe("merging of type references", () => {
+    describe("for field types", () => {
+      it("errors on incompatible types", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -428,7 +460,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -440,13 +472,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"']
+          [
+            "FIELD_TYPE_MISMATCH",
+            'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"',
+          ],
         ]);
       });
 
-      it('errors on incompatible types with @external', () => {
+      it("errors on incompatible types with @external", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T! @provides(fields: "f")
@@ -460,7 +495,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -472,13 +507,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
+          [
+            "EXTERNAL_TYPE_MISMATCH",
+            'Field "T.f" has incompatible types across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"',
+          ],
         ]);
       });
 
-      it('errors on merging a list type with a non-list version', () => {
+      it("errors on merging a list type with a non-list version", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -492,7 +530,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -504,13 +542,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
+          [
+            "FIELD_TYPE_MISMATCH",
+            'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"',
+          ],
         ]);
       });
 
-      it('merges nullable and non-nullable', () => {
+      it("merges nullable and non-nullable", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -524,7 +565,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -550,9 +591,9 @@ describe('composition', () => {
         `);
       });
 
-      it('merges interface subtypes', () => {
+      it("merges interface subtypes", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -580,7 +621,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type A @shareable {
               a: Int
@@ -625,18 +666,22 @@ describe('composition', () => {
         `);
 
         // Making sure we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (
+          subgraphs.get("subgraphA")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('I');
+        expect(fInA?.type?.toString()).toBe("I");
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (
+          subgraphs.get("subgraphB")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A');
+        expect(fInB?.type?.toString()).toBe("A");
       });
 
-      it('merges union subtypes', () => {
+      it("merges union subtypes", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -660,7 +705,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type A @shareable {
               a: Int
@@ -700,20 +745,24 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (
+          subgraphs.get("subgraphA")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('U');
+        expect(fInA?.type?.toString()).toBe("U");
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (
+          subgraphs.get("subgraphB")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A');
+        expect(fInB?.type?.toString()).toBe("A");
       });
 
-      it('merges complex subtypes', () => {
+      it("merges complex subtypes", () => {
         // This example merge types that differs both on interface subtyping
         // and on nullability
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -741,7 +790,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type A @shareable {
               a: Int
@@ -786,20 +835,24 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (
+          subgraphs.get("subgraphA")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('I');
+        expect(fInA?.type?.toString()).toBe("I");
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (
+          subgraphs.get("subgraphB")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A!');
+        expect(fInB?.type?.toString()).toBe("A!");
       });
 
-      it('merges subtypes within lists', () => {
+      it("merges subtypes within lists", () => {
         // This example merge types that differs both on interface subtyping
         // and on nullability
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -827,7 +880,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type A @shareable {
               a: Int
@@ -872,20 +925,24 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (
+          subgraphs.get("subgraphA")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('[I]');
+        expect(fInA?.type?.toString()).toBe("[I]");
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (
+          subgraphs.get("subgraphB")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('[A!]');
+        expect(fInB?.type?.toString()).toBe("[A!]");
       });
 
-      it('merges subtypes within non-nullable', () => {
+      it("merges subtypes within non-nullable", () => {
         // This example merge types that differs both on interface subtyping
         // and on nullability
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -913,7 +970,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type A @shareable {
               a: Int
@@ -958,18 +1015,22 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (
+          subgraphs.get("subgraphA")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('I!');
+        expect(fInA?.type?.toString()).toBe("I!");
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (
+          subgraphs.get("subgraphB")!.schema.type("T")! as ObjectType
+        ).field("f");
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A!');
+        expect(fInB?.type?.toString()).toBe("A!");
       });
 
-      it('errors on incompatible input field types', () => {
+      it("errors on incompatible input field types", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               q: String
@@ -982,7 +1043,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             input T {
               f: Int
@@ -993,13 +1054,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'],
+          [
+            "FIELD_TYPE_MISMATCH",
+            'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"',
+          ],
         ]);
       });
 
-      it('errors on incompatible input field types', () => {
+      it("errors on incompatible input field types", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               q: String
@@ -1012,7 +1076,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             input T {
               f: Int = 1
@@ -1023,16 +1087,18 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['INPUT_FIELD_DEFAULT_MISMATCH', 'Input field "T.f" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
+          [
+            "INPUT_FIELD_DEFAULT_MISMATCH",
+            'Input field "T.f" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"',
+          ],
         ]);
       });
-
     });
 
-    describe('for arguments', () => {
-      it('errors on incompatible types', () => {
+    describe("for arguments", () => {
+      it("errors on incompatible types", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1040,13 +1106,13 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-                f(x: Int): Int @shareable
+              f(x: Int): Int @shareable
             }
           `,
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1058,13 +1124,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"']
+          [
+            "FIELD_ARGUMENT_TYPE_MISMATCH",
+            'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"',
+          ],
         ]);
       });
 
-      it('errors on missing arguments to @external declaration', () => {
+      it("errors on missing arguments to @external declaration", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T! @provides(fields: "f")
@@ -1078,7 +1147,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1090,13 +1159,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_ARGUMENT_MISSING', 'Field "T.f" is missing argument "T.f(x:)" in some subgraphs where it is marked @external: argument "T.f(x:)" is declared in subgraph "subgraphB" but not in subgraph "subgraphA" (where "T.f" is @external).'],
+          [
+            "EXTERNAL_ARGUMENT_MISSING",
+            'Field "T.f" is missing argument "T.f(x:)" in some subgraphs where it is marked @external: argument "T.f(x:)" is declared in subgraph "subgraphB" but not in subgraph "subgraphA" (where "T.f" is @external).',
+          ],
         ]);
       });
 
-      it('errors on incompatible argument types in @external declaration', () => {
+      it("errors on incompatible argument types in @external declaration", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1114,7 +1186,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1126,13 +1198,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
+          [
+            "EXTERNAL_ARGUMENT_TYPE_MISMATCH",
+            'Argument "T.f(x:)" has incompatible types across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"',
+          ],
         ]);
       });
 
-      it('errors on incompatible argument default', () => {
+      it("errors on incompatible argument default", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1146,7 +1221,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1158,13 +1233,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_ARGUMENT_DEFAULT_MISMATCH', 'Argument "T.f(x:)" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
+          [
+            "FIELD_ARGUMENT_DEFAULT_MISMATCH",
+            'Argument "T.f(x:)" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"',
+          ],
         ]);
       });
 
-      it('errors on incompatible argument default in @external declaration', () => {
+      it("errors on incompatible argument default in @external declaration", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1182,7 +1260,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1194,13 +1272,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_ARGUMENT_DEFAULT_MISMATCH', 'Argument "T.f(x:)" has incompatible defaults across subgraphs (where "T.f" is marked @external): it has default value 1 in subgraph "subgraphB" but no default value in subgraph "subgraphA"'],
+          [
+            "EXTERNAL_ARGUMENT_DEFAULT_MISMATCH",
+            'Argument "T.f(x:)" has incompatible defaults across subgraphs (where "T.f" is marked @external): it has default value 1 in subgraph "subgraphB" but no default value in subgraph "subgraphA"',
+          ],
         ]);
       });
 
-      it('errors on merging a list type with a non-list version', () => {
+      it("errors on merging a list type with a non-list version", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1214,7 +1295,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1226,13 +1307,16 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
+          [
+            "FIELD_ARGUMENT_TYPE_MISMATCH",
+            'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"',
+          ],
         ]);
       });
 
-      it('merges nullable and non-nullable', () => {
+      it("merges nullable and non-nullable", () => {
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1246,7 +1330,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1272,11 +1356,11 @@ describe('composition', () => {
         `);
       });
 
-      it('merges subtypes within lists', () => {
+      it("merges subtypes within lists", () => {
         // This example merge types that differs both on interface subtyping
         // and on nullability
         const subgraphA = {
-          name: 'subgraphA',
+          name: "subgraphA",
           typeDefs: gql`
             type Query {
               T: T!
@@ -1290,7 +1374,7 @@ describe('composition', () => {
         };
 
         const subgraphB = {
-          name: 'subgraphB',
+          name: "subgraphB",
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
@@ -1318,15 +1402,15 @@ describe('composition', () => {
     });
   });
 
-  describe('merge validations', () => {
-    it('errors when a subgraph is invalid', () => {
+  describe("merge validations", () => {
+    it("errors when a subgraph is invalid", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
             a: A
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1335,18 +1419,18 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_GRAPHQL', '[subgraphA] Unknown type A'],
+        ["INVALID_GRAPHQL", "[subgraphA] Unknown type A"],
       ]);
     });
 
-    it('errors when the @tag definition is invalid', () => {
+    it("errors when the @tag definition is invalid", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1355,7 +1439,7 @@ describe('composition', () => {
 
           directive @tag on ENUM_VALUE
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1364,14 +1448,17 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Invalid definition for directive "@tag": missing required argument "name"'],
+        [
+          "DIRECTIVE_DEFINITION_INVALID",
+          '[subgraphA] Invalid definition for directive "@tag": missing required argument "name"',
+        ],
       ]);
     });
 
@@ -1382,7 +1469,7 @@ describe('composition', () => {
             a: String
           }
         `,
-        name: '_',
+        name: "_",
       };
 
       const subgraphB = {
@@ -1391,25 +1478,28 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_SUBGRAPH_NAME', '[_] Invalid name _ for a subgraph: this name is reserved'],
+        [
+          "INVALID_SUBGRAPH_NAME",
+          "[_] Invalid name _ for a subgraph: this name is reserved",
+        ],
       ]);
     });
 
-    it('reject if no subgraphs have a query', () => {
+    it("reject if no subgraphs have a query", () => {
       const subgraphA = {
         typeDefs: gql`
           type A {
             a: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1418,18 +1508,21 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['NO_QUERIES', 'No queries found in any subgraph: a supergraph must have a query root type.'],
+        [
+          "NO_QUERIES",
+          "No queries found in any subgraph: a supergraph must have a query root type.",
+        ],
       ]);
     });
 
-    it('reject a type defined with different kinds in different subgraphs', () => {
+    it("reject a type defined with different kinds in different subgraphs", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1440,7 +1533,7 @@ describe('composition', () => {
             a: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1449,25 +1542,28 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['TYPE_KIND_MISMATCH', 'Type "A" has mismatched kind: it is defined as Object Type in subgraph "subgraphA" but Interface Type in subgraph "subgraphB"'],
+        [
+          "TYPE_KIND_MISMATCH",
+          'Type "A" has mismatched kind: it is defined as Object Type in subgraph "subgraphA" but Interface Type in subgraph "subgraphB"',
+        ],
       ]);
     });
 
-    it('errors if an @external field is not defined in any other subgraph', () => {
+    it("errors if an @external field is not defined in any other subgraph", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
             q: String
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1481,25 +1577,28 @@ describe('composition', () => {
             f: Int @external
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['EXTERNAL_MISSING_ON_BASE', 'Field "A.f" is marked @external on all the subgraphs in which it is listed (subgraph "subgraphB").'],
+        [
+          "EXTERNAL_MISSING_ON_BASE",
+          'Field "A.f" is marked @external on all the subgraphs in which it is listed (subgraph "subgraphB").',
+        ],
       ]);
     });
 
-    it('errors if a mandatory argument is not in all subgraphs', () => {
+    it("errors if a mandatory argument is not in all subgraphs", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
             q(a: Int!): String @shareable
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1508,21 +1607,23 @@ describe('composition', () => {
             q: String @shareable
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
-          'Argument "Query.q(a:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"']
+        [
+          "REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH",
+          'Argument "Query.q(a:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"',
+        ],
       ]);
     });
   });
 
-  describe('post-merge validation', () => {
-    it('errors if a type does not implement one of its interface post-merge', () => {
+  describe("post-merge validation", () => {
+    it("errors if a type does not implement one of its interface post-merge", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1538,7 +1639,7 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1551,18 +1652,21 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INTERFACE_FIELD_NO_IMPLEM', 'Interface field "I.a" is declared in subgraph \"subgraphA\" but type "B", which implements "I" only in subgraph \"subgraphB\" does not have field "a".'],
+        [
+          "INTERFACE_FIELD_NO_IMPLEM",
+          'Interface field "I.a" is declared in subgraph "subgraphA" but type "B", which implements "I" only in subgraph "subgraphB" does not have field "a".',
+        ],
       ]);
-    })
+    });
 
-    it('errors if a type does not implement one of its interface post-merge with interface on interface', () => {
+    it("errors if a type does not implement one of its interface post-merge with interface on interface", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1583,7 +1687,7 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1596,22 +1700,25 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INTERFACE_FIELD_NO_IMPLEM', 'Interface field "J.a" is declared in subgraph \"subgraphA\" but type "B", which implements "J" only in subgraph \"subgraphB\" does not have field "a".'],
+        [
+          "INTERFACE_FIELD_NO_IMPLEM",
+          'Interface field "J.a" is declared in subgraph "subgraphA" but type "B", which implements "J" only in subgraph "subgraphB" does not have field "a".',
+        ],
       ]);
-    })
+    });
   });
 
-  describe('merging of directives', () => {
-    it('propagates graphQL built-in directives', () => {
+  describe("merging of directives", () => {
+    it("propagates graphQL built-in directives", () => {
       const subgraphA = {
-        name: 'subgraphA',
+        name: "subgraphA",
         typeDefs: gql`
           type Query {
             a: String @shareable @deprecated(reason: "bad")
@@ -1620,7 +1727,7 @@ describe('composition', () => {
       };
 
       const subgraphB = {
-        name: 'subgraphB',
+        name: "subgraphB",
         typeDefs: gql`
           type Query {
             a: String @shareable
@@ -1639,9 +1746,9 @@ describe('composition', () => {
       `);
     });
 
-    it('merges graphQL built-in directives', () => {
+    it("merges graphQL built-in directives", () => {
       const subgraphA = {
-        name: 'subgraphA',
+        name: "subgraphA",
         typeDefs: gql`
           type Query {
             a: String @shareable @deprecated(reason: "bad")
@@ -1650,7 +1757,7 @@ describe('composition', () => {
       };
 
       const subgraphB = {
-        name: 'subgraphB',
+        name: "subgraphB",
         typeDefs: gql`
           type Query {
             a: String @shareable @deprecated(reason: "bad")
@@ -1669,9 +1776,9 @@ describe('composition', () => {
       `);
     });
 
-    it('errors on incompatible non-repeatable (built-in) directives', () => {
+    it("errors on incompatible non-repeatable (built-in) directives", () => {
       const subgraphA = {
-        name: 'subgraphA',
+        name: "subgraphA",
         typeDefs: gql`
           type Query {
             a: String @shareable @deprecated(reason: "bad")
@@ -1680,7 +1787,7 @@ describe('composition', () => {
       };
 
       const subgraphB = {
-        name: 'subgraphB',
+        name: "subgraphB",
         typeDefs: gql`
           type Query {
             a: String @shareable @deprecated
@@ -1692,14 +1799,16 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
-          'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments: it uses arguments {reason: "bad"} in subgraph "subgraphA" but no arguments in subgraph "subgraphB"'],
+        [
+          "NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH",
+          'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments: it uses arguments {reason: "bad"} in subgraph "subgraphA" but no arguments in subgraph "subgraphB"',
+        ],
       ]);
     });
 
-    it('propagates graphQL built-in directives even if redefined in the subgarph', () => {
+    it("propagates graphQL built-in directives even if redefined in the subgarph", () => {
       const subgraphA = {
-        name: 'subgraphA',
+        name: "subgraphA",
         typeDefs: gql`
           type Query {
             a: String @deprecated
@@ -1712,7 +1821,7 @@ describe('composition', () => {
       };
 
       const subgraphB = {
-        name: 'subgraphB',
+        name: "subgraphB",
         typeDefs: gql`
           type Query {
             b: String
@@ -1733,7 +1842,7 @@ describe('composition', () => {
     });
   });
 
-  it('is not broken by similar field argument signatures (#1100)', () => {
+  it("is not broken by similar field argument signatures (#1100)", () => {
     // This test is about validating the case from https://github.com/apollographql/federation/issues/1100 is fixed.
 
     const subgraphA = {
@@ -1747,7 +1856,7 @@ describe('composition', () => {
           b(x: Int): Int
         }
       `,
-      name: 'subgraphA',
+      name: "subgraphA",
     };
 
     const subgraphB = {
@@ -1757,7 +1866,7 @@ describe('composition', () => {
           b(x: Int): Int
         }
       `,
-      name: 'subgraphB',
+      name: "subgraphB",
     };
 
     const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
@@ -1779,7 +1888,7 @@ describe('composition', () => {
   // We have specific validation tests in `validation_errors.test.ts` but this one test
   // just check the associated error code is correct (since we check most composition error
   // codes in this file)
-  it('use the proper error code for composition validation errors', () => {
+  it("use the proper error code for composition validation errors", () => {
     const subgraphA = {
       typeDefs: gql`
         type Query {
@@ -1790,7 +1899,7 @@ describe('composition', () => {
           x: Int
         }
       `,
-      name: 'subgraphA',
+      name: "subgraphA",
     };
 
     const subgraphB = {
@@ -1800,13 +1909,15 @@ describe('composition', () => {
           y: Int
         }
       `,
-      name: 'subgraphB',
+      name: "subgraphB",
     };
 
     const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
     expect(result.errors).toBeDefined();
-    expect(errors(result).map(([code]) => code)).toStrictEqual(['SATISFIABILITY_ERROR']);
+    expect(errors(result).map(([code]) => code)).toStrictEqual([
+      "SATISFIABILITY_ERROR",
+    ]);
     expect(errors(result).map(([_, msg]) => msg)).toMatchStringArray([
       `
       The following supergraph API query:
@@ -1819,12 +1930,12 @@ describe('composition', () => {
       - from subgraph "subgraphA":
         - cannot find field "A.y".
         - cannot move to subgraph "subgraphB", which has field "A.y", because type "A" has no @key defined in subgraph "subgraphB".
-      `],
-    );
+      `,
+    ]);
   });
 
-  describe('field sharing', () => {
-    it ('errors if a non-shareable fields are shared in "value types"', () => {
+  describe("field sharing", () => {
+    it('errors if a non-shareable fields are shared in "value types"', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1837,7 +1948,7 @@ describe('composition', () => {
             z: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1847,19 +1958,25 @@ describe('composition', () => {
             z: Int @shareable
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "A.x" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them'],
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "A.z" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "A.x" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them',
+        ],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "A.z" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"',
+        ],
       ]);
     });
 
-    it ('errors if a non-shareable fields are shared in an "entity type"', () => {
+    it('errors if a non-shareable fields are shared in an "entity type"', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1872,7 +1989,7 @@ describe('composition', () => {
             z: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1882,25 +1999,28 @@ describe('composition', () => {
             z: Int @shareable
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "A.z" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "A.z" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"',
+        ],
       ]);
     });
 
-    it ('errors if a query is shared without @shareable', () => {
+    it("errors if a query is shared without @shareable", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
             me: String
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1909,18 +2029,21 @@ describe('composition', () => {
             me: String
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "Query.me" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them'],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "Query.me" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them',
+        ],
       ]);
     });
 
-    it ('errors if provided fields are not marked @shareable', () => {
+    it("errors if provided fields are not marked @shareable", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1934,7 +2057,7 @@ describe('composition', () => {
             c: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1950,19 +2073,25 @@ describe('composition', () => {
             d: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.a" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.c" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "E.a" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"',
+        ],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "E.c" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"',
+        ],
       ]);
     });
 
-    it ('applies @shareable on type only to the field within the definition', () => {
+    it("applies @shareable on type only to the field within the definition", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1978,7 +2107,7 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -1989,7 +2118,7 @@ describe('composition', () => {
             b: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
@@ -1998,12 +2127,15 @@ describe('composition', () => {
       // subgraph, so this should _not_ compose.
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.b" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+        [
+          "INVALID_FIELD_SHARING",
+          'Non-shareable field "E.b" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"',
+        ],
       ]);
     });
   });
 
-  it('handles renamed federation directives', () => {
+  it("handles renamed federation directives", () => {
     const subgraphA = {
       typeDefs: gql`
         extend schema @link(
@@ -2022,7 +2154,7 @@ describe('composition', () => {
           age: Int! @gimme(fields: "birthdate")
         }
       `,
-      name: 'subgraphA',
+      name: "subgraphA",
     };
 
     const subgraphB = {
@@ -2037,7 +2169,7 @@ describe('composition', () => {
           birthdate: String!
         }
       `,
-      name: 'subgraphB',
+      name: "subgraphB",
     };
 
     // Note that we don't use `composeAsFed2Subgraph` since we @link manually in that example.
@@ -2121,10 +2253,10 @@ describe('composition', () => {
         age: Int! @join__field(graph: SUBGRAPHA, requires: "birthdate")
       }
     `);
-  })
+  });
 
-  describe('@tag', () => {
-    describe('propagates @tag to the supergraph', () => {
+  describe("@tag", () => {
+    describe("propagates @tag to the supergraph", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2136,7 +2268,7 @@ describe('composition', () => {
             name: String! @tag(name: "aTaggedField")
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2147,45 +2279,57 @@ describe('composition', () => {
             age: Int!
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const validatePropagation = (result: CompositionResult) => {
         assertCompositionSuccess(result);
         const supergraph = result.schema;
-        const tagOnOp = supergraph.schemaDefinition.rootType('query')?.field('users')?.appliedDirectivesOf('tag').pop();
-        expect(tagOnOp?.arguments()['name']).toBe('aTaggedOperation');
+        const tagOnOp = supergraph.schemaDefinition
+          .rootType("query")
+          ?.field("users")
+          ?.appliedDirectivesOf("tag")
+          .pop();
+        expect(tagOnOp?.arguments()["name"]).toBe("aTaggedOperation");
 
-        const userType = supergraph.type('User');
+        const userType = supergraph.type("User");
         assert(userType && isObjectType(userType), `Should be an object type`);
-        const tagOnType = userType.appliedDirectivesOf('tag').pop();
-        expect(tagOnType?.arguments()['name']).toBe('aTaggedType');
+        const tagOnType = userType.appliedDirectivesOf("tag").pop();
+        expect(tagOnType?.arguments()["name"]).toBe("aTaggedType");
 
-        const tagOnField = userType?.field('name')?.appliedDirectivesOf('tag').pop();
-        expect(tagOnField?.arguments()['name']).toBe('aTaggedField');
+        const tagOnField = userType
+          ?.field("name")
+          ?.appliedDirectivesOf("tag")
+          .pop();
+        expect(tagOnField?.arguments()["name"]).toBe("aTaggedField");
       };
 
-      it('works for fed2 subgraphs', () => {
+      it("works for fed2 subgraphs", () => {
         validatePropagation(composeAsFed2Subgraphs([subgraphA, subgraphB]));
       });
 
-      it('works for fed1 subgraphs', () => {
+      it("works for fed1 subgraphs", () => {
         validatePropagation(composeServices([subgraphA, subgraphB]));
       });
 
-      it('works for mixed fed1/fed2 subgraphs', () => {
-        validatePropagation(composeServices([subgraphA, asFed2Service(subgraphB)]));
+      it("works for mixed fed1/fed2 subgraphs", () => {
+        validatePropagation(
+          composeServices([subgraphA, asFed2Service(subgraphB)])
+        );
       });
     });
 
-    describe('merges multiple @tag on an element', () => {
+    describe("merges multiple @tag on an element", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
             user: [User]
           }
 
-          type User @key(fields: "id") @tag(name: "aTagOnTypeFromSubgraphA") @tag(name: "aMergedTagOnType") {
+          type User
+            @key(fields: "id")
+            @tag(name: "aTagOnTypeFromSubgraphA")
+            @tag(name: "aMergedTagOnType") {
             id: ID!
             name1: Name!
           }
@@ -2195,12 +2339,15 @@ describe('composition', () => {
             lastName: String @tag(name: "aMergedTagOnField")
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
         typeDefs: gql`
-          type User @key(fields: "id") @tag(name: "aTagOnTypeFromSubgraphB") @tag(name: "aMergedTagOnType") {
+          type User
+            @key(fields: "id")
+            @tag(name: "aTagOnTypeFromSubgraphB")
+            @tag(name: "aMergedTagOnType") {
             id: ID!
             name2: String!
           }
@@ -2210,32 +2357,53 @@ describe('composition', () => {
             lastName: String @tag(name: "aMergedTagOnField")
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const validatePropagation = (result: CompositionResult) => {
         assertCompositionSuccess(result);
         const supergraph = result.schema;
 
-        const userType = supergraph.type('User');
+        const userType = supergraph.type("User");
         assert(userType && isObjectType(userType), `Should be an object type`);
-        const tagsOnType = userType.appliedDirectivesOf('tag');
-        expect(tagsOnType?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aTagOnTypeFromSubgraphA', 'aMergedTagOnType', 'aTagOnTypeFromSubgraphB']);
+        const tagsOnType = userType.appliedDirectivesOf("tag");
+        expect(tagsOnType?.map((tag) => tag.arguments()["name"])).toStrictEqual(
+          [
+            "aTagOnTypeFromSubgraphA",
+            "aMergedTagOnType",
+            "aTagOnTypeFromSubgraphB",
+          ]
+        );
 
-        const nameType = supergraph.type('Name');
+        const nameType = supergraph.type("Name");
         assert(nameType && isObjectType(nameType), `Should be an object type`);
-        const tagsOnFirstName = nameType?.field('firstName')?.appliedDirectivesOf('tag');
-        expect(tagsOnFirstName?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aTagOnFieldFromSubgraphA', 'aTagOnFieldFromSubgraphB']);
+        const tagsOnFirstName = nameType
+          ?.field("firstName")
+          ?.appliedDirectivesOf("tag");
+        expect(
+          tagsOnFirstName?.map((tag) => tag.arguments()["name"])
+        ).toStrictEqual([
+          "aTagOnFieldFromSubgraphA",
+          "aTagOnFieldFromSubgraphB",
+        ]);
 
-        const tagsOnLastName = nameType?.field('lastName')?.appliedDirectivesOf('tag');
-        expect(tagsOnLastName?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aMergedTagOnField']);
+        const tagsOnLastName = nameType
+          ?.field("lastName")
+          ?.appliedDirectivesOf("tag");
+        expect(
+          tagsOnLastName?.map((tag) => tag.arguments()["name"])
+        ).toStrictEqual(["aMergedTagOnField"]);
       };
 
-      it('works for fed2 subgraphs', () => {
+      it("works for fed2 subgraphs", () => {
         // We need to mark the `Name` type shareable.
         const subgraphs = [subgraphA, subgraphB].map((s) => {
-          const subgraph = buildSubgraph(s.name, '', asFed2SubgraphDocument(s.typeDefs));
-          subgraph.schema.type('Name')?.applyDirective('shareable');
+          const subgraph = buildSubgraph(
+            s.name,
+            "",
+            asFed2SubgraphDocument(s.typeDefs)
+          );
+          subgraph.schema.type("Name")?.applyDirective("shareable");
           return {
             ...s,
             typeDefs: subgraph.schema.toAST(),
@@ -2245,13 +2413,17 @@ describe('composition', () => {
         validatePropagation(composeServices(subgraphs));
       });
 
-      it('works for fed1 subgraphs', () => {
+      it("works for fed1 subgraphs", () => {
         validatePropagation(composeServices([subgraphA, subgraphB]));
       });
 
-      it('works for mixed fed1/fed2 subgraphs', () => {
-        const sB = buildSubgraph(subgraphB.name, '', asFed2SubgraphDocument(subgraphB.typeDefs));
-        sB.schema.type('Name')?.applyDirective('shareable');
+      it("works for mixed fed1/fed2 subgraphs", () => {
+        const sB = buildSubgraph(
+          subgraphB.name,
+          "",
+          asFed2SubgraphDocument(subgraphB.typeDefs)
+        );
+        sB.schema.type("Name")?.applyDirective("shareable");
         const updatedSubgraphB = {
           ...subgraphB,
           typeDefs: sB.schema.toAST(),
@@ -2261,7 +2433,7 @@ describe('composition', () => {
       });
     });
 
-    describe('rejects @tag and @external together', () => {
+    describe("rejects @tag and @external together", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2275,7 +2447,7 @@ describe('composition', () => {
             age: Int! @requires(fields: "birthdate")
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2285,31 +2457,34 @@ describe('composition', () => {
             birthdate: Int!
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const validateError = (result: CompositionResult) => {
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphA] Cannot apply merged directive @tag(name: "myTag") to external field "User.birthdate"']
+          [
+            "MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL",
+            '[subgraphA] Cannot apply merged directive @tag(name: "myTag") to external field "User.birthdate"',
+          ],
         ]);
       };
 
-      it('works for fed2 subgraphs', () => {
+      it("works for fed2 subgraphs", () => {
         // Note that we've already converted the subgraphs to fed2 ones above, so we just call `composeServices` now.
         validateError(composeAsFed2Subgraphs([subgraphA, subgraphB]));
       });
 
-      it('works for fed1 subgraphs', () => {
+      it("works for fed1 subgraphs", () => {
         validateError(composeServices([subgraphA, subgraphB]));
       });
 
-      it('works for mixed fed1/fed2 subgraphs', () => {
+      it("works for mixed fed1/fed2 subgraphs", () => {
         validateError(composeServices([subgraphA, asFed2Service(subgraphB)]));
       });
     });
 
-    it('errors out if @tag is imported under mismatched names', () => {
+    it("errors out if @tag is imported under mismatched names", () => {
       const subgraphA = {
         typeDefs: gql`
           extend schema
@@ -2319,7 +2494,7 @@ describe('composition', () => {
             q1: Int @apolloTag(name: "t1")
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2331,17 +2506,20 @@ describe('composition', () => {
             q2: Int @tag(name: "t2")
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeServices([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@tag" directive is imported with mismatched name between subgraphs: it is imported as "@tag" in subgraph "subgraphB" but "@apolloTag" in subgraph "subgraphA"']
+        [
+          "LINK_IMPORT_NAME_MISMATCH",
+          'The federation "@tag" directive is imported with mismatched name between subgraphs: it is imported as "@tag" in subgraph "subgraphB" but "@apolloTag" in subgraph "subgraphA"',
+        ],
       ]);
     });
 
-    it('succeeds if @tag is imported under the same non-default name', () => {
+    it("succeeds if @tag is imported under the same non-default name", () => {
       const subgraphA = {
         typeDefs: gql`
           extend schema
@@ -2351,7 +2529,7 @@ describe('composition', () => {
             q1: Int @apolloTag(name: "t1")
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2363,22 +2541,30 @@ describe('composition', () => {
             q2: Int @apolloTag(name: "t2")
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeServices([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
       const supergraph = result.schema;
-      const tagOnQ1 = supergraph.schemaDefinition.rootType('query')?.field('q1')?.appliedDirectivesOf('apolloTag').pop();
-      expect(tagOnQ1?.arguments()['name']).toBe('t1');
+      const tagOnQ1 = supergraph.schemaDefinition
+        .rootType("query")
+        ?.field("q1")
+        ?.appliedDirectivesOf("apolloTag")
+        .pop();
+      expect(tagOnQ1?.arguments()["name"]).toBe("t1");
 
-      const tagOnQ2 = supergraph.schemaDefinition.rootType('query')?.field('q2')?.appliedDirectivesOf('apolloTag').pop();
-      expect(tagOnQ2?.arguments()['name']).toBe('t2');
-    })
+      const tagOnQ2 = supergraph.schemaDefinition
+        .rootType("query")
+        ?.field("q2")
+        ?.appliedDirectivesOf("apolloTag")
+        .pop();
+      expect(tagOnQ2?.arguments()["name"]).toBe("t2");
+    });
   });
 
-  describe('@inaccessible', () => {
-    it('propagates @inaccessible to the supergraph', () => {
+  describe("@inaccessible", () => {
+    it("propagates @inaccessible to the supergraph", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2391,7 +2577,7 @@ describe('composition', () => {
             name: String!
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2402,20 +2588,28 @@ describe('composition', () => {
             age: Int! @inaccessible
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
       const supergraph = result.schema;
-      expect(supergraph.schemaDefinition.rootType('query')?.field('me')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
+      expect(
+        supergraph.schemaDefinition
+          .rootType("query")
+          ?.field("me")
+          ?.appliedDirectivesOf("inaccessible")
+          .pop()
+      ).toBeDefined();
 
-      const userType = supergraph.type('User');
+      const userType = supergraph.type("User");
       assert(userType && isObjectType(userType), `Should be an object type`);
-      expect(userType?.field('age')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
+      expect(
+        userType?.field("age")?.appliedDirectivesOf("inaccessible").pop()
+      ).toBeDefined();
     });
 
-    it('merges @inacessible on the same element', () => {
+    it("merges @inacessible on the same element", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2427,7 +2621,7 @@ describe('composition', () => {
             name: String @shareable @inaccessible
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2437,19 +2631,21 @@ describe('composition', () => {
             name: String @shareable @inaccessible
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
       const supergraph = result.schema;
 
-      const userType = supergraph.type('User');
+      const userType = supergraph.type("User");
       assert(userType && isObjectType(userType), `Should be an object type`);
-      expect(userType?.field('name')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
+      expect(
+        userType?.field("name")?.appliedDirectivesOf("inaccessible").pop()
+      ).toBeDefined();
     });
 
-    describe('rejects @inaccessible and @external together', () => {
+    describe("rejects @inaccessible and @external together", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2463,7 +2659,7 @@ describe('composition', () => {
             age: Int! @requires(fields: "birthdate")
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2473,17 +2669,20 @@ describe('composition', () => {
             birthdate: Int!
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphA] Cannot apply merged directive @inaccessible to external field "User.birthdate"']
+        [
+          "MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL",
+          '[subgraphA] Cannot apply merged directive @inaccessible to external field "User.birthdate"',
+        ],
       ]);
     });
 
-    it('errors out if @inaccessible is imported under mismatched names', () => {
+    it("errors out if @inaccessible is imported under mismatched names", () => {
       const subgraphA = {
         typeDefs: gql`
           extend schema
@@ -2494,7 +2693,7 @@ describe('composition', () => {
             q1: Int @private
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2506,17 +2705,20 @@ describe('composition', () => {
             q2: Int @inaccessible
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeServices([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@inaccessible" directive is imported with mismatched name between subgraphs: it is imported as "@inaccessible" in subgraph "subgraphB" but "@private" in subgraph "subgraphA"']
+        [
+          "LINK_IMPORT_NAME_MISMATCH",
+          'The federation "@inaccessible" directive is imported with mismatched name between subgraphs: it is imported as "@inaccessible" in subgraph "subgraphB" but "@private" in subgraph "subgraphA"',
+        ],
       ]);
     });
 
-    it('succeeds if @inaccessible is imported under the same non-default name', () => {
+    it("succeeds if @inaccessible is imported under the same non-default name", () => {
       const subgraphA = {
         typeDefs: gql`
           extend schema
@@ -2527,7 +2729,7 @@ describe('composition', () => {
             q1: Int @private
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2539,17 +2741,29 @@ describe('composition', () => {
             q2: Int @private
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeServices([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
       const supergraph = result.schema;
-      expect(supergraph.schemaDefinition.rootType('query')?.field('q1')?.appliedDirectivesOf('private').pop()).toBeDefined();
-      expect(supergraph.schemaDefinition.rootType('query')?.field('q2')?.appliedDirectivesOf('private').pop()).toBeDefined();
+      expect(
+        supergraph.schemaDefinition
+          .rootType("query")
+          ?.field("q1")
+          ?.appliedDirectivesOf("private")
+          .pop()
+      ).toBeDefined();
+      expect(
+        supergraph.schemaDefinition
+          .rootType("query")
+          ?.field("q2")
+          ?.appliedDirectivesOf("private")
+          .pop()
+      ).toBeDefined();
     });
 
-    it('ignores inaccessible element when validating composition', () => {
+    it("ignores inaccessible element when validating composition", () => {
       // The following example would _not_ compose if the `z` was not marked inaccessible since it wouldn't be reachable
       // from the `origin` query. So all this test does is double-checking that validation does pass with it marked inaccessible.
       const subgraphA = {
@@ -2563,7 +2777,7 @@ describe('composition', () => {
             y: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2574,14 +2788,14 @@ describe('composition', () => {
             z: Int @inaccessible
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
     });
 
-    it('errors if a subgraph misuse @inaccessible', () => {
+    it("errors if a subgraph misuse @inaccessible", () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2594,7 +2808,7 @@ describe('composition', () => {
             y: Int
           }
         `,
-        name: 'subgraphA',
+        name: "subgraphA",
       };
 
       const subgraphB = {
@@ -2604,13 +2818,16 @@ describe('composition', () => {
             y: Int
           }
         `,
-        name: 'subgraphB',
+        name: "subgraphB",
       };
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['REFERENCED_INACCESSIBLE', 'Field "Query.q2" returns @inaccessible type "A" without being marked @inaccessible itself.']
+        [
+          "REFERENCED_INACCESSIBLE",
+          'Field "Query.q2" returns @inaccessible type "A" without being marked @inaccessible itself.',
+        ],
       ]);
 
       // Because @inaccessible are thrown by the toAPISchema code and not the merge code directly, let's make sure the include
@@ -2619,13 +2836,12 @@ describe('composition', () => {
       // guarantees us that we do get subgraph nodes and not supergraph nodes because supergraph nodes would have @join__*
       // directives and would _not_ have the `@shareable`/`@inacessible` directives.
       const nodes = result.errors![0].nodes!;
-      expect(print(nodes[0])).toMatchString('q2: A');
+      expect(print(nodes[0])).toMatchString("q2: A");
       expect(print(nodes[1])).toMatchString(`
         type A @shareable @inaccessible {
           x: Int
           y: Int
-        }`
-      );
-    })
+        }`);
+    });
   });
 });

@@ -22,7 +22,7 @@ export const ATLAS = Atlas.fromSchemas(
   directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE
   directive @requires(fields: FieldSet!) on FIELD_DEFINITION
   directive @provides(fields: FieldSet!) on FIELD_DEFINITION
-  directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
+  directive @external on OBJECT | FIELD_DEFINITION
 
   scalar FieldSet
   `),
@@ -36,7 +36,7 @@ export const ATLAS = Atlas.fromSchemas(
   directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE
   directive @requires(fields: FieldSet!) on FIELD_DEFINITION
   directive @provides(fields: FieldSet!) on FIELD_DEFINITION
-  directive @external repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
+  directive @external on OBJECT | FIELD_DEFINITION
   directive @moving(to: String!) on FIELD_DEFINITION
   directive @shareable on FIELD_DEFINITION | OBJECT
 
