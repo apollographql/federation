@@ -119,6 +119,20 @@ export function withModifiedErrorMessage(e: GraphQLError, newMessage: string): G
   );
 }
 
+export function withModifiedErrorNodes(e: GraphQLError, newNodes: readonly ASTNode[] | ASTNode | undefined): GraphQLError {
+  return new GraphQLError(
+    e.message,
+    {
+      nodes: newNodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
 const INVALID_GRAPHQL = makeCodeDefinition(
   'INVALID_GRAPHQL',
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
@@ -325,6 +339,16 @@ const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'An application of the @link directive is invalid/does not respect the specification.'
 );
 
+const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
+  'LINK_IMPORT_NAME_MISMATCH',
+  'The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs.'
+);
+
+const REFERENCED_INACCESSIBLE = makeCodeDefinition(
+  'REFERENCED_INACCESSIBLE',
+  'An element is marked as @inaccessible but is referenced by a non-inaccessible element.'
+);
+
 const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
   'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
   'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all subgraphs that define the field or directive definition.'
@@ -390,6 +414,8 @@ export const ERRORS = {
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_LINK_DIRECTIVE_USAGE,
+  LINK_IMPORT_NAME_MISMATCH,
+  REFERENCED_INACCESSIBLE,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   SATISFIABILITY_ERROR,
 };

@@ -1,6 +1,6 @@
 {
   "name": "@apollo/composition",
-  "version": "2.0.0-preview.7",
+  "version": "2.0.0-preview.8",
   "description": "Apollo Federation composition utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,7 +21,7 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "SEE LICENSE IN ./LICENSE",
   "engines": {
-    "node": ">=12.13.0 <17.0"
+    "node": ">=12.13.0 <18.0"
   },
   "publishConfig": {
     "access": "public"

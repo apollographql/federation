@@ -1,3 +1,4 @@
+import { FEDERATION2_LINK_WTH_FULL_IMPORTS } from '..';
 import { buildSubgraph, Subgraphs } from '../federation';
 import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
 import './matchers';
@@ -91,7 +92,7 @@ test('upgrade complex schema', () => {
   expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
     schema
       @link(url: "https://specs.apollo.dev/link/v1.0")
-      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
     {
       query: Query
     }
@@ -148,7 +149,7 @@ test('update federation directive non-string arguments', () => {
   expect(res.subgraphs?.get('s')?.toString()).toMatchString(`
     schema
       @link(url: "https://specs.apollo.dev/link/v1.0")
-      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
     {
       query: Query
     }

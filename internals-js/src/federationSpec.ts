@@ -9,11 +9,12 @@ import {
   createDirectiveSpecification,
   createScalarTypeSpecification,
 } from "./directiveAndTypeSpecification";
-import { DirectiveLocation } from "graphql";
+import { DirectiveLocation, GraphQLError } from "graphql";
 import { assert } from "./utils";
-import { tagLocations } from "./tagSpec";
+import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
+import { inaccessibleDirectiveSpec } from "./inaccessibleSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -23,10 +24,13 @@ export const keyDirectiveSpec = createDirectiveSpecification({
   name:'key',
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
   repeatable: true,
-  argumentFct: (schema) => [
-    fieldsArgument(schema),
-    { name: 'resolvable', type: schema.booleanType(), defaultValue: true },
-  ]
+  argumentFct: (schema) => ({
+    args: [
+      fieldsArgument(schema),
+      { name: 'resolvable', type: schema.booleanType(), defaultValue: true },
+    ],
+    errors: [],
+  }),
 });
 
 export const extendsDirectiveSpec = createDirectiveSpecification({
@@ -42,31 +46,24 @@ export const externalDirectiveSpec = createDirectiveSpecification({
 export const requiresDirectiveSpec = createDirectiveSpecification({
   name:'requires',
   locations: [DirectiveLocation.FIELD_DEFINITION],
-  argumentFct: (schema) => {
-    return [fieldsArgument(schema)];
-  }
+  argumentFct: (schema) => ({
+    args: [fieldsArgument(schema)],
+    errors: [],
+  }),
 });
 
 export const providesDirectiveSpec = createDirectiveSpecification({
   name:'provides',
   locations: [DirectiveLocation.FIELD_DEFINITION],
-  argumentFct: (schema) => {
-    return [fieldsArgument(schema)];
-  }
+  argumentFct: (schema) => ({
+    args: [fieldsArgument(schema)],
+    errors: [],
+  }),
 });
 
 export const shareableDirectiveSpec = createDirectiveSpecification({
   name: 'shareable',
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
-});
-
-export const tagDirectiveSpec = createDirectiveSpecification({
-  name:'tag',
-  locations: tagLocations,
-  repeatable: true,
-  argumentFct: (schema) => {
-    return [{ name: 'name', type: new NonNullType(schema.stringType()) }];
-  }
 });
 
 function fieldsArgument(schema: Schema): ArgumentSpecification {
@@ -81,6 +78,7 @@ function fieldSetType(schema: Schema): InputType {
 
 export const FEDERATION2_ONLY_SPEC_DIRECTIVES = [
   shareableDirectiveSpec,
+  inaccessibleDirectiveSpec,
 ];
 
 // Note that this is only used for federation 2+ (federation 1 adds the same directive, but not through a core spec).
@@ -89,19 +87,15 @@ export const FEDERATION2_SPEC_DIRECTIVES = [
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
-  // This is here to preserve the order of this array prior of the introduction of this constant. And that's done because
-  // changing the order would require changing the outputs of a bunch of tests (not a big deal, just annoying).
-  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
-  tagDirectiveSpec,
+  TAG_VERSIONS.latest().tagDirectiveSpec,
   extendsDirectiveSpec, // TODO: should we stop supporting that?
+  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
 ];
 
 // Note that this is meant to contain _all_ federation directive names ever supported, regardless of which version.
 // But currently, fed2 directives are a superset of fed1's so ... (but this may change if we stop supporting `@extends`
 // in fed2).
 export const ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES = FEDERATION2_SPEC_DIRECTIVES.map((spec) => spec.name);
-
-
 
 export const FEDERATION_SPEC_TYPES = [
   fieldSetTypeSpec,
@@ -112,15 +106,17 @@ export class FederationSpecDefinition extends FeatureDefinition {
     super(new FeatureUrl(federationIdentity, 'federation', version));
   }
 
-  addElementsToSchema(schema: Schema) {
+  addElementsToSchema(schema: Schema): GraphQLError[] {
     const feature = this.featureInSchema(schema);
     assert(feature, 'The federation specification should have been added to the schema before this is called');
 
-    fieldSetTypeSpec.checkOrAdd(schema, feature.typeNameInSchema(fieldSetTypeSpec.name));
+    let errors: GraphQLError[] = [];
+    errors = errors.concat(this.addTypeSpec(schema, fieldSetTypeSpec));
 
     for (const directive of FEDERATION2_SPEC_DIRECTIVES) {
-      directive.checkOrAdd(schema, feature.directiveNameInSchema(directive.name));
+      errors = errors.concat(this.addDirectiveSpec(schema, directive));
     }
+    return errors;
   }
 
   allElementNames(): string[] {

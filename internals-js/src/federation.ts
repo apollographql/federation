@@ -71,7 +71,6 @@ import {
   externalDirectiveSpec,
   extendsDirectiveSpec,
   shareableDirectiveSpec,
-  tagDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
   ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
   FEDERATION2_ONLY_SPEC_DIRECTIVES,
@@ -79,6 +78,7 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
+import { inaccessibleDirectiveSpec } from "./inaccessibleSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -105,6 +105,7 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 ];
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
+
 
 // Returns a list of the coordinate of all the fields in the selection that are marked external.
 function validateFieldSetSelections(
@@ -383,7 +384,7 @@ function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | Interfac
  */
 function validateInterfaceRuntimeImplementationFieldsTypes(
   itf: InterfaceType,
-  metadata: FederationMetadata, 
+  metadata: FederationMetadata,
   errorCollector: GraphQLError[],
 ): void {
   const requiresDirective = federationMetadata(itf.schema())?.requiresDirective();
@@ -553,7 +554,11 @@ export class FederationMetadata {
   }
 
   tagDirective(): DirectiveDefinition<{name: string}> {
-    return this.getFederationDirective(tagDirectiveSpec.name);
+    return this.getFederationDirective(tagSpec.tagDirectiveSpec.name);
+  }
+
+  inaccessibleDirective(): DirectiveDefinition<{}> {
+    return this.getFederationDirective(inaccessibleDirectiveSpec.name);
   }
 
   allFederationDirectives(): DirectiveDefinition[] {
@@ -566,7 +571,7 @@ export class FederationMetadata {
       this.extendsDirective(),
     ];
     return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective())
+      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective())
       : baseDirectives;
   }
 
@@ -612,19 +617,21 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
   }
 
-  onMissingDirectiveDefinition(schema: Schema, name: string): DirectiveDefinition | undefined {
+  onMissingDirectiveDefinition(schema: Schema, name: string, args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
     if (name === linkDirectiveDefaultName) {
-      linkSpec.addToSchema(schema);
-      return schema.directive(name);
+      const url = args && (args['url'] as string | undefined);
+      const as = url && url.startsWith(linkSpec.identity) ? (args['as'] as string | undefined) : undefined;
+      const errors = linkSpec.addDefinitionsToSchema(schema, as);
+      return errors.length > 0 ? errors : schema.directive(name);
     }
-    return super.onMissingDirectiveDefinition(schema, name);
+    return super.onMissingDirectiveDefinition(schema, name, args);
   }
 
   ignoreParsedField(type: NamedType, fieldName: string): boolean {
     // Historically, federation 1 has accepted invalid schema, including some where the Query type included
     // the definition of `_entities` (so `_entities(representations: [_Any!]!): [_Entity]!`) but _without_
     // defining the `_Any` or `_Entity` type. So while we want to be stricter for fed2 (so this kind of
-    // really weird case can be fixed), we want fed2 to accept as much fed1 schema as possible. 
+    // really weird case can be fixed), we want fed2 to accept as much fed1 schema as possible.
     //
     // So, to avoid this problem, we ignore the _entities and _service fields if we parse them from
     // a fed1 input schema. Those will be added back anyway (along with the proper types) post-parsing.
@@ -642,8 +649,8 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
   }
 
-  onDirectiveDefinitionAndSchemaParsed(schema: Schema) {
-    completeSubgraphSchema(schema);
+  onDirectiveDefinitionAndSchemaParsed(schema: Schema): GraphQLError[] {
+    return completeSubgraphSchema(schema);
   }
 
   onInvalidation(schema: Schema) {
@@ -782,7 +789,6 @@ export class FederationBlueprint extends SchemaBlueprint {
         const federationFeature = metadata.federationFeature();
         assert(federationFeature, 'Fed2 subgraph _must_ link to the federation feature')
         const directiveNameInSchema = federationFeature.directiveNameInSchema(unknownDirectiveName);
-        console.log(`For ${unknownDirectiveName}, name in schema = ${directiveNameInSchema}`);
         if (directiveNameInSchema.startsWith(federationFeature.nameInSchema + '__')) {
           // There is no import for that directive
           return withModifiedErrorMessage(
@@ -845,7 +851,10 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
     assert(spec.url.version.satisfies(linkSpec.version), `Fed2 schema must use @link with version >= 1.0, but schema uses ${spec.url}`);
   } else {
     const alias = findUnusedNamedForLinkDirective(schema);
-    linkSpec.addToSchema(schema, alias);
+    const errors = linkSpec.addToSchema(schema, alias);
+    if (errors.length > 0) {
+      throw ErrGraphQLValidationFailed(errors);
+    }
     spec = linkSpec;
     core = schema.coreFeatures;
     assert(core, 'Schema should now be a core schema');
@@ -859,8 +868,15 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
       import: FEDERATION2_SPEC_DIRECTIVES.map((spec) => `@${spec.name}`),
     }
   );
-  completeSubgraphSchema(schema);
+  const errors = completeSubgraphSchema(schema);
+  if (errors.length > 0) {
+    throw ErrGraphQLValidationFailed(errors);
+  }
 }
+
+// This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
+// subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
+export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {
@@ -951,22 +967,25 @@ export function newEmptyFederation2Schema(): Schema {
   return schema;
 }
 
-function completeSubgraphSchema(schema: Schema) {
+function completeSubgraphSchema(schema: Schema): GraphQLError[] {
   const coreFeatures = schema.coreFeatures;
   if (coreFeatures) {
     const fedFeature = coreFeatures.getByIdentity(federationIdentity);
     if (fedFeature) {
-      completeFed2SubgraphSchema(schema);
+      return completeFed2SubgraphSchema(schema);
     } else {
-      completeFed1SubgraphSchema(schema);
+      return completeFed1SubgraphSchema(schema);
     }
   } else {
     const fedLink = schema.schemaDefinition.appliedDirectivesOf(linkDirectiveDefaultName).find(isFedSpecLinkDirective);
     if (fedLink) {
-      linkSpec.addToSchema(schema);
-      completeFed2SubgraphSchema(schema);
+      const errors = linkSpec.addToSchema(schema);
+      if (errors.length > 0) {
+        return errors;
+      }
+      return completeFed2SubgraphSchema(schema);
     } else {
-      completeFed1SubgraphSchema(schema);
+      return completeFed1SubgraphSchema(schema);
     }
   }
 }
@@ -976,15 +995,16 @@ function isFedSpecLinkDirective(directive: Directive<SchemaDefinition>): directi
   return directive.name === linkDirectiveDefaultName && args['url'] && (args['url'] as string).startsWith(federationIdentity);
 }
 
-function completeFed1SubgraphSchema(schema: Schema) {
-  fieldSetTypeSpec.checkOrAdd(schema, '_' + fieldSetTypeSpec.name);
-
-  keyDirectiveSpec.checkOrAdd(schema);
-  requiresDirectiveSpec.checkOrAdd(schema);
-  providesDirectiveSpec.checkOrAdd(schema);
-  extendsDirectiveSpec.checkOrAdd(schema);
-  externalDirectiveSpec.checkOrAdd(schema);
-  tagDirectiveSpec.checkOrAdd(schema);
+function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
+  return [
+    fieldSetTypeSpec.checkOrAdd(schema, '_' + fieldSetTypeSpec.name),
+    keyDirectiveSpec.checkOrAdd(schema),
+    requiresDirectiveSpec.checkOrAdd(schema),
+    providesDirectiveSpec.checkOrAdd(schema),
+    extendsDirectiveSpec.checkOrAdd(schema),
+    externalDirectiveSpec.checkOrAdd(schema),
+    tagSpec.tagDirectiveSpec.checkOrAdd(schema),
+  ].flat();
 }
 
 function completeFed2SubgraphSchema(schema: Schema) {
@@ -996,13 +1016,13 @@ function completeFed2SubgraphSchema(schema: Schema) {
 
   const spec = FEDERATION_VERSIONS.find(fedFeature.url.version);
   if (!spec) {
-    throw ERRORS.UNKNOWN_FEDERATION_LINK_VERSION.err({
+    return [ERRORS.UNKNOWN_FEDERATION_LINK_VERSION.err({
       message: `Invalid version ${fedFeature.url.version} for the federation feature in @link direction on schema`,
       nodes: fedFeature.directive.sourceAST
-    });
+    })];
   }
 
-  spec.addElementsToSchema(schema);
+  return spec.addElementsToSchema(schema);
 }
 
 export function parseFieldSetArgument({

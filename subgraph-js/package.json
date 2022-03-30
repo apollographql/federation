@@ -1,6 +1,6 @@
 {
   "name": "@apollo/subgraph",
-  "version": "2.0.0-preview.7",
+  "version": "2.0.0-preview.8",
   "description": "Apollo Subgraph Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,11 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "MIT",
   "engines": {
+<<<<<<< HEAD
     "node": ">=12.13.0"
+=======
+    "node": ">=12.13.0 <18.0"
+>>>>>>> pcmanus/fix-expanding-core
   },
   "dependencies": {
     "@apollo/core-schema": "apollographql/core-schema-js#v0.3"

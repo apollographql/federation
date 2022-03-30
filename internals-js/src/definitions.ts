@@ -43,10 +43,11 @@ import { didYouMean, suggestionList } from "./suggestions";
 import { withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
+const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
-export const ErrGraphQLValidationFailed = (causes: GraphQLError[]) =>
+export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   err(validationErrorCode, {
-    message: 'The schema is not a valid GraphQL schema',
+    message,
     causes
   });
 
@@ -492,7 +493,8 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
     nameOrDefOrDirective: Directive<TOwnType, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
-    args?: TApplicationArgs
+    args?: TApplicationArgs,
+    asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
     let toAdd: Directive<TOwnType, TApplicationArgs>;
     if (nameOrDefOrDirective instanceof Directive) {
@@ -505,12 +507,15 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       let name: string;
       if (typeof nameOrDefOrDirective === 'string') {
         this.checkUpdate();
-        const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective);
+        const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective, args);
         if (!def) {
           throw this.schema().blueprint.onGraphQLJSValidationError(
             this.schema(),
             new GraphQLError(`Unknown directive "@${nameOrDefOrDirective}".`)
           );
+        }
+        if (Array.isArray(def)) {
+          throw ErrGraphQLValidationFailed(def);
         }
         name = nameOrDefOrDirective;
       } else {
@@ -521,7 +526,11 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       Element.prototype['setParent'].call(toAdd, this);
     }
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
-    this._appliedDirectives.push(toAdd);
+    if (asFirstDirective) {
+      this._appliedDirectives.unshift(toAdd);
+    } else {
+      this._appliedDirectives.push(toAdd);
+    }
     DirectiveDefinition.prototype['addReferencer'].call(toAdd.definition!, toAdd);
     this.onModification();
     return toAdd;
@@ -828,13 +837,14 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 }
 
 export class SchemaBlueprint {
-  onMissingDirectiveDefinition(_schema: Schema, _name: string): DirectiveDefinition | undefined {
+  onMissingDirectiveDefinition(_schema: Schema, _name: string, _args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
     // No-op by default, but used for federation.
     return undefined;
   }
 
-  onDirectiveDefinitionAndSchemaParsed(_: Schema) {
+  onDirectiveDefinitionAndSchemaParsed(_: Schema): GraphQLError[] {
     // No-op by default, but used for federation.
+    return [];
   }
 
   ignoreParsedField(_type: NamedType, _fieldName: string): boolean {
@@ -1014,24 +1024,28 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'include',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => [{ name: 'if', type: new NonNullType(schema.booleanType()) }]
+    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
   }),
   createDirectiveSpecification({
     name: 'skip',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => [{ name: 'if', type: new NonNullType(schema.booleanType()) }]
+    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
   }),
   createDirectiveSpecification({
     name: 'deprecated',
     locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION],
-    argumentFct: (schema) => [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }]
+    argumentFct: (schema) => ({ args: [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }], errors: [] })
   }),
   createDirectiveSpecification({
     name: 'specifiedBy',
     locations: [DirectiveLocation.SCALAR],
-    argumentFct: (schema) => [{ name: 'url', type: new NonNullType(schema.stringType()) }]
+    argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
   }),
 ];
+
+
+// A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
+const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
 
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
@@ -1402,6 +1416,56 @@ export class Schema {
   specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
     return this.getBuiltInDirective(schema, 'specifiedBy');
   }
+
+  /**
+   * Gets an element of the schema given its "schema coordinate".
+   *
+   * Note that the syntax for schema coordinates is the one from the upcoming GraphQL spec: https://github.com/graphql/graphql-spec/pull/794.
+   */
+  elementByCoordinate(coordinate: string): NamedSchemaElement<any, any, any> | undefined {
+    if (!coordinate.match(coordinateRegexp)) {
+      throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+    }
+
+    const argStartIdx = coordinate.indexOf('(');
+    const start = argStartIdx < 0 ? coordinate : coordinate.slice(0, argStartIdx);
+    // Argument syntax is `foo(argName:)`, so the arg name start after the open parenthesis and go until the final ':)'.
+    const argName = argStartIdx < 0 ? undefined : coordinate.slice(argStartIdx + 1, coordinate.length - 2);
+    const splittedStart = start.split('.');
+    const typeOrDirectiveName = splittedStart[0];
+    const fieldOrEnumName = splittedStart[1];
+    const isDirective = typeOrDirectiveName.startsWith('@');
+    if (isDirective) {
+      if (fieldOrEnumName) {
+        throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+      const directive = this.directive(typeOrDirectiveName.slice(1));
+      return argName ? directive?.argument(argName) : directive;
+    } else {
+      const type = this.type(typeOrDirectiveName);
+      if (!type || !fieldOrEnumName) {
+        return type;
+      }
+      switch (type.kind) {
+        case 'ObjectType':
+        case 'InterfaceType':
+          const field = type.field(fieldOrEnumName);
+          return argName ? field?.argument(argName) : field;
+        case 'InputObjectType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.field(fieldOrEnumName);
+        case 'EnumType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.value(fieldOrEnumName);
+        default:
+          throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+    }
+  }
 }
 
 export class RootType extends BaseExtensionMember<SchemaDefinition> {
@@ -1429,9 +1493,10 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
     nameOrDefOrDirective: Directive<SchemaDefinition, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
-    args?: TApplicationArgs
+    args?: TApplicationArgs,
+    asFirstDirective: boolean = false,
   ): Directive<SchemaDefinition, TApplicationArgs> {
-    const applied = super.applyDirective(nameOrDefOrDirective, args) as Directive<SchemaDefinition, TApplicationArgs>;
+    const applied = super.applyDirective(nameOrDefOrDirective, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
     const schema = this.schema();
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
@@ -1444,6 +1509,10 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
       const imports = extractCoreFeatureImports(url, schemaDirective);
       const core = new CoreFeature(url, args.as ?? url.name, schemaDirective, imports, args.for);
       Schema.prototype['markAsCoreSchema'].call(schema, core);
+      // We also any core features that may have been added before we saw the @link for link itself
+      this.appliedDirectives
+        .filter((a) => a !== applied)
+        .forEach((other) => CoreFeatures.prototype['maybeAddFeature'].call(schema.coreFeatures, other));
     } else if (coreFeatures) {
       CoreFeatures.prototype['maybeAddFeature'].call(coreFeatures, applied);
     }
