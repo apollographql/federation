@@ -692,6 +692,7 @@ export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIden
   .add(new CoreSpecDefinition(new FeatureVersion(0, 2), coreIdentity, 'core'));
 
 export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIdentity)
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 3)))
   .add(new CoreSpecDefinition(new FeatureVersion(1, 0)));
 
 registerKnownFeature(CORE_VERSIONS);
