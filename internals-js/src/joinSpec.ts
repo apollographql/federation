@@ -1,4 +1,4 @@
-import { DirectiveLocation } from 'graphql';
+import { DirectiveLocation, GraphQLError } from 'graphql';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
@@ -39,7 +39,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.version.equals(new FeatureVersion(0, 1));
   }
 
-  addElementsToSchema(schema: Schema) {
+  addElementsToSchema(schema: Schema): GraphQLError[] {
     const joinGraph = this.addDirective(schema, 'graph').addLocations(DirectiveLocation.ENUM_VALUE);
     joinGraph.addArgument('name', new NonNullType(schema.stringType()));
     joinGraph.addArgument('url', new NonNullType(schema.stringType()));
@@ -89,6 +89,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
       joinOwner.addArgument('graph', new NonNullType(graphEnum));
     }
+    return [];
   }
 
   allElementNames(): string[] {
