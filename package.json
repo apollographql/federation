@@ -48,7 +48,7 @@
     "@types/node": "12.20.47",
     "@types/node-fetch": "2.6.1",
     "@types/whatwg-url": "8.2.1",
-    "apollo-server": "3.6.6",
+    "apollo-server": "3.6.7",
     "apollo-server-env": "4.2.1",
     "bunyan": "1.8.15",
     "graphql": "16.3.0",
