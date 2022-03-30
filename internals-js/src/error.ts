@@ -369,11 +369,6 @@ const OVERRIDE_SOURCE_HAS_OVERRIDE = makeCodeDefinition(
   'Field which is overridden to another subgraph is also marked @override.',
 );
 
-const OVERRIDE_ON_BOTH_FIELD_AND_TYPE = makeCodeDefinition(
-  'OVERRIDE_ON_BOTH_FIELD_AND_TYPE',
-  'Field and type are both marked with @override directive. This is not currently supported.',
-);
-
 const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE',
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
@@ -441,7 +436,6 @@ export const ERRORS = {
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
-  OVERRIDE_ON_BOTH_FIELD_AND_TYPE,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

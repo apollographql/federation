@@ -925,34 +925,28 @@ class Merger {
     fromIdx: number;
     fromField: FieldDefinition<any> | undefined;
     fromSubgraphName: string;
-  }): { result: boolean, conflictingDirective?: string, subgraph?: string } {
+  }): { result: boolean, conflictingDirective?: DirectiveDefinition, subgraph?: string } {
     const fromMetadata = this.metadata(fromIdx);
-    if (fromField?.hasAppliedDirective(fromMetadata.providesDirective())) {
-      return {
-        result: true,
-        conflictingDirective: fromMetadata.providesDirective().name,
-        subgraph: subgraphName,
-      };
-    }
-
-    if (fromField?.hasAppliedDirective(fromMetadata.requiresDirective())) {
-      return {
-        result: true,
-        conflictingDirective: fromMetadata.requiresDirective().name,
-        subgraph: subgraphName,
-      };
+    for (const directive of [fromMetadata.requiresDirective(), fromMetadata.providesDirective()]) {
+      if (fromField?.hasAppliedDirective(directive)) {
+         return {
+           result: true,
+           conflictingDirective: directive,
+           subgraph: subgraphName,
+         };
+       }
     }
     if (field && this.isExternal(idx, field)) {
       return {
         result: true,
-        conflictingDirective: fromMetadata.externalDirective().name,
+        conflictingDirective: fromMetadata.externalDirective(),
         subgraph: subgraphName,
       };
     }
     if (fromField && this.isExternal(fromIdx, fromField)) {
       return {
         result: true,
-        conflictingDirective: fromMetadata.externalDirective().name,
+        conflictingDirective: fromMetadata.externalDirective(),
         subgraph: fromSubgraphName,
       };
     }
@@ -961,10 +955,9 @@ class Merger {
 
   /**
    * Validates whether or not the use of the @override directive is correct.
-   * return a list of subgraphs to ignore for the current field
    * return value is a list of fields that has been filtered to ignore overridden fields
    */
-  private validateOverride(sources: FieldOrUndefinedArray, { coordinate }: FieldDefinition<any>) {
+  private validateOverride(sources: FieldOrUndefinedArray, { coordinate }: FieldDefinition<any>): (FieldDefinition<any> | undefined)[] {
     // For any field, we can't have more than one @override directive
     type MappedValue = {
       idx: number,
@@ -1003,11 +996,8 @@ class Merger {
       const { overrideDirective } = subgraphMap[subgraphName];
       const sourceSubgraphName = overrideDirective?.arguments()?.from;
       if (!this.names.includes(sourceSubgraphName)) {
-        const suggestions = suggestionList(sourceSubgraphName, this.names as string[]);
-        let extraMsg = '';
-        if (suggestions.length > 0) {
-          extraMsg = didYouMean(suggestions);
-        }
+        const suggestions = suggestionList(sourceSubgraphName, this.names);
+        const extraMsg = didYouMean(suggestions);
         this.hints.push(new CompositionHint(
           hintFromSubgraphDoesNotExist,
           `Source subgraph "${sourceSubgraphName}" for field "${coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
@@ -1016,10 +1006,15 @@ class Merger {
       } else if (sourceSubgraphName === subgraphName) {
         this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err({
           message: `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
+          nodes: overrideDirective?.sourceAST,
         }));
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
         this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err({
           message: `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
+          nodes: [
+            overrideDirective?.sourceAST,
+            subgraphMap[sourceSubgraphName].overrideDirective?.sourceAST,
+          ].filter((ast): ast is ASTNode => ast !== undefined),
         }));
       } else if (subgraphMap[sourceSubgraphName] === undefined) {
         this.hints.push(new CompositionHint(
@@ -1028,7 +1023,7 @@ class Merger {
           coordinate,
         ));
       } else {
-        // check to make sure that there is no conflicting @key, @provides, or @requires directives
+        // check to make sure that there is no conflicting @provides, @requires, or @external directives
         const fromIdx = this.names.indexOf(sourceSubgraphName);
         const fromField = sources[fromIdx];
         const { result: hasIncompatible, conflictingDirective, subgraph } = this.overrideConflictsWithOtherDirective({
@@ -1040,23 +1035,33 @@ class Merger {
           fromSubgraphName: sourceSubgraphName,
         });
         if (hasIncompatible) {
+          assert(conflictingDirective !== undefined, 'conflictingDirective should not be undefined');
           this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err({
-            message: `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective}"`,
-          }));
+            message: `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
+            nodes: [
+              overrideDirective?.sourceAST,
+              conflictingDirective.sourceAST,
+            ].filter((ast): ast is ASTNode => ast !== undefined),
+            }));
         } else {
           // if we get here, then the @override directive is valid
           // if the field being overridden is used, then we need to add an @external directive
           assert(fromField, 'fromField should not be undefined');
-          if (this.metadata(fromIdx).isFieldUsed(fromField) || this.metadata(fromIdx).isKeyField(fromField)) {
+          if (this.metadata(fromIdx).isFieldUsed(fromField)) {
             fromField.applyDirective(this.metadata(fromIdx).externalDirective());
+            this.hints.push(new CompositionHint(
+              hintOverriddenFieldCanBeRemoved,
+              `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+              coordinate,
+            ));
           } else {
             overriddenSubgraphs.push(fromIdx);
+            this.hints.push(new CompositionHint(
+              hintOverriddenFieldCanBeRemoved,
+              `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
+              coordinate,
+            ));
           }
-          this.hints.push(new CompositionHint(
-            hintOverriddenFieldCanBeRemoved,
-            `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
-            coordinate,
-          ));
         }
       }
     });
@@ -1255,7 +1260,7 @@ class Merger {
         graph: name,
         requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
         provides: this.getFieldSet(source, sourceMeta.providesDirective()),
-        override: this.getOverrideFieldSet(source, sourceMeta.overrideDirective()),
+        override: source.appliedDirectivesOf(sourceMeta.overrideDirective()).pop()?.arguments()?.from,
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
       });
@@ -1266,12 +1271,6 @@ class Merger {
     const applications = element.appliedDirectivesOf(directive);
     assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
     return applications.length === 0 ? undefined : applications[0].arguments().fields;
-  }
-
-  private getOverrideFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{from: string}>): string | undefined {
-    const applications = element.appliedDirectivesOf(directive);
-    assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
-    return applications.length === 0 ? undefined : applications[0].arguments().from;
   }
 
   // Returns `true` if the type references were all completely equal and `false` if some subtyping happened (or
