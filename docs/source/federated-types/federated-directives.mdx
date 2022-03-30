@@ -6,7 +6,7 @@ Apollo Federation defines a collection of **directives** that you use in your su
 
 ## Importing directives
 
-To use federated directives in a Federation 2 subgraph schema, that schema must include an `extend schema` definition with the following format:
+To use federated directives in a Federation 2 subgraph schema, apply the `@link` directive with the following format to the `schema` type:
 
 ```graphql
 extend schema
@@ -14,7 +14,11 @@ extend schema
         import: ["@key", "@shareable"])
 ```
 
-The `import` array must include whichever federated directives your subgraph schema uses. The example above imports the [`@key`](#key) and [`@shareable`](#shareable) directives (which are used most commonly).
+You can apply this directive to your existing `schema` declaration if you have one, or to a new `extend schema` declaration (as shown above).
+
+Modify the `import` array to include whichever federated directives your subgraph schema uses. The example above imports the [`@key`](#key) and [`@shareable`](#shareable) directives (which are used most commonly).
+
+> Make sure to include the `@` in each directive name!
 
 ### Renaming directives
 
@@ -63,7 +67,13 @@ type Product @key(fields: "id") {
 </td>
 <td>
 
-**Required.** A comma-separated list of field names that contribute to the entity's primary key.
+**Required.** A selection set of field names (and optionally _subfield_ names) that contribute to the entity's primary key.
+
+Examples:
+
+* `"id"`
+* `"username region"`
+* `"name organization { id }"`
 
 See also [Advanced `@key`s](../entities-advanced/#advanced-keys).
 
@@ -79,7 +89,9 @@ See also [Advanced `@key`s](../entities-advanced/#advanced-keys).
 </td>
 <td>
 
-If `false`, informs the gateway that this subgraph _can't_ resolve fields of this entity besides `@key` fields. Include this when [referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+If `false`, informs the gateway that this subgraph _doesn't_ define a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity. This means that gateway query plans can't "jump to" this subgraph to resolve fields that aren't defined in _another_ subgraph.
+
+Most commonly, you set this to `false` when [referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
 
 The default value is `true`.
 
@@ -115,7 +127,7 @@ See also [Value types in Apollo Federation](./sharing-types/) and [Resolving ano
 
 ## `@provides`
 
-Indicates that a particular subgraph can resolve particular object fields, but _only_ at a particular query path.
+Indicates that a particular subgraph can resolve particular fields, but _only_ at a particular query path.
 
 **Valid locations:** Field definitions
 
@@ -162,7 +174,13 @@ The example subgraph above can resolve `Product.name` for products returned by `
 </td>
 <td>
 
-**Required.** A comma-separated list of object field names that the subgraph can resolve at this query path.
+**Required.** A GraphQL selection set of field names that the subgraph can resolve at this query path.
+
+Examples:
+
+* `"name"`
+* `"name address"`
+* `"... on Person { name address }"` (valid for fields that return a union or interface)
 
 </td>
 </tr>
@@ -172,7 +190,7 @@ The example subgraph above can resolve `Product.name` for products returned by `
 
 ## `@requires`
 
-Indicates that a particular object field's resolver requires the values of _other_ object fields that are resolved by _other_ subgraphs.
+Indicates that a particular object field's resolver requires the values of _other_ fields that are resolved by _other_ subgraphs.
 
 **Valid locations:** Field definitions
 

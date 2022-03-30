@@ -164,7 +164,7 @@ type Product @key(fields: "id", resolvable: false) {
 }
 ```
 
-As you can see, this stub definition includes _only_ the `@key` fields of `Product` (just `id` in this case). It also includes `resolvable: false` in the `@key` directive to indicate that this subgraph can't resolve any non-`@key` fields of `Product`.
+As you can see, this stub definition includes _only_ the `@key` fields of `Product` (just `id` in this case). It also includes `resolvable: false` in the `@key` directive to indicate that this subgraph doesn't even define a reference resolver for the `Product` entity.
 
 ## Example query flow
 
