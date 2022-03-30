@@ -46,12 +46,10 @@ export const ATLAS = Atlas.fromSchemas(
   Schema.basic(gql `${'builtin/link/v0.3.graphql'}
   @id(url: "https://specs.apollo.dev/link/v0.3")
 
-  directive @link(url: Url!, as: Name, import: Imports)
+  directive @link(url: String!, as: String, import: [Import])
     repeatable on SCHEMA
 
-  scalar Url
-  scalar Name
-  scalar Imports
+  scalar Import
   `),
 
   Schema.basic(gql `${'builtin/id/v1.0.graphql'}

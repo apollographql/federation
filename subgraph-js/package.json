@@ -18,11 +18,7 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "MIT",
   "engines": {
-<<<<<<< HEAD
-    "node": ">=12.13.0"
-=======
     "node": ">=12.13.0 <18.0"
->>>>>>> pcmanus/fix-expanding-core
   },
   "dependencies": {
     "@apollo/core-schema": "apollographql/core-schema-js#v0.3"
