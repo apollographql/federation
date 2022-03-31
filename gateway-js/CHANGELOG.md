@@ -34,6 +34,7 @@ NOTE: Be sure to update to this version of gateway _before_ upgrading compositio
 - Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
 - Respect the `minDelaySeconds` returning from Uplink when polling and retrying to fetch the supergraph schema from Uplink [PR #1564](https://github.com/apollographql/federation/pull/1564)
 - Remove the previously deprecated `experimental_pollInterval` config option and deprecate `pollIntervalInMs` in favour of `fallbackPollIntervalInMs` (for managed mode only). [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Correctly detect promises wrapped by proxies in entities resolver [PR #1584](https://github.com/apollographql/federation/pull/1584)
 
 ## v2.0.0-preview.3
 

@@ -21,7 +21,7 @@ Feature: Introspection queries
           name
           description
           locations
-          args {
+          args(includeDeprecated: true) {
             ...InputValue
           }
         }
@@ -34,7 +34,7 @@ Feature: Introspection queries
       fields(includeDeprecated: true) {
         name
         description
-        args {
+        args(includeDeprecated: true) {
           ...InputValue
         }
         type {
@@ -43,7 +43,7 @@ Feature: Introspection queries
         isDeprecated
         deprecationReason
       }
-      inputFields {
+      inputFields(includeDeprecated: true) {
         ...InputValue
       }
       interfaces {
@@ -66,6 +66,8 @@ Feature: Introspection queries
         ...TypeRef
       }
       defaultValue
+      isDeprecated
+      deprecationReason
     }
     fragment TypeRef on __Type {
       kind
