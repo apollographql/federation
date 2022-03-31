@@ -23,15 +23,15 @@ This is a quick and opinionated set of commands for building and releasing a new
     - `git show --pretty="" --name-only HEAD` to see the files in the commit
     - `git --no-pager tag --points-at HEAD` to see the tags that were created
 1. `git push --follow-tags origin` to push the version bumps & tags created by lerna in the previous step
-1. `APOLLO_DIST_TAG=next npm run release:start-ci-publish`[^publishing]
+1. `APOLLO_DIST_TAG=latest-2 npm run release:start-ci-publish`[^publishing]
 1. `echo https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` and click the resulting link to approve publishing to NPM
     - There will also be a message posted to #team-atlas in slack that has a link to the approval job
 1. `unset FEDERATION_RELEASE_VERSION` to ensure we don't accidentally use this variable later
 1. Spot-check a few of the versions in NPM to ensure the packages were published correctly
-   - `npm view @apollo/composition@next`
-   - `npm view @apollo/subgraph@next`
-   - `npm view @apollo/gateway@next`
-   - `npm view @apollo/query-planner@next`
+   - `npm view @apollo/composition@latest-2`
+   - `npm view @apollo/subgraph@latest-2`
+   - `npm view @apollo/gateway@latest-2`
+   - `npm view @apollo/query-planner@latest-2`
 
 #### Merge the release PR
 
