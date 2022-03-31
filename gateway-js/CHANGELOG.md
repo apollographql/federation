@@ -4,7 +4,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNEXT
 
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+> The changes noted within this `vNEXT` section have not been released yet. New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development. When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+
+- Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
+- Adds support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
+
+## v2.0.0-preview.8
+
+NOTE: Be sure to update to this version of gateway _before_ upgrading composition. See below and the changelog for `@apollo/composition`.
 
 - Adds support for `@inaccessible` in subgraphs [PR #1638](https://github.com/apollographql/federation/pull/1638).
 - Fix merging of `@tag` directive when it is renamed in subgraphs [PR #1637](https://github.com/apollographql/federation/pull/1637).
@@ -28,6 +35,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
 - Respect the `minDelaySeconds` returning from Uplink when polling and retrying to fetch the supergraph schema from Uplink [PR #1564](https://github.com/apollographql/federation/pull/1564)
 - Remove the previously deprecated `experimental_pollInterval` config option and deprecate `pollIntervalInMs` in favour of `fallbackPollIntervalInMs` (for managed mode only). [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Correctly detect promises wrapped by proxies in entities resolver [PR #1584](https://github.com/apollographql/federation/pull/1584)
 
 ## v2.0.0-preview.3
 

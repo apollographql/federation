@@ -1,6 +1,7 @@
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
+  ErrGraphQLValidationFailed,
   FieldDefinition,
   isCompositeType,
   isInterfaceType,
@@ -66,6 +67,7 @@ export function removeInaccessibleElements(schema: Schema) {
     );
   }
 
+  const errors = [];
   for (const type of schema.types()) {
     // @inaccessible can only be on composite types.
     if (!isCompositeType(type)) {
@@ -81,14 +83,14 @@ export function removeInaccessibleElements(schema: Schema) {
           if (!reference.hasAppliedDirective(inaccessibleDirective)) {
             // We ship the inaccessible type and it's invalid reference in the extensions so composition can extract those and add proper links
             // in the subgraphs for those elements.
-            throw ERRORS.REFERENCED_INACCESSIBLE.err({
+            errors.push(ERRORS.REFERENCED_INACCESSIBLE.err({
               message: `Field "${reference.coordinate}" returns @inaccessible type "${type}" without being marked @inaccessible itself.`,
               nodes: reference.sourceAST,
               extensions: {
                 "inaccessible_element": type.coordinate,
                 "inaccessible_reference": reference.coordinate,
               }
-            });
+            }));
           }
         }
         // Other references can be:
@@ -100,5 +102,9 @@ export function removeInaccessibleElements(schema: Schema) {
       const toRemove = (type.fields() as FieldDefinition<any>[]).filter(f => f.hasAppliedDirective(inaccessibleDirective));
       toRemove.forEach(f => f.remove());
     }
+  }
+
+  if (errors.length > 0) {
+    throw ErrGraphQLValidationFailed(errors, `Schema has ${errors.length === 1 ? 'an invalid use' : 'invalid uses'} of the @inaccessible directive.`);
   }
 }

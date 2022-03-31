@@ -6,14 +6,12 @@ export const url = `https://${name}.api.com.invalid`;
 export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
-  directive @tag(name: String!) repeatable on
-    | FIELD_DEFINITION
-    | INTERFACE
-    | OBJECT
-    | UNION
+  directive @tag(
+    name: String!
+  ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
-  enum CacheControlScope {
-    PUBLIC
+  enum CacheControlScope @tag(name: "from-reviews") {
+    PUBLIC @tag(name: "from-reviews")
     PRIVATE
   }
 
@@ -23,7 +21,9 @@ export const typeDefs = gql`
     inheritMaxAge: Boolean
   ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
-  scalar JSON @specifiedBy(url: "https://json-spec.dev")
+  scalar JSON
+    @tag(name: "from-reviews")
+    @specifiedBy(url: "https://json-spec.dev")
 
   schema {
     query: RootQuery
@@ -51,11 +51,16 @@ export const typeDefs = gql`
     description: String
   }
 
-  type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
+  type User
+    @key(fields: "id")
+    @key(fields: "username name { first last }")
+    @tag(name: "from-accounts") {
     id: ID! @tag(name: "accounts")
     name: Name @cacheControl(inheritMaxAge: true)
     username: String @shareable # Provided by the 'reviews' subgraph
-    birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
+    birthDate(locale: String @tag(name: "admin")): String
+      @tag(name: "admin")
+      @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]
     ssn: String
@@ -124,21 +129,21 @@ const libraryUsers: { [name: string]: string[] } = {
 export const resolvers: GraphQLResolverMap<any> = {
   RootQuery: {
     user(_, args) {
-      return { id: args.id };
+      return users.find((user) => user.id === args.id);
     },
 
     me() {
-      return { id: '1' };
+      return users.find((user) => user.id === '1');
     },
   },
   User: {
-    __resolveObject(object) {
+    __resolveReference(object) {
       // Nested key example for @key(fields: "username name { first last }")
       if (object.username && object.name.first && object.name.last) {
-        users.find(user => user.username === object.username);
+        users.find((user) => user.username === object.username);
       }
 
-      return users.find(user => user.id === object.id);
+      return users.find((user) => user.id === object.id);
     },
     birthDate(user, args) {
       return args.locale
@@ -148,20 +153,20 @@ export const resolvers: GraphQLResolverMap<any> = {
         : user.birthDate;
     },
     metadata(object) {
-      const metaIndex = metadata.findIndex(m => m.id === object.id);
-      return metadata[metaIndex].metadata.map(obj => ({ name: obj.name }));
+      const metaIndex = metadata.findIndex((m) => m.id === object.id);
+      return metadata[metaIndex].metadata.map((obj) => ({ name: obj.name }));
     },
   },
   UserMetadata: {
     address(object) {
-      const metaIndex = metadata.findIndex(m =>
-        m.metadata.find(o => o.name === object.name),
+      const metaIndex = metadata.findIndex((m) =>
+        m.metadata.find((o) => o.name === object.name),
       );
       return metadata[metaIndex].metadata[0].address;
     },
     description(object) {
-      const metaIndex = metadata.findIndex(m =>
-        m.metadata.find(o => o.name === object.name),
+      const metaIndex = metadata.findIndex((m) =>
+        m.metadata.find((o) => o.name === object.name),
       );
       return metadata[metaIndex].metadata[0].description;
     },
@@ -171,13 +176,13 @@ export const resolvers: GraphQLResolverMap<any> = {
       const libraryUserIds = libraryUsers[name];
       return libraryUserIds &&
         libraryUserIds.find((id: string) => id === userId)
-        ? { id: userId }
+        ? users.find((user) => user.id === userId)
         : null;
     },
   },
   Mutation: {
     login(_, args) {
-      return users.find(user => user.username === args.username);
+      return users.find((user) => user.username === args.username);
     },
   },
 };

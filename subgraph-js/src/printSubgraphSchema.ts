@@ -29,6 +29,7 @@ import {
   GraphQLField,
   DEFAULT_DEPRECATION_REASON,
   Kind,
+  GraphQLEnumValue,
 } from 'graphql';
 import { isFederationType, Maybe } from './types';
 import {
@@ -179,7 +180,11 @@ export function printType(type: GraphQLNamedType): string {
 
 function printScalar(type: GraphQLScalarType): string {
   return (
-    printDescription(type) + `scalar ${type.name}` + printSpecifiedByURL(type)
+    printDescription(type) +
+    `scalar ${type.name}` +
+    printSpecifiedByURL(type) +
+    // Apollo addition: print federation directives on scalar types
+    printFederationDirectives(type)
   );
 }
 
@@ -210,7 +215,7 @@ function printObject(type: GraphQLObjectType): string {
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     printImplementedInterfaces(type) +
-    // Apollo addition: print @key usages
+    // Apollo addition: print federation directives on object types
     printFederationDirectives(type) +
     printFields(type)
   );
@@ -230,7 +235,7 @@ function printInterface(type: GraphQLInterfaceType): string {
     (isExtension ? 'extend ' : '') +
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
-    // Apollo addition: print @key usages
+    // Apollo addition: print federation directives on interface types
     printFederationDirectives(type) +
     printFields(type)
   );
@@ -243,7 +248,7 @@ function printUnion(type: GraphQLUnionType): string {
     printDescription(type) +
     'union ' +
     type.name +
-    // Apollo addition: print @tag usages
+    // Apollo addition: print federation directives on union types
     printFederationDirectives(type) +
     possibleTypes
   );
@@ -257,17 +262,31 @@ function printEnum(type: GraphQLEnumType): string {
         printDescription(value, '  ', !i) +
         '  ' +
         value.name +
-        printDeprecated(value.deprecationReason),
+        printDeprecated(value.deprecationReason) +
+        // Apollo addition: print federation directives on enum values
+        printFederationDirectives(value),
     );
 
-  return printDescription(type) + `enum ${type.name}` + printBlock(values);
+  return (
+    printDescription(type) +
+    `enum ${type.name}` +
+    // Apollo addition: print federation directives on enum types
+    printFederationDirectives(type) +
+    printBlock(values)
+  );
 }
 
 function printInputObject(type: GraphQLInputObjectType): string {
   const fields = Object.values(type.getFields()).map(
     (f, i) => printDescription(f, '  ', !i) + '  ' + printInputValue(f),
   );
-  return printDescription(type) + `input ${type.name}` + printBlock(fields);
+  return (
+    printDescription(type) +
+    `input ${type.name}` +
+    // Apollo addition: print federation directives on input object types
+    printFederationDirectives(type) +
+    printBlock(fields)
+  );
 }
 
 function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
@@ -280,7 +299,7 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
       ': ' +
       String(f.type) +
       printDeprecated(f.deprecationReason) +
-      // Apollo addition: print Apollo directives on fields
+      // Apollo addition: print federation directives on object/interface fields
       printFederationDirectives(f),
   );
   return printBlock(fields);
@@ -288,17 +307,20 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
 
 // Apollo change: *do* print the usages of federation directives.
 function printFederationDirectives(
-  typeOrFieldOrSchema: GraphQLNamedType | GraphQLField<any, any> | GraphQLSchema,
+  element:
+    | GraphQLSchema
+    | GraphQLNamedType
+    | GraphQLField<any, any>
+    | GraphQLArgument
+    | GraphQLEnumValue
+    | GraphQLInputField
 ): string {
-  if (!typeOrFieldOrSchema.astNode) return '';
-  if (isInputObjectType(typeOrFieldOrSchema)) return '';
-
-  const federationDirectivesOnTypeOrField = gatherDirectives(typeOrFieldOrSchema)
+  const federationDirectivesOnElement = gatherDirectives(element)
     .filter((n) =>
       federationDirectives.some((fedDir) => fedDir.name === n.name.value),
     )
     .map(print);
-  const dedupedDirectives = [...new Set(federationDirectivesOnTypeOrField)];
+  const dedupedDirectives = [...new Set(federationDirectivesOnElement)];
 
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
 }
@@ -340,7 +362,10 @@ function printInputValue(arg: GraphQLInputField) {
   if (defaultAST) {
     argDecl += ` = ${print(defaultAST)}`;
   }
-  return argDecl + printDeprecated(arg.deprecationReason);
+  return argDecl +
+    printDeprecated(arg.deprecationReason) +
+    // Apollo addition: print federation directives on input values
+    printFederationDirectives(arg);
 }
 
 function printDirective(directive: GraphQLDirective) {
