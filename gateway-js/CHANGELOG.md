@@ -15,7 +15,6 @@ NOTE: Be sure to update to this version of gateway _before_ upgrading compositio
 
 - Adds support for `@inaccessible` in subgraphs [PR #1638](https://github.com/apollographql/federation/pull/1638).
 - Fix merging of `@tag` directive when it is renamed in subgraphs [PR #1637](https://github.com/apollographql/federation/pull/1637).
-
 - Handles supergraphs with `@link` instead of `@core`. Note that you should upgrade gateway to this version before upgrading composition [PR #1628](https://github.com/apollographql/federation/pull/1628).
 
 ## v2.0.0-preview.7
