@@ -394,44 +394,6 @@ describe("composition involving @override directive", () => {
     `);
   });
 
-  it("override with @external on overridden field", () => {
-    const subgraph1 = {
-      name: "Subgraph1",
-      url: "https://Subgraph1",
-      typeDefs: gql`
-        type Query {
-          t: T
-        }
-
-        type T @key(fields: "k") {
-          k: ID @override(from: "Subgraph2")
-          a: Int
-        }
-      `,
-    };
-
-    const subgraph2 = {
-      name: "Subgraph2",
-      url: "https://Subgraph2",
-      typeDefs: gql`
-        type T @key(fields: "k") {
-          k: ID @external
-          b: Int
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-    expect(result.errors?.length).toBe(1);
-    expect(result.errors).toBeDefined();
-    expect(errors(result)).toStrictEqual([
-      [
-        "OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE",
-        `@override cannot be used on field "T.k" on subgraph "Subgraph1" since "T.k" on "Subgraph2" is marked with directive "@external"`,
-      ],
-    ]);
-  });
-
   it("override with @provides on overridden field", () => {
     const subgraph1 = {
       name: "Subgraph1",
