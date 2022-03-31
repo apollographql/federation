@@ -1011,10 +1011,7 @@ class Merger {
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
         this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err({
           message: `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
-          nodes: [
-            overrideDirective?.sourceAST,
-            subgraphMap[sourceSubgraphName].overrideDirective?.sourceAST,
-          ].filter((ast): ast is ASTNode => ast !== undefined),
+          nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective)
         }));
       } else if (subgraphMap[sourceSubgraphName] === undefined) {
         this.hints.push(new CompositionHint(
@@ -1038,11 +1035,8 @@ class Merger {
           assert(conflictingDirective !== undefined, 'conflictingDirective should not be undefined');
           this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err({
             message: `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
-            nodes: [
-              overrideDirective?.sourceAST,
-              conflictingDirective.sourceAST,
-            ].filter((ast): ast is ASTNode => ast !== undefined),
-            }));
+            nodes: sourceASTs(overrideDirective, conflictingDirective)
+          }));
         } else {
           // if we get here, then the @override directive is valid
           // if the field being overridden is used, then we need to add an @external directive

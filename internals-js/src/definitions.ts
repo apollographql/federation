@@ -384,7 +384,7 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
 }
 
 export function sourceASTs(...elts: ({ sourceAST?: ASTNode } | undefined)[]): ASTNode[] {
-  return elts.map(elt => elt?.sourceAST).filter(elt => elt !== undefined) as ASTNode[];
+  return elts.map(elt => elt?.sourceAST).filter((elt): elt is ASTNode => elt !== undefined);
 }
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
