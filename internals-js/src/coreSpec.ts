@@ -1,6 +1,6 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert } from './utils';
@@ -706,20 +706,82 @@ export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIden
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);
 
-export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
-  // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature
-  // actually using the type.
-  const featureDirectives = schema.directives().filter(d => feature.isFeatureDefinition(d));
-  featureDirectives.forEach(d => d.remove().forEach(application => application.remove()));
+export function removeFeatureElements(schema: Schema) {
+  // Gather a list of core features up front, since we can't fetch them during
+  // removal. (Also note that core being a feature itself, this will remove core
+  // itself and mark the schema as 'not core').
+  const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
 
-  const featureTypes = schema.types().filter(t => feature.isFeatureDefinition(t));
-  featureTypes.forEach(type => {
-    const references = type.remove();
-    if (references.length > 0) {
-      throw new GraphQLError(
-        `Cannot remove elements of feature ${feature} as feature type ${type} is referenced by elements: ${references.join(', ')}`,
-        references.map(r => r.sourceAST).filter(n => n !== undefined) as ASTNode[]
-      );
+  // Remove all feature elements, keeping track of any type references found
+  // along the way.
+  const typeReferences: {
+    feature: CoreFeature;
+    type: NamedType;
+    references: SchemaElement<any, any>[];
+  }[] = [];
+  for (const feature of coreFeatures) {
+    // Remove feature directive definitions and their applications.
+    const featureDirectiveDefs = schema.directives()
+      .filter(d => feature.isFeatureDefinition(d));
+    featureDirectiveDefs.forEach(def =>
+      def.remove().forEach(application => application.remove())
+    );
+
+    // Remove feature types.
+    const featureTypes = schema.types()
+      .filter(t => feature.isFeatureDefinition(t));
+    featureTypes.forEach(type => {
+      const references = type.remove();
+      if (references.length > 0) {
+        typeReferences.push({
+          feature,
+          type,
+          references,
+        });
       }
-  });
+    });
+  }
+
+  // Now that we're finished with removals, for any referencers encountered,
+  // check whether they're still attached to the schema (and fail if they are).
+  //
+  // We wait for after all removals are done, since it means we don't have to
+  // worry about the ordering of removals (e.g. if one feature element refers
+  // to a different feature's element) or any circular references.
+  //
+  // Note that we fail for ALL type referencers, regardless of whether removing
+  // the type necessitates removal of the type referencer. E.g. even if some
+  // non-core object type were to implement some core feature interface type, we
+  // would still require removal of the non-core object type. Users don't have
+  // to enact this removal by removing the object type from their supergraph
+  // schema though; they could also just mark it @inaccessible (since this
+  // function is called after removeInaccessibleElements()).
+  //
+  // In the future, we could potentially relax this validation once we determine
+  // the appropriate semantics. (This validation has already been relaxed for
+  // directive applications, since feature directive definition removal does not
+  // necessitate removal of elements with directive applications.)
+  const errors: GraphQLError[] = [];
+  for (const { feature, type, references } of typeReferences) {
+    const referencesInSchema = references.filter(r => r.isAttached());
+    if (referencesInSchema.length > 0) {
+      errors.push(new GraphQLError(
+        `Cannot remove elements of feature ${feature} as feature type ${type}` +
+        ` is referenced by elements: ${referencesInSchema.join(', ')}`,
+        references.map(r => r.sourceAST)
+          .filter(n => n !== undefined) as ASTNode[]
+      ));
+    }
+  }
+  if (errors.length > 0) {
+    throw ErrGraphQLAPISchemaValidationFailed(errors);
+  }
 }
+
+export const apiSchemaValidationErrorCode = 'GraphQLAPISchemaValidationFailed';
+
+export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
+  err(apiSchemaValidationErrorCode, {
+    message: 'The supergraph schema failed to produce a valid API schema',
+    causes
+  });

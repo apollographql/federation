@@ -17,6 +17,7 @@ import {
   VariableNode
 } from "graphql";
 import {
+  apiSchemaValidationErrorCode,
   CoreImport,
   CoreOrLinkDirectiveArgs,
   CoreSpecDefinition,
@@ -57,7 +58,7 @@ export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: stri
  */
 export function errorCauses(e: Error): GraphQLError[] | undefined {
   if (e instanceof GraphQLErrorExt) {
-    if (e.code === validationErrorCode) {
+    if (e.code === validationErrorCode || e.code === apiSchemaValidationErrorCode) {
       return ((e as any).causes) as GraphQLError[];
     }
     return [e];
@@ -1146,13 +1147,7 @@ export class Schema {
 
       const apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
-      const coreFeatures = apiSchema.coreFeatures;
-      if (coreFeatures) {
-        // Note that core being a feature itself, this will remove core itself and mark apiSchema as 'not core'
-        for (const coreFeature of coreFeatures.allFeatures()) {
-          removeFeatureElements(apiSchema, coreFeature);
-        }
-      }
+      removeFeatureElements(apiSchema);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
       this.apiSchema = apiSchema;
