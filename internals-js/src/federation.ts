@@ -52,7 +52,7 @@ import {
   ERRORS,
   withModifiedErrorMessage,
 } from "./error";
-import { computeKeys, computeShareables } from "./precompute";
+import { computeShareables } from "./precompute";
 import {
   CoreSpecDefinition,
   FeatureVersion,
@@ -267,20 +267,17 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
   const usedFields = new Set<FieldDefinition<CompositeType>>();
 
   // Collects all external fields used by a key, requires or provides
-  collectUsedExternaFieldsForDirective<CompositeType>(
-    metadata,
+  collectUsedFieldsForDirective<CompositeType>(
     metadata.keyDirective(),
     type => type,
     usedFields,
   );
-  collectUsedExternaFieldsForDirective<FieldDefinition<CompositeType>>(
-    metadata,
+  collectUsedFieldsForDirective<FieldDefinition<CompositeType>>(
     metadata.requiresDirective(),
     field => field.parent!,
     usedFields,
   );
-  collectUsedExternaFieldsForDirective<FieldDefinition<CompositeType>>(
-    metadata,
+  collectUsedFieldsForDirective<FieldDefinition<CompositeType>>(
     metadata.providesDirective(),
     field => {
       const type = baseType(field.type!);
@@ -305,11 +302,10 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
   return usedFields;
 }
 
-function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any, any>>(
-  metadata: FederationMetadata,
+function collectUsedFieldsForDirective<TParent extends SchemaElement<any, any>>(
   definition: DirectiveDefinition<{fields: any}>,
   targetTypeExtractor: (element: TParent) => CompositeType | undefined,
-  usedExternalCoordinates: Set<FieldDefinition<CompositeType>>
+  usedFieldDefs: Set<FieldDefinition<CompositeType>>
 ) {
   for (const application of definition.applications()) {
     const type = targetTypeExtractor(application.parent! as TParent);
@@ -327,8 +323,7 @@ function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any,
       directive: application as Directive<any, {fields: any}>,
       includeInterfaceFieldsImplementations: true,
       validate: false,
-    }).filter((field) => metadata.isFieldExternal(field))
-      .forEach((field) => usedExternalCoordinates.add(field));
+    }).forEach((field) => usedFieldDefs.add(field));
   }
 }
 
@@ -425,7 +420,6 @@ function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<Obje
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
-  private _keysPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
   private _fieldUsedPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
   private _isFed2Schema?: boolean;
 
@@ -435,7 +429,6 @@ export class FederationMetadata {
   private onInvalidate() {
     this._externalTester = undefined;
     this._sharingPredicate = undefined;
-    this._keysPredicate = undefined;
     this._isFed2Schema = undefined;
     this._fieldUsedPredicate = undefined;
   }
@@ -466,13 +459,6 @@ export class FederationMetadata {
     return this._sharingPredicate;
   }
 
-  private keysPredicate(): (field: FieldDefinition<CompositeType>) => boolean {
-    if (!this._keysPredicate) {
-      this._keysPredicate = computeKeys(this.schema);
-    }
-    return this._keysPredicate;
-  }
-
   private fieldUsedPredicate(): (field: FieldDefinition<CompositeType>) => boolean {
     if (!this._fieldUsedPredicate) {
       const usedFields = collectUsedFields(this);
@@ -482,7 +468,7 @@ export class FederationMetadata {
   }
 
   isFieldUsed(field: FieldDefinition<CompositeType>): boolean {
-    return this.keysPredicate()(field) || this.fieldUsedPredicate()(field);
+    return this.fieldUsedPredicate()(field);
   }
 
   isFieldExternal(field: FieldDefinition<any> | InputFieldDefinition) {
