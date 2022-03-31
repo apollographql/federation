@@ -557,7 +557,7 @@ describe('@core/@link handling', () => {
 
     directive @federation__shareable on OBJECT | FIELD_DEFINITION
 
-    directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+    directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
     directive @federation__override(from: String!) on FIELD_DEFINITION
 

@@ -64,7 +64,6 @@ import {
   didYouMean,
   suggestionList,
   EnumValue,
-  inaccessibleDirectiveSpec,
   baseType,
   isEnumType,
   filterTypesOfKind,
@@ -80,6 +79,7 @@ const linkSpec = LINK_VERSIONS.latest();
 type FieldOrUndefinedArray = (FieldDefinition<any> | undefined)[];
 
 const joinSpec = JOIN_VERSIONS.latest();
+const inaccessibleSpec = INACCESSIBLE_VERSIONS.latest();
 
 export type MergeResult = MergeSuccess | MergeFailure;
 
@@ -1661,7 +1661,7 @@ class Merger {
     this.mergeDescription(valueSources, value);
     this.mergeAppliedDirectives(valueSources, value);
 
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
     const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph);
     // The merging strategy depends on the enum type usage:
     //  - if it is _only_ used in position of Input type, we merge it with an "intersection" strategy (like other input types/things).
@@ -1732,7 +1732,7 @@ class Merger {
   }
 
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
 
     // Like for other inputs, we add all the fields found in any subgraphs initially as a simple mean to have a complete list of
     // field to iterate over, but we will remove those that are not in all subgraphs.

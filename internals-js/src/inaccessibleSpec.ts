@@ -11,29 +11,44 @@ import {
 import { GraphQLError, DirectiveLocation } from "graphql";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { ERRORS } from "./error";
-import { createDirectiveSpecification } from "./directiveAndTypeSpecification";
+import { createDirectiveSpecification, DirectiveSpecification } from "./directiveAndTypeSpecification";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 
-export const inaccessibleLocations = [
-  DirectiveLocation.FIELD_DEFINITION,
-  DirectiveLocation.OBJECT,
-  DirectiveLocation.INTERFACE,
-  DirectiveLocation.UNION,
-];
-
-export const inaccessibleDirectiveSpec = createDirectiveSpecification({
-  name: 'inaccessible',
-  locations: [...inaccessibleLocations],
-});
-
 export class InaccessibleSpecDefinition extends FeatureDefinition {
+  public readonly inaccessibleLocations: DirectiveLocation[];
+  public readonly inaccessibleDirectiveSpec: DirectiveSpecification;
+
   constructor(version: FeatureVersion) {
     super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version));
+    this.inaccessibleLocations = [
+      DirectiveLocation.FIELD_DEFINITION,
+      DirectiveLocation.OBJECT,
+      DirectiveLocation.INTERFACE,
+      DirectiveLocation.UNION,
+    ];
+    if (!this.isV01()) {
+      this.inaccessibleLocations.push(
+        DirectiveLocation.ARGUMENT_DEFINITION,
+        DirectiveLocation.SCALAR,
+        DirectiveLocation.ENUM,
+        DirectiveLocation.ENUM_VALUE,
+        DirectiveLocation.INPUT_OBJECT,
+        DirectiveLocation.INPUT_FIELD_DEFINITION,
+      );
+    }
+    this.inaccessibleDirectiveSpec = createDirectiveSpecification({
+      name: 'inaccessible',
+      locations: this.inaccessibleLocations,
+    });
+  }
+
+  isV01() {
+    return this.version.equals(new FeatureVersion(0, 1));
   }
 
   addElementsToSchema(schema: Schema): GraphQLError[] {
-    return this.addDirectiveSpec(schema, inaccessibleDirectiveSpec);
+    return this.addDirectiveSpec(schema, this.inaccessibleDirectiveSpec);
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
@@ -46,7 +61,8 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
 }
 
 export const INACCESSIBLE_VERSIONS = new FeatureDefinitions<InaccessibleSpecDefinition>(inaccessibleIdentity)
-  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)));
+  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)))
+  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 2)));
 
 registerKnownFeature(INACCESSIBLE_VERSIONS);
 

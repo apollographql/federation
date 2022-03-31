@@ -117,6 +117,12 @@ export const InaccessibleDirective = new GraphQLDirective({
     DirectiveLocation.OBJECT,
     DirectiveLocation.INTERFACE,
     DirectiveLocation.UNION,
+    DirectiveLocation.ARGUMENT_DEFINITION,
+    DirectiveLocation.SCALAR,
+    DirectiveLocation.ENUM,
+    DirectiveLocation.ENUM_VALUE,
+    DirectiveLocation.INPUT_OBJECT,
+    DirectiveLocation.INPUT_FIELD_DEFINITION,
   ],
 });
 
