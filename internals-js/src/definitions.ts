@@ -39,12 +39,15 @@ import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { validateSchema } from "./validate";
 import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
+import { didYouMean, suggestionList } from "./suggestions";
+import { withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
+const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
-export const ErrGraphQLValidationFailed = (causes: GraphQLError[]) =>
+export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   err(validationErrorCode, {
-    message: 'The schema is not a valid GraphQL schema',
+    message,
     causes
   });
 
@@ -505,7 +508,10 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
         this.checkUpdate();
         const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective);
         if (!def) {
-          throw new GraphQLError(`Cannot apply unknown directive "@${nameOrDefOrDirective}"`);
+          throw this.schema().blueprint.onGraphQLJSValidationError(
+            this.schema(),
+            new GraphQLError(`Unknown directive "@${nameOrDefOrDirective}".`)
+          );
         }
         name = nameOrDefOrDirective;
       } else {
@@ -857,6 +863,38 @@ export class SchemaBlueprint {
   validationRules(): readonly SDLValidationRule[] {
     return specifiedSDLRules;
   }
+
+  /**
+   * Allows to intercept some graphQL-js error messages when we can provide additional guidance to users.
+   */
+  onGraphQLJSValidationError(schema: Schema, error: GraphQLError): GraphQLError {
+    // For now, the main additional guidance we provide is around directives, where we could provide additional help in 2 main ways:
+    // - if a directive name is likely misspelled (somehow, graphQL-js has methods to offer suggestions on likely mispelling, but don't use this (at the
+    //   time of this writting) for directive names).
+    // - for fed 2 schema, if a federation directive is refered under it's "default" naming but is not properly imported (not enforced
+    //   in the method but rather in the `FederationBlueprint`).
+    //
+    // Note that intercepting/parsing error messages to modify them is never ideal, but pragmatically, it's probably better than rewriting the relevant
+    // rules entirely (in that later case, our "copied" rule would stop getting any potential graphQL-js made improvements for instance). And while such
+    // parsing is fragile, in that it'll break if the original message change, we have unit tests to surface any such breakage so it's not really a risk.
+    const matcher = /^Unknown directive "@(?<directive>[_A-Za-z][_0-9A-Za-z]*)"\.$/.exec(error.message);
+    const name = matcher?.groups?.directive;
+    if (!name) {
+      return error;
+    }
+
+    const allDefinedDirectiveNames = schema.allDirectives().map((d) => d.name);
+    const suggestions = suggestionList(name, allDefinedDirectiveNames);
+    if (suggestions.length === 0) {
+      return this.onUnknownDirectiveValidationError(schema, name, error);
+    } else {
+      return withModifiedErrorMessage(error, `${error.message}${didYouMean(suggestions.map((s) => '@' + s))}`);
+    }
+  }
+
+  onUnknownDirectiveValidationError(_schema: Schema, _unknownDirectiveName: string, error: GraphQLError): GraphQLError {
+    return error;
+  }
 }
 
 export const defaultSchemaBlueprint = new SchemaBlueprint();
@@ -873,7 +911,8 @@ export class CoreFeature {
 
   isFeatureDefinition(element: NamedType | DirectiveDefinition): boolean {
     return element.name.startsWith(this.nameInSchema + '__')
-      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema);
+      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema)
+      || !!this.imports.find((i) => element.name === (i.as ?? i.name));
   }
 
   directiveNameInSchema(name: string): string {
@@ -931,7 +970,7 @@ export class CoreFeatures {
     if (existing) {
       throw error(`Duplicate inclusion of feature ${url.identity}`);
     }
-    const imports = extractCoreFeatureImports(typedDirective);
+    const imports = extractCoreFeatureImports(url, typedDirective);
     const feature = new CoreFeature(url, args.as ?? url.name, directive, imports, args.for);
     this.add(feature);
     directive.schema().blueprint.onAddedCoreFeature(directive.schema(), feature);
@@ -994,6 +1033,10 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
     argumentFct: (schema) => [{ name: 'url', type: new NonNullType(schema.stringType()) }]
   }),
 ];
+
+
+// A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
+const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
 
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
@@ -1311,7 +1354,7 @@ export class Schema {
 
     // TODO: we check that all types are properly set (aren't undefined) in `validateSchema`, but `validateSDL` will error out beforehand. We should
     // probably extract that part of `validateSchema` and run `validateSDL` conditionally on that first check.
-    let errors = validateSDL(this.toAST(), undefined, this.blueprint.validationRules());
+    let errors = validateSDL(this.toAST(), undefined, this.blueprint.validationRules()).map((e) => this.blueprint.onGraphQLJSValidationError(this, e));
     errors = errors.concat(validateSchema(this));
 
     // We avoid adding federation-specific validations if the base schema is not proper graphQL as the later can easily trigger
@@ -1364,6 +1407,56 @@ export class Schema {
   specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
     return this.getBuiltInDirective(schema, 'specifiedBy');
   }
+
+  /**
+   * Gets an element of the schema given its "schema coordinate".
+   *
+   * Note that the syntax for schema coordinates is the one from the upcoming GraphQL spec: https://github.com/graphql/graphql-spec/pull/794.
+   */
+  elementByCoordinate(coordinate: string): NamedSchemaElement<any, any, any> | undefined {
+    if (!coordinate.match(coordinateRegexp)) {
+      throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+    }
+
+    const argStartIdx = coordinate.indexOf('(');
+    const start = argStartIdx < 0 ? coordinate : coordinate.slice(0, argStartIdx);
+    // Argument syntax is `foo(argName:)`, so the arg name start after the open parenthesis and go until the final ':)'.
+    const argName = argStartIdx < 0 ? undefined : coordinate.slice(argStartIdx + 1, coordinate.length - 2);
+    const splittedStart = start.split('.');
+    const typeOrDirectiveName = splittedStart[0];
+    const fieldOrEnumName = splittedStart[1];
+    const isDirective = typeOrDirectiveName.startsWith('@');
+    if (isDirective) {
+      if (fieldOrEnumName) {
+        throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+      const directive = this.directive(typeOrDirectiveName.slice(1));
+      return argName ? directive?.argument(argName) : directive;
+    } else {
+      const type = this.type(typeOrDirectiveName);
+      if (!type || !fieldOrEnumName) {
+        return type;
+      }
+      switch (type.kind) {
+        case 'ObjectType':
+        case 'InterfaceType':
+          const field = type.field(fieldOrEnumName);
+          return argName ? field?.argument(argName) : field;
+        case 'InputObjectType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.field(fieldOrEnumName);
+        case 'EnumType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.value(fieldOrEnumName);
+        default:
+          throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+    }
+  }
 }
 
 export class RootType extends BaseExtensionMember<SchemaDefinition> {
@@ -1403,7 +1496,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
       const schemaDirective = applied as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>;
       const args = schemaDirective.arguments();
       const url = FeatureUrl.parse((args.url ?? args.feature)!);
-      const imports = extractCoreFeatureImports(schemaDirective);
+      const imports = extractCoreFeatureImports(url, schemaDirective);
       const core = new CoreFeature(url, args.as ?? url.name, schemaDirective, imports, args.for);
       Schema.prototype['markAsCoreSchema'].call(schema, core);
     } else if (coreFeatures) {
@@ -2711,9 +2804,9 @@ export class Directive<
     this.onModification();
     const coreFeatures = this.schema().coreFeatures;
     if (coreFeatures && this.name === coreFeatures.coreItself.nameInSchema) {
-      // We're removing a @core directive application, so we remove it from the list of core features. And
+      // We're removing a @core/@link directive application, so we remove it from the list of core features. And
       // if it is @core itself, we clean all features (to avoid having things too inconsistent).
-      const url = FeatureUrl.parse(this._args['feature']!);
+      const url = FeatureUrl.parse(this._args[coreFeatures.coreDefinition.urlArgName()]!);
       if (url.identity === coreFeatures.coreItself.url.identity) {
         // Note that we unmark first because the loop after that will nuke our parent.
         Schema.prototype['unmarkAsCoreSchema'].call(this.schema());

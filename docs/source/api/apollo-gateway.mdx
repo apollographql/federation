@@ -1,6 +1,5 @@
 ---
 title: "API Reference: @apollo/gateway"
-sidebar_title: "@apollo/gateway"
 description: Apollo Gateway API reference
 api_reference: true
 ---
@@ -10,7 +9,7 @@ This API reference documents the exports from the `@apollo/gateway` package.
 ## `class ApolloGateway`
 
 The core class of Apollo Server's federated gateway implementation. For an
-example of using `ApolloGateway`, see [The gateway](/gateway/).
+example of using `ApolloGateway`, see [The gateway](../gateway/).
 
 ### Methods
 
@@ -18,7 +17,7 @@ example of using `ApolloGateway`, see [The gateway](/gateway/).
 
 Returns an initialized `ApolloGateway` instance, which you can then pass as the `gateway` configuration option to the `ApolloServer` constructor, like so:
 
-```javascript{2-6}
+```javascript {2-6}
 const server = new ApolloServer({
   gateway: new ApolloGateway({
     serviceList: [
@@ -106,7 +105,7 @@ const gateway = new ApolloGateway({
 
 You provide your supergraph schema to the gateway with this option. You can provide it as a `string`, via a `SupergraphSdlHook`, or via a `SupergraphManager`.
 
-**When `supergraphSdl` is a `string`:** A [supergraph schema](../#federated-schemas) ([generated with the Rover CLI](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
+**When `supergraphSdl` is a `string`:** A [supergraph schema](../federated-types/overview/#supergraph-schema) ([generated with the Rover CLI](/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
 
 **When `supergraphSdl` is a `SupergraphSdlHook`:** This is an `async` function that returns an object containing a `supergraphSdl` string as well as a `cleanup` function. The hook accepts an object containing the following properties:
 - `update`: A function that updates the supergraph schema
@@ -248,7 +247,7 @@ The default value is `false`.
 </td>
 <td>
 
-A list of Apollo Uplink URLs the gateway uses to poll for its managed configuration. For details and defaults, see [Apollo Uplink](/managed-federation/uplink/).
+A list of Apollo Uplink URLs the gateway uses to poll for its managed configuration. For details and defaults, see [Apollo Uplink](https://www.apollographql.com/docs/federation/managed-federation/uplink/).
 
 Provide this field **only** if you are using managed federation _and_ your use case specifically requires it (this is uncommon).
 
@@ -313,7 +312,7 @@ If you provide this function, the gateway calls it once for each subgraph. The f
 
 The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
 
-```js{9-11}
+```js {9-11}
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
     request.http.headers.set('x-user-id', context.userId);
@@ -596,7 +595,7 @@ The details of the `fetch` response sent by the subgraph.
 
 Returns an initialized `IntrospectAndCompose` instance, which you can then pass to the `supergraphSdl` configuration option of the `ApolloGateway` constructor, like so:
 
-```javascript{3-7}
+```javascript {3-7}
 const server = new ApolloServer({
   gateway: new ApolloGateway({
     supergraphSdl: new IntrospectAndCompose({

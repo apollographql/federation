@@ -11,8 +11,10 @@ import {
 } from "./directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
 import { assert } from "./utils";
-import { tagLocations } from "./tagSpec";
+import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
+import { registerKnownFeature } from "./knownCoreFeatures";
+import { inaccessibleLocations } from "./inaccessibleSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -61,10 +63,16 @@ export const shareableDirectiveSpec = createDirectiveSpecification({
 
 export const tagDirectiveSpec = createDirectiveSpecification({
   name:'tag',
-  locations: tagLocations,
+  locations: TAG_VERSIONS.latest().tagLocations,
+  repeatable: true,
   argumentFct: (schema) => {
     return [{ name: 'name', type: new NonNullType(schema.stringType()) }];
   }
+});
+
+export const inaccessibleDirectiveSpec = createDirectiveSpecification({
+  name:'inaccessible',
+  locations: inaccessibleLocations,
 });
 
 function fieldsArgument(schema: Schema): ArgumentSpecification {
@@ -77,16 +85,26 @@ function fieldSetType(schema: Schema): InputType {
   return new NonNullType(metadata.fieldSetType());
 }
 
+export const FEDERATION2_ONLY_SPEC_DIRECTIVES = [
+  shareableDirectiveSpec,
+  inaccessibleDirectiveSpec,
+];
+
 // Note that this is only used for federation 2+ (federation 1 adds the same directive, but not through a core spec).
 export const FEDERATION2_SPEC_DIRECTIVES = [
   keyDirectiveSpec,
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
-  shareableDirectiveSpec,
   tagDirectiveSpec,
   extendsDirectiveSpec, // TODO: should we stop supporting that?
+  ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
 ];
+
+// Note that this is meant to contain _all_ federation directive names ever supported, regardless of which version.
+// But currently, fed2 directives are a superset of fed1's so ... (but this may change if we stop supporting `@extends`
+// in fed2).
+export const ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES = FEDERATION2_SPEC_DIRECTIVES.map((spec) => spec.name);
 
 export const FEDERATION_SPEC_TYPES = [
   fieldSetTypeSpec,
@@ -107,7 +125,15 @@ export class FederationSpecDefinition extends FeatureDefinition {
       directive.checkOrAdd(schema, feature.directiveNameInSchema(directive.name));
     }
   }
+
+  allElementNames(): string[] {
+    return FEDERATION2_SPEC_DIRECTIVES.map((spec) => `@${spec.name}`).concat([
+      fieldSetTypeSpec.name,
+    ])
+  }
 }
 
 export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)));
+
+registerKnownFeature(FEDERATION_VERSIONS);

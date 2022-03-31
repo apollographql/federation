@@ -11,6 +11,12 @@ export const typeDefs = gql`
     | FIELD_DEFINITION
     | OBJECT
     | UNION
+    | ARGUMENT_DEFINITION
+    | SCALAR
+    | ENUM
+    | ENUM_VALUE
+    | INPUT_OBJECT
+    | INPUT_FIELD_DEFINITION
 
   type Query {
     topReviews(first: Int = 5): [Review]
@@ -24,9 +30,9 @@ export const typeDefs = gql`
     metadata: [MetadataOrError]
   }
 
-  input UpdateReviewInput {
+  input UpdateReviewInput @tag(name: "from-reviews") {
     id: ID!
-    body: String
+    body: String @tag(name: "from-reviews")
   }
 
   type UserMetadata {
@@ -35,7 +41,7 @@ export const typeDefs = gql`
 
   type User @key(fields: "id") @tag(name: "from-reviews") {
     id: ID!
-    username: String @external @tag(name: "on-external")
+    username: String @external
     reviews: [Review]
     numberOfReviews: Int!
     metadata: [UserMetadata] @external
@@ -43,7 +49,7 @@ export const typeDefs = gql`
   }
 
   interface Product @tag(name: "from-reviews") {
-    reviews: [Review]
+    reviews: [Review] @tag(name: "from-reviews")
   }
 
   type Furniture implements Product @key(fields: "upc") {
@@ -82,13 +88,13 @@ export const typeDefs = gql`
 
   type Mutation {
     reviewProduct(input: ReviewProduct!): Product
-    updateReview(review: UpdateReviewInput!): Review
+    updateReview(review: UpdateReviewInput! @tag(name: "from-reviews")): Review
     deleteReview(id: ID!): Boolean
   }
 
   # Value type
-  type KeyValue @shareable {
-    key: String!
+  type KeyValue @shareable @tag(name: "from-reviews") {
+    key: String! @tag(name: "from-reviews")
     value: String!
   }
 

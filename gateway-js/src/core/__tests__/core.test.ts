@@ -31,7 +31,7 @@ describe('core v0.1', () => {
 
       directive @tag(
         name: String!
-      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       enum CacheControlScope {
         PRIVATE
@@ -87,7 +87,7 @@ describe('core v0.1', () => {
 
       directive @tag(
         name: String!
-      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       enum CacheControlScope {
         PRIVATE
@@ -124,7 +124,7 @@ describe('core v0.2', () => {
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
-        @core(feature: "https://specs.apollo.dev/tag/v0.1") {
+        @core(feature: "https://specs.apollo.dev/tag/v0.2") {
         query: Query
       }
 
@@ -151,7 +151,7 @@ describe('core v0.2', () => {
 
       directive @tag(
         name: String!
-      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       enum CacheControlScope {
         PRIVATE
@@ -193,7 +193,7 @@ describe('core v0.2', () => {
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
-        @core(feature: "https://specs.apollo.dev/tag/v0.1")
+        @core(feature: "https://specs.apollo.dev/tag/v0.2")
         @core(feature: "https://specs.apollo.dev/unsupported-feature/v0.1") {
         query: Query
       }
@@ -221,7 +221,7 @@ describe('core v0.2', () => {
 
       directive @tag(
         name: String!
-      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       enum CacheControlScope {
         PRIVATE
@@ -293,7 +293,7 @@ describe('core v0.2', () => {
 
       directive @tag(
         name: String!
-      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       enum CacheControlScope {
         PRIVATE
@@ -369,7 +369,7 @@ describe('core v0.2', () => {
 
       directive @tag(
         name: String!
-      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       enum CacheControlScope {
         PRIVATE

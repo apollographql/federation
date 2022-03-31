@@ -3,8 +3,28 @@
 ## vNEXT
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
-
+- Adds Support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
 - Add missing `includeDeprecated` argument for `args` and `inputFields` when defining introspection fields [PR #1584](https://github.com/apollographql/federation/pull/1584)
+
+## v2.0.0-preview.8
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.7
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.6
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.5
+
+- Fix propagation of `@tag` to the supergraph and allows @tag to be repeated. Additionally, merged directives (only `@tag` and `@deprecated` currently) are not allowed on external fields anymore [PR #1592](https://github.com/apollographql/federation/pull/1592).
+
+## v2.0.0-preview.4
+
+- Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
 
 ## v2.0.0-preview.3
 

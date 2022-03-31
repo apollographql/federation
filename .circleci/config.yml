@@ -64,6 +64,12 @@ jobs:
     steps:
       - common_test_steps
 
+  NodeJS 17:
+    docker:
+      - image: cimg/node:17.0.0
+    steps:
+      - common_test_steps
+
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
@@ -93,9 +99,6 @@ jobs:
 #     to do this!
 common_non_publish_filters: &common_non_publish_filters
   filters:
-    branches:
-      # If 'docs' is found, with word boundaries on either side, skip.
-      ignore: /.*?\bdocs\b.*/
     # Ensure every job has `tags` filters since the publish steps have tags.
     # This is some wild configuration thing that's pretty hard to figure out.
     tags:
@@ -123,6 +126,9 @@ workflows:
       - NodeJS 16:
           name: "JS: Node 16"
           <<: *common_non_publish_filters
+      - NodeJS 17:
+          name: "JS: Node 17"
+          <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
           <<: *common_non_publish_filters
@@ -136,6 +142,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "JS: Node 17"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/dry_run:
@@ -145,6 +152,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "JS: Node 17"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/confirmation:

@@ -1,7 +1,8 @@
-import { asFed2SubgraphDocument, buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, assert, buildSchema, buildSubgraph, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, isObjectType, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
+import { print } from 'graphql';
 
 function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
   if (r.errors) {
@@ -24,10 +25,14 @@ function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
 // Note that tests for composition involving fed1 subgraph are in `composeFed1Subgraphs.test.ts` so all the test of this
 // file are on fed2 subgraphs, but to avoid needing to add the proper `@link(...)` everytime, we inject it here automatically.
 export function composeAsFed2Subgraphs(services: ServiceDefinition[]): CompositionResult {
-  return composeServices(services.map((s) => ({
-    ...s,
-    typeDefs: asFed2SubgraphDocument(s.typeDefs)
-  })));
+  return composeServices(services.map((s) => asFed2Service(s)));
+}
+
+export function asFed2Service(service: ServiceDefinition): ServiceDefinition {
+  return {
+    ...service,
+    typeDefs: asFed2SubgraphDocument(service.typeDefs)
+  };
 }
 
 describe('composition', () => {
@@ -63,13 +68,11 @@ describe('composition', () => {
 
     expect(result.supergraphSdl).toMatchString(`
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.2")
-        @core(feature: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
       {
         query: Query
       }
-
-      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
@@ -79,7 +82,18 @@ describe('composition', () => {
 
       directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-      enum core__Purpose {
+      directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
+        SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
+      }
+
+      scalar link__Import
+
+      enum link__Purpose {
         """
         \`SECURITY\` features provide metadata necessary to securely resolve fields.
         """
@@ -89,13 +103,6 @@ describe('composition', () => {
         \`EXECUTION\` features provide metadata necessary for operation execution.
         """
         EXECUTION
-      }
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
-        SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
       }
 
       type Query
@@ -247,7 +254,7 @@ describe('composition', () => {
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -265,7 +272,7 @@ describe('composition', () => {
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -321,7 +328,7 @@ describe('composition', () => {
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -341,7 +348,7 @@ describe('composition', () => {
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -1316,7 +1323,7 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION'],
+        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION'],
       ]);
     });
 
@@ -2012,13 +2019,11 @@ describe('composition', () => {
      */
     expect(printSchema(supergraph)).toMatchString(`
       schema
-        @core(feature: \"https://specs.apollo.dev/core/v0.2\")
-        @core(feature: \"https://specs.apollo.dev/join/v0.2\", for: EXECUTION)
+        @link(url: \"https://specs.apollo.dev/link/v1.0\")
+        @link(url: \"https://specs.apollo.dev/join/v0.2\", for: EXECUTION)
       {
         query: Query
       }
-
-      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
@@ -2028,7 +2033,18 @@ describe('composition', () => {
 
       directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-      enum core__Purpose {
+      directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPHA @join__graph(name: "subgraphA", url: "")
+        SUBGRAPHB @join__graph(name: "subgraphB", url: "")
+      }
+
+      scalar link__Import
+
+      enum link__Purpose {
         """
         \`SECURITY\` features provide metadata necessary to securely resolve fields.
         """
@@ -2038,13 +2054,6 @@ describe('composition', () => {
         \`EXECUTION\` features provide metadata necessary for operation execution.
         """
         EXECUTION
-      }
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        SUBGRAPHA @join__graph(name: "subgraphA", url: "")
-        SUBGRAPHB @join__graph(name: "subgraphB", url: "")
       }
 
       type Query
@@ -2065,4 +2074,510 @@ describe('composition', () => {
       }
     `);
   })
+
+  describe('@tag', () => {
+    describe('propagates @tag to the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            users: [User] @tag(name: "aTaggedOperation")
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String! @tag(name: "aTaggedField")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") @tag(name: "aTaggedType") {
+            id: ID!
+            birthdate: String!
+            age: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const validatePropagation = (result: CompositionResult) => {
+        assertCompositionSuccess(result);
+        const supergraph = result.schema;
+        const tagOnOp = supergraph.schemaDefinition.rootType('query')?.field('users')?.appliedDirectivesOf('tag').pop();
+        expect(tagOnOp?.arguments()['name']).toBe('aTaggedOperation');
+
+        const userType = supergraph.type('User');
+        assert(userType && isObjectType(userType), `Should be an object type`);
+        const tagOnType = userType.appliedDirectivesOf('tag').pop();
+        expect(tagOnType?.arguments()['name']).toBe('aTaggedType');
+
+        const tagOnField = userType?.field('name')?.appliedDirectivesOf('tag').pop();
+        expect(tagOnField?.arguments()['name']).toBe('aTaggedField');
+      };
+
+      it('works for fed2 subgraphs', () => {
+        validatePropagation(composeAsFed2Subgraphs([subgraphA, subgraphB]));
+      });
+
+      it('works for fed1 subgraphs', () => {
+        validatePropagation(composeServices([subgraphA, subgraphB]));
+      });
+
+      it('works for mixed fed1/fed2 subgraphs', () => {
+        validatePropagation(composeServices([subgraphA, asFed2Service(subgraphB)]));
+      });
+    });
+
+    describe('merges multiple @tag on an element', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            user: [User]
+          }
+
+          type User @key(fields: "id") @tag(name: "aTagOnTypeFromSubgraphA") @tag(name: "aMergedTagOnType") {
+            id: ID!
+            name1: Name!
+          }
+
+          type Name {
+            firstName: String @tag(name: "aTagOnFieldFromSubgraphA")
+            lastName: String @tag(name: "aMergedTagOnField")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") @tag(name: "aTagOnTypeFromSubgraphB") @tag(name: "aMergedTagOnType") {
+            id: ID!
+            name2: String!
+          }
+
+          type Name {
+            firstName: String @tag(name: "aTagOnFieldFromSubgraphB")
+            lastName: String @tag(name: "aMergedTagOnField")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const validatePropagation = (result: CompositionResult) => {
+        assertCompositionSuccess(result);
+        const supergraph = result.schema;
+
+        const userType = supergraph.type('User');
+        assert(userType && isObjectType(userType), `Should be an object type`);
+        const tagsOnType = userType.appliedDirectivesOf('tag');
+        expect(tagsOnType?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aTagOnTypeFromSubgraphA', 'aMergedTagOnType', 'aTagOnTypeFromSubgraphB']);
+
+        const nameType = supergraph.type('Name');
+        assert(nameType && isObjectType(nameType), `Should be an object type`);
+        const tagsOnFirstName = nameType?.field('firstName')?.appliedDirectivesOf('tag');
+        expect(tagsOnFirstName?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aTagOnFieldFromSubgraphA', 'aTagOnFieldFromSubgraphB']);
+
+        const tagsOnLastName = nameType?.field('lastName')?.appliedDirectivesOf('tag');
+        expect(tagsOnLastName?.map((tag) => tag.arguments()['name'])).toStrictEqual(['aMergedTagOnField']);
+      };
+
+      it('works for fed2 subgraphs', () => {
+        // We need to mark the `Name` type shareable.
+        const subgraphs = [subgraphA, subgraphB].map((s) => {
+          const subgraph = buildSubgraph(s.name, '', asFed2SubgraphDocument(s.typeDefs));
+          subgraph.schema.type('Name')?.applyDirective('shareable');
+          return {
+            ...s,
+            typeDefs: subgraph.schema.toAST(),
+          };
+        });
+        // Note that we've already converted the subgraphs to fed2 ones above, so we just call `composeServices` now.
+        validatePropagation(composeServices(subgraphs));
+      });
+
+      it('works for fed1 subgraphs', () => {
+        validatePropagation(composeServices([subgraphA, subgraphB]));
+      });
+
+      it('works for mixed fed1/fed2 subgraphs', () => {
+        const sB = buildSubgraph(subgraphB.name, '', asFed2SubgraphDocument(subgraphB.typeDefs));
+        sB.schema.type('Name')?.applyDirective('shareable');
+        const updatedSubgraphB = {
+          ...subgraphB,
+          typeDefs: sB.schema.toAST(),
+        };
+
+        validatePropagation(composeServices([subgraphA, updatedSubgraphB]));
+      });
+    });
+
+    describe('rejects @tag and @external together', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            user: [User]
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String!
+            birthdate: Int! @external @tag(name: "myTag")
+            age: Int! @requires(fields: "birthdate")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            birthdate: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const validateError = (result: CompositionResult) => {
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphA] Cannot apply merged directive @tag(name: "myTag") to external field "User.birthdate"']
+        ]);
+      };
+
+      it('works for fed2 subgraphs', () => {
+        // Note that we've already converted the subgraphs to fed2 ones above, so we just call `composeServices` now.
+        validateError(composeAsFed2Subgraphs([subgraphA, subgraphB]));
+      });
+
+      it('works for fed1 subgraphs', () => {
+        validateError(composeServices([subgraphA, subgraphB]));
+      });
+
+      it('works for mixed fed1/fed2 subgraphs', () => {
+        validateError(composeServices([subgraphA, asFed2Service(subgraphB)]));
+      });
+    });
+
+    it('errors out if @tag is imported under mismatched names', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@apolloTag"}])
+
+          type Query {
+            q1: Int @apolloTag(name: "t1")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+          type Query {
+            q2: Int @tag(name: "t2")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@tag" directive is imported with mismatched name between subgraphs: it is imported as "@tag" in subgraph "subgraphB" but "@apolloTag" in subgraph "subgraphA"']
+      ]);
+    });
+
+    it('succeeds if @tag is imported under the same non-default name', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@apolloTag"}])
+
+          type Query {
+            q1: Int @apolloTag(name: "t1")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@apolloTag"}])
+
+          type Query {
+            q2: Int @apolloTag(name: "t2")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = result.schema;
+      const tagOnQ1 = supergraph.schemaDefinition.rootType('query')?.field('q1')?.appliedDirectivesOf('apolloTag').pop();
+      expect(tagOnQ1?.arguments()['name']).toBe('t1');
+
+      const tagOnQ2 = supergraph.schemaDefinition.rootType('query')?.field('q2')?.appliedDirectivesOf('apolloTag').pop();
+      expect(tagOnQ2?.arguments()['name']).toBe('t2');
+    })
+  });
+
+  describe('@inaccessible', () => {
+    it('propagates @inaccessible to the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            me: User @inaccessible
+            users: [User]
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String!
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            birthdate: String!
+            age: Int! @inaccessible
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = result.schema;
+      expect(supergraph.schemaDefinition.rootType('query')?.field('me')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
+
+      const userType = supergraph.type('User');
+      assert(userType && isObjectType(userType), `Should be an object type`);
+      expect(userType?.field('age')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
+    });
+
+    it('merges @inacessible on the same element', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            user: [User]
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String @shareable @inaccessible
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String @shareable @inaccessible
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = result.schema;
+
+      const userType = supergraph.type('User');
+      assert(userType && isObjectType(userType), `Should be an object type`);
+      expect(userType?.field('name')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
+    });
+
+    describe('rejects @inaccessible and @external together', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            user: [User]
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+            name: String!
+            birthdate: Int! @external @inaccessible
+            age: Int! @requires(fields: "birthdate")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            birthdate: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphA] Cannot apply merged directive @inaccessible to external field "User.birthdate"']
+      ]);
+    });
+
+    it('errors out if @inaccessible is imported under mismatched names', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@inaccessible", as: "@private"}])
+
+          type Query {
+            q: Int
+            q1: Int @private
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@inaccessible"])
+
+          type Query {
+            q2: Int @inaccessible
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@inaccessible" directive is imported with mismatched name between subgraphs: it is imported as "@inaccessible" in subgraph "subgraphB" but "@private" in subgraph "subgraphA"']
+      ]);
+    });
+
+    it('succeeds if @inaccessible is imported under the same non-default name', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@inaccessible", as: "@private"}])
+
+          type Query {
+            q: Int
+            q1: Int @private
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@inaccessible", as: "@private"}])
+
+          type Query {
+            q2: Int @private
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = result.schema;
+      expect(supergraph.schemaDefinition.rootType('query')?.field('q1')?.appliedDirectivesOf('private').pop()).toBeDefined();
+      expect(supergraph.schemaDefinition.rootType('query')?.field('q2')?.appliedDirectivesOf('private').pop()).toBeDefined();
+    });
+
+    it('ignores inaccessible element when validating composition', () => {
+      // The following example would _not_ compose if the `z` was not marked inaccessible since it wouldn't be reachable
+      // from the `origin` query. So all this test does is double-checking that validation does pass with it marked inaccessible.
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            origin: Point
+          }
+
+          type Point @shareable {
+            x: Int
+            y: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Point @shareable {
+            x: Int
+            y: Int
+            z: Int @inaccessible
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+    });
+
+    it('errors if a subgraph misuse @inaccessible', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q1: Int
+            q2: A
+          }
+
+          type A @shareable {
+            x: Int
+            y: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type A @shareable @inaccessible {
+            x: Int
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['REFERENCED_INACCESSIBLE', 'Field "Query.q2" returns @inaccessible type "A" without being marked @inaccessible itself.']
+      ]);
+
+      // Because @inaccessible are thrown by the toAPISchema code and not the merge code directly, let's make sure the include
+      // link to the relevant nodes in the subgaphs. Also note that in those test we don't have proper "location" information
+      // in the AST nodes (line numbers in particular) because `gql` doesn't populate those, but printing the AST nodes kind of
+      // guarantees us that we do get subgraph nodes and not supergraph nodes because supergraph nodes would have @join__*
+      // directives and would _not_ have the `@shareable`/`@inacessible` directives.
+      const nodes = result.errors![0].nodes!;
+      expect(print(nodes[0])).toMatchString('q2: A');
+      expect(print(nodes[1])).toMatchString(`
+        type A @shareable @inaccessible {
+          x: Int
+          y: Int
+        }`
+      );
+    })
+  });
 });

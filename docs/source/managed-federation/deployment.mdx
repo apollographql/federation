@@ -1,7 +1,6 @@
 ---
 title: Deploying with managed federation
 description: Best practices
-sidebar_title: Deployment best practices
 ---
 
 When rolling out changes to a [subgraph](../subgraphs/), we recommend the following workflow:
@@ -120,7 +119,7 @@ The next time it starts up or polls, your gateway obtains an updated configurati
 
 With managed federation, you can control which version of your graph a fleet of gateways are using. In the majority of cases, rolling over all of your gateway instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
 
-However, changes at the gateway level might involve a variety of different updates, such as [migrating entity ownership](../entities/#migrating-entities-and-fields-advanced) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](https://www.apollographql.com/docs/studio/schema/registry/#registering-a-schema-to-a-variant) to manage different fleets of gateways running with different configurations.
+However, changes at the gateway level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](https://www.apollographql.com/docs/studio/schema/registry/#registering-a-schema-to-a-variant) to manage different fleets of gateways running with different configurations.
 
 ### Example
 
@@ -160,10 +159,10 @@ type Product @key(fields: "upc") {
   nameLowerCase: String!
 }
 
-# Review subgraph
+# Reviews subgraph
 
-extend type Product @key(fields: "upc") {
-  upc: ID! @external
+type Product @key(fields: "upc") {
+  upc: ID!
   reviews: [Review]! @requires(fields: "nameLowercase")
   nameLowercase: String! @external
 }
@@ -182,8 +181,8 @@ type Product @key(fields: "upc") {
 
 # Reviews subgraph
 
-extend type Product @key(fields: "upc") {
-  upc: ID! @external
+type Product @key(fields: "upc") {
+  upc: ID!
   nameLowercase: String! @external
   name: String! @external
   reviews: [Review]! @requires(fields: "name")

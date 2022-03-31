@@ -8,6 +8,7 @@ import {
   NonNullType,
 } from "./definitions";
 import { Subgraph, Subgraphs } from "./federation";
+import { registerKnownFeature } from './knownCoreFeatures';
 import { MultiMap } from "./utils";
 
 export const joinIdentity = 'https://specs.apollo.dev/join';
@@ -90,6 +91,22 @@ export class JoinSpecDefinition extends FeatureDefinition {
     }
   }
 
+  allElementNames(): string[] {
+    const names = [
+      'graph',
+      'Graph',
+      'FieldSet',
+      '@type',
+      '@field',
+    ];
+    if (this.isV01()) {
+      names.push('@owner');
+    } else {
+      names.push('@implements');
+    }
+    return names;
+  }
+
   populateGraphEnum(schema: Schema, subgraphs: Subgraphs): Map<string, string> {
     // Duplicate enum values can occur due to sanitization and must be accounted for
     // collect the duplicates in an array so we can uniquify them in a second pass.
@@ -160,3 +177,5 @@ export class JoinSpecDefinition extends FeatureDefinition {
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)));
+
+registerKnownFeature(JOIN_VERSIONS);

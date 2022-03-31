@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
+import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -67,7 +67,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -90,7 +90,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -151,7 +151,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -167,7 +167,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -240,7 +240,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -256,7 +256,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -274,7 +274,7 @@ describe('basic type extensions', () => {
     expect(subgraphs.get('subgraphC')!.toString()).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
       }

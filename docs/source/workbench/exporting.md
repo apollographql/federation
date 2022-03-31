@@ -1,6 +1,5 @@
 ---
-title: "Exporting Workbench designs"
-sidebar_title: "Exporting designs"
+title: Exporting Workbench designs
 ---
 
 When you finish designing your federated graph in Workbench, you can export your work for use in your project.

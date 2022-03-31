@@ -106,7 +106,7 @@ const books = [
 
 export const resolvers: GraphQLResolverMap<any> = {
   Book: {
-    __resolveObject(object) {
+    __resolveReference(object) {
       return books.find(book => book.isbn === object.isbn);
     },
     similarBooks(object) {
@@ -124,7 +124,7 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Query: {
     book(_, args) {
-      return { isbn: args.isbn };
+      return books.find(book => book.isbn === args.isbn);
     },
     books() {
       return books;

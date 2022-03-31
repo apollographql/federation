@@ -229,6 +229,7 @@ describe('reporting', () => {
           "seconds": "1562203363",
         },
         "header": "<HEADER>",
+        "operationCount": 1,
         "tracesPerQuery": Object {
           "# -
       {me{name{first last}}topProducts{name}}": Object {
@@ -301,6 +302,7 @@ describe('reporting', () => {
                               "nanos": 123000000,
                               "seconds": "1562203363",
                             },
+                            "fieldExecutionWeight": 1,
                             "root": Object {
                               "child": Array [
                                 Object {
@@ -366,6 +368,7 @@ describe('reporting', () => {
                                     "nanos": 123000000,
                                     "seconds": "1562203363",
                                   },
+                                  "fieldExecutionWeight": 1,
                                   "root": Object {
                                     "child": Array [
                                       Object {
@@ -467,6 +470,7 @@ describe('reporting', () => {
                                         "nanos": 123000000,
                                         "seconds": "1562203363",
                                       },
+                                      "fieldExecutionWeight": 1,
                                       "root": Object {
                                         "child": Array [
                                           Object {
@@ -556,6 +560,7 @@ describe('reporting', () => {
                                         "nanos": 123000000,
                                         "seconds": "1562203363",
                                       },
+                                      "fieldExecutionWeight": 1,
                                       "root": Object {
                                         "child": Array [
                                           Object {

@@ -1,6 +1,5 @@
 ---
 title: Apollo Federation subgraph specification
-sidebar_title: Subgraph specification
 description: For implementing subgraphs in other languages
 ---
 
@@ -68,7 +67,7 @@ The generated SDL should match that exactly with no additions. It is important t
 
 Some libraries such as `graphql-java` don't have native support for type extensions in their printer. Apollo Federation supports using an `@extends` directive in place of `extend type` to annotate type references:
 
-```graphql{1}
+```graphql {1}
 type User @key(fields: "id") @extends {
   id: ID! @external
   reviews: [Review]

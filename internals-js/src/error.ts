@@ -105,6 +105,34 @@ export function errorCodeDef(e: GraphQLError | string): ErrorCodeDefinition | un
   return code ? codeDefByCode[code] : undefined;
 }
 
+export function withModifiedErrorMessage(e: GraphQLError, newMessage: string): GraphQLError {
+  return new GraphQLError(
+    newMessage,
+    {
+      nodes: e.nodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
+export function withModifiedErrorNodes(e: GraphQLError, newNodes: readonly ASTNode[] | ASTNode | undefined): GraphQLError {
+  return new GraphQLError(
+    e.message,
+    {
+      nodes: newNodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
 const INVALID_GRAPHQL = makeCodeDefinition(
   'INVALID_GRAPHQL',
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
@@ -252,6 +280,11 @@ const EXTERNAL_ON_INTERFACE = makeCodeDefinition(
   'The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical',
 );
 
+const MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL = makeCodeDefinition(
+  'MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL',
+  'In a subgraph, a field is both marked @external and has a merged directive applied to it',
+);
+
 const FIELD_TYPE_MISMATCH = makeCodeDefinition(
   'FIELD_TYPE_MISMATCH',
   'A field has a type that is incompatible with other declarations of that field in other subgraphs.',
@@ -304,6 +337,16 @@ const INVALID_FIELD_SHARING = makeCodeDefinition(
 const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'INVALID_LINK_DIRECTIVE_USAGE',
   'An application of the @link directive is invalid/does not respect the specification.'
+);
+
+const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
+  'LINK_IMPORT_NAME_MISMATCH',
+  'The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs.'
+);
+
+const REFERENCED_INACCESSIBLE = makeCodeDefinition(
+  'REFERENCED_INACCESSIBLE',
+  'An element is marked as @inaccessible but is referenced by a non-inaccessible element.'
 );
 
 const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
@@ -360,6 +403,7 @@ export const ERRORS = {
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
   EXTERNAL_ON_INTERFACE,
+  MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL,
   FIELD_TYPE_MISMATCH,
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
@@ -370,6 +414,8 @@ export const ERRORS = {
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_LINK_DIRECTIVE_USAGE,
+  LINK_IMPORT_NAME_MISMATCH,
+  REFERENCED_INACCESSIBLE,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   SATISFIABILITY_ERROR,
 };

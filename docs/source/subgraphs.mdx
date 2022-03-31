@@ -1,23 +1,18 @@
 ---
 title: Implementing subgraphs
-sidebar_title: Subgraphs
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 This article describes how to create a **subgraph** for a federated graph using Apollo Server.
 
 ## Defining a subgraph
 
-> To be part of a supergraph, a subgraph must conform to the [Apollo Federation subgraph specification](/federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
+> To be part of a supergraph, a subgraph must conform to the [Apollo Federation subgraph specification](./federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
 
 Converting an existing monolithic graph into a single subgraph is a convenient first step in building a federated supergraph. To start, here's a *non-federated* Apollo Server setup:
 
-```javascript:title=index.js
+```javascript title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 
 const typeDefs = gql`
@@ -51,21 +46,57 @@ server.listen(4001).then(({ url }) => {
 
 This should look familiar if you've [set up Apollo Server](https://www.apollographql.com/docs/apollo-server/getting-started/) before. If it doesn't, we recommend you familiarize yourself with the basics before jumping into federation.
 
-Now, let's convert this to a subgraph. The first step is to install the `@apollo/subgraph` package in our project:
+Now, let's convert this to a subgraph!
+
+### 1. Install and import `@apollo/subgraph`
+
+The first step is to install the `@apollo/subgraph` package in our project:
 
 ```shell
 npm install @apollo/subgraph
 ```
 
-### Defining an entity
+We also need to require the `buildSubgraphSchema` function from this package in our `index.js` file (we'll use it later):
 
-As part of our federated architecture, we want _other_ subgraphs to be able to extend the `User` type this subgraph defines. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
-
-```js:title=index.js
-const { ApolloServer, gql } = require('apollo-server');
+```js title="index.js"
 const { buildSubgraphSchema } = require('@apollo/subgraph');
+```
 
+### 2. Opt in to Federation 2
+
+For a subgraph to use [new features in Federation 2](./federation-2/new-in-federation-2/), its schema needs to include the following `extend schema` definition:
+
+```js {2-4}
 const typeDefs = gql`
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+
+  type Query {
+    me: User
+  }
+
+  type User {
+    id: ID!
+    username: String
+  }
+`;
+```
+
+This definition designates a schema as a "true" Federation 2 schema. Without it, Federation 2 composition assumes a subgraph is using Federation 1, and it sets certain defaults for backward compatibility.
+
+### 3. Define an entity
+
+> Entities aren't _required_ in a subgraph, but they're a core building block of a federated graph, so it's good to get some practice defining them.
+
+As part of our federated architecture, we want _other_ subgraphs to be able to contribute fields to the `User` type. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
+
+```js {10} title="index.js"
+const typeDefs = gql`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+
   type Query {
     me: User
   }
@@ -77,11 +108,11 @@ const typeDefs = gql`
 `;
 ```
 
-The `@key` directive tells other subgraphs which field(s) of the `User` type to use to uniquely identify a particular instance. In this case, subgraphs should use the single field `id`.
+The `@key` directive tells the gateway which field(s) of the `User` entity can uniquely identify a particular instance of it. In this case, the gateway can use the single field `id`.
 
-Next, we add a **reference resolver** for the `User` type. A reference resolver tells the gateway how to fetch an entity by its `@key` fields:
+Next, we add a **reference resolver** for the `User` entity. A reference resolver tells the gateway how to fetch an entity by its `@key` fields:
 
-```js:title=index.js
+```js title="index.js"
 const resolvers = {
   Query: {
     me() {
@@ -98,13 +129,13 @@ const resolvers = {
 
 (This example requires defining the `fetchUserById` function to obtain the appropriate `User` from our backing data store.)
 
-> [Learn more about entities](./entities/)
+> [Learn more about entities.](./entities/)
 
-### Generating a subgraph schema
+### 4. Generate the subgraph schema
 
 Finally, we use the `buildSubgraphSchema` function from the `@apollo/subgraph` package to augment our schema definition with federation support. We provide the result of this function to the `ApolloServer` constructor:
 
-```js:title=index.js
+```js title="index.js"
 const server = new ApolloServer({
   schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
@@ -120,11 +151,15 @@ The server is now ready to act as a subgraph in a federated graph!
 
 Here are the snippets above combined (again, note that for this sample to be complete, you must define the `fetchUserById` function for your data source):
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 
 const typeDefs = gql`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+
   type Query {
     me: User
   }
@@ -169,7 +204,7 @@ be accessed _only_ via the gateway.
 
 ## Subgraph-specific fields
 
-When you [generate your subgraph schema](#generating-a-subgraph-schema), some federation-specific definitions are automatically added to it. In addition to directive definitions like `@key`, the most useful of these definitions for debugging are two fields of the `Query` type: `_service` and `_entities`:
+When you [generate your subgraph schema](#4-generate-the-subgraph-schema), some federation-specific definitions are automatically added to it. In addition to directive definitions like `@key`, the most useful of these definitions for debugging are two fields of the `Query` type: `_service` and `_entities`:
 
 ```graphql
 type Query {
@@ -215,7 +250,7 @@ _entities(representations: [_Any!]!): [_Entity]!
 
 You can query this field like so, providing a value for the `$representations` variable as shown:
 
-```graphql:title=Query
+```graphql title="Query"
 query ($representations: [_Any!]!) {
   _entities(representations: $representations) {
     ... on User {
@@ -226,7 +261,7 @@ query ($representations: [_Any!]!) {
 }
 ```
 
-```json:title=Variable
+```json title="Variable"
 {
   "representations": [
     {
@@ -289,7 +324,7 @@ const server = new ApolloServer({
 
 <ExpansionPanel title="Expand example">
 
-```js{15-17}
+```js {15-17}
 const { ApolloServer, gql, SchemaDirectiveVisitor } = require("apollo-server");
 
 // typeDefs and resolvers defined here

@@ -46,7 +46,9 @@ import {
   UnionType,
   InputObjectType,
   EnumType,
-  Extension
+  Extension,
+  ErrGraphQLValidationFailed,
+  errorCauses,
 } from "./definitions";
 
 function buildValue(value?: ValueNode): any {
@@ -66,6 +68,7 @@ export function buildSchemaFromAST(
   documentNode: DocumentNode,
   options?: BuildSchemaOptions,
 ): Schema {
+  const errors: GraphQLError[] = [];
   const schema = new Schema(options?.blueprint);
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
@@ -77,13 +80,13 @@ export function buildSchemaFromAST(
   // populated (and at this point, we don't really know the name of the `@core` directive since it can be renamed, so
   // we just handle all directives).
   for (const directiveDefinitionNode of directiveDefinitions) {
-    buildDirectiveDefinitionInner(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!);
+    buildDirectiveDefinitionInner(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!, errors);
   }
   for (const schemaDefinition of schemaDefinitions) {
-    buildSchemaDefinitionInner(schemaDefinition, schema.schemaDefinition);
+    buildSchemaDefinitionInner(schemaDefinition, schema.schemaDefinition, errors);
   }
   for (const schemaExtension of schemaExtensions) {
-    buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, schema.schemaDefinition.newExtension());
+    buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, errors, schema.schemaDefinition.newExtension());
   }
 
   schema.blueprint.onDirectiveDefinitionAndSchemaParsed(schema);
@@ -92,14 +95,15 @@ export function buildSchemaFromAST(
     switch (definitionNode.kind) {
       case 'OperationDefinition':
       case 'FragmentDefinition':
-        throw new GraphQLError("Invalid executable definition found while building schema", definitionNode);
+        errors.push(new GraphQLError("Invalid executable definition found while building schema", definitionNode));
+        continue;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
       case 'InterfaceTypeDefinition':
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
-        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, schema.blueprint);
+        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, schema.blueprint, errors);
         break;
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
@@ -110,9 +114,18 @@ export function buildSchemaFromAST(
         const toExtend = schema.type(definitionNode.name.value)!;
         const extension = toExtend.newExtension();
         extension.sourceAST = definitionNode;
-        buildNamedTypeInner(definitionNode, toExtend, schema.blueprint, extension);
+        buildNamedTypeInner(definitionNode, toExtend, schema.blueprint, errors, extension);
         break;
     }
+  }
+
+  // Note: we could try calling `schema.validate()` regardless of errors building the schema and merge the resulting
+  // errors, and there is some subset of cases where this be a tad more convenient (as the user would get all the errors
+  // at once), but in most cases a bunch of the errors thrown by `schema.validate()` would actually be consequences of
+  // the schema not be properly built in the first place and those errors would be confusing to the user. And avoiding
+  // confusing users probably trumps a rare minor convenience.
+  if (errors.length > 0) {
+    throw ErrGraphQLValidationFailed(errors);
   }
 
   if (options?.validate ?? true) {
@@ -187,21 +200,24 @@ function getReferencedType(node: NamedTypeNode, schema: Schema): NamedType {
   return type;
 }
 
-function withNodeAttachedToError(operation: () => void, node: ASTNode) {
+function withNodeAttachedToError(operation: () => void, node: ASTNode, errors: GraphQLError[]) {
   try {
     operation();
   } catch (e) {
-    if (e instanceof GraphQLError) {
-      const allNodes: ASTNode | ASTNode[] = e.nodes ? [node, ...e.nodes] : node;
-      throw new GraphQLError(
-        e.message,
-        allNodes,
-        e.source,
-        e.positions,
-        e.path,
-        e,
-        e.extensions
-      );
+    const causes = errorCauses(e);
+    if (causes) {
+      for (const cause of causes) {
+        const allNodes: ASTNode | ASTNode[] = cause.nodes ? [node, ...cause.nodes] : node;
+        errors.push(new GraphQLError(
+          cause.message,
+          allNodes,
+          cause.source,
+          cause.positions,
+          cause.path,
+          cause,
+          cause.extensions
+        ));
+      }
     } else {
       throw e;
     }
@@ -211,31 +227,39 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode) {
 function buildSchemaDefinitionInner(
   schemaNode: SchemaDefinitionNode | SchemaExtensionNode,
   schemaDefinition: SchemaDefinition,
+  errors: GraphQLError[],
   extension?: Extension<SchemaDefinition>
 ) {
   for (const opTypeNode of schemaNode.operationTypes ?? []) {
     withNodeAttachedToError(
       () => schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value).setOfExtension(extension),
-      opTypeNode);
+      opTypeNode,
+      errors,
+    );
   }
   schemaDefinition.sourceAST = schemaNode;
   if ('description' in schemaNode) {
     schemaDefinition.description = schemaNode.description?.value;
   }
-  buildAppliedDirectives(schemaNode, schemaDefinition, extension);
+  buildAppliedDirectives(schemaNode, schemaDefinition, errors, extension);
 }
 
 function buildAppliedDirectives(
   elementNode: NodeWithDirectives,
   element: SchemaElement<any, any>,
+  errors: GraphQLError[],
   extension?: Extension<any>
 ) {
   for (const directive of elementNode.directives ?? []) {
-    withNodeAttachedToError(() => {
-      const d = element.applyDirective(directive.name.value, buildArgs(directive));
-      d.setOfExtension(extension);
-      d.sourceAST = directive;
-    }, directive);
+    withNodeAttachedToError(
+      () => {
+        const d = element.applyDirective(directive.name.value, buildArgs(directive));
+        d.setOfExtension(extension);
+        d.sourceAST = directive;
+      },
+      directive,
+      errors,
+    );
   }
 }
 
@@ -251,6 +275,7 @@ function buildNamedTypeInner(
   definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription,
   type: NamedType,
   blueprint: SchemaBlueprint,
+  errors: GraphQLError[],
   extension?: Extension<any>,
 ) {
   switch (definitionNode.kind) {
@@ -265,18 +290,20 @@ function buildNamedTypeInner(
         }
         const field = fieldBasedType.addField(fieldNode.name.value);
         field.setOfExtension(extension);
-        buildFieldDefinitionInner(fieldNode, field);
+        buildFieldDefinitionInner(fieldNode, field, errors);
       }
       for (const itfNode of definitionNode.interfaces ?? []) {
         withNodeAttachedToError(
           () => {
             const itfName = itfNode.name.value;
             if (fieldBasedType.implementsInterface(itfName)) {
-              throw new GraphQLError(`Type ${type} can only implement ${itfName} once.`);
+              throw new GraphQLError(`Type "${type}" can only implement "${itfName}" once.`);
             }
             fieldBasedType.addImplementedInterface(itfName).setOfExtension(extension);
           },
-          itfNode);
+          itfNode,
+          errors,
+        );
       }
       break;
     case 'UnionTypeDefinition':
@@ -287,11 +314,13 @@ function buildNamedTypeInner(
           () => {
             const name = namedType.name.value;
             if (unionType.hasTypeMember(name)) {
-              throw new GraphQLError(`Union type ${unionType} can only include type ${name} once.`);
+              throw new GraphQLError(`Union type "${unionType}" can only include type "${name}" once.`);
             }
             unionType.addType(name).setOfExtension(extension);
           },
-          namedType);
+          namedType,
+          errors,
+        );
       }
       break;
     case 'EnumTypeDefinition':
@@ -303,7 +332,7 @@ function buildNamedTypeInner(
           v.description = enumVal.description.value;
         }
         v.setOfExtension(extension);
-        buildAppliedDirectives(enumVal, v);
+        buildAppliedDirectives(enumVal, v, errors);
       }
       break;
     case 'InputObjectTypeDefinition':
@@ -312,41 +341,47 @@ function buildNamedTypeInner(
       for (const fieldNode of definitionNode.fields ?? []) {
         const field = inputObjectType.addField(fieldNode.name.value);
         field.setOfExtension(extension);
-        buildInputFieldDefinitionInner(fieldNode, field);
+        buildInputFieldDefinitionInner(fieldNode, field, errors);
       }
       break;
   }
-  buildAppliedDirectives(definitionNode, type, extension);
+  buildAppliedDirectives(definitionNode, type, errors, extension);
   if (definitionNode.description) {
     type.description = definitionNode.description.value;
   }
   type.sourceAST = definitionNode;
 }
 
-function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldDefinition<any>) {
+function buildFieldDefinitionInner(
+  fieldNode: FieldDefinitionNode,
+  field: FieldDefinition<any>,
+  errors: GraphQLError[],
+) {
   const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
-  field.type = ensureOutputType(type, field.coordinate, fieldNode);
+  field.type = validateOutputType(type, field.coordinate, fieldNode, errors);
   for (const inputValueDef of fieldNode.arguments ?? []) {
-    buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value));
+    buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value), errors);
   }
-  buildAppliedDirectives(fieldNode, field);
+  buildAppliedDirectives(fieldNode, field, errors);
   field.description = fieldNode.description?.value;
   field.sourceAST = fieldNode;
 }
 
-function ensureOutputType(type: Type, what: string, node: ASTNode): OutputType {
+function validateOutputType(type: Type, what: string, node: ASTNode, errors: GraphQLError[]): OutputType | undefined {
   if (isOutputType(type)) {
     return type;
   } else {
-    throw new GraphQLError(`The type of ${what} must be Output Type but got: ${type}, a ${type.kind}.`, node);
+    errors.push(new GraphQLError(`The type of "${what}" must be Output Type but got "${type}", a ${type.kind}.`, node));
+    return undefined;
   }
 }
 
-function ensureInputType(type: Type, what: string, node: ASTNode): InputType {
+function validateInputType(type: Type, what: string, node: ASTNode, errors: GraphQLError[]): InputType | undefined {
   if (isInputType(type)) {
     return type;
   } else {
-    throw new GraphQLError(`The type of ${what} must be Input Type but got: ${type}, a ${type.kind}.`, node);
+    errors.push(new GraphQLError(`The type of "${what}" must be Input Type but got "${type}", a ${type.kind}.`, node));
+    return undefined;
   }
 }
 
@@ -369,27 +404,39 @@ function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
   }
 }
 
-function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: ArgumentDefinition<any>) {
+function buildArgumentDefinitionInner(
+  inputNode: InputValueDefinitionNode,
+  arg: ArgumentDefinition<any>,
+  errors: GraphQLError[],
+) {
   const type = buildTypeReferenceFromAST(inputNode.type, arg.schema());
-  arg.type = ensureInputType(type, arg.coordinate, inputNode);
+  arg.type = validateInputType(type, arg.coordinate, inputNode, errors);
   arg.defaultValue = buildValue(inputNode.defaultValue);
-  buildAppliedDirectives(inputNode, arg);
+  buildAppliedDirectives(inputNode, arg, errors);
   arg.description = inputNode.description?.value;
   arg.sourceAST = inputNode;
 }
 
-function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
+function buildInputFieldDefinitionInner(
+  fieldNode: InputValueDefinitionNode,
+  field: InputFieldDefinition,
+  errors: GraphQLError[],
+) {
   const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
-  field.type = ensureInputType(type, field.coordinate, fieldNode);
+  field.type = validateInputType(type, field.coordinate, fieldNode, errors);
   field.defaultValue = buildValue(fieldNode.defaultValue);
-  buildAppliedDirectives(fieldNode, field);
+  buildAppliedDirectives(fieldNode, field, errors);
   field.description = fieldNode.description?.value;
   field.sourceAST = fieldNode;
 }
 
-function buildDirectiveDefinitionInner(directiveNode: DirectiveDefinitionNode, directive: DirectiveDefinition) {
+function buildDirectiveDefinitionInner(
+  directiveNode: DirectiveDefinitionNode,
+  directive: DirectiveDefinition,
+  errors: GraphQLError[],
+) {
   for (const inputValueDef of directiveNode.arguments ?? []) {
-    buildArgumentDefinitionInner(inputValueDef, directive.addArgument(inputValueDef.name.value));
+    buildArgumentDefinitionInner(inputValueDef, directive.addArgument(inputValueDef.name.value), errors);
   }
   directive.repeatable = directiveNode.repeatable;
   const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocation);

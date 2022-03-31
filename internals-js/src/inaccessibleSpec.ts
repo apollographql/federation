@@ -1,6 +1,7 @@
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
+  ErrGraphQLValidationFailed,
   FieldDefinition,
   isCompositeType,
   isInterfaceType,
@@ -8,8 +9,17 @@ import {
   Schema,
 } from "./definitions";
 import { GraphQLError, DirectiveLocation } from "graphql";
+import { registerKnownFeature } from "./knownCoreFeatures";
+import { ERRORS } from "./error";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
+
+export const inaccessibleLocations = [
+  DirectiveLocation.FIELD_DEFINITION,
+  DirectiveLocation.OBJECT,
+  DirectiveLocation.INTERFACE,
+  DirectiveLocation.UNION,
+];
 
 export class InaccessibleSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion) {
@@ -17,21 +27,22 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   }
 
   addElementsToSchema(schema: Schema) {
-    this.addDirective(schema, 'inaccessible').addLocations(
-      DirectiveLocation.FIELD_DEFINITION,
-      DirectiveLocation.OBJECT,
-      DirectiveLocation.INTERFACE,
-      DirectiveLocation.UNION,
-    );
+    this.addDirective(schema, 'inaccessible').addLocations(...inaccessibleLocations);
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
     return this.directive(schema, 'inaccessible')!;
   }
+
+  allElementNames(): string[] {
+    return ['@inaccessible'];
+  }
 }
 
 export const INACCESSIBLE_VERSIONS = new FeatureDefinitions<InaccessibleSpecDefinition>(inaccessibleIdentity)
   .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)));
+
+registerKnownFeature(INACCESSIBLE_VERSIONS);
 
 export function removeInaccessibleElements(schema: Schema) {
   const coreFeatures = schema.coreFeatures;
@@ -56,6 +67,7 @@ export function removeInaccessibleElements(schema: Schema) {
     );
   }
 
+  const errors = [];
   for (const type of schema.types()) {
     // @inaccessible can only be on composite types.
     if (!isCompositeType(type)) {
@@ -69,10 +81,16 @@ export function removeInaccessibleElements(schema: Schema) {
         // field type will be `undefined`).
         if (reference.kind === 'FieldDefinition') {
           if (!reference.hasAppliedDirective(inaccessibleDirective)) {
-            throw new GraphQLError(
-              `Field ${reference.coordinate} returns an @inaccessible type without being marked @inaccessible itself.`,
-              reference.sourceAST,
-            );
+            // We ship the inaccessible type and it's invalid reference in the extensions so composition can extract those and add proper links
+            // in the subgraphs for those elements.
+            errors.push(ERRORS.REFERENCED_INACCESSIBLE.err({
+              message: `Field "${reference.coordinate}" returns @inaccessible type "${type}" without being marked @inaccessible itself.`,
+              nodes: reference.sourceAST,
+              extensions: {
+                "inaccessible_element": type.coordinate,
+                "inaccessible_reference": reference.coordinate,
+              }
+            }));
           }
         }
         // Other references can be:
@@ -84,5 +102,9 @@ export function removeInaccessibleElements(schema: Schema) {
       const toRemove = (type.fields() as FieldDefinition<any>[]).filter(f => f.hasAppliedDirective(inaccessibleDirective));
       toRemove.forEach(f => f.remove());
     }
+  }
+
+  if (errors.length > 0) {
+    throw ErrGraphQLValidationFailed(errors, `Schema has ${errors.length === 1 ? 'an invalid use' : 'invalid uses'} of the @inaccessible directive.`);
   }
 }
