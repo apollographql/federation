@@ -1188,13 +1188,31 @@ describe('buildQueryPlan', () => {
       const queryPlan = buildPlan(operationString);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
-          Fetch(service: "books") {
-            {
-              library(id: 3) {
-                name
-                description
+          Sequence {
+            Fetch(service: "books") {
+              {
+                library(id: 3) {
+                  __typename
+                  id
+                  name
+                }
               }
-            }
+            },
+            Flatten(path: "library") {
+              Fetch(service: "accounts") {
+                {
+                  ... on Library {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Library {
+                    description
+                  }
+                }
+              },
+            },
           },
         }
       `);
