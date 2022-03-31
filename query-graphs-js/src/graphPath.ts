@@ -388,9 +388,12 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    */
   nextEdges(): readonly Edge[] {
     const tailEdge = this.edgeToTail;
+    // In theory, we could always return `this.graph.outEdges(this.tail)` here. But in practice, `nonTrivialFollowupEdges` may give us a subset
+    // of those "out edges" that avoids some of the edges that we know we don't need to check because they are guaranteed to be inefficient
+    // after the previous `tailEdge`. Note that is purely an optimization (see https://github.com/apollographql/federation/pull/1653 for more details).
     return tailEdge
       ? this.graph.nonTrivialFollowupEdges(tailEdge)
-      : this.graph.outEdges(this.tail);;
+      : this.graph.outEdges(this.tail);
   }
 
   /**

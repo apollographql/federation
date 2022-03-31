@@ -226,7 +226,7 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
-    const initialState = ValidationState.initial(supergraphPath.graph, supergraphSchema, supergraphPath.root.rootKind, subgraphs, conditionResolver);
+    const initialState = ValidationState.initial({supergraph: supergraphPath.graph, supergraphSchema, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath) {
@@ -268,13 +268,19 @@ export class ValidationState {
   ) {
   }
 
-  static initial(
+  static initial({
+    supergraph,
+    supergraphSchema,
+    kind,
+    subgraphs,
+    conditionResolver,
+  }: {
     supergraph: QueryGraph,
     supergraphSchema: Schema,
     kind: SchemaRootKind,
     subgraphs: QueryGraph,
     conditionResolver: ConditionValidationResolver,
-  ) {
+  }) {
     return new ValidationState(
       GraphPath.fromGraphRoot(supergraph, kind)!,
       initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(supergraphSchema, p, conditionResolver.resolver)),
@@ -356,13 +362,13 @@ class ValidationTraversal {
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = firstOf(supergraph.sources.values())!;
     this.conditionResolver = new ConditionValidationResolver(this.supergraphSchema, subgraphs);
-    supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(
+    supergraph.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraph,
-      this.supergraphSchema,
-      k,
+      supergraphSchema: this.supergraphSchema,
+      kind,
       subgraphs,
-      this.conditionResolver
-    )));
+      conditionResolver: this.conditionResolver
+    })));
     this.previousVisits = new QueryGraphState(supergraph);
   }
 
