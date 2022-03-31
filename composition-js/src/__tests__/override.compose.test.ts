@@ -111,6 +111,125 @@ describe("composition involving @override directive", () => {
     `);
   });
 
+  // TODO: This test is very similar to the case of @key and `A.b` in Subgraph2
+  // needs to be "turned" into an @external.
+  //
+  // This does raise a related question for hints: currently, once a field is
+  // overridden, we raise an hint that says the field is safe to be removed,
+  // but it's not technically true in this example (the same applies to the @key case
+  // btw), and if the user blindly follow the hint, he will get an error due to
+  // the @provides referencing a now non-existing field. Instead, the user should
+  // either mark the field @external, or, alternative, also remove any directive
+  // referencing the now overridden field (and which one is more approapriate
+  // is likely case dependent: in the case of @key, if you've overridden a key,
+  // you're probably moving the whole entity anyway, so you'd want to remove the
+  // original key, but in this example, there is no particular reason you'd want
+  // to remove the @provides, which still make as much sense as before, if not
+  // more).
+  //
+  // Side-note: regarding hints, we probably want a test to ensure that if instead
+  // of removing the overriden field, you just mark it @external manually, then
+  // we still hint you to say that the @override can now be removed.
+  it("override field in a @provides", () => {
+    const subgraph1 = {
+      name: "Subgraph1",
+      url: "https://Subgraph1",
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+        type T @key(fields: "k") {
+          k: ID
+          a: A @shareable
+        }
+        type A @key(fields: "id") {
+          id: ID!
+          b: B @override(from: "Subgraph2")
+        }
+        type B @key(fields: "id") {
+          id: ID!
+          v: String @shareable
+        }
+      `,
+    };
+
+    // Note @provides is only allowed on fields that the subgraph does not resolve, but
+    // because of nesting, this doesn't equate to all fields in a @provides being
+    // external. But it does mean that for an overriden field to be in a @provides,
+    // some nesting has to be involved.
+    const subgraph2 = {
+      name: "Subgraph2",
+      url: "https://Subgraph2",
+      typeDefs: gql`
+        type T @key(fields: "k") {
+          k: ID
+          a: A @shareable @provides(fields: "b { v }")
+        }
+        type A @key(fields: "id") {
+          id: ID!
+          b: B
+        }
+        type B @key(fields: "id") {
+          id: ID!
+          v: String @external
+        }
+      `,
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+    // TODO: Should this
+  });
+
+  // TODO: Similar issue that for @provides above, but for @requires.
+  it("override field in a @requires", () => {
+    const subgraph1 = {
+      name: "Subgraph1",
+      url: "https://Subgraph1",
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+        type T @key(fields: "k") {
+          k: ID
+          a: A @shareable
+        }
+        type A @key(fields: "id") {
+          id: ID!
+          b: B @override(from: "Subgraph2")
+        }
+        type B @key(fields: "id") {
+          id: ID!
+          v: String @shareable
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: "Subgraph2",
+      url: "https://Subgraph2",
+      typeDefs: gql`
+        type T @key(fields: "k") {
+          k: ID
+          a: A @shareable
+          x: Int @requires(fields: "a { b { v } }")
+        }
+        type A @key(fields: "id") {
+          id: ID!
+          b: B
+        }
+        type B @key(fields: "id") {
+          id: ID!
+          v: String @external
+        }
+      `,
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+    // TODO: more checks.
+  });
+
   it("override from self error", () => {
     const subgraph1 = {
       name: "Subgraph1",
