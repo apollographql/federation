@@ -508,39 +508,30 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<TOwnType, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    nameOrDef: DirectiveDefinition<TApplicationArgs> | string,
     args?: TApplicationArgs,
     asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
-    let toAdd: Directive<TOwnType, TApplicationArgs>;
-    if (nameOrDefOrDirective instanceof Directive) {
-      this.checkUpdate(nameOrDefOrDirective);
-      toAdd = nameOrDefOrDirective;
-      if (args) {
-        toAdd.setArguments(args);
+    let name: string;
+    if (typeof nameOrDef === 'string') {
+      this.checkUpdate();
+      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDef, args);
+      if (!def) {
+        throw this.schema().blueprint.onGraphQLJSValidationError(
+          this.schema(),
+          new GraphQLError(`Unknown directive "@${nameOrDef}".`)
+        );
       }
+      if (Array.isArray(def)) {
+        throw ErrGraphQLValidationFailed(def);
+      }
+      name = nameOrDef;
     } else {
-      let name: string;
-      if (typeof nameOrDefOrDirective === 'string') {
-        this.checkUpdate();
-        const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective, args);
-        if (!def) {
-          throw this.schema().blueprint.onGraphQLJSValidationError(
-            this.schema(),
-            new GraphQLError(`Unknown directive "@${nameOrDefOrDirective}".`)
-          );
-        }
-        if (Array.isArray(def)) {
-          throw ErrGraphQLValidationFailed(def);
-        }
-        name = nameOrDefOrDirective;
-      } else {
-        this.checkUpdate(nameOrDefOrDirective);
-        name = nameOrDefOrDirective.name;
-      }
-      toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
-      Element.prototype['setParent'].call(toAdd, this);
+      this.checkUpdate(nameOrDef);
+      name = nameOrDef.name;
     }
+    const toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
+    Element.prototype['setParent'].call(toAdd, this);
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
     if (asFirstDirective) {
       this._appliedDirectives.unshift(toAdd);
@@ -1530,11 +1521,11 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<SchemaDefinition, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    nameOrDef: DirectiveDefinition<TApplicationArgs> | string,
     args?: TApplicationArgs,
     asFirstDirective: boolean = false,
   ): Directive<SchemaDefinition, TApplicationArgs> {
-    const applied = super.applyDirective(nameOrDefOrDirective, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
+    const applied = super.applyDirective(nameOrDef, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
     const schema = this.schema();
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
