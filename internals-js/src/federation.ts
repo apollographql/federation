@@ -482,7 +482,7 @@ export class FederationMetadata {
   }
 
   isFieldUsed(field: FieldDefinition<CompositeType>): boolean {
-    return this.fieldUsedPredicate()(field) || this.keysPredicate()(field);
+    return this.keysPredicate()(field) || this.fieldUsedPredicate()(field);
   }
 
   isFieldExternal(field: FieldDefinition<any> | InputFieldDefinition) {
