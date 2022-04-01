@@ -682,4 +682,51 @@ describe('hint tests related to the @override directive', () => {
       `Field "T.f" on subgraph "Subgraph2" is overridden. Consider removing it.`,
     );
   });
+
+  it('hint overridden field can be made external', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int @override(from: "Subgraph2")
+      }
+    `;
+
+    const subgraph2 = gql`
+      type T @key(fields: "id"){
+        id: Int
+      }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverriddenFieldCanBeRemoved,
+      `Field "T.id" on subgraph "Subgraph2" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+    );
+  });
+
+  it('hint when @override directive can be removed because overridden field has been marked external', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int @override(from: "Subgraph2")
+        f: Int
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int @external
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverrideDirectiveCanBeRemoved,
+      `Field "T.id" on subgraph "Subgraph1" is not resolved anymore by the from subgraph (it is marked "@external" in "Subgraph2"). The @override directive can be removed.`,
+    );
+  });
 });

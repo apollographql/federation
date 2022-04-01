@@ -1061,7 +1061,15 @@ class Merger {
           // if we get here, then the @override directive is valid
           // if the field being overridden is used, then we need to add an @external directive
           assert(fromField, 'fromField should not be undefined');
-          if (this.metadata(fromIdx).isFieldUsed(fromField)) {
+          if (this.isExternal(fromIdx, fromField)) {
+            // The from field is explcitely marked external by the user (which means it is "used" and cannot be completely
+            // removed) so the @override can be removed.
+            this.hints.push(new CompositionHint(
+              hintOverrideDirectiveCanBeRemoved,
+              `Field "${coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
+              coordinate,
+            ));
+          } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
             result.setExternal(fromIdx);
             this.hints.push(new CompositionHint(
               hintOverriddenFieldCanBeRemoved,
