@@ -111,25 +111,6 @@ describe("composition involving @override directive", () => {
     `);
   });
 
-  // TODO: This test is very similar to the case of @key and `A.b` in Subgraph2
-  // needs to be "turned" into an @external.
-  //
-  // This does raise a related question for hints: currently, once a field is
-  // overridden, we raise an hint that says the field is safe to be removed,
-  // but it's not technically true in this example (the same applies to the @key case
-  // btw), and if the user blindly follow the hint, he will get an error due to
-  // the @provides referencing a now non-existing field. Instead, the user should
-  // either mark the field @external, or, alternative, also remove any directive
-  // referencing the now overridden field (and which one is more approapriate
-  // is likely case dependent: in the case of @key, if you've overridden a key,
-  // you're probably moving the whole entity anyway, so you'd want to remove the
-  // original key, but in this example, there is no particular reason you'd want
-  // to remove the @provides, which still make as much sense as before, if not
-  // more).
-  //
-  // Side-note: regarding hints, we probably want a test to ensure that if instead
-  // of removing the overriden field, you just mark it @external manually, then
-  // we still hint you to say that the @override can now be removed.
   it("override field in a @provides", () => {
     const subgraph1 = {
       name: "Subgraph1",
@@ -178,10 +159,32 @@ describe("composition involving @override directive", () => {
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
-    // TODO: Should this
+
+    // Ensures `A.b` is marked external in Subgraph2 since it's overridden but there is still a provides mentioning it.
+    const typeA = result.schema.type("A");
+    expect(printType(typeA!)).toMatchInlineSnapshot(`
+      "type A
+        @join__type(graph: SUBGRAPH1, key: \\"id\\")
+        @join__type(graph: SUBGRAPH2, key: \\"id\\")
+      {
+        id: ID!
+        b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, external: true)
+      }"
+    `);
+
+    // Ensuring the provides is still here.
+    const typeT = result.schema.type("T");
+    expect(printType(typeT!)).toMatchInlineSnapshot(`
+      "type T
+        @join__type(graph: SUBGRAPH1, key: \\"k\\")
+        @join__type(graph: SUBGRAPH2, key: \\"k\\")
+      {
+        k: ID
+        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"b { v }\\")
+      }"
+    `);
   });
 
-  // TODO: Similar issue that for @provides above, but for @requires.
   it("override field in a @requires", () => {
     const subgraph1 = {
       name: "Subgraph1",
@@ -227,7 +230,31 @@ describe("composition involving @override directive", () => {
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
-    // TODO: more checks.
+
+    // Ensures `A.b` is marked external in Subgraph2 since it's overridden but there is still a requires mentioning it.
+    const typeA = result.schema.type("A");
+    expect(printType(typeA!)).toMatchInlineSnapshot(`
+      "type A
+        @join__type(graph: SUBGRAPH1, key: \\"id\\")
+        @join__type(graph: SUBGRAPH2, key: \\"id\\")
+      {
+        id: ID!
+        b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, external: true)
+      }"
+    `);
+
+    // Ensuring the requires is still here.
+    const typeT = result.schema.type("T");
+    expect(printType(typeT!)).toMatchInlineSnapshot(`
+      "type T
+        @join__type(graph: SUBGRAPH1, key: \\"k\\")
+        @join__type(graph: SUBGRAPH2, key: \\"k\\")
+      {
+        k: ID
+        a: A
+        x: Int @join__field(graph: SUBGRAPH2, requires: \\"a { b { v } }\\")
+      }"
+    `);
   });
 
   it("override from self error", () => {
