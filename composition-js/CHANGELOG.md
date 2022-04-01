@@ -10,6 +10,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Optimize composition validation when many entities spans many subgraphs [PR #1653](https://github.com/apollographql/federation/pull/1653).
 - Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
 - Adds Support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
+- Adds support for the `@override` directive on fields to indicate that a field should be moved from one subgraph to another. [PR #1484](https://github.com/apollographql/federation/pull/1484)
 
 ## v2.0.0-preview.8
 
