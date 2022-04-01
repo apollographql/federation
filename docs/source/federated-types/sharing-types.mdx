@@ -88,19 +88,19 @@ type Position {
 
 > Marking a type as `@shareable` is equivalent to marking _all_ of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
 
-Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schema will successfully compose into a supergraph schema.
+Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schemas will successfully compose into a supergraph schema.
 
 #### ⚠️ Important considerations for `@shareable`
 
 * If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
 * If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
-### Varying shared object fields
+### Varying shared fields
 
 Shared fields can differ between subgraphs in specific ways:
 * The return type of a shared field can vary in nullability (`String` / `String!`).
   * A shared field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A shared field can be omitted from a subgraph entirely if that field is always [resolvable](../federated-types/composition/#rules-of-composition).
+* A shared field can be omitted from a subgraph entirely, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
 
 For example, take a look at the shared `Food` type below:
 

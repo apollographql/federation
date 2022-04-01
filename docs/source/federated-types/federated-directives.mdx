@@ -125,6 +125,22 @@ type Position @shareable {
 
 See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
 
+## `@inaccessible`
+
+Indicates that a field should be _omitted_ from the composed supergraph schema, _even if it's also defined in other subgraphs_.
+
+**Valid locations:** Field definitions
+
+```graphql {4}
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int! @inaccessible
+}
+```
+
+The `@inaccessible` directive is most commonly useful when you're adding a new field to a shared [value type](./sharing-types/). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while rolling the field out to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
+
 ## `@provides`
 
 Indicates that a particular subgraph can resolve particular fields, but _only_ at a particular query path.
