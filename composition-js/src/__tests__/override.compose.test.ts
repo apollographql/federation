@@ -257,6 +257,54 @@ describe("composition involving @override directive", () => {
     `);
   });
 
+  it("override field that is necessary for an interface", () => {
+    const subgraph1 = {
+      name: "Subgraph1",
+      url: "https://Subgraph1",
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        interface I {
+          x: Int
+        }
+
+        type T implements I @key(fields: "k") {
+          k: ID
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: "Subgraph2",
+      url: "https://Subgraph2",
+      typeDefs: gql`
+        type T @key(fields: "k") {
+          k: ID
+          x: Int @override(from: "Subgraph1")
+        }
+      `,
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+
+    // Ensures `T.x` is marked external in Subgraph1 since it's overridden but still required by interface I.
+    const typeT = result.schema.type("T");
+    expect(printType(typeT!)).toMatchInlineSnapshot(`
+      "type T implements I
+        @join__implements(graph: SUBGRAPH1, interface: \\"I\\")
+        @join__type(graph: SUBGRAPH1, key: \\"k\\")
+        @join__type(graph: SUBGRAPH2, key: \\"k\\")
+      {
+        k: ID
+        x: Int @join__field(graph: SUBGRAPH1, external: true) @join__field(graph: SUBGRAPH2, override: \\"Subgraph1\\")
+      }"
+    `);
+  });
+
   it("override from self error", () => {
     const subgraph1 = {
       name: "Subgraph1",
