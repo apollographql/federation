@@ -2,9 +2,7 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNEXT
-
-> The changes noted within this `vNEXT` section have not been released yet. New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development. When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+## v2.0.0-preview.9
 
 - Fix handling of core/link when definitions are provided or partially so [PR #1662](https://github.com/apollographql/federation/pull/1662).
 - Optimize composition validation when many entities spans many subgraphs [PR #1653](https://github.com/apollographql/federation/pull/1653).
