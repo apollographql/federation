@@ -286,13 +286,13 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
     usedFields,
   );
 
-  // Collects all external fields used to satisfy an interface constraint
+  // Collects all fields used to satisfy an interface constraint
   for (const itfType of metadata.schema.types<InterfaceType>('InterfaceType')) {
     const runtimeTypes = itfType.possibleRuntimeTypes();
     for (const field of itfType.fields()) {
       for (const runtimeType of runtimeTypes) {
         const implemField = runtimeType.field(field.name);
-        if (implemField && metadata.isFieldExternal(implemField)) {
+        if (implemField) {
           usedFields.add(implemField);
         }
       }
@@ -341,13 +341,11 @@ function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollec
         continue;
       }
 
-      if (!isFieldSatisfyingInterface(field)) {
-        errorCollector.push(ERRORS.EXTERNAL_UNUSED.err({
-          message: `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
-          + ' the field declaration has no use and should be removed (or the field should not be @external).',
-          nodes: field.sourceAST,
-        }));
-      }
+      errorCollector.push(ERRORS.EXTERNAL_UNUSED.err({
+        message: `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
+        + ' the field declaration has no use and should be removed (or the field should not be @external).',
+        nodes: field.sourceAST,
+      }));
     }
   }
 }
@@ -363,10 +361,6 @@ function validateNoExternalOnInterfaceFields(metadata: FederationMetadata, error
       }
     }
   }
-}
-
-function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
-  return field.parent.interfaces().some(itf => itf.field(field.name));
 }
 
 /**
