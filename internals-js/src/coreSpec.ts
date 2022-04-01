@@ -280,7 +280,7 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
     return false;
   }
   const urlArg = definition.argument('url') ?? definition.argument('feature');
-  if (!urlArg || !sameType(urlArg.type!, new NonNullType(directive.schema().stringType()))) {
+  if (!urlArg || !isValidUrlArgumentType(urlArg.type!, directive.schema())) {
     return false;
   }
 
@@ -295,6 +295,15 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
   } catch (err) {
     return false;
   }
+}
+
+function isValidUrlArgumentType(type: InputType, schema: Schema): boolean {
+  // Note that the 'url' arg is defined as nullable (mostly for future proofing reasons) but we allow use to provide a definition
+  // where it's non-nullable (and in practice, @core (which we never generate anymore, but recognize) definition technically uses
+  // with a non-nullable argument, and some fed2 previews did if for @link, so this ensure we handle reading schema generated
+  // by those versions just fine).
+  return sameType(type, schema.stringType())
+    || sameType(type, new NonNullType(schema.stringType()));
 }
 
 const linkPurposeTypeSpec = createEnumTypeSpecification({
@@ -319,7 +328,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
   private createDefinitionArgumentSpecifications(schema: Schema, nameInSchema?: string): { args: ArgumentSpecification[], errors: GraphQLError[] } {
     const args: ArgumentSpecification[] = [
-      { name: this.urlArgName(), type: new NonNullType(schema.stringType()) },
+      { name: this.urlArgName(), type: schema.stringType() },
       { name: 'as', type: schema.stringType() },
     ];
     if (this.supportPurposes()) {

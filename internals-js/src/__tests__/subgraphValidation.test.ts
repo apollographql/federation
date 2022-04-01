@@ -541,7 +541,7 @@ describe('@core/@link handling', () => {
       query: Query
     }
 
-    directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
     directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
@@ -743,6 +743,22 @@ describe('@core/@link handling', () => {
         directive @key(fields: federation__FieldSet!, resolvable: Boolean!) repeatable on OBJECT | INTERFACE
 
         scalar federation__FieldSet
+      `,
+      // @link `url` argument is allowed to be `null` now, but it used not too, so making sure we still
+      // accept definition where it's mandatory.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+        scalar link__Purpose
       `,
     ];
 
