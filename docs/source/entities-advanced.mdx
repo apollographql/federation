@@ -449,7 +449,7 @@ In the above example, if a query requests a product's `shippingEstimate`, the ga
 
 If a computed field `@requires` a field that returns an object type, you also specify which _subfields_ of that object are required. You list those subfields with the following syntax:
 
-```graphql {3} title="Shipping subgraph"
+```graphql {3-4} title="Shipping subgraph"
 type Product @key(fields: "id") {
   id: ID!
   dimensions: ProductDimensions @external
