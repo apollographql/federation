@@ -102,29 +102,29 @@ export type CompositionOptions = {
 
 // for each source, specify additional properties that validate functions can set
 class FieldMergeContext {
-  _props: { addExternal: boolean, overridden: boolean }[];
+  _props: { usedOverridden: boolean, unusedOverridden: boolean }[];
 
   constructor(sources: unknown[]) {
-    this._props = (new Array(sources.length)).fill(true).map(_ => ({ addExternal: false, overridden: false }));
+    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false }));
   }
 
-  isExternal(idx: number) {
-    return this._props[idx].addExternal;
+  isUsedOverridden(idx: number) {
+    return this._props[idx].usedOverridden;
   }
 
-  isOverridden(idx: number) {
-    return this._props[idx].overridden;
+  isUnusedOverridden(idx: number) {
+    return this._props[idx].unusedOverridden;
   }
 
-  setExternal(idx: number) {
-    this._props[idx].addExternal = true;
+  setUsedOverriden(idx: number) {
+    this._props[idx].usedOverridden = true;
   }
 
-  setOverridden(idx: number) {
-    this._props[idx].overridden = true;
+  setUnusedOverridden(idx: number) {
+    this._props[idx].unusedOverridden = true;
   }
 
-  some(predicate: ({ addExternal, overridden }: { addExternal: boolean, overridden: boolean }) => boolean): boolean {
+  some(predicate: ({ usedOverridden, unusedOverridden }: { usedOverridden: boolean, unusedOverridden: boolean }) => boolean): boolean {
     return this._props.some(predicate);
   }
 }
@@ -1070,14 +1070,14 @@ class Merger {
               coordinate,
             ));
           } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
-            result.setExternal(fromIdx);
+            result.setUsedOverriden(fromIdx);
             this.hints.push(new CompositionHint(
               hintOverriddenFieldCanBeRemoved,
               `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
               coordinate,
             ));
           } else {
-            result.setOverridden(fromIdx);
+            result.setUnusedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
               hintOverriddenFieldCanBeRemoved,
               `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
@@ -1125,9 +1125,8 @@ class Merger {
     const nonShareableSources: number[] = [];
     const allResolving: FieldDefinition<any>[] = [];
     for (const [i, source] of sources.entries()) {
-      const forceExternal = mergeContext.isExternal(i);
-      const overridden = mergeContext.isOverridden(i);
-      if (!source || this.isFullyExternal(i, source) || forceExternal || overridden) {
+      const overridden = mergeContext.isUsedOverridden(i) || mergeContext.isUnusedOverridden(i);
+      if (!source || this.isFullyExternal(i, source) || overridden) {
         continue;
       }
 
@@ -1244,7 +1243,7 @@ class Merger {
     if (!allTypesEqual) {
       return true;
     }
-    if (mergeContext.some(({ addExternal }) => addExternal)) {
+    if (mergeContext.some(({ usedOverridden }) => usedOverridden)) {
       return true;
     }
 
@@ -1253,7 +1252,7 @@ class Merger {
     //   2) none of the field instance has a @requires or @provides.
     //   3) none of the field is @external.
     for (const [idx, source] of sources.entries()) {
-      const overridden = mergeContext.isOverridden(idx);
+      const overridden = mergeContext.isUnusedOverridden(idx);
       if (source && !overridden) {
         const sourceMeta = this.subgraphs.values()[idx].metadata();
         if (this.isExternal(idx, source)
@@ -1295,13 +1294,13 @@ class Merger {
     }
     const joinFieldDirective = joinSpec.fieldDirective(this.merged);
     for (const [idx, source] of sources.entries()) {
-      const forceExternal = mergeContext.isExternal(idx);
-      const overridden = mergeContext.isOverridden(idx);
-      if (!source || overridden) {
+      const usedOverridden = mergeContext.isUsedOverridden(idx);
+      const unusedOverridden = mergeContext.isUnusedOverridden(idx);
+      if (!source || unusedOverridden) {
         continue;
       }
 
-      const external = this.isExternal(idx, source) || forceExternal;
+      const external = this.isExternal(idx, source);
       const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
       dest.applyDirective(joinFieldDirective, {
@@ -1311,6 +1310,7 @@ class Merger {
         override: source.appliedDirectivesOf(sourceMeta.overrideDirective()).pop()?.arguments()?.from,
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
+        usedOverridden: usedOverridden ? true : undefined,
       });
     }
   }

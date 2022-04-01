@@ -862,6 +862,21 @@ export class SelectionSet {
   }
 }
 
+export function allFieldDefinitionsInSelectionSet(selection: SelectionSet): FieldDefinition<CompositeType>[] {
+  const stack = Array.from(selection.selections());
+  const allFields: FieldDefinition<CompositeType>[] = [];
+  while (stack.length > 0) {
+    const selection = stack.pop()!;
+    if (selection.kind === 'FieldSelection') {
+      allFields.push(selection.field.definition);
+    }
+    if (selection.selectionSet) {
+      stack.push(...selection.selectionSet.selections());
+    }
+  }
+  return allFields;
+}
+
 export function selectionSetOfElement(element: OperationElement, subSelection?: SelectionSet): SelectionSet {
   const selectionSet = new SelectionSet(element.parentType);
   selectionSet.add(selectionOfElement(element, subSelection));

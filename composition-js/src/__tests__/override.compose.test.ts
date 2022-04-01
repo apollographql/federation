@@ -168,7 +168,7 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH2, key: \\"id\\")
       {
         id: ID!
-        b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, external: true)
+        b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, usedOverridden: true)
       }"
     `);
 
@@ -239,7 +239,7 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH2, key: \\"id\\")
       {
         id: ID!
-        b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, external: true)
+        b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, usedOverridden: true)
       }"
     `);
 
@@ -300,7 +300,7 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH2, key: \\"k\\")
       {
         k: ID
-        x: Int @join__field(graph: SUBGRAPH1, external: true) @join__field(graph: SUBGRAPH2, override: \\"Subgraph1\\")
+        x: Int @join__field(graph: SUBGRAPH1, usedOverridden: true) @join__field(graph: SUBGRAPH2, override: \\"Subgraph1\\")
       }"
     `);
   });
@@ -464,7 +464,7 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH1, key: \\"k\\")
         @join__type(graph: SUBGRAPH2, key: \\"k\\")
       {
-        k: ID @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, external: true)
+        k: ID @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, usedOverridden: true)
         a: Int @join__field(graph: SUBGRAPH1)
         b: Int @join__field(graph: SUBGRAPH2)
       }"
@@ -502,9 +502,6 @@ describe("composition involving @override directive", () => {
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     expect(result.errors).toBeDefined();
-    // TODO: Those error messages might be currently a tad confusing for the user, because it essentially says that "k" is external
-    // in Subgraph2, but if a user looks at its subgraph, it's not external. Ideally, we should amend those message to recognize
-    // and indicate that the field is external _because_ it is overridden 
     expect(result.errors?.map(e => e.message)).toMatchStringArray([
       `
       The following supergraph API query:
@@ -515,8 +512,8 @@ describe("composition involving @override directive", () => {
       }
       cannot be satisfied by the subgraphs because:
       - from subgraph "Subgraph2":
-        - field "T.k" is not resolvable because marked @external.
-        - cannot move to subgraph "Subgraph1" using @key(fields: "k") of "T", the key field(s) cannot be resolved from subgraph "Subgraph2".
+        - field "T.k" is not resolvable because it is overridden by subgraph "Subgraph1".
+        - cannot move to subgraph "Subgraph1" using @key(fields: "k") of "T", the key field(s) cannot be resolved from subgraph "Subgraph2" (note that some of those key fields are overridden in "Subgraph2").
       `,
       `
       The following supergraph API query:
@@ -528,7 +525,7 @@ describe("composition involving @override directive", () => {
       cannot be satisfied by the subgraphs because:
       - from subgraph "Subgraph2":
         - cannot find field "T.a".
-        - cannot move to subgraph "Subgraph1" using @key(fields: "k") of "T", the key field(s) cannot be resolved from subgraph "Subgraph2".
+        - cannot move to subgraph "Subgraph1" using @key(fields: "k") of "T", the key field(s) cannot be resolved from subgraph "Subgraph2" (note that some of those key fields are overridden in "Subgraph2").
       `
     ]);
   });
@@ -616,7 +613,7 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH1)
         @join__type(graph: SUBGRAPH2)
       {
-        k: ID @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, external: true)
+        k: ID @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, usedOverridden: true)
         a: Int @join__field(graph: SUBGRAPH1)
         b: Int @join__field(graph: SUBGRAPH2)
       }"

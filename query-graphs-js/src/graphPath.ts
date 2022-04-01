@@ -23,9 +23,12 @@ import {
   federationMetadata,
   isSchemaRootType,
   Directive,
+  FieldDefinition,
+  printSubgraphNames,
+  allFieldDefinitionsInSelectionSet,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
-import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
+import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
 import { Transition } from "./transition";
 import { PathContext, emptyContext } from "./pathContext";
 
@@ -1146,11 +1149,17 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         }
       } else {
         debug.groupEnd('Condition unsatisfiable');
+        const source = toAdvance.tail.source;
+        const dest = edge.tail.source;
+        const hasOverriddenField = conditionHasOverriddenFieldsInSource(path.graph.sources.get(toAdvance.tail.source)!, edge.conditions!);
+        const extraMsg = hasOverriddenField
+          ? ` (note that some of those key fields are overridden in "${source}")`
+          : "";
         deadEnds.push({
-          sourceSubgraph: toAdvance.tail.source,
-          destSubgraph: edge.tail.source,
+          sourceSubgraph: source,
+          destSubgraph: dest,
           reason: UnadvanceableReason.UNSATISFIABLE_KEY_CONDITION,
-          details: `cannot move to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${toAdvance.tail.source}"`
+          details: `cannot move to subgraph "${dest}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${source}"${extraMsg}`
         });
       }
       debug.groupEnd(); // End of edge
@@ -1161,6 +1170,19 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     paths: mapValues(bestPathBySource).filter(p => p !== null).map(b => b![0]),
     deadEnds: new Unadvanceables(deadEnds) as TDeadEnds
   }
+}
+
+function conditionHasOverriddenFieldsInSource(schema: Schema, condition: SelectionSet): boolean {
+  const externalDirective = federationMetadata(schema)!.externalDirective();
+  return allFieldDefinitionsInSelectionSet(condition).some((field) => {
+    // The subtlety here is that the definition of the fields in the condition are not the one of the subgraph we care
+    // about here in general, because the conditions on key edge are those of the destination of the edge, and here
+    // we want to check if the field is overridden in the source of the edge. Hence us getting the matching
+    // definition in the input schema.
+    const typeInSource = schema.type(field.parent.name)
+    const fieldInSource = typeInSource && isObjectType(typeInSource) && typeInSource.field(field.name);
+    return fieldInSource && fieldInSource.appliedDirectivesOf(externalDirective)?.pop()?.arguments().reason === '[overridden]';
+  });
 }
 
 function hasValidDirectKeyEdge(
@@ -1238,11 +1260,22 @@ function advancePathWithDirectTransition<V extends Vertex>(
 
       if (fieldInSubgraph) {
         // the subgraph has the field but no correspond edge. This should only happen if the field is external.
+        const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
         assert(
-          fieldInSubgraph.hasAppliedDirective('external'),
+          externalDirective,
           () => `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])`
         );
-        details = `field "${transition.definition.coordinate}" is not resolvable because marked @external`;
+        // but the field is external in the "subgraph-extracted-from-the-supergraph", but it might have been forced to an external
+        // due to being a used-overriden field, in which case we want to amend the message to avoid confusing the user.
+        // Note that the subgraph extraction marks such "forced external due to being overriden" by setting the "reason" to "[overridden]".
+        const overriddingSources = externalDirective.arguments().reason === '[overridden]'
+          ? findOverriddingSourcesIfOverridden(fieldInSubgraph, subgraph, path.graph.sources)
+          : [];
+        if (overriddingSources.length > 0) {
+          details = `field "${transition.definition.coordinate}" is not resolvable because it is overridden by ${printSubgraphNames(overriddingSources)}`;
+        } else {
+          details = `field "${transition.definition.coordinate}" is not resolvable because marked @external`;
+        }
       } else {
         details = `cannot find field "${transition.definition.coordinate}"`;
       }
@@ -1257,6 +1290,28 @@ function advancePathWithDirectTransition<V extends Vertex>(
       details
     }]);
   }
+}
+
+function findOverriddingSourcesIfOverridden(
+  field: FieldDefinition<CompositeType>,
+  fieldSource: string,
+  sources: ReadonlyMap<string, Schema>,
+): string[] {
+  return [...sources.entries()]
+    .map(([name, schema]) => {
+      if (name === FEDERATED_GRAPH_ROOT_SOURCE || name === fieldSource) {
+        return undefined;
+      }
+      const sourceMetadata = federationMetadata(schema)!;
+      const typeInSource = schema.type(field.parent.name);
+      if (!typeInSource || !isObjectType(typeInSource)) {
+        return undefined;
+      }
+      const fieldInSource = typeInSource.field(field.name);
+      const isOverriddingSource = fieldInSource?.appliedDirectivesOf(sourceMetadata.overrideDirective())?.pop()?.arguments()?.from === fieldSource;
+      return isOverriddingSource ? name : undefined;
+    })
+    .filter((name) => !!name) as string[];
 }
 
 function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {

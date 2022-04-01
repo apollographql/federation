@@ -40,7 +40,7 @@ import { preComputeNonTrivialFollowupEdges } from './nonTrivialEdgePrecomputing'
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
 // deal, but safer that way). Using something short like `_` is also on purpose: it makes it stand out in debug messages
 // without taking space.
-const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
+export const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
 
 export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {

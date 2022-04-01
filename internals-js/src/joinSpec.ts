@@ -75,6 +75,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinField.addArgument('type', schema.stringType());
       joinField.addArgument('external', schema.booleanType());
       joinField.addArgument('override', schema.stringType());
+      joinField.addArgument('usedOverridden', schema.booleanType());
     }
 
     if (!this.isV01()) {
@@ -167,6 +168,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     override?: string,
     type?: string,
     external?: boolean,
+    usedOverridden?: boolean,
   }> {
     return this.directive(schema, 'field')!;
   }

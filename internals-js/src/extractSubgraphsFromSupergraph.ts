@@ -181,6 +181,12 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
               if (args.external) {
                 subgraphField.applyDirective(subgraph.metadata().externalDirective());
               }
+              if (args.usedOverridden) {
+                subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
+              }
+              if (args.override) {
+                subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': args.override});
+              }
             }
           }
         }
