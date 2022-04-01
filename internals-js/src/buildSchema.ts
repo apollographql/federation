@@ -89,7 +89,7 @@ export function buildSchemaFromAST(
     buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, errors, schema.schemaDefinition.newExtension());
   }
 
-  schema.blueprint.onDirectiveDefinitionAndSchemaParsed(schema);
+  errors.push(...schema.blueprint.onDirectiveDefinitionAndSchemaParsed(schema));
 
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {

@@ -1,7 +1,10 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
+import { Subgraph } from '..';
 import { errorCauses } from '../definitions';
 import { asFed2SubgraphDocument, buildSubgraph } from "../federation"
+import { defaultPrintOptions, printSchema } from '../print';
+import './matchers';
 
 // Builds the provided subgraph (using name 'S' for the subgraph) and, if the
 // subgraph is invalid/has errors, return those errors as a list of [code, message].
@@ -521,5 +524,339 @@ describe('custom error message for misnamed directives', () => {
       ['INVALID_GRAPHQL', `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation directive, you should use fully-qualified name "@federation__shareable" or add "@shareable" to the \`import\` argument of the @link to the federation specification.`],
       ['INVALID_GRAPHQL', `[S] Unknown directive "@key". If you meant the "@key" federation directive, you should use "@myKey" as it is imported under that name in the @link to the federation specification of this schema.`],
     ]);
+  });
+});
+
+function buildAndValidate(doc: DocumentNode): Subgraph {
+  const name = 'S';
+  return buildSubgraph(name, `http://${name}`, doc).validate();
+}
+
+describe('@core/@link handling', () => {
+  const expectedFullSchema = `
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+    {
+      query: Query
+    }
+
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+    directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+    directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+    directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+    directive @federation__external on OBJECT | FIELD_DEFINITION
+
+    directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+    directive @federation__extends on OBJECT | INTERFACE
+
+    directive @federation__shareable on OBJECT | FIELD_DEFINITION
+
+    directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+    type T
+      @key(fields: "k")
+    {
+      k: ID!
+    }
+
+    enum link__Purpose {
+      """
+      \`SECURITY\` features provide metadata necessary to securely resolve fields.
+      """
+      SECURITY
+
+      """
+      \`EXECUTION\` features provide metadata necessary for operation execution.
+      """
+      EXECUTION
+    }
+
+    scalar link__Import
+
+    scalar federation__FieldSet
+
+    scalar _Any
+
+    type _Service {
+      sdl: String
+    }
+
+    union _Entity = T
+
+    type Query {
+      _entities(representations: [_Any!]!): [_Entity]!
+      _service: _Service
+    }
+  `
+  const validateFullSchema = (subgraph: Subgraph) => {
+    // Note: we merge types and extensions to avoid having to care whether the @link are on a schema definition or schema extension
+    // as 1) this will vary (we add them to extensions in our test, but when auto-added, they are added to the schema definition)
+    // and 2) it doesn't matter in practice, it's valid in all cases.
+    expect(printSchema(subgraph.schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true})).toMatchString(expectedFullSchema);
+  }
+
+  it('expands everything if only the federation spec is linked', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+    `;
+
+    validateFullSchema(buildAndValidate(doc));
+  });
+
+  it('expands definitions if both the federation spec and link spec are linked', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+    `;
+
+    validateFullSchema(buildAndValidate(doc));
+  });
+
+  it('is valid if a schema is complete from the get-go', () => {
+    validateFullSchema(buildAndValidate(gql(expectedFullSchema)));
+  });
+
+  it('expands missing definitions when some are partially provided', () => {
+    const docs = [
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+        scalar federation__FieldSet
+
+        scalar link__Import
+      `,
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        scalar link__Import
+      `,
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        scalar link__Import
+      `,
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @federation__external on OBJECT | FIELD_DEFINITION
+      `,
+    ];
+
+    // Note that we cannot use `validateFullSchema` as-is for those examples because the order or directive is going
+    // to be different. But that's ok, we mostly care that the validation doesn't throw since validation ultimately
+    // calls the graphQL-js validation, so we can be somewhat sure that if something necessary wasn't expanded
+    // properly, we would have an issue. The main reason we did validate the full schema in prior tests is
+    // so we had at least one full example of a subgraph expansion in the tests.
+    docs.forEach((doc) => buildAndValidate(doc));
+  });
+
+  it('allows known directives with incomplete but compatible definitions', () => {
+    const docs = [
+      // @key has a `resolvable` argument in its full definition, but it is optional.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        scalar federation__FieldSet
+      `,
+      // @inacessible can be put in a bunch of locations, but you're welcome to restrict yourself to just fields.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@inaccessible"])
+
+        type T {
+          k: ID! @inaccessible
+        }
+
+        directive @inaccessible on FIELD_DEFINITION
+      `,
+      // @key is repeatable, but you're welcome to restrict yourself to never repeating it.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) on OBJECT | INTERFACE
+
+        scalar federation__FieldSet
+      `,
+      // @key `resolvable` argument is optional, but you're welcome to force users to always provide it.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k", resolvable: true) {
+          k: ID!
+        }
+
+        directive @key(fields: federation__FieldSet!, resolvable: Boolean!) repeatable on OBJECT | INTERFACE
+
+        scalar federation__FieldSet
+      `,
+      // @link `url` argument is allowed to be `null` now, but it used not too, so making sure we still
+      // accept definition where it's mandatory.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+        scalar link__Purpose
+      `,
+    ];
+
+    // Like above, we really only care that the examples validate.
+    docs.forEach((doc) => buildAndValidate(doc));
+  });
+
+  it('errors on invalid known directive location', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      directive @federation__external on OBJECT | FIELD_DEFINITION | SCHEMA
+    `;
+
+    // @external is not allowed on 'schema' and likely never will.
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+        'DIRECTIVE_DEFINITION_INVALID',
+        '[S] Invalid definition for directive "@federation__external": "@federation__external" should have locations OBJECT, FIELD_DEFINITION, but found (non-subset) OBJECT, FIELD_DEFINITION, SCHEMA',
+    ]]);
+  });
+
+  it('errors on invalid non-repeatable directive marked repeateable', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      directive @federation__external repeatable on OBJECT | FIELD_DEFINITION
+    `;
+
+    // @external is not repeatable (and has no reason to be since it has no arguments).
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'DIRECTIVE_DEFINITION_INVALID',
+      '[S] Invalid definition for directive "@federation__external": "@federation__external" should not be repeatable',
+    ]]);
+  });
+
+  it('errors on unknown argument of known directive', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      directive @federation__external(foo: Int) on OBJECT | FIELD_DEFINITION
+    `;
+
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'DIRECTIVE_DEFINITION_INVALID',
+      '[S] Invalid definition for directive "@federation__external": unknown/unsupported argument "foo"',
+    ]]);
+  });
+
+  it('errors on invalid type for a known argument', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      directive @key(fields: Int!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+    `;
+
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'DIRECTIVE_DEFINITION_INVALID',
+      '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "Int!"',
+    ]]);
+  });
+
+  it('errors on a required argument defined as optional', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      directive @key(fields: federation__FieldSet, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+      scalar federation__FieldSet
+    `;
+
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'DIRECTIVE_DEFINITION_INVALID',
+      '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "federation__FieldSet"',
+    ]]);
   });
 });

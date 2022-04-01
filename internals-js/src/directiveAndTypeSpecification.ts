@@ -1,8 +1,10 @@
-import { DirectiveLocation, GraphQLError } from "graphql";
+import { ASTNode, DirectiveLocation, GraphQLError } from "graphql";
 import {
   ArgumentDefinition,
   DirectiveDefinition,
+  EnumType,
   InputType,
+  isEnumType,
   isNonNullType,
   isObjectType,
   isUnionType,
@@ -49,13 +51,16 @@ export function createDirectiveSpecification({
   name: string,
   locations: DirectiveLocation[],
   repeatable?: boolean,
-  argumentFct?: (schema: Schema) => ArgumentSpecification[],
+  argumentFct?: (schema: Schema, nameInSchema?: string) => { args: ArgumentSpecification[], errors: GraphQLError[] },
 }): DirectiveSpecification {
   return {
     name,
     checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
-      const args = argumentFct ? argumentFct(schema) : [];
       const actualName = nameInSchema ?? name;
+      const {args, errors} = argumentFct ? argumentFct(schema, actualName) : { args: [], errors: []};
+      if (errors.length > 0) {
+        return errors;
+      }
       const existing = schema.directive(actualName);
       if (existing) {
         return ensureSameDirectiveStructure({name: actualName, locations, repeatable, args}, existing);
@@ -131,7 +136,7 @@ export function createObjectTypeSpecification({
           errors = errors.concat(ensureSameArguments(
             { name, args },
             existingField,
-            `field ${existingField.coordinate}`,
+            `field "${existingField.coordinate}"`,
           ));
         }
         return errors;
@@ -198,6 +203,44 @@ export function createUnionTypeSpecification({
   }
 }
 
+export function createEnumTypeSpecification({
+  name,
+  values,
+}: {
+  name: string,
+  values: { name: string, description?: string}[],
+}): TypeSpecification {
+  return {
+    name,
+    checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
+      const actualName = nameInSchema ?? name;
+      const existing = schema.type(actualName);
+      const expectedValueNames = values.map((v) => v.name).sort((n1, n2) => n1.localeCompare(n2));
+      if (existing) {
+        let errors = ensureSameTypeKind('EnumType', existing);
+        if (errors.length > 0) {
+          return errors;
+        }
+        assert(isEnumType(existing), 'Should be an enum type');
+        const actualValueNames = existing.values.map(v => v.name).sort((n1, n2) => n1.localeCompare(n2));
+        if (!arrayEquals(expectedValueNames, actualValueNames)) {
+          errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
+            message: `Invalid definition of type ${name}: expected values [${expectedValueNames}] but found [${actualValueNames}].`,
+            nodes: existing.sourceAST
+          }));
+        }
+        return errors;
+      } else {
+        const type = schema.addType(new EnumType(actualName, asBuiltIn));
+        for (const {name, description} of values) {
+          type.addValue(name).description = description;
+        }
+        return [];
+      }
+    },
+  }
+}
+
 function ensureSameTypeKind(expected: NamedType['kind'], actual: NamedType): GraphQLError[] {
   return expected === actual.kind
     ? []
@@ -216,18 +259,19 @@ function ensureSameDirectiveStructure(
   },
   actual: DirectiveDefinition<any>,
 ): GraphQLError[] {
-  let errors = ensureSameArguments(expected, actual, `directive ${expected}`);
+  const directiveName = `"@${expected.name}"`
+  let errors = ensureSameArguments(expected, actual, `directive ${directiveName}`);
   // It's ok to say you'll never repeat a repeatable directive. It's not ok to repeat one that isn't.
   if (!expected.repeatable && actual.repeatable) {
     errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-      message: `Invalid definition for directive ${expected}: ${expected} should${expected.repeatable ? "" : " not"} be repeatable`,
+      message: `Invalid definition for directive ${directiveName}: ${directiveName} should${expected.repeatable ? "" : " not"} be repeatable`,
       nodes: actual.sourceAST
     }));
   }
   // Similarly, it's ok to say that you will never use a directive in some locations, but not that you will use it in places not allowed by what is expected.
   if (!actual.locations.every(loc => expected.locations.includes(loc))) {
     errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-      message: `Invalid efinition for directive ${expected}: ${expected} should have locations ${expected.locations.join(', ')}, but found (non-subset) ${actual.locations.join(', ')}`,
+      message: `Invalid definition for directive ${directiveName}: ${directiveName} should have locations ${expected.locations.join(', ')}, but found (non-subset) ${actual.locations.join(', ')}`,
       nodes: actual.sourceAST
     }));
   }
@@ -241,17 +285,24 @@ function ensureSameArguments(
   },
   actual: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): readonly ArgumentDefinition<any>[] },
   what: string,
+  containerSourceAST?: ASTNode,
 ): GraphQLError[] {
   const expectedArguments = expected.args ?? [];
-  const foundArguments = actual.arguments();
-  if (expectedArguments.length !== foundArguments.length) {
-    return [ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-      message: `Invalid definition for ${what}: should have ${expectedArguments.length} arguments but ${foundArguments.length} found`,
-    })];
-  }
-  let errors: GraphQLError[] = [];
+  const errors: GraphQLError[] = [];
   for (const { name, type, defaultValue } of expectedArguments) {
-    const actualArgument = actual.argument(name)!;
+    const actualArgument = actual.argument(name);
+    if (!actualArgument) {
+      // Not declaring an optional argument is ok: that means you won't be able to pass a non-default value in your schema, but we allow you that.
+      // But missing a required argument it not ok.
+      if (isNonNullType(type) && defaultValue === undefined) {
+        errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
+          message: `Invalid definition for ${what}: missing required argument "${name}"`,
+          nodes: containerSourceAST
+        }));
+      }
+      continue;
+    }
+
     let actualType = actualArgument.type!;
     if (isNonNullType(actualType) && !isNonNullType(type)) {
       // It's ok to redefine an optional argument as mandatory. For instance, if you want to force people on your team to provide a "deprecation reason", you can
@@ -260,13 +311,22 @@ function ensureSameArguments(
       actualType = actualType.ofType;
     }
     if (!sameType(type, actualType)) {
-      errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition of ${what}: ${name} should have type ${type} but found type ${actualArgument.type!}`,
+      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
+        message: `Invalid definition for ${what}: argument "${name}" should have type "${type}" but found type "${actualArgument.type!}"`,
         nodes: actualArgument.sourceAST
       }));
-    } else if (!isNonNullType(actualType) && !valueEquals(defaultValue, actualArgument.defaultValue)) {
-      errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition of ${what}: ${name} should have default value ${valueToString(defaultValue)} but found default value ${valueToString(actualArgument.defaultValue)}`,
+    } else if (!isNonNullType(actualArgument.type!) && !valueEquals(defaultValue, actualArgument.defaultValue)) {
+      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
+        message: `Invalid definition for ${what}: argument "${name}" should have default value ${valueToString(defaultValue)} but found default value ${valueToString(actualArgument.defaultValue)}`,
+        nodes: actualArgument.sourceAST
+      }));
+    }
+  }
+  for (const actualArgument of actual.arguments()) {
+    // If it's an expect argument, we already validated it. But we still need to reject unkown argument.
+    if (!expectedArguments.some((arg) => arg.name === actualArgument.name)) {
+      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
+        message: `Invalid definition for ${what}: unknown/unsupported argument "${actualArgument.name}"`,
         nodes: actualArgument.sourceAST
       }));
     }

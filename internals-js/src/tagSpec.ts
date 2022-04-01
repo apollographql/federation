@@ -1,6 +1,7 @@
 import { DirectiveLocation, GraphQLError } from "graphql";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
+import { createDirectiveSpecification, DirectiveSpecification } from "./directiveAndTypeSpecification";
 import { ERRORS } from "./error";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { sameType } from "./types";
@@ -9,6 +10,7 @@ export const tagIdentity = 'https://specs.apollo.dev/tag';
 
 export class TagSpecDefinition extends FeatureDefinition {
   public readonly tagLocations: DirectiveLocation[];
+  public readonly tagDirectiveSpec: DirectiveSpecification;
   private readonly printedTagDefinition: string;
 
   constructor(version: FeatureVersion) {
@@ -31,16 +33,23 @@ export class TagSpecDefinition extends FeatureDefinition {
       );
       this.printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION';
     }
+    this.tagDirectiveSpec = createDirectiveSpecification({
+      name:'tag',
+      locations: this.tagLocations,
+      repeatable: true,
+      argumentFct: (schema) => ({
+        args: [{ name: 'name', type: new NonNullType(schema.stringType()) }],
+        errors: [],
+      }),
+    });
   }
 
   private isV01() {
     return this.version.equals(new FeatureVersion(0, 1));
   }
 
-  addElementsToSchema(schema: Schema) {
-    const directive = this.addDirective(schema, 'tag').addLocations(...this.tagLocations);
-    directive.repeatable = true;
-    directive.addArgument("name", new NonNullType(schema.stringType()));
+  addElementsToSchema(schema: Schema): GraphQLError[] {
+    return this.addDirectiveSpec(schema, this.tagDirectiveSpec);
   }
 
   tagDirective(schema: Schema): DirectiveDefinition<{name: string}> {

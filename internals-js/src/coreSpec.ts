@@ -1,6 +1,6 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLValidationFailed, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert } from './utils';
@@ -8,6 +8,7 @@ import { ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
 import { didYouMean, suggestionList } from "./suggestions";
+import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 export const linkIdentity = 'https://specs.apollo.dev/link';
@@ -64,7 +65,7 @@ export abstract class FeatureDefinition {
     return nameInSchema != undefined && (directive.name === nameInSchema || directive.name.startsWith(`${nameInSchema}__`));
   }
 
-  abstract addElementsToSchema(schema: Schema): void;
+  abstract addElementsToSchema(schema: Schema): GraphQLError[];
 
   abstract allElementNames(): string[];
 
@@ -104,6 +105,14 @@ export abstract class FeatureDefinition {
 
   protected addDirective(schema: Schema, name: string): DirectiveDefinition {
     return schema.addDirectiveDefinition(this.directiveNameInSchema(schema, name)!);
+  }
+
+  protected addDirectiveSpec(schema: Schema, spec: DirectiveSpecification): GraphQLError[] {
+    return spec.checkOrAdd(schema, this.directiveNameInSchema(schema, spec.name));
+  }
+
+  protected addTypeSpec(schema: Schema, spec: TypeSpecification): GraphQLError[] {
+    return spec.checkOrAdd(schema, this.typeNameInSchema(schema, spec.name));
   }
 
   protected addScalarType(schema: Schema, name: string): ScalarType {
@@ -271,7 +280,7 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
     return false;
   }
   const urlArg = definition.argument('url') ?? definition.argument('feature');
-  if (!urlArg || !sameType(urlArg.type!, new NonNullType(directive.schema().stringType()))) {
+  if (!urlArg || !isValidUrlArgumentType(urlArg.type!, directive.schema())) {
     return false;
   }
 
@@ -288,43 +297,70 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
   }
 }
 
+function isValidUrlArgumentType(type: InputType, schema: Schema): boolean {
+  // Note that the 'url' arg is defined as nullable (mostly for future proofing reasons) but we allow use to provide a definition
+  // where it's non-nullable (and in practice, @core (which we never generate anymore, but recognize) definition technically uses
+  // with a non-nullable argument, and some fed2 previews did if for @link, so this ensure we handle reading schema generated
+  // by those versions just fine).
+  return sameType(type, schema.stringType())
+    || sameType(type, new NonNullType(schema.stringType()));
+}
+
+const linkPurposeTypeSpec = createEnumTypeSpecification({
+  name: 'Purpose',
+  values: corePurposes.map((name) => ({ name, description: purposesDescription(name)}))
+});
+
+const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
+
 export class CoreSpecDefinition extends FeatureDefinition {
+  private readonly directiveDefinitionSpec: DirectiveSpecification;
+
   constructor(version: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
     super(new FeatureUrl(identity, name, version));
+    this.directiveDefinitionSpec = createDirectiveSpecification({
+      name,
+      locations: [DirectiveLocation.SCHEMA],
+      repeatable: true,
+      argumentFct: (schema, nameInSchema) => this.createDefinitionArgumentSpecifications(schema, nameInSchema),
+    });
   }
 
-  addElementsToSchema(_: Schema): void {
+  private createDefinitionArgumentSpecifications(schema: Schema, nameInSchema?: string): { args: ArgumentSpecification[], errors: GraphQLError[] } {
+    const args: ArgumentSpecification[] = [
+      { name: this.urlArgName(), type: schema.stringType() },
+      { name: 'as', type: schema.stringType() },
+    ];
+    if (this.supportPurposes()) {
+      const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
+      const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
+      if (errors.length > 0) {
+        return { args, errors }
+      }
+      args.push({ name: 'for', type: schema.type(purposeName) as InputType });
+    }
+    if (this.supportImport()) {
+      const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
+      const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
+      if (errors.length > 0) {
+        return { args, errors }
+      }
+      args.push({ name: 'import', type: new ListType(schema.type(importName)!) });
+    }
+    return { args, errors: [] };
+  }
+
+  addElementsToSchema(_: Schema): GraphQLError[] {
     // Core is special and the @core directive is added in `addToSchema` below
+    return [];
   }
 
   // TODO: we may want to allow some `import` as argument to this method. When we do, we need to watch for imports of
   // `Purpose` and `Import` and add the types under their imported name.
-  addToSchema(schema: Schema, as?: string) {
-    const existing = schema.coreFeatures;
-    if (existing) {
-      if (existing.coreItself.url.identity === this.identity) {
-        // Already exists with the same version, let it be.
-        return;
-      } else {
-        throw buildError(`Cannot add feature ${this} to the schema, it already uses ${existing.coreItself.url}`);
-      }
-    }
-
-    const nameInSchema = as ?? this.url.name;
-    const core = schema.addDirectiveDefinition(nameInSchema).addLocations(DirectiveLocation.SCHEMA);
-    core.repeatable = true;
-    core.addArgument(this.urlArgName(), new NonNullType(schema.stringType()));
-    core.addArgument('as', schema.stringType());
-    if (this.supportPurposes()) {
-      const purposeEnum = schema.addType(new EnumType(`${nameInSchema}__Purpose`));
-      for (const purpose of corePurposes) {
-        purposeEnum.addValue(purpose).description = purposesDescription(purpose);
-      }
-      core.addArgument('for', purposeEnum);
-    }
-    if (this.supportImport()) {
-      const importType = schema.addType(new ScalarType(`${nameInSchema}__Import`));
-      core.addArgument('import', new ListType(importType));
+  addToSchema(schema: Schema, as?: string): GraphQLError[] {
+    const errors = this.addDefinitionsToSchema(schema, as);
+    if (errors.length > 0) {
+      return errors;
     }
 
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
@@ -333,7 +369,25 @@ export class CoreSpecDefinition extends FeatureDefinition {
     if (as) {
       args.as = as;
     }
-    schema.schemaDefinition.applyDirective(nameInSchema, args);
+    schema.schemaDefinition.applyDirective(as ?? this.url.name, args, true);
+    return [];
+  }
+
+  addDefinitionsToSchema(schema: Schema, as?: string): GraphQLError[] {
+    const existingCore = schema.coreFeatures;
+    if (existingCore) {
+      if (existingCore.coreItself.url.identity === this.identity) {
+        // Already exists with the same version, let it be.
+        return [];
+      } else {
+        return [ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+          message: `Cannot add feature ${this} to the schema, it already uses ${existingCore.coreItself.url}`
+        })];
+      }
+    }
+
+    const nameInSchema = as ?? this.url.name;
+    return this.directiveDefinitionSpec.checkOrAdd(schema, nameInSchema);
   }
 
   /**
@@ -381,7 +435,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return feature.url.version;
   }
 
-  applyFeatureToSchema(schema: Schema, feature: FeatureDefinition, as?: string, purpose?: CorePurpose) {
+  applyFeatureToSchema(schema: Schema, feature: FeatureDefinition, as?: string, purpose?: CorePurpose): GraphQLError[] {
     const coreDirective = this.coreDirective(schema);
     const args = {
       [this.urlArgName()]: feature.toString(),
@@ -391,8 +445,9 @@ export class CoreSpecDefinition extends FeatureDefinition {
       args.for = purpose;
     }
     schema.schemaDefinition.applyDirective(coreDirective, args);
-    feature.addElementsToSchema(schema);
+    return feature.addElementsToSchema(schema);
   }
+
   extractFeatureUrl(args: CoreOrLinkDirectiveArgs): FeatureUrl {
     return FeatureUrl.parse(args[this.urlArgName()]!);
   }

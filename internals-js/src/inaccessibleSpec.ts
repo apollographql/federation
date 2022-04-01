@@ -11,6 +11,7 @@ import {
 import { GraphQLError, DirectiveLocation } from "graphql";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { ERRORS } from "./error";
+import { createDirectiveSpecification } from "./directiveAndTypeSpecification";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 
@@ -21,13 +22,18 @@ export const inaccessibleLocations = [
   DirectiveLocation.UNION,
 ];
 
+export const inaccessibleDirectiveSpec = createDirectiveSpecification({
+  name: 'inaccessible',
+  locations: [...inaccessibleLocations],
+});
+
 export class InaccessibleSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion) {
     super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version));
   }
 
-  addElementsToSchema(schema: Schema) {
-    this.addDirective(schema, 'inaccessible').addLocations(...inaccessibleLocations);
+  addElementsToSchema(schema: Schema): GraphQLError[] {
+    return this.addDirectiveSpec(schema, inaccessibleDirectiveSpec);
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {

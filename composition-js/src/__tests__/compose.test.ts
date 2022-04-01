@@ -82,7 +82,7 @@ describe('composition', () => {
 
       directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-      directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
       scalar join__FieldSet
 
@@ -1323,7 +1323,7 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION'],
+        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Invalid definition for directive "@tag": missing required argument "name"'],
       ]);
     });
 
@@ -2033,7 +2033,7 @@ describe('composition', () => {
 
       directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-      directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
       scalar join__FieldSet
 
