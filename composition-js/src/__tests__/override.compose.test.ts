@@ -424,30 +424,14 @@ describe("composition involving @override directive", () => {
     };
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-    assertCompositionSuccess(result);
-
-    const typeT = result.schema.type("T");
-    expect(printType(typeT!)).toMatchInlineSnapshot(`
-      "type T
-        @join__type(graph: SUBGRAPH1, key: \\"k\\")
-        @join__type(graph: SUBGRAPH2, key: \\"k\\")
-      {
-        k: ID
-        a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\")
-      }"
-    `);
-
-    const [_, api] = schemas(result);
-    expect(printSchema(api)).toMatchString(`
-      type Query {
-        t: T
-      }
-
-      type T {
-        k: ID
-        a: Int
-      }
-    `);
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toBeDefined();
+    expect(errors(result)).toStrictEqual([
+      [
+        'FIELD_TYPE_MISMATCH',
+        'Field "T.a" has incompatible types across subgraphs: it has type "Int" in subgraph "Subgraph1" but type "String" in subgraph "Subgraph2"'
+      ]
+    ]);
   });
 
   it("override field that is a key in another type", () => {
