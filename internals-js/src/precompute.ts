@@ -7,7 +7,7 @@ import {
   collectTargetFields,
   InterfaceType,
   ObjectType,
-  Schema
+  Schema,
 } from ".";
 
 export function computeShareables(schema: Schema): (field: FieldDefinition<CompositeType>) => boolean {
@@ -65,4 +65,3 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
 
   return (field) => shareableFields.has(field.coordinate);
 }
-

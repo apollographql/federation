@@ -4,18 +4,18 @@ import gql from 'graphql-tag';
 import './matchers';
 import { print } from 'graphql';
 
-function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
+export function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
   if (r.errors) {
     throw new Error(`Expected composition to succeed but got errors:\n${r.errors.join('\n\n')}`);
   }
 }
 
-function errors(r: CompositionResult): [string, string][] {
+export function errors(r: CompositionResult): [string, string][] {
   return r.errors?.map(e => [e.extensions.code as string, e.message]) ?? [];
 }
 
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
-function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
+export function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
   // Note that we could user `result.schema`, but reparsing to ensure we don't lose anything with printing/parsing.
   const schema = buildSchema(result.supergraphSdl);
   expect(schema.isCoreSchema()).toBeTruthy();
@@ -74,7 +74,7 @@ describe('composition', () => {
         query: Query
       }
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -2025,7 +2025,7 @@ describe('composition', () => {
         query: Query
       }
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 

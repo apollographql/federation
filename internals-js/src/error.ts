@@ -359,6 +359,21 @@ const SATISFIABILITY_ERROR = makeCodeDefinition(
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
 );
 
+const OVERRIDE_FROM_SELF_ERROR = makeCodeDefinition(
+  'OVERRIDE_FROM_SELF_ERROR',
+  'Field with `@override` directive has "from" location that references its own subgraph.',
+);
+
+const OVERRIDE_SOURCE_HAS_OVERRIDE = makeCodeDefinition(
+  'OVERRIDE_SOURCE_HAS_OVERRIDE',
+  'Field which is overridden to another subgraph is also marked @override.',
+);
+
+const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
+  'OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE',
+  'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -418,6 +433,9 @@ export const ERRORS = {
   REFERENCED_INACCESSIBLE,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   SATISFIABILITY_ERROR,
+  OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
+  OVERRIDE_FROM_SELF_ERROR,
+  OVERRIDE_SOURCE_HAS_OVERRIDE,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

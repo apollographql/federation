@@ -549,7 +549,7 @@ describe('@core/@link handling', () => {
 
     directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
 
-    directive @federation__external on OBJECT | FIELD_DEFINITION
+    directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
     directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
@@ -558,6 +558,8 @@ describe('@core/@link handling', () => {
     directive @federation__shareable on OBJECT | FIELD_DEFINITION
 
     directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+    directive @federation__override(from: String!) on FIELD_DEFINITION
 
     type T
       @key(fields: "k")
@@ -678,7 +680,7 @@ describe('@core/@link handling', () => {
           k: ID!
         }
 
-        directive @federation__external on OBJECT | FIELD_DEFINITION
+        directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
       `,
     ];
 
@@ -775,7 +777,7 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @federation__external on OBJECT | FIELD_DEFINITION | SCHEMA
+      directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION | SCHEMA
     `;
 
     // @external is not allowed on 'schema' and likely never will.

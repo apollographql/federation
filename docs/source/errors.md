@@ -46,6 +46,9 @@ The following errors may be raised by composition:
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
 | `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | 2.0.0 |  |
+| `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
+| `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
+| `OVERRIDE_SOURCE_HAS_OVERRIDE` | Field which is overridden to another subgraph is also marked @override. | 2.0.0 |  |
 | `PROVIDES_FIELDS_HAS_ARGS` | The `fields` argument of a `@provides` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
 | `PROVIDES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@provides` directive includes a field that is not marked as `@external`. | 0.x |  |
 | `PROVIDES_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@provides` directive is not a string. | 2.0.0 |  |

@@ -28,6 +28,7 @@ export const typeDefs = gql`
   type Library @key(fields: "id") {
     id: ID!
     name: String
+    description: String
   }
 
   # FIXME: turn back on when unions are supported in composition

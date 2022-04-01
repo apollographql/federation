@@ -61,6 +61,8 @@ import {
   Subgraph,
   errorCode,
   withModifiedErrorNodes,
+  didYouMean,
+  suggestionList,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -81,9 +83,14 @@ import {
   hintInconsistentExecutionDirectiveLocations,
   hintInconsistentArgumentPresence,
   hintInconsistentDescription,
+  hintFromSubgraphDoesNotExist,
+  hintOverrideDirectiveCanBeRemoved,
+  hintOverriddenFieldCanBeRemoved,
 } from "../hints";
 
 const linkSpec = LINK_VERSIONS.latest();
+type FieldOrUndefinedArray = (FieldDefinition<any> | undefined)[];
+
 const joinSpec = JOIN_VERSIONS.latest();
 
 export type MergeResult = MergeSuccess | MergeFailure;
@@ -91,6 +98,35 @@ export type MergeResult = MergeSuccess | MergeFailure;
 // TODO: move somewhere else.
 export type CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
+}
+
+// for each source, specify additional properties that validate functions can set
+class FieldMergeContext {
+  _props: { usedOverridden: boolean, unusedOverridden: boolean }[];
+
+  constructor(sources: unknown[]) {
+    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false }));
+  }
+
+  isUsedOverridden(idx: number) {
+    return this._props[idx].usedOverridden;
+  }
+
+  isUnusedOverridden(idx: number) {
+    return this._props[idx].unusedOverridden;
+  }
+
+  setUsedOverriden(idx: number) {
+    this._props[idx].usedOverridden = true;
+  }
+
+  setUnusedOverridden(idx: number) {
+    this._props[idx].unusedOverridden = true;
+  }
+
+  some(predicate: ({ usedOverridden, unusedOverridden }: { usedOverridden: boolean, unusedOverridden: boolean }) => boolean): boolean {
+    return this._props.some(predicate);
+  }
 }
 
 // TODO:" we currently cannot allow "list upgrades", meaning a subgraph returning `String`
@@ -752,8 +788,10 @@ class Merger {
           this.hintOnInconsistentValueTypeField(sources, dest, destField);
         }
         const subgraphFields = sources.map(t => t?.field(destField.name));
-        this.mergeField(subgraphFields, destField);
-        this.validateFieldSharing(subgraphFields, destField);
+        const mergeContext = this.validateOverride(subgraphFields, destField);
+
+        this.mergeField(subgraphFields, destField, mergeContext);
+        this.validateFieldSharing(subgraphFields, destField, mergeContext);
       }
     }
   }
@@ -886,7 +924,7 @@ class Merger {
     return filtered;
   }
 
-  private hasExternal(sources: (FieldDefinition<any> | undefined)[]): boolean {
+  private hasExternal(sources: FieldOrUndefinedArray): boolean {
     return sources.some((s, i) => s !== undefined && this.isExternal(i, s));
   }
 
@@ -894,7 +932,166 @@ class Merger {
     return this.metadata(sourceIdx).isFieldShareable(field);
   }
 
-  private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
+  private getOverrideDirective(sourceIdx: number, field: FieldDefinition<any>): Directive<any> | undefined {
+    // Check the directive on the field, then on the enclosing type.
+    const metadata = this.metadata(sourceIdx);
+    const overrideDirective = metadata.isFed2Schema() ? metadata.overrideDirective() : undefined;
+    const allFieldOverrides = overrideDirective ? field.appliedDirectivesOf(overrideDirective) : [];
+    return allFieldOverrides[0]; // if array is empty, will return undefined
+  }
+
+  private overrideConflictsWithOtherDirective({
+    idx,
+    field,
+    subgraphName,
+    fromIdx,
+    fromField,
+  }: {
+    idx: number;
+    field: FieldDefinition<any> | undefined;
+    subgraphName: string;
+    fromIdx: number;
+    fromField: FieldDefinition<any> | undefined;
+  }): { result: boolean, conflictingDirective?: DirectiveDefinition, subgraph?: string } {
+    const fromMetadata = this.metadata(fromIdx);
+    for (const directive of [fromMetadata.requiresDirective(), fromMetadata.providesDirective()]) {
+      if (fromField?.hasAppliedDirective(directive)) {
+         return {
+           result: true,
+           conflictingDirective: directive,
+           subgraph: subgraphName,
+         };
+       }
+    }
+    if (field && this.isExternal(idx, field)) {
+      return {
+        result: true,
+        conflictingDirective: fromMetadata.externalDirective(),
+        subgraph: subgraphName,
+      };
+    }
+    return { result: false };
+  }
+
+  /**
+   * Validates whether or not the use of the @override directive is correct.
+   * return value is a list of fields that has been filtered to ignore overridden fields
+   */
+  private validateOverride(sources: FieldOrUndefinedArray, { coordinate }: FieldDefinition<any>): FieldMergeContext {
+    const result = new FieldMergeContext(sources);
+
+    // For any field, we can't have more than one @override directive
+    type MappedValue = {
+      idx: number,
+      name: string,
+      overrideDirective: Directive<FieldDefinition<any>> | undefined,
+    };
+
+    type ReduceResultType = {
+      subgraphsWithOverride: string[],
+      subgraphMap: { [key: string]: MappedValue },
+    };
+
+    // convert sources to a map so we don't have to keep scanning through the array to find a source
+    const { subgraphsWithOverride, subgraphMap } = sources.map((source, idx) => {
+      if (!source) {
+        return undefined;
+      }
+      return {
+        idx,
+        name: this.names[idx],
+        overrideDirective: this.getOverrideDirective(idx, source),
+      };
+    }).reduce((acc: ReduceResultType, elem) => {
+      if (elem !== undefined) {
+        acc.subgraphMap[elem.name] = elem;
+        if (elem.overrideDirective !== undefined) {
+          acc.subgraphsWithOverride.push(elem.name);
+        }
+      }
+      return acc;
+    }, { subgraphsWithOverride: [], subgraphMap: {} });
+
+    // for each subgraph that has an @override directive, check to see if any errors or hints should be surfaced
+    subgraphsWithOverride.forEach((subgraphName) => {
+      const { overrideDirective } = subgraphMap[subgraphName];
+      const sourceSubgraphName = overrideDirective?.arguments()?.from;
+      if (!this.names.includes(sourceSubgraphName)) {
+        const suggestions = suggestionList(sourceSubgraphName, this.names);
+        const extraMsg = didYouMean(suggestions);
+        this.hints.push(new CompositionHint(
+          hintFromSubgraphDoesNotExist,
+          `Source subgraph "${sourceSubgraphName}" for field "${coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
+          coordinate,
+        ));
+      } else if (sourceSubgraphName === subgraphName) {
+        this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err({
+          message: `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
+          nodes: overrideDirective?.sourceAST,
+        }));
+      } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
+        this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err({
+          message: `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
+          nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective)
+        }));
+      } else if (subgraphMap[sourceSubgraphName] === undefined) {
+        this.hints.push(new CompositionHint(
+          hintOverrideDirectiveCanBeRemoved,
+          `Field "${coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
+          coordinate,
+        ));
+      } else {
+        // check to make sure that there is no conflicting @provides, @requires, or @external directives
+        const fromIdx = this.names.indexOf(sourceSubgraphName);
+        const fromField = sources[fromIdx];
+        const { result: hasIncompatible, conflictingDirective, subgraph } = this.overrideConflictsWithOtherDirective({
+          idx: subgraphMap[subgraphName].idx,
+          field: sources[subgraphMap[subgraphName].idx],
+          subgraphName,
+          fromIdx: this.names.indexOf(sourceSubgraphName),
+          fromField: sources[fromIdx],
+        });
+        if (hasIncompatible) {
+          assert(conflictingDirective !== undefined, 'conflictingDirective should not be undefined');
+          this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err({
+            message: `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
+            nodes: sourceASTs(overrideDirective, conflictingDirective)
+          }));
+        } else {
+          // if we get here, then the @override directive is valid
+          // if the field being overridden is used, then we need to add an @external directive
+          assert(fromField, 'fromField should not be undefined');
+          if (this.isExternal(fromIdx, fromField)) {
+            // The from field is explcitely marked external by the user (which means it is "used" and cannot be completely
+            // removed) so the @override can be removed.
+            this.hints.push(new CompositionHint(
+              hintOverrideDirectiveCanBeRemoved,
+              `Field "${coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
+              coordinate,
+            ));
+          } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
+            result.setUsedOverriden(fromIdx);
+            this.hints.push(new CompositionHint(
+              hintOverriddenFieldCanBeRemoved,
+              `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+              coordinate,
+            ));
+          } else {
+            result.setUnusedOverridden(fromIdx);
+            this.hints.push(new CompositionHint(
+              hintOverriddenFieldCanBeRemoved,
+              `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
+              coordinate,
+            ));
+          }
+        }
+      }
+    });
+
+    return result;
+  }
+
+  private mergeField(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext = new FieldMergeContext(sources)) {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
       const nodes = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
@@ -920,16 +1117,16 @@ class Merger {
     if (this.hasExternal(sources)) {
       this.validateExternalFields(sources, dest, allTypesEqual);
     }
-
-    this.addJoinField(sources, dest, allTypesEqual);
+    this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
   }
 
-  private validateFieldSharing(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
+  private validateFieldSharing(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext) {
     const shareableSources: number[] = [];
     const nonShareableSources: number[] = [];
     const allResolving: FieldDefinition<any>[] = [];
     for (const [i, source] of sources.entries()) {
-      if (!source || this.isFullyExternal(i, source)) {
+      const overridden = mergeContext.isUsedOverridden(i) || mergeContext.isUnusedOverridden(i);
+      if (!source || this.isFullyExternal(i, source) || overridden) {
         continue;
       }
 
@@ -953,7 +1150,7 @@ class Merger {
     }
   }
 
-  private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>, allTypesEqual: boolean) {
+  private validateExternalFields(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, allTypesEqual: boolean) {
     let hasInvalidTypes = false;
     const invalidArgsPresence = new Set<string>();
     const invalidArgsTypes = new Set<string>();
@@ -1031,13 +1228,22 @@ class Merger {
     }
   }
 
-  private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
+  private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>({
+    sources,
+    parentName,
+    allTypesEqual,
+    mergeContext,
+  }: {
     sources: (T | undefined)[],
     parentName: string,
-    allTypesEqual: boolean
-  ): boolean {
+    allTypesEqual: boolean,
+    mergeContext: FieldMergeContext,
+  }): boolean {
     // If not all the types are equal, then we need to put a join__field to preserve the proper type information.
     if (!allTypesEqual) {
+      return true;
+    }
+    if (mergeContext.some(({ usedOverridden }) => usedOverridden)) {
       return true;
     }
 
@@ -1046,7 +1252,8 @@ class Merger {
     //   2) none of the field instance has a @requires or @provides.
     //   3) none of the field is @external.
     for (const [idx, source] of sources.entries()) {
-      if (source) {
+      const overridden = mergeContext.isUnusedOverridden(idx);
+      if (source && !overridden) {
         const sourceMeta = this.subgraphs.values()[idx].metadata();
         if (this.isExternal(idx, source)
           || source.hasAppliedDirective(sourceMeta.providesDirective())
@@ -1061,20 +1268,35 @@ class Merger {
         }
       }
     }
+
     return false;
   }
 
   private addJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
-    sources: (T | undefined)[],
-    dest: T,
-    allTypesEqual: boolean
-  ) {
-    if (!this.needsJoinField(sources, dest.parent.name, allTypesEqual)) {
+    {
+      sources,
+      dest,
+      allTypesEqual,
+      mergeContext,
+    }: {
+      sources: (T | undefined)[],
+      dest: T,
+      allTypesEqual: boolean,
+      mergeContext: FieldMergeContext,
+    }) {
+    if (!this.needsJoinField({
+      sources,
+      parentName: dest.parent.name,
+      allTypesEqual,
+      mergeContext,
+    })) {
       return;
     }
     const joinFieldDirective = joinSpec.fieldDirective(this.merged);
     for (const [idx, source] of sources.entries()) {
-      if (!source) {
+      const usedOverridden = mergeContext.isUsedOverridden(idx);
+      const unusedOverridden = mergeContext.isUnusedOverridden(idx);
+      if (!source || unusedOverridden) {
         continue;
       }
 
@@ -1085,8 +1307,10 @@ class Merger {
         graph: name,
         requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
         provides: this.getFieldSet(source, sourceMeta.providesDirective()),
+        override: source.appliedDirectivesOf(sourceMeta.overrideDirective()).pop()?.arguments()?.from,
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
+        usedOverridden: usedOverridden ? true : undefined,
       });
     }
   }
@@ -1407,7 +1631,8 @@ class Merger {
     this.mergeDescription(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     const allTypesEqual = this.mergeTypeReference(sources, dest, true);
-    this.addJoinField(sources, dest, allTypesEqual);
+    const mergeContext = new FieldMergeContext(sources);
+    this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
     this.mergeDefaultValue(sources, dest, 'Input field');
   }
 

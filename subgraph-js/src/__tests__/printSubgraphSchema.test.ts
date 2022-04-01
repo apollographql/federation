@@ -12,7 +12,7 @@ describe('printSubgraphSchema', () => {
         mutation: Mutation
       }
 
-      extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\"])
+      extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
 
       directive @stream on FIELD
 
@@ -73,6 +73,7 @@ describe('printSubgraphSchema', () => {
         id: ID!
         name: String @external
         userAccount(id: ID! = 1): User @requires(fields: \\"name\\")
+        description: String @override(from: \\"books\\")
       }
       "
     `);
@@ -97,7 +98,7 @@ describe('printSubgraphSchema', () => {
   it('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\"])
+      "extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
 
       directive @stream on FIELD
 

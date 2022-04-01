@@ -5,7 +5,7 @@ import { mapKeys } from './utils';
  * Given an invalid input string and a list of valid options, returns a filtered
  * list of valid options sorted based on their similarity with the input.
  */
-export function suggestionList(input: string, options: string[]): string[] {
+export function suggestionList(input: string, options: readonly string[]): string[] {
   const optionsByDistance = new Map<string, number>();
 
   const threshold = Math.floor(input.length * 0.4) + 1;
