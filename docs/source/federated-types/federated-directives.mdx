@@ -139,7 +139,7 @@ type Position @shareable {
 }
 ```
 
-The `@inaccessible` directive is most commonly useful when you're adding a new field to a shared [value type](./sharing-types/). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while rolling the field out to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
+The `@inaccessible` directive is most commonly useful when you're [adding a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while rolling the field out to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
 
 ## `@provides`
 

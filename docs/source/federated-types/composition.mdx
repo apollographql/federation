@@ -82,7 +82,7 @@ type Event {
 
 One subgraph defines `Event.timestamp` as a `String`, and the other defines it as an `Int`. Composition doesn't know which type to use, so it fails.
 
-> For examples of _valid_ inconsistencies in field return types, see [Varying shared field return types](./sharing-types/#varying-shared-object-fields).
+> For examples of _valid_ inconsistencies in field return types, see [Differing shared field return types](./sharing-types/#return-types).
 
 Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your gateway, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
@@ -91,7 +91,7 @@ In Federation 2, your subgraph schemas must follow **all** of these rules to suc
 
 * Multiple subgraphs can't define the same field on an object type, _unless_ that field is [shareable](./sharing-types/#using-shareable).
 * A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
-    * For examples of compatible and incompatible field return types, see [Varying shared fields](./sharing-types/#varying-shared-object-fields).
+    * For examples of compatible and incompatible differences between subgraphs, see [Differing shared fields](./sharing-types/#differing-shared-fields).
 * If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
     * This rule is the most complex and the most essential to Federation 2. [Let's look at it more closely.](#unresolvable-field-example)
 
@@ -213,6 +213,8 @@ type Position @shareable {
 In this case, if Subgraph A only cares about the `x` and `y` fields, its resolver for `z` can always return `null`.
 
 This is a useful solution for shared types that encapsulate simple scalar data.
+
+> You can use the `@inaccessible` directive to incrementally add a value type field to multiple subgraphs _without_ breaking composition. [Learn more.](./sharing-types/#adding-new-shared-fields)
 
 #### Make the shared type an entity.
 
