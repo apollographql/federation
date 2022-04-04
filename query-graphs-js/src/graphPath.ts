@@ -1008,7 +1008,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         debug.groupEnd(`Ignored: edge is excluded`);
         continue;
       }
-      excludedEdges = addEdgeExclusion(excludedEdges, edge);
 
       // We can only take a non-collecting transition that preserves the current type (typically,
       // jumping subgraphs through a key), with the exception of the federated graph roots, where
@@ -1067,7 +1066,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         edge,
         conditionResolver,
         context,
-        excludedEdges,
+        addEdgeExclusion(excludedEdges, edge),
         excludedConditions,
       );
       if (conditionResolution.satisfied) {

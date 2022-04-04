@@ -1728,51 +1728,96 @@ describe('composition', () => {
     `);
   });
 
-  // We have specific validation tests in `validation_errors.test.ts` but this one test
-  // just check the associated error code is correct (since we check most composition error
-  // codes in this file)
-  it('use the proper error code for composition validation errors', () => {
-    const subgraphA = {
-      typeDefs: gql`
-        type Query {
-          a: A
-        }
+  describe('satisfiablility validation', () => {
+    // We have specific validation tests for validation errors in `validation_errors.test.ts` but this one
+    // test just check the associated error code is correct (since we check most composition error codes
+    // in this file)
+    it('uses the proper error code', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
 
-        type A @shareable {
-          x: Int
-        }
-      `,
-      name: 'subgraphA',
-    };
+          type A @shareable {
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
 
-    const subgraphB = {
-      typeDefs: gql`
-        type A @shareable {
-          x: Int
-          y: Int
-        }
-      `,
-      name: 'subgraphB',
-    };
+      const subgraphB = {
+        typeDefs: gql`
+          type A @shareable {
+            x: Int
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
 
-    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
-    expect(result.errors).toBeDefined();
-    expect(errors(result).map(([code]) => code)).toStrictEqual(['SATISFIABILITY_ERROR']);
-    expect(errors(result).map(([_, msg]) => msg)).toMatchStringArray([
-      `
-      The following supergraph API query:
-      {
-        a {
-          y
+      expect(result.errors).toBeDefined();
+      expect(errors(result).map(([code]) => code)).toStrictEqual(['SATISFIABILITY_ERROR']);
+      expect(errors(result).map(([_, msg]) => msg)).toMatchStringArray([
+        `
+        The following supergraph API query:
+        {
+          a {
+            y
+          }
         }
-      }
-      cannot be satisfied by the subgraphs because:
-      - from subgraph "subgraphA":
-        - cannot find field "A.y".
-        - cannot move to subgraph "subgraphB", which has field "A.y", because type "A" has no @key defined in subgraph "subgraphB".
-      `],
-    );
+        cannot be satisfied by the subgraphs because:
+        - from subgraph "subgraphA":
+          - cannot find field "A.y".
+          - cannot move to subgraph "subgraphB", which has field "A.y", because type "A" has no @key defined in subgraph "subgraphB".
+        `],
+      );
+    });
+
+    it('handles indirectly reacheable keys', () => {
+      // This tests ensure that a regression introduced by https://github.com/apollographql/federation/pull/1653
+      // is properly fixed. All we want to check is that validation succeed on this example, which it should.
+
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "k1") {
+            k1: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          # Note: the ordering of the key happens to matter for this to be a proper reproduction of the
+          # issue #1653 created.
+          type T @key(fields: "k2") @key(fields: "k1") {
+            k1: Int
+            k2: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const subgraphC = {
+        typeDefs: gql`
+          type T @key(fields: "k2") {
+            k2: Int
+            v: Int
+          }
+        `,
+        name: 'subgraphC',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB, subgraphC]);
+      assertCompositionSuccess(result);
+    });
   });
 
   describe('field sharing', () => {
