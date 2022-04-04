@@ -833,12 +833,12 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @key(fields: Int!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+      directive @key(fields: String!, resolvable: String) repeatable on OBJECT | INTERFACE
     `;
 
     expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
       'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "Int!"',
+      '[S] Invalid definition for directive "@key": argument "resolvable" should have type "Boolean" but found type "String"',
     ]]);
   });
 
@@ -860,5 +860,22 @@ describe('@core/@link handling', () => {
       'DIRECTIVE_DEFINITION_INVALID',
       '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "federation__FieldSet"',
     ]]);
+  });
+
+  it('allows any (non-scalar) type in redefinition when expected type is a scalar', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      # 'fields' should be of type 'federation_FieldSet!', but ensure we allow 'String!' alternatively.
+      directive @key(fields: String!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+    `;
+
+    // Just making sure this don't error out.
+    buildAndValidate(doc);
   });
 });
