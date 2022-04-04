@@ -346,7 +346,42 @@ const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
 
 const REFERENCED_INACCESSIBLE = makeCodeDefinition(
   'REFERENCED_INACCESSIBLE',
-  'An element is marked as @inaccessible but is referenced by a non-inaccessible element.'
+  'An element is marked as @inaccessible but is referenced by an element visible in the API schema.'
+);
+
+const DEFAULT_VALUE_USES_INACCESSIBLE = makeCodeDefinition(
+  'DEFAULT_VALUE_USES_INACCESSIBLE',
+  'An element is marked as @inaccessible but is used in the default value of an element visible in the API schema.'
+);
+
+const QUERY_ROOT_TYPE_INACCESSIBLE = makeCodeDefinition(
+  'QUERY_ROOT_TYPE_INACCESSIBLE',
+  'An element is marked as @inaccessible but is the query root type, which must be visible in the API schema.'
+);
+
+const REQUIRED_INACCESSIBLE = makeCodeDefinition(
+  'REQUIRED_INACCESSIBLE',
+  'An element is marked as @inaccessible but is required by an element visible in the API schema.'
+);
+
+const IMPLEMENTED_BY_INACCESSIBLE = makeCodeDefinition(
+  'IMPLEMENTED_BY_INACCESSIBLE',
+  'An element is marked as @inaccessible but implements an element visible in the API schema.'
+);
+
+const DISALLOWED_INACCESSIBLE = makeCodeDefinition(
+  'DISALLOWED_INACCESSIBLE',
+  'An element is marked as @inaccessible that is not allowed to be @inaccessible.'
+);
+
+const ONLY_INACCESSIBLE_CHILDREN = makeCodeDefinition(
+  'ONLY_INACCESSIBLE_CHILDREN',
+  'A type visible in the API schema has only @inaccessible children.'
+);
+
+const INVALID_DEFAULT_VALUE = makeCodeDefinition(
+  'INVALID_DEFAULT_VALUE',
+  'An element has a default value that fails to coerce to its location\'s type.'
 );
 
 const REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
@@ -451,6 +486,13 @@ export const ERRORS = {
   INVALID_LINK_DIRECTIVE_USAGE,
   LINK_IMPORT_NAME_MISMATCH,
   REFERENCED_INACCESSIBLE,
+  DEFAULT_VALUE_USES_INACCESSIBLE,
+  QUERY_ROOT_TYPE_INACCESSIBLE,
+  REQUIRED_INACCESSIBLE,
+  DISALLOWED_INACCESSIBLE,
+  IMPLEMENTED_BY_INACCESSIBLE,
+  ONLY_INACCESSIBLE_CHILDREN,
+  INVALID_DEFAULT_VALUE,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH,
   EMPTY_MERGED_INPUT_TYPE,
