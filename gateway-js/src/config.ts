@@ -1,10 +1,8 @@
 import { GraphQLError, GraphQLSchema } from 'graphql';
 import { HeadersInit } from 'node-fetch';
 import { fetch } from 'apollo-server-env';
-import {
-  GraphQLRequestContextExecutionDidStart,
-  Logger,
-} from 'apollo-server-types';
+import { GraphQLRequestContextExecutionDidStart } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { ServiceDefinition } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
 import { QueryPlan } from '@apollo/query-planner';

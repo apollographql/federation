@@ -16,7 +16,7 @@ import {
   fixtures,
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import resolvable from '@josephg/resolvable';
 
 // The order of this was specified to preserve existing test coverage. Typically

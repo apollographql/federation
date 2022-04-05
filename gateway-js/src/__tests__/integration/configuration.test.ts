@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import http from 'http';
 import mockedEnv from 'mocked-env';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { ApolloGateway } from '../..';
 import {
   mockSdlQuerySuccess,
