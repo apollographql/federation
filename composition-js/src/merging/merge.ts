@@ -849,9 +849,9 @@ class Merger {
 
   // Assume it is called on a field of a value type
   private hintOnInconsistentValueTypeField(
-    sources: (ObjectType | InterfaceType | InputObjectType | undefined)[],
-    dest: ObjectType | InterfaceType | InputObjectType,
-    field: FieldDefinition<any> | InputFieldDefinition
+    sources: (ObjectType | InterfaceType | undefined)[],
+    dest: ObjectType | InterfaceType,
+    field: FieldDefinition<any>,
   ) {
     let hintId: HintCodeDefinition;
     let typeDescription: string;
@@ -863,10 +863,6 @@ class Merger {
       case 'InterfaceType':
         hintId = HINTS.INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD;
         typeDescription = 'interface'
-        break;
-      case 'InputObjectType':
-        hintId = HINTS.INCONSISTENT_INPUT_OBJECT_FIELD;
-        typeDescription = 'input object'
         break;
     }
     for (const source of sources) {
