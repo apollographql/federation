@@ -15,7 +15,7 @@ import {
 } from '@apollo/gateway';
 import { buildComposedSchema, QueryPlanner, QueryPlan, GraphQLSchemaValidationError } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { mergeDeep } from 'apollo-utilities';
+import { mergeDeep } from '@apollo/client/utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
