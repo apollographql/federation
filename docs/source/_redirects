@@ -1,6 +1,6 @@
 /federation-2/coming-to-federation-2/ /docs/federation/v2/federation-2/under-consideration/
 /federated-types/restricting-types-fields/ /docs/federation/v2/federated-types/ownership-directives/
-/federated-types/types-fields/ /docs/federation/v2/federated-types/
+/federated-types/types-fields/ /docs/federation/v2/federated-types/sharing-types/
 /value-types/ /docs/federation/v2/federated-types/sharing-types/
 /federated-types/value-types/  /docs/federation/v2/federated-types/sharing-types/
 
@@ -10,7 +10,7 @@
 /quickstart-pt-4/ /docs/federation/v2/quickstart/local-subgraphs/
 
 /core-concepts/ /docs/federation/implementing-services/
-/implementing-services/ /docs/federation/subgraphs/
-/managed-federation/advanced-topics/ /docs/federation/managed-federation/overview/
+/implementing-services/ /docs/federation/v2/subgraphs/
+/managed-federation/advanced-topics/ /docs/federation/v2/managed-federation/overview/
 /managed-federation/monitoring/ /docs/federation/performance/monitoring
 /docs/federation/api/apollo-federation/ /docs/federation/api/apollo-subgraph/
