@@ -72,7 +72,7 @@ import {
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
   CompositionHint,
-  HintID,
+  HintCodeDefinition,
   HINTS,
 } from "../hints";
 
@@ -557,7 +557,7 @@ class Merger {
   }
 
   private reportMismatchHint<TMismatched extends { sourceAST?: ASTNode }>(
-    hintId: HintID,
+    hintId: HintCodeDefinition,
     message: string,
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
@@ -853,7 +853,7 @@ class Merger {
     dest: ObjectType | InterfaceType | InputObjectType,
     field: FieldDefinition<any> | InputFieldDefinition
   ) {
-    let hintId: HintID;
+    let hintId: HintCodeDefinition;
     let typeDescription: string;
     switch (dest.kind) {
       case 'ObjectType':

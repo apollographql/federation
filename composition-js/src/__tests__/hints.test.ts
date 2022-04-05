@@ -2,7 +2,7 @@ import { asFed2SubgraphDocument, buildSubgraph, Subgraphs } from '@apollo/federa
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
 import {
-  HintID,
+  HintCodeDefinition,
   HINTS,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
@@ -24,13 +24,13 @@ function mergeDocuments(...documents: DocumentNode[]): MergeResult {
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toRaiseHint(id: HintID, message: string): R;
+      toRaiseHint(id: HintCodeDefinition, message: string): R;
     }
   }
 }
 
 expect.extend({
-  toRaiseHint(mergeResult: MergeResult, id: HintID, message: string) {
+  toRaiseHint(mergeResult: MergeResult, expectedDefinition: HintCodeDefinition, message: string) {
     if (mergeResult.errors) {
       return {
         message: () => `Expected subgraphs to merge but got errors: [${mergeResult.errors.map(e => e.message).join(', ')}]`,
@@ -39,26 +39,27 @@ expect.extend({
     }
 
     const hints = mergeResult.hints;
-    const matchingHints = hints.filter(h => h.id.code === id.code);
+    const expectedCode = expectedDefinition.code;
+    const matchingHints = hints.filter(h => h.definition.code === expectedCode);
     if (matchingHints.length === 0) {
       const details = hints.length === 0
         ? 'no hint was raised'
-        : `hints were raised with code(s): ${hints.map(h => h.id.code).join(', ')}`;
+        : `hints were raised with code(s): ${hints.map(h => h.definition.code).join(', ')}`;
       return {
-        message: () => `Expected subgraphs merging to raise a ${id.code} hint, but ${details}`,
+        message: () => `Expected subgraphs merging to raise a ${expectedCode} hint, but ${details}`,
         pass: false
       };
     }
     for (const hint of matchingHints) {
       if (hint.message === message) {
         return {
-          message: () => `Expected subgraphs merging to not raise hint ${id.code} with message '${message}', but it did`,
+          message: () => `Expected subgraphs merging to not raise hint ${expectedCode} with message '${message}', but it did`,
           pass: true
         }
       }
     }
     return {
-      message: () => `Subgraphs merging did raise ${matchingHints.length} hint(s) with code ${id.code}, but none had the expected message:\n  ${message}\n`
+      message: () => `Subgraphs merging did raise ${matchingHints.length} hint(s) with code ${expectedCode}, but none had the expected message:\n  ${message}\n`
          + `Instead, received messages:\n  ${matchingHints.map(h => h.message).join('\n  ')}`,
       pass: false
     }
