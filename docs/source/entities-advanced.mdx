@@ -176,7 +176,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     </CodeColumns>
 
-2. In the Billing subgraph, apply the `@override` directive to every field of `Bill` that _isn't_ included in its `@key` (in this case, just `amount`):
+2. In the Billing subgraph, apply the `@override` directive to every field of `Bill`:
 
     <CodeColumns>
 
@@ -191,9 +191,9 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
     }
     ```
 
-    ```graphql {3} title="Billing subgraph"
+    ```graphql {2-3} title="Billing subgraph"
     type Bill @key(fields: "id") {
-      id: ID!
+      id: ID! @override(from: "Payments")
       amount: Int! @override(from: "Payments")
     }
     ```
@@ -232,7 +232,7 @@ extend schema
 
     ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
-      id: ID!
+      id: ID! @override(from: "Payments")
       amount: Int! @override(from: "Payments")
     }
     ```
@@ -255,7 +255,7 @@ extend schema
     }
     ```
 
-    ```graphql {3} title="Billing subgraph"
+    ```graphql {2-3} title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -470,7 +470,7 @@ In this modification of the previous example, `size` and `weight` are now subfie
 
 ## Resolving another subgraph's field
 
-By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with some exceptions, like `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
+By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with some exceptions, like entity `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
 
 You can enable multiple subgraphs to resolve a particular entity field. **This is a completely optional optimization.** When the gateway plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
 
@@ -486,6 +486,7 @@ graph TB;
   resolve("Can my subgraph always resolve this field,<br/>or only from certain query paths?");
   resolve--Always-->shareable("@shareable");
   resolve--"Only certain query paths"-->provides("@provides");
+  class shareable,provides tertiary;
 ```
 
 If you aren't sure whether your subgraph can always resolve a field, see [Using `@provides`](#using-provides) for an example of a subgraph that _can't_.
@@ -569,7 +570,7 @@ Here we're using two directives in combination: `@provides` and `@external`.
 
 #### Rules for using `@provides`
 
-* If a subgraph includes a field in any `@provides` directive, that subgraph _must_ mark the field as `@external` and _must not_ mark it as `@shareable`.
+* If a subgraph `@provides` a field that it can't _always_ resolve, the subgraph must mark that field as `@external` and must _not_ mark it as `@shareable`.
   * Remember, a `@shareable` field can _always_ be resolved by a particular subgraph, which removes the need for `@provides`.
 * To include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in _every_ subgraph that defines it.
 

@@ -65,11 +65,10 @@ type Product @key(fields: "id") {
 
 ##### `fields`
 
-`String`
 </td>
 <td>
 
-**Required.** A selection set of field names (and optionally _subfield_ names) that contribute to the entity's primary key.
+**Required.** A GraphQL selection set (provided as a string) of fields and subfields that contribute to the entity's primary key.
 
 Examples:
 
@@ -102,23 +101,6 @@ The default value is `true`.
 
 </tbody>
 </table>
-
-### `@override`
-
-Indicates that a non-`@shareable` entity field is now resolved by _this_ subgraph instead of the _one other_ subgraph where it's currently defined.
-
-**Valid locations:** Field definitions
-
-```graphql {3} title="Inventory subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-  inStock: Boolean! @override(from: "Products")
-}
-```
-
-You use `@override` to migrate an entity field from one subgraph to another. In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved _only_ by the Inventory subgraph, even though the Products subgraph also defines the field.
-
-For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
 
 ## Managing shared fields
 
@@ -166,6 +148,54 @@ An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, 
 
 The `@inaccessible` directive is helpful for [adding a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
 
+### `@override`
+
+Indicates that a field is now resolved by this subgraph _instead of_ another subgraph where it's also defined.
+
+**Valid locations:** Field definitions
+
+```graphql {3} title="Inventory subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean! @override(from: "Products")
+}
+```
+
+You use `@override` to migrate a field from one subgraph to another. In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved by the Inventory subgraph but _not_ the Products subgraph, even though the Products subgraph also defines the field.
+
+You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. _Other_ subgraphs can still resolve the field.
+
+For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `from`
+
+`String`
+</td>
+<td>
+
+**Required.** The name of the other subgraph that no longer resolves the field.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
 ## Referencing external fields
 
 ### `@external`
@@ -211,7 +241,7 @@ type Query {
 
 The example subgraph above can resolve `Product.name` for products returned by `Query.outOfStockProducts` but _not_ `Query.discontinuedProducts`.
 
-> If a subgraph `@provides` a particular field:
+> If a subgraph `@provides` a particular field that it can't _always_ resolve:
 >
 > * The subgraph must define that field and mark it as [`@external`](#external), as shown above.
 > * That field must be marked as either [`@shareable`](#shareable) or [`@external`](#external) in _every_ subgraph that defines it.
@@ -235,11 +265,10 @@ The example subgraph above can resolve `Product.name` for products returned by `
 
 ##### `fields`
 
-`String`
 </td>
 <td>
 
-**Required.** A GraphQL selection set of field names that the subgraph can resolve at this query path.
+**Required.** A GraphQL selection set (provided as a string) of object fields and subfields that the subgraph can resolve only at _this_ query path.
 
 Examples:
 
@@ -289,11 +318,16 @@ See also [Contributing computed entity fields](../entities-advanced/#contributin
 
 ##### `fields`
 
-`String`
 </td>
 <td>
 
-**Required.** A comma-separated list of `@external` object fields that this field requires.
+**Required.** A GraphQL selection set (provided as a string) of `@external` object fields and subfields that this field requires.
+
+Examples:
+
+* `"name"`
+* `"name address"`
+* `"name organization { id }"`
 
 </td>
 </tr>
