@@ -14,7 +14,7 @@ export type HintCodeDefinition = {
 }
 
 const INCONSISTENT_FIELD_TYPE: HintCodeDefinition = {
-  code: 'InconsistentFieldType',
+  code: 'INCONSISTENT_FIELD_TYPE',
   level: HintLevel.INFO,
   description: 'Indicates that a field does not have the exact same types in all subgraphs, but that the types are "compatible"'
     + ' (2 types are compatible if one is a non-nullable version of the other, a list version, a subtype, or a'
@@ -22,7 +22,7 @@ const INCONSISTENT_FIELD_TYPE: HintCodeDefinition = {
 };
 
 const INCONSISTENT_ARGUMENT_TYPE: HintCodeDefinition = {
-  code: 'InconsistentArgumentType',
+  code: 'INCONSISTENT_ARGUMENT_TYPE',
   level: HintLevel.INFO,
   description: 'Indicates that an argument type (of a field/input field/directive definition) does not have the exact same type'
     + ' in all subgraphs, but that the types are "compatible" (two types are compatible if one is a non-nullable'
@@ -30,122 +30,122 @@ const INCONSISTENT_ARGUMENT_TYPE: HintCodeDefinition = {
 };
 
 const INCONSISTENT_DEFAULT_VALUE: HintCodeDefinition = {
-  code: 'InconsistentDefaultValuePresence',
+  code: 'INCONSISTENT_DEFAULT_VALUE_PRESENCE',
   level: HintLevel.WARN,
   description: 'Indicates that an argument definition (of a field/input field/directive definition) has a default value in only'
     + ' some of the subgraphs that define the argument.',
 };
 
 const INCONSISTENT_ENTITY: HintCodeDefinition = {
-  code: 'InconsistentEntity',
+  code: 'INCONSISTENT_ENTITY',
   level: HintLevel.INFO,
   description: 'Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined.',
 };
 
 const INCONSISTENT_OBJECT_VALUE_TYPE_FIELD: HintCodeDefinition = {
-  code: 'InconsistentObjectValueTypeField',
+  code: 'INCONSISTENT_OBJECT_VALUE_TYPE_FIELD',
   level: HintLevel.DEBUG,
   description: 'Indicates that a field of an object "value type" (has no `@key` in any subgraph) is not defined in all the subgraphs that declare the type.',
 };
 
 const INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD: HintCodeDefinition = {
-  code: 'InconsistentInterfaceValueTypeField',
+  code: 'INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD',
   level: HintLevel.DEBUG,
   description: 'Indicates that a field of an interface "value type" (has no `@key` in any subgraph) is not defined in all the subgraphs that declare the type.',
 };
 
 const INCONSISTENT_INPUT_OBJECT_FIELD: HintCodeDefinition = {
-  code: 'InconsistentInputObjectField',
+  code: 'INCONSISTENT_INPUT_OBJECT_FIELD',
   level: HintLevel.WARN,
   description: 'Indicates that a field of an input object type definition is only defined in a subset of the subgraphs that declare the input object.',
 };
 
 const INCONSISTENT_UNION_MEMBER: HintCodeDefinition = {
-  code: 'InconsistentUnionMember',
+  code: 'INCONSISTENT_UNION_MEMBER',
   level: HintLevel.DEBUG,
   description: 'Indicates that a member of a union type definition is only defined in a subset of the subgraphs that declare the union.',
 };
 
 const INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM: HintCodeDefinition = {
-  code: 'InconsistentEnumValueForInputEnum',
+  code: 'INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM',
   level: HintLevel.WARN,
   description: 'Indicates that a value of an enum type definition (that is only used as an Input type) has not been merged into the supergraph because it is defined in only a subset of the subgraphs that declare the enum',
 };
 
 const INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM: HintCodeDefinition = {
-  code: 'InconsistentEnumValueForOutputEnum',
+  code: 'INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM',
   level: HintLevel.DEBUG,
   description: 'Indicates that a value of an enum type definition (that is only used as an Output type, or is unused) has been merged in the supergraph but is defined in only a subset of the subgraphs that declare the enum',
 };
 
 const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE: HintCodeDefinition = {
-  code: 'InconsistentTypeSystemDirectiveRepeatable',
+  code: 'INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE',
   level: HintLevel.DEBUG,
   description: 'Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph).',
 };
 
 const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS: HintCodeDefinition = {
-  code: 'InconsistentTypeSystemDirectiveLocations',
+  code: 'INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS',
   level: HintLevel.DEBUG,
   description: 'Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph).',
 };
 
 const INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE: HintCodeDefinition = {
-  code: 'InconsistentExecutionDirectivePresence',
+  code: 'INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE',
   level: HintLevel.WARN,
   description: 'Indicates that an execution directive definition is declared in only some of the subgraphs.',
 };
 
 const NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION: HintCodeDefinition = {
-  code: 'NoExecutionDirectiveIntersection',
+  code: 'NO_EXECUTION_DIRECTIVE_INTERSECTION',
   level: HintLevel.WARN,
   description: 'Indicates that, for an execution directive definition, no location for it appears in all subgraphs.',
 };
 
 const INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE: HintCodeDefinition = {
-  code: 'InconsistentExecutionDirectiveRepeatable',
+  code: 'INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE',
   level: HintLevel.WARN,
   description: 'Indicates that an execution directive definition is marked repeatable in only a subset of the subgraphs (and will not be repeatable in the supergraph).',
 };
 
 const INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS: HintCodeDefinition = {
-  code: 'InconsistentExecutionDirectiveLocations',
+  code: 'INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS',
   level: HintLevel.WARN,
   description: 'Indicates that an execution directive definition is declared with inconsistent locations across subgraphs (and will use the intersection of all locations in the supergraph).',
 };
 
 const INCONSISTENT_DESCRIPTION: HintCodeDefinition = {
-  code: 'InconsistentDescription',
+  code: 'INCONSISTENT_DESCRIPTION',
   level: HintLevel.WARN,
   description: 'Indicates that an element has a description in more than one subgraph, and the descriptions are not equal.',
 };
 
 const INCONSISTENT_ARGUMENT_PRESENCE: HintCodeDefinition = {
-  code: 'InconsistentArgumentPresence',
+  code: 'INCONSISTENT_ARGUMENT_PRESENCE',
   level: HintLevel.WARN,
   description: 'Indicates that an optional argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph.',
 };
 
 const FROM_SUBGRAPH_DOES_NOT_EXIST: HintCodeDefinition = {
-  code: 'FromSubgraphDoesNotExist',
+  code: 'FROM_SUBGRAPH_DOES_NOT_EXIST',
   level: HintLevel.WARN,
   description: 'Source subgraph specified by @override directive does not exist',
 };
 
 const OVERRIDDEN_FIELD_CAN_BE_REMOVED: HintCodeDefinition = {
-  code: 'OverriddenFieldCanBeRemoved',
+  code: 'OVERRIDDEN_FIELD_CAN_BE_REMOVED',
   level: HintLevel.INFO,
   description: 'Field has been overridden by another subgraph. Consider removing.',
 };
 
 const OVERRIDE_DIRECTIVE_CAN_BE_REMOVED: HintCodeDefinition = {
-  code: 'OverrideDirectiveCanBeRemoved',
+  code: 'OVERRIDE_DIRECTIVE_CAN_BE_REMOVED',
   level: HintLevel.INFO,
   description: 'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
 };
 
 const UNUSED_ENUM_TYPE: HintCodeDefinition = {
-  code: 'UnusedEnumType',
+  code: 'UNUSED_ENUM_TYPE',
   level: HintLevel.DEBUG,
   description: 'Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it). All the values from subgraphs defining that enum will be included in the supergraph.',
 };
