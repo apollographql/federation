@@ -24,8 +24,8 @@ const INCONSISTENT_FIELD_TYPE: HintCodeDefinition = {
 const INCONSISTENT_ARGUMENT_TYPE: HintCodeDefinition = {
   code: 'InconsistentArgumentType',
   level: HintLevel.INFO,
-  description: 'Indicates that an argument type (of a field/input field/directive definition) does not have the exact same types'
-    + ' in all subgraphs, but that the types are "compatible" (2 types are compatible if one is a non-nullable'
+  description: 'Indicates that an argument type (of a field/input field/directive definition) does not have the exact same type'
+    + ' in all subgraphs, but that the types are "compatible" (two types are compatible if one is a non-nullable'
     + ' version of the other, a list version, a subtype, or a combination of the former).',
 };
 
@@ -123,7 +123,7 @@ const INCONSISTENT_DESCRIPTION: HintCodeDefinition = {
 const INCONSISTENT_ARGUMENT_PRESENCE: HintCodeDefinition = {
   code: 'InconsistentArgumentPresence',
   level: HintLevel.WARN,
-  description: 'Indicates that an (optional) argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph.',
+  description: 'Indicates that an optional argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph.',
 };
 
 const FROM_SUBGRAPH_DOES_NOT_EXIST: HintCodeDefinition = {

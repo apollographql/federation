@@ -554,6 +554,27 @@ test('hints on execution directives argument not being in all subgraphs', () => 
   );
 })
 
+test('hints on field argument not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      f(a: Int): Int @shareable
+    }
+  `;
+
+  const subgraph2 = gql`
+    type Query {
+      f: Int @shareable
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
+    'Argument "Query.f(a:)" will not be added to "Query.f" in the supergraph as it does not appear in all subgraphs: '
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+  );
+})
+
 test('hints on inconsistent description for schema definition', () => {
   const subgraph1 = gql`
     """

@@ -1474,7 +1474,7 @@ class Merger {
         } else {
           this.reportMismatchHint(
             HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
-            `Argument "${arg.coordinate}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
+            `Argument "${arg.coordinate}" will not be added to "${dest.coordinate}" in the supergraph as it does not appear in all subgraphs: `,
             arg,
             sources.map((s) => s ? s.argument(argName) : undefined),
             _ => 'yes',
@@ -1485,7 +1485,7 @@ class Merger {
             true // Do include undefined sources, that's the point
           );
         }
-        // Note that we remove the element after the hint/error because we access the parent in the hint message.
+        // Note that we remove the element after the hint/error because we access it in the hint message generation.
         arg.remove();
       }
     }
@@ -1940,7 +1940,7 @@ class Merger {
             directive => locationString(this.extractExecutableLocations(directive)),
             // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
             // source that do not have the directive are not included).
-            () => `it will not appear in the subgraph as there no intersection between `,
+            () => `it will not appear in the supergraph as there no intersection between `,
             (locs, subgraphs) => `${locs} in ${subgraphs}`,
           );
           return;
