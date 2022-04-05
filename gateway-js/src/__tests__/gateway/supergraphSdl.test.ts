@@ -7,7 +7,7 @@ import {
 import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from '../../utilities/createHash';
 import { ApolloServer } from 'apollo-server';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';

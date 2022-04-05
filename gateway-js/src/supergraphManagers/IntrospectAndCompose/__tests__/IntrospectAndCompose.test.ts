@@ -9,7 +9,7 @@ import { IntrospectAndCompose } from '..';
 import { mockAllServicesSdlQuerySuccess } from '../../../__tests__/integration/nockMocks';
 import { getTestingSupergraphSdl, wait } from '../../../__tests__/execution-utils';
 import resolvable from '@josephg/resolvable';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 
 describe('IntrospectAndCompose', () => {
   beforeEach(nockBeforeEach);

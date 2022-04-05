@@ -1,5 +1,5 @@
 import { fetch } from 'apollo-server-env';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import resolvable from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
 import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '../..';
