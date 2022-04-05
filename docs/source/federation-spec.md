@@ -309,3 +309,46 @@ extend type User @key(fields: "email") {
 ```
 
 This type extension in the Reviews service extends the `User` type from the Users service. It extends it for the purpose of adding a new field called `reviews`, which returns a list of `Review`s.
+
+### `@shareable`
+
+```graphql
+directive @shareable on FIELD_DEFINITION | OBJECT
+```
+
+When specified on a field, the `@shareable` directive denotes that the field may be resolved by multiple subgraphs. Every instance of a field declaration that is resolved by a subgraph has an underlying "sharing mode" binary property, which can be either sharable or non-shareable. In order to pass composition, the sharing mode for a given field must be the same across all subgraphs. Note that any field specified by an `@key` is automatically shareable, and that marking an object shareable is shorthand for making all fields on that object shareable. When the sharing mode for a field is sharable, queries to that field may potentially resolve to any subgraph which resolves the field.
+
+```graphql
+type Product @key(fields: "upc") {
+  upc: UPC!                         # sharable because upc is a key field
+  name: String                      # non-shareable
+  description: String @shareable    # sharable
+}
+
+type User @key(fields: "email") @shareable {
+  email: String                    # shareable because User is marked shareable
+  name: String                     # shareable because User is marked shareable
+}
+```
+
+### `@override`
+
+```graphql
+directive @override(from: String!) on FIELD_DEFINITION
+```
+
+The `@override` directive is used to annotate that the field in the current subgraph is taking responsibility for providing the value of the field away from the subgraph specified in the `from` argument. The following example will result in all query plans made to resolve `User.name` to be directed to `SubgraphB`.
+
+```graphql
+# in SubgraphA
+type User @key(fields: "id") {
+  id: ID!
+  name: String
+}
+
+# in SubgraphB
+type User @key(fields: "id") {
+  id: ID!
+  name: String @override(from: "SubgraphA")
+}
+```
