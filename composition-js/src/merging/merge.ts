@@ -1606,6 +1606,7 @@ class Merger {
           (_, subgraphs) => `"${memberName}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
+        return;
       }
     }
   }
@@ -1729,6 +1730,7 @@ class Merger {
           (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
+        return;
       }
     }
   }
