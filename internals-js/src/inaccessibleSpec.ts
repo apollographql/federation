@@ -36,6 +36,7 @@ export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 export class InaccessibleSpecDefinition extends FeatureDefinition {
   public readonly inaccessibleLocations: DirectiveLocation[];
   public readonly inaccessibleDirectiveSpec: DirectiveSpecification;
+  private readonly printedTagDefinition: string;
 
   constructor(version: FeatureVersion) {
     super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version));
@@ -45,6 +46,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
       DirectiveLocation.INTERFACE,
       DirectiveLocation.UNION,
     ];
+    this.printedTagDefinition = 'directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
     if (!this.isV01()) {
       this.inaccessibleLocations.push(
         DirectiveLocation.ARGUMENT_DEFINITION,
@@ -54,6 +56,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
         DirectiveLocation.INPUT_OBJECT,
         DirectiveLocation.INPUT_FIELD_DEFINITION,
       );
+      this.printedTagDefinition = 'directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION';
     }
     this.inaccessibleDirectiveSpec = createDirectiveSpecification({
       name: 'inaccessible',
@@ -71,6 +74,18 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> | undefined {
     return this.directive(schema, 'inaccessible');
+  }
+
+  checkCompatibleDirective(definition: DirectiveDefinition): GraphQLError | undefined {
+    const hasUnknownArguments = Object.keys(definition.arguments()).length > 0;
+    const hasRepeatable = definition.repeatable;
+    const hasValidLocations = definition.locations.every(loc => this.inaccessibleLocations.includes(loc));
+    if (hasUnknownArguments || hasRepeatable || !hasValidLocations) {
+      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
+        message: `Found invalid @inaccessible directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${this.printedTagDefinition}`,
+      });
+    }
+    return undefined;
   }
 
   allElementNames(): string[] {
@@ -115,6 +130,12 @@ export function removeInaccessibleElements(schema: Schema) {
       `Invalid schema: declares ${inaccessibleSpec.url} spec but does not` +
       ` define a @inaccessible directive.`
     )]);
+  }
+
+  const incompatibleError =
+    inaccessibleSpec.checkCompatibleDirective(inaccessibleDirective);
+  if (incompatibleError) {
+    throw ErrGraphQLAPISchemaValidationFailed([incompatibleError]);
   }
 
   validateInaccessibleElements(
