@@ -2621,7 +2621,7 @@ describe('composition', () => {
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['REFERENCED_INACCESSIBLE', 'Field "Query.q2" returns @inaccessible type "A" without being marked @inaccessible itself.']
+        ['REFERENCED_INACCESSIBLE', 'Type "A" is @inaccessible but is referenced by "Query.q2", which is in the API schema.']
       ]);
 
       // Because @inaccessible are thrown by the toAPISchema code and not the merge code directly, let's make sure the include
@@ -2630,13 +2630,13 @@ describe('composition', () => {
       // guarantees us that we do get subgraph nodes and not supergraph nodes because supergraph nodes would have @join__*
       // directives and would _not_ have the `@shareable`/`@inacessible` directives.
       const nodes = result.errors![0].nodes!;
-      expect(print(nodes[0])).toMatchString('q2: A');
-      expect(print(nodes[1])).toMatchString(`
+      expect(print(nodes[0])).toMatchString(`
         type A @shareable @inaccessible {
           x: Int
           y: Int
         }`
       );
+      expect(print(nodes[1])).toMatchString('q2: A');
     })
   });
 

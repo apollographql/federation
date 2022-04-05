@@ -1,9 +1,20 @@
+import { ObjectType } from "../definitions";
+import { buildSchema } from "../buildSchema";
+import { apiSchemaValidationErrorCode } from "../coreSpec";
+import { removeInaccessibleElements } from "../inaccessibleSpec";
 import { GraphQLErrorExt } from "@apollo/core-schema/dist/error";
-import { errorCauses, ObjectType } from '../definitions';
-import { buildSchema } from '../buildSchema';
-import { removeInaccessibleElements } from '../inaccessibleSpec';
+import { GraphQLError } from "graphql";
 
-describe('removeInaccessibleElements', () => {
+describe("removeInaccessibleElements", () => {
+  function errorCauses(e: Error): GraphQLError[] {
+    expect(e instanceof GraphQLErrorExt).toBeTruthy();
+    const error = e as GraphQLErrorExt<string>;
+    expect(error.code).toStrictEqual(apiSchemaValidationErrorCode);
+    const causes = (error as any).causes;
+    expect(Array.isArray(causes)).toBeTruthy();
+    return causes as GraphQLError[];
+  }
+
   it(`removes @inaccessible fields`, () => {
     const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
@@ -30,10 +41,10 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    const queryType = schema.schemaDefinition.rootType('query')!;
+    const queryType = schema.schemaDefinition.rootType("query")!;
 
-    expect(queryType.field('someField')).toBeDefined();
-    expect(queryType.field('privateField')).toBeUndefined();
+    expect(queryType.field("someField")).toBeDefined();
+    expect(queryType.field("privateField")).toBeUndefined();
   });
 
   it(`removes @inaccessible object types`, () => {
@@ -56,18 +67,23 @@ describe('removeInaccessibleElements', () => {
 
       type Query {
         fooField: Foo @inaccessible
+        barField: Bar
       }
 
       type Foo @inaccessible {
         someField: String
       }
 
-      union Bar = Foo
+      type Bar {
+        someField: String
+      }
+
+      union Baz = Foo | Bar
     `);
 
     removeInaccessibleElements(schema);
 
-    expect(schema.type('Foo')).toBeUndefined();
+    expect(schema.type("Foo")).toBeUndefined();
   });
 
   it(`removes @inaccessible interface types`, () => {
@@ -90,6 +106,7 @@ describe('removeInaccessibleElements', () => {
 
       type Query {
         fooField: Foo @inaccessible
+        barField: Bar
       }
 
       interface Foo @inaccessible {
@@ -103,10 +120,10 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.type('Foo')).toBeUndefined();
-    const barType = schema.type('Bar') as ObjectType | undefined;
+    expect(schema.type("Foo")).toBeUndefined();
+    const barType = schema.type("Bar") as ObjectType | undefined;
     expect(barType).toBeDefined();
-    expect(barType?.field('someField')).toBeDefined();
+    expect(barType?.field("someField")).toBeDefined();
     expect([...barType!.interfaces()]).toHaveLength(0);
   });
 
@@ -130,6 +147,7 @@ describe('removeInaccessibleElements', () => {
 
       type Query {
         fooField: Foo @inaccessible
+        barField: Bar
       }
 
       union Foo @inaccessible = Bar | Baz
@@ -145,9 +163,9 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.type('Foo')).toBeUndefined();
-    expect(schema.type('Bar')).toBeDefined();
-    expect(schema.type('Baz')).toBeDefined();
+    expect(schema.type("Foo")).toBeUndefined();
+    expect(schema.type("Bar")).toBeDefined();
+    expect(schema.type("Baz")).toBeDefined();
   });
 
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
@@ -170,24 +188,29 @@ describe('removeInaccessibleElements', () => {
 
       type Query {
         fooField: Foo
+        barField: Bar
       }
 
       type Foo @inaccessible {
         someField: String
       }
 
-      union Bar = Foo
+      type Bar {
+        someField: String
+      }
+
+      union Baz = Foo | Bar
     `);
 
     try {
-      // Assert that an AggregateError is thrown, then allow the error to be caught for further validation
+      // Assert that an aggregate Error is thrown, then allow the error to be
+      // caught for further validation
       expect(removeInaccessibleElements(schema)).toThrow(GraphQLErrorExt);
     } catch (err) {
       const causes = errorCauses(err);
-      expect(causes).toBeTruthy();
-      expect(err.causes).toHaveLength(1);
-      expect(err.causes[0].toString()).toMatch(
-        `Field "Query.fooField" returns @inaccessible type "Foo" without being marked @inaccessible itself.`
+      expect(causes).toHaveLength(1);
+      expect(causes[0].message).toMatchInlineSnapshot(
+        `"Type \\"Foo\\" is @inaccessible but is referenced by \\"Query.fooField\\", which is in the API schema."`
       );
     }
   });
@@ -212,7 +235,6 @@ describe('removeInaccessibleElements', () => {
 
       type Query {
         fooField: Foo
-        fooderationField: Foo
       }
 
       type Foo @inaccessible {
@@ -223,17 +245,17 @@ describe('removeInaccessibleElements', () => {
     `);
 
     try {
-      // Assert that an AggregateError is thrown, then allow the error to be caught for further validation
+      // Assert that an aggregate Error is thrown, then allow the error to be
+      // caught for further validation
       expect(removeInaccessibleElements(schema)).toThrow(GraphQLErrorExt);
     } catch (err) {
       const causes = errorCauses(err);
-      expect(causes).toBeTruthy();
-      expect(err.causes).toHaveLength(2);
-      expect(err.causes[0].toString()).toMatch(
-        `Field "Query.fooField" returns @inaccessible type "Foo" without being marked @inaccessible itself.`
+      expect(causes).toHaveLength(2);
+      expect(causes[0].message).toMatchInlineSnapshot(
+        `"Type \\"Foo\\" is @inaccessible but is referenced by \\"Query.fooField\\", which is in the API schema."`
       );
-      expect(err.causes[1].toString()).toMatch(
-        `Field "Query.fooderationField" returns @inaccessible type "Foo" without being marked @inaccessible itself.`
+      expect(causes[1].message).toMatchInlineSnapshot(
+        `"Type \\"Bar\\" is in the API schema but all of its members are @inaccessible."`
       );
     }
   });
@@ -265,12 +287,17 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    removeInaccessibleElements(schema);
-
-    expect(schema.schemaDefinition.rootType('query')).toBeUndefined();
-    expect(schema.type('Query')).toBeUndefined();
-
-    expect(() => schema.validate()).toThrow();
+    try {
+      // Assert that an aggregate Error is thrown, then allow the error to be
+      // caught for further validation
+      expect(removeInaccessibleElements(schema)).toThrow(GraphQLErrorExt);
+    } catch (err) {
+      const causes = errorCauses(err);
+      expect(causes).toHaveLength(1);
+      expect(causes[0].message).toMatchInlineSnapshot(
+        `"Type \\"Query\\" is @inaccessible but is the root query type, which must be in the API schema."`
+      );
+    }
   });
 
   it(`removes @inaccessible mutation root type`, () => {
@@ -307,8 +334,8 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.schemaDefinition.rootType('mutation')).toBeUndefined();
-    expect(schema.type('Mutation')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType("mutation")).toBeUndefined();
+    expect(schema.type("Mutation")).toBeUndefined();
   });
 
   it(`removes @inaccessible subscription root type`, () => {
@@ -345,7 +372,7 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.schemaDefinition.rootType('subscription')).toBeUndefined();
-    expect(schema.type('Subscription')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType("subscription")).toBeUndefined();
+    expect(schema.type("Subscription")).toBeUndefined();
   });
 });
