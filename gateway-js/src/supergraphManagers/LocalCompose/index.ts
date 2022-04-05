@@ -1,5 +1,5 @@
 // TODO(trevor:removeServiceList) the whole file goes away
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import {
   composeAndValidate,
   compositionHasErrors,

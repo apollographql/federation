@@ -187,11 +187,11 @@ The default value is `false`.
 
 ###### `logger`
 
-[`Logger`](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172)
+[`Logger`](https://github.com/apollographql/apollo-utils/tree/main/packages/logger)
 </td>
 <td>
 
-An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L187-L193).
+An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-utils/tree/main/packages/logger).
 
 If you provide this value, the gateway automatically logs all messages of _all_ severity levels (`debug` through `error`), regardless of whether the `debug` option is set to `true`. It is the responsibility of the logger to determine how to handle logged messages of each level.
 
@@ -727,11 +727,11 @@ If `true`, the gateway performs a health check on each subgraph before performin
 
 ###### `logger`
 
-[`Logger`](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172)
+[`Logger`](https://github.com/apollographql/apollo-utils/tree/main/packages/logger)
 </td>
 <td>
 
-An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172).
+An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-utils/tree/main/packages/logger).
 
 `IntrospectAndCompose` doesn't share the same logger as the `ApolloGateway` it's configured with. In most cases, you probably want to pass the same logger to both `ApolloGateway` and `IntrospectAndCompose`.
 </td>

@@ -2,9 +2,9 @@ import { deprecate } from 'util';
 import { GraphQLService, Unsubscriber } from 'apollo-server-core';
 import {
   GraphQLExecutionResult,
-  Logger,
   GraphQLRequestContextExecutionDidStart,
 } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
   isObjectType,

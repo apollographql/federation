@@ -1,5 +1,5 @@
 import { ApolloGateway } from '../..';
-import { Logger } from "apollo-server-types";
+import type { Logger } from '@apollo/utils.logger';
 import { PassThrough } from "stream";
 
 import * as winston from "winston";
