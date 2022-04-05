@@ -364,7 +364,7 @@ test('hints on enum type not being used', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintUnusedEnumType,
-    'Enum type "T" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only use as an output type).'
+    'Enum type "T" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).'
   );
 })
 
