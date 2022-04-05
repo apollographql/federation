@@ -109,7 +109,6 @@ Indicates that a non-`@shareable` entity field is now resolved by _this_ subgrap
 
 **Valid locations:** Field definitions
 
-
 ```graphql {3} title="Inventory subgraph"
 type Product @key(fields: "id") {
   id: ID!
@@ -127,7 +126,7 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 
 Indicates that an object type's field is allowed to be resolved by multiple subgraphs (by default, each field can be resolved by only one subgraph).
 
-**Valid locations:** Field definitions, Object type definitions
+**Valid locations:** Field definitions; Object type definitions
 
 ```graphql {2-3}
 type Position {
@@ -149,9 +148,9 @@ See also [Value types in Apollo Federation](./sharing-types/) and [Resolving ano
 
 ### `@inaccessible`
 
-Indicates that a field should be _omitted_ from the composed supergraph schema, _even if it's also defined in other subgraphs_.
+Indicates that a field or type should be _omitted_ from the gateway's API schema, _even if it's also defined in other subgraphs_.
 
-**Valid locations:** Field definitions
+**Valid locations:** Field definitions; Type definitions for objects, interfaces, and unions
 
 ```graphql {4}
 type Position @shareable {
@@ -161,7 +160,11 @@ type Position @shareable {
 }
 ```
 
-You usually use `@inaccessible` to [add a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
+An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, so the gateway still knows it exists (but clients can't include it in operations).
+
+**If a type is marked `@inaccessible`, all fields that return that type must also be marked `@inaccessible`.** Otherwise, a composition error occurs.
+
+The `@inaccessible` directive is helpful for [adding a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
 
 ## Referencing external fields
 

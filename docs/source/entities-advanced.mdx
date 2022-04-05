@@ -99,11 +99,11 @@ type Bill @key(fields: "id") {
 
 </CodeColumns>
 
-The exact steps depend on how you perform schema composition:
+The steps for this migration depend on how you perform schema composition:
 
 <ExpansionPanel title="With Rover CLI composition">
 
-1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
+1. In the Billing subgraph, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
     ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
@@ -152,70 +152,16 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
 <ExpansionPanel title="With managed federation">
 
-> During the Federation 2 preview, this process uses the `@shareable` directive to make sure your supergraph schema composes during each step of the migration process. The full release of Federation 2 will include a different mechanism _specifically_ designed for migrating fields.
-
-1. In the Payments subgraph's schema, add the `@shareable` directive to the `Bill` entity's definition:
-
-    <CodeColumns>
-
-    ```graphql {1} title="Payments subgraph"
-    type Bill @key(fields: "id") @shareable {
-      id: ID!
-      amount: Int!
-    }
-
-    type Payment {
-      # ...
-    }
-    ```
-
-    </CodeColumns>
-
-    This allows other subgraphs to resolve all `Bill` fields defined in Payments.
-
-2. Publish the updated Payments subgraph schema to Apollo.
-
-    * When the gateway fetches its new supergraph schema, its behavior doesn't change. Even though the `Bill` entity is now `@shareable`, the Payments subgraph is still the only subgraph that defines it.
-
-3. In the Billing subgraph's schema, define the `Bill` entity exactly as it's now defined in the Payments subgraph:
+1. In the Billing subgraph, define the `Bill` entity exactly as it's defined in the Payments subgraph:
 
     <CodeColumns>
 
     ```graphql title="Payments subgraph"
-    type Bill @key(fields: "id") @shareable {
+    type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
     }
 
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql {1-4} title="Billing subgraph"
-    type Bill @key(fields: "id") @shareable {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-    </CodeColumns>
-
-4. Also in the Billing subgraph, define resolvers for each field of `Bill` that's currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
-
-5. Deploy the updated Billing subgraph to your environment.
-
-    * This change is currently invisible to your gateway, which is not yet aware that the Billing subgraph defines the `Bill` entity.
-
-6. Publish the updated Billing subgraph schema to Apollo.
-
-    * When the gateway fetches its new supergraph schema, it detects that both the Payments _and_ Billing subgraphs can resolve fields of the `Bill` entity.
-
-7. In the Payments subgraph, _remove_ the `Bill` entity and its associated resolvers:
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
     type Payment {
       # ...
     }
@@ -230,13 +176,51 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
     </CodeColumns>
 
-8. Publish the updated Payments subgraph schema to Apollo.
+2. In the Billing subgraph, apply the `@override` directive to every field of `Bill` that _isn't_ included in its `@key` (in this case, just `amount`):
 
-    * When the gateway fetches its new supergraph schema, it detects that _only_ the Billing subgraph can resolve fields of the `Bill` entity.
+    <CodeColumns>
 
-9. Deploy the updated Payments subgraph to your environment.
+    ```graphql title="Payments subgraph"
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
 
-10. Remove the `@shareable` directive from the `Bill` entity in the Billing subgraph:
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql {3} title="Billing subgraph"
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int! @override(from: "Payments")
+    }
+    ```
+
+    </CodeColumns>
+
+    The `@override` directive says, "Resolve this field in this subgraph _instead of_ in the Payments subgraph."
+
+3. In the Billing subgraph, make sure your Federation 2 opt-in declaration includes the `@override` directive in its `import` array:
+
+```graphql {3} title="Billing subgraph"
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable", "@override"])
+```
+
+4. In the Billing subgraph, define resolvers for each field of `Bill` that's currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
+
+5. Deploy the updated Billing subgraph to your environment.
+
+    * This change is currently invisible to your gateway, which is not yet aware that the Billing subgraph defines the `Bill` entity.
+
+6. Publish the updated Billing subgraph schema to Apollo.
+
+    * When the gateway fetches its new supergraph schema, it detects that it should resolve the `Bill` entity in the Billing subgraph _instead of_ in the Payments subgraph.
+
+7. In the Payments subgraph, _remove_ the `Bill` entity and its associated resolvers:
 
     <CodeColumns>
 
@@ -246,7 +230,32 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
     }
     ```
 
-    ```graphql {1} title="Billing subgraph"
+    ```graphql title="Billing subgraph"
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int! @override(from: "Payments")
+    }
+    ```
+
+    </CodeColumns>
+
+8. Publish the updated Payments subgraph schema to Apollo.
+
+    * When the gateway fetches its new supergraph schema, it continues resolving the `Bill` entity in the Billing subgraph. The `@override` directive has no effect if a field is defined in only one subgraph.
+
+9. Deploy the updated Payments subgraph to your environment.
+
+10. Remove all `@override` directives from the `Bill` entity in the Billing subgraph:
+
+    <CodeColumns>
+
+    ```graphql title="Payments subgraph"
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql {3} title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
       amount: Int!
@@ -325,7 +334,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
 
 The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#entity-migration).
 
-> ⚠️ If you're using managed federation, follow the steps in the **With managed federation** section above, but apply the `@shareable` directive to the _individual field_ you're migrating instead of the entity.
+**If you're using managed federation**, follow the steps in the **With managed federation** section above, but apply the `@override` directive to the _individual field_ you're migrating instead of _all_ fields.
 
 If you're using local composition with Rover, see below for a field migration example.
 

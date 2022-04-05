@@ -88,7 +88,7 @@ This flexibility is especially helpful when an organization has multiple standal
 * The return type of a shared field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
-> For details on how these field differences are handled, see [Sharing types](../federated-types/sharing-types/).
+> For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
 
 ### Enums, unions, and interfaces
 
@@ -210,6 +210,34 @@ type Review {
 In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any fields to the entity. Therefore, the "stub" definition of `Product` in the Reviews subgraph needs to include _only_ the `@key` field for `Product` (`id` in this case) and indicate that it can't resolve any other fields.
 
 For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+
+### Migrating fields
+
+Federation 2 introduces the `@override` directive, which helps you safely migrate entity fields between subgraphs with managed federation:
+
+<CodeColumns>
+
+```graphql title="Payments subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int!
+}
+
+type Payment {
+  # ...
+}
+```
+
+```graphql {3} title="Billing subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int! @override(from: "Payments")
+}
+```
+
+</CodeColumns>
+
+For details, see [Entity migration](../entities-advanced/#entity-migration).
 
 ## Interfaces implementing interfaces
 
