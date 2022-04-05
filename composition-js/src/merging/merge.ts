@@ -63,6 +63,11 @@ import {
   withModifiedErrorNodes,
   didYouMean,
   suggestionList,
+  EnumValue,
+  inaccessibleDirectiveSpec,
+  baseType,
+  isEnumType,
+  filterTypesOfKind,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -76,7 +81,6 @@ import {
   hintInconsistentInterfaceValueTypeField,
   hintInconsistentInputObjectField,
   hintInconsistentUnionMember,
-  hintInconsistentEnumValue,
   hintInconsistentExecutionDirectivePresence,
   hintNoExecutionDirectiveLocationsIntersection,
   hintInconsistentExecutionDirectiveRepeatable,
@@ -86,6 +90,9 @@ import {
   hintFromSubgraphDoesNotExist,
   hintOverrideDirectiveCanBeRemoved,
   hintOverriddenFieldCanBeRemoved,
+  hintUnusedEnumType,
+  hintInconsistentEnumValueForInputEnum,
+  hintInconsistentEnumValueForOutputEnum,
 } from "../hints";
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -259,6 +266,15 @@ function locationString(locations: DirectiveLocation[]): string {
   return (locations.length === 1 ? 'location ' : 'locations ') + '"' + locations.join(', ') + '"';
 }
 
+type EnumTypeUsagePosition = 'Input' | 'Output' | 'Both';
+type EnumTypeUsage = {
+  position: EnumTypeUsagePosition,
+  examples: {
+    Input?: {coordinate: string, sourceAST?: SubgraphASTNode},
+    Output?: {coordinate: string, sourceAST?: SubgraphASTNode},
+  },
+}
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -267,6 +283,8 @@ class Merger {
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
   readonly mergedFederationDirectiveNames = new Set<string>();
+  readonly mergedFederationDirectiveInSupergraph = new Map<string, DirectiveDefinition>();
+  readonly enumUsages = new Map<string, EnumTypeUsage>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -314,9 +332,10 @@ class Merger {
     // If we get here with `nameInSupergraph` unset, it means there is no usage for the directive at all and we
     // don't bother adding the spec to the supergraph.
     if (nameInSupergraph) {
-      this.mergedFederationDirectiveNames.add(nameInSupergraph);
       const errors = linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph);
       assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
+      this.mergedFederationDirectiveNames.add(nameInSupergraph);
+      this.mergedFederationDirectiveInSupergraph.set(specInSupergraph.url.name, this.merged.directive(nameInSupergraph)!);
     }
   }
 
@@ -353,16 +372,19 @@ class Merger {
     this.addTypesShallow();
     this.addDirectivesShallow();
 
+    const typesToMerge = this.merged.types()
+      .filter((type) => !linkSpec.isSpecType(type) && !joinSpec.isSpecType(type));
+
     // Then, for object and interface types, we merge the 'implements' relationship, and we merge the unions.
     // We do this first because being able to know if a type is a subtype of another one (which relies on those
     // 2 things) is used when merging fields.
-    for (const objectType of this.merged.types<ObjectType>('ObjectType')) {
+    for (const objectType of filterTypesOfKind<ObjectType>(typesToMerge, 'ObjectType')) {
       this.mergeImplements(this.subgraphsTypes(objectType), objectType);
     }
-    for (const interfaceType of this.merged.types<InterfaceType>('InterfaceType')) {
+    for (const interfaceType of filterTypesOfKind<InterfaceType>(typesToMerge, 'InterfaceType')) {
       this.mergeImplements(this.subgraphsTypes(interfaceType), interfaceType);
     }
-    for (const unionType of this.merged.types<UnionType>('UnionType')) {
+    for (const unionType of filterTypesOfKind<UnionType>(typesToMerge, 'UnionType')) {
       this.mergeType(this.subgraphsTypes(unionType), unionType);
     }
 
@@ -372,9 +394,9 @@ class Merger {
     // calling root type a "value type" when hinting).
     this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
-    for (const type of this.merged.types()) {
-      // We've already merged unions above
-      if (type.kind === 'UnionType' || linkSpec.isSpecType(type) || joinSpec.isSpecType(type)) {
+    for (const type of typesToMerge) {
+      // We've already merged unions above and we've going to merge enums last
+      if (type.kind === 'UnionType' || type.kind === 'EnumType') {
         continue;
       }
       this.mergeType(this.subgraphsTypes(type), type);
@@ -386,6 +408,13 @@ class Merger {
         continue;
       }
       this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
+    }
+
+    // We merge enum dead last because enums can be used as both input and output types and the merging behavior
+    // depends on their usage and it's easier to check said usage if everything else has been merge (at least
+    // anything that may use an enum type, so all fields and arguments).
+    for (const enumType of filterTypesOfKind<EnumType>(typesToMerge, 'EnumType')) {
+      this.mergeType(this.subgraphsTypes(enumType), enumType);
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
@@ -506,7 +535,18 @@ class Merger {
     );
   }
 
-  private reportMismatchErrorWithSpecifics<TMismatched extends { sourceAST?: ASTNode }>(
+  private reportMismatchErrorWithSpecifics<TMismatched extends { sourceAST?: ASTNode }>({
+    code,
+    message,
+    mismatchedElement,
+    subgraphElements,
+    mismatchAccessor,
+    supergraphElementPrinter,
+    otherElementsPrinter,
+    ignorePredicate,
+    includeMissingSources = false,
+    extraNodes,
+  }: {
     code: ErrorCodeDefinition,
     message: string,
     mismatchedElement: TMismatched,
@@ -515,8 +555,9 @@ class Merger {
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
-    includeMissingSources: boolean = false
-  ) {
+    includeMissingSources?: boolean,
+    extraNodes?: SubgraphASTNode[],
+  }) {
     this.reportMismatch(
       mismatchedElement,
       subgraphElements,
@@ -526,7 +567,7 @@ class Merger {
       (distribution, nodes) => {
         this.errors.push(code.err({
           message: message + distribution[0] + joinStrings(distribution.slice(1), ' and '),
-          nodes
+          nodes: nodes.concat(extraNodes ?? [])
         }));
       },
       ignorePredicate,
@@ -1194,17 +1235,16 @@ class Merger {
     }
     for (const arg of invalidArgsPresence) {
       const destArg = dest.argument(arg)!;
-      this.reportMismatchErrorWithSpecifics(
-        ERRORS.EXTERNAL_ARGUMENT_MISSING,
-        `Field "${dest.coordinate}" is missing argument "${destArg.coordinate}" in some subgraphs where it is marked @external: `,
-        destArg,
-        sources.map(s => s?.argument(destArg.name)),
-        arg => arg ? `argument "${arg.coordinate}"` : undefined,
-        (elt, subgraphs) => `${elt} is declared in ${subgraphs}`,
-        (_, subgraphs) => ` but not in ${subgraphs} (where "${dest.coordinate}" is @external).`,
-        undefined,
-        true
-      );
+      this.reportMismatchErrorWithSpecifics({
+        code: ERRORS.EXTERNAL_ARGUMENT_MISSING,
+        message: `Field "${dest.coordinate}" is missing argument "${destArg.coordinate}" in some subgraphs where it is marked @external: `,
+        mismatchedElement: destArg,
+        subgraphElements: sources.map(s => s?.argument(destArg.name)),
+        mismatchAccessor: arg => arg ? `argument "${arg.coordinate}"` : undefined,
+        supergraphElementPrinter: (elt, subgraphs) => `${elt} is declared in ${subgraphs}`,
+        otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs} (where "${dest.coordinate}" is @external).`,
+        includeMissingSources: true,
+      });
     }
     for (const arg of invalidArgsTypes) {
       const destArg = dest.argument(arg)!;
@@ -1326,7 +1366,7 @@ class Merger {
   private mergeTypeReference<TType extends Type, TElement extends NamedSchemaElementWithType<TType, any, any, any>>(
     sources: (TElement | undefined)[],
     dest: TElement,
-    isContravariant: boolean = false
+    isInputPosition: boolean = false
   ): boolean {
     let destType: TType | undefined;
     let hasSubtypes = false;
@@ -1341,12 +1381,12 @@ class Merger {
         destType = sourceType;
       } else if (this.isStrictSubtype(destType, sourceType)) {
         hasSubtypes = true;
-        if (isContravariant) {
+        if (isInputPosition) {
           destType = sourceType;
         }
       } else if (this.isStrictSubtype(sourceType, destType)) {
         hasSubtypes = true;
-        if (!isContravariant) {
+        if (!isInputPosition) {
           destType = sourceType;
         }
       } else {
@@ -1361,6 +1401,25 @@ class Merger {
     const isArgument = dest instanceof ArgumentDefinition;
     const elementKind: string = isArgument ? 'Argument' : 'Field';
 
+    const base = baseType(dest.type);
+    // Collecting enum usage for the sake of merging enums later.
+    if (isEnumType(base)) {
+      const existing = this.enumUsages.get(base.name);
+      const thisPosition = isInputPosition ? 'Input' : 'Output';
+      const position = existing && existing.position !== thisPosition ? 'Both' : thisPosition;
+      const examples = existing?.examples ?? {};
+      if (!examples[thisPosition]) {
+        const idx = sources.findIndex((s) => !!s);
+        if (idx >= 0) {
+          const example = sources[idx]!;
+          examples[thisPosition] = {
+            coordinate: example.coordinate,
+            sourceAST: example.sourceAST ? addSubgraphToASTNode(example.sourceAST, this.names[idx]) : undefined,
+          };
+        }
+      }
+      this.enumUsages.set(base.name, { position, examples });
+    }
 
     if (hasIncompatible) {
       this.reportMismatchError(
@@ -1383,7 +1442,7 @@ class Merger {
         sources,
         field => field.type!.toString(),
         (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
-        (elt, subgraphs) => `${isContravariant ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
+        (elt, subgraphs) => `${isInputPosition ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
       );
       return false;
     }
@@ -1414,7 +1473,7 @@ class Merger {
     }
 
     for (const argName of argNames) {
-      // We add the arguement unconditionally even if we're going to remove it in
+      // We add the argument unconditionally even if we're going to remove it in
       // some path. Done because this helps reusing our "reportMismatchHint" method
       // in those cases.
       const arg = dest.addArgument(argName);
@@ -1575,27 +1634,109 @@ class Merger {
   }
 
   private mergeEnum(sources: (EnumType | undefined)[], dest: EnumType) {
-    // TODO: option + hint for when all definitions are not equal.
-    // TODO: hint for inaccessible values not everywhere (see generalized composition doc)?
+    let usage = this.enumUsages.get(dest.name);
+    if (!usage) {
+      // If the enum is unused, we have a choice to make. We could skip the enum entirely (after all, exposing an unreferenced type mostly "pollutes" the supergraph API), but
+      // some evidence shows that many a user have such unused enums in federation 1 and having those removed from their API might be surprising. We could merge it as
+      // an "input-only" or as a "input/ouput" type, but the hints/errors generated in both those cases would be confusing in that case, and while we could amend them
+      // for this case, it would complicate things and doesn't feel like it would feel very justified. So we merge it as an "output" type, which is the least contraining
+      // option. We do raise an hint though so users can notice this.
+      usage = { position: 'Output', examples: {}};
+      this.hints.push(new CompositionHint(
+        hintUnusedEnumType,
+        `Enum type "${dest}" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only use as an output type).`,
+        dest.name,
+      ));
+    }
+
     for (const source of sources) {
       if (!source) {
         continue;
       }
       for (const value of source.values) {
+        // Note that we add all the values we see as a simple way to know which values there is to consider. But some of those value may
+        // be removed later in `mergeEnumValue`
         if (!dest.value(value.name)) {
           dest.addValue(value.name);
         }
       }
     }
     for (const value of dest.values) {
-      const valueSources = sources.map(s => s?.value(value.name));
-      this.mergeDescription(valueSources, value);
-      this.mergeAppliedDirectives(valueSources, value);
-      this.hintOnInconsistentEnumValue(sources, dest, value.name);
+      this.mergeEnumValue(sources, dest, value, usage);
+    }
+
+    // We could be left with an enum type with no values, and that's invalid in graphQL
+    if (dest.values.length === 0) {
+      this.errors.push(ERRORS.EMPTY_MERGED_ENUM_TYPE.err({
+        message: `None of the values of enum type "${dest}" are defined consistently in all the subgraphs defining that type. As only values common to all subgraphs are merged, this would result in an empty type.`,
+        nodes: sourceASTs(...sources),
+      }));
     }
   }
 
-  private hintOnInconsistentEnumValue(
+  private mergeEnumValue(
+    sources: (EnumType | undefined)[],
+    dest: EnumType,
+    value: EnumValue,
+    { position, examples }: EnumTypeUsage,
+  ) {
+    // We merge directives (and description while at it) on the value even though we might remove it later in that function,
+    // but we do so because:
+    // 1. this will catch any problems merging the description/directives (which feels like a good thing).
+    // 2. it easier to see if the value is marked @inaccessible.
+    const valueSources = sources.map(s => s?.value(value.name));
+    this.mergeDescription(valueSources, value);
+    this.mergeAppliedDirectives(valueSources, value);
+
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);
+    const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph);
+    // The merging strategy depends on the enum type usage:
+    //  - if it is _only_ used in position of Input type, we merge it with an "intersection" strategy (like other input types/things).
+    //  - if it is _only_ used in position of Output type, we merge it with an "union" strategy (like other output types/things).
+    //  - otherwise, it's used as both input and output and we can only merge it if it has the same values in all subgraphs.
+    // So in particular, the value will be in the supergraph only if it is either an "output only" enum, or if the value is in all subgraphs.
+    // Note that (like for input object fields), manually marking the value as @inaccessible let's use skips any check and add the value
+    // regardless of inconsistencies.
+    if (!isInaccessible && position !== 'Output' && sources.some((source) => source && !source.value(value.name))) {
+      // We have a source (subgraph) that _has_ the enum type but not that particular enum value. If we've in the "both input and output usages",
+      // that's where we have to fail. But if we're in the "only input" case, we simply don't merge that particular value and hint about it.
+      if (position === 'Both') {
+        const inputExample = examples.Input!;
+        const outputExample = examples.Output!;
+        this.reportMismatchErrorWithSpecifics({
+          code: ERRORS.INCONSISTENT_ENUM_VALUE,
+          message: `Enum type "${dest}" is used as both input type (for example, as type of "${inputExample.coordinate}") and output type (for example, as type of "${outputExample.coordinate}"), but value "${value}" is not defined in all the subgraphs defining "${dest}": `,
+          mismatchedElement: dest,
+          subgraphElements: sources,
+          mismatchAccessor: (type) => type?.value(value.name) ? 'yes' : 'no',
+          supergraphElementPrinter: (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
+          otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+          extraNodes: sourceASTs(inputExample, outputExample),
+        });
+        // We leave the value in the merged output in that case because:
+        // 1. it's harmless to do so; we have an error so we won't return a supergraph.
+        // 2. it avoids generating an additional "enum type is empty" error in `mergeEnum` if all the values are inconsistent.
+      } else {
+        this.reportMismatchHint(
+          hintInconsistentEnumValueForInputEnum,
+          `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
+          dest,
+          sources,
+          (type) => type.value(value.name) ? 'yes' : 'no',
+          (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
+          (_, subgraphs) => ` but not in ${subgraphs}`,
+        );
+        // We remove the value after the generation of the hint/errors because `reportMismatchHint` will show the message for the subgraphs that are "like" the supergraph
+        // first, and the message flows better if we say which subgraph defines the value first, so we want the value to still be present for the generation of the
+        // message.
+        value.remove();
+      }
+    } else if (position === 'Output') {
+      this.hintOnInconsistentOutputEnumValue(sources, dest, value.name);
+    }
+  }
+
+  private hintOnInconsistentOutputEnumValue(
     sources: (EnumType | undefined)[],
     dest: EnumType,
     valueName: string
@@ -1604,10 +1745,8 @@ class Merger {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.value(valueName)) {
         this.reportMismatchHint(
-          hintInconsistentEnumValue,
-          // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
-          // we can anticipate it since hints will not surface to users if there is a validation error anyway.
-          `Value "${valueName}" of enum type "${dest}" is only defined in a subset of the subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
+          hintInconsistentEnumValueForOutputEnum,
+          `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
           dest,
           sources,
           type => type.value(valueName) ? 'yes' : 'no',
@@ -1619,11 +1758,56 @@ class Merger {
   }
 
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);
+
+    // Like for other inputs, we add all the fields found in any subgraphs initially as a simple mean to have a complete list of
+    // field to iterate over, but we will remove those that are not in all subgraphs.
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
-      this.hintOnInconsistentValueTypeField(sources, dest, destField);
-      const subgraphFields = sources.map(t => t?.field(destField.name));
-      this.mergeInputField(subgraphFields, destField);
+      const name = destField.name
+      // We merge the details of the field first, even if we may remove it afterwards because 1) this ensure we always checks type
+      // compatibility between definitions and 2) we actually want to see if the result is marked inaccessible or not and it makes
+      // that easier.
+      this.mergeInputField(sources.map(t => t?.field(name)), destField);
+      const isInaccessible = inaccessibleInSupergraph && destField.hasAppliedDirective(inaccessibleInSupergraph);
+      // Note that if the field is manually marked @inaccessible, we can always accept it to be inconsistent between subgraphs since
+      // it won't be exposed in the API, and we don't hint about it because we're just doing what the user is explicitely asking.
+      if (!isInaccessible && sources.some((source) => source && !source.field(name))) {
+        // One of the subgraph has the input type but not that field. If the field is optional, we remove it for the supergraph
+        // and issue a hint. But if it is required, we have to error out.
+        const nonOptionalSources = sources.map((s, i) => s && s.field(name)?.isRequired() ? this.names[i] : undefined).filter((s) => !!s) as string[];
+        if (nonOptionalSources.length > 0) {
+          const nonOptionalSubgraphs = printSubgraphNames(nonOptionalSources);
+          const missingSources = printSubgraphNames(sources.map((s, i) => s && !s.field(name) ? this.names[i] : undefined).filter((s) => !!s) as string[]);
+          this.errors.push(ERRORS.REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH.err({
+            message: `Input object field "${destField.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
+            nodes: sourceASTs(...sources.map((s) => s?.field(name))),
+          }));
+        } else {
+          this.reportMismatchHint(
+            hintInconsistentInputObjectField,
+            `Input object field "${destField.name}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
+            destField,
+            sources.map((s) => s ? s.field(name) : undefined),
+            _ => 'yes',
+            // Note that the first callback is for element that are "like the supergraph" and we've pass `destField` which we havne't yet removed.
+            (_, subgraphs) => `it is defined in ${subgraphs}`,
+            (_, subgraphs) => ` but not in ${subgraphs}`,
+            undefined,
+            true // Do include undefined sources, that's the point
+          );
+        }
+        // Note that we remove the element after the hint/error because we access the parent in the hint message.
+        destField.remove();
+      }
+    }
+
+    // We could be left with an input type with no fields, and that's invalid in graphQL
+    if (!dest.hasFields()) {
+      this.errors.push(ERRORS.EMPTY_MERGED_INPUT_TYPE.err({
+        message: `None of the fields of input object type "${dest}" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.`,
+        nodes: sourceASTs(...sources),
+      }));
     }
   }
 

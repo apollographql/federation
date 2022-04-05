@@ -287,7 +287,7 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
   );
 
   // Collects all fields used to satisfy an interface constraint
-  for (const itfType of metadata.schema.types<InterfaceType>('InterfaceType')) {
+  for (const itfType of metadata.schema.interfaceTypes()) {
     const runtimeTypes = itfType.possibleRuntimeTypes();
     for (const field of itfType.fields()) {
       for (const runtimeType of runtimeTypes) {
@@ -351,7 +351,7 @@ function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollec
 }
 
 function validateNoExternalOnInterfaceFields(metadata: FederationMetadata, errorCollector: GraphQLError[]) {
-  for (const itf of metadata.schema.types<InterfaceType>('InterfaceType')) {
+  for (const itf of metadata.schema.interfaceTypes()) {
     for (const field of itf.fields()) {
       if (metadata.isFieldExternal(field)) {
         errorCollector.push(ERRORS.EXTERNAL_ON_INTERFACE.err({
@@ -772,7 +772,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     }
 
-    for (const itf of schema.types<InterfaceType>('InterfaceType')) {
+    for (const itf of schema.interfaceTypes()) {
       validateInterfaceRuntimeImplementationFieldsTypes(itf, metadata, errors);
     }
 
@@ -1250,7 +1250,7 @@ export const serviceTypeSpec = createObjectTypeSpecification({
 export const entityTypeSpec = createUnionTypeSpecification({
   name: '_Entity',
   membersFct: (schema) => {
-    return schema.types<ObjectType>("ObjectType").filter(isEntityType).map((t) => t.name);
+    return schema.objectTypes().filter(isEntityType).map((t) => t.name);
   },
 });
 

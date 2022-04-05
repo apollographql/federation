@@ -226,11 +226,11 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
-    const initialState = ValidationState.initial({supergraph: supergraphPath.graph, supergraphSchema, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
+    const initialState = ValidationState.initial({supergraph: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath) {
-      const updated = state.validateTransition(supergraphSchema, edge);
+      const updated = state.validateTransition(edge);
       if (!updated) {
         isIncomplete = true;
         break;
@@ -270,20 +270,18 @@ export class ValidationState {
 
   static initial({
     supergraph,
-    supergraphSchema,
     kind,
     subgraphs,
     conditionResolver,
   }: {
     supergraph: QueryGraph,
-    supergraphSchema: Schema,
     kind: SchemaRootKind,
     subgraphs: QueryGraph,
     conditionResolver: ConditionValidationResolver,
   }) {
     return new ValidationState(
       GraphPath.fromGraphRoot(supergraph, kind)!,
-      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(supergraphSchema, p, conditionResolver.resolver)),
+      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver.resolver)),
     );
   }
 
@@ -291,10 +289,7 @@ export class ValidationState {
   // and can continue validation from this new state) or 'undefined' if we can handle that edge by returning no results
   // as it gets us in a (valid) situation where we can guarantee there will be no results (in other words, the edge correspond
   // to a type condition for which there cannot be any runtime types, and so no point in continuing this "branch").
-  validateTransition(
-    supergraphSchema: Schema,
-    supergraphEdge: Edge,
-  ): ValidationState | undefined | ValidationError {
+  validateTransition(supergraphEdge: Edge): ValidationState | undefined | ValidationError {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
@@ -303,7 +298,6 @@ export class ValidationState {
     const deadEnds: Unadvanceables[] = [];
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
-        supergraphSchema,
         path,
         transition,
         targetType,
@@ -364,7 +358,6 @@ class ValidationTraversal {
     this.conditionResolver = new ConditionValidationResolver(this.supergraphSchema, subgraphs);
     supergraph.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraph,
-      supergraphSchema: this.supergraphSchema,
       kind,
       subgraphs,
       conditionResolver: this.conditionResolver
@@ -411,7 +404,7 @@ class ValidationTraversal {
       }
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const newState = state.validateTransition(this.supergraphSchema, edge);
+      const newState = state.validateTransition(edge);
       if (isValidationError(newState)) {
         debug.groupEnd(`Validation error!`);
         this.validationErrors.push(newState);

@@ -214,6 +214,22 @@ export function isInputType(type: Type): type is InputType {
   }
 }
 
+export function isTypeOfKind<T extends Type>(type: Type, kind: T['kind']): type is T {
+  return type.kind === kind;
+}
+
+export function filterTypesOfKind<T extends Type>(types: readonly Type[], kind: T['kind']): T[] {
+  return types.reduce(
+    (acc: T[], type: Type) => {
+      if (isTypeOfKind(type, kind)) {
+        acc.push(type);
+      }
+      return acc;
+    },
+    [],
+  );
+}
+
 export function baseType(type: Type): NamedType {
   return isWrapperType(type) ? type.baseType() : type;
 }
@@ -383,8 +399,8 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   }
 }
 
-export function sourceASTs(...elts: ({ sourceAST?: ASTNode } | undefined)[]): ASTNode[] {
-  return elts.map(elt => elt?.sourceAST).filter((elt): elt is ASTNode => elt !== undefined);
+export function sourceASTs<TNode extends ASTNode = ASTNode>(...elts: ({ sourceAST?: TNode } | undefined)[]): TNode[] {
+  return elts.map(elt => elt?.sourceAST).filter((elt): elt is TNode => elt !== undefined);
 }
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
@@ -1170,20 +1186,42 @@ export class Schema {
   /**
    * All the types defined on this schema, excluding the built-in types.
    */
-  types<T extends NamedType>(kind?: T['kind']): readonly T[] {
-    const allKinds = this._types.values();
-    return (kind ? allKinds.filter(t => t.kind === kind) : allKinds) as readonly T[];
+  types(): readonly NamedType[] {
+    return this._types.values();
+  }
+
+  interfaceTypes(): readonly InterfaceType[] {
+    return filterTypesOfKind<InterfaceType>(this.types(), 'InterfaceType');
+  }
+
+  objectTypes(): readonly ObjectType[] {
+    return filterTypesOfKind<ObjectType>(this.types(), 'ObjectType');
+  }
+
+  unionTypes(): readonly UnionType[] {
+    return filterTypesOfKind<UnionType>(this.types(), 'UnionType');
+  }
+
+  scalarTypes(): readonly ScalarType[] {
+    return filterTypesOfKind<ScalarType>(this.types(), 'ScalarType');
+  }
+
+  inputTypes(): readonly InputObjectType[] {
+    return filterTypesOfKind<InputObjectType>(this.types(), 'InputObjectType');
+  }
+
+  enumTypes(): readonly EnumType[] {
+    return filterTypesOfKind<EnumType>(this.types(), 'EnumType');
   }
 
   /**
    * All the built-in types for this schema (those that are not displayed when printing the schema).
    */
-  builtInTypes<T extends NamedType>(kind?: T['kind'], includeShadowed: boolean = false): readonly T[] {
+  builtInTypes(includeShadowed: boolean = false): readonly NamedType[] {
     const allBuiltIns = this._builtInTypes.values();
-    const forKind = (kind ? allBuiltIns.filter(t => t.kind === kind) : allBuiltIns) as readonly T[];
     return includeShadowed
-      ? forKind
-      : forKind.filter(t => !this.isShadowedBuiltInType(t));
+      ? allBuiltIns
+      : allBuiltIns.filter(t => !this.isShadowedBuiltInType(t));
   }
 
   private isShadowedBuiltInType(type: NamedType) {
@@ -1193,8 +1231,8 @@ export class Schema {
   /**
     * All the types, including the built-in ones.
     */
-  allTypes<T extends NamedType>(kind?: T['kind']): readonly T[] {
-    return this.builtInTypes(kind).concat(this.types(kind));
+  allTypes(): readonly NamedType[] {
+    return this.builtInTypes().concat(this.types());
   }
 
   /**
@@ -2021,7 +2059,12 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   protected readonly _values: EnumValue[] = [];
 
   get values(): readonly EnumValue[] {
-    return this._values;
+    // Because our abstractions are mutable, and removal is done by calling
+    // `remove()` on the element to remove, it's not unlikely someone mauy
+    // try to iterate on the result of this method and call `remove()` on
+    // some of the return value based on some condition. But this will break
+    // in an error-prone way if we don't copy, so we do.
+    return Array.from(this._values);
   }
 
   value(name: string): EnumValue | undefined {
@@ -2409,6 +2452,7 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
       return [];
     }
     this.onModification();
+    this.removeAppliedDirectives();
     InputObjectType.prototype['removeFieldInternal'].call(this._parent, this);
     this._parent = undefined;
     this.type = undefined;
@@ -2465,6 +2509,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
       return [];
     }
     this.onModification();
+    this.removeAppliedDirectives();
     if (this._parent instanceof FieldDefinition) {
       FieldDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     } else {
@@ -2523,6 +2568,7 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
       return [];
     }
     this.onModification();
+    this.removeAppliedDirectives();
     EnumType.prototype['removeValueInternal'].call(this._parent, this);
     this._parent = undefined;
     // Enum values have nothing that can reference them outside of their parents

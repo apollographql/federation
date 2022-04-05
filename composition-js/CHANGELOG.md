@@ -2,7 +2,7 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-
+- Fix merging of Input objects and enum types [PR #1672](https://github.com/apollographql/federation/pull/1672).
 - Fix regression in composition validation introduced by #1653 [PR #1673](https://github.com/apollographql/federation/pull/1673) .
 
 ## v2.0.0-preview.9

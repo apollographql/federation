@@ -1,4 +1,19 @@
-import { asFed2SubgraphDocument, assert, buildSchema, buildSubgraph, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, isObjectType, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
+import {
+  asFed2SubgraphDocument,
+  assert,
+  buildSchema,
+  buildSubgraph,
+  extractSubgraphsFromSupergraph,
+  FEDERATION2_LINK_WTH_FULL_IMPORTS,
+  InputObjectType,
+  isObjectType,
+  ObjectType,
+  printSchema,
+  printType,
+  Schema,
+  ServiceDefinition,
+  Subgraphs
+} from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -978,7 +993,6 @@ describe('composition', () => {
           ['INPUT_FIELD_DEFAULT_MISMATCH', 'Input field "T.f" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
         ]);
       });
-
     });
 
     describe('for arguments', () => {
@@ -2624,5 +2638,362 @@ describe('composition', () => {
         }`
       );
     })
+  });
+
+  describe('Enum types', () => {
+    it('merges inconsistent enum that are _only_ used as output', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            e: E!
+          }
+
+          enum E {
+            V1
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V2
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      expect(printType(result.schema.toAPISchema().type('E')!)).toMatchString(`
+        enum E {
+          V1
+          V2
+        }
+      `);
+    });
+
+    it('merges enum (but skip inconsistent enum values) that are _only_ used as input', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V1
+            V2
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      // Note that we will also generate an hint for the skipped value but this is already
+      // tested by `hints.test.ts` so we don't duplicate the check here.
+      expect(printType(result.schema.toAPISchema().type('E')!)).toMatchString(`
+        enum E {
+          V1
+        }
+      `);
+    });
+
+    it('errors if enum used _only_ as input as no consistent values', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V2
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([[
+        'EMPTY_MERGED_ENUM_TYPE',
+        'None of the values of enum type "E" are defined consistently in all the subgraphs defining that type. As only values common to all subgraphs are merged, this would result in an empty type.'
+      ]]);
+    });
+
+    it('errors when merging inconsistent enum that are used as both input and output', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            e: E!
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V2
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        [
+          'INCONSISTENT_ENUM_VALUE',
+          'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V1" is not defined in all the subgraphs defining "E": "V1" is defined in subgraph "subgraphA" but not in subgraph "subgraphB"'
+        ],
+        [
+          'INCONSISTENT_ENUM_VALUE',
+          'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V2" is not defined in all the subgraphs defining "E": "V2" is defined in subgraph "subgraphB" but not in subgraph "subgraphA"'
+        ],
+      ]);
+    });
+
+    it('succeed merging consistent enum used as both input and output', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            e: E!
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+            V2
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V1
+            V2
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      expect(printType(result.schema.toAPISchema().type('E')!)).toMatchString(`
+        enum E {
+          V1
+          V2
+        }
+      `);
+    });
+  });
+
+  describe('Input types', () => {
+    it('only merges fields common to all subgraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q1(a: A): String
+          }
+
+          input A {
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            q2(a: A): String
+          }
+
+          input A {
+            x: Int
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const inputA = result.schema.type('A') as InputObjectType;
+      expect(inputA.field('x')).toBeDefined();
+      // Note that we will have a hint for this, but this is already tested in `hints.test.ts` so we don't bother checking it here.
+      expect(inputA.field('y')).toBeUndefined();
+    });
+
+    it('merges input field with different but compatible types', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q1(a: A): String
+          }
+
+          input A {
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            q2(a: A): String
+          }
+
+          input A {
+            x: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const inputA = result.schema.type('A') as InputObjectType;
+      // Note that contrarily to object types, input types use contravariance to types. In other words,
+      // since one of the subgraph does not know how to handle `null` inputs, we don't allow them in
+      // the supergraph.
+      expect(inputA.field('x')?.type?.toString()).toBe('Int!');
+    });
+
+    it('errors when merging completely inconsistent input types', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            f(i: MyInput!): Int
+          }
+
+          input MyInput {
+            x: Int
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          input MyInput {
+            y: Int
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([[
+        'EMPTY_MERGED_INPUT_TYPE',
+        'None of the fields of input object type "MyInput" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.'
+      ]]);
+    });
+
+    it('errors if a mandatory input field is not in all subgraphs', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q1(a: A): String
+          }
+
+          input A {
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            q2(a: A): String
+          }
+
+          input A {
+            x: Int
+            y: Int!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([[
+        'REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH',
+        'Input object field "A.y" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphB" but does not appear in subgraph "subgraphA"'
+      ]]);
+    });
+  });
+
+  describe('Union types', () => {
+    it('merges inconsistent unions', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            u: U!
+          }
+
+          union U = A | B
+
+          type A {
+            a: Int
+          }
+
+          type B {
+            b: Int
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          union U = C
+
+          type C {
+            b: Int
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      expect(printType(result.schema.toAPISchema().type('U')!)).toMatchString('union U = A | B | C');
+    });
   });
 });

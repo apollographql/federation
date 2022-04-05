@@ -67,10 +67,16 @@ export const hintInconsistentUnionMember = new HintID(
   'the union type which has an inconsistent member'
 );
 
-export const hintInconsistentEnumValue = new HintID(
-  'InconsistentEnumValue',
-  'Indicates that a value of an enum type definition is defined in only a subset of the subgraphs that declare the enum',
-  'the union type which has an inconsistent member'
+export const hintInconsistentEnumValueForInputEnum= new HintID(
+  'InconsistentEnumValueForInputEnum',
+  'Indicates that a value of an enum type definition (that is only used as an Input type) has not been merged into the supergraph because it is defined in only a subset of the subgraphs that declare the enum',
+  'the enum type which has an inconsistent value'
+);
+
+export const hintInconsistentEnumValueForOutputEnum= new HintID(
+  'InconsistentEnumValueForOutputEnum',
+  'Indicates that a value of an enum type definition (that is only used as an Output type, or is unused) has been merged in the supergraph but is defined in only a subset of the subgraphs that declare the enum',
+  'the enum type which has an inconsistent value'
 );
 
 export const hintInconsistentTypeSystemDirectiveRepeatable = new HintID(
@@ -138,6 +144,12 @@ export const hintOverrideDirectiveCanBeRemoved = new HintID(
   'OverrideDirectiveCanBeRemoved',
   'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
   'the field with the override directive'
+);
+
+export const hintUnusedEnumType = new HintID(
+  'UnusedEnumType',
+  'Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it) and will not be included in the supergraph',
+  'the enum type'
 );
 
 export class CompositionHint {
