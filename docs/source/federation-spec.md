@@ -316,7 +316,9 @@ This type extension in the Reviews service extends the `User` type from the User
 directive @shareable on FIELD_DEFINITION | OBJECT
 ```
 
-When specified on a field, the `@shareable` directive denotes that the field may be resolved by multiple subgraphs. Every instance of a field declaration that is resolved by a subgraph has an underlying "sharing mode" binary property, which can be either sharable or non-shareable. In order to pass composition, the sharing mode for a given field must be the same across all subgraphs. Note that any field specified by an `@key` is automatically shareable, and that marking an object shareable is shorthand for making all fields on that object shareable. When the sharing mode for a field is sharable, queries to that field may potentially resolve to any subgraph which resolves the field.
+The `@shareable` directive denotes that a field may be resolved by multiple subgraphs. Queries to a shareable field may potentially resolve to any subgraph which resolves the field. In order to successfully compose, a field must have the same shareability mode (either shareable or non-shareable) across all subgraphs.
+
+Any field specified by a @key is automatically shareable. Adding the `@shareable` directive to an object is equivalent to marking each field on the object `@shareable`.
 
 ```graphql
 type Product @key(fields: "upc") {
