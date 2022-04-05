@@ -85,7 +85,7 @@ test('hints on merging field with nullable and non-nullable types', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_FIELD_TYPE,
+    HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
     'Field "T.f" has mismatched, but compatible, types across subgraphs: '
     + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".'
   );
@@ -122,7 +122,7 @@ test('hints on merging field with subtype types', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_FIELD_TYPE,
+    HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
     'Field "T.f" has mismatched, but compatible, types across subgraphs: '
     + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".'
   );
@@ -147,7 +147,7 @@ test('hints on merging argument with nullable and non-nullable types', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_ARGUMENT_TYPE,
+    HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
     'Argument "T.f(a:)" has mismatched, but compatible, types across subgraphs: '
     + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".'
   );
@@ -172,7 +172,7 @@ test('hints on merging argument with default value in only some subgraph', () =>
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_DEFAULT_VALUE,
+    HINTS.INCONSISTENT_DEFAULT_VALUE_PRESENCE,
     'Argument "T.f(a:)" has a default value in only some subgraphs: '
     + 'will not use a default in the supergraph (there is no default in subgraph "Subgraph2") but "T.f(a:)" has default value "foo" in subgraph "Subgraph1".'
   );
@@ -448,7 +448,7 @@ test.skip('hints on type system directives having inconsistent locations', () =>
   );
 })
 
-test('hints on execution directives not being in all subgraphs', () => {
+test('hints on executable directives not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -463,13 +463,13 @@ test('hints on execution directives not being in all subgraphs', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE,
-    'Execution directive "@t" will not be part of the supergraph as it does not appear in all subgraphs: '
+    HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
+    'Executable directive "@t" will not be part of the supergraph as it does not appear in all subgraphs: '
     + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
-test('hints on execution directives having no locations intersection', () => {
+test('hints on executable directives having no locations intersection', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -484,13 +484,13 @@ test('hints on execution directives having no locations intersection', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION,
-    'Execution directive "@t" has no location that is common to all subgraphs: '
+    HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
+    'Executable directive "@t" has no location that is common to all subgraphs: '
     + 'it will not appear in the subgraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
   );
 })
 
-test('hints on execution directives having inconsistent repeatable', () => {
+test('hints on executable directives having inconsistent repeatable', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -505,13 +505,13 @@ test('hints on execution directives having inconsistent repeatable', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE,
-    'Execution directive "@t" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
+    HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
+    'Executable directive "@t" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
     + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1".'
   );
 })
 
-test('hints on execution directives having inconsistent locations', () => {
+test('hints on executable directives having inconsistent locations', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -526,14 +526,14 @@ test('hints on execution directives having inconsistent locations', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS,
-    'Execution directive "@t" has inconsistent locations across subgraphs '
+    HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
+    'Executable directive "@t" has inconsistent locations across subgraphs '
     + 'and will use location "FIELD" (intersection of all subgraphs) in the supergraph, but has: '
     + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".'
   );
 })
 
-test('hints on execution directives argument not being in all subgraphs', () => {
+test('hints on executable directives argument not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int

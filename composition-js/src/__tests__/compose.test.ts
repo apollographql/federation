@@ -2768,11 +2768,11 @@ describe('composition', () => {
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
         [
-          'INCONSISTENT_ENUM_VALUE',
+          'ENUM_VALUE_MISMATCH',
           'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V1" is not defined in all the subgraphs defining "E": "V1" is defined in subgraph "subgraphA" but not in subgraph "subgraphB"'
         ],
         [
-          'INCONSISTENT_ENUM_VALUE',
+          'ENUM_VALUE_MISMATCH',
           'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V2" is not defined in all the subgraphs defining "E": "V2" is defined in subgraph "subgraphB" but not in subgraph "subgraphA"'
         ],
       ]);

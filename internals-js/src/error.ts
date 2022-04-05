@@ -364,8 +364,8 @@ const EMPTY_MERGED_INPUT_TYPE = makeCodeDefinition(
   'An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type.'
 );
 
-const INCONSISTENT_ENUM_VALUE = makeCodeDefinition(
-  'INCONSISTENT_ENUM_VALUE',
+const ENUM_VALUE_MISMATCH = makeCodeDefinition(
+  'ENUM_VALUE_MISMATCH',
   'An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.'
 );
 
@@ -454,7 +454,7 @@ export const ERRORS = {
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH,
   EMPTY_MERGED_INPUT_TYPE,
-  INCONSISTENT_ENUM_VALUE,
+  ENUM_VALUE_MISMATCH,
   EMPTY_MERGED_ENUM_TYPE,
   SATISFIABILITY_ERROR,
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,

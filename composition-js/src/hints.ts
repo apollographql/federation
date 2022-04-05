@@ -13,23 +13,23 @@ export type HintCodeDefinition = {
   description: string,
 }
 
-const INCONSISTENT_FIELD_TYPE: HintCodeDefinition = {
-  code: 'INCONSISTENT_FIELD_TYPE',
+const INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE: HintCodeDefinition = {
+  code: 'INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE',
   level: HintLevel.INFO,
   description: 'Indicates that a field does not have the exact same types in all subgraphs, but that the types are "compatible"'
     + ' (2 types are compatible if one is a non-nullable version of the other, a list version, a subtype, or a'
     + ' combination of the former).',
 };
 
-const INCONSISTENT_ARGUMENT_TYPE: HintCodeDefinition = {
-  code: 'INCONSISTENT_ARGUMENT_TYPE',
+const INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE: HintCodeDefinition = {
+  code: 'INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE',
   level: HintLevel.INFO,
   description: 'Indicates that an argument type (of a field/input field/directive definition) does not have the exact same type'
     + ' in all subgraphs, but that the types are "compatible" (two types are compatible if one is a non-nullable'
     + ' version of the other, a list version, a subtype, or a combination of the former).',
 };
 
-const INCONSISTENT_DEFAULT_VALUE: HintCodeDefinition = {
+const INCONSISTENT_DEFAULT_VALUE_PRESENCE: HintCodeDefinition = {
   code: 'INCONSISTENT_DEFAULT_VALUE_PRESENCE',
   level: HintLevel.WARN,
   description: 'Indicates that an argument definition (of a field/input field/directive definition) has a default value in only'
@@ -90,28 +90,28 @@ const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS: HintCodeDefinition = {
   description: 'Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph).',
 };
 
-const INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE: HintCodeDefinition = {
-  code: 'INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE',
+const INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE: HintCodeDefinition = {
+  code: 'INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE',
   level: HintLevel.WARN,
-  description: 'Indicates that an execution directive definition is declared in only some of the subgraphs.',
+  description: 'Indicates that an executable directive definition is declared in only some of the subgraphs.',
 };
 
-const NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION: HintCodeDefinition = {
-  code: 'NO_EXECUTION_DIRECTIVE_INTERSECTION',
+const NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION: HintCodeDefinition = {
+  code: 'NO_EXECUTABLE_DIRECTIVE_INTERSECTION',
   level: HintLevel.WARN,
-  description: 'Indicates that, for an execution directive definition, no location for it appears in all subgraphs.',
+  description: 'Indicates that, for an executable directive definition, no location for it appears in all subgraphs.',
 };
 
-const INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE: HintCodeDefinition = {
-  code: 'INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE',
+const INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE: HintCodeDefinition = {
+  code: 'INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE',
   level: HintLevel.WARN,
-  description: 'Indicates that an execution directive definition is marked repeatable in only a subset of the subgraphs (and will not be repeatable in the supergraph).',
+  description: 'Indicates that an executable directive definition is marked repeatable in only a subset of the subgraphs (and will not be repeatable in the supergraph).',
 };
 
-const INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS: HintCodeDefinition = {
-  code: 'INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS',
+const INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS: HintCodeDefinition = {
+  code: 'INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS',
   level: HintLevel.WARN,
-  description: 'Indicates that an execution directive definition is declared with inconsistent locations across subgraphs (and will use the intersection of all locations in the supergraph).',
+  description: 'Indicates that an executiable directive definition is declared with inconsistent locations across subgraphs (and will use the intersection of all locations in the supergraph).',
 };
 
 const INCONSISTENT_DESCRIPTION: HintCodeDefinition = {
@@ -151,9 +151,9 @@ const UNUSED_ENUM_TYPE: HintCodeDefinition = {
 };
 
 export const HINTS = {
-  INCONSISTENT_FIELD_TYPE,
-  INCONSISTENT_ARGUMENT_TYPE,
-  INCONSISTENT_DEFAULT_VALUE,
+  INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
+  INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
+  INCONSISTENT_DEFAULT_VALUE_PRESENCE,
   INCONSISTENT_ENTITY,
   INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
   INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD,
@@ -163,10 +163,10 @@ export const HINTS = {
   INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
   INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
   INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
-  INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE,
-  NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION,
-  INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE,
-  INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS,
+  INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
+  NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
+  INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
+  INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
   INCONSISTENT_DESCRIPTION,
   INCONSISTENT_ARGUMENT_PRESENCE,
   FROM_SUBGRAPH_DOES_NOT_EXIST,

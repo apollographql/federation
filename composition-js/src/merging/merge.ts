@@ -1414,7 +1414,7 @@ class Merger {
       // of named types, but if 2 subgraphs differs in kind for the same type name (say one has "X" be a scalar and the
       // other an interface) we know we've already registered an error and the hint her won't matter).
       this.reportMismatchHint(
-        isArgument ? HINTS.INCONSISTENT_ARGUMENT_TYPE : HINTS.INCONSISTENT_FIELD_TYPE,
+        isArgument ? HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE : HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
         `${elementKind} "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
         dest,
         sources,
@@ -1551,7 +1551,7 @@ class Merger {
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
-        HINTS.INCONSISTENT_DEFAULT_VALUE,
+        HINTS.INCONSISTENT_DEFAULT_VALUE_PRESENCE,
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
@@ -1680,7 +1680,7 @@ class Merger {
         const inputExample = examples.Input!;
         const outputExample = examples.Output!;
         this.reportMismatchErrorWithSpecifics({
-          code: ERRORS.INCONSISTENT_ENUM_VALUE,
+          code: ERRORS.ENUM_VALUE_MISMATCH,
           message: `Enum type "${dest}" is used as both input type (for example, as type of "${inputExample.coordinate}") and output type (for example, as type of "${outputExample.coordinate}"), but value "${value}" is not defined in all the subgraphs defining "${dest}": `,
           mismatchedElement: dest,
           subgraphElements: sources,
@@ -1812,7 +1812,7 @@ class Merger {
     //   locations, we only expose locations that are common everywhere).
     this.mergeDescription(sources, dest);
     if (sources.some((s) => s && this.isMergedDirective(s))) {
-      this.mergeExecutionDirectiveDefinition(sources, dest);
+      this.mergeExecutableDirectiveDefinition(sources, dest);
     }
   }
 
@@ -1885,20 +1885,20 @@ class Merger {
   //  }
   //}
 
-  private mergeExecutionDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
+  private mergeExecutableDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     let repeatable: boolean | undefined = undefined;
     let inconsistentRepeatable = false;
     let locations: DirectiveLocation[] | undefined = undefined;
     let inconsistentLocations = false;
     for (const source of sources) {
       if (!source) {
-        // An execution directive could appear in any place of a query and thus get to any subgraph, so we cannot keep an
-        // execution directive unless it is in all subgraphs. We use an 'intersection' strategy.
+        // An executable directive could appear in any place of a query and thus get to any subgraph, so we cannot keep an
+        // executable directive unless it is in all subgraphs. We use an 'intersection' strategy.
         const usages = dest.remove();
-        assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
+        assert(usages.length === 0, () => `Found usages of executable directive ${dest}: ${usages}`);
         this.reportMismatchHint(
-          HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_PRESENCE,
-          `Execution directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
+          HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
+          `Executable directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
           dest,
           sources,
           _ => 'yes',
@@ -1931,10 +1931,10 @@ class Merger {
         locations = locations.filter(loc => sourceLocations.includes(loc));
         if (locations.length === 0) {
           const usages = dest.remove();
-          assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
+          assert(usages.length === 0, () => `Found usages of executable directive ${dest}: ${usages}`);
           this.reportMismatchHint(
-            HINTS.NO_EXECUTION_DIRECTIVE_LOCATIONS_INTERSECTION,
-            `Execution directive "${dest}" has no location that is common to all subgraphs: `,
+            HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
+            `Executable directive "${dest}" has no location that is common to all subgraphs: `,
             dest,
             sources,
             directive => locationString(this.extractExecutableLocations(directive)),
@@ -1952,8 +1952,8 @@ class Merger {
 
     if (inconsistentRepeatable) {
       this.reportMismatchHint(
-        HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_REPEATABLE,
-        `Execution directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
+        HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
+        `Executable directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
         dest,
         sources,
         directive => directive.repeatable ? 'yes' : 'no',
@@ -1964,8 +1964,8 @@ class Merger {
     }
     if (inconsistentLocations) {
       this.reportMismatchHint(
-        HINTS.INCONSISTENT_EXECUTION_DIRECTIVE_LOCATIONS,
-        `Execution directive "${dest}" has inconsistent locations across subgraphs `,
+        HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
+        `Executable directive "${dest}" has inconsistent locations across subgraphs `,
         dest,
         sources,
         directive => locationString(this.extractExecutableLocations(directive)),
