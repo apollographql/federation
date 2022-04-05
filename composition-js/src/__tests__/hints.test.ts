@@ -86,7 +86,7 @@ test('hints on merging field with nullable and non-nullable types', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
-    'Field "T.f" has mismatched, but compatible, types across subgraphs: '
+    'Type of field "T.f" is inconsistent but compatible across subgraphs: '
     + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".'
   );
 })
@@ -123,7 +123,7 @@ test('hints on merging field with subtype types', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
-    'Field "T.f" has mismatched, but compatible, types across subgraphs: '
+    'Type of field "T.f" is inconsistent but compatible across subgraphs: '
     + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".'
   );
 })
@@ -148,7 +148,7 @@ test('hints on merging argument with nullable and non-nullable types', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
-    'Argument "T.f(a:)" has mismatched, but compatible, types across subgraphs: '
+    'Type of argument "T.f(a:)" is inconsistent but compatible across subgraphs: '
     + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".'
   );
 })
@@ -200,8 +200,8 @@ test('hints on object being an entity in only some subgraph', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ENTITY,
-    'Type "T" is declared as an entity (has a @key applied) in only some subgraphs: '
-    + 'it has no key in subgraph "Subgraph2" but has one in subgraph "Subgraph1".'
+    'Type "T" is declared as an entity (has a @key applied) in some but not all defining subgraphs: '
+    + 'it has no @key in subgraph "Subgraph2" but has some @key in subgraph "Subgraph1".'
   );
 })
 
@@ -226,7 +226,7 @@ test('hints on field of object value type not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
-    'Field "T.b" of non-entity object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    'Field "T.b" of non-entity object type "T" is defined in some but not all subgraphs that define "T": '
     + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
@@ -252,7 +252,7 @@ test('hints on field of interface value type not being in all subgraphs', () => 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD,
-    'Field "T.b" of interface type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    'Field "T.b" of interface type "T" is defined in some but not all subgraphs that define "T": '
     + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
@@ -318,7 +318,7 @@ test('hints on union member not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_UNION_MEMBER,
-    'Member type "B" in union type "T" is only defined in a subset of subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    'Union type "T" includes member type "B" in some but not all defining subgraphs: '
     + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
@@ -486,7 +486,7 @@ test('hints on executable directives having no locations intersection', () => {
   expect(result).toRaiseHint(
     HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
     'Executable directive "@t" has no location that is common to all subgraphs: '
-    + 'it will not appear in the subgraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
+    + 'it will not appear in the supergraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
   );
 })
 
@@ -549,7 +549,7 @@ test('hints on executable directives argument not being in all subgraphs', () =>
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
-    'Argument "@t(a:)" will not be added to "@t" in the supergraph as it does not appear in all subgraphs: '
+    'Optional argument "@t(a:)" will not be included in the supergraph as it does not appear in all subgraphs: '
     + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
@@ -570,7 +570,7 @@ test('hints on field argument not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
-    'Argument "Query.f(a:)" will not be added to "Query.f" in the supergraph as it does not appear in all subgraphs: '
+    'Optional argument "Query.f(a:)" will not be included in the supergraph as it does not appear in all subgraphs: '
     + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })

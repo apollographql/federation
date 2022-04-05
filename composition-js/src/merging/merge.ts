@@ -834,14 +834,14 @@ class Merger {
     if (sourceAsEntity.length > 0 && sourceAsNonEntity.length > 0) {
       this.reportMismatchHint(
         HINTS.INCONSISTENT_ENTITY,
-        `Type "${dest}" is declared as an entity (has a @key applied) in only some subgraphs: `,
+        `Type "${dest}" is declared as an entity (has a @key applied) in some but not all defining subgraphs: `,
         dest,
         sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
         type => type.hasAppliedDirective('key') ? 'yes' : 'no',
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
-        (_, subgraphs) => `it has no key in ${subgraphs}`,
-        (_, subgraphs) => ` but has one in ${subgraphs}`,
+        (_, subgraphs) => `it has no @key in ${subgraphs}`,
+        (_, subgraphs) => ` but has some @key in ${subgraphs}`,
       );
     }
     return sourceAsEntity.length > 0;
@@ -870,9 +870,7 @@ class Merger {
       if (source && !source.field(field.name)) {
         this.reportMismatchHint(
           hintId,
-          // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
-          // we can anticipate it since hints will not surface to users if there is a validation error anyway.
-          `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is not defined in all the subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
+          `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,
           dest,
           sources,
           type => type.field(field.name) ? 'yes' : 'no',
@@ -1205,7 +1203,7 @@ class Merger {
     if (hasInvalidTypes) {
       this.reportMismatchError(
         ERRORS.EXTERNAL_TYPE_MISMATCH,
-        `Field "${dest.coordinate}" has incompatible types across subgraphs (where marked @external): it has `,
+        `Type of field "${dest.coordinate}" is incompatible across subgraphs (where marked @external): it has `,
         dest,
         sources,
         field => `type "${field.type}"`
@@ -1228,7 +1226,7 @@ class Merger {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
         ERRORS.EXTERNAL_ARGUMENT_TYPE_MISMATCH,
-        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
+        `Type of argument "${destArg.coordinate}" is incompatible across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
         arg => `type "${arg.type}"`
@@ -1377,7 +1375,7 @@ class Merger {
     dest.type = copyTypeReference(destType, this.merged) as TType;
 
     const isArgument = dest instanceof ArgumentDefinition;
-    const elementKind: string = isArgument ? 'Argument' : 'Field';
+    const elementKind: string = isArgument ? 'argument' : 'field';
 
     const base = baseType(dest.type);
     // Collecting enum usage for the sake of merging enums later.
@@ -1402,7 +1400,7 @@ class Merger {
     if (hasIncompatible) {
       this.reportMismatchError(
         isArgument ? ERRORS.ARGUMENT_TYPE_MISMATCH : ERRORS.FIELD_TYPE_MISMATCH,
-        `${elementKind} "${dest.coordinate}" has incompatible types across subgraphs: it has `,
+        `Type of ${elementKind} "${dest.coordinate}" is incompatible across subgraphs: it has `,
         dest,
         sources,
         field => `type "${field.type}"`
@@ -1415,7 +1413,7 @@ class Merger {
       // other an interface) we know we've already registered an error and the hint her won't matter).
       this.reportMismatchHint(
         isArgument ? HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE : HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
-        `${elementKind} "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
+        `Type of ${elementKind} "${dest.coordinate}" is inconsistent but compatible across subgraphs: `,
         dest,
         sources,
         field => field.type!.toString(),
@@ -1474,7 +1472,7 @@ class Merger {
         } else {
           this.reportMismatchHint(
             HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
-            `Argument "${arg.coordinate}" will not be added to "${dest.coordinate}" in the supergraph as it does not appear in all subgraphs: `,
+            `Optional argument "${arg.coordinate}" will not be included in the supergraph as it does not appear in all subgraphs: `,
             arg,
             sources.map((s) => s ? s.argument(argName) : undefined),
             _ => 'yes',
@@ -1597,9 +1595,7 @@ class Merger {
       if (source && !source.hasTypeMember(memberName)) {
         this.reportMismatchHint(
           HINTS.INCONSISTENT_UNION_MEMBER,
-          // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
-          // we can anticipate it since hints will not surface to users if there is a validation error anyway.
-          `Member type "${memberName}" in union type "${dest}" is only defined in a subset of subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
+          `Union type "${dest}" includes member type "${memberName}" in some but not all defining subgraphs: `,
           dest,
           sources,
           type => type.hasTypeMember(memberName) ? 'yes' : 'no',

@@ -563,7 +563,7 @@ describe("composition involving @override directive", () => {
     expect(errors(result)).toStrictEqual([
       [
         'FIELD_TYPE_MISMATCH',
-        'Field "T.a" has incompatible types across subgraphs: it has type "Int" in subgraph "Subgraph1" but type "String" in subgraph "Subgraph2"'
+        'Type of field "T.a" is incompatible across subgraphs: it has type "Int" in subgraph "Subgraph1" but type "String" in subgraph "Subgraph2"'
       ]
     ]);
   });
