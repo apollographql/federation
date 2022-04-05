@@ -67,6 +67,7 @@ import {
   inaccessibleDirectiveSpec,
   baseType,
   isEnumType,
+  filterTypesOfKind,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -371,16 +372,19 @@ class Merger {
     this.addTypesShallow();
     this.addDirectivesShallow();
 
+    const typesToMerge = this.merged.types()
+      .filter((type) => !linkSpec.isSpecType(type) && !joinSpec.isSpecType(type));
+
     // Then, for object and interface types, we merge the 'implements' relationship, and we merge the unions.
     // We do this first because being able to know if a type is a subtype of another one (which relies on those
     // 2 things) is used when merging fields.
-    for (const objectType of this.typesToMerge<ObjectType>('ObjectType')) {
+    for (const objectType of filterTypesOfKind<ObjectType>(typesToMerge, 'ObjectType')) {
       this.mergeImplements(this.subgraphsTypes(objectType), objectType);
     }
-    for (const interfaceType of this.typesToMerge<InterfaceType>('InterfaceType')) {
+    for (const interfaceType of filterTypesOfKind<InterfaceType>(typesToMerge, 'InterfaceType')) {
       this.mergeImplements(this.subgraphsTypes(interfaceType), interfaceType);
     }
-    for (const unionType of this.typesToMerge<UnionType>('UnionType')) {
+    for (const unionType of filterTypesOfKind<UnionType>(typesToMerge, 'UnionType')) {
       this.mergeType(this.subgraphsTypes(unionType), unionType);
     }
 
@@ -390,7 +394,7 @@ class Merger {
     // calling root type a "value type" when hinting).
     this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
-    for (const type of this.typesToMerge()) {
+    for (const type of typesToMerge) {
       // We've already merged unions above and we've going to merge enums last
       if (type.kind === 'UnionType' || type.kind === 'EnumType') {
         continue;
@@ -409,7 +413,7 @@ class Merger {
     // We merge enum dead last because enums can be used as both input and output types and the merging behavior
     // depends on their usage and it's easier to check said usage if everything else has been merge (at least
     // anything that may use an enum type, so all fields and arguments).
-    for (const enumType of this.typesToMerge<EnumType>('EnumType')) {
+    for (const enumType of filterTypesOfKind<EnumType>(typesToMerge, 'EnumType')) {
       this.mergeType(this.subgraphsTypes(enumType), enumType);
     }
 
@@ -456,11 +460,6 @@ class Merger {
         hints: this.hints
       }
     }
-  }
-
-  private typesToMerge<T extends NamedType>(kind?: T['kind']): readonly T[]{
-    return this.merged.types<T>(kind)
-      .filter((type) => !linkSpec.isSpecType(type) && !joinSpec.isSpecType(type));
   }
 
   // Amongst other thing, this will ensure all the definitions of a given name are of the same kind
@@ -1407,7 +1406,7 @@ class Merger {
     if (isEnumType(base)) {
       const existing = this.enumUsages.get(base.name);
       const thisPosition = isInputPosition ? 'Input' : 'Output';
-      const position = existing && existing.position != thisPosition ? 'Both' : thisPosition;
+      const position = existing && existing.position !== thisPosition ? 'Both' : thisPosition;
       const examples = existing?.examples ?? {};
       if (!examples[thisPosition]) {
         const idx = sources.findIndex((s) => !!s);
@@ -1757,7 +1756,6 @@ class Merger {
       }
     }
   }
-
 
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
     const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);

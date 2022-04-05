@@ -11,7 +11,6 @@ import {
   errorCauses,
   Extension,
   FieldDefinition,
-  InterfaceType,
   isCompositeType,
   isInterfaceType,
   isObjectType,
@@ -434,7 +433,7 @@ class SchemaUpgrader {
   }
 
   private removeExternalOnInterface() {
-    for (const itf of this.schema.types<InterfaceType>('InterfaceType')) {
+    for (const itf of this.schema.interfaceTypes()) {
       for (const field of itf.fields()) {
         const external = this.external(field);
         if (external) {
@@ -590,7 +589,7 @@ class SchemaUpgrader {
   }
 
   private removeDirectivesOnInterface() {
-    for (const type of this.schema.types<InterfaceType>('InterfaceType')) {
+    for (const type of this.schema.interfaceTypes()) {
       for (const application of type.appliedDirectivesOf(this.metadata.keyDirective())) {
         this.addChange(new KeyOnInterfaceRemoval(type.name));
         application.remove();
@@ -607,7 +606,7 @@ class SchemaUpgrader {
   }
 
   private removeProvidesOnNonComposite() {
-    for (const type of this.schema.types<ObjectType>('ObjectType')) {
+    for (const type of this.schema.objectTypes()) {
       for (const field of type.fields()) {
         if (isCompositeType(baseType(field.type!))) {
           continue;
@@ -627,7 +626,7 @@ class SchemaUpgrader {
     // We add shareable:
     // - to every "value type" (in the fed1 sense of non-root type and non-entity) if it is used in any other subgraphs
     // - to any (non-external) field of an entity/root-type that is not a key field and if another subgraphs resolve it (fully or partially through @provides)
-    for (const type of this.schema.types<ObjectType>('ObjectType')) {
+    for (const type of this.schema.objectTypes()) {
       if (type.hasAppliedDirective(keyDirective) || type.isRootType()) {
         for (const field of type.fields()) {
           // To know if the field is a "key" field which doesn't need shareable, we rely on whether the field is shareable in the original
