@@ -1644,7 +1644,7 @@ class Merger {
       usage = { position: 'Output', examples: {}};
       this.hints.push(new CompositionHint(
         hintUnusedEnumType,
-        `Enum type "${dest}" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only use as an output type).`,
+        `Enum type "${dest}" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).`,
         dest.name,
       ));
     }

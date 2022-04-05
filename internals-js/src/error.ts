@@ -366,7 +366,7 @@ const EMPTY_MERGED_INPUT_TYPE = makeCodeDefinition(
 
 const INCONSISTENT_ENUM_VALUE = makeCodeDefinition(
   'INCONSISTENT_ENUM_VALUE',
-  'An enum type that is use as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.'
+  'An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.'
 );
 
 const EMPTY_MERGED_ENUM_TYPE = makeCodeDefinition(

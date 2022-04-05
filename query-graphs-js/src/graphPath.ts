@@ -1202,7 +1202,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
   transition: Transition,
   conditionResolver: ConditionResolver
 ) : GraphPath<Transition, V>[] | Unadvanceables {
-  assert(transition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
+  assert(transition.collectOperationElements, "Supergraphs shouldn't have transitions that don't collect elements");
 
   const options: GraphPath<Transition, V>[] = [];
   const deadEnds: Unadvanceable[] = [];
