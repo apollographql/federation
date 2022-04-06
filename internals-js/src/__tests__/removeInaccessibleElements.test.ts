@@ -1,5 +1,7 @@
 import {
+  ArgumentDefinition,
   errorCauses,
+  FieldDefinition,
   InterfaceType,
   ObjectType,
   UnionType,
@@ -1277,9 +1279,52 @@ describe("removeInaccessibleElements", () => {
     const schema = buildSchema(`
       ${INACCESSIBLE_V02_HEADER}
 
+      extend schema {
+        mutation: Mutation
+        subscription: Subscription
+      }
+
+      # Inaccessible object field on query type
       type Query {
         someField: String
         privateField: String @inaccessible
+      }
+
+      # Inaccessible object field on mutation type
+      type Mutation {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible object field on subscription type
+      type Subscription {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible (and non-inaccessible) object field
+      type Object implements Referencer1 & Referencer2 {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible object field referenced by inaccessible interface field
+      interface Referencer1 {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible object field referenced by non-inaccessible interface field
+      # with inaccessible parent
+      interface Referencer2 @inaccessible {
+        privateField: String
+      }
+
+      # Inaccessible object field with an inaccessible parent and no
+      # non-inaccessible siblings
+      type Referencer3 @inaccessible {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
       }
     `);
 
@@ -1287,5 +1332,974 @@ describe("removeInaccessibleElements", () => {
     schema.validate();
     expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
     expect(schema.elementByCoordinate("Query.privateField")).toBeUndefined();
+    expect(schema.elementByCoordinate("Mutation.someField")).toBeDefined();
+    expect(schema.elementByCoordinate("Mutation.privateField")).toBeUndefined();
+    expect(schema.elementByCoordinate("Subscription.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Subscription.privateField")
+    ).toBeUndefined();
+    const objectType = schema.elementByCoordinate("Object");
+    expect(objectType instanceof ObjectType).toBeTruthy();
+    expect(
+      (objectType as ObjectType).implementsInterface("Referencer1")
+    ).toBeTruthy();
+    expect(
+      (objectType as ObjectType).implementsInterface("Referencer2")
+    ).toBeFalsy();
+    expect(schema.elementByCoordinate("Object.someField")).toBeDefined();
+    expect(schema.elementByCoordinate("Object.privateField")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer1.privatefield")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible object fields for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      extend schema {
+        mutation: Mutation
+        subscription: Subscription
+      }
+
+      # Inaccessible object field can't have a non-inaccessible parent query
+      # type and no non-inaccessible siblings
+      type Query {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+
+      # Inaccessible object field can't have a non-inaccessible parent mutation
+      # type and no non-inaccessible siblings
+      type Mutation {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+
+      # Inaccessible object field can't have a non-inaccessible parent
+      # subscription type and no non-inaccessible siblings
+      type Subscription {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+
+      # Inaccessible object field
+      type Object implements Referencer1 {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible object field can't be referenced by interface field in the
+      # API schema
+      interface Referencer1 {
+        privateField: String
+      }
+
+      # Inaccessible object field can't have a non-inaccessible parent object
+      # type and no non-inaccessible siblings
+      type Referencer2 {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+    `);
+
+    const errorMessages = expectErrors(5, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Field \\"Object.privateField\\" is @inaccessible but implements the interface field \\"Referencer1.privateField\\", which is in the API schema.",
+        "Type \\"Mutation\\" is in the API schema but all of its fields are @inaccessible.",
+        "Type \\"Query\\" is in the API schema but all of its fields are @inaccessible.",
+        "Type \\"Referencer2\\" is in the API schema but all of its fields are @inaccessible.",
+        "Type \\"Subscription\\" is in the API schema but all of its fields are @inaccessible.",
+      ]
+    `);
+  });
+
+  it(`removes @inaccessible interface fields`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible (and non-inaccessible) interface field
+      interface Interface implements Referencer1 & Referencer2 {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible interface field referenced by inaccessible interface field
+      interface Referencer1 {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible interface field referenced by non-inaccessible interface
+      # field with inaccessible parent
+      interface Referencer2 @inaccessible {
+        privateField: String
+      }
+
+      # Inaccessible interface field with an inaccessible parent and no
+      # non-inaccessible siblings
+      interface Referencer3 @inaccessible {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    const interfaceType = schema.elementByCoordinate("Interface");
+    expect(interfaceType instanceof InterfaceType).toBeTruthy();
+    expect(
+      (interfaceType as InterfaceType).implementsInterface("Referencer1")
+    ).toBeTruthy();
+    expect(
+      (interfaceType as InterfaceType).implementsInterface("Referencer2")
+    ).toBeFalsy();
+    expect(schema.elementByCoordinate("Interface.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Interface.privateField")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer1.privatefield")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible interface fields for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible interface field
+      interface Interface implements Referencer1 {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible interface field can't be referenced by interface field in
+      # the API schema
+      interface Referencer1 {
+        privateField: String
+      }
+
+      # Inaccessible interface field can't have a non-inaccessible parent object
+      # type and no non-inaccessible siblings
+      interface Referencer2 {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+    `);
+
+    const errorMessages = expectErrors(2, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Field \\"Interface.privateField\\" is @inaccessible but implements the interface field \\"Referencer1.privateField\\", which is in the API schema.",
+        "Type \\"Referencer2\\" is in the API schema but all of its fields are @inaccessible.",
+      ]
+    `);
+  });
+
+  it(`removes @inaccessible object field arguments`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      # Inaccessible object field argument in query type
+      type Query {
+        someField(privateArg: String @inaccessible): String
+      }
+
+      # Inaccessible object field argument in mutation type
+      type Mutation {
+        someField(privateArg: String @inaccessible): String
+      }
+
+      # Inaccessible object field argument in subscription type
+      type Subscription {
+        someField(privateArg: String @inaccessible): String
+      }
+
+      # Inaccessible (and non-inaccessible) object field argument
+      type Object implements Referencer1 & Referencer2 & Referencer3 {
+        someField(
+          someArg: String,
+          privateArg: String @inaccessible
+        ): String
+        someOtherField: Float
+      }
+
+      # Inaccessible object field argument referenced by inaccessible interface
+      # field argument
+      interface Referencer1 {
+        someField(
+          someArg: String,
+          privateArg: String @inaccessible
+        ): String
+      }
+
+      # Inaccessible object field argument referenced by non-inaccessible
+      # interface field argument with inaccessible parent
+      interface Referencer2 {
+        someField(
+          someArg: String,
+          privateArg: String
+        ): String @inaccessible
+        someOtherField: Float
+      }
+
+      # Inaccessible object field argument referenced by non-inaccessible
+      # interface field argument with inaccessible grandparent
+      interface Referencer3 @inaccessible {
+        someField(
+          someArg: String,
+          privateArg: String
+        ): String
+      }
+
+      # Inaccessible non-nullable object field argument with default
+      type ObjectDefault {
+        someField(privateArg: String! = "default" @inaccessible): String
+      }
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Query.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Mutation.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Mutation.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Subscription.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Subscription.someField(privateArg:)")
+    ).toBeUndefined();
+    const objectType = schema.elementByCoordinate("Object");
+    expect(objectType instanceof ObjectType).toBeTruthy();
+    expect(
+      (objectType as ObjectType).implementsInterface("Referencer1")
+    ).toBeTruthy();
+    expect(
+      (objectType as ObjectType).implementsInterface("Referencer2")
+    ).toBeTruthy();
+    expect(
+      (objectType as ObjectType).implementsInterface("Referencer3")
+    ).toBeFalsy();
+    expect(
+      schema.elementByCoordinate("Object.someField(someArg:)")
+    ).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Object.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer2")).toBeDefined();
+    expect(schema.elementByCoordinate("Referencer2.someField")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+    expect(schema.elementByCoordinate("ObjectDefault.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("ObjectDefault.someField(privateArg:)")
+    ).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible object field arguments for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField(someArg: String): String
+      }
+
+      # Inaccessible object field argument
+      type Object implements Referencer1 {
+        someField(privateArg: String @inaccessible): String
+      }
+
+      # Inaccessible object field argument can't be referenced by interface
+      # field argument in the API schema
+      interface Referencer1 {
+        someField(privateArg: String): String
+      }
+
+      # Inaccessible object field argument can't be a required argument
+      type ObjectRequired {
+        someField(privateArg: String! @inaccessible): String
+      }
+    `);
+
+    const errorMessages = expectErrors(2, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Argument \\"Object.someField(privateArg:)\\" is @inaccessible but implements the interface argument \\"Referencer1.someField(privateArg:)\\", which is in the API schema.",
+        "Argument \\"ObjectRequired.someField(privateArg:)\\" is @inaccessible but is a required argument of its field.",
+      ]
+    `);
+  });
+
+  it(`removes @inaccessible interface field arguments`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible (and non-inaccessible) interface field argument
+      interface Interface implements Referencer1 & Referencer2 & Referencer3 {
+        someField(
+          someArg: String,
+          privateArg: String @inaccessible
+        ): String
+        someOtherField: Float
+      }
+
+      # Inaccessible interface field argument referenced by inaccessible
+      # interface field argument
+      interface Referencer1 {
+        someField(
+          someArg: String,
+          privateArg: String @inaccessible
+        ): String
+      }
+
+      # Inaccessible interface field argument referenced by non-inaccessible
+      # interface field argument with inaccessible parent
+      interface Referencer2 {
+        someField(
+          someArg: String,
+          privateArg: String
+        ): String @inaccessible
+        someOtherField: Float
+      }
+
+      # Inaccessible interface field argument referenced by non-inaccessible
+      # interface field argument with inaccessible grandparent
+      interface Referencer3 @inaccessible {
+        someField(
+          someArg: String,
+          privateArg: String
+        ): String
+      }
+
+      # Inaccessible non-nullable interface field argument with default
+      interface InterfaceDefault {
+        someField(privateArg: String! = "default" @inaccessible): String
+      }
+
+      # Inaccessible interface field argument referenced by non-inaccessible
+      # non-required object field argument
+      type Referencer4 implements InterfaceDefault {
+        someField(privateArg: String! = "default"): String
+      }
+
+      # Inaccessible interface field argument referenced by non-inaccessible
+      # required object field argument with inaccessible grandparent
+      type Referencer5 implements InterfaceDefault @inaccessible {
+        someField(privateArg: String!): String
+      }
+
+      # Inaccessible interface field argument referenced by non-inaccessible
+      # non-required interface field argument
+      interface Referencer6 implements InterfaceDefault {
+        someField(privateArg: String! = "default"): String
+      }
+
+      # Inaccessible interface field argument referenced by non-inaccessible
+      # required interface field argument with inaccessible grandparent
+      interface Referencer7 implements InterfaceDefault @inaccessible {
+        someField(privateArg: String!): String
+      }
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    const interfaceType = schema.elementByCoordinate("Interface");
+    expect(interfaceType instanceof InterfaceType).toBeTruthy();
+    expect(
+      (interfaceType as InterfaceType).implementsInterface("Referencer1")
+    ).toBeTruthy();
+    expect(
+      (interfaceType as InterfaceType).implementsInterface("Referencer2")
+    ).toBeTruthy();
+    expect(
+      (interfaceType as InterfaceType).implementsInterface("Referencer3")
+    ).toBeFalsy();
+    expect(
+      schema.elementByCoordinate("Interface.someField(someArg:)")
+    ).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Interface.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer2")).toBeDefined();
+    expect(schema.elementByCoordinate("Referencer2.someField")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+    expect(schema.elementByCoordinate("Interface.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Interface.someField(privateArg:)")
+    ).toBeUndefined();
+    const objectArg = schema.elementByCoordinate(
+      "Referencer4.someField(privateArg:)"
+    );
+    expect(objectArg instanceof ArgumentDefinition).toBeTruthy();
+    expect(
+      (
+        objectArg as ArgumentDefinition<FieldDefinition<ObjectType>>
+      ).isRequired()
+    ).toBeFalsy();
+    expect(schema.elementByCoordinate("Referencer5")).toBeUndefined();
+    const interfaceArg = schema.elementByCoordinate(
+      "Referencer6.someField(privateArg:)"
+    );
+    expect(interfaceArg instanceof ArgumentDefinition).toBeTruthy();
+    expect(
+      (
+        interfaceArg as ArgumentDefinition<FieldDefinition<InterfaceType>>
+      ).isRequired()
+    ).toBeFalsy();
+    expect(schema.elementByCoordinate("Referencer7")).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible interface field arguments for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField(someArg: String): String
+      }
+
+      # Inaccessible interface field argument
+      interface Interface implements Referencer1 {
+        someField(privateArg: String! = "default" @inaccessible): String
+      }
+
+      # Inaccessible interface field argument can't be referenced by interface
+      # field argument in the API schema
+      interface Referencer1 {
+        someField(privateArg: String! = "default"): String
+      }
+
+      # Inaccessible object field argument can't be a required argument
+      type InterfaceRequired {
+        someField(privateArg: String! @inaccessible): String
+      }
+
+      # Inaccessible object field argument can't be implemented by a required
+      # object field argument in the API schema
+      type Referencer2 implements Interface & Referencer1 {
+        someField(privateArg: String!): String
+      }
+
+      # Inaccessible object field argument can't be implemented by a required
+      # interface field argument in the API schema
+      interface Referencer3 implements Interface & Referencer1 {
+        someField(privateArg: String!): String
+      }
+    `);
+
+    const errorMessages = expectErrors(4, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Argument \\"Interface.someField(privateArg:)\\" is @inaccessible but implements the interface argument \\"Referencer1.someField(privateArg:)\\", which is in the API schema.",
+        "Argument \\"Interface.someField(privateArg:)\\" is @inaccessible but is implemented by the required argument \\"Referencer2.someField(privateArg:)\\", which is in the API schema.",
+        "Argument \\"Interface.someField(privateArg:)\\" is @inaccessible but is implemented by the required argument \\"Referencer3.someField(privateArg:)\\", which is in the API schema.",
+        "Argument \\"InterfaceRequired.someField(privateArg:)\\" is @inaccessible but is a required argument of its field.",
+      ]
+    `);
+  });
+
+  it(`removes @inaccessible input object fields`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible (and non-inaccessible) input object field
+      input InputObject {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # inaccessible object field argument
+      type Referencer1 implements Referencer4 {
+        someField(
+          privateArg: InputObject = { privateField: "" } @inaccessible
+        ): String
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # non-inaccessible object field argument with inaccessible parent
+      type Referencer2 implements Referencer5 {
+        someField: String
+        privateField(
+          privateArg: InputObject! = { privateField: "" }
+        ): String @inaccessible
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # non-inaccessible object field argument with inaccessible grandparent
+      type Referencer3 implements Referencer6 @inaccessible {
+        privateField(privateArg: InputObject! = { privateField: "" }): String
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # inaccessible interface field argument
+      interface Referencer4 {
+        someField(
+          privateArg: InputObject = { privateField: "" } @inaccessible
+        ): String
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # non-inaccessible interface field argument with inaccessible parent
+      interface Referencer5 {
+        someField: String
+        privateField(
+          privateArg: InputObject! = { privateField: "" }
+        ): String @inaccessible
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # non-inaccessible interface field argument with inaccessible grandparent
+      interface Referencer6 @inaccessible {
+        privateField(privateArg: InputObject! = { privateField: "" }): String
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # inaccessible input object field
+      input Referencer7 {
+        someField: String
+        privateField: InputObject = { privateField: "" } @inaccessible
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # non-inaccessible input object field with inaccessible parent
+      input Referencer8 @inaccessible {
+        privateField: InputObject! = { privateField: "" }
+      }
+
+      # Inaccessible input object field referenced by default value of
+      # inaccessible directive argument
+      directive @referencer9(
+        privateArg: InputObject = { privateField: "" } @inaccessible
+      ) on SUBSCRIPTION
+
+      # Inaccessible input object field not referenced (but type is referenced)
+      # by default value of object field argument in the API schema
+      type Referencer10 {
+        someField(privateArg: InputObject = { someField: "" }): String
+      }
+
+      # Inaccessible input object field with an inaccessible parent and no
+      # non-inaccessible siblings
+      input Referencer11 @inaccessible {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+
+      # Inaccessible non-nullable input object field with default
+      input InputObjectDefault {
+        someField: String
+        privateField: String! = "default" @inaccessible
+      }
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    expect(schema.elementByCoordinate("InputObject.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("InputObject.privateField")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer2.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer2.privateField")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer4.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer4.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer5.privateField")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer6")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer7.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer7.privatefield")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer8")).toBeUndefined();
+    expect(schema.elementByCoordinate("@referencer9")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("@referencer9(privateArg:)")
+    ).toBeUndefined();
+    expect(
+      schema.elementByCoordinate("Referencer10.someField(privateArg:)")
+    ).toBeDefined();
+    expect(schema.elementByCoordinate("Referencer11")).toBeUndefined();
+    expect(
+      schema.elementByCoordinate("InputObjectDefault.someField")
+    ).toBeDefined();
+    expect(
+      schema.elementByCoordinate("InputObjectDefault.privatefield")
+    ).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible input object fields for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible input object field
+      input InputObject {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible input object field can't be referenced by default value of
+      # object field argument in the API schema
+      type Referencer1 implements Referencer2 {
+        someField(someArg: InputObject = { privateField: "" }): String
+      }
+
+      # Inaccessible input object field can't be referenced by default value of
+      # interface field argument in the API schema
+      interface Referencer2 {
+        someField(someArg: InputObject = { privateField: "" }): String
+      }
+
+      # Inaccessible input object field can't be referenced by default value of
+      # input object field in the API schema
+      input Referencer3 {
+        someField: InputObject = { privateField: "" }
+      }
+
+      # Inaccessible input object field can't be referenced by default value of
+      # directive argument in the API schema
+      directive @referencer4(
+        someArg: InputObject = { privateField: "" }
+      ) on FIELD
+
+      # Inaccessible input object field can't have a non-inaccessible parent
+      # and no non-inaccessible siblings
+      input Referencer5 {
+        privateField: String @inaccessible
+        otherPrivateField: Float @inaccessible
+      }
+
+      # Inaccessible input object field can't be a required field
+      input InputObjectRequired {
+        someField: String
+        privateField: String! @inaccessible
+      }
+    `);
+
+    const errorMessages = expectErrors(6, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Input field \\"InputObject.privateField\\" is @inaccessible but is used in the default value of \\"@referencer4(someArg:)\\", which is in the API schema.",
+        "Input field \\"InputObject.privateField\\" is @inaccessible but is used in the default value of \\"Referencer1.someField(someArg:)\\", which is in the API schema.",
+        "Input field \\"InputObject.privateField\\" is @inaccessible but is used in the default value of \\"Referencer2.someField(someArg:)\\", which is in the API schema.",
+        "Input field \\"InputObject.privateField\\" is @inaccessible but is used in the default value of \\"Referencer3.someField\\", which is in the API schema.",
+        "Input field \\"InputObjectRequired.privateField\\" is @inaccessible but is a required input field of its type.",
+        "Type \\"Referencer5\\" is in the API schema but all of its input fields are @inaccessible.",
+      ]
+    `);
+  });
+
+  it(`removes @inaccessible enum values`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible (and non-inaccessible) enum value
+      enum Enum {
+        SOME_VALUE
+        PRIVATE_VALUE @inaccessible
+      }
+
+      # Inaccessible enum value referenced by default value of inaccessible
+      # object field argument
+      type Referencer1 implements Referencer4 {
+        someField(
+          privateArg: Enum = PRIVATE_VALUE @inaccessible
+        ): String
+      }
+
+      # Inaccessible enum value referenced by default value of non-inaccessible
+      # object field argument with inaccessible parent
+      type Referencer2 implements Referencer5 {
+        someField: String
+        privateField(
+          privateArg: Enum! = PRIVATE_VALUE
+        ): String @inaccessible
+      }
+
+      # Inaccessible enum value referenced by default value of non-inaccessible
+      # object field argument with inaccessible grandparent
+      type Referencer3 implements Referencer6 @inaccessible {
+        privateField(privateArg: Enum! = PRIVATE_VALUE): String
+      }
+
+      # Inaccessible enum value referenced by default value of inaccessible
+      # interface field argument
+      interface Referencer4 {
+        someField(
+          privateArg: Enum = PRIVATE_VALUE @inaccessible
+        ): String
+      }
+
+      # Inaccessible enum value referenced by default value of non-inaccessible
+      # interface field argument with inaccessible parent
+      interface Referencer5 {
+        someField: String
+        privateField(
+          privateArg: Enum! = PRIVATE_VALUE
+        ): String @inaccessible
+      }
+
+      # Inaccessible enum value referenced by default value of non-inaccessible
+      # interface field argument with inaccessible grandparent
+      interface Referencer6 @inaccessible {
+        privateField(privateArg: Enum! = PRIVATE_VALUE): String
+      }
+
+      # Inaccessible enum value referenced by default value of inaccessible
+      # input object field
+      input Referencer7 {
+        someField: String
+        privateField: Enum = PRIVATE_VALUE @inaccessible
+      }
+
+      # Inaccessible enum value referenced by default value of non-inaccessible
+      # input object field with inaccessible parent
+      input Referencer8 @inaccessible {
+        privateField: Enum! = PRIVATE_VALUE
+      }
+
+      # Inaccessible enum value referenced by default value of inaccessible
+      # directive argument
+      directive @referencer9(
+        privateArg: Enum = PRIVATE_VALUE @inaccessible
+      ) on FRAGMENT_SPREAD
+
+      # Inaccessible enum value not referenced (but type is referenced) by
+      # default value of object field argument in the API schema
+      type Referencer10 {
+        someField(privateArg: Enum = SOME_VALUE): String
+      }
+
+      # Inaccessible enum value with an inaccessible parent and no
+      # non-inaccessible siblings
+      enum Referencer11 @inaccessible {
+        PRIVATE_VALUE @inaccessible
+        OTHER_PRIVATE_VALUE @inaccessible
+      }
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    expect(schema.elementByCoordinate("Enum.SOME_VALUE")).toBeDefined();
+    expect(schema.elementByCoordinate("Enum.PRIVATE_VALUE")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer2.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer2.privateField")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer4.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer4.someField(privateArg:)")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer5.privateField")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer6")).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer7.someField")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("Referencer7.privatefield")
+    ).toBeUndefined();
+    expect(schema.elementByCoordinate("Referencer8")).toBeUndefined();
+    expect(schema.elementByCoordinate("@referencer9")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("@referencer9(privateArg:)")
+    ).toBeUndefined();
+    expect(
+      schema.elementByCoordinate("Referencer10.someField(privateArg:)")
+    ).toBeDefined();
+    expect(schema.elementByCoordinate("Referencer11")).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible enum values for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible enum value
+      enum Enum {
+        SOME_VALUE
+        PRIVATE_VALUE @inaccessible
+      }
+
+      # Inaccessible enum value can't be referenced by default value of object
+      # field argument in the API schema
+      type Referencer1 implements Referencer2 {
+        someField(someArg: Enum = PRIVATE_VALUE): String
+      }
+
+      # Inaccessible enum value can't be referenced by default value of
+      # interface field argument in the API schema
+      interface Referencer2 {
+        someField(someArg: Enum = PRIVATE_VALUE): String
+      }
+
+      # Inaccessible enum value can't be referenced by default value of input
+      # object field in the API schema
+      input Referencer3 {
+        someField: Enum = PRIVATE_VALUE
+      }
+
+      # Inaccessible input enum value can't be referenced by default value of
+      # directive argument in the API schema
+      directive @referencer4(someArg: Enum = PRIVATE_VALUE) on INLINE_FRAGMENT
+
+      # Inaccessible enum value can't have a non-inaccessible parent and no
+      # non-inaccessible siblings
+      enum Referencer5 {
+        PRIVATE_VALUE @inaccessible
+        OTHER_PRIVATE_VALUE @inaccessible
+      }
+    `);
+
+    const errorMessages = expectErrors(5, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"@referencer4(someArg:)\\", which is in the API schema.",
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"Referencer1.someField(someArg:)\\", which is in the API schema.",
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"Referencer2.someField(someArg:)\\", which is in the API schema.",
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"Referencer3.someField\\", which is in the API schema.",
+        "Type \\"Referencer5\\" is in the API schema but all of its values are @inaccessible.",
+      ]
+    `);
+  });
+
+  it(`removes @inaccessible directive arguments`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible (and non-inaccessible) directive argument
+      directive @directive(
+        someArg: String
+        privateArg: String @inaccessible
+      ) on QUERY
+
+      # Inaccessible non-nullable directive argument with default
+      directive @directiveDefault(
+        someArg: String
+        privateArg: String! = "default" @inaccessible
+      ) on MUTATION
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    expect(schema.elementByCoordinate("@directive(someArg:)")).toBeDefined();
+    expect(
+      schema.elementByCoordinate("@directive(privateArg:)")
+    ).toBeUndefined();
+    expect(
+      schema.elementByCoordinate("@directiveDefault(someArg:)")
+    ).toBeDefined();
+    expect(
+      schema.elementByCoordinate("@directiveDefault(privateArg:)")
+    ).toBeUndefined();
+  });
+
+  it(`fails to remove @inaccessible directive arguments for breaking removals`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible directive argument
+      directive @directive(privateArg: String @inaccessible) on SUBSCRIPTION
+
+      # Inaccessible directive argument can't be a required field
+      directive @directiveRequired(
+        someArg: String
+        privateArg: String! @inaccessible
+      ) on FRAGMENT_DEFINITION
+    `);
+
+    const errorMessages = expectErrors(1, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Argument \\"@directiveRequired(privateArg:)\\" is @inaccessible but is a required argument of its directive.",
+      ]
+    `);
   });
 });
