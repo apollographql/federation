@@ -9,8 +9,8 @@ sidebar_title: Hints
 When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./subgraphs/) into a **supergraph schema**, "hints" may provide additional information about the composition. Hints are first and foremost informative and don't necessarily correspond to a problem to be fixed.
 
 Hints are categorized under the following levels:
-1. WARN: indicates a situation that may expected but is usually temporary and should be double-checked. Typically, composition might have had to ignore some elements from some subgraph when creating the supergraph.
-2. INFO: information that may hint at some improvements or highlight noteworthy resolution made by composition, but that can otherwise be ignored.
+1. WARN: indicates a situation that may be expected but is usually temporary and should be double-checked. Typically, composition might have had to ignore some elements from some subgraph when creating the supergraph.
+2. INFO: information that may hint at some improvements or highlight noteworthy resolution made by composition but can otherwise be ignored.
 3. DEBUG: lower-level information that gives insights into the composition but of lesser importance/impact.
 
 Note that hints are first and foremost informative and don't necessarily correspond to a problem to be fixed.
@@ -38,7 +38,7 @@ function makeMardownArray(
 const byLevel = Object.values(HINTS)
   .reduce(
     (acc, def) => {
-      acc.add(def.level, def);
+      acc.add(def.level.value, def);
       return acc;
     },
     new MultiMap<HintLevel, HintCodeDefinition>(),
