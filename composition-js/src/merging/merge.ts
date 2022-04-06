@@ -123,7 +123,7 @@ class FieldMergeContext {
     return this._props[idx].unusedOverridden;
   }
 
-  setUsedOverriden(idx: number) {
+  setUsedOverridden(idx: number) {
     this._props[idx].usedOverridden = true;
   }
 
@@ -1057,6 +1057,7 @@ class Merger {
     subgraphsWithOverride.forEach((subgraphName) => {
       const { overrideDirective } = subgraphMap[subgraphName];
       const sourceSubgraphName = overrideDirective?.arguments()?.from;
+      const overridingSubgraphASTNode = overrideDirective?.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
       if (!this.names.includes(sourceSubgraphName)) {
         const suggestions = suggestionList(sourceSubgraphName, this.names);
         const extraMsg = didYouMean(suggestions);
@@ -1064,6 +1065,7 @@ class Merger {
           hintFromSubgraphDoesNotExist,
           `Source subgraph "${sourceSubgraphName}" for field "${coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
           coordinate,
+          overridingSubgraphASTNode,
         ));
       } else if (sourceSubgraphName === subgraphName) {
         this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err({
@@ -1080,6 +1082,7 @@ class Merger {
           hintOverrideDirectiveCanBeRemoved,
           `Field "${coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
           coordinate,
+          overridingSubgraphASTNode,
         ));
       } else {
         // check to make sure that there is no conflicting @provides, @requires, or @external directives
@@ -1102,20 +1105,23 @@ class Merger {
           // if we get here, then the @override directive is valid
           // if the field being overridden is used, then we need to add an @external directive
           assert(fromField, 'fromField should not be undefined');
+          const overriddenSubgraphASTNode = fromField.sourceAST ? addSubgraphToASTNode(fromField.sourceAST, sourceSubgraphName) : undefined;
           if (this.isExternal(fromIdx, fromField)) {
-            // The from field is explcitely marked external by the user (which means it is "used" and cannot be completely
+            // The from field is explicitly marked external by the user (which means it is "used" and cannot be completely
             // removed) so the @override can be removed.
             this.hints.push(new CompositionHint(
               hintOverrideDirectiveCanBeRemoved,
               `Field "${coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
               coordinate,
+              overridingSubgraphASTNode,
             ));
           } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
-            result.setUsedOverriden(fromIdx);
+            result.setUsedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
               hintOverriddenFieldCanBeRemoved,
               `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
               coordinate,
+              overriddenSubgraphASTNode,
             ));
           } else {
             result.setUnusedOverridden(fromIdx);
@@ -1123,6 +1129,7 @@ class Merger {
               hintOverriddenFieldCanBeRemoved,
               `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
               coordinate,
+              overriddenSubgraphASTNode,
             ));
           }
         }
