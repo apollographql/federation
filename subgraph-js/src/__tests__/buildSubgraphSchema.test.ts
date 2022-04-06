@@ -118,8 +118,6 @@ describe('buildSubgraphSchema', () => {
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
     expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
       schema {
         query: Query
       }
@@ -359,8 +357,6 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
         type Review {
           id: ID
         }
@@ -416,8 +412,6 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
         type Review {
           id: ID
         }
@@ -466,8 +460,6 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
         type Product @key(fields: "upc") {
           upc: String!
           name: String
@@ -501,8 +493,6 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
         type Product @key(fields: "upc") @key(fields: "name") {
           upc: String!
           name: String
@@ -548,8 +538,6 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
         type Review @key(fields: "id") {
           id: ID!
           body: String
@@ -603,8 +591,6 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
-
         directive @custom on FIELD
 
         extend type User @key(fields: "email") {

@@ -11,7 +11,7 @@ describe('subgraphCore', () => {
     const result = getResult(() => subgraphCore(fixtures[0].typeDefs));
     expect([...result.errors()]).toEqual([]);
     expect(raw(print(result.unwrap()))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/inaccessible/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/inaccessible/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable"])
 
       directive @stream on FIELD
 
@@ -113,6 +113,7 @@ describe('subgraphCore', () => {
         <https://specs.apollo.dev/federation/v1.0#@provides>[builtin/federation/v1.0.graphql] 👉directive @provides(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
+        GRef <https://specs.apollo.dev/federation/v2.0#@tag> => GRef <https://specs.apollo.dev/tag/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/tag/v0.1", import: "@ (as @tag)")),
         GRef <https://specs.apollo.dev/federation/v2.0#@inaccessible> => GRef <https://specs.apollo.dev/inaccessible/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: "@ (as @inaccessible)")),
         <https://specs.apollo.dev/federation/v2.0>[builtin/federation/v2.0.graphql] 👉@id(url: "https://specs.apollo.dev/federation/v2.0"),
         <https://specs.apollo.dev/federation/v2.0#@key>[builtin/federation/v2.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
@@ -125,14 +126,40 @@ describe('subgraphCore', () => {
         <https://specs.apollo.dev/federation/v2.0#FieldSet>[builtin/federation/v2.0.graphql] 👉scalar FieldSet,
         <https://specs.apollo.dev/inaccessible/v0.1>[builtin/inaccessible/v0.1.graphql] 👉@id(url: "https://specs.apollo.dev/inaccessible/v0.1"),
         <https://specs.apollo.dev/inaccessible/v0.1#@>[builtin/inaccessible/v0.1.graphql] 👉directive @inaccessible on,
-        <https://specs.apollo.dev/link/v0.3>[builtin/link/v0.3.graphql] 👉@id(url: "https://specs.apollo.dev/link/v0.3"),
-        <https://specs.apollo.dev/link/v0.3#@>[builtin/link/v0.3.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
-        <https://specs.apollo.dev/link/v0.3#Import>[builtin/link/v0.3.graphql] 👉scalar Import,
+        <https://specs.apollo.dev/link/v1.0>[builtin/link/v1.0.graphql] 👉@id(url: "https://specs.apollo.dev/link/v1.0"),
+        <https://specs.apollo.dev/link/v1.0#@>[builtin/link/v1.0.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
+        <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] 👉scalar Import,
         GRef <https://specs.apollo.dev/id/v1.0#Url> => GRef <https://specs.apollo.dev/link/v0.3#Url> (via [builtin/id/v1.0.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
         GRef <https://specs.apollo.dev/id/v1.0#Name> => GRef <https://specs.apollo.dev/link/v0.3#Name> (via [builtin/id/v1.0.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
         <https://specs.apollo.dev/id/v1.0>[builtin/id/v1.0.graphql] 👉@id(url: "https://specs.apollo.dev/id/v1.0"),
         <https://specs.apollo.dev/id/v1.0#@>[builtin/id/v1.0.graphql] 👉directive @id(url: Url!, as: Name) on SCHEMA,
       ]
+    `);
+  });
+
+  it('removes unused links', () => {
+    const core = subgraphCore(
+      gql`
+        extend type User @key(fields: "someField") {
+          someField: ID!
+        }
+      `,
+    );
+    expect(raw(print(core))).toMatchInlineSnapshot(`
+      extend type User @key(fields: "someField") {
+        someField: ID!
+      }
+
+      directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+      scalar link__Import
+
+      """federation 1.0 key directive"""
+      directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+      scalar federation__FieldSet
+
+      type User
     `);
   });
 
@@ -164,14 +191,9 @@ describe('subgraphCore', () => {
 
     expect([...Schema.from(document)]).toMatchInlineSnapshot(`
       Array [
-        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"])),
-        GRef <#@requires> => GRef <https://specs.apollo.dev/federation/v1.0#@requires> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"])),
-        GRef <#@provides> => GRef <https://specs.apollo.dev/federation/v1.0#@provides> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"])),
-        GRef <#@external> => GRef <https://specs.apollo.dev/federation/v1.0#@external> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"])),
-        <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0"),
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
         <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
-        <https://specs.apollo.dev/tag/v0.1#@>[GraphQL request] 👉directive @tag(name: String!) repeatable on,
+        <#@tag>[GraphQL request] 👉directive @tag(name: String!) repeatable on,
         <#CacheControlScope>[GraphQL request] 👉enum CacheControlScope @tag(name: "from-reviews") {,
         <#@cacheControl>[GraphQL request] 👉directive @cacheControl(,
         <#JSON>[GraphQL request] 👉scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev"),
@@ -185,8 +207,8 @@ describe('subgraphCore', () => {
         <#Name>[GraphQL request] 👉type Name {,
         <#Mutation>[GraphQL request] 👉type Mutation {,
         <#Library>[GraphQL request] 👉type Library @key(fields: "id") {,
-        <https://specs.apollo.dev/link/v0.3#@>[builtin/link/v0.3.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
-        <https://specs.apollo.dev/link/v0.3#Import>[builtin/link/v0.3.graphql] 👉scalar Import,
+        <https://specs.apollo.dev/link/v1.0#@>[builtin/link/v1.0.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
+        <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] 👉scalar Import,
         <https://specs.apollo.dev/federation/v1.0#@key>[builtin/federation/v1.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@requires>[builtin/federation/v1.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
@@ -194,9 +216,97 @@ describe('subgraphCore', () => {
       ]
     `);
 
-    expect(raw(print(document))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+    expect([...Schema.from(document).refs]).toMatchInlineSnapshot(`
+      Array [
+        <#@stream>[GraphQL request] 👉directive @stream on FIELD,
+        <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
+        <https://specs.graphql.org/#String>[GraphQL request] directive @transform(from: 👉String!) on FIELD,
+        <#@tag>[GraphQL request] 👉directive @tag(name: String!) repeatable on,
+        <https://specs.graphql.org/#String>[GraphQL request] directive @tag(name: 👉String!) repeatable on,
+        <#CacheControlScope>[GraphQL request] 👉enum CacheControlScope @tag(name: "from-reviews") {,
+        <#@tag>[GraphQL request] enum CacheControlScope 👉@tag(name: "from-reviews") {,
+        <#@tag>[GraphQL request] PUBLIC 👉@tag(name: "from-reviews"),
+        <#@cacheControl>[GraphQL request] 👉directive @cacheControl(,
+        <https://specs.graphql.org/#Int>[GraphQL request] maxAge: 👉Int,
+        <#CacheControlScope>[GraphQL request] scope: 👉CacheControlScope,
+        <https://specs.graphql.org/#Boolean>[GraphQL request] inheritMaxAge: 👉Boolean,
+        <#JSON>[GraphQL request] 👉scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev"),
+        <#@tag>[GraphQL request] scalar JSON 👉@tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev"),
+        <https://specs.graphql.org/#@specifiedBy>[GraphQL request] scalar JSON @tag(name: "from-reviews") 👉@specifiedBy(url: "https://json-spec.dev"),
+        <>[GraphQL request] 👉schema {,
+        <>[GraphQL request] 👉query: RootQuery,
+        <#RootQuery>[GraphQL request] query: 👉RootQuery,
+        <>[GraphQL request] 👉mutation: Mutation,
+        <#Mutation>[GraphQL request] mutation: 👉Mutation,
+        <#RootQuery>[GraphQL request] 👉type RootQuery {,
+        <https://specs.graphql.org/#ID>[GraphQL request] user(id: 👉ID!): User,
+        <#User>[GraphQL request] user(id: ID!): 👉User,
+        <#User>[GraphQL request] me: 👉User @cacheControl(maxAge: 1000, scope: PRIVATE),
+        <#@cacheControl>[GraphQL request] me: User 👉@cacheControl(maxAge: 1000, scope: PRIVATE),
+        <#PasswordAccount>[GraphQL request] 👉type PasswordAccount @key(fields: "email") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type PasswordAccount 👉@key(fields: "email") {,
+        <https://specs.graphql.org/#String>[GraphQL request] email: 👉String!,
+        <#SMSAccount>[GraphQL request] 👉type SMSAccount @key(fields: "number") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type SMSAccount 👉@key(fields: "number") {,
+        <https://specs.graphql.org/#String>[GraphQL request] number: 👉String,
+        <#AccountType>[GraphQL request] 👉union AccountType @tag(name: "from-accounts") = PasswordAccount | SMSAccount,
+        <#@tag>[GraphQL request] union AccountType 👉@tag(name: "from-accounts") = PasswordAccount | SMSAccount,
+        <#PasswordAccount>[GraphQL request] union AccountType @tag(name: "from-accounts") = 👉PasswordAccount | SMSAccount,
+        <#SMSAccount>[GraphQL request] union AccountType @tag(name: "from-accounts") = PasswordAccount | 👉SMSAccount,
+        <#UserMetadata>[GraphQL request] 👉type UserMetadata {,
+        <https://specs.graphql.org/#String>[GraphQL request] name: 👉String,
+        <https://specs.graphql.org/#String>[GraphQL request] address: 👉String,
+        <https://specs.graphql.org/#String>[GraphQL request] description: 👉String,
+        <#User>[GraphQL request] 👉type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type User 👉@key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type User @key(fields: "id") 👉@key(fields: "username name { first last }") @tag(name: "from-accounts") {,
+        <#@tag>[GraphQL request] type User @key(fields: "id") @key(fields: "username name { first last }") 👉@tag(name: "from-accounts") {,
+        <https://specs.graphql.org/#ID>[GraphQL request] id: 👉ID! @tag(name: "accounts"),
+        <#@tag>[GraphQL request] id: ID! 👉@tag(name: "accounts"),
+        <#Name>[GraphQL request] name: 👉Name @cacheControl(inheritMaxAge: true),
+        <#@cacheControl>[GraphQL request] name: Name 👉@cacheControl(inheritMaxAge: true),
+        <https://specs.graphql.org/#String>[GraphQL request] username: 👉String @shareable # Provided by the 'reviews' subgraph,
+        <#@shareable>[GraphQL request] username: String 👉@shareable # Provided by the 'reviews' subgraph,
+        <https://specs.graphql.org/#String>[GraphQL request] birthDate(locale: 👉String @tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev"),
+        <#@tag>[GraphQL request] birthDate(locale: String 👉@tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev"),
+        <https://specs.graphql.org/#String>[GraphQL request] birthDate(locale: String @tag(name: "admin")): 👉String @tag(name: "admin") @tag(name: "dev"),
+        <#@tag>[GraphQL request] birthDate(locale: String @tag(name: "admin")): String 👉@tag(name: "admin") @tag(name: "dev"),
+        <#@tag>[GraphQL request] birthDate(locale: String @tag(name: "admin")): String @tag(name: "admin") 👉@tag(name: "dev"),
+        <#AccountType>[GraphQL request] account: 👉AccountType,
+        <#UserMetadata>[GraphQL request] metadata: [👉UserMetadata],
+        <https://specs.graphql.org/#String>[GraphQL request] ssn: 👉String,
+        <#Name>[GraphQL request] 👉type Name {,
+        <https://specs.graphql.org/#String>[GraphQL request] first: 👉String,
+        <https://specs.graphql.org/#String>[GraphQL request] last: 👉String,
+        <#Mutation>[GraphQL request] 👉type Mutation {,
+        <https://specs.graphql.org/#String>[GraphQL request] username: 👉String!,
+        <https://specs.graphql.org/#String>[GraphQL request] password: 👉String!,
+        <https://specs.graphql.org/#String>[GraphQL request] userId: 👉String @deprecated(reason: "Use username instead"),
+        <https://specs.graphql.org/#@deprecated>[GraphQL request] userId: String 👉@deprecated(reason: "Use username instead"),
+        <#User>[GraphQL request] ): 👉User,
+        <#Library>[GraphQL request] 👉type Library @key(fields: "id") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type Library 👉@key(fields: "id") {,
+        <https://specs.graphql.org/#ID>[GraphQL request] id: 👉ID!,
+        <https://specs.graphql.org/#String>[GraphQL request] name: 👉String @external,
+        <https://specs.apollo.dev/federation/v1.0#@external>[GraphQL request] name: String 👉@external,
+        <https://specs.graphql.org/#ID>[GraphQL request] userAccount(id: 👉ID! = "1"): User @requires(fields: "name"),
+        <#User>[GraphQL request] userAccount(id: ID! = "1"): 👉User @requires(fields: "name"),
+        <https://specs.apollo.dev/federation/v1.0#@requires>[GraphQL request] userAccount(id: ID! = "1"): User 👉@requires(fields: "name"),
+        <https://specs.apollo.dev/link/v1.0#@>[builtin/link/v1.0.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
+        <https://specs.graphql.org/#String>[builtin/link/v1.0.graphql] directive @link(url: 👉String!, as: String, import: [Import]),
+        <https://specs.graphql.org/#String>[builtin/link/v1.0.graphql] directive @link(url: String!, as: 👉String, import: [Import]),
+        <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] directive @link(url: String!, as: String, import: [👉Import]),
+        <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] 👉scalar Import,
+        <https://specs.apollo.dev/federation/v1.0#@key>[builtin/federation/v1.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] directive @key(fields: 👉FieldSet!) repeatable on OBJECT | INTERFACE,
+        <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
+        <https://specs.apollo.dev/federation/v1.0#@requires>[builtin/federation/v1.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] directive @requires(fields: 👉FieldSet!) on FIELD_DEFINITION,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
+      ]
+    `);
 
+    expect(raw(print(document))).toMatchInlineSnapshot(`
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
@@ -286,11 +396,13 @@ describe('subgraphCore', () => {
     `);
 
     expect(raw(print(doc))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"]) @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key", "@requires", "@provides", "@external"]) @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0")
 
       type User @tag(name: "something")
 
       directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
 
       scalar link__Import
     `);

@@ -1,11 +1,14 @@
-import { Atlas, Schema, gql } from "@apollo/core-schema";
+import { Atlas, Schema, gql, LinkUrl } from "@apollo/core-schema";
 
 export const SUBGRAPH_BASE = Schema.basic(
   gql `${'builtin:subgraph-base'}
     @link(url: "https://specs.apollo.dev/federation/v1.0", as: "",
           import: "@key @requires @provides @external")
-    @link(url: "https://specs.apollo.dev/tag/v0.1")
   `)
+
+export const FEDERATION_V2_0 = LinkUrl.from("https://specs.apollo.dev/federation/v2.0")!
+export const FEDERATION_V1_0 = LinkUrl.from("https://specs.apollo.dev/federation/v1.0")!
+export const FEDERATION_URLS = new Set([FEDERATION_V1_0, FEDERATION_V2_0])
 
 export const ATLAS = Atlas.fromSchemas(
   Schema.basic(gql `${'builtin/tag/v0.1'}
@@ -31,6 +34,7 @@ export const ATLAS = Atlas.fromSchemas(
   @id(url: "https://specs.apollo.dev/federation/v2.0")
   @link(url: "https://specs.apollo.dev/tag/v0.1")
   @link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: "@ (as @inaccessible)")
+  @link(url: "https://specs.apollo.dev/tag/v0.1", import: "@ (as @tag)")
 
   """
   federation 2.0 key directive
@@ -55,8 +59,8 @@ export const ATLAS = Atlas.fromSchemas(
     | FIELD_DEFINITION
   `),
 
-  Schema.basic(gql `${'builtin/link/v0.3.graphql'}
-  @id(url: "https://specs.apollo.dev/link/v0.3")
+  Schema.basic(gql `${'builtin/link/v1.0.graphql'}
+  @id(url: "https://specs.apollo.dev/link/v1.0")
 
   directive @link(url: String!, as: String, import: [Import])
     repeatable on SCHEMA
