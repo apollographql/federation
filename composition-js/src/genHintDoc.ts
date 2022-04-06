@@ -6,7 +6,7 @@ title: Federation Hints
 sidebar_title: Hints
 ---
 
-When Apollo Gateway successfully **compose** the schemas provided by your [subgraphs](./subgraphs/) into a **supergraph schema**, it may generate a number of "hints" that provide additional information the composition.
+When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./subgraphs/) into a **supergraph schema**, "hints" may provide additional information about the composition. Hints are first and foremost informative and don't necessarily correspond to a problem to be fixed.
 
 Hints are categorized under the following levels:
 1. WARN: indicates a situation that may expected but is usually temporary and should be double-checked. Typically, composition might have had to ignore some elements from some subgraph when creating the supergraph.
