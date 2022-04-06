@@ -5,7 +5,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 #### Start a release PR
 
 1. `FEDERATION_RELEASE_VERSION=X.Y.Z` (e.g. `2.0.1` or `2.0.0-beta.3` or `2.0.0-preview.99`)
-1. `git fetch origin main:main` to fetch the latest `main` branch
+1. `git fetch origin main` to fetch the latest `main` branch
 1. `git checkout -b "release-$FEDERATION_RELEASE_VERSION" main`
 1. Update `CHANGELOG.md` in each repo ([more info](#changelogs))
 1. `git add ':/*CHANGELOG.md'` to add only changelogs to the commit
