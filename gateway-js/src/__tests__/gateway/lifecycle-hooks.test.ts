@@ -16,7 +16,7 @@ import {
   fixtures,
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import resolvable from '@josephg/resolvable';
 import { createHash } from '../../utilities/createHash';
 import { getTestingSupergraphSdl } from '../execution-utils';
@@ -147,7 +147,7 @@ describe('lifecycle hooks', () => {
     // the supergraph (even just formatting differences), this ID will change
     // and this test will have to updated.
     expect(secondCall[0]!.compositionId).toEqual(
-      '2111ffa6e04caa88d5422b503f72192bfd644910fb4b56a73e0531ec79d5ea92',
+      '730a2fe4036db8e2c847096ba2a62f78ff8f3c08c9ee092a5b1b37e1aa00ef5a',
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);

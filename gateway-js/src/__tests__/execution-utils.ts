@@ -3,7 +3,8 @@ import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
 } from '../schema-helper';
-import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
+import { GraphQLRequest, GraphQLExecutionResult } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
   executeQueryPlan,
@@ -11,7 +12,7 @@ import {
 } from '@apollo/gateway';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { mergeDeep } from 'apollo-utilities';
+import { mergeDeep } from '@apollo/client/utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';

@@ -2,7 +2,7 @@
 
 This document is __a work-in-progress__ which aims to describe various tips for __developing and working with this repository itself__.  It is not intended as a guide on how to use the project within another project, which should be covered elsewhere in the project's documentation.
 
-For now, this will be a collection of tips and tricks for the maintainers of the project.
+Currently, it's mostly in-depth info about creating, publishing, and finishing a release. A more succinct document for creating a release can be found in [RELEASING.md](./RELEASING.md).
 
 ## Staging a release as a PR
 
@@ -31,11 +31,12 @@ Depending on the size of the release, it may be ideal to have a staging PR which
 
 There is not a root `CHANGELOG.md` on this monorepo.  Instead, there are `CHANGELOG.md` files for specific packages:
  
-- `./query-planner-js/CHANGELOG.md` for `@apollo/query-planner`
-- `./subgraph-js/CHANGELOG.md` for `@apollo/subgraph`
-
-  > Since this is not a direct dependency of our _primary_ consumers, it is best to *also* surface important changes in `@apollo/gateway`'s `CHANGELOG.md`.
-- `./gateway-js/CHANGELOG.md` for `@apollo/gateway`.
+1. [gateway-js/CHANGELOG.md](gateway-js/CHANGELOG.md)
+1. [composition-js/CHANGELOG.md](composition-js/CHANGELOG.md)
+1. [subgraph-js/CHANGELOG.md](subgraph-js/CHANGELOG.md)
+1. [query-planner-js/CHANGELOG.md](query-planner-js/CHANGELOG.md)
+1. [internals-js/CHANGELOG.md](internals-js/CHANGELOG.md)
+1. [query-graphs-js/CHANGELOG.md](query-graphs-js/CHANGELOG.md)
 
 Ensure that the appropriate CHANGELOG.md (using the guide above) within affected packages are up to date prior to bumping the version.  Additionally, it's best to go ahead and predict what the version is going to be published as in the next step and commit that in the CHANGELOG.  This allows the Git tags that will be created in Step 2 to include the changes.
 
@@ -49,14 +50,14 @@ This will list the packages that will have their versions bumped in the next ste
 
 ### Step 2: Bump the version
 
-To bump the version, use the `release:version-bump` npm script.
+To bump the version, use the `lerna version` command.
 
    __Option 1__: Bump all packages by the same version bump (e.g. `patch`, `minor`, `prerelease`, etc.).
 
    > __Note__: Be sure to replace `<version-bump>` in the following command with the appropriate [version bump keyword](https://github.com/lerna/lerna/tree/f6e7a13e60/commands/version#semver-bump)
 
    ```
-   npm run release:version-bump -- <version-bump>
+   npx lerna version <version-bump>
    ```
 
    __Option 2__: Be interactively prompted for each new version.
@@ -64,7 +65,7 @@ To bump the version, use the `release:version-bump` npm script.
    This option works reasonably well in this federation repositiory since there are not all that many packages.  If no parameters are passed, a prompt will be displayed for each package asking for the new version.
 
    ```
-   npm run release:version-bump
+   npx lerna version
    ```
 
 
@@ -102,7 +103,7 @@ DEBUG=lerna NPM_CONFIG_USERCONFIG="$HOME/.npmrc-apollo-bot" npx lerna publish fr
 
 ### Step 4: Update GitHub Milestones
 
-The [milestones](./milestones) should be updated, as appropriatee.  If the milestone didn't didn't have a concrete version as its name, it should be renamed to the version that was finally released.
+The [milestones](./milestones) should be updated, as appropriate. If the milestone didn't have a concrete version as its name, it should be renamed to the version that was finally released.
 
 Then, any remaining issues or PRs which did not land in this version should be moved to a newly-created milestone which reflects the newly intended release for them.
 

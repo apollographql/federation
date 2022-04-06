@@ -541,7 +541,7 @@ describe('@core/@link handling', () => {
       query: Query
     }
 
-    directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
     directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
@@ -549,7 +549,7 @@ describe('@core/@link handling', () => {
 
     directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
 
-    directive @federation__external on OBJECT | FIELD_DEFINITION
+    directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
     directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
@@ -558,6 +558,8 @@ describe('@core/@link handling', () => {
     directive @federation__shareable on OBJECT | FIELD_DEFINITION
 
     directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+    directive @federation__override(from: String!) on FIELD_DEFINITION
 
     type T
       @key(fields: "k")
@@ -678,7 +680,7 @@ describe('@core/@link handling', () => {
           k: ID!
         }
 
-        directive @federation__external on OBJECT | FIELD_DEFINITION
+        directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
       `,
     ];
 
@@ -744,6 +746,22 @@ describe('@core/@link handling', () => {
 
         scalar federation__FieldSet
       `,
+      // @link `url` argument is allowed to be `null` now, but it used not too, so making sure we still
+      // accept definition where it's mandatory.
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+        type T @key(fields: "k") {
+          k: ID!
+        }
+
+        directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+        scalar link__Purpose
+      `,
     ];
 
     // Like above, we really only care that the examples validate.
@@ -759,7 +777,7 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @federation__external on OBJECT | FIELD_DEFINITION | SCHEMA
+      directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION | SCHEMA
     `;
 
     // @external is not allowed on 'schema' and likely never will.
@@ -815,12 +833,12 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @key(fields: Int!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+      directive @key(fields: String!, resolvable: String) repeatable on OBJECT | INTERFACE
     `;
 
     expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
       'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "Int!"',
+      '[S] Invalid definition for directive "@key": argument "resolvable" should have type "Boolean" but found type "String"',
     ]]);
   });
 
@@ -842,5 +860,22 @@ describe('@core/@link handling', () => {
       'DIRECTIVE_DEFINITION_INVALID',
       '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "federation__FieldSet"',
     ]]);
+  });
+
+  it('allows any (non-scalar) type in redefinition when expected type is a scalar', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+      type T @key(fields: "k") {
+        k: ID!
+      }
+
+      # 'fields' should be of type 'federation_FieldSet!', but ensure we allow 'String!' alternatively.
+      directive @key(fields: String!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+    `;
+
+    // Just making sure this don't error out.
+    buildAndValidate(doc);
   });
 });

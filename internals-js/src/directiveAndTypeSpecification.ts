@@ -4,7 +4,9 @@ import {
   DirectiveDefinition,
   EnumType,
   InputType,
+  isCustomScalarType,
   isEnumType,
+  isListType,
   isNonNullType,
   isObjectType,
   isUnionType,
@@ -310,7 +312,7 @@ function ensureSameArguments(
       // is optional if you so wish.
       actualType = actualType.ofType;
     }
-    if (!sameType(type, actualType)) {
+    if (!sameType(type, actualType) && !isValidInputTypeRedefinition(type, actualType)) {
       errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
         message: `Invalid definition for ${what}: argument "${name}" should have type "${type}" but found type "${actualArgument.type!}"`,
         nodes: actualArgument.sourceAST
@@ -334,3 +336,18 @@ function ensureSameArguments(
   return errors;
 }
 
+function isValidInputTypeRedefinition(expectedType: InputType, actualType: InputType): boolean {
+  // If the expected type is a custom scalar, then we allow the redefinition to be another type (unless it's a custom scalar, in which
+  // case it has to be the same scalar). The rational being that since graphQL does no validation of values passed to a custom scalar,
+  // any code that gets some value as input for a custom scalar has to do validation manually, and so there is little harm in allowing
+  // a redefinition with another type since any truly invalid value would failed that "manual validation". In practice, this leeway
+  // make sense because many scalar will tend to accept only one kind of values (say, strings) and exists only to inform that said string
+  // needs to follow a specific format, and in such case, letting user redefine the type as String adds flexibility while doing little harm.
+  if (isListType(expectedType)) {
+    return isListType(actualType) && isValidInputTypeRedefinition(expectedType.ofType, actualType.ofType);
+  }
+  if (isNonNullType(expectedType)) {
+    return isNonNullType(actualType) && isValidInputTypeRedefinition(expectedType.ofType, actualType.ofType);
+  }
+  return isCustomScalarType(expectedType) && !isCustomScalarType(actualType);
+}

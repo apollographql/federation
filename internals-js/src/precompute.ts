@@ -5,9 +5,7 @@ import {
   federationMetadata,
   FieldDefinition,
   collectTargetFields,
-  InterfaceType,
-  ObjectType,
-  Schema
+  Schema,
 } from ".";
 
 export function computeShareables(schema: Schema): (field: FieldDefinition<CompositeType>) => boolean {
@@ -33,7 +31,7 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
     }
   };
 
-  for (const type of schema.types<ObjectType>('ObjectType')) {
+  for (const type of schema.objectTypes()) {
     addKeyFields(type);
     const shareablesOnType = shareableDirective ? type.appliedDirectivesOf(shareableDirective) : [];
     for (const field of type.fields()) {
@@ -59,10 +57,9 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
     }
   }
 
-  for (const type of schema.types<InterfaceType>('InterfaceType')) {
+  for (const type of schema.interfaceTypes()) {
     addKeyFields(type);
   }
 
   return (field) => shareableFields.has(field.coordinate);
 }
-

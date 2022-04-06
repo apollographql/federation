@@ -2,10 +2,19 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNEXT
+- Fix merging of Input objects and enum types [PR #1672](https://github.com/apollographql/federation/pull/1672).
+- Relax validation of directive redefinition for scalar [PR #1674](https://github.com/apollographql/federation/pull/1674).
+- Fix regression in composition validation introduced by #1653 [PR #1673](https://github.com/apollographql/federation/pull/1673) .
 
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+## v2.0.0-preview.9
+
+- Adds support for the `@override` directive on fields to indicate that a field should be moved from one subgraph to another. [PR #1484](https://github.com/apollographql/federation/pull/1484)
+- Fix handling of core/link when definitions are provided or partially so [PR #1662](https://github.com/apollographql/federation/pull/1662).
+- Optimize composition validation when many entities spans many subgraphs [PR #1653](https://github.com/apollographql/federation/pull/1653).
+- Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
 - Adds support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
+- Fix introspection query by adding missing `includeDeprecated` argument for `args` and `inputFields` when defining introspection fields [PR #1584](https://github.com/apollographql/federation/pull/1584)
+- Throw a `GraphQLSchemaValidationError` for issues with the `@inaccessible` directive when calling `toApiSchema`. The error will contain a list of all validation errors pertaining to `@inaccessible` [PR #1563](https://github.com/apollographql/federation/pull/1563).
 
 ## v2.0.0-preview.8
 
@@ -32,6 +41,7 @@ NOTE: Be sure to update to this version of gateway _before_ upgrading compositio
 - Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
 - Respect the `minDelaySeconds` returning from Uplink when polling and retrying to fetch the supergraph schema from Uplink [PR #1564](https://github.com/apollographql/federation/pull/1564)
 - Remove the previously deprecated `experimental_pollInterval` config option and deprecate `pollIntervalInMs` in favour of `fallbackPollIntervalInMs` (for managed mode only). [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Correctly detect promises wrapped by proxies in entities resolver [PR #1584](https://github.com/apollographql/federation/pull/1584)
 
 ## v2.0.0-preview.3
 

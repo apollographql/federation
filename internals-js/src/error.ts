@@ -349,14 +349,49 @@ const REFERENCED_INACCESSIBLE = makeCodeDefinition(
   'An element is marked as @inaccessible but is referenced by a non-inaccessible element.'
 );
 
+const REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
+  'REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH',
+  'A field of an input object type is mandatory in some subgraphs, but the field is not defined in all the subgraphs that define the input object type.'
+);
+
 const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
   'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
-  'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all subgraphs that define the field or directive definition.'
+  'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all the subgraphs that define the field or directive definition.'
+);
+
+const EMPTY_MERGED_INPUT_TYPE = makeCodeDefinition(
+  'EMPTY_MERGED_INPUT_TYPE',
+  'An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type.'
+);
+
+const INCONSISTENT_ENUM_VALUE = makeCodeDefinition(
+  'INCONSISTENT_ENUM_VALUE',
+  'An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.'
+);
+
+const EMPTY_MERGED_ENUM_TYPE = makeCodeDefinition(
+  'EMPTY_MERGED_ENUM_TYPE',
+  'An enum type has no value common to all the subgraphs that define the type. Merging that type would result in an invalid empty enum type.'
 );
 
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
+);
+
+const OVERRIDE_FROM_SELF_ERROR = makeCodeDefinition(
+  'OVERRIDE_FROM_SELF_ERROR',
+  'Field with `@override` directive has "from" location that references its own subgraph.',
+);
+
+const OVERRIDE_SOURCE_HAS_OVERRIDE = makeCodeDefinition(
+  'OVERRIDE_SOURCE_HAS_OVERRIDE',
+  'Field which is overridden to another subgraph is also marked @override.',
+);
+
+const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
+  'OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE',
+  'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
 export const ERROR_CATEGORIES = {
@@ -417,7 +452,14 @@ export const ERRORS = {
   LINK_IMPORT_NAME_MISMATCH,
   REFERENCED_INACCESSIBLE,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
+  REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH,
+  EMPTY_MERGED_INPUT_TYPE,
+  INCONSISTENT_ENUM_VALUE,
+  EMPTY_MERGED_ENUM_TYPE,
   SATISFIABILITY_ERROR,
+  OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
+  OVERRIDE_FROM_SELF_ERROR,
+  OVERRIDE_SOURCE_HAS_OVERRIDE,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

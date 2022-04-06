@@ -129,13 +129,14 @@ class Validator {
     return this.errors;
   }
 
-  private validateHasType(elt: { type?: Type, coordinate: string, sourceAST?: ASTNode }) {
+  private validateHasType(elt: { type?: Type, coordinate: string, sourceAST?: ASTNode }): boolean {
     // Note that this error can't happen if you parse the schema since it wouldn't be valid syntax, but it can happen for
     // programmatically constructed schema.
     if (!elt.type) {
       this.errors.push(new GraphQLError(`Element ${elt.coordinate} does not have a type set`, elt.sourceAST));
       this.hasMissingTypes = false;
     }
+    return !!elt.type;
   }
 
   private validateName(elt: { name: string, sourceAST?: ASTNode}) {
@@ -183,8 +184,7 @@ class Validator {
         // Note that we may not have validated the interface yet, so making sure we have a meaningful error
         // if the type is not set, even if that means a bit of cpu wasted since we'll re-check later (and
         // as many type as the interface is implemented); it's a cheap check anyway.
-        this.validateHasType(itfField);
-        if (!isSubtype(itfField.type!, field.type!)) {
+        if (this.validateHasType(itfField) && !isSubtype(itfField.type!, field.type!)) {
           this.errors.push(new GraphQLError(
             `Interface field ${itfField.coordinate} expects type ${itfField.type} but ${field.coordinate} of type ${field.type} is not a proper subtype.`,
             sourceASTs(itfField, field)
@@ -200,10 +200,8 @@ class Validator {
             ));
             continue;
           }
-          // Same as above for the field
-          this.validateHasType(itfArg);
           // Note that we could use contra-variance but as graphQL-js currently doesn't allow it, we mimic that.
-          if (!sameType(itfArg.type!, arg.type!)) {
+          if (this.validateHasType(itfArg) && !sameType(itfArg.type!, arg.type!)) {
             this.errors.push(new GraphQLError(
               `Interface field argument ${itfArg.coordinate} expects type ${itfArg.type} but ${arg.coordinate} is type ${arg.type}.`,
               sourceASTs(itfArg, arg)
@@ -247,7 +245,9 @@ class Validator {
     }
     for (const field of type.fields()) {
       this.validateName(field);
-      this.validateHasType(field);
+      if (!this.validateHasType(field)) {
+        continue;
+      }
       if (field.isRequired() && field.isDeprecated()) {
         this.errors.push(new GraphQLError(
           `Required input field ${field.coordinate} cannot be deprecated.`,
@@ -259,7 +259,9 @@ class Validator {
 
   private validateArg(arg: ArgumentDefinition<any>) {
     this.validateName(arg);
-    this.validateHasType(arg);
+    if (!this.validateHasType(arg)) {
+      return;
+    }
     if (arg.isRequired() && arg.isDeprecated()) {
       this.errors.push(new GraphQLError(
         `Required argument ${arg.coordinate} cannot be deprecated.`,
@@ -305,7 +307,10 @@ class Validator {
         // Again, that implies that value is not required.
         continue;
       }
-      if (!isValidValue(value, argument, this.emptyVariables)) {
+      // Note that we validate if the definition argument has a type set separatly
+      // and log an error if necesary, but we just want to avoid calling
+      // `isValidValue` if there is not type as it may throw.
+      if (argument.type && !isValidValue(value, argument, this.emptyVariables)) {
         const parent = application.parent;
         // The only non-named SchemaElement is the `schema` definition.
         const parentDesc = parent instanceof NamedSchemaElement

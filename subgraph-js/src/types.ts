@@ -45,7 +45,7 @@ export const LinkImportType = new GraphQLScalarType({
 });
 
 function isPromise<T>(value: PromiseOrValue<T>): value is Promise<T> {
-  return Boolean(value && 'then' in value && typeof value.then === 'function');
+  return typeof (value as {then?: unknown})?.then === 'function';
 }
 
 function addTypeNameToPossibleReturn<T>(

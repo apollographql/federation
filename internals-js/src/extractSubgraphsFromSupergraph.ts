@@ -181,6 +181,12 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
               if (args.external) {
                 subgraphField.applyDirective(subgraph.metadata().externalDirective());
               }
+              if (args.usedOverridden) {
+                subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
+              }
+              if (args.override) {
+                subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': args.override});
+              }
             }
           }
         }
@@ -262,7 +268,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
     // of an extension and be only in a few subgraphs), we remove the field or the subgraph would be invalid.
     for (const subgraph of subgraphs) {
-      for (const itf of subgraph.schema.types<InterfaceType>('InterfaceType')) {
+      for (const itf of subgraph.schema.interfaceTypes()) {
         // We only look at objects because interfaces are handled by this own loop in practice.
         const implementations = itf.possibleRuntimeTypes();
         for (const field of itf.fields()) {

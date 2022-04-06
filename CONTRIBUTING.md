@@ -2,7 +2,7 @@
 
 # Apollo Contributor Guide
 
-> If this is your first time or 100th time contributing to a project, the [Open Source Guide](https://opensource.guide/how-to-contribute/) is a fantastic place to learn about Open Source Software (OSS) and how to get involed.
+> If this is your first time or 100th time contributing to a project, the [Open Source Guide](https://opensource.guide/how-to-contribute/) is a fantastic place to learn about Open Source Software (OSS) and how to get involved.
 
 Excited about Apollo and want to make it better? We’re excited too!
 

@@ -91,12 +91,7 @@ const userService: ServiceDefinitionModule = {
         );
       },
       organization(user) {
-        return { id: user.organizationId };
-      },
-    },
-    Organization: {
-      __resolveObject(object) {
-        return organizations.find(org => org.id === object.id);
+        return organizations.find(org => org.id === user.organizationId);
       },
     },
   },

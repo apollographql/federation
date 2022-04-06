@@ -11,7 +11,6 @@ import {
   errorCauses,
   Extension,
   FieldDefinition,
-  InterfaceType,
   isCompositeType,
   isInterfaceType,
   isObjectType,
@@ -24,7 +23,6 @@ import {
 import {
   addSubgraphToError,
   collectTargetFields,
-  collectUsedExternalFieldsCoordinates,
   federationMetadata,
   FederationMetadata,
   printSubgraphNames,
@@ -43,7 +41,7 @@ type UpgradeChanges = MultiMap<UpgradeChangeID, UpgradeChange>;
 export type UpgradeSuccess = {
   subgraphs: Subgraphs,
   changes: Map<string, UpgradeChanges>,
-  errors?: never, 
+  errors?: never,
 }
 
 export type UpgradeFailure = {
@@ -235,7 +233,7 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
  *  2. do not have a definition for the same type in the same subgraph (this is a GraphQL extension otherwise).
  *
  * Not that type extensions in federation 1 generally have a @key but in really the code consider something a type extension even without
- * it (which I'd argue is a unintended bug of fed1 since this leads to various problems) so we don't check for the presence of @key here. 
+ * it (which I'd argue is a unintended bug of fed1 since this leads to various problems) so we don't check for the presence of @key here.
  */
 function isFederationTypeExtension(type: NamedType): boolean {
   const metadata = federationMetadata(type.schema());
@@ -435,7 +433,7 @@ class SchemaUpgrader {
   }
 
   private removeExternalOnInterface() {
-    for (const itf of this.schema.types<InterfaceType>('InterfaceType')) {
+    for (const itf of this.schema.interfaceTypes()) {
       for (const field of itf.fields()) {
         const external = this.external(field);
         if (external) {
@@ -522,7 +520,7 @@ class SchemaUpgrader {
             continue;
           }
           assert(isCompositeType(typeInOther), () => `Type ${type} is of kind ${type.kind} in ${this.subgraph.name} but ${typeInOther.kind} in ${other.name}`);
-          const keysInOther = typeInOther.appliedDirectivesOf(other.metadata().keyDirective()); 
+          const keysInOther = typeInOther.appliedDirectivesOf(other.metadata().keyDirective());
           if (keysInOther.length === 0) {
             continue;
           }
@@ -564,14 +562,12 @@ class SchemaUpgrader {
   }
 
   private removeUnusedExternals() {
-    const usedExternalFieldsCoordinates = collectUsedExternalFieldsCoordinates(this.metadata);
-
     for (const type of this.schema.types()) {
       if (!isObjectType(type) && !isInterfaceType(type)) {
         continue;
       }
       for (const field of type.fields()) {
-        if (this.metadata.isFieldExternal(field) && !usedExternalFieldsCoordinates.has(field.coordinate)) {
+        if (this.metadata.isFieldExternal(field) && !this.metadata.isFieldUsed(field)) {
           this.addChange(new UnusedExternalRemoval(field.coordinate));
           field.remove();
         }
@@ -593,7 +589,7 @@ class SchemaUpgrader {
   }
 
   private removeDirectivesOnInterface() {
-    for (const type of this.schema.types<InterfaceType>('InterfaceType')) {
+    for (const type of this.schema.interfaceTypes()) {
       for (const application of type.appliedDirectivesOf(this.metadata.keyDirective())) {
         this.addChange(new KeyOnInterfaceRemoval(type.name));
         application.remove();
@@ -610,7 +606,7 @@ class SchemaUpgrader {
   }
 
   private removeProvidesOnNonComposite() {
-    for (const type of this.schema.types<ObjectType>('ObjectType')) {
+    for (const type of this.schema.objectTypes()) {
       for (const field of type.fields()) {
         if (isCompositeType(baseType(field.type!))) {
           continue;
@@ -630,7 +626,7 @@ class SchemaUpgrader {
     // We add shareable:
     // - to every "value type" (in the fed1 sense of non-root type and non-entity) if it is used in any other subgraphs
     // - to any (non-external) field of an entity/root-type that is not a key field and if another subgraphs resolve it (fully or partially through @provides)
-    for (const type of this.schema.types<ObjectType>('ObjectType')) {
+    for (const type of this.schema.objectTypes()) {
       if (type.hasAppliedDirective(keyDirective) || type.isRootType()) {
         for (const field of type.fields()) {
           // To know if the field is a "key" field which doesn't need shareable, we rely on whether the field is shareable in the original

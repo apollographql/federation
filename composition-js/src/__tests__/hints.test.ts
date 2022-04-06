@@ -11,7 +11,7 @@ import {
   hintInconsistentInterfaceValueTypeField,
   hintInconsistentObjectValueTypeField,
   hintInconsistentUnionMember,
-  hintInconsistentEnumValue,
+  hintInconsistentEnumValueForInputEnum,
   hintInconsistentTypeSystemDirectiveRepeatable,
   hintInconsistentTypeSystemDirectiveLocations,
   hintInconsistentExecutionDirectivePresence,
@@ -20,6 +20,11 @@ import {
   hintInconsistentExecutionDirectiveLocations,
   hintInconsistentArgumentPresence,
   hintInconsistentDescription,
+  hintFromSubgraphDoesNotExist,
+  hintOverrideDirectiveCanBeRemoved,
+  hintOverriddenFieldCanBeRemoved,
+  hintUnusedEnumType,
+  hintInconsistentEnumValueForOutputEnum,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 
@@ -293,8 +298,7 @@ test('hints on field of input object value type not being in all subgraphs', () 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentInputObjectField,
-    'Field "T.b" of input object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    'Input object field "b" will not be added to "T" in the supergraph as it does not appear in all subgraphs: it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -339,7 +343,7 @@ test('hints on union member not being in all subgraphs', () => {
   );
 })
 
-test('hints on enum value not being in all subgraphs', () => {
+test('hints on enum type not being used', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -359,8 +363,59 @@ test('hints on enum value not being in all subgraphs', () => {
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
-    hintInconsistentEnumValue,
-    'Value "V2" of enum type "T" is only defined in a subset of the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    hintUnusedEnumType,
+    'Enum type "T" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).'
+  );
+})
+
+test('hints on enum value of input enum type not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      a(t: T): Int
+    }
+
+    enum T {
+      V1
+      V2
+    }
+  `;
+
+  const subgraph2 = gql`
+    enum T {
+      V1
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentEnumValueForInputEnum,
+    'Value "V2" of enum type "T" will not be part of the supergraph as it is not defined in all the subgraphs defining "T": '
+    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+  );
+})
+
+test('hints on enum value of output enum type not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      t: T
+    }
+
+    enum T {
+      V1
+      V2
+    }
+  `;
+
+  const subgraph2 = gql`
+    enum T {
+      V1
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentEnumValueForOutputEnum,
+    'Value "V2" of enum type "T" has been added to the supergraph but is only defined in a subset of the subgraphs defining "T": '
     + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
@@ -604,4 +659,126 @@ test('hints on inconsistent description for field', () => {
     + '  I don\'t know what I\'m doing\n'
     + '  """'
   );
-})
+});
+
+describe('hint tests related to the @override directive', () => {
+  it('hint when from subgraph does not exist', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph3")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintFromSubgraphDoesNotExist,
+      `Source subgraph "Subgraph3" for field "T.f" on subgraph "Subgraph1" does not exist. Did you mean "Subgraph1" or "Subgraph2"?`,
+    );
+  });
+
+  it('hint when @override directive can be removed', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph2")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverrideDirectiveCanBeRemoved,
+      `Field "T.f" on subgraph "Subgraph1" no longer exists in the from subgraph. The @override directive can be removed.`,
+    );
+  });
+
+  it('hint overridden field can be removed', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph2")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+      f: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverriddenFieldCanBeRemoved,
+      `Field "T.f" on subgraph "Subgraph2" is overridden. Consider removing it.`,
+    );
+  });
+
+  it('hint overridden field can be made external', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int @override(from: "Subgraph2")
+      }
+    `;
+
+    const subgraph2 = gql`
+      type T @key(fields: "id"){
+        id: Int
+      }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverriddenFieldCanBeRemoved,
+      `Field "T.id" on subgraph "Subgraph2" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+    );
+  });
+
+  it('hint when @override directive can be removed because overridden field has been marked external', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int @override(from: "Subgraph2")
+        f: Int
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int @external
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      hintOverrideDirectiveCanBeRemoved,
+      `Field "T.id" on subgraph "Subgraph1" is not resolved anymore by the from subgraph (it is marked "@external" in "Subgraph2"). The @override directive can be removed.`,
+    );
+  });
+});

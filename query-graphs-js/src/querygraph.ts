@@ -27,19 +27,18 @@ import {
   mapKeys,
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
-  ALL_SUBTYPING_RULES,
   federationMetadata,
   FederationMetadata,
   DirectiveDefinition,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
-import { isStructuralFieldSubtype } from './structuralSubtyping';
+import { preComputeNonTrivialFollowupEdges } from './nonTrivialEdgePrecomputing';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
 // deal, but safer that way). Using something short like `_` is also on purpose: it makes it stand out in debug messages
 // without taking space.
-const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
+export const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
 
 export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {
@@ -162,27 +161,13 @@ export class Edge {
     return this.transition.kind === 'FieldCollection' && this.transition.definition.name === name;
   }
 
-  matchesSupergraphTransition(supergraph: Schema, otherTransition: Transition): boolean {
+  matchesSupergraphTransition(otherTransition: Transition): boolean {
+    assert(otherTransition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
     const transition = this.transition;
     switch (transition.kind) {
-      case 'FieldCollection':
-        if (otherTransition.kind === 'FieldCollection') {
-          // isStructuralFieldSubtype relies on being about to check subtypes. And when comparing types, we
-          // want to know if types are subtypes 'in the supergraph'.
-          return isStructuralFieldSubtype(
-            transition.definition,
-            otherTransition.definition,
-            ALL_SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
-            (union, maybeMember) => (supergraph.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
-            (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
-          );
-        } else {
-          return false;
-        }
-      case 'DownCast':
-        return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
-      default:
-        return transition.kind === otherTransition.kind;
+      case 'FieldCollection': return otherTransition.kind === 'FieldCollection' && transition.definition.name === otherTransition.definition.name;
+      case 'DownCast': return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
+      default: return false;
     }
   }
 
@@ -243,6 +228,29 @@ export class Edge {
  */
 export class QueryGraph {
   /**
+   * Given an edge, returns the possible edges that can follow it "productively", that is without creating
+   * a trivially inefficient path.
+   *
+   * More precisely, `nonTrivialFollowupEdges(e)` is equivalent calling `outEdges(e.tail)` and filtering
+   * the edges that "never make sense" after `e`, which mainly amounts to avoiding chaining key edges
+   * when we know there is guaranteed to be a better option. As an example, suppose we have 3 subgraphs
+   * A, B and C which all defined a `@key(fields: "id")` on some entity type `T`. Then it is never
+   * interesting to take that key edge from B -> C after A -> B because if we're in A and want to get
+   * to C, we can always do A -> C (of course, this is only true because it's the "same" key).
+   *
+   * See `preComputeNonTrivialFollowupEdges` for more details on which exact edges are filtered.
+   *
+   * Lastly, note that the main reason for exposing this method is that its result is pre-computed.
+   * Which in turn is done for performance reasons: having the same key defined in multiple subgraphs
+   * is _the_ most common pattern, and while our later algorithms (composition validation and query
+   * planning) would know to not select those trivially inefficient "detour", they might have to redo
+   * those checks many times and pre-computing once it is significantly faster (and pretty easy).
+   * Fwiw, when originally introduced, this optimization lowered composition validation on a big
+   * composition (100+ subgraphs) from ~4 "minutes" to ~10 seconds.
+   */
+  readonly nonTrivialFollowupEdges: (edge: Edge) => readonly Edge[];
+
+  /**
    * Creates a new query graph.
    *
    * This isn't meant to be be called directly outside of `GraphBuilder.build`.
@@ -272,6 +280,7 @@ export class QueryGraph {
      */
     readonly sources: ReadonlyMap<string, Schema>
   ) {
+    this.nonTrivialFollowupEdges = preComputeNonTrivialFollowupEdges(this);
   }
 
   /** The number of vertices in this query graph. */

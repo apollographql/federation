@@ -2,7 +2,7 @@ import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 import gql from 'graphql-tag';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 
 let logger: {
   warn: jest.MockedFunction<Logger['warn']>,
