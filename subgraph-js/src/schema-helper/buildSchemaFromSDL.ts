@@ -3,62 +3,20 @@ import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValu
 import { ATLAS,  FEDERATION_URLS,  FEDERATION_V2_0,  SUBGRAPH_BASE } from '../federation-atlas';
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
 
-
-
-// function isNotNullOrUndefined<T>(
-//   value: T | null | undefined,
-// ): value is T {
-//   return value !== null && typeof value !== 'undefined';
-// }
-
-export function isNode(maybeNode: any): maybeNode is ASTNode {
-  return maybeNode && typeof maybeNode.kind === "string";
+export function ErrTooManyFederations(versions: Readonly<Map<LinkUrl, ASTNode[]>>) {
+  return err('TooManyFederations', {
+    message: `schema should link against one version of federation, ${versions.size} versions found`,
+    versions: [...versions.keys()],
+    nodes: [...flat(versions.values())]
+  })
 }
-
-export function isDocumentNode(node: ASTNode): node is DocumentNode {
-  return isNode(node) && node.kind === Kind.DOCUMENT;
-}
-
-// function mapValues<T, U = T>(
-//   object: Record<string, T>,
-//   callback: (value: T) => U
-// ): Record<string, U> {
-//   const result: Record<string, U> = Object.create(null);
-
-//   for (const [key, value] of Object.entries(object)) {
-//     result[key] = callback(value);
-//   }
-
-//   return result;
-// }
-
-/*
-const skippedSDLRules: SDLValidationRule[] = [
-  KnownTypeNamesRule,
-  UniqueDirectivesPerLocationRule,
-  PossibleTypeExtensionsRule,
-];
-
-const sdlRules = specifiedSDLRules.filter(
-  rule => !skippedSDLRules.includes(rule)
-);
-*/
-
-// const extKindToDefKind = {
-//   [Kind.SCALAR_TYPE_EXTENSION]: Kind.SCALAR_TYPE_DEFINITION,
-//   [Kind.OBJECT_TYPE_EXTENSION]: Kind.OBJECT_TYPE_DEFINITION,
-//   [Kind.INTERFACE_TYPE_EXTENSION]: Kind.INTERFACE_TYPE_DEFINITION,
-//   [Kind.UNION_TYPE_EXTENSION]: Kind.UNION_TYPE_DEFINITION,
-//   [Kind.ENUM_TYPE_EXTENSION]: Kind.ENUM_TYPE_DEFINITION,
-//   [Kind.INPUT_OBJECT_TYPE_EXTENSION]: Kind.INPUT_OBJECT_TYPE_DEFINITION
-// };
 
 export function modulesFromSDL(
   modulesOrSDL: (GraphQLSchemaModule | DocumentNode)[] | DocumentNode
 ): GraphQLSchemaModule[] {
   if (Array.isArray(modulesOrSDL)) {
     return modulesOrSDL.map(moduleOrSDL => {
-      if (isNode(moduleOrSDL) && isDocumentNode(moduleOrSDL)) {
+      if (isAst(moduleOrSDL, Kind.DOCUMENT)) {
         return { typeDefs: moduleOrSDL };
       } else {
         return moduleOrSDL;
@@ -153,14 +111,6 @@ export function subgraphCore(document: DocumentNode): DocumentNode {
     }
   }
   return withImplicitDefinitions(output)
-}
-
-export function ErrTooManyFederations(versions: Readonly<Map<LinkUrl, ASTNode[]>>) {
-  return err('TooManyFederations', {
-    message: `schema should link against one version of federation, ${versions.size} versions found`,
-    versions: [...versions.keys()],
-    nodes: [...flat(versions.values())]
-  })
 }
 
 function linksFed2(schema: Schema) {

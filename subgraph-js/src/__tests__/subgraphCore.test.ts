@@ -81,7 +81,7 @@ describe('subgraphCore', () => {
       }
 
       """federation 2.0 key directive"""
-      directive @key(fields: federation__FieldSet!, resolvable: Boolean) repeatable on OBJECT | INTERFACE
+      directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
       directive @requires(fields: federation__FieldSet!) on FIELD_DEFINITION
 
@@ -122,7 +122,7 @@ describe('subgraphCore', () => {
         GRef <https://specs.apollo.dev/federation/v2.0#@tag> => GRef <https://specs.apollo.dev/tag/v0.2#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/tag/v0.2", import: [{ name: "@", as: "@tag" }])),
         GRef <https://specs.apollo.dev/federation/v2.0#@inaccessible> => GRef <https://specs.apollo.dev/inaccessible/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: [{ name: "@", as: "@inaccessible" }])),
         <https://specs.apollo.dev/federation/v2.0>[builtin/federation/v2.0.graphql] 👉@id(url: "https://specs.apollo.dev/federation/v2.0"),
-        <https://specs.apollo.dev/federation/v2.0#@key>[builtin/federation/v2.0.graphql] 👉directive @key(fields: FieldSet!, resolvable: Boolean) repeatable on OBJECT | INTERFACE,
+        <https://specs.apollo.dev/federation/v2.0#@key>[builtin/federation/v2.0.graphql] 👉directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v2.0#@requires>[builtin/federation/v2.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v2.0#@provides>[builtin/federation/v2.0.graphql] 👉directive @provides(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v2.0#@external>[builtin/federation/v2.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,

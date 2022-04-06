@@ -57,7 +57,7 @@ export const ATLAS = Atlas.fromSchemas(
   """
   federation 2.0 key directive
   """
-  directive @key(fields: FieldSet!, resolvable: Boolean) repeatable on OBJECT | INTERFACE
+  directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
   directive @requires(fields: FieldSet!) on FIELD_DEFINITION
   directive @provides(fields: FieldSet!) on FIELD_DEFINITION
   directive @external on OBJECT | FIELD_DEFINITION
