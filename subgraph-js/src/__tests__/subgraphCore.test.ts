@@ -11,7 +11,7 @@ describe('subgraphCore', () => {
     const result = getResult(() => subgraphCore(fixtures[0].typeDefs));
     expect([...result.errors()]).toEqual([]);
     expect(raw(print(result.unwrap()))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/inaccessible/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable"])
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/inaccessible/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@override"])
 
       directive @stream on FIELD
 
@@ -77,10 +77,11 @@ describe('subgraphCore', () => {
         id: ID!
         name: String @external
         userAccount(id: ID! = "1"): User @requires(fields: "name")
+        description: String @override(from: "books")
       }
 
       """federation 2.0 key directive"""
-      directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+      directive @key(fields: federation__FieldSet!, resolvable: Boolean) repeatable on OBJECT | INTERFACE
 
       directive @requires(fields: federation__FieldSet!) on FIELD_DEFINITION
 
@@ -88,9 +89,11 @@ describe('subgraphCore', () => {
 
       directive @external on OBJECT | FIELD_DEFINITION
 
-      directive @extends on INTERFACE
+      directive @extends on OBJECT | INTERFACE
 
       directive @shareable on FIELD_DEFINITION | OBJECT
+
+      directive @override(from: String!) on FIELD_DEFINITION
 
       directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
@@ -107,30 +110,33 @@ describe('subgraphCore', () => {
       Array [
         <https://specs.apollo.dev/tag/v0.1>[builtin/tag/v0.1] 👉@id(url: "https://specs.apollo.dev/tag/v0.1"),
         <https://specs.apollo.dev/tag/v0.1#@>[builtin/tag/v0.1] 👉directive @tag(name: String!),
+        <https://specs.apollo.dev/tag/v0.2>[builtin/tag/v0.2] 👉@id(url: "https://specs.apollo.dev/tag/v0.2"),
+        <https://specs.apollo.dev/tag/v0.2#@>[builtin/tag/v0.2] 👉directive @tag(name: String!),
         <https://specs.apollo.dev/federation/v1.0>[builtin/federation/v1.0.graphql] 👉@id(url: "https://specs.apollo.dev/federation/v1.0"),
         <https://specs.apollo.dev/federation/v1.0#@key>[builtin/federation/v1.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v1.0#@requires>[builtin/federation/v1.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@provides>[builtin/federation/v1.0.graphql] 👉directive @provides(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
+        <https://specs.apollo.dev/federation/v1.0#@extends>[builtin/federation/v1.0.graphql] 👉directive @extends on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
-        GRef <https://specs.apollo.dev/federation/v2.0#@tag> => GRef <https://specs.apollo.dev/tag/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/tag/v0.1", import: "@ (as @tag)")),
-        GRef <https://specs.apollo.dev/federation/v2.0#@inaccessible> => GRef <https://specs.apollo.dev/inaccessible/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: "@ (as @inaccessible)")),
+        GRef <https://specs.apollo.dev/federation/v2.0#@tag> => GRef <https://specs.apollo.dev/tag/v0.2#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/tag/v0.2", import: [{ name: "@", as: "@tag" }])),
+        GRef <https://specs.apollo.dev/federation/v2.0#@inaccessible> => GRef <https://specs.apollo.dev/inaccessible/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: [{ name: "@", as: "@inaccessible" }])),
         <https://specs.apollo.dev/federation/v2.0>[builtin/federation/v2.0.graphql] 👉@id(url: "https://specs.apollo.dev/federation/v2.0"),
-        <https://specs.apollo.dev/federation/v2.0#@key>[builtin/federation/v2.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
+        <https://specs.apollo.dev/federation/v2.0#@key>[builtin/federation/v2.0.graphql] 👉directive @key(fields: FieldSet!, resolvable: Boolean) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v2.0#@requires>[builtin/federation/v2.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v2.0#@provides>[builtin/federation/v2.0.graphql] 👉directive @provides(fields: FieldSet!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v2.0#@external>[builtin/federation/v2.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
-        <https://specs.apollo.dev/federation/v2.0#@moving>[builtin/federation/v2.0.graphql] 👉directive @moving(to: String!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v2.0#@shareable>[builtin/federation/v2.0.graphql] 👉directive @shareable on FIELD_DEFINITION | OBJECT,
-        <https://specs.apollo.dev/federation/v2.0#@extends>[builtin/federation/v2.0.graphql] 👉directive @extends on INTERFACE,
+        <https://specs.apollo.dev/federation/v2.0#@extends>[builtin/federation/v2.0.graphql] 👉directive @extends on OBJECT | INTERFACE,
+        <https://specs.apollo.dev/federation/v2.0#@override>[builtin/federation/v2.0.graphql] 👉directive @override(from: String!) on FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v2.0#FieldSet>[builtin/federation/v2.0.graphql] 👉scalar FieldSet,
         <https://specs.apollo.dev/inaccessible/v0.1>[builtin/inaccessible/v0.1.graphql] 👉@id(url: "https://specs.apollo.dev/inaccessible/v0.1"),
         <https://specs.apollo.dev/inaccessible/v0.1#@>[builtin/inaccessible/v0.1.graphql] 👉directive @inaccessible on,
         <https://specs.apollo.dev/link/v1.0>[builtin/link/v1.0.graphql] 👉@id(url: "https://specs.apollo.dev/link/v1.0"),
         <https://specs.apollo.dev/link/v1.0#@>[builtin/link/v1.0.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
         <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] 👉scalar Import,
-        GRef <https://specs.apollo.dev/id/v1.0#Url> => GRef <https://specs.apollo.dev/link/v0.3#Url> (via [builtin/id/v1.0.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
-        GRef <https://specs.apollo.dev/id/v1.0#Name> => GRef <https://specs.apollo.dev/link/v0.3#Name> (via [builtin/id/v1.0.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+        GRef <https://specs.apollo.dev/id/v1.0#Url> => GRef <https://specs.apollo.dev/link/v1.0#Url> (via [builtin/id/v1.0.graphql] 👉@link(url: "https://specs.apollo.dev/link/v1.0"),
+        GRef <https://specs.apollo.dev/id/v1.0#Name> => GRef <https://specs.apollo.dev/link/v1.0#Name> (via [builtin/id/v1.0.graphql] 👉@link(url: "https://specs.apollo.dev/link/v1.0"),
         <https://specs.apollo.dev/id/v1.0>[builtin/id/v1.0.graphql] 👉@id(url: "https://specs.apollo.dev/id/v1.0"),
         <https://specs.apollo.dev/id/v1.0#@>[builtin/id/v1.0.graphql] 👉directive @id(url: Url!, as: Name) on SCHEMA,
       ]
@@ -179,11 +185,18 @@ describe('subgraphCore', () => {
       Array [
         [NoDefinition] no definitions found for reference: #@shareable
 
-      GraphQL request:58:20
-      57 |   name: Name @cacheControl(inheritMaxAge: true)
-      58 |   username: String @shareable # Provided by the 'reviews' subgraph
+      GraphQL request:55:20
+      54 |   name: Name @cacheControl(inheritMaxAge: true)
+      55 |   username: String @shareable # Provided by the 'reviews' subgraph
          |                    ^
-      59 |   birthDate(locale: String @tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev"),
+      56 |   birthDate(locale: String @tag(name: "admin")): String,
+        [NoDefinition] no definitions found for reference: #@override
+
+      GraphQL request:81:24
+      80 |   userAccount(id: ID! = "1"): User @requires(fields: "name")
+      81 |   description: String  @override(from: "books")
+         |                        ^
+      82 | },
       ]
     `);
 
@@ -193,17 +206,17 @@ describe('subgraphCore', () => {
       Array [
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
         <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
-        <#@tag>[GraphQL request] 👉directive @tag(name: String!) repeatable on,
+        <#@tag>[GraphQL request] 👉directive @tag(,
         <#CacheControlScope>[GraphQL request] 👉enum CacheControlScope @tag(name: "from-reviews") {,
         <#@cacheControl>[GraphQL request] 👉directive @cacheControl(,
-        <#JSON>[GraphQL request] 👉scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev"),
+        <#JSON>[GraphQL request] 👉scalar JSON,
         <>[GraphQL request] 👉schema {,
         <#RootQuery>[GraphQL request] 👉type RootQuery {,
         <#PasswordAccount>[GraphQL request] 👉type PasswordAccount @key(fields: "email") {,
         <#SMSAccount>[GraphQL request] 👉type SMSAccount @key(fields: "number") {,
         <#AccountType>[GraphQL request] 👉union AccountType @tag(name: "from-accounts") = PasswordAccount | SMSAccount,
         <#UserMetadata>[GraphQL request] 👉type UserMetadata {,
-        <#User>[GraphQL request] 👉type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {,
+        <#User>[GraphQL request] 👉type User,
         <#Name>[GraphQL request] 👉type Name {,
         <#Mutation>[GraphQL request] 👉type Mutation {,
         <#Library>[GraphQL request] 👉type Library @key(fields: "id") {,
@@ -221,8 +234,8 @@ describe('subgraphCore', () => {
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
         <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
         <https://specs.graphql.org/#String>[GraphQL request] directive @transform(from: 👉String!) on FIELD,
-        <#@tag>[GraphQL request] 👉directive @tag(name: String!) repeatable on,
-        <https://specs.graphql.org/#String>[GraphQL request] directive @tag(name: 👉String!) repeatable on,
+        <#@tag>[GraphQL request] 👉directive @tag(,
+        <https://specs.graphql.org/#String>[GraphQL request] name: 👉String!,
         <#CacheControlScope>[GraphQL request] 👉enum CacheControlScope @tag(name: "from-reviews") {,
         <#@tag>[GraphQL request] enum CacheControlScope 👉@tag(name: "from-reviews") {,
         <#@tag>[GraphQL request] PUBLIC 👉@tag(name: "from-reviews"),
@@ -230,9 +243,9 @@ describe('subgraphCore', () => {
         <https://specs.graphql.org/#Int>[GraphQL request] maxAge: 👉Int,
         <#CacheControlScope>[GraphQL request] scope: 👉CacheControlScope,
         <https://specs.graphql.org/#Boolean>[GraphQL request] inheritMaxAge: 👉Boolean,
-        <#JSON>[GraphQL request] 👉scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev"),
-        <#@tag>[GraphQL request] scalar JSON 👉@tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev"),
-        <https://specs.graphql.org/#@specifiedBy>[GraphQL request] scalar JSON @tag(name: "from-reviews") 👉@specifiedBy(url: "https://json-spec.dev"),
+        <#JSON>[GraphQL request] 👉scalar JSON,
+        <#@tag>[GraphQL request] 👉@tag(name: "from-reviews"),
+        <https://specs.graphql.org/#@specifiedBy>[GraphQL request] 👉@specifiedBy(url: "https://json-spec.dev"),
         <>[GraphQL request] 👉schema {,
         <>[GraphQL request] 👉query: RootQuery,
         <#RootQuery>[GraphQL request] query: 👉RootQuery,
@@ -257,21 +270,21 @@ describe('subgraphCore', () => {
         <https://specs.graphql.org/#String>[GraphQL request] name: 👉String,
         <https://specs.graphql.org/#String>[GraphQL request] address: 👉String,
         <https://specs.graphql.org/#String>[GraphQL request] description: 👉String,
-        <#User>[GraphQL request] 👉type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {,
-        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type User 👉@key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {,
-        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type User @key(fields: "id") 👉@key(fields: "username name { first last }") @tag(name: "from-accounts") {,
-        <#@tag>[GraphQL request] type User @key(fields: "id") @key(fields: "username name { first last }") 👉@tag(name: "from-accounts") {,
+        <#User>[GraphQL request] 👉type User,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] 👉@key(fields: "id"),
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] 👉@key(fields: "username name { first last }"),
+        <#@tag>[GraphQL request] 👉@tag(name: "from-accounts") {,
         <https://specs.graphql.org/#ID>[GraphQL request] id: 👉ID! @tag(name: "accounts"),
         <#@tag>[GraphQL request] id: ID! 👉@tag(name: "accounts"),
         <#Name>[GraphQL request] name: 👉Name @cacheControl(inheritMaxAge: true),
         <#@cacheControl>[GraphQL request] name: Name 👉@cacheControl(inheritMaxAge: true),
         <https://specs.graphql.org/#String>[GraphQL request] username: 👉String @shareable # Provided by the 'reviews' subgraph,
         <#@shareable>[GraphQL request] username: String 👉@shareable # Provided by the 'reviews' subgraph,
-        <https://specs.graphql.org/#String>[GraphQL request] birthDate(locale: 👉String @tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev"),
-        <#@tag>[GraphQL request] birthDate(locale: String 👉@tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev"),
-        <https://specs.graphql.org/#String>[GraphQL request] birthDate(locale: String @tag(name: "admin")): 👉String @tag(name: "admin") @tag(name: "dev"),
-        <#@tag>[GraphQL request] birthDate(locale: String @tag(name: "admin")): String 👉@tag(name: "admin") @tag(name: "dev"),
-        <#@tag>[GraphQL request] birthDate(locale: String @tag(name: "admin")): String @tag(name: "admin") 👉@tag(name: "dev"),
+        <https://specs.graphql.org/#String>[GraphQL request] birthDate(locale: 👉String @tag(name: "admin")): String,
+        <#@tag>[GraphQL request] birthDate(locale: String 👉@tag(name: "admin")): String,
+        <https://specs.graphql.org/#String>[GraphQL request] birthDate(locale: String @tag(name: "admin")): 👉String,
+        <#@tag>[GraphQL request] 👉@tag(name: "admin"),
+        <#@tag>[GraphQL request] 👉@tag(name: "dev"),
         <#AccountType>[GraphQL request] account: 👉AccountType,
         <#UserMetadata>[GraphQL request] metadata: [👉UserMetadata],
         <https://specs.graphql.org/#String>[GraphQL request] ssn: 👉String,
@@ -292,6 +305,8 @@ describe('subgraphCore', () => {
         <https://specs.graphql.org/#ID>[GraphQL request] userAccount(id: 👉ID! = "1"): User @requires(fields: "name"),
         <#User>[GraphQL request] userAccount(id: ID! = "1"): 👉User @requires(fields: "name"),
         <https://specs.apollo.dev/federation/v1.0#@requires>[GraphQL request] userAccount(id: ID! = "1"): User 👉@requires(fields: "name"),
+        <https://specs.graphql.org/#String>[GraphQL request] description: 👉String  @override(from: "books"),
+        <#@override>[GraphQL request] description: String  👉@override(from: "books"),
         <https://specs.apollo.dev/link/v1.0#@>[builtin/link/v1.0.graphql] 👉directive @link(url: String!, as: String, import: [Import]),
         <https://specs.graphql.org/#String>[builtin/link/v1.0.graphql] directive @link(url: 👉String!, as: String, import: [Import]),
         <https://specs.graphql.org/#String>[builtin/link/v1.0.graphql] directive @link(url: String!, as: 👉String, import: [Import]),
@@ -371,6 +386,7 @@ describe('subgraphCore', () => {
         id: ID!
         name: String @external
         userAccount(id: ID! = "1"): User @requires(fields: "name")
+        description: String @override(from: "books")
       }
 
       directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
@@ -396,13 +412,13 @@ describe('subgraphCore', () => {
     `);
 
     expect(raw(print(doc))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/tag/v0.2") @link(url: "https://specs.apollo.dev/federation/v2.0")
 
       type User @tag(name: "something")
 
       directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       scalar link__Import
     `);
