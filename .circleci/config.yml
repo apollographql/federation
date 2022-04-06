@@ -147,6 +147,9 @@ workflows:
       - Error code Doc:
           name: "Error code Doc (up to date)"
           <<: *common_non_publish_filters
+      - Hints code Doc:
+          name: "Hint code Doc (up to date)"
+          <<: *common_non_publish_filters
       - oss/lerna_tarballs:
           name: "JS: Package tarballs"
           <<: *common_non_publish_filters
