@@ -1,5 +1,5 @@
 import Schema, { byKind, byName, only, toDefinitionKind } from '@apollo/core-schema';
-import { ASTNode, concatAST, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind } from 'graphql';
+import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind } from 'graphql';
 import { ATLAS, SUBGRAPH_BASE } from '../federation-atlas';
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
 
@@ -283,9 +283,8 @@ export function addResolversToSchema(
 //   return schema;
 // }
 
-export function subgraphCore(modules: GraphQLSchemaModule[]): DocumentNode {
-  const mergedDocument = concatAST(modules.map(module => module.typeDefs));
-  const core = Schema.from(mergedDocument, SUBGRAPH_BASE).compile(ATLAS)
+export function subgraphCore(document: DocumentNode): DocumentNode {
+  const core = Schema.from(document, SUBGRAPH_BASE).compile(ATLAS)
   const defs = [...implicitDefinitionNodes(core.document)]
   return defs.length ? {
     ...core.document,

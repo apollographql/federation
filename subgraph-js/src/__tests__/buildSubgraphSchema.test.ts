@@ -147,10 +147,10 @@ describe('buildSubgraphSchema', () => {
 
       directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+      scalar link__Import
+
       """federation 1.0 key directive"""
       directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
-      scalar link__Import
 
       scalar federation__FieldSet
 
@@ -376,12 +376,12 @@ describe('buildSubgraphSchema', () => {
 
         directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+        scalar link__Import
+
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external on OBJECT | FIELD_DEFINITION
-
-        scalar link__Import
 
         scalar federation__FieldSet
 
@@ -437,12 +437,12 @@ describe('buildSubgraphSchema', () => {
 
         directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+        scalar link__Import
+
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external on OBJECT | FIELD_DEFINITION
-
-        scalar link__Import
 
         scalar federation__FieldSet
 
@@ -476,10 +476,10 @@ describe('buildSubgraphSchema', () => {
 
         directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+        scalar link__Import
+
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
-        scalar link__Import
 
         scalar federation__FieldSet
       `);
@@ -511,10 +511,10 @@ describe('buildSubgraphSchema', () => {
 
         directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+        scalar link__Import
+
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
-
-        scalar link__Import
 
         scalar federation__FieldSet
       `);
@@ -569,14 +569,14 @@ describe('buildSubgraphSchema', () => {
 
         directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+        scalar link__Import
+
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @provides(fields: federation__FieldSet!) on FIELD_DEFINITION
 
         directive @external on OBJECT | FIELD_DEFINITION
-
-        scalar link__Import
 
         scalar federation__FieldSet
 
@@ -613,12 +613,12 @@ describe('buildSubgraphSchema', () => {
 
         directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
+        scalar link__Import
+
         """federation 1.0 key directive"""
         directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external on OBJECT | FIELD_DEFINITION
-
-        scalar link__Import
 
         scalar federation__FieldSet
 

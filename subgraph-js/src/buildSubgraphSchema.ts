@@ -7,7 +7,8 @@ import {
   GraphQLUnionType,
   GraphQLObjectType,
   buildASTSchema,
-  print
+  print,
+  concatAST
 } from 'graphql';
 import {
   GraphQLSchemaModule,
@@ -62,7 +63,8 @@ export function buildSubgraphSchema(
   }
 
   const modules = modulesFromSDL(shapedModulesOrSDL);
-  const document = subgraphCore(modules)
+  const mergedDocument = concatAST(modules.map(module => module.typeDefs));
+  const document = subgraphCore(mergedDocument)
 
   let schema = buildASTSchema(document)
 

@@ -29,6 +29,8 @@ export const ATLAS = Atlas.fromSchemas(
 
   Schema.basic(gql `${'builtin/federation/v2.0.graphql'}
   @id(url: "https://specs.apollo.dev/federation/v2.0")
+  @link(url: "https://specs.apollo.dev/tag/v0.1")
+  @link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: "@ (as @inaccessible)")
 
   """
   federation 2.0 key directive
@@ -39,8 +41,18 @@ export const ATLAS = Atlas.fromSchemas(
   directive @external on OBJECT | FIELD_DEFINITION
   directive @moving(to: String!) on FIELD_DEFINITION
   directive @shareable on FIELD_DEFINITION | OBJECT
+  directive @extends on INTERFACE
 
   scalar FieldSet
+  `),
+
+  Schema.basic(gql `${'builtin/inaccessible/v0.1.graphql'}
+  @id(url: "https://specs.apollo.dev/inaccessible/v0.1")
+
+  directive @inaccessible on
+    | OBJECT
+    | INTERFACE
+    | FIELD_DEFINITION
   `),
 
   Schema.basic(gql `${'builtin/link/v0.3.graphql'}
