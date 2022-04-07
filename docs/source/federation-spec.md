@@ -309,3 +309,26 @@ extend type User @key(fields: "email") {
 ```
 
 This type extension in the Reviews service extends the `User` type from the Users service. It extends it for the purpose of adding a new field called `reviews`, which returns a list of `Review`s.
+
+### `@link`
+
+```graphql
+scalar link__Import
+
+directive @link(
+  url: String, 
+  as: String, 
+  for: link__Purpose, 
+  import: [link__Import]
+) repeatable on SCHEMA
+```
+
+The `@link` directive provides a mechanism to link to external schemas, specifying the URL, version, and directives. The presence of a `@link` directive also indicates that the schema is a core schema. 
+
+```graphql
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
+```
+ 
+When present, the `import` argument will assign non-prefixed (local) names to elements from a foreign schema. In the example above, `@tag` is renamed to `@mytag` while the other directive names will be assigned as they are specified in the federation schema. The ability to rename directives may be necessary if there is a naming collision in two different foreign schemas.
