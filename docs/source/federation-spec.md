@@ -335,7 +335,13 @@ directive @link(
 ) repeatable on SCHEMA
 ```
 
-The `@link` directive provides a mechanism to link to external schemas, specifying the URL, version, and directives. The presence of a `@link` directive also indicates that the schema is a core schema. 
+The `@link` directive links definitions within the document to external schemas. External schemas are identified by their `url`, which optionally ends with a name and version in the form `name`/v`major`.`minor`.
+
+The presence of a `@link` directive makes a document a [core schema](https://specs.apollo.dev/#def-core-schema).
+
+The `for` argument describes the purpose of a `@link`. Currently accepted values are `SECURITY` or `EXECUTION`. Core schema-aware servers such as Apollo Router and Gateway will refuse to operate on schemas which contain `@link`s to unsupported specs which are `for: SECURITY` or `for: EXECUTION`.
+
+By default, `@link`ed definitions will be namespaced, i.e. `@federation__requires`. The `import` argument lets you import external definitions into your namespace, so they lose the prefix:
 
 ```graphql
     schema
