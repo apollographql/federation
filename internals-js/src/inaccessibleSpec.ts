@@ -293,9 +293,9 @@ function validateInaccessibleElements(
             `Built-in type "${type.coordinate}" cannot use @inaccessible.`,
           nodes: type.sourceAST,
           extensions: {
-            disallowed_element: type.coordinate,
             inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
+            inaccessible_referencers: [type.coordinate],
           }
         }));
       }
@@ -309,9 +309,9 @@ function validateInaccessibleElements(
             `Core feature type "${type.coordinate}" cannot use @inaccessible.`,
           nodes: type.sourceAST,
           extensions: {
-            disallowed_element: type.coordinate,
             inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
+            inaccessible_referencers: [type.coordinate],
           }
         }));
       }
@@ -348,8 +348,8 @@ function validateInaccessibleElements(
                 ` by "${referencer.coordinate}", which is in the API schema.`,
               nodes: type.sourceAST,
               extensions: {
-                inaccessible_element: type.coordinate,
-                inaccessible_element_referencer: referencer.coordinate,
+                inaccessible_elements: [type.coordinate],
+                inaccessible_referencers: [referencer.coordinate],
               }
             }));
           }
@@ -361,7 +361,7 @@ function validateInaccessibleElements(
                 ` query type, which must be in the API schema.`,
               nodes: type.sourceAST,
               extensions: {
-                inaccessible_element: type.coordinate,
+                inaccessible_elements: [type.coordinate],
               }
             }));
           }
@@ -388,9 +388,9 @@ function validateInaccessibleElements(
               ` are @inaccessible.`,
             nodes: type.sourceAST,
             extensions: {
-              inaccessible_elements_parent: type.coordinate,
               inaccessible_elements: type.fields()
                 .map((field) => field.coordinate),
+              inaccessible_referencers: [type.coordinate],
             }
           }));
         }
@@ -406,9 +406,9 @@ function validateInaccessibleElements(
               ` members are @inaccessible.`,
             nodes: type.sourceAST,
             extensions: {
-              inaccessible_elements_parent: type.coordinate,
               inaccessible_elements: type.types()
                 .map((type) => type.coordinate),
+              inaccessible_referencers: [type.coordinate],
             }
           }));
         }
@@ -424,9 +424,9 @@ function validateInaccessibleElements(
              ` values are @inaccessible.`,
             nodes: type.sourceAST,
             extensions: {
-              inaccessible_elements_parent: type.coordinate,
               inaccessible_elements: type.values
                 .map((enumValue) => enumValue.coordinate),
+              inaccessible_referencers: [type.coordinate],
             }
           }));
         }
@@ -466,9 +466,8 @@ function validateInaccessibleElements(
                     ` schema.`,
                   nodes: field.sourceAST,
                   extensions: {
-                    inaccessible_element: field.coordinate,
-                    inaccessible_element_implements:
-                      implementedField.coordinate,
+                    inaccessible_elements: [field.coordinate],
+                    inaccessible_referencers: [implementedField.coordinate],
                   }
                 }));
               }
@@ -486,8 +485,8 @@ function validateInaccessibleElements(
                       ` is a required argument of its field.`,
                     nodes: argument.sourceAST,
                     extensions: {
-                      inaccessible_element: argument.coordinate,
-                      inaccessible_element_requirer: argument.coordinate,
+                      inaccessible_elements: [argument.coordinate],
+                      inaccessible_referencers: [argument.coordinate],
                     }
                   }));
                 }
@@ -534,9 +533,10 @@ function validateInaccessibleElements(
                         ` in the API schema.`,
                       nodes: argument.sourceAST,
                       extensions: {
-                        inaccessible_element: argument.coordinate,
-                        inaccessible_element_requirer:
+                        inaccessible_elements: [argument.coordinate],
+                        inaccessible_referencers: [
                           implementingArgument.coordinate,
+                        ],
                       }
                     }));
                   }
@@ -562,9 +562,10 @@ function validateInaccessibleElements(
                         ` the API schema.`,
                       nodes: argument.sourceAST,
                       extensions: {
-                        inaccessible_element: argument.coordinate,
-                        inaccessible_element_implements:
+                        inaccessible_elements: [argument.coordinate],
+                        inaccessible_referencers: [
                           implementedArgument.coordinate,
+                        ],
                       }
                     }));
                   }
@@ -585,8 +586,8 @@ function validateInaccessibleElements(
                   ` but is a required input field of its type.`,
                 nodes: inputField.sourceAST,
                 extensions: {
-                  inaccessible_element: inputField.coordinate,
-                  inaccessible_element_requirer: inputField.coordinate,
+                  inaccessible_elements: [inputField.coordinate],
+                  inaccessible_referencers: [inputField.coordinate],
                 }
               }));
             }
@@ -610,8 +611,8 @@ function validateInaccessibleElements(
                     ` "${referencer.coordinate}", which is in the API schema.`,
                   nodes: type.sourceAST,
                   extensions: {
-                    inaccessible_element: type.coordinate,
-                    inaccessible_element_referencer: referencer.coordinate,
+                    inaccessible_elements: [type.coordinate],
+                    inaccessible_referencers: [referencer.coordinate],
                   }
                 }));
               }
@@ -640,8 +641,8 @@ function validateInaccessibleElements(
                     ` "${referencer.coordinate}", which is in the API schema.`,
                   nodes: type.sourceAST,
                   extensions: {
-                    inaccessible_element: type.coordinate,
-                    inaccessible_element_referencer: referencer.coordinate,
+                    inaccessible_elements: [type.coordinate],
+                    inaccessible_referencers: [referencer.coordinate],
                   }
                 }));
               }
@@ -669,9 +670,9 @@ function validateInaccessibleElements(
             ` @inaccessible.`,
           nodes: directive.sourceAST,
           extensions: {
-            disallowed_element: directive.coordinate,
             inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
+            inaccessible_referencers: [directive.coordinate],
           }
         }));
       }
@@ -687,9 +688,9 @@ function validateInaccessibleElements(
             ` @inaccessible.`,
           nodes: directive.sourceAST,
           extensions: {
-            disallowed_element: directive.coordinate,
             inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
+            inaccessible_referencers: [directive.coordinate],
           }
         }));
       }
@@ -706,9 +707,9 @@ function validateInaccessibleElements(
             ` ${typeSystemLocations.join(', ')}.`,
           nodes: directive.sourceAST,
           extensions: {
-            disallowed_element: directive.coordinate,
             inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
+            inaccessible_referencers: [directive.coordinate],
           }
         }));
       }
@@ -726,8 +727,8 @@ function validateInaccessibleElements(
                 ` required argument of its directive.`,
               nodes: argument.sourceAST,
               extensions: {
-                inaccessible_element: argument.coordinate,
-                inaccessible_element_requirer: argument.coordinate,
+                inaccessible_elements: [argument.coordinate],
+                inaccessible_referencers: [argument.coordinate],
               }
             }));
           }
