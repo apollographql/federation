@@ -61,7 +61,7 @@ export function valueToString(v: any, expectedType?: InputType): string {
   }
 
   if (expectedType && isNonNullType(expectedType)) {
-    expectedType = expectedType.ofType;
+    return valueToString(v, expectedType.ofType);
   }
 
   if (expectedType && isCustomScalarType(expectedType)) {
@@ -88,7 +88,7 @@ export function valueToString(v: any, expectedType?: InputType): string {
   // the value correctly, at least as long as it's a valid value for the element type, since
   // list input coercions may allow this.
   if (expectedType && isListType(expectedType)) {
-    expectedType = expectedType.ofType;
+    return valueToString(v, expectedType.ofType);
   }
 
   if (typeof v === 'object') {

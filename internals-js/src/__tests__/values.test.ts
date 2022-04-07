@@ -1,10 +1,11 @@
 import {
   Schema,
-} from '../../dist/definitions';
-import { buildSchema } from '../../dist/buildSchema';
-import { parseOperation } from '../../dist/operations';
+} from '../definitions';
+import { buildSchema } from '../buildSchema';
+import { parseOperation } from '../operations';
 import { buildForErrors } from './subgraphValidation.test';
 import gql from 'graphql-tag';
+import { printSchema } from '../print';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -259,6 +260,29 @@ describe('default value validation', () => {
     expect(buildForErrors(doc)).toBeUndefined();
   });
 
+  it('accepts default value coercible to list for a list type through multiple coercions', () => {
+    const doc = gql`
+      type Query {
+        f(x: [[[String]!]]! = "foo"): Int
+      }
+    `;
+
+    expect(buildForErrors(doc)).toBeUndefined();
+  });
+
+  it('errors on default value no coercible to list for a list type through multiple coercions', () => {
+    const doc = gql`
+      type Query {
+        f(x: [[[String]!]]! = 2): Int
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_GRAPHQL',
+      '[S] Invalid default value (got: 2) provided for argument Query.f(x:) of type [[[String]!]]!.'
+    ]]);
+  });
+
   it('accepts default value coercible to its type but needing multiple/nested coercions', () => {
     const doc = gql`
       type Query {
@@ -323,4 +347,34 @@ describe('default value validation', () => {
 
     expect(buildForErrors(doc)).toBeUndefined();
   });
+});
+
+describe('values printing', () => {
+  it('prints enums value correctly within multiple lists', () => {
+    const sdl = `
+      type Query {
+        f(a: [[[E]!]!] = [[[FOO], [BAR]]]): Int
+      }
+
+      enum E {
+        FOO
+        BAR
+      }
+    `
+    expect(printSchema(parseSchema(sdl))).toMatchString(sdl);
+  })
+
+  it('prints enums value when its coercible to list through multiple coercions', () => {
+    const sdl = `
+      type Query {
+        f(a: [[[E]!]!] = FOO): Int
+      }
+
+      enum E {
+        FOO
+        BAR
+      }
+    `
+    expect(printSchema(parseSchema(sdl))).toMatchString(sdl);
+  })
 });
