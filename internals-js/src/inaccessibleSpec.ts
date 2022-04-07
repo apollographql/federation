@@ -1,10 +1,11 @@
-import { ErrGraphQLAPISchemaValidationFailed, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   ArgumentDefinition,
   CoreFeatures,
   DirectiveDefinition,
   EnumType,
   EnumValue,
+  ErrGraphQLAPISchemaValidationFailed,
   executableDirectiveLocations,
   FieldDefinition,
   InputFieldDefinition,

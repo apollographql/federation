@@ -1,6 +1,6 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert } from './utils';
@@ -777,11 +777,3 @@ export function removeAllCoreFeatures(schema: Schema) {
     throw ErrGraphQLAPISchemaValidationFailed(errors);
   }
 }
-
-export const apiSchemaValidationErrorCode = 'GraphQLAPISchemaValidationFailed';
-
-export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
-  err(apiSchemaValidationErrorCode, {
-    message: 'The supergraph schema failed to produce a valid API schema',
-    causes
-  });

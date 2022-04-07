@@ -17,7 +17,6 @@ import {
   VariableNode
 } from "graphql";
 import {
-  apiSchemaValidationErrorCode,
   CoreImport,
   CoreOrLinkDirectiveArgs,
   CoreSpecDefinition,
@@ -49,6 +48,14 @@ const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL sche
 export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   err(validationErrorCode, {
     message,
+    causes
+  });
+
+const apiSchemaValidationErrorCode = 'GraphQLAPISchemaValidationFailed';
+
+export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
+  err(apiSchemaValidationErrorCode, {
+    message: 'The supergraph schema failed to produce a valid API schema',
     causes
   });
 
