@@ -103,14 +103,13 @@ export function subgraphCore(document: DocumentNode): DocumentNode {
   const schema = Schema.from(document, SUBGRAPH_BASE)
   let output = (linksFed2(schema) ? Schema.basic(document) : schema)
       .compile(ATLAS)
-      .document
   if (!maybe(schema.scope)) {
-    output = { ...output,
-      definitions: output.definitions
-        .filter(node => !isAst(node, Kind.SCHEMA_EXTENSION) || node.loc)
-    }
+    // if our scope was empty, we didn't @link anything
+    // if we didn't @link anything, remove any generated headers to keep
+    // the document in non-core form
+    output = output.dangerousRemoveHeaders()
   }
-  return withImplicitDefinitions(output)
+  return withImplicitDefinitions(output.document)
 }
 
 function linksFed2(schema: Schema) {
