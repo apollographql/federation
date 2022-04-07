@@ -315,6 +315,18 @@ This type extension in the Reviews service extends the `User` type from the User
 ```graphql
 scalar link__Import
 
+enum link__Purpose {
+  """
+  \`SECURITY\` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  \`EXECUTION\` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
 directive @link(
   url: String, 
   as: String, 
