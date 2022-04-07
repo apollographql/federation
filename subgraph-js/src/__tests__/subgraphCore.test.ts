@@ -11,7 +11,7 @@ describe('subgraphCore', () => {
     const result = getResult(() => subgraphCore(fixtures[0].typeDefs));
     expect([...result.errors()]).toEqual([]);
     expect(raw(print(result.unwrap()))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/inaccessible/v0.1") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@override"])
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])
 
       directive @stream on FIELD
 
@@ -93,13 +93,13 @@ describe('subgraphCore', () => {
 
       directive @shareable on FIELD_DEFINITION | OBJECT
 
+      directive @inaccessible on OBJECT | INTERFACE | FIELD_DEFINITION
+
       directive @override(from: String!) on FIELD_DEFINITION
 
       directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
       scalar federation__FieldSet
-
-      directive @inaccessible on OBJECT | INTERFACE | FIELD_DEFINITION
 
       scalar link__Import
     `);
@@ -119,8 +119,6 @@ describe('subgraphCore', () => {
         <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@extends>[builtin/federation/v1.0.graphql] 👉directive @extends on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
-        GRef <https://specs.apollo.dev/federation/v2.0#@tag> => GRef <https://specs.apollo.dev/tag/v0.2#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/tag/v0.2", import: [{ name: "@", as: "@tag" }])),
-        GRef <https://specs.apollo.dev/federation/v2.0#@inaccessible> => GRef <https://specs.apollo.dev/inaccessible/v0.1#@> (via [builtin/federation/v2.0.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1", import: [{ name: "@", as: "@inaccessible" }])),
         <https://specs.apollo.dev/federation/v2.0>[builtin/federation/v2.0.graphql] 👉@id(url: "https://specs.apollo.dev/federation/v2.0"),
         <https://specs.apollo.dev/federation/v2.0#@key>[builtin/federation/v2.0.graphql] 👉directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v2.0#@requires>[builtin/federation/v2.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
@@ -129,6 +127,8 @@ describe('subgraphCore', () => {
         <https://specs.apollo.dev/federation/v2.0#@shareable>[builtin/federation/v2.0.graphql] 👉directive @shareable on FIELD_DEFINITION | OBJECT,
         <https://specs.apollo.dev/federation/v2.0#@extends>[builtin/federation/v2.0.graphql] 👉directive @extends on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v2.0#@override>[builtin/federation/v2.0.graphql] 👉directive @override(from: String!) on FIELD_DEFINITION,
+        <https://specs.apollo.dev/federation/v2.0#@tag>[builtin/federation/v2.0.graphql] 👉directive @tag(name: String!),
+        <https://specs.apollo.dev/federation/v2.0#@inaccessible>[builtin/federation/v2.0.graphql] 👉directive @inaccessible on,
         <https://specs.apollo.dev/federation/v2.0#FieldSet>[builtin/federation/v2.0.graphql] 👉scalar FieldSet,
         <https://specs.apollo.dev/inaccessible/v0.1>[builtin/inaccessible/v0.1.graphql] 👉@id(url: "https://specs.apollo.dev/inaccessible/v0.1"),
         <https://specs.apollo.dev/inaccessible/v0.1#@>[builtin/inaccessible/v0.1.graphql] 👉directive @inaccessible on,
@@ -412,13 +412,13 @@ describe('subgraphCore', () => {
     `);
 
     expect(raw(print(doc))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/tag/v0.2") @link(url: "https://specs.apollo.dev/federation/v2.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
 
       type User @tag(name: "something")
 
-      directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
-
       directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+      directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
       scalar link__Import
     `);

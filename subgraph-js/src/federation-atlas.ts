@@ -50,7 +50,6 @@ export const ATLAS = Atlas.fromSchemas(
 
   Schema.basic(gql `${'builtin/federation/v2.0.graphql'}
   @id(url: "https://specs.apollo.dev/federation/v2.0")
-  @link(url: "https://specs.apollo.dev/tag/v0.1")
 
   """
   federation 2.0 key directive
@@ -66,8 +65,20 @@ export const ATLAS = Atlas.fromSchemas(
   # fixme — the composer is currently hardcoded to use the federation 2.0
   # url to find @tag and @inaccessible. make these transitive links once
   # we've verified that's fixed
+
   directive @tag(name: String!)
-    repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+    repeatable on
+      | FIELD_DEFINITION
+      | INTERFACE
+      | OBJECT
+      | UNION
+      | ARGUMENT_DEFINITION
+      | SCALAR
+      | ENUM
+      | ENUM_VALUE
+      | INPUT_OBJECT
+      | INPUT_FIELD_DEFINITION
+
   directive @inaccessible on
     | OBJECT
     | INTERFACE
