@@ -9,7 +9,7 @@ import './matchers';
 // Builds the provided subgraph (using name 'S' for the subgraph) and, if the
 // subgraph is invalid/has errors, return those errors as a list of [code, message].
 // If the subgraph is valid, return undefined.
-function buildForErrors(
+export function buildForErrors(
   subgraphDefs: DocumentNode,
   options?: {
     subgraphName?: string,
