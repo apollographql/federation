@@ -706,7 +706,7 @@ export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIden
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);
 
-export function removeFeatureElements(schema: Schema) {
+export function removeAllCoreFeatures(schema: Schema) {
   // Gather a list of core features up front, since we can't fetch them during
   // removal. (Also note that core being a feature itself, this will remove core
   // itself and mark the schema as 'not core').
