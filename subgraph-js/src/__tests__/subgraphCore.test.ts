@@ -423,4 +423,34 @@ describe('subgraphCore', () => {
       scalar link__Import
     `);
   });
+
+  it('retains custom directive applications', () => {
+    const doc = subgraphCore(gql`
+      @link(url: "https://example.dev/unknown")
+
+      type User @tag(name: "something") {
+        id: ID! @unknown
+        name: String @undefined
+        weight: Int @definedButNotCore
+      }
+
+      directive @definedButNotCore on FIELD_DEFINITION
+    `);
+
+    expect(raw(print(doc))).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://example.dev/unknown")
+
+      type User @tag(name: "something") {
+        id: ID! @unknown
+        name: String @undefined
+        weight: Int @definedButNotCore
+      }
+
+      directive @definedButNotCore on FIELD_DEFINITION
+
+      directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+      scalar link__Import
+    `);
+  });
 });
