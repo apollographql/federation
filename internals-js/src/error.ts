@@ -379,11 +379,6 @@ const ONLY_INACCESSIBLE_CHILDREN = makeCodeDefinition(
   'A type visible in the API schema has only @inaccessible children.'
 );
 
-const INVALID_DEFAULT_VALUE = makeCodeDefinition(
-  'INVALID_DEFAULT_VALUE',
-  'An element has a default value that fails to coerce to its location\'s type.'
-);
-
 const REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
   'REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH',
   'A field of an input object type is mandatory in some subgraphs, but the field is not defined in all the subgraphs that define the input object type.'
@@ -492,7 +487,6 @@ export const ERRORS = {
   DISALLOWED_INACCESSIBLE,
   IMPLEMENTED_BY_INACCESSIBLE,
   ONLY_INACCESSIBLE_CHILDREN,
-  INVALID_DEFAULT_VALUE,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH,
   EMPTY_MERGED_INPUT_TYPE,

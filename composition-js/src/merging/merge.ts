@@ -2345,14 +2345,6 @@ class Merger {
             [...elementsNodes, ...parentNodes]
           );
         }
-        case ERRORS.INVALID_DEFAULT_VALUE.code: {
-          const element = err.extensions['element'];
-          // Default values are merged via intersection, so no need to filter
-          // out any subgraph elements here.
-          const elementNodes = sourceASTsForCoordinate(element);
-
-          return withModifiedErrorNodes(err, elementNodes);
-        }
         default:
           return err;
       }

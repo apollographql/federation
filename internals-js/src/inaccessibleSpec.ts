@@ -276,13 +276,10 @@ function validateInaccessibleElements(
   > | undefined = undefined;
   if (!inaccessibleSpec.isV01()) {
     // Note that for inaccessible v0.1, enum values and input fields can't be
-    // @inaccessible, so there's no need to validate default values and compute
-    // references (also, starting to validate default values would be a breaking
-    // change for inaccessible v0.1).
-    defaultValueReferencers = computeDefaultValueReferencers(
-      schema,
-      errors
-    );
+    // @inaccessible, so there's no need to compute references (the inaccessible
+    // v0.1 spec also doesn't require default values to be valid, so it doesn't
+    // make sense to compute them).
+    defaultValueReferencers = computeDefaultValueReferencers(schema);
   }
 
   for (const type of schema.allTypes()) {
@@ -757,20 +754,10 @@ type SchemaElementWithDefaultValue =
 // default values referencing them. (The default values of built-ins and their
 // descendants are skipped.)
 //
-// Note that this will involve validating schema default values, which (at the
-// time of writing) is conspicuously not in the GraphQL spec. These are
-// validated similar to operation AST values as in the "Values of Correct Type"
-// validation in the GraphQL spec; please see
-// https://spec.graphql.org/draft/#sec-Values-of-Correct-Type
-// for details. The differences are that variable references aren't allowed, and
-// scalar input coercion is skipped (since coercion success is very dependent on
-// the environment/server characteristics).
-//
-// Any errors encountered during default value validation will be pushed onto
-// the given errors array.
+// This function assumes default values are coercible to their location types
+// (see the comments for addValueReferences() for details).
 function computeDefaultValueReferencers(
   schema: Schema,
-  errors: GraphQLError[],
 ): Map<
   DefaultValueReference,
   SchemaElementWithDefaultValue[]
@@ -807,7 +794,7 @@ function computeDefaultValueReferencers(
       for (const field of type.fields()) {
         for (const argument of field.arguments()) {
           for (
-            const reference of computeDefaultValueReferences(argument, errors)
+            const reference of computeDefaultValueReferences(argument)
           ) {
             addReference(reference, argument);
           }
@@ -819,7 +806,7 @@ function computeDefaultValueReferencers(
     if (type instanceof InputObjectType) {
       for (const inputField of type.fields()) {
         for (
-          const reference of computeDefaultValueReferences(inputField, errors)
+          const reference of computeDefaultValueReferences(inputField)
         ) {
           addReference(reference, inputField);
         }
@@ -832,7 +819,7 @@ function computeDefaultValueReferencers(
     if (hasBuiltInName(directive)) continue;
     for (const argument of directive.arguments()) {
       for (
-        const reference of computeDefaultValueReferences(argument, errors)
+        const reference of computeDefaultValueReferences(argument)
       ) {
         addReference(reference, argument);
       }
@@ -843,20 +830,17 @@ function computeDefaultValueReferencers(
 }
 
 // For the given element, compute a list of input fields and enum values that
-// are referenced in its default value (if any). As mentioned above, this will
-// involve validating the default value to an extent. Any errors encountered
-// during default value validation will be pushed onto the given errors array.
+// are referenced in its default value (if any). This function assumes the
+// default value is coercible to the element's type (see the comments for
+// addValueReferences() for details).
 function computeDefaultValueReferences(
   element: SchemaElementWithDefaultValue,
-  errors: GraphQLError[],
 ): DefaultValueReference[] {
   const references: DefaultValueReference[] = [];
   addValueReferences(
     element.defaultValue,
     getInputType(element),
     references,
-    element,
-    errors,
   )
   return references;
 }
@@ -870,210 +854,103 @@ function getInputType(element: SchemaElementWithDefaultValue): InputType {
   return type;
 }
 
-// Modelled similarly to valueFromAST() from graphql-js, while adding in some
-// missing validations from ValuesOfCorrectTypeRule() (specifically for input
-// objects). For understanding how AST nodes are represented as JS values, see
-// buildValue(), which is used to create any default values when building a
-// Schema object.
+// For the given GraphQL input value (represented in the format implicitly
+// defined in buildValue()) and its type, add any references to input fields and
+// enum values in that input value to the given references list.
 //
-// As noted above, the primary differences are that variable references aren't
-// allowed, and that scalar input coercion is skipped, even for built-ins. The
-// skipping is because coercion success depends on the environment/server
-// characteristics (e.g. float input coercion success depends on the available
-// precision as per the spec, which is machine-dependent). It would be bad if
-// the user believed a supergraph schema was valid according to the inaccessible
-// spec, but the server believed it was invalid and refused to load the schema
-// because of differences in input coercion.
+// Note that this function requires the input value to be coercible to its type,
+// similar to the "Values of Correct Type" validation in the GraphQL spec.
+// However, there are two noteable differences:
+// 1. Variable references are not allowed.
+// 2. Scalar values are not required to be coercible (due to machine-specific
+//    differences in input coercion rules).
+//
+// As it turns out, building a Schema object validates this (and a bit more)
+// already, so in the interests of not duplicating validations/keeping the logic
+// centralized, this code assumes the input values it receives satisfy the above
+// validations.
+//
+// Accordingly, this function's code is structured very similarly to the
+// valueToString() function, which makes similar assumptions about its given
+// value. If any inconsistencies/invalidities are discovered, they will be
+// silently ignored.
 function addValueReferences(
   value: any,
   type: InputType,
   references: DefaultValueReference[],
-  element: SchemaElementWithDefaultValue,
-  errors: GraphQLError[],
 ): void {
-  if (value === undefined) {
-    return;
-  }
-
-  if (isVariable(value)) {
-    errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-      message:
-        `Default value "${element.defaultValue}" of "${element.coordinate}"` +
-        ` cannot contain the variable reference "${value}".`,
-      nodes: element.sourceAST,
-      extensions: {
-        element: element.coordinate,
-        default_value: element.defaultValue,
-      }
-    }));
+  if (value === undefined || value === null) {
     return;
   }
 
   if (isNonNullType(type)) {
-    if (value === null) {
-      errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-        message:
-          `Default value "${element.defaultValue}" of "${element.coordinate}"` +
-          ` cannot provide null for non-nullable type "${type}".`,
-        nodes: element.sourceAST,
-        extensions: {
-          element: element.coordinate,
-          default_value: element.defaultValue,
-        }
-      }));
-    } else {
-      addValueReferences(
-        value,
-        type.ofType,
-        references,
-        element,
-        errors,
-      );
-    }
+    return addValueReferences(value, type.ofType, references);
+  }
+
+  if (isScalarType(type)) {
+    // No need to look at scalar values.
     return;
   }
 
-  if (value === null) {
+  if (isVariable(value)) {
+    // Values in schemas shouldn't use variables, but we silently ignore it.
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    if (isListType(type)) {
+      const itemType = type.ofType;
+      for (const item of value) {
+        addValueReferences(item, itemType, references);
+      }
+    } else {
+      // At this point a JS array can only be a list type, but we silently
+      // ignore when it's not.
+    }
     return;
   }
 
   if (isListType(type)) {
-    const itemType: InputType = type.ofType;
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        addValueReferences(
-          item,
-          itemType,
-          references,
-          element,
-          errors,
-        );
-      }
-    } else {
-      // Equivalent of coercing non-null element as a list of one.
-      addValueReferences(
-        value,
-        itemType,
-        references,
-        element,
-        errors,
-      );
-    }
-    return;
+    // Note that GraphQL spec coerces non-list items into single-element lists.
+    return addValueReferences(value, type.ofType, references);
   }
 
-  if (isScalarType(type)) {
-    // We explicitly do not attempt scalar input coercion, as the results are
-    // dependent on environment/server characteristics. (It's also not needed to
-    // compute references.)
-    return;
-  }
-
-  if (isInputObjectType(type)) {
-    if (typeof value !== 'object') {
-      errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-        message:
-          `Default value "${element.defaultValue}" of "${element.coordinate}"` +
-          ` cannot provide non-object value "${value}" for input object type` +
-          ` ${type}.`,
-        nodes: element.sourceAST,
-        extensions: {
-          element: element.coordinate,
-          default_value: element.defaultValue,
-        }
-      }));
-    } else {
-      const valueKeys = new Set(Object.keys(value));
+  if (typeof value === 'object') {
+    if (isInputObjectType(type)) {
+      // Silently ignore object keys that aren't in the input object.
       for (const field of type.fields()) {
-        valueKeys.delete(field.name);
         const fieldValue = value[field.name];
-        if (fieldValue === undefined) {
-          if (
-            field.defaultValue === undefined &&
-            isNonNullType(getInputType(field))
-          ) {
-            errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-              message:
-                `Default value "${element.defaultValue}" of` +
-                ` "${element.coordinate}" is missing required field` +
-                ` "${field.name}" for input object type "${type}".`,
-              nodes: element.sourceAST,
-              extensions: {
-                element: element.coordinate,
-                default_value: element.defaultValue,
-              }
-            }));
-          }
-        } else {
+        if (fieldValue !== undefined) {
           references.push(field);
-          addValueReferences(
-            fieldValue,
-            getInputType(field),
-            references,
-            element,
-            errors,
-          );
+          addValueReferences(fieldValue, field.type!, references);
+        } else {
+          // Silently ignore when required input fields are omitted.
         }
       }
-      for (const fieldName of valueKeys) {
-        errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-          message:
-            `Default value "${element.defaultValue}" of` +
-            ` "${element.coordinate}" contains input field "${fieldName}"` +
-            ` that is not defined in the input object type "${type}".`,
-          nodes: element.sourceAST,
-          extensions: {
-            element: element.coordinate,
-            default_value: element.defaultValue,
-          }
-        }));
-      }
-    }
-    return;
-  }
-
-  if (isEnumType(type)) {
-    // Note that Schema represents enum values as JS strings. Unfortunately, it
-    // does not ensure that AST string values aren't provided for enum types,
-    // which isn't allowed as per enum input coercion rules in the GraphQL spec.
-    // This can't be easily done in buildValue(), since it doesn't validate type
-    // information there, so the AST information is lost when the Schema builds
-    // and the representation changes. In the future this may change (although
-    // this is a breaking validation change, and ideally would be enacted in a
-    // major version bump).
-    if (typeof value !== 'string') {
-      errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-        message:
-          `Default value "${element.defaultValue}" of "${element.coordinate}"` +
-          ` cannot provide non-enum value "${value}" for enum type "${type}".`,
-        nodes: element.sourceAST,
-        extensions: {
-          element: element.coordinate,
-          default_value: element.defaultValue,
-        }
-      }));
     } else {
-      const enumValue = type.value(value);
-      if (enumValue === undefined) {
-        errors.push(ERRORS.INVALID_DEFAULT_VALUE.err({
-          message:
-            `Default value "${element.defaultValue}" of` +
-            ` "${element.coordinate}" contains enum value "${value}" that is` +
-            ` not defined in the enum type "${type}".`,
-          nodes: element.sourceAST,
-          extensions: {
-            element: element.coordinate,
-            default_value: element.defaultValue,
-          }
-        }));
-      } else {
-        references.push(enumValue);
-      }
+      // At this point a JS object can only be an input object type, but we
+      // silently ignore when it's not.
     }
     return;
   }
 
-  assert(false, "Unreachable code, element is of unknown type.")
+  if (typeof value === 'string') {
+    if (isEnumType(type)) {
+      const enumValue = type.value(value);
+      if (enumValue !== undefined) {
+        references.push(enumValue);
+      } else {
+        // Silently ignore enum values that aren't in the enum type.
+      }
+    } else {
+      // At this point a JS string can only be an enum type, but we silently
+      // ignore when it's not.
+    }
+    return;
+  }
+
+  // This should be unreachable code, but we silently ignore when it's not.
+  return;
 }
 
 // Determine whether a given schema element has a built-in's name. Note that
