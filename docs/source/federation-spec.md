@@ -346,7 +346,7 @@ By default, `@link`ed definitions will be namespaced, i.e. `@federation__require
 ```graphql
     schema
       @link(url: "https://specs.apollo.dev/link/v1.0")
-      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as: "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
 ```
  
 In the example above, we import various directives from `federation/v2.0` into our namespace. We also rename one of them, bringing in federation's `@tag` as `@mytag` to distinguish it from a different `@tag` directive already in the schema.
