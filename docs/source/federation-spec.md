@@ -252,6 +252,33 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 > Note: Repeated directives (in this case, `@key`, used multiple times) require support by the underlying GraphQL implementation.
 
+### `@link`
+
+```graphql
+directive @link(
+  url: String, 
+  as: String, 
+  for: link__Purpose, 
+  import: [link__Import]
+) repeatable on SCHEMA
+```
+
+The `@link` directive links definitions within the document to external schemas. External schemas are identified by their `url`, which optionally ends with a name and version in the form `name`/v`major`.`minor`.
+
+The presence of a `@link` directive makes a document a [core schema](https://specs.apollo.dev/#def-core-schema).
+
+The `for` argument describes the purpose of a `@link`. Currently accepted values are `SECURITY` or `EXECUTION`. Core schema-aware servers such as Apollo Router and Gateway will refuse to operate on schemas which contain `@link`s to unsupported specs which are `for: SECURITY` or `for: EXECUTION`.
+
+By default, `@link`ed definitions will be namespaced, i.e. `@federation__requires`. The `import` argument lets you import external definitions into your namespace, so they are not prefixed.
+
+```graphql
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as: "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
+```
+ 
+In the example above, we import various directives from `federation/v2.0` into our namespace. We also rename one of them, bringing in federation's `@tag` as `@mytag` to distinguish it from a different `@tag` directive already in the schema.
+
 ### `@provides`
 
 ```graphql
@@ -309,44 +336,3 @@ extend type User @key(fields: "email") {
 ```
 
 This type extension in the Reviews service extends the `User` type from the Users service. It extends it for the purpose of adding a new field called `reviews`, which returns a list of `Review`s.
-
-### `@link`
-
-```graphql
-scalar link__Import
-
-enum link__Purpose {
-  """
-  \`SECURITY\` features provide metadata necessary to securely resolve fields.
-  """
-  SECURITY
-
-  """
-  \`EXECUTION\` features provide metadata necessary for operation execution.
-  """
-  EXECUTION
-}
-
-directive @link(
-  url: String, 
-  as: String, 
-  for: link__Purpose, 
-  import: [link__Import]
-) repeatable on SCHEMA
-```
-
-The `@link` directive links definitions within the document to external schemas. External schemas are identified by their `url`, which optionally ends with a name and version in the form `name`/v`major`.`minor`.
-
-The presence of a `@link` directive makes a document a [core schema](https://specs.apollo.dev/#def-core-schema).
-
-The `for` argument describes the purpose of a `@link`. Currently accepted values are `SECURITY` or `EXECUTION`. Core schema-aware servers such as Apollo Router and Gateway will refuse to operate on schemas which contain `@link`s to unsupported specs which are `for: SECURITY` or `for: EXECUTION`.
-
-By default, `@link`ed definitions will be namespaced, i.e. `@federation__requires`. The `import` argument lets you import external definitions into your namespace, so they lose the prefix:
-
-```graphql
-    schema
-      @link(url: "https://specs.apollo.dev/link/v1.0")
-      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as: "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
-```
- 
-In the example above, we import various directives from `federation/v2.0` into our namespace. We also rename one of them, bringing in federation's `@tag` as `@mytag` to distinguish it from a different `@tag` directive already in the schema.
