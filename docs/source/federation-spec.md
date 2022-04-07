@@ -349,4 +349,4 @@ By default, `@link`ed definitions will be namespaced, i.e. `@federation__require
       @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
 ```
  
-When present, the `import` argument will assign non-prefixed (local) names to elements from a foreign schema. In the example above, `@tag` is renamed to `@mytag` while the other directive names will be assigned as they are specified in the federation schema. The ability to rename directives may be necessary if there is a naming collision in two different foreign schemas.
+In the example above, we import various directives from `federation/v2.0` into our namespace. We also rename one of them, bringing in federation's `@tag` as `@mytag` to distinguish it from a different `@tag` directive already in the schema.
