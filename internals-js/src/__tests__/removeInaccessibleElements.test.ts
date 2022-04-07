@@ -2302,4 +2302,89 @@ describe("removeInaccessibleElements", () => {
       ]
     `);
   });
+
+  it(`handles complex default values`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField(arg1: [[RootInputObject!]]! = [
+          {
+            foo: {
+              # 2 references (with nesting)
+              privateField: [PRIVATE_VALUE]
+            }
+            bar: SOME_VALUE
+            # 0 references since scalar
+            baz: { privateField: PRIVATE_VALUE }
+          },
+          [{
+            foo: [{
+              someField: "foo"
+            }]
+            # 1 reference
+            bar: PRIVATE_VALUE
+          }]
+        ]): String
+      }
+
+      input RootInputObject {
+        foo: [NestedInputObject]
+        bar: Enum!
+        baz: Scalar! = { default: 4 }
+      }
+
+      input NestedInputObject {
+        someField: String
+        privateField: [Enum!] @inaccessible
+      }
+
+      enum Enum {
+        SOME_VALUE
+        PRIVATE_VALUE @inaccessible
+      }
+
+      scalar Scalar
+    `);
+
+    const errorMessages = expectErrors(3, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"Query.someField(arg1:)\\", which is in the API schema.",
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"Query.someField(arg1:)\\", which is in the API schema.",
+        "Input field \\"NestedInputObject.privateField\\" is @inaccessible but is used in the default value of \\"Query.someField(arg1:)\\", which is in the API schema.",
+      ]
+    `);
+  });
+
+  // It's not GraphQL-spec-compliant to allow a string for an enum value, but
+  // since we're allowing it, we need to make sure this logic keeps working
+  // until we're allowed to make breaking changes and remove it.
+  it(`handles string enum value in default value`, () => {
+    const schema = buildSchema(`
+      ${INACCESSIBLE_V02_HEADER}
+
+      type Query {
+        someField(arg1: Enum! = "PRIVATE_VALUE"): String
+      }
+
+      enum Enum {
+        SOME_VALUE
+        PRIVATE_VALUE @inaccessible
+      }
+    `);
+
+    const errorMessages = expectErrors(1, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Enum value \\"Enum.PRIVATE_VALUE\\" is @inaccessible but is used in the default value of \\"Query.someField(arg1:)\\", which is in the API schema.",
+      ]
+    `);
+  });
 });
