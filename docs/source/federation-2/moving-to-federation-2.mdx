@@ -2,9 +2,7 @@
 title: Moving to Apollo Federation 2
 ---
 
-> ⚠️ **Until Federation 2 is generally available, do not move business-critical graphs to Federation 2.** [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
-
-This article describes how to move an existing federated graph to Apollo Federation 2. If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
+This article describes how to move an existing Federation 1 graph to Apollo Federation 2. If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
 There are two high-level phases for moving to Federation 2:
 
@@ -146,7 +144,7 @@ This adds built-in support for new federation directives, such as `@shareable`.
 
 ### Add schema definitions to non-Apollo subgraphs
 
-During this preview, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
+At this time, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
 
 <ExpansionPanel title="Click to expand">
 
