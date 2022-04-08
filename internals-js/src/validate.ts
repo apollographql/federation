@@ -254,6 +254,12 @@ class Validator {
           sourceASTs(field.appliedDirectivesOf('deprecated')[0], field)
         ));
       }
+      if (field.defaultValue !== undefined && !isValidValue(field.defaultValue, field, new VariableDefinitions())) {
+        this.errors.push(new GraphQLError(
+          `Invalid default value (got: ${valueToString(field.defaultValue)}) provided for input field ${field.coordinate} of type ${field.type}.`,
+          sourceASTs(field)
+        ));
+      }
     }
   }
 

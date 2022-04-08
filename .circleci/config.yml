@@ -94,6 +94,18 @@ jobs:
       - run:
           command: npm run error-code-doc:check
 
+  Hints code Doc:
+    description: "Ensure the hints code documentation is up to date"
+    docker:
+      - image: cimg/node:14.18.1
+    steps:
+      - oss/install_specific_npm_version:
+          version: '7'
+      - checkout
+      - oss/npm_clean_install_with_caching
+      - run:
+          command: npm run hints-doc:check
+
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
 #     to do this!
@@ -134,6 +146,9 @@ workflows:
           <<: *common_non_publish_filters
       - Error code Doc:
           name: "Error code Doc (up to date)"
+          <<: *common_non_publish_filters
+      - Hints code Doc:
+          name: "Hint code Doc (up to date)"
           <<: *common_non_publish_filters
       - oss/lerna_tarballs:
           name: "JS: Package tarballs"

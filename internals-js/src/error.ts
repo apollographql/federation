@@ -346,7 +346,37 @@ const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
 
 const REFERENCED_INACCESSIBLE = makeCodeDefinition(
   'REFERENCED_INACCESSIBLE',
-  'An element is marked as @inaccessible but is referenced by a non-inaccessible element.'
+  'An element is marked as @inaccessible but is referenced by an element visible in the API schema.'
+);
+
+const DEFAULT_VALUE_USES_INACCESSIBLE = makeCodeDefinition(
+  'DEFAULT_VALUE_USES_INACCESSIBLE',
+  'An element is marked as @inaccessible but is used in the default value of an element visible in the API schema.'
+);
+
+const QUERY_ROOT_TYPE_INACCESSIBLE = makeCodeDefinition(
+  'QUERY_ROOT_TYPE_INACCESSIBLE',
+  'An element is marked as @inaccessible but is the query root type, which must be visible in the API schema.'
+);
+
+const REQUIRED_INACCESSIBLE = makeCodeDefinition(
+  'REQUIRED_INACCESSIBLE',
+  'An element is marked as @inaccessible but is required by an element visible in the API schema.'
+);
+
+const IMPLEMENTED_BY_INACCESSIBLE = makeCodeDefinition(
+  'IMPLEMENTED_BY_INACCESSIBLE',
+  'An element is marked as @inaccessible but implements an element visible in the API schema.'
+);
+
+const DISALLOWED_INACCESSIBLE = makeCodeDefinition(
+  'DISALLOWED_INACCESSIBLE',
+  'An element is marked as @inaccessible that is not allowed to be @inaccessible.'
+);
+
+const ONLY_INACCESSIBLE_CHILDREN = makeCodeDefinition(
+  'ONLY_INACCESSIBLE_CHILDREN',
+  'A type visible in the API schema has only @inaccessible children.'
 );
 
 const REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
@@ -364,8 +394,8 @@ const EMPTY_MERGED_INPUT_TYPE = makeCodeDefinition(
   'An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type.'
 );
 
-const INCONSISTENT_ENUM_VALUE = makeCodeDefinition(
-  'INCONSISTENT_ENUM_VALUE',
+const ENUM_VALUE_MISMATCH = makeCodeDefinition(
+  'ENUM_VALUE_MISMATCH',
   'An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.'
 );
 
@@ -451,10 +481,16 @@ export const ERRORS = {
   INVALID_LINK_DIRECTIVE_USAGE,
   LINK_IMPORT_NAME_MISMATCH,
   REFERENCED_INACCESSIBLE,
+  DEFAULT_VALUE_USES_INACCESSIBLE,
+  QUERY_ROOT_TYPE_INACCESSIBLE,
+  REQUIRED_INACCESSIBLE,
+  DISALLOWED_INACCESSIBLE,
+  IMPLEMENTED_BY_INACCESSIBLE,
+  ONLY_INACCESSIBLE_CHILDREN,
   REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
   REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH,
   EMPTY_MERGED_INPUT_TYPE,
-  INCONSISTENT_ENUM_VALUE,
+  ENUM_VALUE_MISMATCH,
   EMPTY_MERGED_ENUM_TYPE,
   SATISFIABILITY_ERROR,
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,

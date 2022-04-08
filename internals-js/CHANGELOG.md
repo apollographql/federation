@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## v2.0.0-preview.10
+
+- Released in sync with other federation packages but no changes to this package.
+
 ## v2.0.0-preview.9
 
 - Adds Support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).

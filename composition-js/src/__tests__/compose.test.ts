@@ -407,7 +407,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"']
+          ['FIELD_TYPE_MISMATCH', 'Type of field "T.f" is incompatible across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"']
         ]);
       });
 
@@ -439,7 +439,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
+          ['EXTERNAL_TYPE_MISMATCH', 'Type of field "T.f" is incompatible across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
         ]);
       });
 
@@ -471,7 +471,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
+          ['FIELD_TYPE_MISMATCH', 'Type of field "T.f" is incompatible across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
         ]);
       });
 
@@ -960,7 +960,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'],
+          ['FIELD_TYPE_MISMATCH', 'Type of field "T.f" is incompatible across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'],
         ]);
       });
 
@@ -1024,7 +1024,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"']
+          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Type of argument "T.f(x:)" is incompatible across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"']
         ]);
       });
 
@@ -1092,7 +1092,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
+          ['EXTERNAL_ARGUMENT_TYPE_MISMATCH', 'Type of argument "T.f(x:)" is incompatible across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
         ]);
       });
 
@@ -1192,7 +1192,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
-          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
+          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Type of argument "T.f(x:)" is incompatible across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
         ]);
       });
 
@@ -2621,7 +2621,7 @@ describe('composition', () => {
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['REFERENCED_INACCESSIBLE', 'Field "Query.q2" returns @inaccessible type "A" without being marked @inaccessible itself.']
+        ['REFERENCED_INACCESSIBLE', 'Type "A" is @inaccessible but is referenced by "Query.q2", which is in the API schema.']
       ]);
 
       // Because @inaccessible are thrown by the toAPISchema code and not the merge code directly, let's make sure the include
@@ -2630,13 +2630,13 @@ describe('composition', () => {
       // guarantees us that we do get subgraph nodes and not supergraph nodes because supergraph nodes would have @join__*
       // directives and would _not_ have the `@shareable`/`@inacessible` directives.
       const nodes = result.errors![0].nodes!;
-      expect(print(nodes[0])).toMatchString('q2: A');
-      expect(print(nodes[1])).toMatchString(`
+      expect(print(nodes[0])).toMatchString(`
         type A @shareable @inaccessible {
           x: Int
           y: Int
         }`
       );
+      expect(print(nodes[1])).toMatchString('q2: A');
     })
   });
 
@@ -2768,11 +2768,11 @@ describe('composition', () => {
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
         [
-          'INCONSISTENT_ENUM_VALUE',
+          'ENUM_VALUE_MISMATCH',
           'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V1" is not defined in all the subgraphs defining "E": "V1" is defined in subgraph "subgraphA" but not in subgraph "subgraphB"'
         ],
         [
-          'INCONSISTENT_ENUM_VALUE',
+          'ENUM_VALUE_MISMATCH',
           'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V2" is not defined in all the subgraphs defining "E": "V2" is defined in subgraph "subgraphB" but not in subgraph "subgraphA"'
         ],
       ]);

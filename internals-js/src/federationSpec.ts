@@ -14,7 +14,7 @@ import { assert } from "./utils";
 import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
-import { inaccessibleDirectiveSpec } from "./inaccessibleSpec";
+import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -91,7 +91,7 @@ function fieldSetType(schema: Schema): InputType {
 
 export const FEDERATION2_ONLY_SPEC_DIRECTIVES = [
   shareableDirectiveSpec,
-  inaccessibleDirectiveSpec,
+  INACCESSIBLE_VERSIONS.latest().inaccessibleDirectiveSpec,
   overrideDirectiveSpec,
 ];
 

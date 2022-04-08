@@ -18,9 +18,12 @@ The following errors may be raised by composition:
 
 | Code | Description | Since | Comment |
 |---|---|---|---|
+| `DEFAULT_VALUE_USES_INACCESSIBLE` | An element is marked as @inaccessible but is used in the default value of an element visible in the API schema. | 2.0.0 |  |
 | `DIRECTIVE_DEFINITION_INVALID` | A built-in or federation directive has an invalid definition in the schema. | 2.0.0 | Replaces: `TAG_DEFINITION_INVALID` |
+| `DISALLOWED_INACCESSIBLE` | An element is marked as @inaccessible that is not allowed to be @inaccessible. | 2.0.0 |  |
 | `EMPTY_MERGED_ENUM_TYPE` | An enum type has no value common to all the subgraphs that define the type. Merging that type would result in an invalid empty enum type. | 2.0.0 |  |
 | `EMPTY_MERGED_INPUT_TYPE` | An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type. | 2.0.0 |  |
+| `ENUM_VALUE_MISMATCH` | An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type. | 2.0.0 |  |
 | `EXTENSION_WITH_NO_BASE` | A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph. | 0.x |  |
 | `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH` | An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs. | 2.0.0 |  |
 | `EXTERNAL_ARGUMENT_MISSING` | An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
@@ -32,7 +35,7 @@ The following errors may be raised by composition:
 | `FIELD_ARGUMENT_DEFAULT_MISMATCH` | An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 |  |
 | `FIELD_ARGUMENT_TYPE_MISMATCH` | An argument (of a field/directive) has a type that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_INPUT_VALUE_MISMATCH` |
 | `FIELD_TYPE_MISMATCH` | A field has a type that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_FIELD_TYPE_MISMATCH` |
-| `INCONSISTENT_ENUM_VALUE` | An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type. | 2.0.0 |  |
+| `IMPLEMENTED_BY_INACCESSIBLE` | An element is marked as @inaccessible but implements an element visible in the API schema. | 2.0.0 |  |
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
 | `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257) | 2.0.0 |  |
 | `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implemenation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
@@ -49,6 +52,7 @@ The following errors may be raised by composition:
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
 | `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | 2.0.0 |  |
+| `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
 | `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
 | `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
 | `OVERRIDE_SOURCE_HAS_OVERRIDE` | Field which is overridden to another subgraph is also marked @override. | 2.0.0 |  |
@@ -58,8 +62,10 @@ The following errors may be raised by composition:
 | `PROVIDES_INVALID_FIELDS` | The `fields` argument of a `@provides` directive is invalid (it has invalid syntax, includes unknown fields, ...). | 2.0.0 |  |
 | `PROVIDES_ON_NON_OBJECT_FIELD` | A `@provides` directive is used to mark a field whose base type is not an object type. | 2.0.0 |  |
 | `PROVIDES_UNSUPPORTED_ON_INTERFACE` | A `@provides` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
-| `REFERENCED_INACCESSIBLE` | An element is marked as @inaccessible but is referenced by a non-inaccessible element. | 2.0.0 |  |
+| `QUERY_ROOT_TYPE_INACCESSIBLE` | An element is marked as @inaccessible but is the query root type, which must be visible in the API schema. | 2.0.0 |  |
+| `REFERENCED_INACCESSIBLE` | An element is marked as @inaccessible but is referenced by an element visible in the API schema. | 2.0.0 |  |
 | `REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH` | An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all the subgraphs that define the field or directive definition. | 2.0.0 |  |
+| `REQUIRED_INACCESSIBLE` | An element is marked as @inaccessible but is required by an element visible in the API schema. | 2.0.0 |  |
 | `REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH` | A field of an input object type is mandatory in some subgraphs, but the field is not defined in all the subgraphs that define the input object type. | 2.0.0 |  |
 | `REQUIRES_FIELDS_HAS_ARGS` | The `fields` argument of a `@requires` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
 | `REQUIRES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@requires` directive includes a field that is not marked as `@external`. | 0.x |  |
