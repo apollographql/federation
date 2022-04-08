@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { Kind, graphql, DocumentNode, execute, type DefinitionNode } from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
+import { errorCauses } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(typeSerializer);
 
@@ -864,6 +865,29 @@ type Query {
       await validateTag(header, additionalHeader, directiveDefinitions, typesDefinitions);
     });
   });
+
+  it(`fails on bad linking`, () => {
+    try {
+      buildSubgraphSchema(gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0",
+            import: [ { name: "@key", as: "@primaryKey" } ])
+
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+        `);
+    } catch (e) {
+      expect(errorCauses(e)?.map((e) => e.message)).toStrictEqual([
+        'Unknown directive "@key". If you meant the "@key" federation directive, you should use "@primaryKey" as it is imported under that name in the @link to the federation specification of this schema.'
+      ]);
+    }
+  })
 });
 
 describe('legacy interface', () => {
