@@ -33,9 +33,7 @@ Federation 2 uses [more flexible rules](./new-in-federation-2/#more-flexible-com
 
 If you perform composition with the Rover CLI, do the following:
 
-1. Install the latest version of Rover (must be `0.4.8` or later) using the appropriate command for your system:
-
-    > ⚠️ If you already have Rover globally installed and you installed it with `npm`, first _uninstall_ that version with `npm uninstall`.
+1. Install the latest version of Rover (must be `0.5.0` or later) using the appropriate command for your system:
 
     ```bash title="MacOS / Unix-like"
     curl -sSL https://rover.apollo.dev/nix/latest | sh
@@ -45,25 +43,17 @@ If you perform composition with the Rover CLI, do the following:
     iwr 'https://rover.apollo.dev/win/latest' | iex
     ```
 
-2. Install the Federation 2 plugin for Rover using the appropriate command for your system:
+2. Open the YAML `--config` file you provide to `rover supergraph compose` and add the following line to the top:
 
-    ```bash title="MacOS / Unix-like"
-    curl -sSL https://rover.apollo.dev/plugins/rover-fed2/nix/latest | sh
+    ```yaml title="supergraph-config.yaml"
+    federation_version: 2
     ```
 
-    ```bash title="Windows"
-    iwr https://rover.apollo.dev/plugins/rover-fed2/win/latest | iex
-    ```
-
-> ⚠️ Currently, your installed versions of Rover and its Federation 2 plugin must be _identical_. If you encounter an error when using the plugin, try updating _both_ binaries to their latest version.
-
-That's it! You can now use the Federation 2 version of Rover's `supergraph compose` command anywhere you currently perform composition:
+That's it! You can now perform Federation 2 composition with the same command you've used for Federation 1:
 
 ```bash
-rover fed2 supergraph compose --config ./supergraph.yaml
+rover supergraph compose --config ./supergraph.yaml
 ```
-
-This command's requirements, options, and output format are all identical to those of [`supergraph compose`](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema). It just uses Federation 2 composition logic instead of Federation 1.
 
 </ExpansionPanel>
 

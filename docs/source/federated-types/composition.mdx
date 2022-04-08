@@ -24,11 +24,19 @@ You can perform schema composition with any of the following methods:
 
 ### Manually with the Rover CLI
 
-The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `fed2 supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
+The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
 
 ```bash
-rover fed2 supergraph compose --config ./supergraph.yaml
+rover supergraph compose --config ./supergraph-config.yaml
 ```
+
+> ⚠️ **Important:** To perform Federation 2 composition with Rover, the YAML `--config` file you provide must include the following line:
+>
+> ```yaml title="supergraph-config.yaml"
+> federation_version: 2
+> ```
+>
+> Otherwise, Rover uses Federation 1 composition.
 
 To learn how to install Rover and use this command, see the [Quickstart](../quickstart/setup/#1-install-the-rover-cli).
 
