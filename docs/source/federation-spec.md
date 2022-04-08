@@ -324,7 +324,7 @@ Any field specified by a @key is automatically shareable. Adding the `@shareable
 type Product @key(fields: "upc") {
   upc: UPC!                         # shareable because upc is a key field
   name: String                      # non-shareable
-  description: String @shareable    # sharable
+  description: String @shareable    # shareable
 }
 
 type User @key(fields: "email") @shareable {
