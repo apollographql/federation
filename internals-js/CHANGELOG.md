@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## v2.0.0-preview.12
+
+- Released in sync with other federation packages but no changes to this package.
+
 ## v2.0.0-preview.11
 
 - Add support for `@inaccessible` v0.2 [PR #1678](https://github.com/apollographql/federation/pull/1678)
