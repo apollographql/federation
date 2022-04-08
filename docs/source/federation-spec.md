@@ -322,7 +322,7 @@ Any field specified by a @key is automatically shareable. Adding the `@shareable
 
 ```graphql
 type Product @key(fields: "upc") {
-  upc: UPC!                         # sharable because upc is a key field
+  upc: UPC!                         # shareable because upc is a key field
   name: String                      # non-shareable
   description: String @shareable    # sharable
 }
