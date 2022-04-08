@@ -222,7 +222,7 @@ function validateInaccessibleElements(
     assert(false, "Unreachable code, element is of unknown type.");
   }
 
-  function fetchInaccessibleElementsInDescendants(
+  function fetchInaccessibleElementsDeep(
     element: HideableElement
   ): HideableElement[] {
     const inaccessibleElements: HideableElement[] = [];
@@ -237,14 +237,14 @@ function validateInaccessibleElements(
     ) {
       for (const field of element.fields()) {
         inaccessibleElements.push(
-          ...fetchInaccessibleElementsInDescendants(field),
+          ...fetchInaccessibleElementsDeep(field),
         );
       }
       return inaccessibleElements;
     } else if (element instanceof EnumType) {
       for (const enumValue of element.values) {
         inaccessibleElements.push(
-          ...fetchInaccessibleElementsInDescendants(enumValue),
+          ...fetchInaccessibleElementsDeep(enumValue),
         )
       }
       return inaccessibleElements;
@@ -254,7 +254,7 @@ function validateInaccessibleElements(
     ) {
       for (const argument of element.arguments()) {
         inaccessibleElements.push(
-          ...fetchInaccessibleElementsInDescendants(argument),
+          ...fetchInaccessibleElementsDeep(argument),
         )
       }
       return inaccessibleElements;
@@ -287,7 +287,7 @@ function validateInaccessibleElements(
     if (hasBuiltInName(type)) {
       // Built-in types (and their descendants) aren't allowed to be
       // @inaccessible, regardless of shadowing.
-      const inaccessibleElements = fetchInaccessibleElementsInDescendants(type);
+      const inaccessibleElements = fetchInaccessibleElementsDeep(type);
       if (inaccessibleElements.length > 0) {
         errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
           message:
@@ -303,7 +303,7 @@ function validateInaccessibleElements(
     } else if (isFeatureDefinition(type)) {
       // Core feature types (and their descendants) aren't allowed to be
       // @inaccessible.
-      const inaccessibleElements = fetchInaccessibleElementsInDescendants(type);
+      const inaccessibleElements = fetchInaccessibleElementsDeep(type);
       if (inaccessibleElements.length > 0) {
         errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
           message:
@@ -663,7 +663,7 @@ function validateInaccessibleElements(
       // Built-in directives (and their descendants) aren't allowed to be
       // @inaccessible, regardless of shadowing.
       const inaccessibleElements =
-        fetchInaccessibleElementsInDescendants(directive);
+        fetchInaccessibleElementsDeep(directive);
       if (inaccessibleElements.length > 0) {
         errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
           message:
@@ -681,7 +681,7 @@ function validateInaccessibleElements(
       // Core feature directives (and their descendants) aren't allowed to be
       // @inaccessible.
       const inaccessibleElements =
-        fetchInaccessibleElementsInDescendants(directive);
+        fetchInaccessibleElementsDeep(directive);
       if (inaccessibleElements.length > 0) {
         errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
           message:
@@ -699,7 +699,7 @@ function validateInaccessibleElements(
       // Directives that can appear on type-system locations (and their
       // descendants) aren't allowed to be @inaccessible.
       const inaccessibleElements =
-        fetchInaccessibleElementsInDescendants(directive);
+        fetchInaccessibleElementsDeep(directive);
       if (inaccessibleElements.length > 0) {
         errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
           message:
