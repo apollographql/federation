@@ -87,6 +87,9 @@ describe('buildSubgraphSchema', () => {
       }
     }`;
     const schema = buildSubgraphSchema(gql`
+      """
+      Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
+      """
       schema {
         query: Query
       }
@@ -118,6 +121,9 @@ describe('buildSubgraphSchema', () => {
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
     expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+      """
+      Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
+      """
       schema {
         query: Query
       }
