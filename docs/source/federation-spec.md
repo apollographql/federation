@@ -269,7 +269,16 @@ The presence of a `@link` directive makes a document a [core schema](https://spe
 
 The `for` argument describes the purpose of a `@link`. Currently accepted values are `SECURITY` or `EXECUTION`. Core schema-aware servers such as Apollo Router and Gateway will refuse to operate on schemas which contain `@link`s to unsupported specs which are `for: SECURITY` or `for: EXECUTION`.
 
-By default, `@link`ed definitions will be namespaced, i.e. `@federation__requires`. The `import` argument lets you import external definitions into your namespace, so they are not prefixed.
+By default, `@link`ed definitions will be namespaced, i.e. `@federation__requires`. The `as` argument lets you pick the name for this namespace:
+```graphql
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.0". as: "fed2")
+type User {
+  metrics: Metrics @external
+  favorites: UserFavorites @fed2__requires(fields: "metrics")
+}
+```
+
+The `import` argument lets you import external definitions into your namespace, so they are not prefixed.
 
 ```graphql
     schema
