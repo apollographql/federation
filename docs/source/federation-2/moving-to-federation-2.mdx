@@ -15,12 +15,12 @@ Phase 1 requires very few changes, and it's straightforward to move _back_ to Fe
 
 ### Update `@apollo/gateway`
 
-Update your gateway's `@apollo/gateway` library to version `2.0.0-preview.7` or later. This enables your gateway to interact with supergraph schemas composed with Federation 2 logic.
+Update your gateway's `@apollo/gateway` library to version `2.0.0` or later. This enables your gateway to interact with supergraph schemas composed with Federation 2 logic.
 
-You can install the _latest_ Federation 2 gateway with the following command:
+You can install the latest gateway with the following command:
 
 ```bash
-npm install @apollo/gateway@latest-2
+npm install @apollo/gateway
 ```
 
 These updated versions of `@apollo/gateway` continue to support Federation 1, so you can deploy this update without breaking your existing graph.
@@ -55,7 +55,7 @@ If you perform composition with the Rover CLI, do the following:
     iwr https://rover.apollo.dev/plugins/rover-fed2/win/latest | iex
     ```
 
-> ⚠️ During the Federation 2 preview, your installed versions of Rover and its Federation 2 plugin must be _identical_. If you encounter an error when using the plugin, try updating _both_ binaries to their latest version.
+> ⚠️ Currently, your installed versions of Rover and its Federation 2 plugin must be _identical_. If you encounter an error when using the plugin, try updating _both_ binaries to their latest version.
 
 That's it! You can now use the Federation 2 version of Rover's `supergraph compose` command anywhere you currently perform composition:
 
@@ -134,17 +134,17 @@ _Without_ the above definition, the composition process assumes a subgraph schem
 
 #### Update `@apollo/subgraph`
 
-If your subgraphs use Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` like so:
+If your subgraphs use Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` to version `2.0.0` or later:
 
 ```bash
-npm install @apollo/subgraph@latest-2
+npm install @apollo/subgraph
 ```
 
 This adds built-in support for new federation directives, such as `@shareable`.
 
 ### Add schema definitions to non-Apollo subgraphs
 
-At this time, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
+Currently, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
 
 <ExpansionPanel title="Click to expand">
 
@@ -365,4 +365,4 @@ type Review {
 
 </CodeColumns>
 
-Setting `resolvable: false` is a helpful hint to the gateway to indicate that a subgraph [references an entity without contributing fields to it](../entities/#referencing-an-entity-without-contributing-fields).
+Setting `resolvable: false` tells the gateway that a subgraph doesn't define a reference resolver for a particular entity. This is most common when [referencing an entity without contributing fields to it](../entities/#referencing-an-entity-without-contributing-fields).

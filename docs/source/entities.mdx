@@ -93,7 +93,7 @@ Let's break this example down:
 * A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
     * In this example, the hypothetical `fetchProductByID` field fetches a particular `Product`'s field data based on its `id`.
 
-_Every_ subgraph that contributes at least one field to an entity must define a reference resolver for that entity.
+_Every_ subgraph that contributes at least one unique field to an entity must define a reference resolver for that entity.
 
 > To learn more about `__resolveReference` in Apollo Server, see the [API docs](./api/apollo-subgraph/#__resolvereference).
 
@@ -294,6 +294,8 @@ These representations are passed individually to the `Product` [reference resolv
 ```
 
 Nice! The gateway can merge this `price` data with the `Product` objects returned by its first query. After doing so, the gateway returns a single, combined result to the client.
+
+> [Learn more about query plans.](./query-plans/)
 
 ## Advanced topics
 

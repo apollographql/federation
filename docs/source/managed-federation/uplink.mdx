@@ -48,7 +48,7 @@ You can configure the following aspects of your gateway's polling behavior:
 
 You can configure how many times your gateway retries a single failed poll request like so:
 
-```js
+```js {6}
 const { ApolloGateway } = require('@apollo/gateway');
 
 // ...
@@ -66,7 +66,7 @@ By default, the gateway retries a single poll request a number of times equal to
 
 You can configure the interval at which your gateway polls Apollo Uplink like so:
 
-```js
+```js {6}
 const { ApolloGateway } = require('@apollo/gateway');
 
 // ...
@@ -88,7 +88,7 @@ You can provide a custom list of URLs for the gateway to use when polling Uplink
 
 Provide a custom list of Uplink URLs to the `ApolloGateway` constructor like so:
 
-```js
+```js {6-9}
 const { ApolloGateway } = require('@apollo/gateway');
 
 // ...
@@ -118,9 +118,3 @@ APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/
 Supergraph schemas provided by Uplink cannot exceed 6MB in size. The _vast_ majority of supergraph schemas are well below this limit.
 
 If your supergraph schema _does_ exceed 6MB, you can set up a [build status webhook](/studio/build-status-notification/) for your graph. Whenever you're notified of a successful supergraph schema composition, your webhook can fetch the latest supergraph schema via the Rover CLI.
-
-## Legacy endpoint (deprecated)
-
-Instead of using Uplink, `@apollo/gateway` versions 0.33 and earlier poll a Google Cloud Storage URL to obtain their subgraph schemas and then run composition locally. **This polling method is deprecated and might be removed in the future.**
-
-If you're using an earlier version of `@apollo/gateway`, we strongly recommend updating to the latest version to poll Uplink instead.

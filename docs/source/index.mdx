@@ -73,16 +73,14 @@ Like any other GraphQL API, each subgraph has its own schema:
 
 <CodeColumns>
 
-```graphql
-# Users subgraph
+```graphql title="Users subgraph"
 type User {
   id: ID!
   name: String!
 }
 ```
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product {
   upc: String!
   inStock: Boolean!
@@ -95,8 +93,7 @@ To communicate with all of your subgraphs, the gateway uses a special **supergra
 
 To create a supergraph schema, you use a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
 
-```graphql
-# Supergraph schema (simplified)
+```graphql title="Supergraph schema (simplified)"
 type User {
   id: ID!
   name: String!
@@ -112,7 +109,7 @@ type Product {
 
 ### Server instances
 
-In a federated architecture, each subgraph instance has its own GraphQL server, and _so does the gateway_. External clients query the gateway, and the gateway then queries individual subgraphs to obtain and return results:
+In a federated architecture, each subgraph instance has its own GraphQL server, and _so does the gateway_. External clients query the gateway, and the gateway then queries individual subgraphs to obtain, combine, and return results:
 
 ```mermaid
 graph BT;
@@ -128,8 +125,9 @@ graph BT;
   class clients secondary;
 ```
 
-* The gateway runs Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library.
-    * Alternatively, the gateway can be an instance of [the Apollo Router](https://www.apollographql.com/docs/router/), a highly performant Rust-based graph router that is currently in public pre-alpha.
+* The gateway is one of the following:
+    * An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
+    * An instance of [the Apollo Router](https://www.apollographql.com/docs/router/), a highly performant Rust-based graph router that is currently in public preview
 * Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs in the same supergraph can even use different server libraries.
 
 
@@ -162,7 +160,7 @@ graph TB;
 
 But with an architecture like this, a client might need to communicate with _multiple_ APIs to fetch all of the data it needs. This diminishes a powerful advantage of GraphQL over REST.
 
-Instead, your organization should expose a [unified graph](https://principledgraphql.com/integrity#1-one-graph) that lets clients fetch _all_ of the data that they need from a single endpoint:
+Instead, your organization should expose a [unified graph](https://principledgraphql.com/integrity) that lets clients fetch _all_ of the data that they need from a single endpoint:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -244,14 +242,13 @@ Apollo Federation encourages a design principle called [separation of concerns](
 
 #### Limitations of type-based separation
 
-When thinking about how to divide your graph's functionality across subgraphs, it might seem straightforward that each subgraph would own a completely distinct set of types. For example, a Users subgraph would define the entirety of a `User` type, the Products subgraph would define a `Product` type, and so on:
+When thinking about how to divide your graph's functionality across subgraphs, it might initially seem logical for each subgraph to own a completely distinct set of types. For example, a Users subgraph would define the entirety of a `User` type, the Products subgraph would define a `Product` type, and so on:
 
 <p style="margin-bottom: 0">❌</p>
 
 <CodeColumns cols="3">
 
-```graphql
-# Users subgraph
+```graphql title="Users subgraph"
 type User {
   id: ID!
   name: String
@@ -260,8 +257,7 @@ type User {
 }
 ```
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product {
   id: ID!
   name: String
@@ -270,8 +266,7 @@ type Product {
 }
 ```
 
-```graphql
-# Reviews subgraph
+```graphql title="Reviews subgraph"
 type Review {
   id: ID!
   body: String
@@ -284,7 +279,7 @@ type Review {
 
 Although this separation looks clean, it quickly causes issues. Most commonly, a particular feature (or _concern_) usually spans _multiple_ types, which might belong to different subgraphs.
 
-Consider the `purchases` field of the `User` type above. Even though this field is a member of the `User` type, a list of `Product`s should probably be populated by the Products subgraph, _not_ the Users subgraph.
+Consider the `User.purchases` field above. Even though this field belongs to the `User` type, a list of `Product`s should probably be populated by the Products subgraph, _not_ the Users subgraph.
 
 By defining the `User.purchases` field in the Products subgraph instead:
 
@@ -301,15 +296,14 @@ The following schema uses Apollo Federation to divide the same set of types and 
 
 <CodeColumns cols="3">
 
-```graphql
-# Users subgraph
+```graphql title="Users subgraph"
 type User {
   id: ID!
   name: String
 }
 ```
 
-```graphql
+```graphql title="Products subgraph"
 # Products subgraph
 type Product {
   id: ID!
@@ -323,7 +317,7 @@ type User {
 }
 ```
 
-```graphql
+```graphql title="Reviews subgraph"
 # Reviews subgraph
 type Review {
   id: ID!

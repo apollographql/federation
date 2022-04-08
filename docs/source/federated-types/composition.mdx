@@ -62,17 +62,16 @@ Sometimes, your subgraph schemas might _conflict_ in a way that causes compositi
 
 For example, take a look at these two subgraph schemas:
 
+<p style="margin-bottom: 0">❌</p>
 <CodeColumns>
 
-```graphql {3}
-# Subgraph A
+```graphql {2} title="Subgraph A"
 type Event {
   timestamp: String!
 }
 ```
 
-```graphql {3}
-# Subgraph B
+```graphql {2} title="Subgraph B"
 type Event {
   timestamp: Int!
 }

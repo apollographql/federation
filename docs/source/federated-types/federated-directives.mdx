@@ -146,7 +146,7 @@ An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, 
 
 **If a type is marked `@inaccessible`, all fields that return that type must also be marked `@inaccessible`.** Otherwise, a composition error occurs.
 
-The `@inaccessible` directive is helpful for [adding a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field is not resolvable in _other_ subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
+The `@inaccessible` directive is helpful for [adding a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field isn't resolvable in _other_ subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
 
 ### `@override`
 
