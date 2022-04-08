@@ -1,7 +1,14 @@
 import gql from 'graphql-tag';
-import { Kind, graphql, DocumentNode, execute, type DefinitionNode } from 'graphql';
+import {
+  Kind,
+  graphql,
+  DocumentNode,
+  execute,
+  type DefinitionNode,
+} from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
+import raw from '@apollo/core-schema/dist/snapshot-serializers/raw';
 
 expect.addSnapshotSerializer(typeSerializer);
 
@@ -21,12 +28,12 @@ describe('buildSubgraphSchema', () => {
     `);
 
     expect(schema.getType('Product')).toMatchInlineSnapshot(`
-type Product {
-  upc: String!
-  name: String
-  price: Int
-}
-`);
+      type Product {
+        upc: String!
+        name: String
+        price: Int
+      }
+    `);
 
     expect(schema.getType('_Entity')).toMatchInlineSnapshot(
       `union _Entity = Product`,
@@ -44,13 +51,13 @@ type Product {
     `);
 
     expect(schema.getType('Product')).toMatchInlineSnapshot(`
-type Product {
-  upc: String!
-  sku: String!
-  name: String
-  price: Int
-}
-`);
+      type Product {
+        upc: String!
+        sku: String!
+        name: String
+        price: Int
+      }
+    `);
 
     expect(schema.getType('_Entity')).toMatchInlineSnapshot(
       `union _Entity = Product`,
@@ -66,11 +73,11 @@ type Product {
     `);
 
     expect(schema.getType('Money')).toMatchInlineSnapshot(`
-type Money {
-  amount: Int!
-  currencyCode: String!
-}
-`);
+      type Money {
+        amount: Int!
+        currencyCode: String!
+      }
+    `);
   });
 
   it('should preserve description text in generated SDL', async () => {
@@ -80,7 +87,9 @@ type Money {
       }
     }`;
     const schema = buildSubgraphSchema(gql`
-      "Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec."
+      """
+      Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
+      """
       schema {
         query: Query
       }
@@ -111,41 +120,46 @@ type Money {
 
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
-    expect((data?._service as any).sdl).toEqual(`"""
-Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
-"""
-schema {
-  query: Query
-}
+    expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+      """
+      Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
+      """
+      schema {
+        query: Query
+      }
 
-"""
-A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
-"""
-type User @key(fields: "id") {
-  """The unique ID of the user."""
-  id: ID!
+      "A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text"
+      type User @key(fields: "id") {
+        """The unique ID of the user."""
+        id: ID!
+        "The user's name."
+        name: String
+        username: String
+        foo(
+          "Description 1"
+          arg1: String
+          "Description 2"
+          arg2: String
+          "Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3"
+          arg3: String
+        ): String
+      }
 
-  """The user's name."""
-  name: String
-  username: String
-  foo(
-    """Description 1"""
-    arg1: String
+      extend type Query {
+        _dummyField: Boolean
+      }
 
-    """Description 2"""
-    arg2: String
+      directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
-    """
-    Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3 Description 3
-    """
-    arg3: String
-  ): String
-}
+      scalar link__Import
 
-extend type Query {
-  _dummyField: Boolean
-}
-`);
+      """federation 1.0 key directive"""
+      directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+      scalar federation__FieldSet
+
+      type Query
+    `);
   });
 
   describe(`should add an _entities query root field to the schema`, () => {
@@ -160,12 +174,12 @@ extend type Query {
       `);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-type Query {
-  _entities(representations: [_Any!]!): [_Entity]!
-  _service: _Service!
-  rootField: String
-}
-`);
+        type Query {
+          _entities(representations: [_Any!]!): [_Entity]!
+          _service: _Service!
+          rootField: String
+        }
+      `);
     });
 
     it(`when a query root type with a non-default name has been defined`, () => {
@@ -183,12 +197,12 @@ type Query {
       `);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-type QueryRoot {
-  _entities(representations: [_Any!]!): [_Entity]!
-  _service: _Service!
-  rootField: String
-}
-`);
+        type QueryRoot {
+          _entities(representations: [_Any!]!): [_Entity]!
+          _service: _Service!
+          rootField: String
+        }
+      `);
     });
   });
   describe(`should not add an _entities query root field to the schema`, () => {
@@ -196,10 +210,10 @@ type QueryRoot {
       const schema = buildSubgraphSchema(EMPTY_DOCUMENT);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-type Query {
-  _service: _Service!
-}
-`);
+        type Query {
+          _service: _Service!
+        }
+      `);
     });
     it(`when no types with keys are found`, () => {
       const schema = buildSubgraphSchema(gql`
@@ -209,11 +223,11 @@ type Query {
       `);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-type Query {
-  _service: _Service!
-  rootField: String
-}
-`);
+        type Query {
+          _service: _Service!
+          rootField: String
+        }
+      `);
     });
     it(`when only an interface with keys are found`, () => {
       const schema = buildSubgraphSchema(gql`
@@ -226,11 +240,11 @@ type Query {
       `);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-type Query {
-  _service: _Service!
-  rootField: String
-}
-`);
+        type Query {
+          _service: _Service!
+          rootField: String
+        }
+      `);
     });
   });
   describe('_entities root field', () => {
@@ -348,16 +362,33 @@ type Query {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`type Review {
-  id: ID
-  title: String
-}
+      expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+        type Review {
+          id: ID
+        }
 
-extend type Product @key(fields: "upc") {
-  upc: String @external
-  reviews: [Review]
-}
-`);
+        extend type Review {
+          title: String
+        }
+
+        extend type Product @key(fields: "upc") {
+          upc: String @external
+          reviews: [Review]
+        }
+
+        directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        directive @external on OBJECT | FIELD_DEFINITION
+
+        scalar federation__FieldSet
+
+        type Product
+      `);
     });
     it('keeps extension interface when owner interface is not present', async () => {
       const query = `query GetServiceDetails {
@@ -386,20 +417,37 @@ extend type Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`type Review {
-  id: ID
-  title: String
-}
+      expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+        type Review {
+          id: ID
+        }
 
-interface Node @key(fields: "id") {
-  id: ID!
-}
+        extend type Review {
+          title: String
+        }
 
-extend interface Product @key(fields: "upc") {
-  upc: String @external
-  reviews: [Review]
-}
-`);
+        interface Node @key(fields: "id") {
+          id: ID!
+        }
+
+        extend interface Product @key(fields: "upc") {
+          upc: String @external
+          reviews: [Review]
+        }
+
+        directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        directive @external on OBJECT | FIELD_DEFINITION
+
+        scalar federation__FieldSet
+
+        interface Product
+      `);
     });
     it('returns valid sdl for @key directives', async () => {
       const query = `query GetServiceDetails {
@@ -417,12 +465,22 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`type Product @key(fields: "upc") {
-  upc: String!
-  name: String
-  price: Int
-}
-`);
+      expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+        type Product @key(fields: "upc") {
+          upc: String!
+          name: String
+          price: Int
+        }
+
+        directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        scalar federation__FieldSet
+      `);
     });
     it('returns valid sdl for multiple @key directives', async () => {
       const query = `query GetServiceDetails {
@@ -440,13 +498,22 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl)
-        .toEqual(`type Product @key(fields: "upc") @key(fields: "name") {
-  upc: String!
-  name: String
-  price: Int
-}
-`);
+      expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+        type Product @key(fields: "upc") @key(fields: "name") {
+          upc: String!
+          name: String
+          price: Int
+        }
+
+        directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        scalar federation__FieldSet
+      `);
     });
     it('supports all federation directives', async () => {
       const query = `query GetServiceDetails {
@@ -476,23 +543,41 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`type Review @key(fields: "id") {
-  id: ID!
-  body: String
-  author: User @provides(fields: "email")
-  product: Product @provides(fields: "upc")
-}
+      expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+        type Review @key(fields: "id") {
+          id: ID!
+          body: String
+          author: User @provides(fields: "email")
+          product: Product @provides(fields: "upc")
+        }
 
-extend type User @key(fields: "email") {
-  email: String @external
-  reviews: [Review]
-}
+        extend type User @key(fields: "email") {
+          email: String @external
+          reviews: [Review]
+        }
 
-extend type Product @key(fields: "upc") {
-  upc: String @external
-  reviews: [Review]
-}
-`);
+        extend type Product @key(fields: "upc") {
+          upc: String @external
+          reviews: [Review]
+        }
+
+        directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
+
+        scalar link__Import
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        directive @provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @external on OBJECT | FIELD_DEFINITION
+
+        scalar federation__FieldSet
+
+        type User
+
+        type Product
+      `);
     });
     it('keeps custom directives', async () => {
       const query = `query GetServiceDetails {
@@ -511,54 +596,26 @@ extend type Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`directive @custom on FIELD
+      expect(raw((data?._service as any).sdl)).toMatchInlineSnapshot(`
+        directive @custom on FIELD
 
-extend type User @key(fields: "email") {
-  email: String @external
-}
-`);
-    });
-  });
-
-  describe('@tag directive', () => {
-    const query = `query GetServiceDetails {
-      _service {
-        sdl
-      }
-    }`;
-
-    const validateTag = async (header: string) => {
-      const schema = buildSubgraphSchema(gql`${header}
-        type User @key(fields: "email") @tag(name: "tagOnType") {
-          email: String @tag(name: "tagOnField")
+        extend type User @key(fields: "email") {
+          email: String @external
         }
 
-        interface Thing @tag(name: "tagOnInterface") {
-          name: String
-        }
+        directive @link(url: String!, as: String, import: [link__Import]) repeatable on SCHEMA
 
-        union UserButAUnion @tag(name: "tagOnUnion") = User
+        scalar link__Import
+
+        """federation 1.0 key directive"""
+        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+
+        directive @external on OBJECT | FIELD_DEFINITION
+
+        scalar federation__FieldSet
+
+        type User
       `);
-
-      const { data, errors } = await graphql({ schema, source: query });
-      expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`${header}type User @key(fields: "email") @tag(name: "tagOnType") {
-  email: String @tag(name: "tagOnField")
-}
-
-interface Thing @tag(name: "tagOnInterface") {
-  name: String
-}
-
-union UserButAUnion @tag(name: "tagOnUnion") = User
-`);
-    };
-
-    it.each([
-      {name: 'fed1', header: ''},
-      {name: 'fed2', header: 'extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])\n\n' }
-    ])('adds it for $name schema', async ({header}) => {
-      await validateTag(header);
     });
   });
 });
@@ -661,12 +718,12 @@ describe('legacy interface', () => {
       `,
     });
     expect(schema.getType('Product')).toMatchInlineSnapshot(`
-type Product {
-  upc: String!
-  name: String
-  price: Int
-}
-`);
+      type Product {
+        upc: String!
+        name: String
+        price: Int
+      }
+    `);
     expect(schema.getType('_Entity')).toMatchInlineSnapshot(
       `union _Entity = Product`,
     );
@@ -674,12 +731,12 @@ type Product {
   it('allows legacy schema module interface as a simple array of documents', async () => {
     const schema = buildSubgraphSchema({ typeDefs });
     expect(schema.getType('Product')).toMatchInlineSnapshot(`
-type Product {
-  upc: String!
-  name: String
-  price: Int
-}
-`);
+      type Product {
+        upc: String!
+        name: String
+        price: Int
+      }
+    `);
     expect(schema.getType('_Entity')).toMatchInlineSnapshot(
       `union _Entity = Product`,
     );

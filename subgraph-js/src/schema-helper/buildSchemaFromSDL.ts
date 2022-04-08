@@ -1,94 +1,22 @@
-import {
-  concatAST,
-  DocumentNode,
-  extendSchema,
-  GraphQLSchema,
-  isObjectType,
-  isTypeDefinitionNode,
-  isTypeExtensionNode,
-  Kind,
-  TypeDefinitionNode,
-  TypeExtensionNode,
-  DirectiveDefinitionNode,
-  SchemaDefinitionNode,
-  SchemaExtensionNode,
-  OperationTypeNode,
-  GraphQLObjectType,
-  GraphQLEnumType,
-  isAbstractType,
-  isScalarType,
-  isEnumType,
-  GraphQLEnumValueConfig,
-  ConstDirectiveNode,
-  ASTNode,
-  StringValueNode,
-} from 'graphql';
-
+import Schema, { byKind, byName, err, LinkUrl, flat, only, toDefinitionKind, report, maybe, isAst } from '@apollo/core-schema';
+import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind } from 'graphql';
+import { ATLAS,  FEDERATION_URLS,  FEDERATION_V2_0,  SUBGRAPH_BASE } from '../federation-atlas';
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
-import {
-  PossibleTypeExtensionsRule,
-  KnownTypeNamesRule,
-  UniqueDirectivesPerLocationRule,
- } from 'graphql/validation';
 
-import { validateSDL } from 'graphql/validation/validate';
-import { SDLValidationRule } from "graphql/validation/ValidationContext";
-
-import { specifiedSDLRules } from 'graphql/validation/specifiedRules';
-import { GraphQLSchemaValidationError } from './error';
-
-function isNotNullOrUndefined<T>(
-  value: T | null | undefined,
-): value is T {
-  return value !== null && typeof value !== 'undefined';
+export function ErrTooManyFederations(versions: Readonly<Map<LinkUrl, ASTNode[]>>) {
+  return err('TooManyFederations', {
+    message: `schema should link against one version of federation, ${versions.size} versions found`,
+    versions: [...versions.keys()],
+    nodes: [...flat(versions.values())]
+  })
 }
-
-export function isNode(maybeNode: any): maybeNode is ASTNode {
-  return maybeNode && typeof maybeNode.kind === "string";
-}
-
-export function isDocumentNode(node: ASTNode): node is DocumentNode {
-  return isNode(node) && node.kind === Kind.DOCUMENT;
-}
-
-function mapValues<T, U = T>(
-  object: Record<string, T>,
-  callback: (value: T) => U
-): Record<string, U> {
-  const result: Record<string, U> = Object.create(null);
-
-  for (const [key, value] of Object.entries(object)) {
-    result[key] = callback(value);
-  }
-
-  return result;
-}
-
-const skippedSDLRules: SDLValidationRule[] = [
-  KnownTypeNamesRule,
-  UniqueDirectivesPerLocationRule,
-  PossibleTypeExtensionsRule,
-];
-
-const sdlRules = specifiedSDLRules.filter(
-  rule => !skippedSDLRules.includes(rule)
-);
-
-const extKindToDefKind = {
-  [Kind.SCALAR_TYPE_EXTENSION]: Kind.SCALAR_TYPE_DEFINITION,
-  [Kind.OBJECT_TYPE_EXTENSION]: Kind.OBJECT_TYPE_DEFINITION,
-  [Kind.INTERFACE_TYPE_EXTENSION]: Kind.INTERFACE_TYPE_DEFINITION,
-  [Kind.UNION_TYPE_EXTENSION]: Kind.UNION_TYPE_DEFINITION,
-  [Kind.ENUM_TYPE_EXTENSION]: Kind.ENUM_TYPE_DEFINITION,
-  [Kind.INPUT_OBJECT_TYPE_EXTENSION]: Kind.INPUT_OBJECT_TYPE_DEFINITION
-};
 
 export function modulesFromSDL(
   modulesOrSDL: (GraphQLSchemaModule | DocumentNode)[] | DocumentNode
 ): GraphQLSchemaModule[] {
   if (Array.isArray(modulesOrSDL)) {
     return modulesOrSDL.map(moduleOrSDL => {
-      if (isNode(moduleOrSDL) && isDocumentNode(moduleOrSDL)) {
+      if (isAst(moduleOrSDL, Kind.DOCUMENT)) {
         return { typeDefs: moduleOrSDL };
       } else {
         return moduleOrSDL;
@@ -171,155 +99,53 @@ export function addResolversToSchema(
   }
 }
 
-export function buildSchemaFromSDL(
-  modulesOrSDL: (GraphQLSchemaModule | DocumentNode)[] | DocumentNode,
-  schemaToExtend?: GraphQLSchema
-): GraphQLSchema {
-  const modules = modulesFromSDL(modulesOrSDL);
-
-  const documentAST = concatAST(modules.map(module => module.typeDefs));
-
-  const errors = validateSDL(documentAST, schemaToExtend, sdlRules);
-  if (errors.length > 0) {
-    throw new GraphQLSchemaValidationError(errors);
+export function subgraphCore(document: DocumentNode): DocumentNode {
+  const schema = Schema.from(document, SUBGRAPH_BASE)
+  let output = (linksFed2(schema) ? Schema.basic(document) : schema)
+      .compile(ATLAS)
+  if (!maybe(schema.scope)) {
+    // if our scope was empty, we didn't @link anything
+    // if we didn't @link anything, remove any generated headers to keep
+    // the document in non-core form
+    output = output.dangerousRemoveHeaders()
   }
+  return withImplicitDefinitions(output.document)
+}
 
-  const definitionsMap: {
-    [name: string]: TypeDefinitionNode[];
-  } = Object.create(null);
+function linksFed2(schema: Schema) {
+  const versions = new Map<LinkUrl, ASTNode[]>()
+  for (const link of schema.scope) {
+    const graph = link.gref.graph
+    if (!graph) continue
+    if (FEDERATION_URLS.has(graph)) {
+      const existing = versions.get(graph)
+      if (existing) existing.push(link.via!)
+      else versions.set(graph, [link.via!])
+    }
+  }
+  if (versions.size > 1)
+    report(ErrTooManyFederations(versions))
+  return versions.has(FEDERATION_V2_0)
+}
 
-  const extensionsMap: {
-    [name: string]: TypeExtensionNode[];
-  } = Object.create(null);
+function withImplicitDefinitions(doc: DocumentNode) {
+  const defs = [...implicitDefinitionNodes(doc)]
+  return defs.length ? {
+    ...doc,
+    definitions: doc.definitions.concat(defs)
+  } : doc
+}
 
-  const directiveDefinitions: DirectiveDefinitionNode[] = [];
-
-  const schemaDefinitions: SchemaDefinitionNode[] = [];
-  const schemaExtensions: SchemaExtensionNode[] = [];
-  const schemaDirectives: ConstDirectiveNode[] = [];
-  let description: StringValueNode | undefined;
-
-  for (const definition of documentAST.definitions) {
-    if (isTypeDefinitionNode(definition)) {
-      const typeName = definition.name.value;
-
-      if (definitionsMap[typeName]) {
-        definitionsMap[typeName].push(definition);
-      } else {
-        definitionsMap[typeName] = [definition];
+function *implicitDefinitionNodes(document: DocumentNode): Iterable<DefinitionNode> {
+  for (const [name, type] of byName(document.definitions)) {
+    if (!name) continue
+    if (byKind(type).size !== 1) continue
+    const kind = only(byKind(type).keys())
+    if (toDefinitionKind(kind) !== kind) {
+      yield {
+        kind: toDefinitionKind(kind),
+        name: { kind: Kind.NAME, value: name }
       }
-    } else if (isTypeExtensionNode(definition)) {
-      const typeName = definition.name.value;
-
-      if (extensionsMap[typeName]) {
-        extensionsMap[typeName].push(definition);
-      } else {
-        extensionsMap[typeName] = [definition];
-      }
-    } else if (definition.kind === Kind.DIRECTIVE_DEFINITION) {
-      directiveDefinitions.push(definition);
-    } else if (definition.kind === Kind.SCHEMA_DEFINITION) {
-      schemaDefinitions.push(definition);
-      schemaDirectives.push(
-        ...(definition.directives ? definition.directives : [])
-      );
-      description = definition.description;
-    } else if (definition.kind === Kind.SCHEMA_EXTENSION) {
-      schemaExtensions.push(definition);
-      schemaDirectives.push(
-        ...(definition.directives ? definition.directives : [])
-      );
     }
   }
-
-  let schema = schemaToExtend
-    ? schemaToExtend
-    : new GraphQLSchema({
-        query: undefined
-      });
-
-  const missingTypeDefinitions: TypeDefinitionNode[] = [];
-
-  for (const [extendedTypeName, extensions] of Object.entries(extensionsMap)) {
-    if (!definitionsMap[extendedTypeName]) {
-      const extension = extensions[0];
-
-      const kind = extension.kind;
-      const definition = {
-        kind: extKindToDefKind[kind],
-        name: extension.name
-      } as TypeDefinitionNode;
-
-      missingTypeDefinitions.push(definition);
-    }
-  }
-
-  schema = extendSchema(
-    schema,
-    {
-      kind: Kind.DOCUMENT,
-      definitions: [
-        ...Object.values(definitionsMap).flat(),
-        ...missingTypeDefinitions,
-        ...directiveDefinitions
-      ]
-    },
-    {
-      assumeValidSDL: true
-    }
-  );
-
-  schema = extendSchema(
-    schema,
-    {
-      kind: Kind.DOCUMENT,
-      definitions: Object.values(extensionsMap).flat(),
-    },
-    {
-      assumeValidSDL: true
-    }
-  );
-
-  let operationTypeMap: { [operation in OperationTypeNode]?: string };
-
-  const operationTypes = [...schemaDefinitions, ...schemaExtensions]
-    .map(node => node.operationTypes)
-    .filter(isNotNullOrUndefined)
-    .flat();
-
-  if (operationTypes.length > 0) {
-    operationTypeMap = {};
-    for (const { operation, type } of operationTypes) {
-      operationTypeMap[operation] = type.name.value;
-    }
-  } else {
-    operationTypeMap = {
-      query: "Query",
-      mutation: "Mutation",
-      subscription: "Subscription"
-    };
-  }
-
-  schema = new GraphQLSchema({
-    ...schema.toConfig(),
-    ...mapValues(operationTypeMap, typeName =>
-      typeName
-        ? (schema.getType(typeName) as GraphQLObjectType<any, any>)
-        : undefined
-    ),
-    description: description?.value,
-    astNode: {
-      kind: Kind.SCHEMA_DEFINITION,
-      description,
-      directives: schemaDirectives,
-      operationTypes: [] // satisfies typescript, will be ignored
-    }
-  });
-
-  for (const module of modules) {
-    if (!module.resolvers) continue;
-    addResolversToSchema(schema, module.resolvers);
-  }
-
-  return schema;
 }

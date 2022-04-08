@@ -20,6 +20,9 @@
   "engines": {
     "node": ">=12.13.0 <18.0"
   },
+  "dependencies": {
+    "@apollo/core-schema": "^0.3"
+  },  
   "publishConfig": {
     "access": "public"
   },
