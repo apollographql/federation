@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## v2.0.0-preview.11
+
+- Released in sync with other federation packages but no changes to this package.
+
 ## v2.0.0-preview.10
 
 - Released in sync with other federation packages but no changes to this package.
