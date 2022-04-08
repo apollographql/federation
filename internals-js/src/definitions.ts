@@ -24,7 +24,7 @@ import {
   FeatureUrl,
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
-  removeFeatureElements,
+  removeAllCoreFeatures,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode } from "./values";
@@ -51,13 +51,21 @@ export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: stri
     causes
   });
 
+const apiSchemaValidationErrorCode = 'GraphQLAPISchemaValidationFailed';
+
+export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
+  err(apiSchemaValidationErrorCode, {
+    message: 'The supergraph schema failed to produce a valid API schema',
+    causes
+  });
+
 /**
  * Given an error that may have been thrown during schema validation, extract the causes of validation failure.
  * If the error is not a graphQL error, undefined is returned.
  */
 export function errorCauses(e: Error): GraphQLError[] | undefined {
   if (e instanceof GraphQLErrorExt) {
-    if (e.code === validationErrorCode) {
+    if (e.code === validationErrorCode || e.code === apiSchemaValidationErrorCode) {
       return ((e as any).causes) as GraphQLError[];
     }
     return [e];
@@ -508,39 +516,30 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<TOwnType, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    nameOrDef: DirectiveDefinition<TApplicationArgs> | string,
     args?: TApplicationArgs,
     asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
-    let toAdd: Directive<TOwnType, TApplicationArgs>;
-    if (nameOrDefOrDirective instanceof Directive) {
-      this.checkUpdate(nameOrDefOrDirective);
-      toAdd = nameOrDefOrDirective;
-      if (args) {
-        toAdd.setArguments(args);
+    let name: string;
+    if (typeof nameOrDef === 'string') {
+      this.checkUpdate();
+      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDef, args);
+      if (!def) {
+        throw this.schema().blueprint.onGraphQLJSValidationError(
+          this.schema(),
+          new GraphQLError(`Unknown directive "@${nameOrDef}".`)
+        );
       }
+      if (Array.isArray(def)) {
+        throw ErrGraphQLValidationFailed(def);
+      }
+      name = nameOrDef;
     } else {
-      let name: string;
-      if (typeof nameOrDefOrDirective === 'string') {
-        this.checkUpdate();
-        const def = this.schema().directive(nameOrDefOrDirective) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDefOrDirective, args);
-        if (!def) {
-          throw this.schema().blueprint.onGraphQLJSValidationError(
-            this.schema(),
-            new GraphQLError(`Unknown directive "@${nameOrDefOrDirective}".`)
-          );
-        }
-        if (Array.isArray(def)) {
-          throw ErrGraphQLValidationFailed(def);
-        }
-        name = nameOrDefOrDirective;
-      } else {
-        this.checkUpdate(nameOrDefOrDirective);
-        name = nameOrDefOrDirective.name;
-      }
-      toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
-      Element.prototype['setParent'].call(toAdd, this);
+      this.checkUpdate(nameOrDef);
+      name = nameOrDef.name;
     }
+    const toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
+    Element.prototype['setParent'].call(toAdd, this);
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
     if (asFirstDirective) {
       this._appliedDirectives.unshift(toAdd);
@@ -724,7 +723,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   /**
    * Removes this type definition from its parent schema.
    *
-   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
+   * After calling this method, this type will be "detached": it will have no parent, schema, fields,
    * values, directives, etc...
    *
    * Note that it is always allowed to remove a type, but this may make a valid schema
@@ -740,15 +739,18 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     }
     this.checkRemoval();
     this.onModification();
-    this.removeInnerElements();
-    Schema.prototype['removeTypeInternal'].call(this._parent, this);
-    this.removeAppliedDirectives();
+    // Remove this type's children.
     this.sourceAST = undefined;
+    this.removeAppliedDirectives();
+    this.removeInnerElements();
+    // Remove this type's references.
     const toReturn = setValues(this._referencers).map(r => {
       SchemaElement.prototype['removeTypeReferenceInternal'].call(r, this);
       return r;
     });
     this._referencers.clear();
+    // Remove this type from its parent schema.
+    Schema.prototype['removeTypeInternal'].call(this._parent, this);
     this._parent = undefined;
     return toReturn;
   }
@@ -935,9 +937,12 @@ export class CoreFeature {
   }
 
   isFeatureDefinition(element: NamedType | DirectiveDefinition): boolean {
+    const importName = element.kind === 'DirectiveDefinition'
+      ? '@' + element.name
+      : element.name;
     return element.name.startsWith(this.nameInSchema + '__')
       || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema)
-      || !!this.imports.find((i) => element.name === (i.as ?? i.name));
+      || !!this.imports.find((i) => importName === (i.as ?? i.name));
   }
 
   directiveNameInSchema(name: string): string {
@@ -1152,13 +1157,7 @@ export class Schema {
 
       const apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
-      const coreFeatures = apiSchema.coreFeatures;
-      if (coreFeatures) {
-        // Note that core being a feature itself, this will remove core itself and mark apiSchema as 'not core'
-        for (const coreFeature of coreFeatures.allFeatures()) {
-          removeFeatureElements(apiSchema, coreFeature);
-        }
-      }
+      removeAllCoreFeatures(apiSchema);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
       this.apiSchema = apiSchema;
@@ -1530,11 +1529,11 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<SchemaDefinition, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    nameOrDef: DirectiveDefinition<TApplicationArgs> | string,
     args?: TApplicationArgs,
     asFirstDirective: boolean = false,
   ): Directive<SchemaDefinition, TApplicationArgs> {
-    const applied = super.applyDirective(nameOrDefOrDirective, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
+    const applied = super.applyDirective(nameOrDef, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
     const schema = this.schema();
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
@@ -2363,23 +2362,36 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   /**
    * Removes this field definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
-   * arguments or directives.
+   * After calling this method, this field definition will be "detached": it will have no parent, schema, type,
+   * arguments, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
-    this.removeAppliedDirectives();
+    // Remove this field's children.
+    this.sourceAST = undefined;
     this.type = undefined;
-    this._extension = undefined;
+    this.removeAppliedDirectives();
     for (const arg of this.arguments()) {
       arg.remove();
     }
+    // Note that we don't track field references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider interface fields as references to implementing
+    //   object/interface fields, in the sense that removing an implementing
+    //   object/interface field breaks the validity of the implementing
+    //   interface field. Being aware that an object/interface field is being
+    //   referenced in such a way would be useful for understanding breakages
+    //   that need to be resolved as a consequence of removal.
+    //
+    // Remove this field from its parent object/interface type.
     FieldBasedType.prototype['removeFieldInternal'].call(this._parent, this);
     this._parent = undefined;
-    // Fields have nothing that can reference them outside of their parents
+    this._extension = undefined;
     return [];
   }
 
@@ -2442,21 +2454,38 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
   }
 
   /**
-   * Removes this field definition from its parent type.
+   * Removes this input field definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
-   * arguments or directives.
+   * After calling this method, this input field definition will be "detached": it will have no parent, schema,
+   * type, default value, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
+    // Remove this input field's children.
+    this.sourceAST = undefined;
+    this.type = undefined;
+    this.defaultValue = undefined;
     this.removeAppliedDirectives();
+    // Note that we don't track input field references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider default values (in field arguments, input
+    //   fields, or directive definitions) as references to input fields they
+    //   use, in the sense that removing the input field breaks the validity of
+    //   the default value. Being aware that an input field is being referenced
+    //   in such a way would be useful for understanding breakages that need to
+    //   be resolved as a consequence of removal. (The reference is indirect
+    //   though, as input field usages are currently represented as strings
+    //   within GraphQL values).
+    //
+    // Remove this input field from its parent input object type.
     InputObjectType.prototype['removeFieldInternal'].call(this._parent, this);
     this._parent = undefined;
-    this.type = undefined;
-    // Fields have nothing that can reference them outside of their parents
+    this._extension = undefined;
     return [];
   }
 
@@ -2501,23 +2530,39 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
   /**
    * Removes this argument definition from its parent element (field or directive).
    *
-   * After calling this method, this argument definition will be "detached": it wil have no parent, schema, type,
-   * default value or directives.
+   * After calling this method, this argument definition will be "detached": it will have no parent, schema, type,
+   * default value, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
+    // Remove this argument's children.
+    this.sourceAST = undefined;
+    this.type = undefined;
+    this.defaultValue = undefined;
     this.removeAppliedDirectives();
+    // Note that we don't track argument references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider the arguments of directive applications as
+    //   references to the arguments of directive definitions, in the sense that
+    //   removing a directive definition argument can break the validity of the
+    //   directive application. Being aware that a directive definition argument
+    //   is being referenced in such a way would be useful for understanding
+    //   breakages that need to be resolved as a consequence of removal. (You
+    //   could make a similar claim about interface field arguments being
+    //   references to object field arguments.)
+    //
+    // Remove this argument from its parent field or directive definition.
     if (this._parent instanceof FieldDefinition) {
       FieldDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     } else {
       DirectiveDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     }
     this._parent = undefined;
-    this.type = undefined;
-    this.defaultValue = undefined;
     return [];
   }
 
@@ -2558,24 +2603,36 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
   }
 
   /**
-   * Removes this field definition from its parent type.
+   * Removes this enum value definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
-   * arguments or directives.
+   * After calling this method, this enum value definition will be "detached": it will have no parent, schema, type,
+   * arguments, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
+    // Remove this enum value's children.
+    this.sourceAST = undefined;
     this.removeAppliedDirectives();
+    // Note that we don't track enum value references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider default values (in field arguments, input
+    //   fields, or directive definitions) as references to enum values they
+    //   use, in the sense that removing the enum value breaks the validity of
+    //   the default value. Being aware that an enum value is being referenced
+    //   in such a way would be useful for understanding breakages that need to
+    //   be resolved as a consequence of removal. (The reference is indirect
+    //   though, as enum value usages are currently represented as strings
+    //   within GraphQL values).
+    //
+    // Remove this enum value from its parent enum type.
     EnumType.prototype['removeValueInternal'].call(this._parent, this);
     this._parent = undefined;
-    // Enum values have nothing that can reference them outside of their parents
-    // TODO: that's actually only semi-true if you include arguments, because default values in args and concrete directive applications can
-    //   indirectly refer to enum value. It's indirect though as we currently keep enum value as string in values. That said, it would
-    //   probably be really nice to be able to known if an enum value is used or not, rather then removing it and not knowing if we broke
-    //   something).
+    this._extension = undefined;
     return [];
   }
 
@@ -2705,22 +2762,35 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     assert(false, `Directive definition ${this} can't reference other types (it's arguments can); shouldn't be asked to remove reference to ${type}`);
   }
 
+    /**
+   * Removes this directive definition from its parent schema.
+   *
+   * After calling this method, this directive definition will be "detached": it will have no parent, schema, or
+   * arguments.
+   */
   remove(): Directive[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
-    Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
-    this._parent = undefined;
+    // Remove this directive definition's children.
+    this.sourceAST = undefined;
     assert(this._appliedDirectives.length === 0, "Directive definition should not have directive applied to it");
     for (const arg of this.arguments()) {
       arg.remove();
     }
-    // Note that directive applications don't link directly to their definitions. Instead, we fetch
-    // their definition from the schema when requested. So we don't have to do anything on the referencers
-    // other than return them.
+    // Remove this directive definition's references.
+    //
+    // Note that while a directive application references its definition, it
+    // doesn't store a link to that definition. Instead, we fetch the definition
+    // from the schema when requested. So we don't have to do anything on the
+    // referencers other than clear them (and return the pre-cleared set).
     const toReturn = setValues(this._referencers);
     this._referencers.clear();
+    // Remove this directive definition from its parent schema.
+    Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
+    this._parent = undefined;
     return toReturn;
   }
 
@@ -2886,10 +2956,12 @@ export class Directive<
     if (!this._parent) {
       return false;
     }
+    // Remove this directive application's reference to its definition.
     const definition = this.definition;
     if (definition && this.isAttachedToSchemaElement()) {
       DirectiveDefinition.prototype['removeReferencer'].call(definition, this as Directive<SchemaElement<any, any>>);
     }
+    // Remove this directive application from its parent schema element.
     const parentDirectives = this._parent.appliedDirectives as Directive<TParent>[];
     const index = parentDirectives.indexOf(this);
     assert(index >= 0, () => `Directive ${this} lists ${this._parent} as parent, but that parent doesn't list it as applied directive`);

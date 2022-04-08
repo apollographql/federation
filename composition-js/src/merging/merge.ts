@@ -64,10 +64,10 @@ import {
   didYouMean,
   suggestionList,
   EnumValue,
-  inaccessibleDirectiveSpec,
   baseType,
   isEnumType,
   filterTypesOfKind,
+  isNonNullType,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -80,6 +80,7 @@ const linkSpec = LINK_VERSIONS.latest();
 type FieldOrUndefinedArray = (FieldDefinition<any> | undefined)[];
 
 const joinSpec = JOIN_VERSIONS.latest();
+const inaccessibleSpec = INACCESSIBLE_VERSIONS.latest();
 
 export type MergeResult = MergeSuccess | MergeFailure;
 
@@ -1661,7 +1662,7 @@ class Merger {
     this.mergeDescription(valueSources, value);
     this.mergeAppliedDirectives(valueSources, value);
 
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
     const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph);
     // The merging strategy depends on the enum type usage:
     //  - if it is _only_ used in position of Input type, we merge it with an "intersection" strategy (like other input types/things).
@@ -1732,7 +1733,7 @@ class Merger {
   }
 
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleDirectiveSpec.name);
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
 
     // Like for other inputs, we add all the fields found in any subgraphs initially as a simple mean to have a complete list of
     // field to iterate over, but we will remove those that are not in all subgraphs.
@@ -2159,29 +2160,130 @@ class Merger {
     }
   }
 
-  private updateInaccessibleErrorsWithLinkToSubgraphs(errors: GraphQLError[]): GraphQLError[] {
-    return errors.map((e) => {
-      if (errorCode(e) !== ERRORS.REFERENCED_INACCESSIBLE.code) {
-        return e;
+  private updateInaccessibleErrorsWithLinkToSubgraphs(
+    errors: GraphQLError[]
+  ): GraphQLError[] {
+    // While we could just take the supergraph referencer coordinate and return
+    // any corresponding elements in the subgraphs, some of those subgraph
+    // referencers may not have been the cause of the erroneous reference; it
+    // often depends on the kind of reference (the logic of which is captured
+    // below).
+    function isRelevantSubgraphReferencer(
+      subgraphReferencer: NamedSchemaElement<any, any, any>,
+      err: GraphQLError,
+      supergraphElements: string[],
+      hasInaccessibleElements: boolean,
+    ): boolean {
+      switch (errorCode(err)) {
+        case ERRORS.REFERENCED_INACCESSIBLE.code: {
+          // We only care about subgraph fields/arguments/input fields whose
+          // base type matches that of the inaccessible element.
+          if (
+            !((subgraphReferencer instanceof FieldDefinition) ||
+            (subgraphReferencer instanceof ArgumentDefinition) ||
+            (subgraphReferencer instanceof InputFieldDefinition))
+          ) {
+            return false;
+          }
+          const subgraphType = subgraphReferencer.type;
+          const supergraphType = supergraphElements[0];
+
+          return !!subgraphType &&
+            baseType(subgraphType).name === supergraphType;
+        }
+        case ERRORS.DEFAULT_VALUE_USES_INACCESSIBLE.code: {
+          // Default values are merged via intersection, so no need to filter
+          // out any subgraph referencers here.
+          return true;
+        }
+        case ERRORS.REQUIRED_INACCESSIBLE.code: {
+          // An argument is required if it's non-nullable and has no default
+          // value. This means that a required supergraph argument could be
+          // the result of merging two non-required subgraph arguments (e.g.
+          // one is non-nullable with a default while the other is nullable
+          // without a default value). So we include nodes that are either
+          // non-nullable or have no default value.
+          if (
+            !((subgraphReferencer instanceof ArgumentDefinition) ||
+            (subgraphReferencer instanceof InputFieldDefinition))
+          ) {
+            return false;
+          }
+          const subgraphType = subgraphReferencer.type;
+          return (subgraphType && isNonNullType(subgraphType)) ||
+          subgraphReferencer.defaultValue === undefined;
+        }
+        case ERRORS.IMPLEMENTED_BY_INACCESSIBLE.code: {
+          // Any subgraph containing the implemented field/argument is relevant,
+          // so no need to filter out any subgraph elements here.
+          return true;
+        }
+        case ERRORS.DISALLOWED_INACCESSIBLE.code: {
+          // We only care about disallowed types/directives that contained at
+          // least one @inaccessible descendant, so we filter by that here.
+          return hasInaccessibleElements;
+        }
+        case ERRORS.ONLY_INACCESSIBLE_CHILDREN.code: {
+          // We only care about parent types that contained at least one
+          // @inaccessible descendant, so we filter by that here.
+          return hasInaccessibleElements;
+        }
+        default: {
+          return false;
+        }
+      }
+    }
+
+    return errors.map((err) => {
+      const elements = err.extensions['inaccessible_elements'];
+      if (!Array.isArray(elements)) return err;
+      const errorNodes = [];
+      const subgraphHasInaccessibleElements: boolean[] = [];
+      for (const coordinate of elements) {
+        if (typeof coordinate !== 'string') continue;
+        errorNodes.push(...sourceASTs(...this.subgraphsSchema.flatMap(
+          (subgraphSchema, subgraphIndex) => {
+            const subgraphElement =
+              subgraphSchema.elementByCoordinate(coordinate);
+            if (subgraphElement) {
+              const inaccessibleDirective =
+                federationMetadata(subgraphSchema)!.inaccessibleDirective();
+              if (subgraphElement.hasAppliedDirective(inaccessibleDirective)) {
+                subgraphHasInaccessibleElements[subgraphIndex] = true;
+                return [subgraphElement];
+              }
+          }
+          return [];
+        })));
       }
 
-      const reference = e.extensions['inaccessible_reference'];
-      const referenceNodes = reference && typeof reference === 'string'
-        ? sourceASTs(...this.subgraphsSchema.map((schema) => schema.elementByCoordinate(reference)))
-        : [];
-      const element = e.extensions['inaccessible_element'];
-      // We only point to subgraphs where the element is marked inaccesssible, as other subgraph are not relevant.
-      const elementNodes = element && typeof element === 'string'
-        ? sourceASTs(
-            ...this.subgraphsSchema
-              .map((schema) => schema.elementByCoordinate(element))
-              .filter((elt) => elt?.hasAppliedDirective(federationMetadata(elt.schema())!.inaccessibleDirective()))
-          )
-        : [];
+      const referencers = err.extensions['inaccessible_referencers'];
+      if (Array.isArray(referencers)) {
+        for (const coordinate of referencers) {
+          if (typeof coordinate !== 'string') continue;
+          errorNodes.push(...sourceASTs(...this.subgraphsSchema.flatMap(
+            (subgraphSchema, subgraphIndex) => {
+              const subgraphReferencer =
+                subgraphSchema.elementByCoordinate(coordinate);
+              if (
+                subgraphReferencer &&
+                isRelevantSubgraphReferencer(
+                  subgraphReferencer,
+                  err,
+                  elements,
+                  subgraphHasInaccessibleElements[subgraphIndex]
+                )
+              ) {
+                return [subgraphReferencer];
+              }
+            return [];
+          })));
+        }
+      }
 
-      // Note that the error we get will likely have some AST nodes, but those will be to the supergraph and that's not
-      // useful to the user so we completely discard them.
-      return withModifiedErrorNodes(e, [...referenceNodes, ...elementNodes]);
+      return errorNodes.length > 0
+        ? withModifiedErrorNodes(err, errorNodes)
+        : err;
     });
   }
 }

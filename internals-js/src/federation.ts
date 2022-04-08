@@ -45,6 +45,7 @@ import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFed
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, selectionOfElement, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./tagSpec";
+import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
@@ -79,10 +80,10 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { inaccessibleDirectiveSpec } from "./inaccessibleSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
+const inaccessibleSpec = INACCESSIBLE_VERSIONS.latest();
 const federationSpec = FEDERATION_VERSIONS.latest();
 
 // We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
@@ -565,7 +566,9 @@ export class FederationMetadata {
   }
 
   inaccessibleDirective(): DirectiveDefinition<{}> {
-    return this.getFederationDirective(inaccessibleDirectiveSpec.name);
+    return this.getFederationDirective(
+      inaccessibleSpec.inaccessibleDirectiveSpec.name
+    );
   }
 
   allFederationDirectives(): DirectiveDefinition[] {

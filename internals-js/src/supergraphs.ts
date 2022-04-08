@@ -14,6 +14,7 @@ const SUPPORTED_FEATURES = new Set([
   'https://specs.apollo.dev/tag/v0.1',
   'https://specs.apollo.dev/tag/v0.2',
   'https://specs.apollo.dev/inaccessible/v0.1',
+  'https://specs.apollo.dev/inaccessible/v0.2',
 ]);
 
 export function ErrUnsupportedFeature(feature: CoreFeature): Error {
