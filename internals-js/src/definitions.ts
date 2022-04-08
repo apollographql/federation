@@ -937,9 +937,12 @@ export class CoreFeature {
   }
 
   isFeatureDefinition(element: NamedType | DirectiveDefinition): boolean {
+    const importName = element.kind === 'DirectiveDefinition'
+      ? '@' + element.name
+      : element.name;
     return element.name.startsWith(this.nameInSchema + '__')
       || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema)
-      || !!this.imports.find((i) => element.name === (i.as ?? i.name));
+      || !!this.imports.find((i) => importName === (i.as ?? i.name));
   }
 
   directiveNameInSchema(name: string): string {

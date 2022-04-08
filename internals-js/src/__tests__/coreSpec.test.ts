@@ -3,6 +3,8 @@ import gql from "graphql-tag";
 import { buildSubgraph } from "../federation";
 import { errorCauses } from "../definitions";
 import { assert } from "../utils";
+import { buildSchemaFromAST } from "../buildSchema";
+import { removeAllCoreFeatures } from "../coreSpec";
 
 function expectErrors(
   subgraphDefs: DocumentNode,
@@ -96,5 +98,115 @@ describe('@link(import:) argument', () => {
       'Cannot import unknown element "key". Did you mean directive "@key"?',
       'Cannot import unknown element "@sharable\". Did you mean "@shareable"?',
     ]);
+  });
+});
+
+describe('removeAllCoreFeatures', () => {
+  it('removes core (and only core) feature definitions, accounting for aliasing', () => {
+    const schema = buildSchemaFromAST(gql`
+      directive @lonk(url: String, as: String, for: Porpoise, import: [lonk__Import]) repeatable on SCHEMA
+
+      scalar lonk__Import
+
+      enum Porpoise {
+        """
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        """
+        SECURITY
+
+        """
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        """
+        EXECUTION
+      }
+
+      extend schema
+        @lonk(
+          url: "https://specs.apollo.dev/link/v1.0",
+          as: "lonk",
+          import: [
+            { name: "Purpose", as: "Porpoise" }
+          ]
+        )
+        @lonk(
+          url: "https://localhost/foobar/v1.0",
+          as: "foo"
+          import: [
+            "bar",
+            "@baz",
+            { name: "qux", as: "qax" },
+            { name: "@quz", as: "@qaz" },
+          ]
+        )
+
+      type Query {
+        q: Int
+      }
+
+      # Shouldn't remove original spec name
+      scalar foobar
+      scalar foobar__Scalar
+      directive @foobar on FIELD
+      directive @foobar__directive on FIELD
+
+      # Should remove aliased spec name (other than type "foo")
+      scalar foo
+      scalar foo__Scalar
+      directive @foo on FIELD
+      directive @foo__directive on FIELD
+
+      # Should remove imports (prefixed or not)
+      type bar implements foo__bar {
+        someField: foo!
+      }
+      interface foo__bar {
+        someField: foo!
+      }
+      directive @baz on FIELD
+      directive @foo__baz on FIELD
+
+      # Shouldn't remove original import names
+      input qux {
+        someField: ID!
+      }
+      directive @quz on FIELD
+
+      # Should remove aliased import names (and prefixed original)
+      union qax = bar
+      enum foo__qax {
+        SOME_VALUE
+      }
+      scalar foo__qux
+      directive @qaz on FIELD
+      directive @foo__qaz on FIELD
+      directive @foo__quz on FIELD
+    `);
+
+    removeAllCoreFeatures(schema);
+    schema.validate();
+
+    expect(schema.elementByCoordinate("@lonk")).toBeUndefined();
+    expect(schema.elementByCoordinate("lonk__Import")).toBeUndefined();
+    expect(schema.elementByCoordinate("Porpoise")).toBeUndefined();
+    expect(schema.elementByCoordinate("foobar")).toBeDefined();
+    expect(schema.elementByCoordinate("foobar__Scalar")).toBeDefined();
+    expect(schema.elementByCoordinate("@foobar")).toBeDefined();
+    expect(schema.elementByCoordinate("@foobar__directive")).toBeDefined();
+    expect(schema.elementByCoordinate("foo")).toBeDefined();
+    expect(schema.elementByCoordinate("foo__Scalar")).toBeUndefined();
+    expect(schema.elementByCoordinate("@foo")).toBeUndefined();
+    expect(schema.elementByCoordinate("@foo__directive")).toBeUndefined();
+    expect(schema.elementByCoordinate("bar")).toBeUndefined();
+    expect(schema.elementByCoordinate("foo__bar")).toBeUndefined();
+    expect(schema.elementByCoordinate("@baz")).toBeUndefined();
+    expect(schema.elementByCoordinate("@foo__baz")).toBeUndefined();
+    expect(schema.elementByCoordinate("qux")).toBeDefined();
+    expect(schema.elementByCoordinate("@quz")).toBeDefined();
+    expect(schema.elementByCoordinate("qax")).toBeUndefined();
+    expect(schema.elementByCoordinate("foo__qax")).toBeUndefined();
+    expect(schema.elementByCoordinate("foo__qux")).toBeUndefined();
+    expect(schema.elementByCoordinate("@qaz")).toBeUndefined();
+    expect(schema.elementByCoordinate("@foo__qaz")).toBeUndefined();
+    expect(schema.elementByCoordinate("@foo__quz")).toBeUndefined();
   });
 });
