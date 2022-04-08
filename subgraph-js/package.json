@@ -23,6 +23,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "@apollo/federation-internals": "file:../internals-js"
+  },
   "peerDependencies": {
     "graphql": "^16.0.0"
   }

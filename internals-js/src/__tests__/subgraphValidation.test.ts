@@ -593,7 +593,7 @@ describe('@core/@link handling', () => {
 
     type Query {
       _entities(representations: [_Any!]!): [_Entity]!
-      _service: _Service
+      _service: _Service!
     }
   `
   const validateFullSchema = (subgraph: Subgraph) => {

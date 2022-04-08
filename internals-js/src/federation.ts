@@ -92,6 +92,8 @@ const federationSpec = FEDERATION_VERSIONS.latest();
 // disallowing it feels like more a good thing than a real restriction).
 export const FEDERATION_RESERVED_SUBGRAPH_NAME = '_';
 
+export const FEDERATION_UNNAMED_SUBGRAPH_NAME = '<unnamed>';
+
 const FEDERATION_OMITTED_VALIDATION_RULES = [
   // We allow subgraphs to declare an extension even if the subgraph itself doesn't have a corresponding definition.
   // The implication being that the definition is in another subgraph.
@@ -962,7 +964,7 @@ export function buildSubgraph(
       : buildSchemaFromAST(source, buildOptions)
     subgraph = new Subgraph(name, url, schema);
   } catch (e) {
-    if (e instanceof GraphQLError) {
+    if (e instanceof GraphQLError && name !== FEDERATION_UNNAMED_SUBGRAPH_NAME) {
       throw addSubgraphToError(e, name, ERRORS.INVALID_GRAPHQL);
     } else {
       throw e;
@@ -1314,7 +1316,7 @@ export class Subgraph {
     }
 
     if (!queryType.field(serviceFieldName)) {
-      queryType.addField(serviceFieldName, metadata.serviceType());
+      queryType.addField(serviceFieldName, new NonNullType(metadata.serviceType()));
     }
   }
 

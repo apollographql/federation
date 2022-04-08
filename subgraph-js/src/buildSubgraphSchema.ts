@@ -2,28 +2,19 @@ import { deprecate } from 'util';
 import {
   DocumentNode,
   GraphQLSchema,
-  isObjectType,
-  isUnionType,
-  GraphQLUnionType,
-  GraphQLObjectType,
-  specifiedDirectives,
+  concatAST,
   visit,
-  GraphQLDirective,
+  OperationTypeNode,
 } from 'graphql';
 import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
   addResolversToSchema,
   modulesFromSDL,
-  transformSchema,
-  buildSchemaFromSDL,
 } from './schema-helper';
 
-import { federationDirectives, typeIncludesDirective } from './directives';
-
-import { serviceField, entitiesField, EntityType } from './types';
-
-import { printSubgraphSchema } from './printSubgraphSchema';
+import { buildSubgraph, FEDERATION_UNNAMED_SUBGRAPH_NAME, printSchema } from '@apollo/federation-internals';
+import { entitiesResolver } from './types';
 
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
@@ -31,23 +22,6 @@ type LegacySchemaModule = {
 };
 
 export { GraphQLSchemaModule };
-
-function missingFederationDirectives(modules: GraphQLSchemaModule[]): GraphQLDirective[] {
-  // Copying the array as we're going to modify it.
-  const missingDirectives = federationDirectives.concat();
-  for (const mod of modules) {
-    visit(mod.typeDefs, {
-      DirectiveDefinition: (def) => {
-        const matchingFedDirectiveIdx = missingDirectives.findIndex((d) => d.name === def.name.value);
-        if (matchingFedDirectiveIdx >= 0) {
-          missingDirectives.splice(matchingFedDirectiveIdx, 1);
-        }
-        return def;
-      }
-    });
-  }
-  return missingDirectives;
-}
 
 export function buildSubgraphSchema(
   modulesOrSDL:
@@ -81,74 +55,44 @@ export function buildSubgraphSchema(
   }
 
   const modules = modulesFromSDL(shapedModulesOrSDL);
+  const documentAST = concatAST(modules.map(module => module.typeDefs));
 
-  let schema = buildSchemaFromSDL(
-    modules,
-    new GraphQLSchema({
-      query: undefined,
-      directives: [...specifiedDirectives, ...missingFederationDirectives(modules)],
-    }),
-  );
+  let queryTypeName = 'Query';
+  visit(documentAST, {
+    SchemaDefinition: (def) => {
+      const foundName = def.operationTypes.find((t) => t.operation === OperationTypeNode.QUERY)?.type?.name;
+      if (foundName) {
+        queryTypeName = foundName.value;
+      }
+    }
+  });
+  const subgraph = buildSubgraph(FEDERATION_UNNAMED_SUBGRAPH_NAME, '', documentAST);
 
-  // At this point in time, we have a schema to be printed into SDL which is
-  // representative of what the user defined for their schema. This is before
-  // we process any of the federation directives and add custom federation types
-  // so its the right place to create our service definition sdl.
-  //
-  // We have to use a modified printSchema from graphql-js which includes
-  // support for preserving the *uses* of federation directives while removing
-  // their *definitions* from the sdl.
-  const sdl = printSubgraphSchema(schema);
+  const sdl = printSchema(subgraph.schema);
 
-  // Add an empty query root type if none has been defined
-  if (!schema.getQueryType()) {
-    schema = new GraphQLSchema({
-      ...schema.toConfig(),
-      query: new GraphQLObjectType({
-        name: 'Query',
-        fields: {},
-      }),
+  const schema = subgraph.schema.toGraphQLJSSchema(true);
+
+  addResolversToSchema(schema, {
+     Query : {
+      _service: () => ({ sdl }),
+    }
+  });
+
+  if (subgraph.metadata().entityType()) {
+    addResolversToSchema(schema, {
+     Query : {
+        _entities: (_source, { representations }, context, info) => entitiesResolver({ representations, context, info }),
+      }
     });
   }
 
-  const entityTypes = Object.values(schema.getTypeMap()).filter(
-    (type) => isObjectType(type) && typeIncludesDirective(type, 'key'),
-  );
-  const hasEntities = entityTypes.length > 0;
-
-  schema = transformSchema(schema, (type) => {
-    // Add `_entities` and `_service` fields to query root type
-    if (isObjectType(type) && type === schema.getQueryType()) {
-      const config = type.toConfig();
-      return new GraphQLObjectType({
-        ...config,
-        fields: {
-          ...(hasEntities && { _entities: entitiesField }),
-          _service: {
-            ...serviceField,
-            resolve: () => ({ sdl }),
-          },
-          ...config.fields,
-        },
-      });
-    }
-
-    return undefined;
-  });
-
-  schema = transformSchema(schema, (type) => {
-    if (hasEntities && isUnionType(type) && type.name === EntityType.name) {
-      return new GraphQLUnionType({
-        ...EntityType.toConfig(),
-        types: entityTypes.filter(isObjectType),
-      });
-    }
-    return undefined;
-  });
-
   for (const module of modules) {
     if (!module.resolvers) continue;
-    addResolversToSchema(schema, module.resolvers);
+    const updatedResolvers: GraphQLResolverMap = {
+      ...module.resolvers,
+      Query: module.resolvers[queryTypeName] ?? {},
+    };
+    addResolversToSchema(schema, updatedResolvers);
   }
 
   return schema;
