@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
+import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -589,5 +589,110 @@ describe('shareable', () => {
         a2: A
       }
     `);
+  });
+});
+
+describe('override', () => {
+  it('Accepts override if the definition is manually provided', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          a: A
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type A @key(fields: "id") {
+          id: ID!
+          x: Int @override(from: "subgraphA")
+        }
+
+        directive @override(from: String!) on FIELD_DEFINITION
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+
+    const [supergraph] = schemas(result);
+    const typeA = supergraph.type('A') as ObjectType;
+    expect(typeA.field('x')?.appliedDirectivesOf('join__field').map((d) => d.toString())).toMatchStringArray([
+      '@join__field(graph: SUBGRAPHB, override: "subgraphA")'
+    ]);
+  });
+
+  it('Errors if @override is used but not defined', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          a: A
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type A @key(fields: "id") {
+          id: ID!
+          x: Int @override(from: "subgraphA")
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([[
+      'INVALID_GRAPHQL',
+      '[subgraphB] Unknown directive "@override". If you meant the "@override" federation 2 directive, note that this schema is a federation 1 schema. To be a federation 2 schema, it needs to @link to the federation specifcation v2.',
+    ]]);
+  });
+
+  it('Errors is @override is defined but is incompatible', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          a: A
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type A @key(fields: "id") {
+          id: ID!
+          x: Int @override
+        }
+
+        directive @override on FIELD_DEFINITION
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([[
+      'DIRECTIVE_DEFINITION_INVALID',
+      '[subgraphB] Invalid definition for directive \"@override\": missing required argument "from"',
+    ]]);
   });
 });
