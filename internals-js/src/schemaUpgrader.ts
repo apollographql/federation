@@ -278,8 +278,28 @@ class SchemaUpgrader {
     // later merge errors "AST" nodes ends up pointing to the original schema, the one that make sense to the user.
     this.schema = originalSubgraph.schema.clone();
     this.renameFederationTypes();
-    setSchemaAsFed2Subgraph(this.schema);
+    // Setting this property before trying to switch the cloned schema to fed2 because on
+    // errors `addError` uses `this.subgraph.name`.
     this.subgraph = new Subgraph(originalSubgraph.name, originalSubgraph.url, this.schema);
+    try {
+      setSchemaAsFed2Subgraph(this.schema);
+    } catch (e) {
+      // This could error out if some directive definition clashes with a federation one while
+      // having an incompatible definition. Note that in that case, the choices for the user
+      // are either:
+      // 1. fix/remove the definition if they did meant the federation directive, just had an
+      //   invalid definition.
+      // 2. but if they have their own directive whose name happens to clash with a federation
+      //   directive one but is genuinely a different directive, they will have to move their
+      //   schema to a fed2 one and use renaming.
+      const causes = errorCauses(e);
+      if (causes) {
+        causes.forEach((c) => this.addError(c));
+      } else {
+        // An unexpected exception, rethrow.
+        throw e;
+      }
+    }
     this.metadata = this.subgraph.metadata();
   }
 
