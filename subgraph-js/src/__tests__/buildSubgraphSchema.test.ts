@@ -5,6 +5,7 @@ import {
   DocumentNode,
   execute,
   type DefinitionNode,
+  OperationTypeNode,
 } from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
@@ -740,5 +741,51 @@ describe('legacy interface', () => {
     expect(schema.getType('_Entity')).toMatchInlineSnapshot(
       `union _Entity = Product`,
     );
+  });
+  it('does not break if the schema definition AST uses undefined for directives', () => {
+    // This AST is equilvalent to:
+    //   schema {
+    //     query: Query
+    //   }
+    //
+    //   type Query {
+    //     test: String
+    //   }
+    //
+    // but the AST used `undefined` for fields not present, where `gql` applied
+    // to the SDL above would use empty arrays instead. Of course, both are
+    // valid and this shouldn't make a different, but this has tripped code before,
+    // hence this test.
+    const doc: DocumentNode = {
+      kind: Kind.DOCUMENT,
+      definitions: [
+        {
+          kind: Kind.SCHEMA_DEFINITION,
+          operationTypes: [
+            {
+              kind: Kind.OPERATION_TYPE_DEFINITION,
+              operation: OperationTypeNode.QUERY,
+              type: { kind: Kind.NAMED_TYPE, name: { kind: Kind.NAME, value: 'Query' } }
+            },
+          ]
+        },
+        {
+          kind: Kind.OBJECT_TYPE_DEFINITION,
+          name: { kind: Kind.NAME, value: 'Query' },
+          fields: [
+            {
+              kind: Kind.FIELD_DEFINITION,
+              name: { kind: Kind.NAME, value: 'test' },
+              type: {
+                kind: Kind.NAMED_TYPE,
+                name: { kind: Kind.NAME, value: 'String' }
+              },
+            },
+          ]
+        },
+      ],
+    };
+
+    expect(() => buildSubgraphSchema(doc)).not.toThrow();
   });
 });

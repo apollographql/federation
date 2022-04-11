@@ -11,6 +11,11 @@ describe('subgraphCore', () => {
     const result = getResult(() => subgraphCore(fixtures[0].typeDefs));
     expect([...result.errors()]).toEqual([]);
     expect(raw(print(result.unwrap()))).toMatchInlineSnapshot(`
+      schema {
+        query: RootQuery
+        mutation: Mutation
+      }
+
       extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])
 
       directive @stream on FIELD
@@ -27,11 +32,6 @@ describe('subgraphCore', () => {
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev")
-
-      schema {
-        query: RootQuery
-        mutation: Mutation
-      }
 
       type RootQuery {
         user(id: ID!): User
@@ -93,7 +93,7 @@ describe('subgraphCore', () => {
 
       directive @shareable on FIELD_DEFINITION | OBJECT
 
-      directive @inaccessible on OBJECT | INTERFACE | FIELD_DEFINITION
+      directive @inaccessible on OBJECT | INTERFACE | FIELD_DEFINITION | ENUM_VALUE
 
       directive @override(from: String!) on FIELD_DEFINITION
 
@@ -204,13 +204,16 @@ describe('subgraphCore', () => {
 
     expect([...Schema.from(document)]).toMatchInlineSnapshot(`
       Array [
+        <>[+] schema {
+        query: RootQuery
+        mutation: Mutation
+      },
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
         <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
         <#@tag>[GraphQL request] 👉directive @tag(,
         <#CacheControlScope>[GraphQL request] 👉enum CacheControlScope @tag(name: "from-reviews") {,
         <#@cacheControl>[GraphQL request] 👉directive @cacheControl(,
         <#JSON>[GraphQL request] 👉scalar JSON,
-        <>[GraphQL request] 👉schema {,
         <#RootQuery>[GraphQL request] 👉type RootQuery {,
         <#PasswordAccount>[GraphQL request] 👉type PasswordAccount @key(fields: "email") {,
         <#SMSAccount>[GraphQL request] 👉type SMSAccount @key(fields: "number") {,
@@ -231,6 +234,14 @@ describe('subgraphCore', () => {
 
     expect([...Schema.from(document).refs]).toMatchInlineSnapshot(`
       Array [
+        <>[+] schema {
+        query: RootQuery
+        mutation: Mutation
+      },
+        <>[+] query: RootQuery,
+        <#RootQuery>[GraphQL request] query: 👉RootQuery,
+        <>[+] mutation: Mutation,
+        <#Mutation>[GraphQL request] mutation: 👉Mutation,
         <#@stream>[GraphQL request] 👉directive @stream on FIELD,
         <#@transform>[GraphQL request] 👉directive @transform(from: String!) on FIELD,
         <https://specs.graphql.org/#String>[GraphQL request] directive @transform(from: 👉String!) on FIELD,
@@ -246,11 +257,6 @@ describe('subgraphCore', () => {
         <#JSON>[GraphQL request] 👉scalar JSON,
         <#@tag>[GraphQL request] 👉@tag(name: "from-reviews"),
         <https://specs.graphql.org/#@specifiedBy>[GraphQL request] 👉@specifiedBy(url: "https://json-spec.dev"),
-        <>[GraphQL request] 👉schema {,
-        <>[GraphQL request] 👉query: RootQuery,
-        <#RootQuery>[GraphQL request] query: 👉RootQuery,
-        <>[GraphQL request] 👉mutation: Mutation,
-        <#Mutation>[GraphQL request] mutation: 👉Mutation,
         <#RootQuery>[GraphQL request] 👉type RootQuery {,
         <https://specs.graphql.org/#ID>[GraphQL request] user(id: 👉ID!): User,
         <#User>[GraphQL request] user(id: ID!): 👉User,
@@ -322,6 +328,11 @@ describe('subgraphCore', () => {
     `);
 
     expect(raw(print(document))).toMatchInlineSnapshot(`
+      schema {
+        query: RootQuery
+        mutation: Mutation
+      }
+
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
@@ -336,11 +347,6 @@ describe('subgraphCore', () => {
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       scalar JSON @tag(name: "from-reviews") @specifiedBy(url: "https://json-spec.dev")
-
-      schema {
-        query: RootQuery
-        mutation: Mutation
-      }
 
       type RootQuery {
         user(id: ID!): User

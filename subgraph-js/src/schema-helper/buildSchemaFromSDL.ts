@@ -1,6 +1,6 @@
 import Schema, { byKind, byName, err, LinkUrl, flat, only, toDefinitionKind, report, maybe, isAst, GRef, hasName } from '@apollo/core-schema';
 import { hasRef } from '@apollo/core-schema/dist/de';
-import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind, visit } from 'graphql';
+import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind, NamedTypeNode, OperationTypeNode, StringValueNode, visit } from 'graphql';
 import { ATLAS,  FEDERATION_URLS,  FEDERATION_V2_0,  SUBGRAPH_BASE } from '../federation-atlas';
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
 
@@ -110,7 +110,7 @@ export function subgraphCore(document: DocumentNode): DocumentNode {
     // the document in non-core form
     return fed1Subgraph(output)
   }
-  return withImplicitDefinitions(output.document)
+  return mergeSchemaDefinitions(withImplicitDefinitions(output.document))
 }
 
 function linksFed2(schema: Schema) {
@@ -132,7 +132,7 @@ function linksFed2(schema: Schema) {
 const FED1_FIELDSET = GRef.named('FieldSet', 'https://specs.apollo.dev/federation/v1.0')
 function fed1Subgraph(schema: Schema): DocumentNode {
   const {document} = schema.dangerousRemoveHeaders()
-  return withImplicitDefinitions(visit(document, {
+  return mergeSchemaDefinitions(withImplicitDefinitions(visit(document, {
     enter(node) {
       if (hasName(node) && hasRef(node) && node.gref === FED1_FIELDSET) {
         return {
@@ -143,7 +143,43 @@ function fed1Subgraph(schema: Schema): DocumentNode {
       }
       return undefined
     }
-  }))
+  })))
+}
+
+function mergeSchemaDefinitions(document: DocumentNode): DocumentNode {
+  const operationTypes: Partial<Record<OperationTypeNode, NamedTypeNode>> = {}
+  const schemaDirectives = []
+  let description: StringValueNode | undefined = undefined
+  let hasAnyDefinitions = false
+  const doc = visit(document, {
+    SchemaDefinition(node) {
+      hasAnyDefinitions = true
+      for (const op of node.operationTypes) {
+        operationTypes[op.operation] = op.type
+      }
+      if (node.directives) schemaDirectives.push(...node.directives)
+      if (node.description)
+        description = description ? {
+          ...description,
+          value: [description.value, node.description.value].join('\n'),
+        } : node.description
+      return null
+    }
+  })
+  if (!hasAnyDefinitions) return doc
+  return {
+    ...doc,
+    definitions: [{
+      kind: Kind.SCHEMA_DEFINITION,
+      description,
+      operationTypes: Object.entries(operationTypes)
+        .map(([operation, type]) => ({
+          kind: Kind.OPERATION_TYPE_DEFINITION,
+          operation: operation as OperationTypeNode,
+          type
+        }))
+      }, ...doc.definitions]
+  }
 }
 
 function withImplicitDefinitions(doc: DocumentNode) {
