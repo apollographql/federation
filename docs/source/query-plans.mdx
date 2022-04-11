@@ -431,7 +431,7 @@ Flatten(path: "hotels.@") {
 
 Instead of containing a GraphQL operation, this `Fetch` node contains two **GraphQL fragments**, separated by `=>`.
 
-* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#resolving-entities).
+* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
 * The second fragment contains the entity fields and subfields that the gateway needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
 When the gateway sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./subgraphs/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
@@ -444,7 +444,6 @@ You can view the query plan for a particular operation in any of the following w
 
 * [In the Apollo Studio Explorer](https://www.apollographql.com/docs/studio/explorer/additional-features/#query-plans-for-federated-graphs)
     * Note that you must [register your federated graph](./managed-federation/setup/) with Apollo Studio to view query plans in the Explorer.
-* [In Apollo Workbench](./workbench/overview/#view-query-plans), the VS Code extension for designing federated graphs
 * As direct output from your gateway (see below)
 
 ### Outputting query plans from the gateway
