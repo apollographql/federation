@@ -1,7 +1,10 @@
 # CHANGELOG for `@apollo/subgraph`
 
-This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/subgraph-js/
-CHANGELOG.md) on the `version-0.x` branch of this repo.
+This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/subgraph-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
+
+## v2.0.0-preview.14
+
+- Implement `buildSubgraphSchema` using federation internals [PR #1697](https://github.com/apollographql/federation/pull/1697)
 
 ## v2.0.0-preview.13
 
