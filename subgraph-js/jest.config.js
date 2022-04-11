@@ -9,10 +9,4 @@ module.exports = {
     name: "@apollo/subgraph",
     color: "blue",
   },
-  snapshotSerializers: [
-    '@apollo/core-schema/dist/snapshot-serializers/ast',
-    '@apollo/core-schema/dist/snapshot-serializers/raw',
-    '@apollo/core-schema/dist/snapshot-serializers/gref',
-    '@apollo/core-schema/dist/snapshot-serializers/redirect',
-  ]
 };

@@ -12,7 +12,7 @@ describe('printSubgraphSchema', () => {
         mutation: Mutation
       }
 
-      extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+      extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
 
       directive @stream on FIELD
 
@@ -75,8 +75,6 @@ describe('printSubgraphSchema', () => {
         userAccount(id: ID! = 1): User @requires(fields: \\"name\\")
         description: String @override(from: \\"books\\")
       }
-
-      scalar federation__FieldSet
       "
     `);
   });
@@ -100,7 +98,7 @@ describe('printSubgraphSchema', () => {
   it('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+      "extend schema @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
 
       directive @stream on FIELD
 
@@ -193,8 +191,6 @@ describe('printSubgraphSchema', () => {
       }
 
       union MetadataOrError = KeyValue | Error
-
-      scalar federation__FieldSet
       "
     `);
   });

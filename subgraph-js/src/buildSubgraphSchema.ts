@@ -6,9 +6,9 @@ import {
   isUnionType,
   GraphQLUnionType,
   GraphQLObjectType,
-  buildASTSchema,
-  print,
-  concatAST
+  specifiedDirectives,
+  visit,
+  GraphQLDirective,
 } from 'graphql';
 import {
   GraphQLSchemaModule,
@@ -16,13 +16,14 @@ import {
   addResolversToSchema,
   modulesFromSDL,
   transformSchema,
-  subgraphCore
+  buildSchemaFromSDL,
 } from './schema-helper';
 
-import { typeIncludesDirective } from './directives';
+import { federationDirectives, typeIncludesDirective } from './directives';
 
 import { serviceField, entitiesField, EntityType } from './types';
 
+import { printSubgraphSchema } from './printSubgraphSchema';
 
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
@@ -30,6 +31,23 @@ type LegacySchemaModule = {
 };
 
 export { GraphQLSchemaModule };
+
+function missingFederationDirectives(modules: GraphQLSchemaModule[]): GraphQLDirective[] {
+  // Copying the array as we're going to modify it.
+  const missingDirectives = federationDirectives.concat();
+  for (const mod of modules) {
+    visit(mod.typeDefs, {
+      DirectiveDefinition: (def) => {
+        const matchingFedDirectiveIdx = missingDirectives.findIndex((d) => d.name === def.name.value);
+        if (matchingFedDirectiveIdx >= 0) {
+          missingDirectives.splice(matchingFedDirectiveIdx, 1);
+        }
+        return def;
+      }
+    });
+  }
+  return missingDirectives;
+}
 
 export function buildSubgraphSchema(
   modulesOrSDL:
@@ -63,16 +81,24 @@ export function buildSubgraphSchema(
   }
 
   const modules = modulesFromSDL(shapedModulesOrSDL);
-  const mergedDocument = concatAST(modules.map(module => module.typeDefs));
-  const document = subgraphCore(mergedDocument)
 
-  let schema = buildASTSchema(document)
+  let schema = buildSchemaFromSDL(
+    modules,
+    new GraphQLSchema({
+      query: undefined,
+      directives: [...specifiedDirectives, ...missingFederationDirectives(modules)],
+    }),
+  );
 
   // At this point in time, we have a schema to be printed into SDL which is
   // representative of what the user defined for their schema. This is before
   // we process any of the federation directives and add custom federation types
   // so its the right place to create our service definition sdl.
-  const sdl = print(document);
+  //
+  // We have to use a modified printSchema from graphql-js which includes
+  // support for preserving the *uses* of federation directives while removing
+  // their *definitions* from the sdl.
+  const sdl = printSubgraphSchema(schema);
 
   // Add an empty query root type if none has been defined
   if (!schema.getQueryType()) {
