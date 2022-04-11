@@ -47,7 +47,7 @@ const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL sche
 
 export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   err(validationErrorCode, {
-    message,
+    message: message + '. Caused by:\n' + causes.map((c) => c.toString()).join('\n\n'),
     causes
   });
 
