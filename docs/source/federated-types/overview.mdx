@@ -48,8 +48,8 @@ type User @key(fields: "id") {
 # this to opt in to
 # Federation 2 features.)
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
 ```
 
 ```graphql title="Products"
@@ -64,8 +64,8 @@ type Product @key(fields: "upc") {
 }
 
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
 ```
 
 ```graphql title="Reviews"
@@ -86,9 +86,11 @@ type Product @key(fields: "upc") {
   reviews: [Review]
 }
 
+# (This subgraph uses additional
+# federated directives)
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable", "@provides", "@external"])
 ```
 
 </CodeColumns>

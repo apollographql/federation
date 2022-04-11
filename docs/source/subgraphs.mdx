@@ -69,8 +69,8 @@ For a subgraph to use [new features in Federation 2](./federation-2/new-in-feder
 ```js {2-4}
 const typeDefs = gql`
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
 
   type Query {
     me: User
@@ -85,6 +85,8 @@ extend schema
 
 This definition designates a schema as a "true" Federation 2 schema. Without it, Federation 2 composition assumes a subgraph is using Federation 1, and it sets certain defaults for backward compatibility.
 
+> As you begin using more [federation-specific directives](./federated-types/federated-directives) beyond `@key` and `@shareable`, you'll need to add those directives to the `import` array shown above.
+
 ### 3. Define an entity
 
 > Entities aren't _required_ in a subgraph, but they're a core building block of a federated graph, so it's good to get some practice defining them.
@@ -95,7 +97,7 @@ As part of our federated architecture, we want _other_ subgraphs to be able to c
 const typeDefs = gql`
   extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+          import: ["@key", "@shareable"])
 
   type Query {
     me: User
@@ -158,7 +160,7 @@ const { buildSubgraphSchema } = require('@apollo/subgraph');
 const typeDefs = gql`
   extend schema
     @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+          import: ["@key", "@shareable"])
 
   type Query {
     me: User

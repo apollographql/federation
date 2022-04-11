@@ -1,8 +1,8 @@
 ---
-title: What's new in the Federation 2 preview
+title: What's new in Federation 2
 ---
 
-> ⚠️ **Apollo Federation 2 is in public preview.** It is not yet feature-complete, and breaking changes might occur between this release and general availability. [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
+> 📣 **Apollo Federation 2 is now generally available!** [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
 
 **Apollo Federation 2** provides developer experience improvements to the original specification for Apollo Federation (called **Federation 1** in these docs). If your organization has an existing Federation 1 graph, this article summarizes the upcoming benefits of [moving to Federation 2](./moving-to-federation-2/).
 
@@ -88,7 +88,7 @@ This flexibility is especially helpful when an organization has multiple standal
 * The return type of a shared field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
-> For details on how these field differences are handled, see [Sharing types](../federated-types/sharing-types/).
+> For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
 
 ### Enums, unions, and interfaces
 
@@ -178,7 +178,7 @@ For more information, see [Resolving another subgraph's field](../entities-advan
 
 ### Changes to `@key`
 
-Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph _doesn't_ resolve any fields of a particular entity.
+Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph doesn't define a [reference resolver](../entities/#2-define-a-reference-resolver) for that entity.
 
 For example:
 
@@ -207,13 +207,41 @@ type Review {
 
 </CodeColumns>
 
-In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any fields to the entity. Therefore, the "stub" definition of `Product` in the Reviews subgraph needs to include _only_ the `@key` field for `Product` (`id` in this case) and indicate that it can't resolve any other fields.
+In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any unique fields to `Product`, so it doesn't need to define a reference resolver for it. Therefore, the "stub" definition of `Product` in the Reviews subgraph can include `resolvable: false`.
 
 For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
 
+### Migrating fields
+
+Federation 2 introduces the `@override` directive, which helps you safely migrate entity fields between subgraphs with managed federation:
+
+<CodeColumns>
+
+```graphql title="Payments subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int!
+}
+
+type Payment {
+  # ...
+}
+```
+
+```graphql {3} title="Billing subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int! @override(from: "Payments")
+}
+```
+
+</CodeColumns>
+
+For details, see [Entity migration](../entities-advanced/#entity-migration).
+
 ## Interfaces implementing interfaces
 
-Federation 1 composition incorrectly fails if an interface type implements _another_ interface type. This issue is resolved in Federation 2:
+Federation 1 composition incorrectly fails if an interface type implements _another_ interface. This issue is resolved in Federation 2:
 
 <p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
 

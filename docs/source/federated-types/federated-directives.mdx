@@ -1,0 +1,336 @@
+---
+title: Federation-specific GraphQL directives
+---
+
+Apollo Federation defines a collection of **directives** that you use in your subgraph schemas to enable certain features.
+
+## Importing directives
+
+To use federated directives in a Federation 2 subgraph schema, apply the `@link` directive with the following format to the `schema` type:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
+```
+
+You can apply this directive to your existing `schema` declaration if you have one, or to a new `extend schema` declaration (as shown above).
+
+Modify the `import` array to include whichever federated directives your subgraph schema uses. The example above imports the [`@key`](#key) and [`@shareable`](#shareable) directives (which are used most commonly).
+
+> Make sure to include the `@` in each directive name!
+
+### Renaming directives
+
+If a federated directive's name matches one of your own custom directives, you can rename the federated directive with the following syntax:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: [{ name: "@key", as: "@primaryKey"}, "@shareable"])
+```
+
+This example subgraph schema uses `@primaryKey` for the federated directive usually named [`@key`](#key).
+
+## Managing entities
+
+### `@key`
+
+Designates an object type as an [entity](../entities/).
+
+**Valid locations:** Object type definitions
+
+```graphql {1}
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `fields`
+
+</td>
+<td>
+
+**Required.** A GraphQL selection set (provided as a string) of fields and subfields that contribute to the entity's primary key.
+
+Examples:
+
+* `"id"`
+* `"username region"`
+* `"name organization { id }"`
+
+See also [Advanced `@key`s](../entities-advanced/#advanced-keys).
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `resolvable`
+
+`Boolean`
+</td>
+<td>
+
+If `false`, informs the gateway that this subgraph _doesn't_ define a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity. This means that gateway query plans can't "jump to" this subgraph to resolve fields that aren't defined in _another_ subgraph.
+
+Most commonly, you set this to `false` when [referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+
+The default value is `true`.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## Managing shared fields
+
+### `@shareable`
+
+Indicates that an object type's field is allowed to be resolved by multiple subgraphs (by default, each field can be resolved by only one subgraph).
+
+**Valid locations:** Field definitions; Object type definitions
+
+```graphql {2-3}
+type Position {
+  x: Int! @shareable
+  y: Int! @shareable
+}
+```
+
+If applied to an object type definition, _all_ of that type's fields are considered `@shareable`:
+
+```graphql {1}
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+```
+
+See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
+
+### `@inaccessible`
+
+Indicates that a field or type should be _omitted_ from the gateway's API schema, _even if it's also defined in other subgraphs_.
+
+**Valid locations:** Field definitions; Type definitions for objects, interfaces, and unions
+
+```graphql {4}
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int! @inaccessible
+}
+```
+
+An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, so the gateway still knows it exists (but clients can't include it in operations).
+
+**If a type is marked `@inaccessible`, all fields that return that type must also be marked `@inaccessible`.** Otherwise, a composition error occurs.
+
+The `@inaccessible` directive is helpful for [adding a new field to a shared value type](./sharing-types/#adding-new-shared-fields). Often when you add a value type field in _one_ subgraph, composition fails because that field isn't resolvable in _other_ subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the `@inaccessible` directive and begin using the field.
+
+### `@override`
+
+Indicates that a field is now resolved by this subgraph _instead of_ another subgraph where it's also defined.
+
+**Valid locations:** Field definitions
+
+```graphql {3} title="Inventory subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean! @override(from: "Products")
+}
+```
+
+You use `@override` to migrate a field from one subgraph to another. In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved by the Inventory subgraph but _not_ the Products subgraph, even though the Products subgraph also defines the field.
+
+You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. _Other_ subgraphs can still resolve the field.
+
+For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `from`
+
+`String`
+</td>
+<td>
+
+**Required.** The name of the other subgraph that no longer resolves the field.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## Referencing external fields
+
+### `@external`
+
+Indicates that a particular subgraph _can't_ resolve a particular object field in most cases, but the subgraph still needs to define that field for other purposes. Most commonly used in combination with [`@provides`](#provides) and/or [`@requires`](#requires).
+
+**Valid locations:** Field definitions
+
+```graphql {3} title="Inventory subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @external
+  inStock: Boolean!
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "name")
+  discontinuedProducts: [Product!]!
+}
+```
+
+The example subgraph above _usually_ can't resolve the `Product.name` field, but it _can_ at the `Query.outOfStockProducts` query path.
+
+
+### `@provides`
+
+Indicates that a particular subgraph can resolve particular fields, but _only_ at a particular query path.
+
+**Valid locations:** Field definitions
+
+```graphql {8} title="Inventory subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @external
+  inStock: Boolean!
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "name")
+  discontinuedProducts: [Product!]!
+}
+```
+
+The example subgraph above can resolve `Product.name` for products returned by `Query.outOfStockProducts` but _not_ `Query.discontinuedProducts`.
+
+> If a subgraph `@provides` a particular field that it can't _always_ resolve:
+>
+> * The subgraph must define that field and mark it as [`@external`](#external), as shown above.
+> * That field must be marked as either [`@shareable`](#shareable) or [`@external`](#external) in _every_ subgraph that defines it.
+>
+> Otherwise, a composition error occurs.
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `fields`
+
+</td>
+<td>
+
+**Required.** A GraphQL selection set (provided as a string) of object fields and subfields that the subgraph can resolve only at _this_ query path.
+
+Examples:
+
+* `"name"`
+* `"name address"`
+* `"... on Person { name address }"` (valid for fields that return a union or interface)
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+### `@requires`
+
+Indicates that a particular object field's resolver requires the values of _other_ fields that are resolved by _other_ subgraphs.
+
+**Valid locations:** Field definitions
+
+```graphql {5} title="Shipping subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  size: Int @external
+  weight: Int @external
+  shippingEstimate: String @requires(fields: "size weight")
+}
+```
+
+The example subgraph above resolves a `Product` object's `shippingEstimate` field, but it requires the product's `size` and `weight` to do so. These two fields are resolved by a different subgraph, so they're marked as [`@external`](#external).
+
+See also [Contributing computed entity fields](../entities-advanced/#contributing-computed-entity-fields).
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `fields`
+
+</td>
+<td>
+
+**Required.** A GraphQL selection set (provided as a string) of `@external` object fields and subfields that this field requires.
+
+Examples:
+
+* `"name"`
+* `"name address"`
+* `"name organization { id }"`
+
+</td>
+</tr>
+
+</tbody>
+</table>

@@ -59,8 +59,8 @@ To use `@shareable` in a subgraph schema, you first need to add the following sn
 
 ```graphql
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: ["@key", "@requires", "@shareable", "@provides", "@external"])
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
 ```
 
 Then you can apply the `@shareable` directive to an object type, or to _individual fields_ of that type:
@@ -88,19 +88,19 @@ type Position {
 
 > Marking a type as `@shareable` is equivalent to marking _all_ of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
 
-Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schema will successfully compose into a supergraph schema.
+Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schemas will successfully compose into a supergraph schema.
 
 #### ⚠️ Important considerations for `@shareable`
 
 * If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
 * If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
-### Varying shared object fields
+## Differing shared fields
 
 Shared fields can differ between subgraphs in specific ways:
 * The return type of a shared field can vary in nullability (`String` / `String!`).
   * A shared field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A shared field can be omitted from a subgraph entirely if that field is always [resolvable](../federated-types/composition/#rules-of-composition).
+* A shared field can be omitted from a subgraph entirely, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
 
 For example, take a look at the shared `Food` type below:
 
@@ -127,7 +127,7 @@ type Food @shareable {
 
 The above `Food` types differ in the nullability of their fields _and_ the fields included in each type.
 
-#### Differing return types
+### Return types
 
 Let's say two subgraphs both define an `Event` object type with a `timestamp` field:
 
@@ -189,7 +189,77 @@ This definition works for querying Subgraph A, because Subgraph A's definition i
 
 > Note that Subgraph A's actual subgraph schema is _not_ modified. Within Subgraph A, `x` and `y` remain non-nullable.
 
-#### Omitting fields
+### Arguments
+
+Arguments for a shared field can differ between subgraphs in certain ways:
+
+* If an argument is _required_ in at least one subgraph, it can be _optional_ in other subgraphs. **It cannot be omitted.**
+* If an argument is _optional in every subgraph where it's defined_, it _can_ be omitted in other subgraphs. _However:_
+    * ⚠️ **If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely!** This means that clients _can't_ provide the argument for that field.
+
+<p style="margin-bottom: 0">✅</p>
+
+<CodeColumns>
+
+```graphql {3} title="Subgraph A"
+type Building @shareable {
+  # Argument is required
+  height(units: String!): Int!
+}
+```
+
+```graphql {3} title="Subgraph B"
+type Building @shareable {
+  # Argument can be optional
+  height(units: String): Int!
+}
+```
+
+</CodeColumns>
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql {3} title="Subgraph A"
+type Building @shareable {
+  # Argument is required
+  height(units: String!): Int!
+}
+```
+
+```graphql {3} title="Subgraph B"
+type Building @shareable {
+  # ⚠️ Argument can't be omitted! ⚠️
+  height: Int!
+}
+```
+
+</CodeColumns>
+
+<p style="margin-bottom: 0">⚠️</p>
+
+<CodeColumns>
+
+```graphql {3} title="Subgraph A"
+type Building @shareable {
+  # Argument is optional
+  height(units: String): Int!
+}
+```
+
+```graphql {5} title="Subgraph B"
+type Building @shareable {
+  # Argument can be omitted, BUT
+  # it doesn't appear in the
+  # supergraph schema!
+  height: Int!
+}
+```
+
+</CodeColumns>
+
+### Omitting fields
 
 Look at these two definitions of a `Position` object type:
 
@@ -211,8 +281,6 @@ type Position @shareable {
   z: Int!
 }
 ```
-
-<></>
 
 </CodeColumns>
 
@@ -270,6 +338,124 @@ And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, 
 
 **Composition recognizes this potential problem, and it fails with an error.** So how do we fix it? Check out [Solutions for unresolvable fields](./composition/#solutions-for-unresolvable-fields).
 
+## Adding new shared fields
+
+Adding a new field to a value type can cause composition issues, because it's challenging to add the field to _all_ defining subgraphs at the same time.
+
+Let's say we're adding a `z` field to our `Position` value type, and we start with Subgraph A:
+
+<p style="margin-bottom: 0">⚠️</p>
+
+<CodeColumns>
+
+```graphql {4} title="Subgraph A"
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int!
+}
+```
+
+```graphql title="Subgraph B"
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+```
+
+</CodeColumns>
+
+It's likely that when we attempt to compose these two schemas, composition will _fail_, because Subgraph B can't resolve `Position.z`.
+
+To incrementally add the field to _all_ of our subgraphs _without_ breaking composition, we can use the [`@inaccessible` directive](#using-inaccessible).
+
+
+### Using `@inaccessible`
+
+If you apply the `@inaccessible` directive to a field, composition _omits_ that field from your gateway's API schema. This helps you incrementally add a field to _multiple_ subgraphs without breaking composition.
+
+To use `@inaccessible` in a subgraph, first make sure you include it in the `import` array of your Federation 2 opt-in declaration:
+
+```graphql {3} title="Subgraph A"
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable", "@inaccessible"])
+```
+
+Then, whenever you add a new field to a value type, apply `@inaccessible` to that field if it isn't yet present in _every_ subgraph that defines the value type:
+
+<CodeColumns>
+
+```graphql {4} title="Subgraph A"
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int! @inaccessible
+}
+```
+
+```graphql title="Subgraph B"
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+```
+
+</CodeColumns>
+
+> Even if `Position.z` is defined in _multiple_ subgraphs, you only need to apply `@inaccessible` in _one_ subgraph to omit it. In fact, you might _want_ to apply it in only one subgraph to simplify removing it later.
+
+With the syntax above, composition omits `Position.z` from the generated API schema, and the resulting `Position` type includes only `x` and `y` fields.
+
+> Note that `Position.z` _does_ appear in the _supergraph_ schema, but the _API_ schema enforces which fields clients can include in operations. [Learn more about federated schemas.](./overview/)
+
+Whenever you're ready, you can now add `Position.z` to Subgraph B:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int! @inaccessible
+}
+```
+
+```graphql {4} title="Subgraph B"
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int!
+}
+```
+
+</CodeColumns>
+
+At this point, `Position.z` is _still_ `@inaccessible`, so composition continues to ignore it.
+
+Finally, when you've added `Position.z` to every subgraph that defines `Position`, you can remove `@inaccessible` from Subgraph A:
+
+<CodeColumns>
+
+```graphql {4} title="Subgraph A"
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int!
+}
+```
+
+```graphql title="Subgraph B"
+type Position @shareable {
+  x: Int!
+  y: Int!
+  z: Int!
+}
+```
+
+</CodeColumns>
+
+Composition now successfully includes `Position.z` in the supergraph schema!
 
 ## Enums, unions, and interfaces
 

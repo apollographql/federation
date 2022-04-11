@@ -17,6 +17,7 @@ To provide these details to Rover, we define a YAML configuration file.
 In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
 ```yaml title="supergraph-config.yaml"
+federation_version: 2 # Without this line, Rover uses Federation 1
 subgraphs:
   products:
     routing_url: https://rover.apollo.dev/quickstart/products/graphql
@@ -37,17 +38,21 @@ These URLs might theoretically differ. The YAML file also supports providing a s
 
 ## 2. Perform composition
 
-Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `fed2 supergraph compose` command.
+Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
 
-> [Haven't installed Rover or its Federation 2 plugin?](./setup/#1-install-the-rover-cli)
+> [Haven't installed the latest version of Rover?](./setup/#1-install-the-rover-cli)
 
 From your project directory, run the following command in your terminal:
 
 ```bash
-rover fed2 supergraph compose --config ./supergraph-config.yaml
+rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-> 📣 **Federation 2 changes:** Note that this command is `rover fed2 supergraph compose`, _not_ `rover supergraph compose` (which uses Federation 1 composition).
+> ⚠️ **Important:** The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
+>
+> To automatically accept this prompt (especially important for CI environments), set `APOLLO_ELV2_LICENSE=accept`.
+>
+> [Learn more.](/resources/elastic-license-v2-faq/)
 
 Rover outputs the following schema:
 
@@ -184,7 +189,7 @@ As you can see, this composed schema includes all of the types and fields from o
 Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
-rover fed2 supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
+rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
 ```
 
 ## 3. Update the gateway
