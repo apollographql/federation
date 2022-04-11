@@ -2,6 +2,22 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## v2.0.0
+
+- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+
+## v2.0.0-preview.14
+
+- Implement `buildSubgraphSchema` using federation internals [PR #1697](https://github.com/apollographql/federation/pull/1697)
+
+## v2.0.0-preview.13
+
+- Revert previous `@apollo/core-schema` update due to incopatibilities with some existing schemas [PR #1704](https://github.com/apollographql/federation/pull/1704)
+
+## v2.0.0-preview.12
+
+- Generate a core schema in `buildSubgraphSchema`, incorporating the latest changes from `@apollo/core-schema` [PR #1554](https://github.com/apollographql/federation/pull/1554)
+
 ## v2.0.0-preview.11
 
 - Fix issues validating default values [PR #1692)](https://github.com/apollographql/federation/pull/1692).

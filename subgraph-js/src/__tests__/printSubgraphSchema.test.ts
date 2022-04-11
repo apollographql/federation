@@ -28,10 +28,10 @@ describe('printSubgraphSchema', () => {
       scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\") @tag(name: \\"from-reviews\\")
 
       type RootQuery {
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
         user(id: ID!): User
         me: User
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
       }
 
       type PasswordAccount @key(fields: \\"email\\") {
@@ -76,6 +76,18 @@ describe('printSubgraphSchema', () => {
         description: String @override(from: \\"books\\")
       }
 
+      enum link__Purpose {
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        \\"\\"\\"
+        EXECUTION
+      }
+
       scalar federation__FieldSet
       "
     `);
@@ -89,6 +101,8 @@ describe('printSubgraphSchema', () => {
 
     expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
       "scalar JSON
+
+      scalar _FieldSet
 
       type Query {
         _service: _Service!
@@ -107,9 +121,9 @@ describe('printSubgraphSchema', () => {
       directive @transform(from: String!) on FIELD
 
       type Query {
+        topReviews(first: Int = 5): [Review]
         _entities(representations: [_Any!]!): [_Entity]!
         _service: _Service!
-        topReviews(first: Int = 5): [Review]
       }
 
       type Review @key(fields: \\"id\\") {
@@ -193,6 +207,18 @@ describe('printSubgraphSchema', () => {
       }
 
       union MetadataOrError = KeyValue | Error
+
+      enum link__Purpose {
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        \\"\\"\\"
+        EXECUTION
+      }
 
       scalar federation__FieldSet
       "

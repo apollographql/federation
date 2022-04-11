@@ -2,6 +2,22 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## v2.0.0
+
+- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+
+## v2.0.0-preview.14
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.13
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.12
+
+- Released in sync with other federation packages but no changes to this package.
+
 ## v2.0.0-preview.11
 
 - Add a level to hints, uppercase their code and related fixes [PR #1683](https://github.com/apollographql/federation/pull/1683).

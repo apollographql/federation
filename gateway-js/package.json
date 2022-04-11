@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "2.0.0-preview.11",
+  "version": "2.0.0",
   "description": "Apollo Gateway",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@apollo/composition": "file:../composition-js",
-    "@apollo/core-schema": "^0.3",
+    "@apollo/core-schema": "~0.2.3",
     "@apollo/query-planner": "file:../query-planner-js",
     "@apollo/utils.logger": "^1.0.0",
     "@josephg/resolvable": "^1.0.1",
