@@ -32,6 +32,3 @@ node_modules/
 
 # Local Netlify folder
 .netlify
-
-# router build artifact
-router-bridge
