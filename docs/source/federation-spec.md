@@ -263,7 +263,9 @@ directive @link(
 ) repeatable on SCHEMA
 ```
 
-The `@link` directive links definitions within the document to external schemas. External schemas are identified by their `url`, which optionally ends with a name and version in the form `name`/v`major`.`minor`.
+The `@link` directive links definitions within the document to external schemas. 
+
+External schemas are identified by their `url`, which optionally ends with a name and version with the following format: `{NAME}`/v`{MAJOR}`.`{MINOR}`
 
 The presence of a `@link` directive makes a document a [core schema](https://specs.apollo.dev/#def-core-schema).
 
@@ -271,7 +273,7 @@ The `for` argument describes the purpose of a `@link`. Currently accepted values
 
 By default, `@link`ed definitions will be namespaced, i.e., `@federation__requires`. The `as` argument lets you pick the name for this namespace:
 ```graphql
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.0". as: "fed2")
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", as: "fed2")
 type User {
   metrics: Metrics @external
   favorites: UserFavorites @fed2__requires(fields: "metrics")
