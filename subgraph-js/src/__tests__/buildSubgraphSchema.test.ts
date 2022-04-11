@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import { Kind, graphql, DocumentNode, execute, type DefinitionNode } from 'graphql';
+import { Kind, graphql, DocumentNode, execute, type DefinitionNode, OperationTypeNode } from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
 import { errorCauses } from '@apollo/federation-internals';
@@ -887,7 +887,55 @@ type Query {
         'Unknown directive "@key". If you meant the "@key" federation directive, you should use "@primaryKey" as it is imported under that name in the @link to the federation specification of this schema.'
       ]);
     }
-  })
+  });
+
+  it('do not break if the schema definition AST uses undefined for directives', () => {
+    // This AST is equilvalent to:
+    //   schema {
+    //     query: Query
+    //   }
+    //
+    //   type Query {
+    //     test: String
+    //   }
+    //
+    // but the AST used `undefined` for fields not present, where `gql` applied
+    // to the SDL abolve would use empty arrays instead. Of course, both are
+    // valid and this shouldn't make a different, but this has tripped code before,
+    // hence this test.
+    const doc: DocumentNode = {
+      kind: Kind.DOCUMENT,
+      definitions: [
+        {
+          kind: Kind.SCHEMA_DEFINITION,
+          operationTypes: [
+            {
+              kind: Kind.OPERATION_TYPE_DEFINITION,
+              operation: OperationTypeNode.QUERY,
+              type: { kind: Kind.NAMED_TYPE, name: { kind: Kind.NAME, value: 'Query' } }
+            },
+          ]
+        },
+        {
+          kind: Kind.OBJECT_TYPE_DEFINITION,
+          name: { kind: Kind.NAME, value: 'Query' },
+          fields: [
+            {
+              kind: Kind.FIELD_DEFINITION,
+              name: { kind: Kind.NAME, value: 'test' },
+              type: {
+                kind: Kind.NAMED_TYPE,
+                name: { kind: Kind.NAME, value: 'String' }
+              },
+            },
+          ]
+        },
+      ],
+    };
+
+
+    expect(() => buildSubgraphSchema(doc)).not.toThrow();
+  });
 });
 
 describe('legacy interface', () => {
@@ -1012,3 +1060,4 @@ type Product {
     );
   });
 });
+
