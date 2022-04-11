@@ -154,9 +154,9 @@ describe('buildSubgraphSchema', () => {
       scalar link__Import
 
       """federation 1.0 key directive"""
-      directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
-      scalar federation__FieldSet
+      scalar _FieldSet
 
       type Query
     `);
@@ -381,11 +381,11 @@ describe('buildSubgraphSchema', () => {
         scalar link__Import
 
         """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external on OBJECT | FIELD_DEFINITION
 
-        scalar federation__FieldSet
+        scalar _FieldSet
 
         type Product
       `);
@@ -440,11 +440,11 @@ describe('buildSubgraphSchema', () => {
         scalar link__Import
 
         """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external on OBJECT | FIELD_DEFINITION
 
-        scalar federation__FieldSet
+        scalar _FieldSet
 
         interface Product
       `);
@@ -477,9 +477,9 @@ describe('buildSubgraphSchema', () => {
         scalar link__Import
 
         """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
-        scalar federation__FieldSet
+        scalar _FieldSet
       `);
     });
     it('returns valid sdl for multiple @key directives', async () => {
@@ -510,9 +510,9 @@ describe('buildSubgraphSchema', () => {
         scalar link__Import
 
         """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
-        scalar federation__FieldSet
+        scalar _FieldSet
       `);
     });
     it('supports all federation directives', async () => {
@@ -566,13 +566,13 @@ describe('buildSubgraphSchema', () => {
         scalar link__Import
 
         """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
-        directive @provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+        directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
         directive @external on OBJECT | FIELD_DEFINITION
 
-        scalar federation__FieldSet
+        scalar _FieldSet
 
         type User
 
@@ -608,11 +608,11 @@ describe('buildSubgraphSchema', () => {
         scalar link__Import
 
         """federation 1.0 key directive"""
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
         directive @external on OBJECT | FIELD_DEFINITION
 
-        scalar federation__FieldSet
+        scalar _FieldSet
 
         type User
       `);

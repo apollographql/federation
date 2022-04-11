@@ -1,5 +1,6 @@
-import Schema, { byKind, byName, err, LinkUrl, flat, only, toDefinitionKind, report, maybe, isAst } from '@apollo/core-schema';
-import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind } from 'graphql';
+import Schema, { byKind, byName, err, LinkUrl, flat, only, toDefinitionKind, report, maybe, isAst, GRef, hasName } from '@apollo/core-schema';
+import { hasRef } from '@apollo/core-schema/dist/de';
+import { ASTNode, DefinitionNode, DocumentNode, GraphQLEnumType, GraphQLEnumValueConfig, GraphQLSchema, isAbstractType, isEnumType, isObjectType, isScalarType, Kind, visit } from 'graphql';
 import { ATLAS,  FEDERATION_URLS,  FEDERATION_V2_0,  SUBGRAPH_BASE } from '../federation-atlas';
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
 
@@ -107,7 +108,7 @@ export function subgraphCore(document: DocumentNode): DocumentNode {
     // if our scope was empty, we didn't @link anything
     // if we didn't @link anything, remove any generated headers to keep
     // the document in non-core form
-    output = output.dangerousRemoveHeaders()
+    return fed1Subgraph(output)
   }
   return withImplicitDefinitions(output.document)
 }
@@ -126,6 +127,23 @@ function linksFed2(schema: Schema) {
   if (versions.size > 1)
     report(ErrTooManyFederations(versions))
   return versions.has(FEDERATION_V2_0)
+}
+
+const FED1_FIELDSET = GRef.named('FieldSet', 'https://specs.apollo.dev/federation/v1.0')
+function fed1Subgraph(schema: Schema): DocumentNode {
+  const {document} = schema.dangerousRemoveHeaders()
+  return withImplicitDefinitions(visit(document, {
+    enter(node) {
+      if (hasName(node) && hasRef(node) && node.gref === FED1_FIELDSET) {
+        return {
+          ...node,
+          name: { ...node.name, value: "_FieldSet" },
+          gref: GRef.named('_FieldSet', schema.url)
+        }
+      }
+      return undefined
+    }
+  }))
 }
 
 function withImplicitDefinitions(doc: DocumentNode) {
@@ -149,3 +167,4 @@ function *implicitDefinitionNodes(document: DocumentNode): Iterable<DefinitionNo
     }
   }
 }
+

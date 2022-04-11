@@ -161,9 +161,9 @@ describe('subgraphCore', () => {
       scalar link__Import
 
       """federation 1.0 key directive"""
-      directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
-      scalar federation__FieldSet
+      scalar _FieldSet
 
       type User
     `);
@@ -225,7 +225,7 @@ describe('subgraphCore', () => {
         <https://specs.apollo.dev/federation/v1.0#@key>[builtin/federation/v1.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@requires>[builtin/federation/v1.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
+        <#_FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
       ]
     `);
 
@@ -313,11 +313,11 @@ describe('subgraphCore', () => {
         <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] directive @link(url: String!, as: String, import: [👉Import]),
         <https://specs.apollo.dev/link/v1.0#Import>[builtin/link/v1.0.graphql] 👉scalar Import,
         <https://specs.apollo.dev/federation/v1.0#@key>[builtin/federation/v1.0.graphql] 👉directive @key(fields: FieldSet!) repeatable on OBJECT | INTERFACE,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] directive @key(fields: 👉FieldSet!) repeatable on OBJECT | INTERFACE,
+        <#_FieldSet>[builtin/federation/v1.0.graphql] directive @key(fields: 👉FieldSet!) repeatable on OBJECT | INTERFACE,
         <https://specs.apollo.dev/federation/v1.0#@external>[builtin/federation/v1.0.graphql] 👉directive @external on OBJECT | FIELD_DEFINITION,
         <https://specs.apollo.dev/federation/v1.0#@requires>[builtin/federation/v1.0.graphql] 👉directive @requires(fields: FieldSet!) on FIELD_DEFINITION,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] directive @requires(fields: 👉FieldSet!) on FIELD_DEFINITION,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
+        <#_FieldSet>[builtin/federation/v1.0.graphql] directive @requires(fields: 👉FieldSet!) on FIELD_DEFINITION,
+        <#_FieldSet>[builtin/federation/v1.0.graphql] 👉scalar FieldSet,
       ]
     `);
 
@@ -394,13 +394,13 @@ describe('subgraphCore', () => {
       scalar link__Import
 
       """federation 1.0 key directive"""
-      directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
       directive @external on OBJECT | FIELD_DEFINITION
 
-      directive @requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+      directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
-      scalar federation__FieldSet
+      scalar _FieldSet
     `);
   });
 
