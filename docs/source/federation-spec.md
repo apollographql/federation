@@ -316,7 +316,7 @@ This type extension in the Reviews service extends the `User` type from the User
 directive @shareable on FIELD_DEFINITION | OBJECT
 ```
 
-The `@shareable` directive denotes that a field may be resolved by multiple subgraphs. Queries to a shareable field may potentially resolve to any subgraph which resolves the field. In order to successfully compose, a field must have the same shareability mode (either shareable or non-shareable) across all subgraphs.
+The `@shareable` directive is used to indicate that a field can be resolved by multiple subgraphs. Any subgraph that includes a shareable field can potentially resolve a query for that field.  To successfully compose, a field must have the same shareability mode (either shareable or non-shareable) across all subgraphs.
 
 Any field specified by a @key is automatically shareable. Adding the `@shareable` directive to an object is equivalent to marking each field on the object `@shareable`.
 
