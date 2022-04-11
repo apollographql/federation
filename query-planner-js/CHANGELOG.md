@@ -2,6 +2,10 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/query-planner-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## v2.0.0-preview.14
+
+- Released in sync with other federation packages but no changes to this package.
+
 ## v2.0.0-preview.13
 
 - Released in sync with other federation packages but no changes to this package.
