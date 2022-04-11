@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## v2.0.0
+
+- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+
 ## v2.0.0-preview.14
 
 - Implement `buildSubgraphSchema` using federation internals [PR #1697](https://github.com/apollographql/federation/pull/1697)

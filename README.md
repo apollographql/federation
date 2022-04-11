@@ -6,7 +6,7 @@
 
 Apollo Federation is an architecture for declaratively composing APIs into a unified graph. Each team can own their slice of the graph independently, empowering them to deliver autonomously and incrementally.
 
-Federation 2 [is in preview](https://www.apollographql.com/blog/backend/federation/apollo-federation-2-and-gateway-2-0-are-now-available-in-preview/) and is an evolution of the original Apollo Federation with an improved shared ownership model, enhanced type merging, and cleaner syntax for a smoother developer experience. It’s backwards compatible, requiring no major changes to your subgraphs.
+Federation 2 is an evolution of the original Apollo Federation with an improved shared ownership model, enhanced type merging, and cleaner syntax for a smoother developer experience. It’s backwards compatible, requiring no major changes to your subgraphs.
 
 Checkout the [v2 docs](https://www.apollographql.com/docs/federation/v2) and [demo repo](https://github.com/apollographql/supergraph-demo-fed2) to take it for a spin and [let us know what you think](https://community.apollographql.com/t/announcing-apollo-federation-2/1821)!
 
