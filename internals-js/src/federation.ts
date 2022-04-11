@@ -619,6 +619,10 @@ export class FederationMetadata {
 }
 
 export class FederationBlueprint extends SchemaBlueprint {
+  constructor(private readonly withRootTypeRenaming: boolean) {
+    super();
+  }
+
   onAddedCoreFeature(schema: Schema, feature: CoreFeature) {
     super.onAddedCoreFeature(schema, feature);
     if (feature.url.identity === federationIdentity) {
@@ -677,22 +681,24 @@ export class FederationBlueprint extends SchemaBlueprint {
 
     // We rename all root type to their default names (we do here rather than in `prepareValidation` because
     // that can actually fail).
-    for (const k of allSchemaRootKinds) {
-      const type = schema.schemaDefinition.root(k)?.type;
-      const defaultName = defaultRootName(k);
-      if (type && type.name !== defaultName) {
-        // We first ensure there is no other type using the default root name. If there is, this is a
-        // composition error.
-        const existing = schema.type(defaultName);
-        if (existing) {
-          errors.push(ERROR_CATEGORIES.ROOT_TYPE_USED.get(k).err({
-            message: `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
+    if (this.withRootTypeRenaming) {
+      for (const k of allSchemaRootKinds) {
+        const type = schema.schemaDefinition.root(k)?.type;
+        const defaultName = defaultRootName(k);
+        if (type && type.name !== defaultName) {
+          // We first ensure there is no other type using the default root name. If there is, this is a
+          // composition error.
+          const existing = schema.type(defaultName);
+          if (existing) {
+            errors.push(ERROR_CATEGORIES.ROOT_TYPE_USED.get(k).err({
+              message: `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
               + 'this is not supported by federation. '
               + 'If a root type does not use its default name, there should be no other type with that default name.',
-            nodes: sourceASTs(type, existing),
-          }));
+              nodes: sourceASTs(type, existing),
+            }));
+          }
+          type.rename(defaultName);
         }
-        type.rename(defaultName);
       }
     }
 
@@ -834,8 +840,6 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 }
 
-const federationBlueprint = new FederationBlueprint();
-
 function findUnusedNamedForLinkDirective(schema: Schema): string | undefined {
   if (!schema.directive(linkSpec.url.name)) {
     return undefined;
@@ -951,10 +955,11 @@ export function isEntityType(type: NamedType): boolean {
 export function buildSubgraph(
   name: string,
   url: string,
-  source: DocumentNode | string
+  source: DocumentNode | string,
+  withRootTypeRenaming: boolean = true,
 ): Subgraph {
   const buildOptions = {
-    blueprint: federationBlueprint,
+    blueprint: new FederationBlueprint(withRootTypeRenaming),
     validate: false,
   };
   let subgraph: Subgraph;
@@ -974,7 +979,7 @@ export function buildSubgraph(
 }
 
 export function newEmptyFederation2Schema(): Schema {
-  const schema = new Schema(federationBlueprint);
+  const schema = new Schema(new FederationBlueprint(true));
   setSchemaAsFed2Subgraph(schema);
   return schema;
 }

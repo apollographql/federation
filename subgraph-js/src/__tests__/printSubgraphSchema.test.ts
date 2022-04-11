@@ -7,7 +7,12 @@ describe('printSubgraphSchema', () => {
   it('prints a subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[0].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+      "schema {
+        query: RootQuery
+        mutation: Mutation
+      }
+
+      extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
 
       directive @stream on FIELD
 
@@ -21,6 +26,13 @@ describe('printSubgraphSchema', () => {
       }
 
       scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\") @tag(name: \\"from-reviews\\")
+
+      type RootQuery {
+        user(id: ID!): User
+        me: User
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
+      }
 
       type PasswordAccount @key(fields: \\"email\\") {
         email: String!
@@ -77,13 +89,6 @@ describe('printSubgraphSchema', () => {
       }
 
       scalar federation__FieldSet
-
-      type Query {
-        user(id: ID!): User
-        me: User
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
-      }
       "
     `);
   });

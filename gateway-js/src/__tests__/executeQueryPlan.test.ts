@@ -118,9 +118,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should include an error when a root-level field errors out`, async () => {
-      // Note that while "accounts" declares the root as 'RootQuery', we rename it to the standard.
       overrideResolversInService('accounts', {
-        Query: {
+        RootQuery: {
           me() {
             throw new AuthenticationError('Something went wrong');
           },
@@ -405,9 +404,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should still include other root-level results if one root-level field errors out`, async () => {
-      // Note that while "accounts" declares the root as 'RootQuery', we rename it to the standard.
       overrideResolversInService('accounts', {
-        Query: {
+        RootQuery: {
           me() {
             throw new Error('Something went wrong');
           },

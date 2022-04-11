@@ -212,7 +212,7 @@ type Query {
       `);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-type Query {
+type QueryRoot {
   rootField: String
   _entities(representations: [_Any!]!): [_Entity]!
   _service: _Service!
@@ -735,7 +735,7 @@ type Query {
     }`;
 
     const validateTag = async (
-      header: string, 
+      header: string,
       additionalHeader: string,
       directiveDefinitions: string,
       typeDefinitions: string,

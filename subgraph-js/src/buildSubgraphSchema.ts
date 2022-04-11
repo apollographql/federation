@@ -3,8 +3,6 @@ import {
   DocumentNode,
   GraphQLSchema,
   concatAST,
-  visit,
-  OperationTypeNode,
 } from 'graphql';
 import {
   GraphQLSchemaModule,
@@ -13,7 +11,7 @@ import {
   modulesFromSDL,
 } from './schema-helper';
 
-import { buildSubgraph, FEDERATION_UNNAMED_SUBGRAPH_NAME, printSchema } from '@apollo/federation-internals';
+import { assert, buildSubgraph, FEDERATION_UNNAMED_SUBGRAPH_NAME, printSchema } from '@apollo/federation-internals';
 import { entitiesResolver } from './types';
 
 type LegacySchemaModule = {
@@ -57,30 +55,26 @@ export function buildSubgraphSchema(
   const modules = modulesFromSDL(shapedModulesOrSDL);
   const documentAST = concatAST(modules.map(module => module.typeDefs));
 
-  let queryTypeName = 'Query';
-  visit(documentAST, {
-    SchemaDefinition: (def) => {
-      const foundName = def.operationTypes.find((t) => t.operation === OperationTypeNode.QUERY)?.type?.name;
-      if (foundName) {
-        queryTypeName = foundName.value;
-      }
-    }
-  });
-  const subgraph = buildSubgraph(FEDERATION_UNNAMED_SUBGRAPH_NAME, '', documentAST);
+  // Note: we disable root type renaming because we historically have only done it server side, not
+  // client side. It does create issues (https://github.com/apollographql/federation/issues/958) but...
+  const subgraph = buildSubgraph(FEDERATION_UNNAMED_SUBGRAPH_NAME, '', documentAST, false);
 
   const sdl = printSchema(subgraph.schema);
 
   const schema = subgraph.schema.toGraphQLJSSchema(true);
 
+  const queryRootName = subgraph.schema.schemaDefinition.rootType('query')?.name;
+  assert(queryRootName, 'A Query root type should have been added by `buildSubgraph`');
+
   addResolversToSchema(schema, {
-     Query : {
+     [queryRootName] : {
       _service: () => ({ sdl }),
     }
   });
 
   if (subgraph.metadata().entityType()) {
     addResolversToSchema(schema, {
-     Query : {
+     [queryRootName] : {
         _entities: (_source, { representations }, context, info) => entitiesResolver({ representations, context, info }),
       }
     });
@@ -88,11 +82,7 @@ export function buildSubgraphSchema(
 
   for (const module of modules) {
     if (!module.resolvers) continue;
-    const updatedResolvers: GraphQLResolverMap = {
-      ...module.resolvers,
-      Query: module.resolvers[queryTypeName] ?? {},
-    };
-    addResolversToSchema(schema, updatedResolvers);
+    addResolversToSchema(schema, module.resolvers);
   }
 
   return schema;
