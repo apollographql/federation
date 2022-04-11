@@ -278,7 +278,7 @@ type User {
 }
 ```
 
-The `import` argument lets you import external definitions into your namespace, so they are not prefixed.
+The `import` argument enables you to import external definitions into your namespace, so they are not prefixed.
 
 ```graphql
     schema
