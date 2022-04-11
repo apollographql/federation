@@ -60,7 +60,6 @@
     "Apollo Workbench": {
       "Overview": "/workbench/overview",
       "Setup": "/workbench/setup",
-      "Using with Federation 2": "/workbench/using-federation-2",
       "Creating a new graph": "/workbench/create-new-graph",
       "Importing a graph from Studio": "/workbench/import-studio-graph",
       "Setting up Managed Federation": "/workbench/design-to-studio",
