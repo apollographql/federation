@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## v2.0.0-preview.13
+
+- Released in sync with other federation packages but no changes to this package.
+
 ## v2.0.0-preview.12
 
 - Released in sync with other federation packages but no changes to this package.
