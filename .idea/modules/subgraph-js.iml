@@ -3,6 +3,7 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../subgraph-js">
+      <sourceFolder url="file://$MODULE_DIR$/../../subgraph-js/src/__tests__" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/../../subgraph-js/dist" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />

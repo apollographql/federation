@@ -3,6 +3,12 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../gateway-js">
+      <sourceFolder url="file://$MODULE_DIR$/../../gateway-js/src/__tests__" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../gateway-js/src/core/__tests__" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../gateway-js/src/datasources/__tests__" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../gateway-js/src/supergraphManagers/IntrospectAndCompose/__tests__" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../gateway-js/src/supergraphManagers/UplinkFetcher/__tests__" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../gateway-js/src/utilities/__tests__" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/../../gateway-js/dist" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />

@@ -3,6 +3,8 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../query-planner-js">
+      <sourceFolder url="file://$MODULE_DIR$/../../query-planner-js/src/__tests__" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../query-planner-js/src/utilities/__tests__" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/../../query-planner-js/dist" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
