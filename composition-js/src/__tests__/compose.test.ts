@@ -5,6 +5,7 @@ import {
   buildSubgraph,
   extractSubgraphsFromSupergraph,
   FEDERATION2_LINK_WTH_FULL_IMPORTS,
+  inaccessibleIdentity,
   InputObjectType,
   isObjectType,
   ObjectType,
@@ -2638,6 +2639,23 @@ describe('composition', () => {
       );
       expect(print(nodes[1])).toMatchString('q2: A');
     })
+
+    it('uses the SECURITY core purpose for inaccessible in the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            someField: String!
+            privateField: String! @inaccessible
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA]);
+      assertCompositionSuccess(result);
+      const supergraph = result.schema;
+      expect(supergraph.coreFeatures?.getByIdentity(inaccessibleIdentity)?.purpose).toBe('SECURITY');
+    });
   });
 
   describe('Enum types', () => {

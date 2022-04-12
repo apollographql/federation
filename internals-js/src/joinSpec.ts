@@ -1,5 +1,5 @@
 import { DirectiveLocation, GraphQLError } from 'graphql';
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
   EnumType,
@@ -175,6 +175,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
 
   ownerDirective(schema: Schema): DirectiveDefinition<{graph: string}> | undefined {
     return this.directive(schema, 'owner');
+  }
+
+  get defaultCorePurpose(): CorePurpose | undefined {
+    return 'EXECUTION';
   }
 }
 
