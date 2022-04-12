@@ -131,6 +131,10 @@ export abstract class FeatureDefinition {
     return features.getByIdentity(this.identity);
   }
 
+  get defaultCorePurpose(): CorePurpose | undefined {
+    return undefined;
+  }
+
   toString(): string {
     return `${this.identity}/${this.version}`
   }

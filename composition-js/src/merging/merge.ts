@@ -279,7 +279,7 @@ class Merger {
     // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to
     // the supergraph outside of a few well-known ones, we don't bother yet.
     linkSpec.addToSchema(this.merged);
-    const errors = linkSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
+    const errors = linkSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, joinSpec.defaultCorePurpose);
     assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
 
     for (const mergedInfo of MERGED_FEDERATION_DIRECTIVES) {
@@ -314,7 +314,7 @@ class Merger {
     // If we get here with `nameInSupergraph` unset, it means there is no usage for the directive at all and we
     // don't bother adding the spec to the supergraph.
     if (nameInSupergraph) {
-      const errors = linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph);
+      const errors = linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph, specInSupergraph.defaultCorePurpose);
       assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
       this.mergedFederationDirectiveNames.add(nameInSupergraph);
       this.mergedFederationDirectiveInSupergraph.set(specInSupergraph.url.name, this.merged.directive(nameInSupergraph)!);
