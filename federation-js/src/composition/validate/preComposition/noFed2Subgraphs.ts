@@ -22,7 +22,7 @@ export const noFed2Subgraphs = ({
             if (argNode.value.kind === Kind.STRING) {
               const url = argNode.value.value;
               const [,spec, versionRaw] = url.match(
-                /(federation|link)\/v(\d*\.\d*)/,
+                /(federation|link)\/v(\d+\.\d+)/,
               )!;
 
               const version = parseFloat(versionRaw);
