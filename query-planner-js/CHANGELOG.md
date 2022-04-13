@@ -6,6 +6,11 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned._
+
+
+## v0.10.1
+
 - Throw a `GraphQLSchemaValidationError` error for issues with the `@inaccessible` directive when calling `removeInaccessibleElements`. The error will contain a list of all validation errors pertaining to `@inaccessible` [PR #1581](https://github.com/apollographql/federation/pull/1581).
 
 ## v0.10.0
@@ -96,4 +101,3 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 # v0.1.0
 
 - Initial release of TypeScript query planner code extracted from `@apollo/gateway`. (Previous releases of this package were wrappers around `@apollo/query-planner-wasm`, a different implementation.)
-
