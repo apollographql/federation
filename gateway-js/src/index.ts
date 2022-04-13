@@ -60,7 +60,12 @@ import {
   LegacyFetcher,
   LocalCompose,
 } from './supergraphManagers';
-import { buildSupergraphSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import {
+  buildSupergraphSchema,
+  operationFromDocument,
+  Schema,
+  ServiceDefinition,
+} from '@apollo/federation-internals';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
