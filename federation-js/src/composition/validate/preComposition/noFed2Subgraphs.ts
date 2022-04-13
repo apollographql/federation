@@ -1,10 +1,10 @@
 import { visit, GraphQLError, Kind } from 'graphql';
 import { ServiceDefinition } from '../../types';
 
-import { errorWithCode } from '../../utils';
+import { errorWithCode, findDirectivesOnNode } from '../../utils';
 
 /**
- * - There are no fields with @external on base type definitions
+ * - There are no subgraphs that @link to a version that is unsupported by 1.0 composition.
  */
 export const noFed2Subgraphs = ({
   name: serviceName,
@@ -13,7 +13,7 @@ export const noFed2Subgraphs = ({
   const errors: GraphQLError[] = [];
   visit(typeDefs, {
     SchemaExtension(schemaExtensionNode) {
-      const directives = schemaExtensionNode.directives?.filter(directive => {
+      const directives = findDirectivesOnNode(schemaExtensionNode, 'link').filter(directive => {
         if (directive.name.value === 'link') {
           const argNode = directive.arguments?.find(
             arg => arg.name.value === 'url',
@@ -34,7 +34,7 @@ export const noFed2Subgraphs = ({
           }
         }
         return false;
-      }) ?? [];
+      });
       if (directives.length > 0) {
         errors.push(
           errorWithCode(
