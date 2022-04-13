@@ -949,9 +949,10 @@ export class CoreFeature {
     const elementImport = this.imports.find((i) => i.name.charAt(0) === '@' && i.name.slice(1) === name);
     return elementImport
       ? (elementImport.as?.slice(1) ?? name)
-      : name === this.url.name
-      ? this.nameInSchema
-      : this.nameInSchema + '__' + name;
+      : (name === this.url.name
+        ? this.nameInSchema
+        : this.nameInSchema + '__' + name
+      );
   }
 
   typeNameInSchema(name: string): string {
