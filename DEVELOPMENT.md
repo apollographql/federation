@@ -73,10 +73,10 @@ To bump the version, use the `release:version-bump` npm script.
 
 Immediately after bumping the version, use the `release:start-ci-publish` npm script to publish to npm.
 
-> __Note: By default, publishing will be done to the `latest` tag on npm.__  To publish on a different `dist-tag` set the `APOLLO_DIST_TAG` environment variable.  E.g. To publish to the `alpha` tag instead of `latest`, the following command would be `APOLLO_DIST_TAG=alpha npm run release:start-ci-publish`.
+> __Note: By default, publishing will be done to the `latest-1` tag on npm.__  To publish on a different `dist-tag` set the `APOLLO_DIST_TAG` environment variable.  E.g. To publish to the `alpha` tag instead of `latest-1`, the following command would be `APOLLO_DIST_TAG=alpha npm run release:start-ci-publish`.
 
 ```
-APOLLO_DIST_TAG=latest npm run release:start-ci-publish
+APOLLO_DIST_TAG=latest-1 npm run release:start-ci-publish
 ```
 
 #### Step 3b: Manually publishing
