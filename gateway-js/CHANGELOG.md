@@ -4,6 +4,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Add missing @apollo/federation-internals dependency to gateway [PR #1721](https://github.com/apollographql/federation/pull/1721)
 
+## v2.0.1
+
+- Use `for: SECURITY` in the core/link directive application in the supergraph for `@inaccessible` [PR #1715](https://github.com/apollographql/federation/pull/1715)
+
 ## v2.0.0
 
 - Previous preview release promoted to general availability! Please see previous changelog entries for full info.

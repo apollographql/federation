@@ -1,4 +1,4 @@
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   ArgumentDefinition,
   CoreFeatures,
@@ -91,6 +91,10 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
 
   allElementNames(): string[] {
     return ['@inaccessible'];
+  }
+
+  get defaultCorePurpose(): CorePurpose | undefined {
+    return 'SECURITY';
   }
 }
 

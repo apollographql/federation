@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## v2.0.1
+
+- Use `for: SECURITY` in the core/link directive application in the supergraph for `@inaccessible` [PR #1715](https://github.com/apollographql/federation/pull/1715)
+
 ## v2.0.0
 
 - Previous preview release promoted to general availability! Please see previous changelog entries for full info.
