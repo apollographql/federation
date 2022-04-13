@@ -2,6 +2,8 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+- Add missing @apollo/federation-internals dependency to gateway [PR #1721](https://github.com/apollographql/federation/pull/1721)
+
 ## v2.0.0
 
 - Previous preview release promoted to general availability! Please see previous changelog entries for full info.
@@ -12,7 +14,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## v2.0.0-preview.13
 
-- Revert previous `@apollo/core-schema` update due to incopatibilities with some existing schemas [PR #1704](https://github.com/apollographql/federation/pull/1704)
+- Revert previous `@apollo/core-schema` update due to incompatibilities with some existing schemas [PR #1704](https://github.com/apollographql/federation/pull/1704)
 
 ## v2.0.0-preview.12
 
