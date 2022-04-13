@@ -80,6 +80,10 @@
     {
       groupName: "all non-major dependencies",
       matchUpdateTypes: ["patch", "minor"],
+      // Exclude all v0 dependencies from the patch/minor group. Changes to v0 packages
+      // should be treated as major updates, but renovate treats all patches and minors
+      // the same.
+      matchCurrentVersion: "!/^[\^~]?0/",
       groupSlug: "all-npm-minor-patch",
       matchManagers: [ "npm" ],
     },
