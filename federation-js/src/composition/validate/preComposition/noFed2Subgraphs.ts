@@ -21,13 +21,15 @@ export const noFed2Subgraphs = ({
           if (argNode) {
             if (argNode.value.kind === Kind.STRING) {
               const url = argNode.value.value;
-              // lexical comparison of versions is intentional
-              if (url.startsWith('https://specs.apollo.dev/federation/v') && url >= 'https://specs.apollo.dev/federation/v2.0') {
-                return true;
-              }
-              if (url.startsWith('https://specs.apollo.dev/link/v') && url >= 'https://specs.apollo.dev/link/v1.0') {
-                return true;
-              }
+              const [,spec, versionRaw] = url.match(
+                /(federation|link)\/v(\d*\.\d*)/,
+              )!;
+
+              const version = parseFloat(versionRaw);
+              return (
+                (spec === 'federation' && version >= 2.0) ||
+                (spec === 'link' && version >= 1.0)
+              );
             }
           }
         }
