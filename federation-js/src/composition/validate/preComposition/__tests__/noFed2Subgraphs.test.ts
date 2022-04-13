@@ -35,7 +35,7 @@ describe('noFed2Subgraphs', () => {
         Object {
           "code": "NO_FED2_SUBGRAPHS",
           "locations": Array [],
-          "message": "[serviceA] Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer",
+          "message": "[serviceA] Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer.",
         },
       ]
     `);
@@ -68,7 +68,7 @@ describe('noFed2Subgraphs', () => {
         Object {
           "code": "NO_FED2_SUBGRAPHS",
           "locations": Array [],
-          "message": "[serviceA] Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer",
+          "message": "[serviceA] Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer.",
         },
       ]
     `);

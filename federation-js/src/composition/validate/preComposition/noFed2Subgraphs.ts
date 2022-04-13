@@ -39,7 +39,7 @@ export const noFed2Subgraphs = ({
         errors.push(
           errorWithCode(
             'NO_FED2_SUBGRAPHS',
-            `[${serviceName}] Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer`,
+            `[${serviceName}] Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer.`,
           )
         );
       }
