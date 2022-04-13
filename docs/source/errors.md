@@ -15,6 +15,7 @@ If Apollo Gateway encounters an error, composition fails. This document lists co
 |---|---|
 | `EXTENSION_OF_WRONG_KIND`  | A subgraph is attempting to `extend` another subgraph's type, but there is a declaration mismatch. For example, `extend interface MyType` is invalid if `MyType` is not defined as an `interface` in its originating subgraph. |
 | `EXTENSION_WITH_NO_BASE` | A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph. |
+| `NO_FED2_SUBGRAPHS` | Schema contains a Federation 2 subgraph. Only federation 1 subgraphs can be composed with the fed1 composer. |
 
 ## `@key`
 
