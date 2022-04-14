@@ -28,6 +28,7 @@ import {
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
+  RemoveCoreFeaturesOptions,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
@@ -1163,13 +1164,13 @@ export class Schema {
     return this.cachedDocument!;
   }
 
-  toAPISchema(): Schema {
+  toAPISchema(options?: RemoveCoreFeaturesOptions): Schema {
     if (!this.apiSchema) {
       this.validate();
 
       const apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
-      removeAllCoreFeatures(apiSchema);
+      removeAllCoreFeatures(apiSchema, options);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
       this.apiSchema = apiSchema;

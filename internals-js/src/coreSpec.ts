@@ -710,10 +710,15 @@ export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIden
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);
 
-export function removeAllCoreFeatures(schema: Schema) {
+export type RemoveCoreFeaturesOptions = {
+  promoteDirectives?: string[];
+};
+
+export function removeAllCoreFeatures(schema: Schema, options?: RemoveCoreFeaturesOptions) {
   // Gather a list of core features up front, since we can't fetch them during
   // removal. (Also note that core being a feature itself, this will remove core
   // itself and mark the schema as 'not core').
+  const directivesToPromote = options?.promoteDirectives || [];
   const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
 
   // Remove all feature elements, keeping track of any type references found
@@ -726,7 +731,8 @@ export function removeAllCoreFeatures(schema: Schema) {
   for (const feature of coreFeatures) {
     // Remove feature directive definitions and their applications.
     const featureDirectiveDefs = schema.directives()
-      .filter(d => feature.isFeatureDefinition(d));
+      .filter(d => feature.isFeatureDefinition(d))
+      .filter(d => !directivesToPromote.includes(d.name))
     featureDirectiveDefs.forEach(def =>
       def.remove().forEach(application => application.remove())
     );
