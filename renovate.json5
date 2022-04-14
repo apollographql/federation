@@ -88,6 +88,13 @@
       matchManagers: [ "npm" ],
     },
     {
+      // Disable automerge for v0 packages since it's on by default for patch/minor in
+      // the "apollo-open-source" renovate config
+      matchCurrentVersion: "/^[\^~]?0/",
+      automerge: false,
+      matchManagers: [ "npm" ],
+    },
+    {
       "matchPaths": [
         "docs/package.json"
       ],
