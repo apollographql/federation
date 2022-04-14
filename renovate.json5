@@ -94,36 +94,5 @@
       automerge: false,
       matchManagers: [ "npm" ],
     },
-    {
-      "matchPaths": [
-        "docs/package.json"
-      ],
-      "extends": [
-        "apollo-docs"
-      ],
-      // "Past" major version branches, preserved as
-      // "version-" branches, should be added here!
-      "baseBranches": [
-        "main",
-        "version-0.x",
-      ]
-    },
-    // The current Apollo Gatsby theme does not support a version of Gatsby
-    // that supports React 17.
-    {
-      "matchPaths": [
-        "docs/package.json"
-      ],
-      "matchPackageNames": ["react", "react-dom"],
-      "allowedVersions": "16.x",
-    },
-    // The current Apollo Gatsby theme does not support gatsby v4
-    {
-      "matchPaths": [
-        "docs/package.json"
-      ],
-      "matchPackageNames": ["gatsby"],
-      "allowedVersions": "3.x",
-    },
   ]
 }
