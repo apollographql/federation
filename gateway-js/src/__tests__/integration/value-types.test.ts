@@ -1,7 +1,7 @@
-import gql from 'graphql-tag';
 import { execute } from '../execution-utils';
 import {
   astSerializer,
+  fed2gql as gql,
   queryPlanSerializer,
 } from 'apollo-federation-integration-testsuite';
 
@@ -200,7 +200,7 @@ describe('value types', () => {
           valueType: ValueType
         }
 
-        type ValueType {
+        type ValueType @shareable {
           id: ID!
           user: User! @provides(fields: "name")
         }
@@ -226,7 +226,7 @@ describe('value types', () => {
           otherValueType: ValueType
         }
 
-        type ValueType {
+        type ValueType @shareable {
           id: ID!
           user: User! @provides(fields: "name")
         }
@@ -250,7 +250,7 @@ describe('value types', () => {
       typeDefs: gql`
         type User @key(fields: "id") {
           id: ID!
-          name: String!
+          name: String! @shareable
           address: String!
         }
       `,

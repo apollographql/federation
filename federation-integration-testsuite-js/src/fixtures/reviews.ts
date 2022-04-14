@@ -1,5 +1,5 @@
-import { GraphQLResolverMap } from 'apollo-graphql';
-import gql from 'graphql-tag';
+import { GraphQLResolverMap } from '../resolverMap';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'reviews';
 export const url = `https://${name}.api.com.invalid`;
@@ -11,8 +11,14 @@ export const typeDefs = gql`
     | FIELD_DEFINITION
     | OBJECT
     | UNION
+    | ARGUMENT_DEFINITION
+    | SCALAR
+    | ENUM
+    | ENUM_VALUE
+    | INPUT_OBJECT
+    | INPUT_FIELD_DEFINITION
 
-  extend type Query {
+  type Query {
     topReviews(first: Int = 5): [Review]
   }
 
@@ -24,52 +30,52 @@ export const typeDefs = gql`
     metadata: [MetadataOrError]
   }
 
-  input UpdateReviewInput {
+  input UpdateReviewInput @tag(name: "from-reviews") {
     id: ID!
-    body: String
+    body: String @tag(name: "from-reviews")
   }
 
-  extend type UserMetadata {
+  type UserMetadata {
     address: String @external
   }
 
-  extend type User @key(fields: "id") @tag(name: "from-reviews") {
-    id: ID! @external
-    username: String @external @tag(name: "on-external")
+  type User @key(fields: "id") @tag(name: "from-reviews") {
+    id: ID!
+    username: String @external
     reviews: [Review]
     numberOfReviews: Int!
     metadata: [UserMetadata] @external
     goodAddress: Boolean @requires(fields: "metadata { address }")
   }
 
-  extend interface Product @tag(name: "from-reviews") {
+  interface Product @tag(name: "from-reviews") {
+    reviews: [Review] @tag(name: "from-reviews")
+  }
+
+  type Furniture implements Product @key(fields: "upc") {
+    upc: String!
     reviews: [Review]
   }
 
-  extend type Furniture implements Product @key(fields: "upc") {
-    upc: String! @external
-    reviews: [Review]
-  }
-
-  extend type Book implements Product @key(fields: "isbn") {
-    isbn: String! @external
+  type Book implements Product @key(fields: "isbn") {
+    isbn: String!
     reviews: [Review]
     similarBooks: [Book]! @external
     relatedReviews: [Review!]! @requires(fields: "similarBooks { isbn }")
   }
 
-  extend interface Vehicle {
+  interface Vehicle {
     retailPrice: String
   }
 
-  extend type Car implements Vehicle @key(fields: "id") {
-    id: String! @external
+  type Car implements Vehicle @key(fields: "id") {
+    id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
   }
 
-  extend type Van implements Vehicle @key(fields: "id") {
-    id: String! @external
+  type Van implements Vehicle @key(fields: "id") {
+    id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
   }
@@ -80,20 +86,20 @@ export const typeDefs = gql`
     stars: Int @deprecated(reason: "Stars are no longer in use")
   }
 
-  extend type Mutation {
+  type Mutation {
     reviewProduct(input: ReviewProduct!): Product
-    updateReview(review: UpdateReviewInput!): Review
+    updateReview(review: UpdateReviewInput! @tag(name: "from-reviews")): Review
     deleteReview(id: ID!): Boolean
   }
 
   # Value type
-  type KeyValue {
-    key: String!
+  type KeyValue @shareable @tag(name: "from-reviews") {
+    key: String! @tag(name: "from-reviews")
     value: String!
   }
 
   # Value type
-  type Error {
+  type Error @shareable {
     code: Int
     message: String
   }
@@ -153,7 +159,7 @@ const reviews = [
   },
 ];
 
-export const resolvers: GraphQLResolverMap<any> = {
+export const resolvers: GraphQLResolverMap<unknown> = {
   Query: {
     review(_, args) {
       return { id: args.id };

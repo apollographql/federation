@@ -1,11 +1,7 @@
 ---
-title: OpenTelemetry in Apollo Server
+title: OpenTelemetry in Apollo Federation
 sidebar_title: OpenTelemetry
 ---
-
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 [OpenTelemetry](https://opentelemetry.io/) is a collection of open-source tools for generating and processing telemetry data (such as logs and metrics) from different systems in a generic, consistent way.
 
@@ -27,11 +23,13 @@ To use OpenTelemetry in your application, you need to install a baseline set of 
 
 ```bash
 npm install \
-  @opentelemetry/api \
-  @opentelemetry/node@0.22 \
-  @opentelemetry/core@0.22 \
-  @opentelemetry/instrumentation-http@0.22 \
-  @opentelemetry/instrumentation-express@0.22
+  @opentelemetry/api@1.0 \
+  @opentelemetry/core@1.0 \
+  @opentelemetry/resources@1.0 \
+  @opentelemetry/sdk-trace-base@1.0 \
+  @opentelemetry/sdk-trace-node@1.0 \
+  @opentelemetry/instrumentation-http@0.27 \
+  @opentelemetry/instrumentation-express@0.28
 ```
 
 </ExpansionPanel>
@@ -40,19 +38,22 @@ npm install \
 
 ```bash
 npm install \
-  @opentelemetry/api \
-  @opentelemetry/node@0.22 \
-  @opentelemetry/core@0.22 \
-  @opentelemetry/instrumentation-http@0.22 \
-  @opentelemetry/instrumentation-express@0.22 \
-  @opentelemetry/instrumentation-graphql@0.22
+  @opentelemetry/api@1.0 \
+  @opentelemetry/core@1.0 \
+  @opentelemetry/resources@1.0 \
+  @opentelemetry/sdk-trace-base@1.0 \
+  @opentelemetry/sdk-trace-node@1.0 \
+  @opentelemetry/instrumentation@0.27 \
+  @opentelemetry/instrumentation-http@0.27 \
+  @opentelemetry/instrumentation-express@0.28 \
+  @opentelemetry/instrumentation-graphql@0.27
 ```
 
 </ExpansionPanel>
 
 **Most importantly, subgraphs and monoliths _must_ install `@opentelemetry/instrumentation-graphql`, and gateways _must not_ install it.**
 
-As shown, most `@opentelemetry` libraries should maintain a consistent version number to prevent dependency conflicts. As of this article's most recent update, the latest version is `0.22`. 
+As shown above, most `@opentelemetry` libraries have reached `1.0`. The instrumentation packages listed above are compatible at the time of this writing.
 
 #### Update `@apollo/gateway`
 
@@ -64,14 +65,14 @@ Next, update your application to configure your OpenTelemetry instrumentation _a
 
 **We recommend putting this configuration in its own file**, which you import at the very top of `index.js`. A sample file is provided below (note the lines that should either be deleted or uncommented).
 
-```js:title=open-telemetry.js
+```js title="open-telemetry.js"
 // Import required symbols
+const { Resource } = require('@opentelemetry/resources');
+const { SimpleSpanProcessor, ConsoleSpanExporter } = require ("@opentelemetry/sdk-trace-base");
+const { NodeTracerProvider } = require("@opentelemetry/sdk-trace-node");
+const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 const { HttpInstrumentation } = require ('@opentelemetry/instrumentation-http');
 const { ExpressInstrumentation } = require ('@opentelemetry/instrumentation-express');
-const { registerInstrumentations } = require('@opentelemetry/instrumentation');
-const { NodeTracerProvider } = require("@opentelemetry/node");
-const { SimpleSpanProcessor, ConsoleSpanExporter } = require ("@opentelemetry/tracing");
-const { Resource } = require('@opentelemetry/resources');
 // **DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE**
 // const { GraphQLInstrumentation } = require ('@opentelemetry/instrumentation-graphql');
 
@@ -175,16 +176,16 @@ First, we need to replace our `ConsoleSpanExporter` (which prints traces to the 
 Install the following additional library:
 
 ```bash
-npm install @opentelemetry/exporter-zipkin@0.22
+npm install @opentelemetry/exporter-zipkin@1.0
 ```
 
 Then, import the `ZipkinExporter` in your dedicated OpenTelemetry file:
 
-```js:title=open-telemetry.js
+```js title="open-telemetry.js"
 const { ZipkinExporter } = require("@opentelemetry/exporter-zipkin");
 ```
 
-Now we can replace our `ConsoleSpanExporter` with a `ZipkinExporter`. Replace lines 27-21 of the code in [the previous step](#2-configure-instrumentation) with the following:
+Now we can replace our `ConsoleSpanExporter` with a `ZipkinExporter`. Replace lines 31-34 of the code in [the previous step](#2-configure-instrumentation) with the following:
 
 ```js
 // Configure an exporter that pushes all traces to Zipkin
@@ -206,9 +207,38 @@ You can show the details of any operation and see a breakdown of its processing 
 
 Our example telemetry configuration assumes that Zipkin is running locally, and that we want to process every span individually as it's emitted.
 
-To prepare for production, we probably at least want to conditionally set the `url` option for the `ZipkinExporter` and replace our `SimpleSpanProcessor` with a  `BatchSpanProcessor`.
+To prepare for production, we'll want to optimize performance by sending our traces to an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) using the `OTLPTraceExporter` and replace our `SimpleSpanProcessor` with a `BatchSpanProcessor`.
+The Collector should be deployed as a local sidecar agent to buffer traces before they're sent along to their final destination.
+See the [getting started docs](https://opentelemetry.io/docs/collector/getting-started/) for an overview.
 
-You can learn more about the settings available to these and other OpenTelemetry objects in the [getting started guide](https://opentelemetry.io/docs/instrumentation/js/getting-started/).
+```bash
+npm install @opentelemetry/exporter-trace-otlp-http@0.27
+```
+
+Then, import the `OTLPTraceExporter` and `BatchSpanProcessor` in your dedicated OpenTelemetry file:
+
+
+```js:title=open-telemetry.js
+const { OTLPTraceExporter } = require("@opentelemetry/exporter-trace-otlp-http");
+const { BatchSpanProcessor } = require("@opentelemetry/sdk-trace-base");
+```
+
+Now we can replace our `ZipkinExporter` with an `OTLPTraceExporter`. We can also replace our `SimpleSpanProcessor` with a `BatchSpanProcessor`. Replace lines 4-9 of the code in [the previous step](#3-push-trace-data-to-a-tracing-system) with the following:
+
+```js
+// Configure an exporter that pushes all traces to a Collector
+// (This assumes the Collector is running on localhost at the
+// default port of 55681)
+const collectorTraceExporter = new OTLPTraceExporter();
+provider.addSpanProcessor(
+  new BatchSpanProcessor(collectorTraceExporter, {
+    maxQueueSize: 1000,
+    scheduledDelayMillis: 1000,
+  }),
+);
+```
+
+You can learn more about using the `OTLPTraceExporter` in the [instrumentation docs](https://opentelemetry.io/docs/instrumentation/js/exporters/).
 
 ## GraphQL-specific spans
 

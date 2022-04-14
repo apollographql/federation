@@ -1,5 +1,5 @@
 import { ApolloGateway } from '../..';
-import { Logger } from "apollo-server-types";
+import type { Logger } from '@apollo/utils.logger';
 import { PassThrough } from "stream";
 
 import * as winston from "winston";
@@ -10,7 +10,7 @@ import * as log4js from "log4js";
 
 const LOWEST_LOG_LEVEL = "debug";
 
-const KNOWN_DEBUG_MESSAGE = "Checking for composition updates...";
+const KNOWN_DEBUG_MESSAGE = "Gateway successfully initialized (but not yet loaded)";
 
 async function triggerKnownDebugMessage(logger: Logger) {
   // Trigger a known error.

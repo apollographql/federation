@@ -1,8 +1,8 @@
-# `Apollo Subgraph Utilities`
+# `Apollo Subgraph`
 
-This package provides utilities for creating GraphQL microservices, which can be combined into a single endpoint through tools like [Apollo Gateway](https://github.com/apollographql/apollo-server/tree/main/packages/apollo-gateway).
+This package provides utilities for creating GraphQL microservices, which can be combined into a single endpoint through tools like [Apollo Gateway](https://github.com/apollographql/federation/tree/main/gateway-js).
 
-For complete documentation, see the [Apollo Subgraph API reference](https://www.apollographql.com/docs/apollo-server/api/apollo-subgraph/).
+For complete documentation, see the [Apollo Subgraph API reference](https://www.apollographql.com/docs/federation/subgraphs/).
 
 ## Usage
 
@@ -36,5 +36,9 @@ const resolvers = {
 
 const server = new ApolloServer({
   schema: buildSubgraphSchema([{ typeDefs, resolvers }])
+});
+
+server.listen(4001).then(({ url }) => {
+    console.log(`🚀 Server ready at ${url}`);
 });
 ```

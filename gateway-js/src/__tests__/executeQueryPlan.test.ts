@@ -4,7 +4,6 @@ import {
   GraphQLObjectType,
   print,
 } from 'graphql';
-import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
@@ -20,7 +19,8 @@ import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
-import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/federation-internals';
+import { Schema, Operation, parseOperation, buildSchemaFromAST, arrayEquals } from '@apollo/federation-internals';
+import { addResolversToSchema, GraphQLResolverMap } from '../schema-helper';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -2736,4 +2736,259 @@ describe('executeQueryPlan', () => {
       expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
     });
   });
+
+  describe('@key', () => {
+    test('Works on a list of scalar', async () => {
+      const s1_data = [
+        { id: [0, 1], f1: "foo" },
+        { id: [2, 3], f1: "bar" },
+        { id: [4, 5], f1: "baz" },
+      ];
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T1 @key(fields: "id") {
+            id: [Int]
+            f1: String
+          }
+        `,
+        resolvers: {
+          T1: {
+            __resolveReference(ref: { id: number[] }) {
+              return s1_data.find((e) => arrayEquals(e.id, ref.id));
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            getT1s: [T1]
+          }
+
+          type T1 {
+            id: [Int]
+          }
+        `,
+        resolvers: {
+          Query: {
+            getT1s() {
+              return [{id: [2, 3]}, {id: [4, 5]}];
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          getT1s {
+            id
+            f1
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                getT1s {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f1
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getT1s": Array [
+            Object {
+              "f1": "bar",
+              "id": Array [
+                2,
+                3,
+              ],
+            },
+            Object {
+              "f1": "baz",
+              "id": Array [
+                4,
+                5,
+              ],
+            },
+          ],
+        }
+        `);
+    });
+
+    test('Works on a list of objects', async () => {
+      const s1_data = [
+        { o: [{a: 0, b: "b0", c: "zero"}, {a: 1, b: "b1", c: "one"}], f1: "foo" },
+        { o: [{a: 2, b: "b2", c: "two"}], f1: "bar" },
+        { o: [{a: 3, b: "b3", c: "three"}, {a: 4, b: "b4", c: "four"}], f1: "baz" },
+      ];
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T1 @key(fields: "o { a c }") {
+            o: [O]
+            f1: String
+          }
+
+          type O {
+            a: Int
+            b: String
+            c: String
+          }
+        `,
+        resolvers: {
+          T1: {
+            __resolveReference(ref: { o: {a : number, c: string}[] }) {
+              return s1_data.find((e) => arrayEquals(e.o, ref.o, (x, y) => x.a === y.a && x.c === y.c));
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            getT1s: [T1]
+          }
+
+          type T1 {
+            o: [O]
+          }
+
+          type O {
+            a: Int
+            b: String
+            c: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            getT1s() {
+              return [{o: [{a: 2, b: "b2", c: "two"}]}, {o: [{a: 3, b: "b3", c: "three"}, {a: 4, b: "b4", c: "four"}]}];
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          getT1s {
+            o {
+              a
+              b
+              c
+            }
+            f1
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                getT1s {
+                  __typename
+                  o {
+                    a
+                    c
+                    b
+                  }
+                }
+              }
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on T1 {
+                    __typename
+                    o {
+                      a
+                      c
+                    }
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f1
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getT1s": Array [
+            Object {
+              "f1": "bar",
+              "o": Array [
+                Object {
+                  "a": 2,
+                  "b": "b2",
+                  "c": "two",
+                },
+              ],
+            },
+            Object {
+              "f1": "baz",
+              "o": Array [
+                Object {
+                  "a": 3,
+                  "b": "b3",
+                  "c": "three",
+                },
+                Object {
+                  "a": 4,
+                  "b": "b4",
+                  "c": "four",
+                },
+              ],
+            },
+          ],
+        }
+        `);
+    });
+  });
+
 });

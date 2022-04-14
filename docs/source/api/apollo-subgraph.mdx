@@ -1,6 +1,5 @@
 ---
 title: "API Reference: @apollo/subgraph"
-sidebar_title: "@apollo/subgraph"
 description: Apollo Federation API reference
 api_reference: true
 ---
@@ -9,14 +8,13 @@ This API reference documents the exports from the `@apollo/subgraph` package.
 
 ## `buildSubgraphSchema`
 
-> This method previously existed in the `@apollo/federation` package (now removed by federation 2) and was renamed from `buildFederatedSchema` after `@apollo/federation` v0.28.0 (the previous name still works, but it might be removed in a future release).
+> This method was renamed from `buildFederatedSchema` after `@apollo/federation` v0.28.0 (the previous name still works, but it might be removed in a future release).
 
+A function that takes a schema module object (or an array of them) and returns a federation-ready subgraph schema:
 
-A function that takes an array of GraphQL schema modules and returns a federation-ready schema based on those modules:
-
-```js{2}
+```js {2}
 const server = new ApolloServer({
-  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
 ```
 
@@ -47,11 +45,11 @@ Each schema module is an object with the following format:
 
 ###### `modules`
 
-`Array`
+`Object` or `Array`
 </td>
 <td>
 
-**Required.** An array of schema module objects with the structure shown above.
+**Required.** A schema module object (or an array of them) with the structure shown above.
 </td>
 </tr>
 </tbody>
@@ -86,7 +84,7 @@ const resolvers = {
 };
 
 const server = new ApolloServer({
-  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
 ```
 
@@ -94,7 +92,7 @@ const server = new ApolloServer({
 
 The name of a special **reference resolver** function you can define for every [entity](../entities/) in a subgraph schema's resolver map.
 
-The `__resolveReference` function enables your gateway's query planner to resolve a particular entity by whatever unique identifier your other subgraphs use to reference it. For details, see [Entities: Resolving](../entities/#resolving).
+The `__resolveReference` function enables your gateway's query planner to resolve a particular entity by whatever unique identifier your other subgraphs use to reference it. For details, see [Defining an entity](../entities/#defining-an-entity).
 
 The function takes the parameters listed below.
 

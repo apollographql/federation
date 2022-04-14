@@ -6,15 +6,20 @@ import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { QueryPlanner } from '@apollo/query-planner';
+
 it('caches the query plan for a request', async () => {
   const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');
 
+  const localDataSources = Object.fromEntries(
+    fixtures.map((f) => [
+      f.name,
+      new LocalGraphQLDataSource(buildSubgraphSchema(f)),
+    ]),
+  );
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: service => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
+    buildService(service) {
+      return localDataSources[service.name];
     },
   });
 
@@ -66,12 +71,17 @@ it('supports multiple operations and operationName', async () => {
     }
   `;
 
+  const localDataSources = Object.fromEntries(
+    fixtures.map((f) => [
+      f.name,
+      new LocalGraphQLDataSource(buildSubgraphSchema(f)),
+    ]),
+  );
+
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: service => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
+    buildService(service) {
+      return localDataSources[service.name];
     },
   });
 
@@ -172,12 +182,15 @@ it('does not corrupt cached queryplan data across requests', async () => {
     },
   };
 
+  const dataSources: Record<string, LocalGraphQLDataSource> = {
+    a: new LocalGraphQLDataSource(buildSubgraphSchema(serviceA)),
+    b: new LocalGraphQLDataSource(buildSubgraphSchema(serviceB)),
+  };
+
   const gateway = new ApolloGateway({
     localServiceList: [serviceA, serviceB],
-    buildService: service => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
+    buildService(service) {
+      return dataSources[service.name];
     },
   });
 

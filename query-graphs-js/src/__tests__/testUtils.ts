@@ -9,7 +9,7 @@ function singleEdge(graph: QueryGraph, vertex: Vertex, fieldName: string): Edge 
   const type = vertex.type as (ObjectType | InterfaceType)
   const f = type.field(fieldName);
   expect(f).toBeDefined();
-  const edges = graph.outEdges(vertex).filter(e => e.matchesSupergraphTransition(graph.sources.get(vertex.source)!, new FieldCollection(f!)));
+  const edges = graph.outEdges(vertex).filter(e => e.matchesSupergraphTransition(new FieldCollection(f!)));
   expect(edges.length).toBe(1);
   return edges[0];
 }

@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
-import { DocumentNode, GraphQLObjectType, GraphQLSchema } from 'graphql';
+import { GraphQLObjectType, GraphQLSchema } from 'graphql';
 import mockedEnv from 'mocked-env';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { ApolloGateway } from '../..';
 import {
   mockSdlQuerySuccess,
@@ -19,6 +19,7 @@ import {
   accounts,
   books,
   documents,
+  Fixture,
   fixturesWithUpdate,
   inventory,
   product,
@@ -26,15 +27,9 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import resolvable from '@josephg/resolvable';
 
-type GenericFunction = (...args: unknown[]) => unknown;
-export interface MockService {
-  name: string;
-  url: string;
-  typeDefs: DocumentNode;
-}
-
-const simpleService: MockService = {
+const simpleService: Fixture = {
   name: 'accounts',
   url: 'http://localhost:4001',
   typeDefs: gql`
@@ -138,29 +133,39 @@ it('Updates Supergraph SDL from remote storage', async () => {
 
   // This test is only interested in the second time the gateway notifies of an
   // update, since the first happens on load.
-  let secondUpdateResolve: GenericFunction;
-  const secondUpdate = new Promise((res) => (secondUpdateResolve = res));
-  const schemaChangeCallback = jest
-    .fn()
-    .mockImplementationOnce(() => undefined)
-    .mockImplementationOnce(() => {
-      secondUpdateResolve();
-    });
+  const secondUpdate = resolvable();
 
   gateway = new ApolloGateway({
     logger,
     uplinkEndpoints: [mockCloudConfigUrl1],
   });
-  // eslint-disable-next-line
-  // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-  gateway.experimental_pollInterval = 100;
-  gateway.onSchemaLoadOrUpdate(schemaChangeCallback);
+  // for testing purposes, a short pollInterval is ideal so we'll override here
+  gateway['pollIntervalInMs'] = 100;
+
+  const schemas: GraphQLSchema[] = [];
+  gateway.onSchemaLoadOrUpdate(({ apiSchema }) => {
+    schemas.push(apiSchema);
+  });
+  gateway.onSchemaLoadOrUpdate(
+    jest
+      .fn()
+      .mockImplementationOnce(() => {})
+      .mockImplementationOnce(() => secondUpdate.resolve()),
+  );
 
   await gateway.load(mockApolloConfig);
-  expect(gateway['compositionId']).toMatchInlineSnapshot(`"originalId-1234"`);
 
   await secondUpdate;
-  expect(gateway['compositionId']).toMatchInlineSnapshot(`"updatedId-5678"`);
+
+  // First schema has no 'review' field on the 'Query' type
+  expect(
+    (schemas[0].getType('Query') as GraphQLObjectType).getFields()['review'],
+  ).toBeFalsy();
+
+  // Updated schema adds 'review' field on the 'Query' type
+  expect(
+    (schemas[1].getType('Query') as GraphQLObjectType).getFields()['review'],
+  ).toBeTruthy();
 });
 
 describe('Supergraph SDL update failures', () => {
@@ -170,7 +175,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
-      uplinkMaxRetries: 0
+      uplinkMaxRetries: 0,
     });
 
     await expect(
@@ -192,25 +197,23 @@ describe('Supergraph SDL update failures', () => {
     mockSupergraphSdlRequestIfAfter('originalId-1234').reply(500);
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: GenericFunction;
-    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
-    logger.error = jest.fn(() => errorLogged());
+    const errorLoggedPromise = resolvable();
+    logger.error = jest.fn(() => errorLoggedPromise.resolve());
 
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
-      uplinkMaxRetries: 0
+      uplinkMaxRetries: 0,
     });
 
-    // eslint-disable-next-line
-    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway.experimental_pollInterval = 100;
+    // for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway['pollIntervalInMs'] = 100;
 
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+      'UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
     );
   });
 
@@ -227,26 +230,22 @@ describe('Supergraph SDL update failures', () => {
     });
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: GenericFunction;
-    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
-    logger.error = jest.fn(() => errorLogged());
+    const errorLoggedPromise = resolvable();
+    logger.error = jest.fn(() => errorLoggedPromise.resolve());
 
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
-      uplinkMaxRetries: 0
+      uplinkMaxRetries: 0,
     });
-    // eslint-disable-next-line
-    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway.experimental_pollInterval = 100;
+    // for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway['pollIntervalInMs'] = 100;
 
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'An error occurred while fetching your schema from Apollo: ' +
-        '\n' +
-        'Cannot query field "fail" on type "Query".',
+      `UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: \nCannot query field "fail" on type "Query".`,
     );
   });
 
@@ -266,23 +265,21 @@ describe('Supergraph SDL update failures', () => {
     );
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: GenericFunction;
-    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
-    logger.error = jest.fn(() => errorLogged());
+    const errorLoggedPromise = resolvable();
+    logger.error = jest.fn(() => errorLoggedPromise.resolve());
 
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
     });
-    // eslint-disable-next-line
-    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway.experimental_pollInterval = 100;
+    // for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway['pollIntervalInMs'] = 100;
 
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'Syntax Error: Unexpected Name "Syntax".',
+      'UplinkFetcher failed to update supergraph with the following error: Syntax Error: Unexpected Name "Syntax".',
     );
     expect(gateway.schema).toBeTruthy();
   });
@@ -305,9 +302,8 @@ describe('Supergraph SDL update failures', () => {
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
     });
-    // eslint-disable-next-line
-    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway.experimental_pollInterval = 100;
+    // for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway['pollIntervalInMs'] = 100;
 
     await expect(
       gateway.load(mockApolloConfig),
@@ -333,26 +329,22 @@ it('Rollsback to a previous schema when triggered', async () => {
   );
   mockSupergraphSdlRequestSuccessIfAfter('updatedId-5678');
 
-  let firstResolve: GenericFunction;
-  let secondResolve: GenericFunction;
-  let thirdResolve: GenericFunction;
-  const firstSchemaChangeBlocker = new Promise((res) => (firstResolve = res));
-  const secondSchemaChangeBlocker = new Promise((res) => (secondResolve = res));
-  const thirdSchemaChangeBlocker = new Promise((res) => (thirdResolve = res));
+  const firstSchemaChangeBlocker = resolvable();
+  const secondSchemaChangeBlocker = resolvable();
+  const thirdSchemaChangeBlocker = resolvable();
 
   const onChange = jest
     .fn()
-    .mockImplementationOnce(() => firstResolve())
-    .mockImplementationOnce(() => secondResolve())
-    .mockImplementationOnce(() => thirdResolve());
+    .mockImplementationOnce(() => firstSchemaChangeBlocker.resolve())
+    .mockImplementationOnce(() => secondSchemaChangeBlocker.resolve())
+    .mockImplementationOnce(() => thirdSchemaChangeBlocker.resolve());
 
   gateway = new ApolloGateway({
     logger,
     uplinkEndpoints: [mockCloudConfigUrl1],
   });
-  // eslint-disable-next-line
-  // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-  gateway.experimental_pollInterval = 100;
+  // for testing purposes, a short pollInterval is ideal so we'll override here
+  gateway['pollIntervalInMs'] = 100;
 
   gateway.onSchemaChange(onChange);
   await gateway.load(mockApolloConfig);
@@ -410,9 +402,8 @@ describe('Downstream service health checks', () => {
         err = e;
       }
 
-      // TODO: smell that we should be awaiting something else
       expect(err.message).toMatchInlineSnapshot(`
-        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
 
@@ -436,9 +427,8 @@ describe('Downstream service health checks', () => {
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1],
       });
-      // eslint-disable-next-line
-      // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-      gateway.experimental_pollInterval = 100;
+      // for testing purposes, a short pollInterval is ideal so we'll override here
+      gateway['pollIntervalInMs'] = 100;
 
       await gateway.load(mockApolloConfig);
       await gateway.stop();
@@ -478,7 +468,7 @@ describe('Downstream service health checks', () => {
 
       // TODO: smell that we should be awaiting something else
       expect(err.message).toMatchInlineSnapshot(`
-        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
 
@@ -507,23 +497,20 @@ describe('Downstream service health checks', () => {
       );
       mockAllServicesHealthCheckSuccess();
 
-      let resolve1: GenericFunction;
-      let resolve2: GenericFunction;
-      const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
-      const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
+      const schemaChangeBlocker1 = resolvable();
+      const schemaChangeBlocker2 = resolvable();
       const onChange = jest
         .fn()
-        .mockImplementationOnce(() => resolve1())
-        .mockImplementationOnce(() => resolve2());
+        .mockImplementationOnce(() => schemaChangeBlocker1.resolve())
+        .mockImplementationOnce(() => schemaChangeBlocker2.resolve());
 
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1],
       });
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-      gateway.experimental_pollInterval = 100;
+      // for testing purposes, a short pollInterval is ideal so we'll override here
+      gateway['pollIntervalInMs'] = 100;
 
       gateway.onSchemaChange(onChange);
       await gateway.load(mockApolloConfig);
@@ -541,6 +528,10 @@ describe('Downstream service health checks', () => {
     });
 
     it('Preserves original schema when health check fails', async () => {
+      const errorLoggedPromise = resolvable();
+      const errorSpy = jest.fn(() => errorLoggedPromise.resolve());
+      logger.error = errorSpy;
+
       mockSupergraphSdlRequestSuccess();
       mockAllServicesHealthCheckSuccess();
 
@@ -557,61 +548,16 @@ describe('Downstream service health checks', () => {
       mockServiceHealthCheckSuccess(reviews);
       mockServiceHealthCheckSuccess(documents);
 
-      let resolve: GenericFunction;
-      const schemaChangeBlocker = new Promise((res) => (resolve = res));
-
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1],
       });
-      // eslint-disable-next-line
-      // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-      gateway.experimental_pollInterval = 100;
+      // for testing purposes, a short pollInterval is ideal so we'll override here
+      gateway['pollIntervalInMs'] = 100;
 
-      // eslint-disable-next-line
-      // @ts-ignore for testing purposes, we'll call the original `updateSchema`
-      // function from our mock. The first call should mimic original behavior,
-      // but the second call needs to handle the PromiseRejection. Typically for tests
-      // like these we would leverage the `gateway.onSchemaChange` callback to drive
-      // the test, but in this case, that callback isn't triggered when the update
-      // fails (as expected) so we get creative with the second mock as seen below.
-      const original = gateway.updateSchema;
-      const mockUpdateSchema = jest
-        .fn()
-        .mockImplementationOnce(async () => {
-          await original.apply(gateway);
-        })
-        .mockImplementationOnce(async () => {
-          // mock the first poll and handle the error which would otherwise be caught
-          // and logged from within the `pollServices` class method
-
-          // This is the ideal, but our version of Jest has a bug with printing error snapshots.
-          // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
-          //     expect(original.apply(gateway)).rejects.toThrowErrorMatchingInlineSnapshot(`
-          //       The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
-          //         [accounts]: 500: Internal Server Error"
-          //     `);
-          // Instead we'll just use the regular snapshot matcher...
-          let err;
-          try {
-            await original.apply(gateway);
-          } catch (e) {
-            err = e;
-          }
-
-          expect(err.message).toMatchInlineSnapshot(`
-            "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
-            [accounts]: 500: Internal Server Error"
-          `);
-          // finally resolve the promise which drives this test
-          resolve();
-        });
-
-      // eslint-disable-next-line
-      // @ts-ignore for testing purposes, replace the `updateSchema`
-      // function on the gateway with our mock
-      gateway.updateSchema = mockUpdateSchema;
+      const updateSpy = jest.fn();
+      gateway.onSchemaLoadOrUpdate(() => updateSpy());
 
       // load the gateway as usual
       await gateway.load(mockApolloConfig);
@@ -620,11 +566,15 @@ describe('Downstream service health checks', () => {
       expect(getRootQueryFields(gateway.schema)).toContain('topReviews');
       expect(getRootQueryFields(gateway.schema)).not.toContain('review');
 
-      await schemaChangeBlocker;
+      await errorLoggedPromise;
+      expect(logger.error).toHaveBeenCalledWith(
+        `UplinkFetcher failed to update supergraph with the following error: The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:\n[accounts]: 500: Internal Server Error`,
+      );
 
       // At this point, the mock update should have been called but the schema
       // should still be the original.
-      expect(mockUpdateSchema).toHaveBeenCalledTimes(2);
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+
       expect(getRootQueryFields(gateway.schema)).toContain('topReviews');
       expect(getRootQueryFields(gateway.schema)).not.toContain('review');
     });

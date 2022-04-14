@@ -13,7 +13,9 @@ import {
   OperationDefinitionNode,
   parse,
   SelectionNode,
-  SelectionSetNode
+  SelectionSetNode,
+  OperationTypeNode,
+  NameNode,
 } from "graphql";
 import {
   baseType,
@@ -402,15 +404,15 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   toFragmentDefinitionNode() : FragmentDefinitionNode {
     return {
-      kind: 'FragmentDefinition',
+      kind: Kind.FRAGMENT_DEFINITION,
       name: {
-        kind: 'Name',
+        kind: Kind.NAME,
         value: this.name
       },
       typeCondition: {
-        kind: 'NamedType',
+        kind: Kind.NAMED_TYPE,
         name: {
-          kind: 'Name',
+          kind: Kind.NAME,
           value: this.typeCondition.name
         }
       },
@@ -672,7 +674,7 @@ export class SelectionSet {
   ): Selection {
     let selection: Selection;
     switch (node.kind) {
-      case 'Field':
+      case Kind.FIELD:
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
         validate(definition, () => `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
         const type = baseType(definition.type!);
@@ -685,7 +687,7 @@ export class SelectionSet {
           selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
         }
         break;
-      case 'InlineFragment':
+      case Kind.INLINE_FRAGMENT:
         const element = new FragmentElement(this.parentType, node.typeCondition?.name.value);
         selection = new InlineFragmentSelection(
           element,
@@ -693,7 +695,7 @@ export class SelectionSet {
         );
         selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
         break;
-      case 'FragmentSpread':
+      case Kind.FRAGMENT_SPREAD:
         const fragmentName = node.name.value;
         validate(this.fragments, () => `Cannot find fragment name "${fragmentName}" (no fragments were provided)`);
         selection = new FragmentSpreadSelection(this.parentType, this.fragments, fragmentName);
@@ -767,7 +769,7 @@ export class SelectionSet {
       return {
         kind: Kind.SELECTION_SET,
         selections: [{
-          kind: 'Field',
+          kind: Kind.FIELD,
           name: {
             kind: Kind.NAME,
             value: '...',
@@ -860,6 +862,21 @@ export class SelectionSet {
   }
 }
 
+export function allFieldDefinitionsInSelectionSet(selection: SelectionSet): FieldDefinition<CompositeType>[] {
+  const stack = Array.from(selection.selections());
+  const allFields: FieldDefinition<CompositeType>[] = [];
+  while (stack.length > 0) {
+    const selection = stack.pop()!;
+    if (selection.kind === 'FieldSelection') {
+      allFields.push(selection.field.definition);
+    }
+    if (selection.selectionSet) {
+      stack.push(...selection.selectionSet.selections());
+    }
+  }
+  return allFields;
+}
+
 export function selectionSetOfElement(element: OperationElement, subSelection?: SelectionSet): SelectionSet {
   const selectionSet = new SelectionSet(element.parentType);
   selectionSet.add(selectionOfElement(element, subSelection));
@@ -938,7 +955,7 @@ export class FieldSelection {
 
     return entries.map(([n, v]) => {
       return {
-        kind: 'Argument',
+        kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: n },
         value: valueToAST(v, this.field.definition.argument(n)!.type!)!,
       };
@@ -962,9 +979,9 @@ export class FieldSelection {
   }
 
   toSelectionNode(): FieldNode {
-    const alias = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
+    const alias: NameNode | undefined = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
     return {
-      kind: 'Field',
+      kind: Kind.FIELD,
       name: {
         kind: Kind.NAME,
         value: this.field.name,
@@ -1207,7 +1224,7 @@ class FragmentSpreadSelection extends FragmentSelection {
       ? undefined
       : spreadDirectives.map(directive => {
         return {
-          kind: 'Directive',
+          kind: Kind.DIRECTIVE,
           name: {
             kind: Kind.NAME,
             value: directive.name,
@@ -1216,8 +1233,8 @@ class FragmentSpreadSelection extends FragmentSelection {
         } as DirectiveNode;
       });
     return {
-      kind: 'FragmentSpread',
-      name: { kind: 'Name', value: this.namedFragment.name },
+      kind: Kind.FRAGMENT_SPREAD,
+      name: { kind: Kind.NAME, value: this.namedFragment.name },
       directives: directiveNodes,
     };
   }
@@ -1317,7 +1334,12 @@ function operationFromAST(
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
   return new Operation(
     operation.operation,
-    parseSelectionSet(rootType.type, operation.selectionSet, variableDefinitions, fragments),
+    parseSelectionSet({
+      parentType: rootType.type,
+      source: operation.selectionSet,
+      variableDefinitions,
+      fragments,
+    }),
     variableDefinitions,
     operation.name?.value
   );
@@ -1327,20 +1349,29 @@ export function parseOperation(schema: Schema, operation: string, operationName?
   return operationFromDocument(schema, parse(operation), operationName);
 }
 
-export function parseSelectionSet(
+export function parseSelectionSet({
+  parentType,
+  source,
+  variableDefinitions,
+  fragments,
+  fieldAccessor,
+  validate = true,
+}: {
   parentType: CompositeType,
   source: string | SelectionSetNode,
-  variableDefinitions: VariableDefinitions = new VariableDefinitions(),
+  variableDefinitions?: VariableDefinitions,
   fragments?: NamedFragments,
-  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
-): SelectionSet {
+  fieldAccessor?: (type: CompositeType, fieldName: string) => (FieldDefinition<any> | undefined),
+  validate?: boolean,
+}): SelectionSet {
   // TODO: we should maybe allow the selection, when a string, to contain fragment definitions?
   const node = typeof source === 'string'
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;
   const selectionSet = new SelectionSet(parentType, fragments);
-  selectionSet.addSelectionSetNode(node, variableDefinitions, fieldAccessor);
-  selectionSet.validate();
+  selectionSet.addSelectionSetNode(node, variableDefinitions ?? new VariableDefinitions(), fieldAccessor);
+  if (validate)
+    selectionSet.validate();
   return selectionSet;
 }
 
@@ -1348,14 +1379,15 @@ function parseOperationAST(source: string): OperationDefinitionNode {
   const parsed = parse(source);
   validate(parsed.definitions.length === 1, () => 'Selections should contain a single definitions, found ' + parsed.definitions.length);
   const def = parsed.definitions[0];
-  validate(def.kind === 'OperationDefinition', () => 'Expected an operation definition but got a ' + def.kind);
+  validate(def.kind === Kind.OPERATION_DEFINITION, () => 'Expected an operation definition but got a ' + def.kind);
   return def;
 }
 
 export function operationToDocument(operation: Operation): DocumentNode {
   const operationAST: OperationDefinitionNode = {
-    kind: 'OperationDefinition',
-    operation: operation.rootKind,
+    kind: Kind.OPERATION_DEFINITION,
+    operation: operation.rootKind as OperationTypeNode,
+    name: operation.name ? { kind: Kind.NAME, value: operation.name } : undefined,
     selectionSet: operation.selectionSet.toSelectionSetNode(),
     variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes(),
   };

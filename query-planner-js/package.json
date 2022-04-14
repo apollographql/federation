@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-planner",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.1",
   "description": "Apollo Query Planner",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -18,7 +18,7 @@
     "apollo"
   ],
   "engines": {
-    "node": ">=12.13.0 <17.0"
+    "node": ">=12.13.0 <18.0"
   },
   "license": "SEE LICENSE IN ./LICENSE",
   "publishConfig": {
@@ -27,12 +27,11 @@
   "dependencies": {
     "@apollo/federation-internals": "file:../internals-js",
     "@apollo/query-graphs": "file:../query-graphs-js",
-    "apollo-graphql": "^0.9.5",
     "chalk": "^4.1.0",
     "deep-equal": "^2.0.5",
     "pretty-format": "^27.0.0"
   },
   "peerDependencies": {
-    "graphql": "^15.7.0"
+    "graphql": "^16.0.0"
   }
 }

@@ -1,5 +1,5 @@
-import gql from 'graphql-tag';
-import { GraphQLResolverMap } from 'apollo-graphql';
+import { GraphQLResolverMap } from '../resolverMap';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'books';
 export const url = `https://${name}.api.com.invalid`;
@@ -19,7 +19,7 @@ export const typeDefs = gql`
   ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
 
-  extend type Query {
+  type Query {
     book(isbn: String!): Book
     books: [Book]
     library(id: ID!): Library
@@ -28,6 +28,7 @@ export const typeDefs = gql`
   type Library @key(fields: "id") {
     id: ID!
     name: String
+    description: String
   }
 
   # FIXME: turn back on when unions are supported in composition
@@ -47,13 +48,13 @@ export const typeDefs = gql`
   }
 
   # Value type
-  type KeyValue {
+  type KeyValue @shareable {
     key: String!
     value: String!
   }
 
   # Value type
-  type Error {
+  type Error @shareable {
     code: Int
     message: String
   }
@@ -106,7 +107,7 @@ const books = [
 
 export const resolvers: GraphQLResolverMap<any> = {
   Book: {
-    __resolveObject(object) {
+    __resolveReference(object) {
       return books.find(book => book.isbn === object.isbn);
     },
     similarBooks(object) {
@@ -124,7 +125,7 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Query: {
     book(_, args) {
-      return { isbn: args.isbn };
+      return books.find(book => book.isbn === args.isbn);
     },
     books() {
       return books;

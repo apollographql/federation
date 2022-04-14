@@ -1,11 +1,19 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert } from './utils';
+import { ERRORS } from "./error";
+import { valueToString } from "./values";
+import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
+import { didYouMean, suggestionList } from "./suggestions";
+import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
+export const linkIdentity = 'https://specs.apollo.dev/link';
+
+export const linkDirectiveDefaultName = 'link';
 
 export const ErrCoreCheckFailed = (causes: Error[]) =>
   err('CheckFailed', {
@@ -17,7 +25,6 @@ function buildError(message: string): Error {
   // Maybe not the right error for this?
   return new Error(message);
 }
-
 
 export const corePurposes = [
   'SECURITY' as const,
@@ -58,18 +65,23 @@ export abstract class FeatureDefinition {
     return nameInSchema != undefined && (directive.name === nameInSchema || directive.name.startsWith(`${nameInSchema}__`));
   }
 
-  abstract addElementsToSchema(schema: Schema): void;
+  abstract addElementsToSchema(schema: Schema): GraphQLError[];
+
+  abstract allElementNames(): string[];
 
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
     return feature?.nameInSchema;
   }
 
-  protected elementNameInSchema(schema: Schema, elementName: string): string | undefined {
-    const nameInSchema = this.nameInSchema(schema);
-    return nameInSchema
-      ? (elementName === nameInSchema ? nameInSchema : `${nameInSchema}__${elementName}`)
-      : undefined;
+  protected directiveNameInSchema(schema: Schema, directiveName: string): string | undefined {
+    const feature = this.featureInSchema(schema);
+    return feature ? feature.directiveNameInSchema(directiveName) : undefined;
+  }
+
+  protected typeNameInSchema(schema: Schema, typeName: string): string | undefined {
+    const feature = this.featureInSchema(schema);
+    return feature ? feature.typeNameInSchema(typeName) : undefined;
   }
 
   protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
@@ -78,12 +90,12 @@ export abstract class FeatureDefinition {
   }
 
   protected directive<TApplicationArgs extends {[key: string]: any}>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
-    const name = this.elementNameInSchema(schema, elementName);
+    const name = this.directiveNameInSchema(schema, elementName);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
 
   protected type<T extends NamedType>(schema: Schema, elementName: string): T | undefined {
-    const name = this.elementNameInSchema(schema, elementName);
+    const name = this.typeNameInSchema(schema, elementName);
     return name ? schema.type(name) as T : undefined;
   }
 
@@ -92,15 +104,23 @@ export abstract class FeatureDefinition {
   }
 
   protected addDirective(schema: Schema, name: string): DirectiveDefinition {
-    return schema.addDirectiveDefinition(this.elementNameInSchema(schema, name)!);
+    return schema.addDirectiveDefinition(this.directiveNameInSchema(schema, name)!);
+  }
+
+  protected addDirectiveSpec(schema: Schema, spec: DirectiveSpecification): GraphQLError[] {
+    return spec.checkOrAdd(schema, this.directiveNameInSchema(schema, spec.name));
+  }
+
+  protected addTypeSpec(schema: Schema, spec: TypeSpecification): GraphQLError[] {
+    return spec.checkOrAdd(schema, this.typeNameInSchema(schema, spec.name));
   }
 
   protected addScalarType(schema: Schema, name: string): ScalarType {
-    return schema.addType(new ScalarType(this.elementNameInSchema(schema, name)!));
+    return schema.addType(new ScalarType(this.typeNameInSchema(schema, name)!));
   }
 
   protected addEnumType(schema: Schema, name: string): EnumType {
-    return schema.addType(new EnumType(this.elementNameInSchema(schema, name)!));
+    return schema.addType(new EnumType(this.typeNameInSchema(schema, name)!));
   }
 
   protected featureInSchema(schema: Schema): CoreFeature | undefined {
@@ -111,24 +131,149 @@ export abstract class FeatureDefinition {
     return features.getByIdentity(this.identity);
   }
 
+  get defaultCorePurpose(): CorePurpose | undefined {
+    return undefined;
+  }
+
   toString(): string {
     return `${this.identity}/${this.version}`
   }
 }
 
 export type CoreDirectiveArgs = {
+  url: undefined,
   feature: string,
   as?: string,
   for?: string
 }
 
-export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefinition, any>): directive is Directive<SchemaDefinition, CoreDirectiveArgs> {
+export type LinkDirectiveArgs = {
+  url: string,
+  feature: undefined,
+  as?: string,
+  for?: string,
+  import?: (string | CoreImport)[]
+}
+
+export type CoreOrLinkDirectiveArgs = CoreDirectiveArgs | LinkDirectiveArgs;
+
+export type CoreImport = {
+  name: string,
+  as?: string,
+};
+
+export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>): CoreImport[] {
+  // Note: up to this point, we've kind of cheated with typing and force-casted the arguments to `CoreOrLinkDirectiveArgs`, and while this
+  // graphQL type validations ensure this is "mostly" true, the `import' arg is an exception becuse it uses the `link__Import` scalar,
+  // and so there is no fine-grained graphQL-side validation of the values. So we'll need to double-check that the values are indeed
+  // either a string or a valid `CoreImport` value.
+  const args = directive.arguments();
+  if (!('import' in args) || !args.import) {
+    return [];
+  }
+  const importArgValue = args.import;
+  const definition = coreFeatureDefinitionIfKnown(url);
+  const knownElements = definition?.allElementNames();
+  const errors: GraphQLError[] = [];
+  const imports: CoreImport[] = [];
+
+  importArgLoop:
+  for (const elt of importArgValue) {
+    if (typeof elt === 'string') {
+      imports.push({ name: elt });
+      validateImportedName(elt, knownElements, errors, directive);
+      continue;
+    }
+    if (typeof elt !== 'object') {
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+        message: `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: values should be either strings or input object values of the form { name: "<importedElement>", as: "<alias>" }.`,
+        nodes: directive.sourceAST
+      }));
+      continue;
+    }
+    let name: string | undefined;
+    for (const [key, value] of Object.entries(elt)) {
+      switch (key) {
+        case 'name':
+          if (typeof value !== 'string') {
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+              message: `Invalid value for the "name" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              nodes: directive.sourceAST
+            }));
+            continue importArgLoop;
+          }
+          name = value;
+          break;
+        case 'as':
+          if (typeof value !== 'string') {
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+              message: `Invalid value for the "as" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              nodes: directive.sourceAST
+            }));
+            continue importArgLoop;
+          }
+          break;
+        default:
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+            message: `Unknown field "${key}" for sub-value ${valueToString(elt)} of @link(import:) argument.`,
+            nodes: directive.sourceAST
+          }));
+          continue importArgLoop;
+      }
+    }
+    if (name) {
+      const i = elt as CoreImport;
+      imports.push(i);
+      if (i.as) {
+        if (i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+            message: `Invalid @link import renaming: directive "${i.name}" imported name should start with a '@' character, but got "${i.as}".`,
+            nodes: directive.sourceAST
+          }));
+        }
+        else if (i.name.charAt(0) !== '@' && i.as.charAt(0) === '@') {
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+            message: `Invalid @link import renaming: type "${i.name}" imported name should not start with a '@' character, but got "${i.as}" (or, if @${i.name} is a directive, then it should be referred to with a '@').`,
+            nodes: directive.sourceAST
+          }));
+        }
+      }
+      validateImportedName(name, knownElements, errors, directive);
+    } else {
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+        message: `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: missing mandatory "name" field.`,
+        nodes: directive.sourceAST
+      }));
+    }
+  }
+
+  if (errors.length > 0) {
+    throw ErrGraphQLValidationFailed(errors);
+  }
+  return imports;
+}
+
+function validateImportedName(name: string, knownElements: string[] | undefined, errors: GraphQLError[], directive: Directive<SchemaDefinition>) {
+  if (knownElements && !knownElements.includes(name)) {
+    let details = '';
+    if (!name.startsWith('@') && knownElements.includes('@' + name)) {
+      details = ` Did you mean directive "@${name}"?`;
+    } else {
+      const suggestions = suggestionList(name, knownElements);
+      if (suggestions) {
+        details = didYouMean(suggestions);
+      }
+    }
+    errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+      message: `Cannot import unknown element "${name}".${details}`,
+      nodes: directive.sourceAST
+    }));
+  }
+}
+
+export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefinition, any>): directive is Directive<SchemaDefinition, CoreOrLinkDirectiveArgs> {
   const definition = directive.definition;
   if (!definition) {
-    return false;
-  }
-  const featureArg = definition.argument('feature');
-  if (!featureArg || !sameType(featureArg.type!, new NonNullType(directive.schema().stringType()))) {
     return false;
   }
   const asArg = definition.argument('as');
@@ -138,60 +283,138 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
   if (!definition.repeatable || definition.locations.length !== 1 || definition.locations[0] !== DirectiveLocation.SCHEMA) {
     return false;
   }
+  const urlArg = definition.argument('url') ?? definition.argument('feature');
+  if (!urlArg || !isValidUrlArgumentType(urlArg.type!, directive.schema())) {
+    return false;
+  }
 
-  const args = (directive as Directive<SchemaDefinition, CoreDirectiveArgs>).arguments();
+  const args = directive.arguments();
   try {
-    const url = FeatureUrl.parse(args.feature);
-    return url.identity === coreIdentity && directive.name === (args.as ?? 'core');
+    const url = FeatureUrl.parse(args[urlArg.name] as string);
+    if (url.identity === coreIdentity) {
+      return directive.name === (args.as ?? 'core');
+    } else {
+      return url.identity === linkIdentity &&  directive.name === (args.as ?? linkDirectiveDefaultName);
+    }
   } catch (err) {
     return false;
   }
 }
 
+function isValidUrlArgumentType(type: InputType, schema: Schema): boolean {
+  // Note that the 'url' arg is defined as nullable (mostly for future proofing reasons) but we allow use to provide a definition
+  // where it's non-nullable (and in practice, @core (which we never generate anymore, but recognize) definition technically uses
+  // with a non-nullable argument, and some fed2 previews did if for @link, so this ensure we handle reading schema generated
+  // by those versions just fine).
+  return sameType(type, schema.stringType())
+    || sameType(type, new NonNullType(schema.stringType()));
+}
+
+const linkPurposeTypeSpec = createEnumTypeSpecification({
+  name: 'Purpose',
+  values: corePurposes.map((name) => ({ name, description: purposesDescription(name)}))
+});
+
+const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
+
 export class CoreSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion) {
-    super(new FeatureUrl(coreIdentity, 'core', version));
+  private readonly directiveDefinitionSpec: DirectiveSpecification;
+
+  constructor(version: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
+    super(new FeatureUrl(identity, name, version));
+    this.directiveDefinitionSpec = createDirectiveSpecification({
+      name,
+      locations: [DirectiveLocation.SCHEMA],
+      repeatable: true,
+      argumentFct: (schema, nameInSchema) => this.createDefinitionArgumentSpecifications(schema, nameInSchema),
+    });
   }
 
-  addElementsToSchema(_: Schema): void {
-    // Core is special and the @core directive is added in `addToSchema` below
-  }
-
-  addToSchema(schema: Schema, as?: string) {
-    const existing = schema.coreFeatures;
-    if (existing) {
-      if (existing.coreItself.url.identity === this.identity) {
-        // Already exists with the same version, let it be.
-        return;
-      } else {
-        throw buildError(`Cannot add feature ${this} to the schema, it already uses ${existing.coreItself.url}`);
-      }
-    }
-
-    const nameInSchema = as ?? this.url.name;
-    const core = schema.addDirectiveDefinition(nameInSchema).addLocations(DirectiveLocation.SCHEMA);
-    core.repeatable = true;
-    core.addArgument('feature', new NonNullType(schema.stringType()));
-    core.addArgument('as', schema.stringType());
+  private createDefinitionArgumentSpecifications(schema: Schema, nameInSchema?: string): { args: ArgumentSpecification[], errors: GraphQLError[] } {
+    const args: ArgumentSpecification[] = [
+      { name: this.urlArgName(), type: schema.stringType() },
+      { name: 'as', type: schema.stringType() },
+    ];
     if (this.supportPurposes()) {
-      const purposeEnum = schema.addType(new EnumType(`${nameInSchema}__Purpose`));
-      for (const purpose of corePurposes) {
-        purposeEnum.addValue(purpose).description = purposesDescription(purpose);
+      const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
+      const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
+      if (errors.length > 0) {
+        return { args, errors }
       }
-      core.addArgument('for', purposeEnum);
+      args.push({ name: 'for', type: schema.type(purposeName) as InputType });
+    }
+    if (this.supportImport()) {
+      const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
+      const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
+      if (errors.length > 0) {
+        return { args, errors }
+      }
+      args.push({ name: 'import', type: new ListType(schema.type(importName)!) });
+    }
+    return { args, errors: [] };
+  }
+
+  addElementsToSchema(_: Schema): GraphQLError[] {
+    // Core is special and the @core directive is added in `addToSchema` below
+    return [];
+  }
+
+  // TODO: we may want to allow some `import` as argument to this method. When we do, we need to watch for imports of
+  // `Purpose` and `Import` and add the types under their imported name.
+  addToSchema(schema: Schema, as?: string): GraphQLError[] {
+    const errors = this.addDefinitionsToSchema(schema, as);
+    if (errors.length > 0) {
+      return errors;
     }
 
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
     // until the next line.
-    const args: CoreDirectiveArgs = { feature: this.toString() }
+    const args = { [this.urlArgName()]: this.toString() } as unknown as CoreOrLinkDirectiveArgs;
     if (as) {
       args.as = as;
     }
-    schema.schemaDefinition.applyDirective(nameInSchema, args);
+    schema.schemaDefinition.applyDirective(as ?? this.url.name, args, true);
+    return [];
+  }
+
+  addDefinitionsToSchema(schema: Schema, as?: string): GraphQLError[] {
+    const existingCore = schema.coreFeatures;
+    if (existingCore) {
+      if (existingCore.coreItself.url.identity === this.identity) {
+        // Already exists with the same version, let it be.
+        return [];
+      } else {
+        return [ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+          message: `Cannot add feature ${this} to the schema, it already uses ${existingCore.coreItself.url}`
+        })];
+      }
+    }
+
+    const nameInSchema = as ?? this.url.name;
+    return this.directiveDefinitionSpec.checkOrAdd(schema, nameInSchema);
+  }
+
+  /**
+   * The list of all the element names that can be "imported" from this feature. Importantly, directive names
+   * must start with a `@`.
+   */
+  allElementNames(): string[] {
+    const names = [ `@${this.url.name}` ];
+    if (this.supportPurposes()) {
+      names.push('Purpose');
+    }
+    if (this.supportImport()) {
+      names.push('Import');
+    }
+    return names;
   }
 
   private supportPurposes() {
     return this.version.strictlyGreaterThan(new FeatureVersion(0, 1));
+  }
+
+  private supportImport() {
+    return this.url.name === linkDirectiveDefaultName;
   }
 
   private extractFeature(schema: Schema): CoreFeature {
@@ -205,10 +428,10 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return features.coreItself;
   }
 
-  coreDirective(schema: Schema): DirectiveDefinition<CoreDirectiveArgs> {
+  coreDirective(schema: Schema): DirectiveDefinition<CoreOrLinkDirectiveArgs> {
     const feature = this.extractFeature(schema);
     const directive = schema.directive(feature.nameInSchema);
-    return directive as DirectiveDefinition<CoreDirectiveArgs>;
+    return directive as DirectiveDefinition<CoreOrLinkDirectiveArgs>;
   }
 
   coreVersion(schema: Schema): FeatureVersion {
@@ -216,17 +439,25 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return feature.url.version;
   }
 
-  applyFeatureToSchema(schema: Schema, feature: FeatureDefinition, as?: string, purpose?: CorePurpose) {
+  applyFeatureToSchema(schema: Schema, feature: FeatureDefinition, as?: string, purpose?: CorePurpose): GraphQLError[] {
     const coreDirective = this.coreDirective(schema);
-    const args: CoreDirectiveArgs = {
-      feature: feature.toString(),
+    const args = {
+      [this.urlArgName()]: feature.toString(),
       as,
-    };
+    } as CoreDirectiveArgs;
     if (this.supportPurposes() && purpose) {
       args.for = purpose;
     }
     schema.schemaDefinition.applyDirective(coreDirective, args);
-    feature.addElementsToSchema(schema);
+    return feature.addElementsToSchema(schema);
+  }
+
+  extractFeatureUrl(args: CoreOrLinkDirectiveArgs): FeatureUrl {
+    return FeatureUrl.parse(args[this.urlArgName()]!);
+  }
+
+  urlArgName(): 'feature' | 'url' {
+    return this.url.name === 'core' ? 'feature' : 'url';
   }
 }
 
@@ -463,24 +694,90 @@ export class FeatureUrl {
   }
 }
 
+export function findCoreSpecVersion(featureUrl: FeatureUrl): CoreSpecDefinition | undefined {
+  return featureUrl.name === 'core'
+    ? CORE_VERSIONS.find(featureUrl.version)
+    : (featureUrl.name === linkDirectiveDefaultName ? LINK_VERSIONS.find(featureUrl.version) : undefined)
+}
+
 export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIdentity)
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 1)))
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 2)));
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 1), coreIdentity, 'core'))
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 2), coreIdentity, 'core'));
 
-export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
-  // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature
-  // actually using the type.
-  const featureDirectives = schema.directives().filter(d => feature.isFeatureDefinition(d));
-  featureDirectives.forEach(d => d.remove().forEach(application => application.remove()));
+export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIdentity)
+  .add(new CoreSpecDefinition(new FeatureVersion(1, 0)));
 
-  const featureTypes = schema.types().filter(t => feature.isFeatureDefinition(t));
-  featureTypes.forEach(type => {
-    const references = type.remove();
-    if (references.length > 0) {
-      throw new GraphQLError(
-        `Cannot remove elements of feature ${feature} as feature type ${type} is referenced by elements: ${references.join(', ')}`,
-        references.map(r => r.sourceAST).filter(n => n !== undefined) as ASTNode[]
-      );
+registerKnownFeature(CORE_VERSIONS);
+registerKnownFeature(LINK_VERSIONS);
+
+export function removeAllCoreFeatures(schema: Schema) {
+  // Gather a list of core features up front, since we can't fetch them during
+  // removal. (Also note that core being a feature itself, this will remove core
+  // itself and mark the schema as 'not core').
+  const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
+
+  // Remove all feature elements, keeping track of any type references found
+  // along the way.
+  const typeReferences: {
+    feature: CoreFeature;
+    type: NamedType;
+    references: SchemaElement<any, any>[];
+  }[] = [];
+  for (const feature of coreFeatures) {
+    // Remove feature directive definitions and their applications.
+    const featureDirectiveDefs = schema.directives()
+      .filter(d => feature.isFeatureDefinition(d));
+    featureDirectiveDefs.forEach(def =>
+      def.remove().forEach(application => application.remove())
+    );
+
+    // Remove feature types.
+    const featureTypes = schema.types()
+      .filter(t => feature.isFeatureDefinition(t));
+    featureTypes.forEach(type => {
+      const references = type.remove();
+      if (references.length > 0) {
+        typeReferences.push({
+          feature,
+          type,
+          references,
+        });
       }
-  });
+    });
+  }
+
+  // Now that we're finished with removals, for any referencers encountered,
+  // check whether they're still attached to the schema (and fail if they are).
+  //
+  // We wait for after all removals are done, since it means we don't have to
+  // worry about the ordering of removals (e.g. if one feature element refers
+  // to a different feature's element) or any circular references.
+  //
+  // Note that we fail for ALL type referencers, regardless of whether removing
+  // the type necessitates removal of the type referencer. E.g. even if some
+  // non-core object type were to implement some core feature interface type, we
+  // would still require removal of the non-core object type. Users don't have
+  // to enact this removal by removing the object type from their supergraph
+  // schema though; they could also just mark it @inaccessible (since this
+  // function is called after removeInaccessibleElements()).
+  //
+  // In the future, we could potentially relax this validation once we determine
+  // the appropriate semantics. (This validation has already been relaxed for
+  // directive applications, since feature directive definition removal does not
+  // necessitate removal of elements with directive applications.)
+  const errors: GraphQLError[] = [];
+  for (const { feature, type, references } of typeReferences) {
+    const referencesInSchema = references.filter(r => r.isAttached());
+    if (referencesInSchema.length > 0) {
+      errors.push(new GraphQLError(
+        `Cannot remove elements of feature ${feature} as feature type ${type}` +
+        ` is referenced by elements: ${referencesInSchema.join(', ')}`,
+        references.map(r => r.sourceAST)
+          .filter(n => n !== undefined) as ASTNode[]
+      ));
+    }
+  }
+  if (errors.length > 0) {
+    throw ErrGraphQLAPISchemaValidationFailed(errors);
+  }
 }

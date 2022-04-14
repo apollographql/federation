@@ -27,7 +27,9 @@ Scenario: supports passing additional fields defined by a requires
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{__typename id}}"
+          "operationKind": "query",
+          "operation": "query GetReviwedBookNames__accounts__0{me{__typename id}}",
+          "operationName": "GetReviwedBookNames__accounts__0"
         },
         {
           "kind": "Flatten",
@@ -46,7 +48,9 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}"
+            "operationKind": "query",
+            "operation": "query GetReviwedBookNames__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}",
+            "operationName": "GetReviwedBookNames__reviews__1"
           }
         },
         {
@@ -66,7 +70,9 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
+            "operationKind": "query",
+            "operation": "query GetReviwedBookNames__books__2($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}",
+            "operationName": "GetReviwedBookNames__books__2"
           }
         },
         {
@@ -88,7 +94,9 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+            "operationKind": "query",
+            "operation": "query GetReviwedBookNames__product__3($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}",
+            "operationName": "GetReviwedBookNames__product__3"
           }
         }
       ]

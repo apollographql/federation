@@ -112,7 +112,7 @@ function remapSelections(
 ): readonly GraphQLJSSelectionNode[] {
   return selections.map((selection) => {
     switch (selection.kind) {
-      case Kind.FIELD:
+      case 'Field':
         return {
           kind: Kind.FIELD,
           name: {
@@ -124,7 +124,7 @@ function remapSelections(
             selections: remapSelections(selection.selections || []),
           },
         };
-      case Kind.INLINE_FRAGMENT:
+      case 'InlineFragment':
         return {
           kind: Kind.INLINE_FRAGMENT,
           selectionSet: {

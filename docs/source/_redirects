@@ -1,0 +1,13 @@
+/v2/* /docs/federation/:splat
+/workbench/* /docs/federation/v1/workbench/:splat
+
+/value-types/ /docs/federation/v2/federated-types/sharing-types/
+/federated-types/value-types/  /docs/federation/v2/federated-types/sharing-types/
+
+/quickstart/ /docs/federation/v2/quickstart/setup/
+/quickstart-pt-2/ /docs/federation/v2/quickstart/studio-composition/
+/quickstart-pt-3/ /docs/federation/v2/quickstart/local-composition/
+/quickstart-pt-4/ /docs/federation/v2/quickstart/local-subgraphs/
+
+/managed-federation/monitoring/ /docs/federation/performance/monitoring
+/api/apollo-federation/ /docs/federation/api/apollo-subgraph/

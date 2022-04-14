@@ -5,4 +5,8 @@ const baseConfig = require('../jest.config.base');
 module.exports = {
   ...baseConfig,
   setupFilesAfterEnv: ['./src/__tests__/testSetup.ts'],
+  displayName: {
+    name: "@apollo/subgraph",
+    color: "blue",
+  },
 };

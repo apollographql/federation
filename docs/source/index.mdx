@@ -1,21 +1,16 @@
 ---
-title: Apollo Federation 2 alpha
-sidebar_title: Introduction
-description: Combine APIs into a unified graph
+title: Introduction to Apollo Federation
+description: Combine GraphQL APIs into a unified graph
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-import { Button } from '@apollo/space-kit/Button';
-import { Link } from 'gatsby';
-import { colors } from 'gatsby-theme-apollo-core';
-import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-> 📣 **Apollo Federation 2 is in public alpha.**
+> 📣 **Apollo Federation 2 is generally available!**
 >
-> * [See what's new!](./federation-2/new-in-federation-2/)
-> * [Move a test graph over](./federation-2/moving-to-federation-2)
+> * [See what's new.](./federation-2/new-in-federation-2/)
+> * [Move your graph from Federation 1.](./federation-2/moving-to-federation-2)
 >
-> Unchanged portions of the federation docs are omitted for clarity. These portions are available in the [Federation 1 docs](https://www.apollographql.com/docs/federation/).
+> Docs for Federation 1 are [available here](/federation/v1/).
 
 **Apollo Federation** is a powerful open-source architecture that helps you create a **unified graph** that combines multiple GraphQL APIs:
 
@@ -34,21 +29,21 @@ With federation, you can responsibly share ownership of your graph across any nu
 
 Federation also supports a free managed mode with Apollo Studio, which helps you modify and grow your graph without any downtime.
 
-<p>
-  <Button
-    color={colors.primary}
-    as={<Link to="https://www.apollographql.com/docs/federation/v2/quickstart/setup/" />}
-    style={{marginRight: 16, marginBottom: 16}}
+<div>
+  <ButtonLink
+    colorScheme="indigo"
+    href="./quickstart/setup/"
+    mr="4"
   >
     Get started with Federation
-  </Button>
-
+  </ButtonLink>
   <Button
-    as={<Link to="#how-it-works" />}
+    as="a"
+    href="#how-it-works"
   >
     Learn more
   </Button>
-</p>
+</div>
 
 ## How it works
 
@@ -74,20 +69,18 @@ A **gateway** serves as the public access point for your supergraph. It receives
 
 ### Combining subgraph schemas
 
-Every subgraph has its own schema (just like any other GraphQL API):
+Like any other GraphQL API, each subgraph has its own schema:
 
 <CodeColumns>
 
-```graphql
-# Users subgraph
+```graphql title="Users subgraph"
 type User {
   id: ID!
   name: String!
 }
 ```
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product {
   upc: String!
   inStock: Boolean!
@@ -98,10 +91,9 @@ type Product {
 
 To communicate with all of your subgraphs, the gateway uses a special **supergraph schema** that _combines_ these subgraph schemas.
 
-To create a supergraph schema, Apollo Federation uses a special process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
+To create a supergraph schema, you use a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
 
-```graphql
-# Supergraph schema (simplified)
+```graphql title="Supergraph schema (simplified)"
 type User {
   id: ID!
   name: String!
@@ -117,7 +109,7 @@ type Product {
 
 ### Server instances
 
-In a federated architecture, each subgraph instance has its own GraphQL server, and _so does the gateway_. External clients query the gateway, and the gateway then queries individual subgraphs to obtain and return results:
+In a federated architecture, each subgraph instance has its own GraphQL server, and _so does the gateway_. External clients query the gateway, and the gateway then queries individual subgraphs to obtain, combine, and return results:
 
 ```mermaid
 graph BT;
@@ -133,8 +125,10 @@ graph BT;
   class clients secondary;
 ```
 
-* The gateway runs Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library.
-* Subgraphs can _also_ run Apollo Server (using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library), _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs can even use different server libraries.
+* The gateway is one of the following:
+    * An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
+    * An instance of [the Apollo Router](https://www.apollographql.com/docs/router/), a highly performant Rust-based graph router that is currently in public preview
+* Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs in the same supergraph can even use different server libraries.
 
 
 ## Benefits of federation
@@ -166,7 +160,7 @@ graph TB;
 
 But with an architecture like this, a client might need to communicate with _multiple_ APIs to fetch all of the data it needs. This diminishes a powerful advantage of GraphQL over REST.
 
-Instead, your organization should expose a [unified graph](https://principledgraphql.com/integrity#1-one-graph) that lets clients fetch _all_ of the data that they need from a single endpoint:
+Instead, your organization should expose a [unified graph](https://principledgraphql.com/integrity) that lets clients fetch _all_ of the data that they need from a single endpoint:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -238,7 +232,7 @@ In this structure, the "graph team" might be a separate team that's dedicated to
 As with the rest of the Apollo platform, you can (and should) adopt Apollo Federation **incrementally**:
 
 * If you currently use a monolithic GraphQL server, you can break its functionality out one subgraph at a time.
-* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](/migrating-from-stitching/).
+* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](./migrating-from-stitching/).
 
 In both of these cases, all of your clients continue to work throughout your incremental adoption. In fact, clients have no way to distinguish between different graph implementations.
 
@@ -248,33 +242,33 @@ Apollo Federation encourages a design principle called [separation of concerns](
 
 #### Limitations of type-based separation
 
-When thinking about how to divide your graph's functionality across subgraphs, it might seem straightforward that each subgraph would own a completely distinct set of types. For example, a Users subgraph would define the entirety of a `User` type, the Products subgraph would define a `Product` type, and so on:
+When thinking about how to divide your graph's functionality across subgraphs, it might initially seem logical for each subgraph to own a completely distinct set of types. For example, a Users subgraph would define the entirety of a `User` type, the Products subgraph would define a `Product` type, and so on:
 
 <p style="margin-bottom: 0">❌</p>
 
 <CodeColumns cols="3">
 
-```graphql
-# Users subgraph
+```graphql title="Users subgraph"
 type User {
+  id: ID!
   name: String
   reviews: [Review]
   purchases: [Product]
 }
 ```
 
-```graphql
-# Products subgraph
+```graphql title="Products subgraph"
 type Product {
+  id: ID!
   name: String
   price: String
   reviews: [Review]
 }
 ```
 
-```graphql
-# Reviews subgraph
+```graphql title="Reviews subgraph"
 type Review {
+  id: ID!
   body: String
   author: User
   product: Product
@@ -285,7 +279,7 @@ type Review {
 
 Although this separation looks clean, it quickly causes issues. Most commonly, a particular feature (or _concern_) usually spans _multiple_ types, which might belong to different subgraphs.
 
-Consider the `purchases` field of the `User` type above. Even though this field is a member of the `User` type, a list of `Product`s should probably be populated by the Products subgraph, _not_ the Users subgraph.
+Consider the `User.purchases` field above. Even though this field belongs to the `User` type, a list of `Product`s should probably be populated by the Products subgraph, _not_ the Users subgraph.
 
 By defining the `User.purchases` field in the Products subgraph instead:
 
@@ -296,43 +290,49 @@ By defining the `User.purchases` field in the Products subgraph instead:
 
 The following schema uses Apollo Federation to divide the same set of types and fields across the same three subgraphs:
 
+> Some federation-specific directives are omitted here for clarity. For details, see [Entities](./entities/).
+
 <p style="margin-bottom: 0">✅</p>
 
 <CodeColumns cols="3">
 
-```graphql
-# Users subgraph
+```graphql title="Users subgraph"
 type User {
+  id: ID!
   name: String
 }
 ```
 
-```graphql
+```graphql title="Products subgraph"
 # Products subgraph
 type Product {
+  id: ID!
   name: String
   price: String
-  reviews: [Review]
 }
 
 type User {
+  id: ID!
   purchases: [Product]
 }
 ```
 
-```graphql
+```graphql title="Reviews subgraph"
 # Reviews subgraph
 type Review {
+  id: ID!
   body: String
   author: User
   product: Product
 }
 
 type User {
+  id: ID!
   reviews: [Review]
 }
 
 type Product {
+  id: ID!
   reviews: [Review]
 }
 ```

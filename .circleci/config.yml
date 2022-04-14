@@ -7,11 +7,7 @@ orbs:
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
   # We could use Renovate to bump this version via PR, but that's not set up now.
   oss: apollo/oss-ci-cd-tooling@0.0.20
-  # Rust steps which are used below (like `rust/install`, `rust/test`) are
-  # defined in this orb. For reference, the orb can be found here:
-  # https://github.com/CircleCI-Public/rust-orb
-  rust: circleci/rust@1.5.0
-  
+
 commands:
   # These are the steps used for each version of Node which we're testing
   # against.  Thanks to YAMLs inability to merge arrays (though it is able
@@ -19,7 +15,7 @@ commands:
   # or these steps would need to be repeated in a version of Node that needs
   # something different.  Probably best to avoid that, out of principle, though.
   common_test_steps:
-    description: "Commands run on each Node.js job (not for Rust jobs)"
+    description: "Commands run on each Node.js job"
     steps:
       - oss/install_specific_npm_version:
           version: '7'
@@ -33,19 +29,6 @@ commands:
           path: reports/junit
       - store_artifacts:
           path: reports/junit
-
-executors:
-  rust_linux: &rust_linux_executor
-    docker:
-      - image: cimg/base:stable
-  rust_macos: &rust_macos_executor
-    macos:
-      xcode: 11.4
-  rust_windows: &rust_windows_executor
-    machine:
-      image: 'windows-server-2019-vs2019:stable'
-    resource_class: windows.xlarge
-    shell: powershell.exe -ExecutionPolicy Bypass
 
 # Important! When adding a new job to `jobs`, make sure to define when it
 # executes by also adding it to the `workflows` section below!
@@ -81,6 +64,12 @@ jobs:
     steps:
       - common_test_steps
 
+  NodeJS 17:
+    docker:
+      - image: cimg/node:17.0.0
+    steps:
+      - common_test_steps
+
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
@@ -105,175 +94,23 @@ jobs:
       - run:
           command: npm run error-code-doc:check
 
-  Rust:
-    parameters:
-      platform:
-        type: executor
-    executor: << parameters.platform >>
-    environment:
-      # Note: This is a no-op at the second, but bear with me on this.  If this
-      # comment is not removed by 2021-06-30 remove it along with the next line.
-      # renovate: datasource=github-tags depName=nodejs/node versioning=node
-      NODE_VERSION: 14.18.1
-      NPM_VERSION: 7.10.0
+  Hints code Doc:
+    description: "Ensure the hints code documentation is up to date"
+    docker:
+      - image: cimg/node:14.18.1
     steps:
+      - oss/install_specific_npm_version:
+          version: '7'
       - checkout
-      - when:
-          condition:
-            equal: [ *rust_macos_executor, << parameters.platform >> ]
-          steps:
-            - rust/install:
-                version: stable
-            - restore_cache:
-                keys:
-                  - rust-target-v1-macos-{{ checksum "Cargo.lock" }}
-            # Installing this with the curl nvm command was proving difficult,
-            # so I've opted to just install the .pkg.  Should be the same net
-            # result, even if liked the opportunity for symmetry with Linux.
-            - run:
-                name: Installing Node.js with a .pkg.
-                command: |
-                  curl "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg" > "$HOME/Downloads/node.pkg" && sudo installer -store -pkg "$HOME/Downloads/node.pkg" -target "/"
-            - run:
-                name: Install specific version of npm
-                command: |
-                  sudo npm install --global npm@${NPM_VERSION}
-            - run:
-                name: Assert Node.js version
-                command: test "$(node --version)" = "v${NODE_VERSION}"
-            - run:
-                name: Assert npm version
-                command: test "$(npm --version)" = "${NPM_VERSION}"
-            - run: npm clean-install
-            - rust/test:
-                # This is prefixed in the orb with 'cargo-'
-                cache_version: v2-macos
-            - rust/format:
-                with_cache: false # Only the first needs to restore cache.
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
-            - save_cache:
-                key: rust-target-v1-macos-{{ checksum "Cargo.lock" }}
-                paths:
-                  - target/
-      - when:
-          condition:
-            equal: [ *rust_linux_executor, << parameters.platform >> ]
-          steps:
-            - rust/install:
-                version: stable
-            - restore_cache:
-                keys:
-                  - rust-target-v1-linux-{{ checksum "Cargo.lock" }}
-            - run:
-                name: Install nvm
-                command: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
-            - run: echo '. ~/.nvm/nvm.sh' >> $BASH_ENV
-            - run:
-                name: Install desired Node.js version
-                command: |
-                  nvm install $NODE_VERSION
-                  nvm alias default $NODE_VERSION
-                  npm install --global npm@${NPM_VERSION}
-            - run:
-                name: Assert Node.js version
-                command: test "$(node --version)" = "v${NODE_VERSION}"
-            - run:
-                name: Assert npm version
-                command: test "$(npm --version)" = "${NPM_VERSION}"
-            - run: npm clean-install
-            - rust/test:
-                # This is prefixed in the orb with 'cargo-'
-                cache_version: v2-linux
-            - rust/format:
-                with_cache: false # Only the first needs to restore cache.
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
-            - save_cache:
-                key: rust-target-v1-linux-{{ checksum "Cargo.lock" }}
-                paths:
-                  - target/
-      - when:
-          condition:
-            equal: [ *rust_windows_executor, << parameters.platform >> ]
-          steps:
-            - run:
-                name: Install rustup
-                environment:
-                  # Override auto-detection of RAM for Rustc install.
-                  # https://github.com/rust-lang/rustup/issues/2229#issuecomment-585855925
-                  RUSTUP_UNPACK_RAM: "21474836480"
-                command: |
-                  $installer_dir = "$Env:TEMP"
-                  echo "Downloading rustup"
-                  (New-Object System.Net.WebClient).DownloadFile("https://win.rustup.rs/x86_64", "$installer_dir\rustup-init.exe")
-                  echo "Installing rustup"
-                  & $installer_dir\rustup-init.exe --profile minimal --component rustfmt,clippy -y
-                  exit $LASTEXITCODE
-            - run:
-                name: Special case for Windows because of ssh-agent
-                command: |
-                  Add-Content -path "${Env:USERPROFILE}\.cargo\config.toml" @"
-                  [net]
-                  git-fetch-with-cli = true
-                  "@
-            - restore_cache:
-                keys:
-                  - rust-target-v1-windows-{{ checksum "Cargo.lock" }}
-            - run:
-                name: Install desired Node.js version with nvm
-                command: |
-                  nvm install ${Env:NODE_VERSION}
-                  nvm on
-            - run:
-                # https://github.com/coreybutler/nvm-windows/issues/300
-                # Have to move the command out of the way because it can't
-                # overwrite itself otherwise.   This is madness, but apparently
-                # accepted.  Other things I tried: using yarn to install npm,
-                # using http://npm.im/npm-windows-upgrade and even shouting.
-                name: Install specific version of npm in a crazy Windows way
-                command: |
-                  $node_dir = (get-item (get-command npm).source).directory.fullname
-                  foreach ($cmd in @("npm", "npx")) {
-                    foreach ($ext in @(".ps1", ".cmd", "")) {
-                      if (Test-Path "$node_dir/$cmd$ext") {
-                        rename-item -path (join-path -path $node_dir -childpath "$cmd$ext") "${cmd}-orig${ext}"
-                      }
-                    }
-                  }
-                  npm-orig install --global "npm@${Env:NPM_VERSION}"
-            - run:
-                name: Assert Node.js version
-                command: |
-                  if ((node --version) -Ne "v${Env:NODE_VERSION}") { exit 1 }
-            - run:
-                name: Assert npm version
-                command: |
-                  if ((npm --version) -Ne "${Env:NPM_VERSION}") { exit 1 }
-            - run:
-                name: npm clean-install
-                command: |
-                  npm clean-install
-            - rust/test:
-                # This is prefixed in the orb with 'cargo-'
-                cache_version: v2-windows
-            - rust/format:
-                with_cache: false # Only the first needs to restore cache.
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
-            - save_cache:
-                key: rust-target-v1-windows-{{ checksum "Cargo.lock" }}
-                paths:
-                  - target/
+      - oss/npm_clean_install_with_caching
+      - run:
+          command: npm run hints-doc:check
 
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
 #     to do this!
 common_non_publish_filters: &common_non_publish_filters
   filters:
-    branches:
-      # If 'docs' is found, with word boundaries on either side, skip.
-      ignore: /.*?\bdocs\b.*/
     # Ensure every job has `tags` filters since the publish steps have tags.
     # This is some wild configuration thing that's pretty hard to figure out.
     tags:
@@ -301,20 +138,18 @@ workflows:
       - NodeJS 16:
           name: "JS: Node 16"
           <<: *common_non_publish_filters
+      - NodeJS 17:
+          name: "JS: Node 17"
+          <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
           <<: *common_non_publish_filters
       - Error code Doc:
           name: "Error code Doc (up to date)"
           <<: *common_non_publish_filters
-      - Rust:
+      - Hints code Doc:
+          name: "Hint code Doc (up to date)"
           <<: *common_non_publish_filters
-          matrix:
-            parameters:
-              platform:
-                - rust_macos
-                - rust_windows
-                - rust_linux
       - oss/lerna_tarballs:
           name: "JS: Package tarballs"
           <<: *common_non_publish_filters
@@ -322,6 +157,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "JS: Node 17"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/dry_run:
@@ -331,7 +167,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
-            - Rust
+            - "JS: Node 17"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/confirmation:

@@ -41,6 +41,8 @@ export type FetchError = {
   __typename?: 'FetchError';
   code: FetchErrorCode;
   message: Scalars['String'];
+  /** Minimum delay before the next fetch should occur, in seconds. */
+  minDelaySeconds: Scalars['Float'];
 };
 
 export enum FetchErrorCode {
@@ -111,16 +113,23 @@ export type RouterConfigResponse = FetchError | RouterConfigResult | Unchanged;
 
 export type RouterConfigResult = {
   __typename?: 'RouterConfigResult';
+  /** Variant-unique identifier. */
   id: Scalars['ID'];
   /** Messages that should be reported back to the operators of this router, eg through logs and/or monitoring. */
   messages: Array<Message>;
-  /** The configuration as core schema */
+  /** Minimum delay before the next fetch should occur, in seconds. */
+  minDelaySeconds: Scalars['Float'];
+  /** The configuration as core schema. */
   supergraphSDL: Scalars['String'];
 };
 
+/** Response indicating the router configuration available is not newer than the one passed in `ifAfterId`. */
 export type Unchanged = {
   __typename?: 'Unchanged';
+  /** Variant-unique identifier for the configuration that remains in place. */
   id: Scalars['ID'];
+  /** Minimum delay before the next fetch should occur, in seconds. */
+  minDelaySeconds: Scalars['Float'];
 };
 
 export type SupergraphSdlQueryVariables = Exact<{
@@ -130,7 +139,7 @@ export type SupergraphSdlQueryVariables = Exact<{
 }>;
 
 
-export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'Unchanged' } };
+export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, minDelaySeconds: number, supergraphSdl: string } | { __typename: 'Unchanged' } };
 
 export type OobReportMutationVariables = Exact<{
   input?: InputMaybe<ApiMonitoringReport>;

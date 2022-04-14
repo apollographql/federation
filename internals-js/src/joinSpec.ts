@@ -1,4 +1,5 @@
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { DirectiveLocation, GraphQLError } from 'graphql';
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
   EnumType,
@@ -7,6 +8,7 @@ import {
   NonNullType,
 } from "./definitions";
 import { Subgraph, Subgraphs } from "./federation";
+import { registerKnownFeature } from './knownCoreFeatures';
 import { MultiMap } from "./utils";
 
 export const joinIdentity = 'https://specs.apollo.dev/join';
@@ -37,8 +39,8 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.version.equals(new FeatureVersion(0, 1));
   }
 
-  addElementsToSchema(schema: Schema) {
-    const joinGraph = this.addDirective(schema, 'graph').addLocations("ENUM_VALUE");
+  addElementsToSchema(schema: Schema): GraphQLError[] {
+    const joinGraph = this.addDirective(schema, 'graph').addLocations(DirectiveLocation.ENUM_VALUE);
     joinGraph.addArgument('name', new NonNullType(schema.stringType()));
     joinGraph.addArgument('url', new NonNullType(schema.stringType()));
 
@@ -47,7 +49,12 @@ export class JoinSpecDefinition extends FeatureDefinition {
     const joinFieldSet = this.addScalarType(schema, 'FieldSet');
 
     const joinType = this.addDirective(schema, 'type').addLocations(
-      "OBJECT", "INTERFACE", "UNION", "ENUM", "INPUT_OBJECT", "SCALAR"
+      DirectiveLocation.OBJECT,
+      DirectiveLocation.INTERFACE,
+      DirectiveLocation.UNION,
+      DirectiveLocation.ENUM,
+      DirectiveLocation.INPUT_OBJECT,
+      DirectiveLocation.SCALAR,
     );
     if (!this.isV01()) {
       joinType.repeatable = true;
@@ -56,9 +63,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
     joinType.addArgument('key', joinFieldSet);
     if (!this.isV01()) {
       joinType.addArgument('extension', new NonNullType(schema.booleanType()), false);
+      joinType.addArgument('resolvable', new NonNullType(schema.booleanType()), true);
     }
 
-    const joinField = this.addDirective(schema, 'field').addLocations("FIELD_DEFINITION", "INPUT_FIELD_DEFINITION");
+    const joinField = this.addDirective(schema, 'field').addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION);
     joinField.repeatable = true;
     joinField.addArgument('graph', new NonNullType(graphEnum));
     joinField.addArgument('requires', joinFieldSet);
@@ -66,11 +74,13 @@ export class JoinSpecDefinition extends FeatureDefinition {
     if (!this.isV01()) {
       joinField.addArgument('type', schema.stringType());
       joinField.addArgument('external', schema.booleanType());
+      joinField.addArgument('override', schema.stringType());
+      joinField.addArgument('usedOverridden', schema.booleanType());
     }
 
     if (!this.isV01()) {
       const joinImplements = this.addDirective(schema, 'implements').addLocations(
-        "OBJECT", "INTERFACE"
+        DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE,
       );
       joinImplements.repeatable = true;
       joinImplements.addArgument('graph', new NonNullType(graphEnum));
@@ -78,9 +88,26 @@ export class JoinSpecDefinition extends FeatureDefinition {
     }
 
     if (this.isV01()) {
-      const joinOwner = this.addDirective(schema, 'owner').addLocations("OBJECT");
+      const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
       joinOwner.addArgument('graph', new NonNullType(graphEnum));
     }
+    return [];
+  }
+
+  allElementNames(): string[] {
+    const names = [
+      'graph',
+      'Graph',
+      'FieldSet',
+      '@type',
+      '@field',
+    ];
+    if (this.isV01()) {
+      names.push('@owner');
+    } else {
+      names.push('@implements');
+    }
+    return names;
   }
 
   populateGraphEnum(schema: Schema, subgraphs: Subgraphs): Map<string, string> {
@@ -126,7 +153,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'graph')!;
   }
 
-  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string, extension?: boolean}> {
+  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string, extension?: boolean, resolvable?: boolean}> {
     return this.directive(schema, 'type')!;
   }
 
@@ -134,12 +161,24 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'implements');
   }
 
-  fieldDirective(schema: Schema): DirectiveDefinition<{graph: string, requires?: string, provides?: string, type?: string, external?: boolean}> {
+  fieldDirective(schema: Schema): DirectiveDefinition<{
+    graph: string,
+    requires?: string,
+    provides?: string,
+    override?: string,
+    type?: string,
+    external?: boolean,
+    usedOverridden?: boolean,
+  }> {
     return this.directive(schema, 'field')!;
   }
 
   ownerDirective(schema: Schema): DirectiveDefinition<{graph: string}> | undefined {
     return this.directive(schema, 'owner');
+  }
+
+  get defaultCorePurpose(): CorePurpose | undefined {
+    return 'EXECUTION';
   }
 }
 
@@ -153,3 +192,5 @@ export class JoinSpecDefinition extends FeatureDefinition {
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)));
+
+registerKnownFeature(JOIN_VERSIONS);

@@ -47,6 +47,8 @@ import {
   addConditionExclusion,
   SimultaneousPathsWithLazyIndirectPaths,
   advanceOptionsToString,
+  TransitionPathWithLazyIndirectPaths,
+  RootVertex,
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -75,7 +77,7 @@ function validationError(
   // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
   // supergraph and the subgraphsPath, we should be able to roughly infer what's going on.
   const operation = print(operationToDocument(witness));
-  const message = `The following supergraph API query:\n${operation}`
+  const message = `The following supergraph API query:\n${operation}\n`
     + 'cannot be satisfied by the subgraphs because:\n'
     + displayReasons(subgraphsPathsUnadvanceables);
   return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
@@ -223,12 +225,12 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
-    const initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
+    const initialState = ValidationState.initial({supergraph: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath) {
-      const updated = state.validateTransition(supergraphSchema, edge, conditionResolver);
+      const updated = state.validateTransition(edge);
       if (!updated) {
         isIncomplete = true;
         break;
@@ -262,23 +264,32 @@ export class ValidationState {
     // Path in the supergraph corresponding to the current state.
     public readonly supergraphPath: RootPath<Transition>,
     // All the possible paths we could be in the subgraph.
-    public readonly subgraphPaths: RootPath<Transition>[]
+    public readonly subgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[]
   ) {
   }
 
-  static initial(supergraph: QueryGraph, kind: SchemaRootKind, subgraphs: QueryGraph) {
-    return new ValidationState(GraphPath.fromGraphRoot(supergraph, kind)!, initialSubgraphPaths(kind, subgraphs));
+  static initial({
+    supergraph,
+    kind,
+    subgraphs,
+    conditionResolver,
+  }: {
+    supergraph: QueryGraph,
+    kind: SchemaRootKind,
+    subgraphs: QueryGraph,
+    conditionResolver: ConditionValidationResolver,
+  }) {
+    return new ValidationState(
+      GraphPath.fromGraphRoot(supergraph, kind)!,
+      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver.resolver)),
+    );
   }
 
   // Either return an error (we've found a path that cannot be validated), a new state (we've successfully handled the edge
   // and can continue validation from this new state) or 'undefined' if we can handle that edge by returning no results
   // as it gets us in a (valid) situation where we can guarantee there will be no results (in other words, the edge correspond
   // to a type condition for which there cannot be any runtime types, and so no point in continuing this "branch").
-  validateTransition(
-    supergraphSchema: Schema,
-    supergraphEdge: Edge,
-    conditionResolver: ConditionValidationResolver
-  ): ValidationState | undefined | ValidationError {
+  validateTransition(supergraphEdge: Edge): ValidationState | undefined | ValidationError {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
@@ -287,11 +298,9 @@ export class ValidationState {
     const deadEnds: Unadvanceables[] = [];
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
-        supergraphSchema,
         path,
         transition,
         targetType,
-        conditionResolver.resolver
       );
       if (isUnadvanceable(options)) {
         deadEnds.push(options);
@@ -306,7 +315,7 @@ export class ValidationState {
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
     if (newSubgraphPaths.length === 0) {
-      return validationError(newPath, this.subgraphPaths, deadEnds);
+      return validationError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds);
     }
     return new ValidationState(newPath, newSubgraphPaths);
   }
@@ -314,7 +323,7 @@ export class ValidationState {
   currentSubgraphs(): string[] {
     const subgraphs: string[] = [];
     for (const path of this.subgraphPaths) {
-      const source = path.tail.source;
+      const source = path.path.tail.source;
       if (!subgraphs.includes(source)) {
         subgraphs.push(source);
       }
@@ -347,7 +356,12 @@ class ValidationTraversal {
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = firstOf(supergraph.sources.values())!;
     this.conditionResolver = new ConditionValidationResolver(this.supergraphSchema, subgraphs);
-    supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
+    supergraph.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
+      supergraph,
+      kind,
+      subgraphs,
+      conditionResolver: this.conditionResolver
+    })));
     this.previousVisits = new QueryGraphState(supergraph);
   }
 
@@ -390,7 +404,7 @@ class ValidationTraversal {
       }
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const newState = state.validateTransition(this.supergraphSchema, edge, this.conditionResolver);
+      const newState = state.validateTransition(edge);
       if (isValidationError(newState)) {
         debug.groupEnd(`Validation error!`);
         this.validationErrors.push(newState);

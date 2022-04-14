@@ -1,16 +1,18 @@
 import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
-import { assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
-import { FetchNode } from '../QueryPlan';
+import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  const compositionResults = composeServices(services);
+  const compositionResults = composeServices(
+    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
+  );
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
@@ -23,7 +25,7 @@ test('can use same root operation from multiple subgraphs in parallel', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        me: User!
+        me: User! @shareable
       }
 
       type User @key(fields: "id") {
@@ -37,7 +39,7 @@ test('can use same root operation from multiple subgraphs in parallel', () => {
     name: 'Subgraph2',
     typeDefs: gql`
       type Query {
-        me: User!
+        me: User! @shareable
       }
 
       type User @key(fields: "id") {
@@ -224,7 +226,7 @@ describe('@provides', () => {
       typeDefs: gql`
         type SubSubResponse @key(fields: "id") {
           id: ID!
-          subSubResponseValue: Int
+          subSubResponseValue: Int @shareable
         }
       `
     }
@@ -324,7 +326,7 @@ describe('@provides', () => {
         }
 
         type Value {
-          a: Int
+          a: Int @shareable
         }
 
         type T1 implements I @key(fields: "id") {
@@ -343,18 +345,18 @@ describe('@provides', () => {
       name: 'Subgraph2',
       typeDefs: gql`
         type Value {
-          a: Int
+          a: Int @shareable
           b: Int
         }
 
         type T1 @key(fields: "id") {
           id: ID!
-          v: Value
+          v: Value @shareable
         }
 
         type T2 @key(fields: "id") {
           id: ID!
-          v: Value
+          v: Value @shareable
         }
       `
     }
@@ -543,12 +545,12 @@ describe('@provides', () => {
       typeDefs: gql`
         type T1 @key(fields: "id") {
           id: ID!
-          a: Int
+          a: Int @shareable
         }
 
         type T2 @key(fields: "id") {
           id: ID!
-          b: Int
+          b: Int @shareable
         }
       `
     }
@@ -777,8 +779,8 @@ describe('@provides', () => {
 
         type T2 @key(fields: "id") {
           id: ID!
-          a: Int
-          b: Int
+          a: Int @shareable
+          b: Int @shareable
         }
       `
     }
@@ -945,6 +947,327 @@ describe('@provides', () => {
   });
 });
 
+describe('@requires', () => {
+  it('handles multiple requires within the same entity fetch', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          is: [I!]!
+        }
+
+        interface I {
+          id: ID!
+          f: Int
+          g: Int
+        }
+
+        type T1 implements I {
+          id: ID!
+          f: Int
+          g: Int
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: ID!
+          f: Int!
+          g: Int @external
+        }
+
+        type T3 implements I @key(fields: "id") {
+          id: ID!
+          f: Int
+          g: Int @external
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T2 @key(fields: "id") {
+          id: ID!
+          f: Int! @external
+          g: Int @requires(fields: "f")
+        }
+
+        type T3 @key(fields: "id") {
+          id: ID!
+          f: Int @external
+          g: Int @requires(fields: "f")
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        is {
+          g
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
+    // into the same fetch group.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              is {
+                __typename
+                ... on T1 {
+                  g
+                }
+                ... on T2 {
+                  __typename
+                  id
+                  f
+                }
+                ... on T3 {
+                  __typename
+                  id
+                  f
+                }
+              }
+            }
+          },
+          Flatten(path: "is.@") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T2 {
+                  __typename
+                  id
+                  f
+                }
+                ... on T3 {
+                  __typename
+                  id
+                  f
+                }
+              } =>
+              {
+                ... on T2 {
+                  g
+                }
+                ... on T3 {
+                  g
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  })
+});
+
+describe('fetch operation names', () => {
+  test('handle subgraph with - in the name', () => {
+    const subgraph1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'non-graphql-name',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query myOp {
+        t {
+          x
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "non-graphql-name") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+    expect(fetch.operation).toMatch(/^query myOp__non_graphql_name__1.*/i);
+  });
+
+  test('ensures sanitization applies repeatedly', () => {
+    const subgraph1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'a-na&me-with-plen&ty-replace*ments',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query myOp {
+        t {
+          x
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "a-na&me-with-plen&ty-replace*ments") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+    expect(fetch.operation).toMatch(/^query myOp__a_name_with_plenty_replacements__1.*/i);
+  });
+
+  test('handle very non-graph subgraph name', () => {
+    const subgraph1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: '42!',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query myOp {
+        t {
+          x
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "42!") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+
+    expect(fetch.operation).toMatch(/^query myOp___42__1.*/i);
+  });
+});
+
 test('Correctly handle case where there is too many plans to consider', () => {
   // Creating realistic examples where there is too many plan to consider is not trivial, but creating unrealistic examples
   // is thankfully trivial. Here, we just have 2 subgraphs that are _exactly the same_ with a single type having plenty of
@@ -958,11 +1281,11 @@ test('Correctly handle case where there is too many plans to consider', () => {
 
   const typeDefs = gql`
     type Query {
-      t: T
+      t: T @shareable
     }
 
     type T {
-      ${fields.map((f) => `${f}: Int\n`)}
+      ${fields.map((f) => `${f}: Int @shareable\n`)}
     }
   `;
 

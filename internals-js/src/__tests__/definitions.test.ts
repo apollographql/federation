@@ -7,19 +7,19 @@ import {
   EnumType,
   SchemaElement,
   UnionType,
-  BuiltIns
+  InputObjectType,
 } from '../../dist/definitions';
 import {
   printSchema as printGraphQLjsSchema
 } from 'graphql';
 import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
-import { federationBuiltIns } from '../../dist/federation';
+import { buildSubgraph, federationMetadata, newEmptyFederation2Schema } from '../../dist/federation';
 import './matchers';
 
-function parseSchema(schema: string, builtIns?: BuiltIns): Schema {
+function parseSchema(schema: string): Schema {
   try {
-    return buildSchema(schema, builtIns);
+    return buildSchema(schema);
   } catch (e) {
     throw new Error(e.toString());
   }
@@ -113,10 +113,10 @@ expect.extend({
 });
 
 test('building a simple schema programatically', () => {
-  const schema = new Schema(federationBuiltIns);
+  const schema = newEmptyFederation2Schema();
   const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
   const typeA = schema.addType(new ObjectType('A'));
-  const key = federationBuiltIns.keyDirective(schema);
+  const key = federationMetadata(schema)!.keyDirective();
 
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
@@ -165,7 +165,7 @@ test('parse schema and modify', () => {
 });
 
 test('removal of all directives of a schema', () => {
-  const schema = parseSchema(`
+  const subgraph = buildSubgraph('foo', '', `
     schema @foo {
       query: Query
     }
@@ -189,13 +189,14 @@ test('removal of all directives of a schema', () => {
     directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
     directive @foobar on UNION
     directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
-  `, federationBuiltIns);
+  `).validate();
 
+  const schema = subgraph.schema;
   for (const element of schema.allSchemaElement()) {
     element.appliedDirectives.forEach(d => d.remove());
   }
 
-  expect(printSchema(schema)).toMatchString(`
+  expect(subgraph.toString()).toMatchString(`
     directive @inaccessible on FIELD_DEFINITION
 
     directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
@@ -221,7 +222,7 @@ test('removal of all directives of a schema', () => {
 });
 
 test('removal of all inaccessible elements of a schema', () => {
-  const schema = parseSchema(`
+  const subgraph = buildSubgraph('foo', '', `
     schema @foo {
       query: Query
     }
@@ -244,8 +245,9 @@ test('removal of all inaccessible elements of a schema', () => {
     directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION | UNION
     directive @foo on SCHEMA | FIELD_DEFINITION
     directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
-  `, federationBuiltIns);
+  `);
 
+  const schema = subgraph.schema;
   const inaccessibleDirective = schema.directive('inaccessible')!;
   for (const element of schema.allNamedSchemaElement()) {
     if (element.hasAppliedDirective(inaccessibleDirective)) {
@@ -253,7 +255,7 @@ test('removal of all inaccessible elements of a schema', () => {
     }
   }
 
-  expect(printSchema(schema)).toMatchString(`
+  expect(subgraph.toString()).toMatchString(`
     schema
       @foo
     {
@@ -426,6 +428,10 @@ test('handling of descriptions', () => {
       pages: Int @Important
     }
 
+    extend type Book {
+      author: String
+    }
+
     type DVD implements Product {
       id: ID!
       description: String!
@@ -496,11 +502,12 @@ test('handling of extensions', () => {
     extend union AUnion = AType3
   `;
 
-  // Note that we mark it as a subgraph because validation of extension is relaxed. In other words, it'
-  // expected that this will fail validation without `federationBuiltIns` even though we don't use any
+  // Note that we mark it as a subgraph because validation of extension is relaxed. In other words, it's
+  // expected that this will fail validation as a normal schema even though we don't use any
   // federation directives.
-  const schema = parseSchema(sdl, federationBuiltIns);
-  expect(printSchema(schema)).toMatchString(sdl);
+  const subgraph = buildSubgraph('foo', '', sdl);
+  expect(subgraph.toString()).toMatchString(sdl);
+  const schema = subgraph.schema;
 
   const atype = schema.type('AType');
   expectObjectType(atype);
@@ -511,7 +518,7 @@ test('handling of extensions', () => {
   expectUnionType(aunion);
   expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
 
-  expect(printSchema(schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
+  expect(subgraph.toString({ ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
     directive @foo on SCALAR
 
     type Query {
@@ -606,3 +613,77 @@ test('correctly convert to a graphQL-js schema', () => {
   const graphqQLSchema = schema.toGraphQLJSSchema();
   expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
 });
+
+test('retrieving elements by coordinate', () => {
+  const sdl = `
+    directive @foo(bar: Int) on FIELD
+
+    type Query {
+      t: T
+    }
+
+    type T {
+      f1(x: Int): String
+      f2: String
+    }
+
+    interface I {
+      i: String
+    }
+
+    input O {
+      x: Int
+    }
+
+    enum E {
+      FOO
+      BAR
+    }
+
+    scalar Date
+  `;
+  const schema = parseSchema(sdl);
+
+  expect(schema.elementByCoordinate('Query')).toBe(schema.schemaDefinition.rootType('query'));
+  expect(schema.elementByCoordinate('Query.t')).toBe(schema.schemaDefinition.rootType('query')?.field('t'));
+
+  const typeT = schema.type('T') as ObjectType;
+  expect(schema.elementByCoordinate('T')).toBe(typeT);
+  expect(schema.elementByCoordinate('T.f1')).toBe(typeT.field('f1'));
+  expect(schema.elementByCoordinate('T.f2')).toBe(typeT.field('f2'));
+  expect(schema.elementByCoordinate('T.f1(x:)')).toBe(typeT.field('f1')?.argument('x'));
+
+  const typeI = schema.type('I') as InterfaceType;
+  expect(schema.elementByCoordinate('I')).toBe(typeI);
+  expect(schema.elementByCoordinate('I.i')).toBe(typeI.field('i'));
+
+  const typeO = schema.type('O') as InputObjectType;
+  expect(schema.elementByCoordinate('O')).toBe(typeO);
+  expect(schema.elementByCoordinate('O.x')).toBe(typeO.field('x'));
+
+  const typeE = schema.type('E') as EnumType;
+  expect(schema.elementByCoordinate('E')).toBe(typeE);
+  expect(schema.elementByCoordinate('E.FOO')).toBe(typeE.value('FOO'));
+
+  expect(schema.elementByCoordinate('Date')).toBe(schema.type('Date'));
+
+  const directiveFoo = schema.directive('foo')!;
+  expect(schema.elementByCoordinate('@foo')).toBe(directiveFoo);
+  expect(schema.elementByCoordinate('@foo(bar:)')).toBe(directiveFoo.argument('bar'));
+
+  expect(schema.elementByCoordinate('SomeType')).toBeUndefined();
+  expect(schema.elementByCoordinate('T.f3')).toBeUndefined();
+  expect(schema.elementByCoordinate('T.f1(y:)')).toBeUndefined();
+  expect(schema.elementByCoordinate('I.j')).toBeUndefined();
+  expect(schema.elementByCoordinate('I.j(x:)')).toBeUndefined();
+  expect(schema.elementByCoordinate('O.z')).toBeUndefined();
+  expect(schema.elementByCoordinate('@bar')).toBeUndefined();
+  expect(schema.elementByCoordinate('@foo(unknown:)')).toBeUndefined();
+
+  expect(() => schema.elementByCoordinate('foo bar')).toThrow();
+  expect(() => schema.elementByCoordinate('@foo.bar')).toThrow();
+  // Note that because 'O' is an input type, it's field can't have args
+  expect(() => schema.elementByCoordinate('O.x(foo:)')).toThrow();
+  // Note that because 'Date' is a scalar, it cannot have fields
+  expect(() => schema.elementByCoordinate('Date.bar')).toThrow();
+})

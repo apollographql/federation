@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import http from 'http';
 import mockedEnv from 'mocked-env';
-import { Logger } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { ApolloGateway } from '../..';
 import {
   mockSdlQuerySuccess,
@@ -12,11 +12,11 @@ import {
   mockCloudConfigUrl3,
 } from './nockMocks';
 import { getTestingSupergraphSdl } from '../execution-utils';
-import { MockService } from './networkRequests.test';
+import { fixtures, Fixture } from 'apollo-federation-integration-testsuite';
 
 let logger: Logger;
 
-const service: MockService = {
+const service: Fixture = {
   name: 'accounts',
   url: 'http://localhost:4001',
   typeDefs: gql`
@@ -327,14 +327,17 @@ describe('gateway config / env behavior', () => {
         APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
       });
 
-      gateway = new ApolloGateway({
+      const config = {
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
-      });
+      };
+      gateway = new ApolloGateway(config);
 
-      expect(gateway['uplinkEndpoints']).toEqual(
-        [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
-      );
+      expect(gateway['getUplinkEndpoints'](config)).toEqual([
+        mockCloudConfigUrl1,
+        mockCloudConfigUrl2,
+        mockCloudConfigUrl3,
+      ]);
 
       gateway = null;
     });
@@ -346,16 +349,99 @@ describe('gateway config / env behavior', () => {
         APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
       });
 
-      gateway = new ApolloGateway({
+      const config = {
         logger,
         schemaConfigDeliveryEndpoint: 'code-config',
-      });
+      };
+      gateway = new ApolloGateway(config);
 
-      expect(gateway['uplinkEndpoints']).toEqual(
-        ['code-config'],
-      );
+      expect(gateway['getUplinkEndpoints'](config)).toEqual(['code-config']);
 
       gateway = null;
     });
+  });
+});
+
+describe('deprecation warnings', () => {
+  it('warns with `experimental_updateSupergraphSdl` option set', async () => {
+    const gateway = new ApolloGateway({
+      async experimental_updateSupergraphSdl() {
+        return {
+          id: 'supergraph',
+          supergraphSdl: getTestingSupergraphSdl(),
+        };
+      },
+      logger,
+    });
+
+    await gateway.load();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'The `experimental_updateSupergraphSdl` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+    );
+
+    await gateway.stop();
+  });
+
+  it('warns with `experimental_updateServiceDefinitions` option set', async () => {
+    const gateway = new ApolloGateway({
+      async experimental_updateServiceDefinitions() {
+        return {
+          isNewSchema: false,
+        };
+      },
+      logger,
+    });
+
+    try {
+      await gateway.load();
+    // gateway will throw since we're not providing an actual service list, disregard
+    } catch {}
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'The `experimental_updateServiceDefinitions` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+    );
+  });
+
+  it('warns with `serviceList` option set', async () => {
+    const gateway = new ApolloGateway({
+      serviceList: [{ name: 'accounts', url: 'http://localhost:4001' }],
+      logger,
+    });
+
+    try {
+      await gateway.load();
+      // gateway will throw since we haven't mocked these requests, unimportant for this test
+    } catch {}
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to its replacement `IntrospectAndCompose`. More information on `IntrospectAndCompose` can be found in the documentation.',
+    );
+  });
+
+  it('warns with `localServiceList` option set', async () => {
+    const gateway = new ApolloGateway({
+      localServiceList: fixtures,
+      logger,
+    });
+
+    await gateway.load();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the `LocalCompose` supergraph manager exported by `@apollo/gateway`.',
+    );
+
+    await gateway.stop();
+  });
+
+  it('warns with `schemaConfigDeliveryEndpoint` option set', async () => {
+    new ApolloGateway({
+      schemaConfigDeliveryEndpoint: 'test',
+      logger,
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'The `schemaConfigDeliveryEndpoint` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent (array form) `uplinkEndpoints` configuration option.',
+    );
   });
 });

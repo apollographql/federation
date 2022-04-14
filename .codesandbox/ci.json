@@ -1,0 +1,13 @@
+{
+  "buildCommand": "compile",
+  "packages": [
+    "composition-js",
+    "gateway-js",
+    "internals-js",
+    "query-graphs-js",
+    "query-planner-js",
+    "subgraph-js"
+  ],
+  "sandboxes": [],
+  "node": "16"
+}

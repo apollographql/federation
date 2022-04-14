@@ -1,13 +1,14 @@
 import gql from 'graphql-tag';
-import { Kind, graphql, DocumentNode, execute } from 'graphql';
+import { Kind, graphql, DocumentNode, execute, type DefinitionNode, OperationTypeNode } from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
+import { errorCauses } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(typeSerializer);
 
-const EMPTY_DOCUMENT = {
+const EMPTY_DOCUMENT: DocumentNode = {
   kind: Kind.DOCUMENT,
-  definitions: [],
+  definitions: [] as ReadonlyArray<DefinitionNode>,
 };
 
 describe('buildSubgraphSchema', () => {
@@ -80,6 +81,11 @@ type Money {
       }
     }`;
     const schema = buildSubgraphSchema(gql`
+      "Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec."
+      schema {
+        query: Query
+      }
+
       "A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text"
       type User @key(fields: "id") {
         """
@@ -98,14 +104,39 @@ type Money {
           arg3: String
         ): String
       }
+
+      extend type Query {
+        _dummyField: Boolean
+      }
     `);
 
-    const { data, errors } = await graphql(schema, query);
+    const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
-    expect(data?._service.sdl).toEqual(`"""
+    expect((data?._service as any).sdl).toEqual(`"""
+Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
+"""
+schema {
+  query: Query
+}
+
+directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+"""
 A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
 """
-type User @key(fields: "id") {
+type User
+  @key(fields: "id")
+{
   """The unique ID of the user."""
   id: ID!
 
@@ -125,7 +156,25 @@ type User @key(fields: "id") {
     arg3: String
   ): String
 }
-`);
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}
+
+extend type Query {
+  _dummyField: Boolean
+}
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = User`);
   });
 
   describe(`should add an _entities query root field to the schema`, () => {
@@ -141,9 +190,9 @@ type User @key(fields: "id") {
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
 type Query {
+  rootField: String
   _entities(representations: [_Any!]!): [_Entity]!
   _service: _Service!
-  rootField: String
 }
 `);
     });
@@ -164,9 +213,9 @@ type Query {
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
 type QueryRoot {
+  rootField: String
   _entities(representations: [_Any!]!): [_Entity]!
   _service: _Service!
-  rootField: String
 }
 `);
     });
@@ -190,8 +239,8 @@ type Query {
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
 type Query {
-  _service: _Service!
   rootField: String
+  _service: _Service!
 }
 `);
     });
@@ -207,8 +256,8 @@ type Query {
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
 type Query {
-  _service: _Service!
   rootField: String
+  _service: _Service!
 }
 `);
     });
@@ -260,16 +309,16 @@ type Query {
           },
         },
       ]);
-      const { data, errors } = await graphql(
+      const { data, errors } = await graphql({
         schema,
-        query,
-        null,
-        null,
-        variables,
-      );
+        source: query,
+        rootValue: null,
+        contextValue: null,
+        variableValues: variables,
+      });
       expect(errors).toBeUndefined();
-      expect(data?._entities[0].name).toEqual('Apollo Gateway');
-      expect(data?._entities[1].firstName).toEqual('James');
+      expect((data as any)?._entities[0].name).toEqual('Apollo Gateway');
+      expect((data as any)?._entities[1].firstName).toEqual('James');
     });
     it('executes resolveReference with default representation values', async () => {
       const query = `query GetEntities($representations: [_Any!]!) {
@@ -293,15 +342,15 @@ type Query {
           name: String
         }
       `);
-      const { data, errors } = await graphql(
+      const { data, errors } = await graphql({
         schema,
-        query,
-        null,
-        null,
-        variables,
-      );
+        source: query,
+        rootValue: null,
+        contextValue: null,
+        variableValues: variables,
+      });
       expect(errors).toBeUndefined();
-      expect(data?._entities[0].name).toEqual('Apollo Gateway');
+      expect((data as any)?._entities[0].name).toEqual('Apollo Gateway');
     });
   });
   describe('_service root field', () => {
@@ -326,18 +375,49 @@ type Query {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Review {
+      expect((data?._service as any).sdl).toEqual(`directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+type Review {
   id: ID
+}
+
+extend type Review {
   title: String
 }
 
-extend type Product @key(fields: "upc") {
+extend type Product
+  @key(fields: "upc")
+{
   upc: String @external
   reviews: [Review]
 }
-`);
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = Product
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`);
     });
     it('keeps extension interface when owner interface is not present', async () => {
       const query = `query GetServiceDetails {
@@ -364,22 +444,52 @@ extend type Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Review {
+      expect((data?._service as any).sdl).toEqual(`directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+type Review {
   id: ID
+}
+
+extend type Review {
   title: String
 }
 
-interface Node @key(fields: "id") {
+interface Node
+  @key(fields: "id")
+{
   id: ID!
 }
 
-extend interface Product @key(fields: "upc") {
+extend interface Product
+  @key(fields: "upc")
+{
   upc: String @external
   reviews: [Review]
 }
-`);
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+type Query {
+  _service: _Service!
+}`);
     });
     it('returns valid sdl for @key directives', async () => {
       const query = `query GetServiceDetails {
@@ -395,14 +505,42 @@ extend interface Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Product @key(fields: "upc") {
+      expect((data?._service as any).sdl).toEqual(`directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+type Product
+  @key(fields: "upc")
+{
   upc: String!
   name: String
   price: Int
 }
-`);
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = Product
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`);
     });
     it('returns valid sdl for multiple @key directives', async () => {
       const query = `query GetServiceDetails {
@@ -418,15 +556,44 @@ extend interface Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl)
-        .toEqual(`type Product @key(fields: "upc") @key(fields: "name") {
+      expect((data?._service as any).sdl)
+        .toEqual(`directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+type Product
+  @key(fields: "upc")
+  @key(fields: "name")
+{
   upc: String!
   name: String
   price: Int
 }
-`);
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = Product
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`);
     });
     it('supports all federation directives', async () => {
       const query = `query GetServiceDetails {
@@ -454,25 +621,57 @@ extend interface Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Review @key(fields: "id") {
+      expect((data?._service as any).sdl).toEqual(`directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+type Review
+  @key(fields: "id")
+{
   id: ID!
   body: String
   author: User @provides(fields: "email")
   product: Product @provides(fields: "upc")
 }
 
-extend type User @key(fields: "email") {
+extend type User
+  @key(fields: "email")
+{
   email: String @external
   reviews: [Review]
 }
 
-extend type Product @key(fields: "upc") {
+extend type Product
+  @key(fields: "upc")
+{
   upc: String @external
   reviews: [Review]
 }
-`);
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = Product | Review | User
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`);
     });
     it('keeps custom directives', async () => {
       const query = `query GetServiceDetails {
@@ -489,15 +688,253 @@ extend type Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`directive @custom on FIELD
+      expect((data?._service as any).sdl).toEqual(`directive @custom on FIELD
 
-extend type User @key(fields: "email") {
+directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+extend type User
+  @key(fields: "email")
+{
   email: String @external
 }
-`);
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = User
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`);
     });
+  });
+
+  describe('@tag directive', () => {
+    const query = `query GetServiceDetails {
+      _service {
+        sdl
+      }
+    }`;
+
+    const validateTag = async (
+      header: string,
+      additionalHeader: string,
+      directiveDefinitions: string,
+      typeDefinitions: string,
+    ) => {
+      const schema = buildSubgraphSchema(gql`${header}
+        type User @key(fields: "email") @tag(name: "tagOnType") {
+          email: String @tag(name: "tagOnField")
+        }
+
+        interface Thing @tag(name: "tagOnInterface") {
+          name: String
+        }
+
+        union UserButAUnion @tag(name: "tagOnUnion") = User
+      `);
+
+      const { data, errors } = await graphql({ schema, source: query });
+      expect(errors).toBeUndefined();
+      expect((data?._service as any).sdl).toEqual(`${additionalHeader}${header}${directiveDefinitions}
+
+type User
+  @key(fields: "email")
+  @tag(name: "tagOnType")
+{
+  email: String @tag(name: "tagOnField")
+}
+
+interface Thing
+  @tag(name: "tagOnInterface")
+{
+  name: String
+}
+
+union UserButAUnion
+  @tag(name: "tagOnUnion")
+ = User${typeDefinitions}`);
+    };
+
+    it.each([
+      {
+        name: 'fed1',
+        header: '',
+        additionalHeader: '',
+        directiveDefinitions: `directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
+
+directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION`,
+        typesDefinitions: `
+
+scalar _FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = User
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`,
+      },
+      {
+        name: 'fed2',
+        header: 'extend schema\n  @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])\n\n',
+        additionalHeader: 'schema\n  @link(url: "https://specs.apollo.dev/link/v1.0")\n{\n  query: Query\n}\n\n',
+        directiveDefinitions: `directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
+
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @federation__extends on OBJECT | INTERFACE
+
+directive @federation__shareable on OBJECT | FIELD_DEFINITION
+
+directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @federation__override(from: String!) on FIELD_DEFINITION`,
+        typesDefinitions: `
+
+enum link__Purpose {
+  """
+  \`SECURITY\` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  \`EXECUTION\` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+scalar link__Import
+
+scalar federation__FieldSet
+
+scalar _Any
+
+type _Service {
+  sdl: String
+}
+
+union _Entity = User
+
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
+}`,
+      }
+    ])('adds it for $name schema', async ({header, additionalHeader, directiveDefinitions, typesDefinitions}) => {
+      await validateTag(header, additionalHeader, directiveDefinitions, typesDefinitions);
+    });
+  });
+
+  it(`fails on bad linking`, () => {
+    try {
+      buildSubgraphSchema(gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0",
+            import: [ { name: "@key", as: "@primaryKey" } ])
+
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+        `);
+    } catch (e) {
+      expect(errorCauses(e)?.map((e) => e.message)).toStrictEqual([
+        'Unknown directive "@key". If you meant the "@key" federation directive, you should use "@primaryKey" as it is imported under that name in the @link to the federation specification of this schema.'
+      ]);
+    }
+  });
+
+  it('do not break if the schema definition AST uses undefined for directives', () => {
+    // This AST is equilvalent to:
+    //   schema {
+    //     query: Query
+    //   }
+    //
+    //   type Query {
+    //     test: String
+    //   }
+    //
+    // but the AST used `undefined` for fields not present, where `gql` applied
+    // to the SDL abolve would use empty arrays instead. Of course, both are
+    // valid and this shouldn't make a different, but this has tripped code before,
+    // hence this test.
+    const doc: DocumentNode = {
+      kind: Kind.DOCUMENT,
+      definitions: [
+        {
+          kind: Kind.SCHEMA_DEFINITION,
+          operationTypes: [
+            {
+              kind: Kind.OPERATION_TYPE_DEFINITION,
+              operation: OperationTypeNode.QUERY,
+              type: { kind: Kind.NAMED_TYPE, name: { kind: Kind.NAME, value: 'Query' } }
+            },
+          ]
+        },
+        {
+          kind: Kind.OBJECT_TYPE_DEFINITION,
+          name: { kind: Kind.NAME, value: 'Query' },
+          fields: [
+            {
+              kind: Kind.FIELD_DEFINITION,
+              name: { kind: Kind.NAME, value: 'test' },
+              type: {
+                kind: Kind.NAMED_TYPE,
+                name: { kind: Kind.NAME, value: 'String' }
+              },
+            },
+          ]
+        },
+      ],
+    };
+
+
+    expect(() => buildSubgraphSchema(doc)).not.toThrow();
   });
 });
 
@@ -533,9 +970,9 @@ describe('legacy interface', () => {
       `union _Entity = Product`,
     );
     expect(
-      await execute(
+      await execute({
         schema,
-        gql`
+        document: gql`
           {
             product {
               price
@@ -543,7 +980,7 @@ describe('legacy interface', () => {
             }
           }
         `,
-      ),
+      }),
     ).toEqual({
       data: {
         product: { upc: '1234', price: 10 },
@@ -568,9 +1005,9 @@ describe('legacy interface', () => {
       `union _Entity = Product`,
     );
     expect(
-      await execute(
+      await execute({
         schema,
-        gql`
+        document: gql`
           {
             product {
               price
@@ -578,7 +1015,7 @@ describe('legacy interface', () => {
             }
           }
         `,
-      ),
+      }),
     ).toEqual({
       data: {
         product: { upc: '1234', price: 10 },
@@ -623,3 +1060,4 @@ type Product {
     );
   });
 });
+

@@ -1,8 +1,136 @@
 # CHANGELOG for `@apollo/gateway`
 
-## vNext
+This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+- Add missing @apollo/federation-internals dependency to gateway [PR #1721](https://github.com/apollographql/federation/pull/1721)
+
+## v2.0.1
+
+- Use `for: SECURITY` in the core/link directive application in the supergraph for `@inaccessible` [PR #1715](https://github.com/apollographql/federation/pull/1715)
+
+## v2.0.0
+
+- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+
+## v2.0.0-preview.14
+
+- Implement `buildSubgraphSchema` using federation internals [PR #1697](https://github.com/apollographql/federation/pull/1697)
+
+## v2.0.0-preview.13
+
+- Revert previous `@apollo/core-schema` update due to incompatibilities with some existing schemas [PR #1704](https://github.com/apollographql/federation/pull/1704)
+
+## v2.0.0-preview.12
+
+- Generate a core schema in `buildSubgraphSchema`, incorporating the latest changes from `@apollo/core-schema` [PR #1554](https://github.com/apollographql/federation/pull/1554)
+
+## v2.0.0-preview.11
+
+- Fix issues validating default values [PR #1692)](https://github.com/apollographql/federation/pull/1692).
+- Add a level to hints, uppercase their code and related fixes [PR #1683](https://github.com/apollographql/federation/pull/1683).
+- Add support for `@inaccessible` v0.2 [PR #1678](https://github.com/apollographql/federation/pull/1678)
+
+## v2.0.0-preview.10
+
+- Fix merging of Input objects and enum types [PR #1672](https://github.com/apollographql/federation/pull/1672).
+- Relax validation of directive redefinition for scalar [PR #1674](https://github.com/apollographql/federation/pull/1674).
+- Fix regression in composition validation introduced by #1653 [PR #1673](https://github.com/apollographql/federation/pull/1673) .
+- Update logging [PR #1688](https://github.com/apollographql/federation/pull/1688) and test [PR #1685](https://github.com/apollographql/federation/pull/1685/) dependencies.
+
+## v2.0.0-preview.9
+
+- Adds support for the `@override` directive on fields to indicate that a field should be moved from one subgraph to another. [PR #1484](https://github.com/apollographql/federation/pull/1484)
+- Fix handling of core/link when definitions are provided or partially so [PR #1662](https://github.com/apollographql/federation/pull/1662).
+- Optimize composition validation when many entities spans many subgraphs [PR #1653](https://github.com/apollographql/federation/pull/1653).
+- Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
+- Adds support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
+- Fix introspection query by adding missing `includeDeprecated` argument for `args` and `inputFields` when defining introspection fields [PR #1584](https://github.com/apollographql/federation/pull/1584)
+- Throw a `GraphQLSchemaValidationError` for issues with the `@inaccessible` directive when calling `toApiSchema`. The error will contain a list of all validation errors pertaining to `@inaccessible` [PR #1563](https://github.com/apollographql/federation/pull/1563).
+
+## v2.0.0-preview.8
+
+NOTE: Be sure to update to this version of gateway _before_ upgrading composition. See below and the changelog for `@apollo/composition`.
+
+- Adds support for `@inaccessible` in subgraphs [PR #1638](https://github.com/apollographql/federation/pull/1638).
+- Fix merging of `@tag` directive when it is renamed in subgraphs [PR #1637](https://github.com/apollographql/federation/pull/1637).
+- Handles supergraphs with `@link` instead of `@core`. Note that you should upgrade gateway to this version before upgrading composition [PR #1628](https://github.com/apollographql/federation/pull/1628).
+
+## v2.0.0-preview.7
+
+- Automatically add the `@tag` directive definition in `buildSubgraphSchema` (but still support it if the definition is present in the input document) [PR #1600](https://github.com/apollographql/federation/pull/1600).
+
+## v2.0.0-preview.6
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.5
+
+- Fix propagation of `@tag` to the supergraph and allows @tag to be repeated. Additionally, merged directives (only `@tag` and `@deprecated` currently) are not allowed on external fields anymore [PR #1592](https://github.com/apollographql/federation/pull/1592).
+
+## v2.0.0-preview.4
+
+- Make error messages more actionable when constructing subgraphs from a supergraph [PR #1586](https://github.com/apollographql/federation/pull/1586)
+- Respect the `minDelaySeconds` returning from Uplink when polling and retrying to fetch the supergraph schema from Uplink [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Remove the previously deprecated `experimental_pollInterval` config option and deprecate `pollIntervalInMs` in favour of `fallbackPollIntervalInMs` (for managed mode only). [PR #1564](https://github.com/apollographql/federation/pull/1564)
+- Correctly detect promises wrapped by proxies in entities resolver [PR #1584](https://github.com/apollographql/federation/pull/1584)
+
+## v2.0.0-preview.3
+
+- Fix issue that created type extensions with descriptions, which is invalid graphQL syntax [PR #1582](https://github.com/apollographql/federation/pull/1582).
+
+## v2.0.0-preview.2
+
+- Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
+
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Fix merging of arguments by composition [PR #1567](https://github.com/apollographql/federation/pull/1567).
+- Adds an optional `resolvable` argument to the `@key` directive [PR #1561](https://github.com/apollographql/federation/pull/1561).
+- Generates operation names in query plans when the original query is named [PR #1550](https://github.com/apollographql/federation/pull/1550);
+- Allow `@key` to be used on fields with a list type [PR #1510](https://github.com/apollographql/federation/pull/1510)
+- Identifies federation 2 schema using new `@link` directive to link to the federation 2 spec. Schema not linking to federation 2 are interpreted as federation 0.x schema and automatically converted before composition [PR #1510](https://github.com/apollographql/federation/pull/1510).
+- Adds `@shareable` directive to control when fields are allowed to be resolved by multiple subgraphs [PR #1510](https://github.com/apollographql/federation/pull/1510).
+
+## v2.0.0-alpha.6
+
+- Use specific error classes when throwing errors due Apollo Uplink being unreacheable or returning an invalid response [PR #1473](https://github.com/apollographql/federation/pull/1473)
+- __FIX__ Correct retry logic while fetching the supergraph schema from Uplink [PR #1503](https://github.com/apollographql/federation/pull/1503)
+- Avoid incomplete subgraphs when extracting them from the supergraph. [PR #1511](https://github.com/apollographql/federation/pull/1511) (via fix to `@apollo/query-planner` and `@apollo/federation-internals`)
+
+## v2.0.0-alpha.5
+
+- Reject mismatching types for interface field implementation if some of those implementations are `@external`, since this can lead to invalid subgraph queries at runtime [PR #1318](https://github.com/apollographql/federation/pull/1318). This limitation should be lifted in the future once the root cause (the invalid runtime queries) is fixed by issue [#1257](https://github.com/apollographql/federation/issues/1257).
+- Fix potentially inefficient query plans with multiple `@requires` [PR #1431](https://github.com/apollographql/federation/pull/1431).
+- Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
+
+## v2.0.0-alpha.4
+
+- __BREAKING__: This change improves the `supergraphSdl` configuration option to provide a clean and flexible interface for updating gateway schema on load and at runtime. This PR brings a number of updates and deprecations to the gateway. Previous options for loading the gateway's supergraph (`serviceList`, `localServiceList`, `experimental_updateServiceDefinitions`, `experimental_supergraphSdl`) are all deprecated going forward. The migration paths all point to the updated `supergraphSdl` configuration option.
+
+The most notable change here is the introduction of the concept of a `SupergraphManager` (one new possible type of `supergraphSdl`). This interface (when implemented) provides a means for userland code to update the gateway supergraph dynamically, perform subgraph healthchecks, and access subgraph datasources. All of the mentioned deprecated configurations now either use an implementation of a `SupergraphManager` internally or export one to be configured by the user (`IntrospectAndCompose` and `LocalCompose`).
+
+For now: all of the mentioned deprecated configurations will still continue to work as expected. Their usage will come with deprecation warnings advising a switch to `supergraphSdl`.
+* `serviceList` users should switch to the now-exported `IntrospectAndCompose` class.
+* `localServiceList` users should switch to the similar `LocalCompose` class.
+* `experimental_{updateServiceDefinitions|supergraphSdl}` users should migrate their implementation to a custom `SupergraphSdlHook` or `SupergraphManager`.
+
+Since the gateway itself is no longer responsible for composition:
+* `experimental_didUpdateComposition` has been renamed more appropriately to `experimental_didUpdateSupergraph` (no signature change)
+* `experimental_compositionDidFail` hook is removed
+
+`experimental_pollInterval` is deprecated and will issue a warning. Its renamed equivalent is `pollIntervalInMs`.
+
+Some defensive code around gateway shutdown has been removed which was only relevant to users who are running the gateway within `ApolloServer` before v2.18. If you are still running one of these versions, server shutdown may not happen as smoothly.
+
+[#1246](https://github.com/apollographql/federation/pull/1246)
+
+- Upgrading graphql dependency to `16.2.0` [PR #1129](https://github.com/apollographql/federation/pull/1129).
+
+## v2.0.0-alpha.3
 
 - RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1284](https://github.com/apollographql/federation/pull/1284)
 - __NOOP__: Fix OOB testing w.r.t. nock hygiene. Pushed error reporting endpoint responsibilities up into the gateway class, but there should be no effect on the runtime at all. [PR #1309](https://github.com/apollographql/federation/pull/1309)
@@ -12,7 +140,11 @@
     - Option #1: use the existing environment variable `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` which will now be treated as a comma-separated list of URLs. 
     - Option #2: use the new `uplinkEndpoints`, which must be single URL or a comma-separated list of URLs for the Uplink End-points to be used, and `uplinkMaxRetries` which is how many times the Uplink URLs should be retried.
   - The old `schemaConfigDeliveryEndpoint` configuration value still work, but is deprecated and will be removed in a subsequent release.
-- Continue resolving when an `@external` reference cannot be resolved. [#376](https://github.com/apollographql/federation/issues/376)
+- Continue resolving when an `@external` reference cannot be resolved [#376](https://github.com/apollographql/federation/issues/376).
+- Fix issue reading some 0.x generated supergraphs [PR #1351](https://github.com/apollographql/federation/pull/1351).
+- Assign and document error codes for all errors [PR #1274](https://github.com/apollographql/federation/pull/1274).
+- Fix bug in handling of large number of query plan options [1316](https://github.com/apollographql/federation/pull/1316).
+- Remove unused dependency on `@apollographql/apollo-tools` [1304](https://github.com/apollographql/federation/pull/1304).
 
 ## v2.0.0-alpha.2
 

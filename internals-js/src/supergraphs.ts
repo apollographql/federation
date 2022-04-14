@@ -1,7 +1,7 @@
 import { ASTNode, DocumentNode, GraphQLError } from "graphql";
 import { err } from '@apollo/core-schema';
 import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./coreSpec";
-import { CoreFeature, CoreFeatures, graphQLBuiltIns, Schema } from "./definitions";
+import { CoreFeature, CoreFeatures, Schema } from "./definitions";
 import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph } from "./extractSubgraphsFromSupergraph";
@@ -12,7 +12,9 @@ const SUPPORTED_FEATURES = new Set([
   'https://specs.apollo.dev/join/v0.1',
   'https://specs.apollo.dev/join/v0.2',
   'https://specs.apollo.dev/tag/v0.1',
+  'https://specs.apollo.dev/tag/v0.2',
   'https://specs.apollo.dev/inaccessible/v0.1',
+  'https://specs.apollo.dev/inaccessible/v0.2',
 ]);
 
 export function ErrUnsupportedFeature(feature: CoreFeature): Error {
@@ -38,8 +40,8 @@ const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core
 export function buildSupergraphSchema(supergraphSdl: string | DocumentNode): [Schema, {name: string, url: string}[]] {
   // We delay validation because `checkFeatureSupport` gives slightly more useful errors if, say, 'for' is used with core v0.1.
   const schema = typeof supergraphSdl === 'string'
-    ? buildSchema(supergraphSdl, graphQLBuiltIns, false)
-    : buildSchemaFromAST(supergraphSdl, graphQLBuiltIns, false);
+    ? buildSchema(supergraphSdl, { validate: false })
+    : buildSchemaFromAST(supergraphSdl, { validate: false });
 
   const [coreFeatures] = validateSupergraph(schema);
   checkFeatureSupport(coreFeatures);

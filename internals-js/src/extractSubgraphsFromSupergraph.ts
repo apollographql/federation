@@ -19,16 +19,23 @@ import {
   Schema,
   Type,
 } from "./definitions";
-import { addSubgraphToError, externalDirectiveName, federationBuiltIns, parseFieldSetArgument } from "./federation";
+import {
+  newEmptyFederation2Schema,
+  parseFieldSetArgument,
+  removeInactiveProvidesAndRequires,
+} from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
 import { JoinSpecDefinition } from "./joinSpec";
-import { Subgraph, Subgraphs } from "./federation";
+import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
 import { builtTypeReference } from "./buildSchema";
-import { GraphQLError } from "graphql";
-import { selectionOfElement, SelectionSet } from "./operations";
 import { isSubtype } from "./types";
+import { printSchema } from "./print";
+import fs from 'fs';
+import path from 'path';
+import { validateStringContainsBoolean } from "./utils";
+import { errorCauses, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -58,7 +65,7 @@ function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition)
       throw new Error(`Value ${value} of join__Graph enum has no @join__graph directive`);
     }
     const info = graphApplications[0].arguments();
-    const subgraph = new Subgraph(info.name, info.url, new Schema(federationBuiltIns), false);
+    const subgraph = new Subgraph(info.name, info.url, newEmptyFederation2Schema());
     subgraphs.add(subgraph);
     graphEnumNameToSubgraphName.set(value.name, info.name);
   }
@@ -94,7 +101,8 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           subgraphType = schema.addType(newNamedType(type.kind, type.name));
         }
         if (args.key) {
-          const directive = subgraphType.applyDirective('key', {'fields': args.key});
+          const { resolvable } = args;
+          const directive = subgraphType.applyDirective('key', {'fields': args.key, resolvable});
           if (args.extension) {
             directive.setOfExtension(subgraphType.newExtension());
           }
@@ -165,13 +173,19 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
               const subgraphField = addSubgraphField(field, subgraph, args.type);
               assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
               if (args.requires) {
-                subgraphField.applyDirective('requires', {'fields': args.requires});
+                subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': args.requires});
               }
               if (args.provides) {
-                subgraphField.applyDirective('provides', {'fields': args.provides});
+                subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': args.provides});
               }
               if (args.external) {
-                subgraphField.applyDirective('external');
+                subgraphField.applyDirective(subgraph.metadata().externalDirective());
+              }
+              if (args.usedOverridden) {
+                subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
+              }
+              if (args.override) {
+                subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': args.override});
               }
             }
           }
@@ -218,7 +232,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
       // errors later.
       addExternalFields(subgraph, supergraph, isFed1);
     }
-    removeNeedlessProvides(subgraph);
+    removeInactiveProvidesAndRequires(subgraph.schema);
 
     // We now do an additional path on all types because we sometimes added types to subgraphs without
     // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
@@ -232,12 +246,14 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         case 'InterfaceType':
         case 'InputObjectType':
           if (!type.hasFields()) {
-            type.remove();
+            // Note that we have to use removeRecursive or this could leave the subgraph invalid. But if the
+            // type was not in this subgraphs, nothing that depends on it should be either.
+            type.removeRecursive();
           }
           break;
         case 'UnionType':
           if (type.membersCount() === 0) {
-            type.remove();
+            type.removeRecursive();
           }
           break;
       }
@@ -252,7 +268,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
     // of an extension and be only in a few subgraphs), we remove the field or the subgraph would be invalid.
     for (const subgraph of subgraphs) {
-      for (const itf of subgraph.schema.types<InterfaceType>('InterfaceType')) {
+      for (const itf of subgraph.schema.interfaceTypes()) {
         // We only look at objects because interfaces are handled by this own loop in practice.
         const implementations = itf.possibleRuntimeTypes();
         for (const field of itf.fields()) {
@@ -272,15 +288,55 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
   for (const subgraph of subgraphs) {
     try {
-      subgraph.schema.validate();
+      subgraph.validate();
     } catch (e) {
-      // This is a "bug": we shouldn't be extracting invalid subgraphs if the supergraph is valid.
-      const details = e instanceof GraphQLError ? addSubgraphToError(e, subgraph.name).toString() : String(e);
-      throw new Error(`Unexpected error extracting subgraph information from the supergraph. This is either a bug, or the supergraph has been corrupted.\nCaused by: ${details}`);
+      // There is 2 reasons this could happen:
+      // 1. if the subgraph is a Fed1 one, because fed2 has stricter validation than fed1, this could be due to the supergraph having been generated by fed1 and
+      //    containing something invalid that fed1 accepted and fed2 didn't (for instance, an invalid `@provides` selection).
+      // 2. otherwise, this would be a bug (because fed1 compatibility excluded, we shouldn't extract invalid subgraphs from valid supergraphs).
+      // We throw essentially the same thing in both cases, but adapt the message slightly.
+      if (isFed1) {
+        // Note that this could be a bug with the code handling fed1 as well, but it's more helpful to ask users to recompose their subgraphs with fed2 as either
+        // it'll solve the issue and that's good, or we'll hit the other message anyway.
+        const msg = `Error extracting subgraph "${subgraph.name}" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
+          + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph';
+        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}`);
+      } else {
+        const msg = `Unexpected error extracting subgraph ${subgraph.name} from the supergraph: this is either a bug, or the supergraph has been corrupted`;
+        const dumpMsg = maybeDumpSubgraphSchema(subgraph);
+        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}\n\n${dumpMsg}`);
+      }
     }
   }
 
   return subgraphs;
+}
+
+const DEBUG_SUBGRAPHS_ENV_VARIABLE_NAME = 'APOLLO_FEDERATION_DEBUG_SUBGRAPHS';
+
+function maybeDumpSubgraphSchema(subgraph: Subgraph): string {
+  const shouldDump = !!validateStringContainsBoolean(process.env[DEBUG_SUBGRAPHS_ENV_VARIABLE_NAME]);
+  if (!shouldDump) {
+    return `Re-run with environment variable '${DEBUG_SUBGRAPHS_ENV_VARIABLE_NAME}' set to 'true' to extract the invalid subgraph`;
+  }
+  try {
+    const filename = `extracted-subgraph-${subgraph.name}-${Date.now()}.graphql`;
+    const file = path.resolve(filename);
+    if (fs.existsSync(file)) {
+      // Note that this is caught directly by the surrounded catch.
+      throw new Error(`candidate file ${filename} already existed`);
+    }
+    fs.writeFileSync(file, printSchema(subgraph.schema));
+    return `The (invalid) extracted subgraph has been written in: ${file}.`;
+  }
+  catch (e2) {
+    return `Was not able to print generated subgraph for "${subgraph.name}" because: ${errorToString(e2)}`;
+  }
+}
+
+function errorToString(e: any,): string {
+  const causes = errorCauses(e);
+  return causes ? printErrors(causes) : String(e);
 }
 
 type AnyField = FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition;
@@ -351,13 +407,14 @@ function copyType(type: Type, subgraph: Schema, subgraphName: string): Type {
 }
 
 function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boolean) {
+  const metadata = subgraph.metadata();
   for (const type of subgraph.schema.types()) {
     if (!isObjectType(type) && !isInterfaceType(type)) {
       continue;
     }
 
     // First, handle @key
-    for (const keyApplication of type.appliedDirectivesOf(federationBuiltIns.keyDirective(subgraph.schema))) {
+    for (const keyApplication of type.appliedDirectivesOf(metadata.keyDirective())) {
       // Historically, the federation code for keys, when applied _to a type extension_:
       //  1) required @external on any field of the key
       //  2) but required the subgraph to resolve any field of that key
@@ -383,18 +440,18 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
     }
     // Then any @requires or @provides on fields
     for (const field of type.fields()) {
-      for (const requiresApplication of field.appliedDirectivesOf(federationBuiltIns.requiresDirective(subgraph.schema))) {
+      for (const requiresApplication of field.appliedDirectivesOf(metadata.requiresDirective())) {
         addExternalFieldsFromDirectiveFieldSet(subgraph, type, requiresApplication, supergraph);
       }
       const fieldBaseType = baseType(field.type!);
-      for (const providesApplication of field.appliedDirectivesOf(federationBuiltIns.providesDirective(subgraph.schema))) {
+      for (const providesApplication of field.appliedDirectivesOf(metadata.providesDirective())) {
         assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), () => `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `);
         addExternalFieldsFromDirectiveFieldSet(subgraph, fieldBaseType, providesApplication, supergraph);
       }
     }
 
     // And then any constraint due to implemented interfaces.
-    addExternalFieldsFromInterface(type);
+    addExternalFieldsFromInterface(metadata, type);
   }
 }
 
@@ -405,9 +462,9 @@ function addExternalFieldsFromDirectiveFieldSet(
   supergraph: Schema,
   forceNonExternal: boolean = false,
 ) {
-  const external = federationBuiltIns.externalDirective(subgraph.schema);
+  const external = subgraph.metadata().externalDirective();
 
-  const accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
+  const fieldAccessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
     const field = type.field(fieldName);
     if (field) {
       if (forceNonExternal && field.hasAppliedDirective(external)) {
@@ -428,16 +485,28 @@ function addExternalFieldsFromDirectiveFieldSet(
     }
     return created;
   };
-  parseFieldSetArgument(parentType, directive, accessor);
+  try {
+    parseFieldSetArgument({parentType, directive, fieldAccessor, validate: false});
+  } catch (e) {
+    // Ignored on purpose: for fed1 supergraphs, it's possible that some of the fields defined in a federation directive
+    // was _not_ defined in the subgraph because fed1 was not validating this properly (the validation wasn't handling
+    // nested fields as it should), which may result in an error when trying to add those as an external field.
+    // However, this is not the right place to throw. Instead, we ignore the problem and thus exit without having added
+    // all the necessary fields, and so this very same directive will fail validation at the end of the extraction when
+    // we do the final validation of the extracted subgraph (see end of `extractSubgraphsFromSupergraph`). And we prefer
+    // failing then because 1) that later validation will collect all errors instead of failing on the first one and
+    // 2) we already have special error messages and the ability to dump the extracted subgraphs for debug at that point,
+    // so it's a much better place.
+  }
 }
 
-function addExternalFieldsFromInterface(type: ObjectType | InterfaceType) {
+function addExternalFieldsFromInterface(metadata: FederationMetadata, type: ObjectType | InterfaceType) {
   for (const itf of type.interfaces()) {
     for (const field of itf.fields()) {
       const typeField = type.field(field.name);
       if (!typeField) {
-        copyFieldAsExternal(field, type);
-      } else if (typeField.hasAppliedDirective(externalDirectiveName)) {
+        copyFieldAsExternal(metadata, field, type);
+      } else if (typeField.hasAppliedDirective(metadata.externalDirective())) {
         // A subtlety here is that a type may implements multiple interfaces providing a given field, and the field may
         // not have the exact same definition in all interface. So if we may have added the field in a previous loop
         // iteration, we need to check if we shouldn't update the field type.
@@ -447,12 +516,12 @@ function addExternalFieldsFromInterface(type: ObjectType | InterfaceType) {
   }
 }
 
-function copyFieldAsExternal(field: FieldDefinition<InterfaceType>, type: ObjectType | InterfaceType) {
+function copyFieldAsExternal(metadata: FederationMetadata, field: FieldDefinition<InterfaceType>, type: ObjectType | InterfaceType) {
   const newField = type.addField(field.name, field.type);
   for (const arg of field.arguments()) {
     newField.addArgument(arg.name, arg.type, arg.defaultValue);
   }
-  newField.applyDirective(externalDirectiveName);
+  newField.applyDirective(metadata.externalDirective());
 }
 
 function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | InterfaceType>, itfField: FieldDefinition<InterfaceType>) {
@@ -462,94 +531,4 @@ function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | Int
     assert(isSubtype(toModify.type!, itfField.type!), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
     toModify.type = itfField.type!;
   }
-}
-
-/*
- *
- * It makes no sense to have a @provides on a non-external leaf field, and we usually reject it during schema
- * validation but we may still have some when:
- * 1. we get a fed 1 supergraph, where such validation hadn't been run.
- * 2. in the special case of key fields of type extensions that are marked @external without being so (see details in
- *    `addExternalFields`). In that case, the validation will not have rejected it.
- *
- * This method checks for those cases and removes such fields (and often the whole @provides). The reason we do
- * it is that such provides have a negative impact on later query planning, because it sometimes make us to
- * try type-exploding some interfaces unnecessarily.
- */
-function removeNeedlessProvides(subgraph: Subgraph) {
-  for (const type of subgraph.schema.types()) {
-    if (!isObjectType(type) && !isInterfaceType(type)) {
-      continue;
-    }
-
-    const providesDirective = federationBuiltIns.providesDirective(subgraph.schema);
-    for (const field of type.fields()) {
-      const fieldBaseType = baseType(field.type!);
-      for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
-        const selection = parseFieldSetArgument(fieldBaseType as CompositeType, providesApplication);
-        if (selectsNonExternalLeafField(selection)) {
-          providesApplication.remove();
-          const updated = withoutNonExternalLeafFields(selection);
-          if (!updated.isEmpty()) {
-            field.applyDirective(providesDirective, { fields: updated.toString(true, false) });
-          }
-        }
-      }
-    }
-  }
-}
-
-function isExternalOrHasExternalImplementations(field: FieldDefinition<CompositeType>): boolean {
-  if (field.hasAppliedDirective(externalDirectiveName)) {
-    return true;
-  }
-  const parentType = field.parent;
-  if (isInterfaceType(parentType)) {
-    for (const implem of parentType.possibleRuntimeTypes()) {
-      const fieldInImplem = implem.field(field.name);
-      if (fieldInImplem && fieldInImplem.hasAppliedDirective(externalDirectiveName)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function selectsNonExternalLeafField(selection: SelectionSet): boolean {
-  return selection.selections().some(s => {
-    if (s.kind === 'FieldSelection') {
-      // If it's external, we're good and don't need to recurse.
-      if (isExternalOrHasExternalImplementations(s.field.definition)) {
-        return false;
-      }
-      // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
-      return !s.selectionSet || selectsNonExternalLeafField(s.selectionSet);
-    } else {
-      return selectsNonExternalLeafField(s.selectionSet);
-    }
-  });
-}
-
-function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet {
-  const newSelectionSet = new SelectionSet(selectionSet.parentType);
-  for (const selection of selectionSet.selections()) {
-    if (selection.kind === 'FieldSelection') {
-      if (isExternalOrHasExternalImplementations(selection.field.definition)) {
-        // That field is external, so we can add the selection back entirely.
-        newSelectionSet.add(selection);
-        continue;
-      }
-    }
-    // Note that for fragments will always be true (and we just recurse), while
-    // for fields, we'll only get here if the field is not external, and so
-    // we want to add the selection only if it's not a leaf and even then, only
-    // the part where we've recursed.
-    if (selection.selectionSet) {
-      const updated = withoutNonExternalLeafFields(selection.selectionSet);
-      if (!updated.isEmpty()) {
-        newSelectionSet.add(selectionOfElement(selection.element(), updated));
-      }
-    }
-  }
-  return newSelectionSet;
 }

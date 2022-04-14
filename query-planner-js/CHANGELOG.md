@@ -1,8 +1,90 @@
 # CHANGELOG for `@apollo/query-planner`
 
-## vNEXT
+This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/query-planner-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+## v2.0.1
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0
+
+- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+
+## v2.0.0-preview.14
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.13
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.12
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.11
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.10
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.9
+
+- Adds Support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
+- Adds support for the `@override` directive on fields to indicate that a field should be moved from one subgraph to another. [PR #1484](https://github.com/apollographql/federation/pull/1484)
+
+## v2.0.0-preview.8
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.7
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.6
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.5
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.4
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.3
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.2
+
+- Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
+
+
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Initial "preview" release.
+
+## v2.0.0-alpha.6
+
+- Avoid incomplete subgraphs when extracting them from the supergraph. [PR #1511](https://github.com/apollographql/federation/pull/1511) (via fix to `@apollo/federation-internals`)
+- Add an `operationKind` property to the query plan which will be either `query` or `mutation`.  This allows data sources to make decisions about the subgraph request without needing to re-parse the operation. [PR #1427](https://github.com/apollographql/federation/pull/1427)
+
+## v2.0.0-alpha.5
+
+- Fix potentially inefficient query plans with multiple `@requires` [PR #1431](https://github.com/apollographql/federation/pull/1431).
+- Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
+
+## v2.0.0-alpha.3
+
+- Fix bug in handling of large number of query plan options [1316](https://github.com/apollographql/federation/pull/1316).
 
 ## v2.0.0-alpha.2
 

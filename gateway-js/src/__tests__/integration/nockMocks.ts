@@ -1,10 +1,9 @@
 import nock from 'nock';
-import { MockService } from './networkRequests.test';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
-import { SUPERGRAPH_SDL_QUERY } from '../../loadSupergraphSdlFromStorage';
+import { SUPERGRAPH_SDL_QUERY } from '../../supergraphManagers/UplinkFetcher/loadSupergraphSdlFromStorage';
 import { getTestingSupergraphSdl } from '../../__tests__/execution-utils';
 import { print } from 'graphql';
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import { Fixture, fixtures as testingFixtures } from 'apollo-federation-integration-testsuite';
 
 export const graphRef = 'federated-service@current';
 export const apiKey = 'service:federated-service:DD71EBbGmsuh-6suUVDwnA';
@@ -19,31 +18,39 @@ export const mockApolloConfig = {
 };
 
 // Service mocks
-function mockSdlQuery({ url }: MockService) {
+function mockSdlQuery({ url }: Fixture) {
   return nock(url).post('/', {
     query: SERVICE_DEFINITION_QUERY,
   });
 }
 
-export function mockSdlQuerySuccess(service: MockService) {
+export function mockSdlQuerySuccess(service: Fixture) {
   return mockSdlQuery(service).reply(200, {
     data: { _service: { sdl: print(service.typeDefs) } },
   });
 }
 
-export function mockServiceHealthCheck({ url }: MockService) {
+export function mockAllServicesSdlQuerySuccess(
+  fixtures: Fixture[] = testingFixtures,
+) {
+  return fixtures.map((fixture) => mockSdlQuerySuccess(fixture));
+}
+
+export function mockServiceHealthCheck({ url }: Fixture) {
   return nock(url).post('/', {
     query: HEALTH_CHECK_QUERY,
   });
 }
 
-export function mockServiceHealthCheckSuccess(service: MockService) {
+export function mockServiceHealthCheckSuccess(service: Fixture) {
   return mockServiceHealthCheck(service).reply(200, {
     data: { __typename: 'Query' },
   });
 }
 
-export function mockAllServicesHealthCheckSuccess() {
+export function mockAllServicesHealthCheckSuccess(
+  fixtures: Fixture[] = testingFixtures,
+) {
   return fixtures.map((fixture) =>
     mockServiceHealthCheck(fixture).reply(200, {
       data: { __typename: 'Query' },
@@ -114,9 +121,10 @@ export function mockSupergraphSdlRequestSuccessIfAfter(
 }
 
 export function mockSupergraphSdlRequestIfAfterUnchanged(
-    ifAfter: string | null = null,
+  ifAfter: string | null = null,
+  url: string = mockCloudConfigUrl1,
 ) {
-  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
+  return mockSupergraphSdlRequestIfAfter(ifAfter, url).reply(
       200,
       JSON.stringify({
         data: {

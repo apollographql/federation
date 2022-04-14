@@ -35,13 +35,15 @@ export function addIntrospectionFields(schema: Schema) {
   typeType.addField('possibleTypes', new ListType(new NonNullType(typeType)));
   typeType.addField('enumValues', new ListType(new NonNullType(enumValueType)))
     .addArgument('includeDeprecated', schema.booleanType(), false);
-  typeType.addField('inputFields', new ListType(new NonNullType(inputValueType)));
+  typeType.addField('inputFields', new ListType(new NonNullType(inputValueType)))
+    .addArgument('includeDeprecated', schema.booleanType(), false);
   typeType.addField('ofType', typeType);
   typeType.addField('specifiedByURL', schema.stringType());
 
   fieldType.addField('name', new NonNullType(schema.stringType()));
   fieldType.addField('description', schema.stringType());
-  fieldType.addField('args', new NonNullType(new ListType(new NonNullType(inputValueType))));
+  fieldType.addField('args', new NonNullType(new ListType(new NonNullType(inputValueType))))
+    .addArgument('includeDeprecated', schema.booleanType(), false);
   fieldType.addField('type', new NonNullType(typeType));
   fieldType.addField('isDeprecated', new NonNullType(schema.booleanType()));
   fieldType.addField('deprecationReason', schema.stringType());
@@ -50,6 +52,8 @@ export function addIntrospectionFields(schema: Schema) {
   inputValueType.addField('description', schema.stringType());
   inputValueType.addField('type', new NonNullType(typeType));
   inputValueType.addField('defaultValue', schema.stringType());
+  inputValueType.addField('isDeprecated', new NonNullType(schema.booleanType()));
+  inputValueType.addField('deprecationReason', schema.stringType());
 
   enumValueType.addField('name', new NonNullType(schema.stringType()));
   enumValueType.addField('description', schema.stringType());
@@ -65,7 +69,8 @@ export function addIntrospectionFields(schema: Schema) {
   directiveType.addField('name', new NonNullType(schema.stringType()));
   directiveType.addField('description', schema.stringType());
   directiveType.addField('locations', new NonNullType(new ListType(new NonNullType(directiveLocationEnum))));
-  directiveType.addField('args', new NonNullType(new ListType(new NonNullType(inputValueType))));
+  directiveType.addField('args', new NonNullType(new ListType(new NonNullType(inputValueType))))
+    .addArgument('includeDeprecated', schema.booleanType(), false);
   directiveType.addField('isRepeatable', new NonNullType(schema.booleanType()));
 
   const schemaType = schema.addType(new ObjectType('__Schema', true));

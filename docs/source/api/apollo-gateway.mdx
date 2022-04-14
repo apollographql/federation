@@ -1,6 +1,5 @@
 ---
 title: "API Reference: @apollo/gateway"
-sidebar_title: "@apollo/gateway"
 description: Apollo Gateway API reference
 api_reference: true
 ---
@@ -10,7 +9,7 @@ This API reference documents the exports from the `@apollo/gateway` package.
 ## `class ApolloGateway`
 
 The core class of Apollo Server's federated gateway implementation. For an
-example of using `ApolloGateway`, see [The gateway](/gateway/).
+example of using `ApolloGateway`, see [The gateway](../gateway/).
 
 ### Methods
 
@@ -18,7 +17,7 @@ example of using `ApolloGateway`, see [The gateway](/gateway/).
 
 Returns an initialized `ApolloGateway` instance, which you can then pass as the `gateway` configuration option to the `ApolloServer` constructor, like so:
 
-```javascript{2-6}
+```javascript {2-6}
 const server = new ApolloServer({
   gateway: new ApolloGateway({
     serviceList: [
@@ -100,11 +99,20 @@ const gateway = new ApolloGateway({
 
 ###### `supergraphSdl`
 
-`String`
+`string | SupergraphSdlHook | SupergraphManager`
 </td>
 <td>
 
-A [supergraph schema](../federated-types/overview/#supergraph-schema) ([generated with the Rover CLI](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
+You provide your supergraph schema to the gateway with this option. You can provide it as a `string`, via a `SupergraphSdlHook`, or via a `SupergraphManager`.
+
+**When `supergraphSdl` is a `string`:** A [supergraph schema](../federated-types/overview/#supergraph-schema) ([generated with the Rover CLI](/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
+
+**When `supergraphSdl` is a `SupergraphSdlHook`:** This is an `async` function that returns an object containing a `supergraphSdl` string as well as a `cleanup` function. The hook accepts an object containing the following properties:
+- `update`: A function that updates the supergraph schema
+- `healthCheck`: A function that issues a health check against the subgraphs
+- `getDataSource`: A function that gets a data source for a particular subgraph from the gateway
+
+**When `supergraphSdl` is a `SupergraphManager`:** An object containing an `initialize` property. `initialize` is an `async` function of the `SupergraphSdlHook` type described directly above.
 
 **If you are using managed federation,** do not provide this field.
 
@@ -124,7 +132,7 @@ A [supergraph schema](../federated-types/overview/#supergraph-schema) ([generate
 </td>
 <td>
 
-**This option is discouraged in favor of [`supergraphSdl`](#supergraphsdl).**
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
 
 An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, the gateway uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
 
@@ -143,11 +151,13 @@ You can specify any string value for the `name` field, which is used for identif
 
 ###### `introspectionHeaders`
 
-`Object | (service: ServiceEndpointDefinition) => Promise<Object> | Object`
+`Object | (service: ServiceEndpointDefinition) => (Promise<Object> | Object)`
 </td>
 <td>
 
-An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
+
+An object (or an optionally async function _returning_ an object) that contains the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
 **If you are using managed federation,** do not provide this field.
 
@@ -177,11 +187,11 @@ The default value is `false`.
 
 ###### `logger`
 
-[`Logger`](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172)
+[`Logger`](https://github.com/apollographql/apollo-utils/tree/main/packages/logger)
 </td>
 <td>
 
-An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172).
+An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-utils/tree/main/packages/logger).
 
 If you provide this value, the gateway automatically logs all messages of _all_ severity levels (`debug` through `error`), regardless of whether the `debug` option is set to `true`. It is the responsibility of the logger to determine how to handle logged messages of each level.
 
@@ -231,6 +241,57 @@ The default value is `false`.
 <tr>
 <td>
 
+###### `uplinkEndpoints`
+
+`Array<string>`
+</td>
+<td>
+
+A list of Apollo Uplink URLs the gateway uses to poll for its managed configuration. For details and defaults, see [Apollo Uplink](https://www.apollographql.com/docs/federation/managed-federation/uplink/).
+
+Provide this field **only** if you are using managed federation _and_ your use case specifically requires it (this is uncommon).
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `uplinkMaxRetries`
+
+`number`
+</td>
+<td>
+
+The maximum number of times the gateway retries a failed poll request to Apollo Uplink, cycling through its list of [`uplinkEndpoints`](#uplinkendpoints).
+
+The default value is to try each of your uplinkEndpoints three times (i.e., 5 retries with the default list of two endpoints).
+
+Provide this field **only** if you are using managed federation.
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `fallbackPollIntervalInMs` (managed mode only)
+
+`number`
+</td>
+<td>
+
+Specify this option as a fallback if Uplink fails to provide a polling interval. This will also take effect if `fallbackPollIntervalInMs` is greater than the Uplink defined interval. 
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
 ###### `buildService`
 
 `Function`
@@ -251,7 +312,7 @@ If you provide this function, the gateway calls it once for each subgraph. The f
 
 The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
 
-```js{9-11}
+```js {9-11}
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
     request.http.headers.set('x-user-id', context.userId);
@@ -519,5 +580,162 @@ The details of the `fetch` response sent by the subgraph.
 [The `context` argument](https://www.apollographql.com/docs/apollo-server/data/resolvers/#the-context-argument) passed between the GraphQL operation's resolvers.
 </td>
 </tr>
+</tbody>
+</table>
+
+## `class IntrospectAndCompose`
+
+`IntrospectAndCompose` is a development tool for fetching and composing subgraph SDL into a supergraph for your gateway. Given a list of subgraphs and their URLs, `IntrospectAndCompose` will issue queries for their SDL, compose them into a supergraph, and provide that supergraph to the gateway. It can also be configured to update via polling and perform subgraph health checks to ensure that supergraphs are updated safely. `IntrospectAndCompose` implements the `SupergraphManager` interface and is passed in to `ApolloGateway`'s `supergraphSdl` constructor option.
+
+> `IntrospectAndCompose` is the drop-in replacement for `serviceList`.
+
+### Methods
+
+#### `constructor`
+
+Returns an initialized `IntrospectAndCompose` instance, which you can then pass to the `supergraphSdl` configuration option of the `ApolloGateway` constructor, like so:
+
+```javascript {3-7}
+const server = new ApolloServer({
+  gateway: new ApolloGateway({
+    supergraphSdl: new IntrospectAndCompose({
+      subgraphs: [
+        // ...
+      ],
+    }),
+  }),
+});
+```
+
+Takes an `options` object as a parameter. Supported properties of this object are described below.
+
+##### Examples
+
+###### Providing a `subgraphs` list and headers to authorize introspection
+
+```js
+const gateway = new ApolloGateway({
+  supergraphSdl: new IntrospectAndCompose({
+    subgraphs: [
+      { name: 'products', url: 'https://products-service.dev/graphql',
+      { name: 'reviews', url: 'https://reviews-service.dev/graphql' },
+    ],
+    introspectionHeaders: {
+      Authorization: 'Bearer abc123'
+    },
+  }),
+});
+```
+
+###### Configuring the subgraph fetcher
+
+`IntrospectAndCompose` uses the data sources constructed by `ApolloGateway`. To customize the gateway's data sources, you can provide a [`buildService`](#buildservice) function to the `ApolloGateway` constructor. In the example below, `IntrospectAndCompose` makes authenticated requests to the subgraphs
+via the `AuthenticatedDataSource`s that we construct in the gateway's `buildService` function.
+
+```js
+const gateway = new ApolloGateway({
+  buildService({ name, url }) {
+    return new AuthenticatedDataSource({ url });
+  },
+  supergraphSdl: new IntrospectAndCompose({
+    subgraphs: [
+      { name: 'products', url: 'https://products-service.dev/graphql' },
+      { name: 'reviews', url: 'https://reviews-service.dev/graphql' },
+    ],
+  }),
+});
+```
+
+##### Options
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr>
+<td>
+
+###### `subgraphs`
+
+`Array<ServiceEndpointDefinition>`
+</td>
+<td>
+
+An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, `IntrospectAndCompose` uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
+
+The `name` field is a string that should be treated as a subgraph's unique identifier. It is used for query planning, logging, and reporting metrics to Apollo Studio.
+> For Studio users, subgraph names **must:**
+- Begin with a letter (capital or lowercase)
+- Include only letters, numbers, underscores (_), and hyphens (-)
+- Have a maximum of 64 characters
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `introspectionHeaders`
+
+`Object | (service: ServiceEndpointDefinition) => (Promise<Object> | Object)`
+</td>
+<td>
+
+An object (or an optionally async function _returning_ an object)that contains the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
+
+**If you define a [`buildService`](#buildservice) function in your `ApolloGateway` config, ** specify these headers in that function instead of providing this option. This ensures that your `buildService` function doesn't inadvertently overwrite the values of any headers you provide here.
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `pollIntervalInMs`
+
+`number`
+</td>
+<td>
+
+Specify this option to enable supergraph updates via subgraph polling. `IntrospectAndCompose` polls each subgraph at the given interval.
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `subgraphHealthCheck`
+
+`boolean`
+</td>
+<td>
+
+> This option applies only to subgraphs that are configured for polling via the `pollIntervalInMs` option.
+If `true`, the gateway performs a health check on each subgraph before performing a supergraph update. Errors during health checks will result in skipping the supergraph update, but polling will continue. The health check is a simple GraphQL query (`query __ApolloServiceHealthCheck__ { __typename }`) to ensure that subgraphs are reachable and can successfully respond to GraphQL requests.
+
+**This option is the `IntrospectAndCompose` equivalent of `ApolloGateway`'s `serviceHealthCheck` option. If you are using `IntrospectAndCompose`, enabling `serviceHealthCheck` on your `ApolloGateway` instance has no effect.**
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `logger`
+
+[`Logger`](https://github.com/apollographql/apollo-utils/tree/main/packages/logger)
+</td>
+<td>
+
+An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-utils/tree/main/packages/logger).
+
+`IntrospectAndCompose` doesn't share the same logger as the `ApolloGateway` it's configured with. In most cases, you probably want to pass the same logger to both `ApolloGateway` and `IntrospectAndCompose`.
+</td>
+</tr>
+
 </tbody>
 </table>

@@ -1,9 +1,6 @@
 ---
 title: Implementing the gateway
-sidebar_title: The gateway
 ---
-
-import { ExpansionPanel } from 'gatsby-theme-apollo-docs';
 
 > 📣 **The Apollo Router** is a new high-performance graph router written in Rust that is currently in alpha. You can try out the Apollo Router in place of the Apollo Gateway documented here. [See the documentation.](https://www.apollographql.com/docs/router/)
 
@@ -21,9 +18,9 @@ First, let's install the necessary packages:
 npm install @apollo/gateway@latest-2 apollo-server graphql
 ```
 
-The `@apollo/gateway` package includes the [`ApolloGateway` class](/api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
+The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
-```js:title=index.js
+```js {8-12,14-17} title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
@@ -34,12 +31,12 @@ const supergraphSdl = gql` ${schemaString} `;
 // Initialize an ApolloGateway instance and pass it
 // the supergraph schema
 const gateway = new ApolloGateway({
-  supergraphSdl
+  supergraphSdl,
 });
 
 // Pass the ApolloGateway to the ApolloServer constructor
 const server = new ApolloServer({
-  gateway
+  gateway,
 });
 
 server.listen().then(({ url }) => {
@@ -56,6 +53,139 @@ To learn how to compose your supergraph schema, see [Supported methods](./federa
 > In production, we strongly recommend running the gateway in a **managed mode** with Apollo Studio, which enables your gateway to update its configuration without a restart. For details, see [Setting up managed federation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
 
 On startup, the gateway processes your `supergraphSdl`, which includes routing information for your subgraphs. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
+
+### Updating the supergraph schema
+
+In the above example, we provide a _static_ supergraph schema to the gateway. This approach requires the gateway to restart in order to update the supergraph schema. This is undesirable for many applications, so we also provide the ability to update the supergraph schema dynamically.
+
+```js title="index.js"
+const { ApolloServer } = require('apollo-server');
+const { ApolloGateway } = require('@apollo/gateway');
+const { readFile } = require('fs/promises');
+
+let supergraphUpdate;
+const gateway = new ApolloGateway({
+  async supergraphSdl({ update }) {
+    // `update` is a function which we'll save for later use
+    supergraphUpdate = update;
+    return {
+      supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
+    }
+  },
+});
+
+// Pass the ApolloGateway to the ApolloServer constructor
+const server = new ApolloServer({
+  gateway,
+});
+
+server.listen().then(({ url }) => {
+  console.log(`🚀 Server ready at ${url}`);
+});
+```
+
+There are a few things happening here. Let's take a look at each of them individually.
+
+Note that `supergraphSdl` is now an `async` function. This function is called exactly once, when `ApolloServer` initializes the gateway. It has the following responsibilities:
+- It receives the `update` function, which we use to update the supergraph schema.
+- It returns the initial supergraph schema, which the gateway uses at startup.
+
+With the `update` function, we can now programatically update the supergraph. Polling, webhooks, and file watchers are all good examples of ways we can go about updating the supergraph.
+
+The code below demonstrates a more complete example using a file watcher. In this example, assume that we're updating the `supergraphSdl.graphql` file with the Rover CLI.
+
+```js title="index.js"
+const { ApolloServer } = require('apollo-server');
+const { ApolloGateway } = require('@apollo/gateway');
+const { watch } = require('fs');
+const { readFile } = require('fs/promises');
+
+const server = new ApolloServer({
+  gateway: new ApolloGateway({
+    async supergraphSdl({ update, healthCheck }) {
+      // create a file watcher
+      const watcher = watch('./supergraph.graphql');
+      // subscribe to file changes
+      watcher.on('change', async () => {
+        // update the supergraph schema
+        try {
+          const updatedSupergraph = await readFile('./supergraph.graphql', 'utf-8');
+          // optional health check update to ensure our services are responsive
+          await healthCheck(updatedSupergraph);
+          // update the supergraph schema
+          update(updatedSupergraph);
+        } catch (e) {
+          // handle errors that occur during health check or while updating the supergraph schema
+          console.error(e);
+        }
+      });
+
+      return {
+        supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
+        // cleanup is called when the gateway is stopped
+        async cleanup() {
+          watcher.close();
+        }
+      }
+    },
+  }),
+});
+
+server.listen().then(({ url }) => {
+  console.log(`🚀 Server ready at ${url}`);
+});
+```
+
+This example is a bit more complete. Let's take a look at what we've added.
+
+In the `supergraphSdl` callback, we also receive a `healthCheck` function. This enables us to run a health check against each of the services in our future supergraph schema. This is useful for ensuring that our services are responsive and that we don't perform an update when it's unsafe.
+
+We've also wrapped our call to `update` and `healthCheck` in a `try` block. If an error occurs during either of these, we want to handle this gracefully. In this example, we continue running the existing supergraph schema and log an error.
+
+Finally, we return a `cleanup` function. This is a callback that's called when the gateway is stopped. This enables us to cleanly shut down any ongoing processes (such as file watching or polling) when the gateway is shut down via a call to `ApolloServer.stop`. The gateway expects `cleanup` to return a `Promise` and `await`s it before shutting down.
+
+#### Advanced usage
+
+In a more complex application, you might want to create a class that handles the `update` and `healthCheck` functions, along with any additional state. In this case, you can instead provide an object (or class) with an `initialize` function. This function is called just like the `supergraphSdl` function discussed above. For an example of this, see the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/gateway-js/src/supergraphManagers/IntrospectAndCompose/index.ts).
+
+### Composing subgraphs with `IntrospectAndCompose`
+
+> Looking for `serviceList`? In `@apollo/gateway` version 0.46.0 and later,`IntrospectAndCompose` is the new drop-in replacement for the `serviceList` option. The `serviceList` option will be removed in an upcoming release of `@apollo/gateway`, but `IntrospectAndCompose` will continue to be supported. We recommend using the Rover CLI to manage local composition, but  `IntrospectAndCompose` is still useful for various development and testing workflows.
+
+> We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, [see below](#limitations-of-introspectandcompose).
+
+Alternatively, you can provide a `subgraph` array to the `IntrospectAndCompose` constructor, like so:
+
+```js title="index.js"
+const { ApolloGateway, IntrospectAndCompose } = require('@apollo/gateway');
+
+const gateway = new ApolloGateway({
+  supergraphSdl: new IntrospectAndCompose({
+    subgraphs: [
+      { name: 'accounts', url: 'http://localhost:4001' },
+      { name: 'products', url: 'http://localhost:4002' },
+      // ...additional subgraphs...
+    ],
+  }),
+});
+```
+
+Each item in the array is an object that specifies the `name` and `url` of one of your subgraphs. You can specify any string value for `name`, which is used primarily for query planner output, error messages, and logging.
+
+On startup, the gateway fetches each subgraph's schema from its `url` and composes those schemas into a supergraph schema. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
+
+Additional configuration options can be found in the [`IntrospectAndCompose` API documentation](./api/apollo-gateway#class-introspectandcompose).
+
+However, `IntrospectAndCompose` has important [limitations](#limitations-of-introspectandcompose).
+
+#### Limitations of `IntrospectAndCompose`
+
+The `IntrospectAndCompose` option can sometimes be helpful for local development, but it is strongly discouraged for any other environment. Here are some reasons why:
+
+* **Composition might fail.** With `IntrospectAndCompose`, your gateway performs composition dynamically on startup, which requires network communication with each subgraph. If composition fails, your gateway [throws errors](./errors/) and experiences unplanned downtime.
+    * With the static or dynamic `supergraphSdl` configuration, you instead provide a supergraph schema that has _already_ been composed successfully. This prevents composition errors and enables faster startup.
+* **Gateway instances might differ.** If you deploy multiple instances of your gateway _while_ deploying updates to your subgraphs, your gateway instances might fetch different schemas from the _same_ subgraph. This can result in sporadic composition failures or inconsistent supergraph schemas between instances.
+    * When you deploy multiple instances with `supergraphSdl`, you provide the exact same static artifact to each instance, enabling more predictable behavior.
 
 ## Updating the gateway
 
@@ -80,7 +210,7 @@ This updates the library to the most recent version allowed by your `package.jso
 To update to a particular version (including a version that _exceeds_ your dependency constraints), use `npm install` instead:
 
 ```bash
-npm install @apollo/gateway@2.0.0-alpha.1
+npm install @apollo/gateway@2.0.0
 ```
 
 ## Customizing requests and responses
@@ -97,7 +227,7 @@ After adding the `userId` to the shared `context` object, the gateway can then a
 
 <ExpansionPanel title="Expand example">
 
-```javascript{6-12,17-19,24-31}
+```javascript {6-12,17-19,24-31}
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
@@ -232,7 +362,7 @@ server.listen().then(({ url }) => {
 
 > In this example, multiple calls to `didReceiveResponse` are `push`ing a value onto the shared `context.serverIds` array. The order of these calls cannot be guaranteed. If you write logic that modifies the shared `context` object, make sure that modifications are not destructive, and that the order of modifications doesn't matter.
 
-To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](/api/apollo-gateway/).
+To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](./api/apollo-gateway/).
 
 ## Custom directive support
 

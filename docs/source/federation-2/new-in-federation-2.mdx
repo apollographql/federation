@@ -1,11 +1,8 @@
 ---
-title: What's new in the Federation 2 alpha
-sidebar_title: ☀️ New in the alpha
+title: What's new in Federation 2
 ---
 
-import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
-
-> ⚠️ **Apollo Federation 2 is in public alpha.** It is not yet feature-complete, and breaking changes might occur between this release and general availability. [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
+> 📣 **Apollo Federation 2 is now generally available!** [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
 
 **Apollo Federation 2** provides developer experience improvements to the original specification for Apollo Federation (called **Federation 1** in these docs). If your organization has an existing Federation 1 graph, this article summarizes the upcoming benefits of [moving to Federation 2](./moving-to-federation-2/).
 
@@ -15,8 +12,9 @@ If you're just getting started with Federation, check out the [Quickstart](../qu
 
 Before covering what's new, here's what _isn't_ changing in Federation 2:
 
-* Most importantly, **Federation 2 is backward compatible with most Federation 1 graphs.** You can probably move your existing graph to Federation 2 without needing to make any changes.
-    * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-for-federation-2)
+* Most importantly, **Federation 2 is backward compatible with most Federation 1 graphs.** You can probably move your existing graph to use Federation 2 composition without making any changes.
+    * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2)
+    * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes incrementally at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
 
 * Subgraph servers have _no_ additional requirements. Any [subgraph-compatible library](../other-servers/) is automatically compatible with Federation 2.
 
@@ -26,24 +24,22 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
 
 Let's look at some examples!
 
-## Object and interface fields
+## Value types
 
-In Federation 1, multiple subgraphs can define the same object or interface type, but those definitions must all be _identical_. These shared types are called **value types**:
+In Federation 1, multiple subgraphs can define the same type, but those definitions must all be _identical_. These identical shared types are called **value types**:
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Book {
   title: String!
   author: String!
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type Book {
   title: String!
   author: String!
@@ -52,23 +48,27 @@ type Book {
 
 </CodeColumns>
 
-In Federation 2, value types can _differ_ in certain ways:
+In Federation 2, this "identical definition" constraint is removed. Value types and their fields can be shared across subgraphs, even if _certain_ details differ between definitions.
+
+For details, see the sections below, along with [Value types](../federated-types/sharing-types/).
+
+### Objects
+
+In Federation 2, an object type can be shared between subgraphs like so:
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
-type Book {
+```graphql title="Subgraph A"
+type Book @shareable {
   title: String!
   author: String!
 }
 ```
 
-```graphql{4-5}
-# Subgraph B
-type Book {
+```graphql {3-4} title="Subgraph B"
+type Book @shareable {
   title: String!
   author: String  # Nullable
   isbn: String!   # Not in A
@@ -77,45 +77,181 @@ type Book {
 
 </CodeColumns>
 
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](../federated-types/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
+
+> Marking a _type_ as `@shareable` (as with `Book` above) is equivalent to marking _all_ of its fields as `@shareable`.
+
 This flexibility is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
 
-### Valid field differences between subgraphs
+#### Valid shared field differences between subgraphs
 
-* The return type of a value type's field can vary in nullability (`String` / `String!`).
-* Value types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
+* The return type of a shared field can vary in nullability (`String` / `String!`).
+* Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
-> For details on how these field differences are handled, see [Value types](../federated-types/value-types/).
+> For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
 
-## Shared enum / union types
+### Enums, unions, and interfaces
 
-In Federation 1, shared enum and union types follow the same rule as other value types—they must be defined identically in every subgraph:
+In Federation 2, `enum`, `union`, and `interface` definitions can differ between subgraphs. For details, see [Enums, unions, and interfaces](../federated-types/sharing-types/#enums-unions-and-interfaces).
 
-<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
+## Entities
+
+Federation 2 introduces subtle but powerful changes to [entities](../entities/).
+
+### Originating subgraphs
+
+In Federation 1, an entity _originates_ in one subgraph and is then _extended_ in other subgraphs:
+
+<p style="margin-bottom: 0;"><strong>Fed. 1</strong></p>
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
-union Media = Book | Movie
-
-enum Color {
-  RED
-  GREEN
-  BLUE
+```graphql title="Products (originating)"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
 }
 ```
 
-```graphql
-# Subgraph B
-union Media = Book | Movie
-
-enum Color {
-  RED
-  GREEN
-  BLUE
+```graphql title="Inventory (extending)"
+extend type Product @key(fields: "id") {
+  id: ID! @external
+  inStock: Boolean!
 }
 ```
 
 </CodeColumns>
 
-In Federation 2, shared enums and union definitions can differ between subgraphs. For details, see [Enums and unions](../federated-types/value-types/#enums-and-unions).
+In Federation 2, entities _do not_ have an "originating subgraph." Instead, each subgraph can define an entity and contribute fields to it:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql title="Products"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql title="Inventory"
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+For details, see [Contributing entity fields](../entities/#contributing-entity-fields).
+
+### Shared entity fields
+
+In Federation 1, each entity field is resolved by exactly one subgraph (unless it's a `@key` field or part of a `@provides` directive). In Federation 2, multiple subgraphs can resolve the same entity field if they all mark it with the `@shareable` directive:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql {3} title="Products"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  price: Int
+}
+```
+
+```graphql {3} title="Inventory"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String! @shareable
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+For more information, see [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
+
+### Changes to `@key`
+
+Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph doesn't define a [reference resolver](../entities/#2-define-a-reference-resolver) for that entity.
+
+For example:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+<CodeColumns>
+
+```graphql title="Products"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql {1} title="Reviews"
+type Product @key(fields: "id", resolvable: false) {
+  id: ID!
+}
+
+type Review {
+  product: Product!
+  score: Int!
+}
+```
+
+</CodeColumns>
+
+In this case, the Reviews subgraph _references_ the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any unique fields to `Product`, so it doesn't need to define a reference resolver for it. Therefore, the "stub" definition of `Product` in the Reviews subgraph can include `resolvable: false`.
+
+For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+
+### Migrating fields
+
+Federation 2 introduces the `@override` directive, which helps you safely migrate entity fields between subgraphs with managed federation:
+
+<CodeColumns>
+
+```graphql title="Payments subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int!
+}
+
+type Payment {
+  # ...
+}
+```
+
+```graphql {3} title="Billing subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int! @override(from: "Payments")
+}
+```
+
+</CodeColumns>
+
+For details, see [Entity migration](../entities-advanced/#entity-migration).
+
+## Interfaces implementing interfaces
+
+Federation 1 composition incorrectly fails if an interface type implements _another_ interface. This issue is resolved in Federation 2:
+
+<p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
+
+```graphql
+interface Media {
+  title: String!
+}
+
+interface Book implements Media {
+  title: String!
+  author: String!
+}
+```

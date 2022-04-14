@@ -1,6 +1,7 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
+import gql from 'graphql-tag';
 
 describe('printSubgraphSchema', () => {
   it('prints a subgraph correctly', () => {
@@ -11,20 +12,27 @@ describe('printSubgraphSchema', () => {
         mutation: Mutation
       }
 
+      extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
-
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
-      enum CacheControlScope {
-        PUBLIC
+      enum CacheControlScope @tag(name: \\"from-reviews\\") {
+        PUBLIC @tag(name: \\"from-reviews\\")
         PRIVATE
       }
 
-      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\") @tag(name: \\"from-reviews\\")
+
+      type RootQuery {
+        user(id: ID!): User
+        me: User
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
+      }
 
       type PasswordAccount @key(fields: \\"email\\") {
         email: String!
@@ -45,8 +53,8 @@ describe('printSubgraphSchema', () => {
       type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") {
         id: ID! @tag(name: \\"accounts\\")
         name: Name
-        username: String
-        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
+        username: String @shareable
+        birthDate(locale: String @tag(name: \\"admin\\")): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         account: AccountType
         metadata: [UserMetadata]
         ssn: String
@@ -61,17 +69,43 @@ describe('printSubgraphSchema', () => {
         login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
       }
 
-      extend type RootQuery {
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
-        user(id: ID!): User
-        me: User
-      }
-
-      extend type Library @key(fields: \\"id\\") {
-        id: ID! @external
+      type Library @key(fields: \\"id\\") {
+        id: ID!
         name: String @external
         userAccount(id: ID! = 1): User @requires(fields: \\"name\\")
+        description: String @override(from: \\"books\\")
+      }
+
+      enum link__Purpose {
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        \\"\\"\\"
+        EXECUTION
+      }
+
+      scalar federation__FieldSet
+      "
+    `);
+  });
+
+  it('prints a scalar without a directive correctly', () => {
+    const schema = gql`
+      scalar JSON
+    `;
+    const subgraphSchema = buildSubgraphSchema(schema);
+
+    expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
+      "scalar JSON
+
+      scalar _FieldSet
+
+      type Query {
+        _service: _Service!
       }
       "
     `);
@@ -80,11 +114,17 @@ describe('printSubgraphSchema', () => {
   it('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "directive @stream on FIELD
+      "extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+
+      directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
 
-      directive @tag(name: String!) repeatable on INTERFACE | FIELD_DEFINITION | OBJECT | UNION
+      type Query {
+        topReviews(first: Int = 5): [Review]
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
+      }
 
       type Review @key(fields: \\"id\\") {
         id: ID!
@@ -94,9 +134,54 @@ describe('printSubgraphSchema', () => {
         metadata: [MetadataOrError]
       }
 
-      input UpdateReviewInput {
+      input UpdateReviewInput @tag(name: \\"from-reviews\\") {
         id: ID!
-        body: String
+        body: String @tag(name: \\"from-reviews\\")
+      }
+
+      type UserMetadata {
+        address: String @external
+      }
+
+      type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
+        id: ID!
+        username: String @external
+        reviews: [Review]
+        numberOfReviews: Int!
+        metadata: [UserMetadata] @external
+        goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
+      }
+
+      interface Product @tag(name: \\"from-reviews\\") {
+        reviews: [Review] @tag(name: \\"from-reviews\\")
+      }
+
+      type Furniture implements Product @key(fields: \\"upc\\") {
+        upc: String!
+        reviews: [Review]
+      }
+
+      type Book implements Product @key(fields: \\"isbn\\") {
+        isbn: String!
+        reviews: [Review]
+        similarBooks: [Book]! @external
+        relatedReviews: [Review!]! @requires(fields: \\"similarBooks { isbn }\\")
+      }
+
+      interface Vehicle {
+        retailPrice: String
+      }
+
+      type Car implements Vehicle @key(fields: \\"id\\") {
+        id: String!
+        price: String @external
+        retailPrice: String @requires(fields: \\"price\\")
+      }
+
+      type Van implements Vehicle @key(fields: \\"id\\") {
+        id: String!
+        price: String @external
+        retailPrice: String @requires(fields: \\"price\\")
       }
 
       input ReviewProduct {
@@ -105,74 +190,37 @@ describe('printSubgraphSchema', () => {
         stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
       }
 
-      type KeyValue {
-        key: String!
+      type Mutation {
+        reviewProduct(input: ReviewProduct!): Product
+        updateReview(review: UpdateReviewInput! @tag(name: \\"from-reviews\\")): Review
+        deleteReview(id: ID!): Boolean
+      }
+
+      type KeyValue @shareable @tag(name: \\"from-reviews\\") {
+        key: String! @tag(name: \\"from-reviews\\")
         value: String!
       }
 
-      type Error {
+      type Error @shareable {
         code: Int
         message: String
       }
 
       union MetadataOrError = KeyValue | Error
 
-      extend type Query {
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
-        topReviews(first: Int = 5): [Review]
+      enum link__Purpose {
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        \\"\\"\\"
+        EXECUTION
       }
 
-      extend type UserMetadata {
-        address: String @external
-      }
-
-      extend type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
-        id: ID! @external
-        username: String @external @tag(name: \\"on-external\\")
-        reviews: [Review]
-        numberOfReviews: Int!
-        metadata: [UserMetadata] @external
-        goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
-      }
-
-      extend interface Product @tag(name: \\"from-reviews\\") {
-        reviews: [Review]
-      }
-
-      extend type Furniture implements Product @key(fields: \\"upc\\") {
-        upc: String! @external
-        reviews: [Review]
-      }
-
-      extend type Book implements Product @key(fields: \\"isbn\\") {
-        isbn: String! @external
-        reviews: [Review]
-        similarBooks: [Book]! @external
-        relatedReviews: [Review!]! @requires(fields: \\"similarBooks { isbn }\\")
-      }
-
-      extend interface Vehicle {
-        retailPrice: String
-      }
-
-      extend type Car implements Vehicle @key(fields: \\"id\\") {
-        id: String! @external
-        price: String @external
-        retailPrice: String @requires(fields: \\"price\\")
-      }
-
-      extend type Van implements Vehicle @key(fields: \\"id\\") {
-        id: String! @external
-        price: String @external
-        retailPrice: String @requires(fields: \\"price\\")
-      }
-
-      extend type Mutation {
-        reviewProduct(input: ReviewProduct!): Product
-        updateReview(review: UpdateReviewInput!): Review
-        deleteReview(id: ID!): Boolean
-      }
+      scalar federation__FieldSet
       "
     `);
   });

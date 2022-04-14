@@ -32,7 +32,7 @@
   // on this file, but I'm taking the short-cut route and not juggling with
   // that right now.  I can test the repository locally with my own copy of
   // Renovate and come up with another solution given some free time. -Jesse
-  "enabledManagers": ["npm", "cargo"],
+  "enabledManagers": ["npm"],
   postUpdateOptions: ["npmDedupe"],
   "packageRules": [
     // We set this to the lowest supported Node.js version to ensure we don't
@@ -80,39 +80,19 @@
     {
       groupName: "all non-major dependencies",
       matchUpdateTypes: ["patch", "minor"],
+      // Exclude all v0 dependencies from the patch/minor group. Changes to v0 packages
+      // should be treated as major updates, but renovate treats all patches and minors
+      // the same.
+      matchCurrentVersion: "!/^[\^~]?0/",
       groupSlug: "all-npm-minor-patch",
       matchManagers: [ "npm" ],
     },
     {
-      "matchPaths": [
-        "docs/package.json"
-      ],
-      "extends": [
-        "apollo-docs"
-      ],
-      // "Past" major version branches, preserved as
-      // "version-" branches, should be added here!
-      "baseBranches": [
-        "main",
-        "version-0.x",
-      ]
-    },
-    // The current Apollo Gatsby theme does not support a version of Gatsby
-    // that supports React 17.
-    {
-      "matchPaths": [
-        "docs/package.json"
-      ],
-      "matchPackageNames": ["react", "react-dom"],
-      "allowedVersions": "16.x",
-    },
-    // The current Apollo Gatsby theme does not support gatsby v3
-    {
-      "matchPaths": [
-        "docs/package.json"
-      ],
-      "matchPackageNames": ["gatsby"],
-      "allowedVersions": "2.x",
+      // Disable automerge for v0 packages since it's on by default for patch/minor in
+      // the "apollo-open-source" renovate config
+      matchCurrentVersion: "/^[\^~]?0/",
+      automerge: false,
+      matchManagers: [ "npm" ],
     },
   ]
 }

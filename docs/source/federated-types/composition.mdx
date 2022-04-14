@@ -1,9 +1,6 @@
 ---
 title: Schema composition
-sidebar_title: Composition
 ---
-
-import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
 In Apollo Federation, **composition** is the process of combining a set of [subgraph schemas](./overview/#subgraph-schemas) into a [supergraph schema](./overview/#supergraph-schema):
 
@@ -27,11 +24,19 @@ You can perform schema composition with any of the following methods:
 
 ### Manually with the Rover CLI
 
-The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `fed2 supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
+The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
 
 ```bash
-rover fed2 supergraph compose --config ./supergraph.yaml
+rover supergraph compose --config ./supergraph-config.yaml
 ```
+
+> ⚠️ **Important:** To perform Federation 2 composition with Rover, the YAML `--config` file you provide must include the following line:
+>
+> ```yaml title="supergraph-config.yaml"
+> federation_version: 2
+> ```
+>
+> Otherwise, Rover uses Federation 1 composition.
 
 To learn how to install Rover and use this command, see the [Quickstart](../quickstart/setup/#1-install-the-rover-cli).
 
@@ -65,17 +70,16 @@ Sometimes, your subgraph schemas might _conflict_ in a way that causes compositi
 
 For example, take a look at these two subgraph schemas:
 
+<p style="margin-bottom: 0">❌</p>
 <CodeColumns>
 
-```graphql{3}
-# Subgraph A
+```graphql {2} title="Subgraph A"
 type Event {
   timestamp: String!
 }
 ```
 
-```graphql{3}
-# Subgraph B
+```graphql {2} title="Subgraph B"
 type Event {
   timestamp: Int!
 }
@@ -85,16 +89,16 @@ type Event {
 
 One subgraph defines `Event.timestamp` as a `String`, and the other defines it as an `Int`. Composition doesn't know which type to use, so it fails.
 
-> For examples of _valid_ inconsistencies in field return types, see [Varying field return types](./value-types/#varying-field-return-types).
+> For examples of _valid_ inconsistencies in field return types, see [Differing shared field return types](./sharing-types/#return-types).
 
 Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your gateway, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
 ## Rules of composition
-
 In Federation 2, your subgraph schemas must follow **all** of these rules to successfully compose into a supergraph schema:
 
-* If multiple subgraphs define the same field, that field must have a compatible return type _and_ compatible argument types across each defining subgraph.
-    * For examples of compatible and incompatible field return types, see [Varying field return types](./value-types/#varying-field-return-types).
+* Multiple subgraphs can't define the same field on an object type, _unless_ that field is [shareable](./sharing-types/#using-shareable).
+* A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
+    * For examples of compatible and incompatible differences between subgraphs, see [Differing shared fields](./sharing-types/#differing-shared-fields).
 * If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
     * This rule is the most complex and the most essential to Federation 2. [Let's look at it more closely.](#unresolvable-field-example)
 
@@ -108,39 +112,37 @@ Consider these subgraph schemas:
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type Query {
   positionA: Position!
 }
 
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
 }
 ```
 
-```graphql
-# Subgraph B
+```graphql title="Subgraph B"
 type Query {
   positionB: Position!
 }
 
-type Position {
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int!
 }
 ```
 
+
 </CodeColumns>
 
 Note the following about these two subgraphs:
 
-* They both define a `Position` type.
+* They both define a shared `Position` type.
 * They both define a top-level `Query` field that returns a `Position`.
-* Subgraph B's `Position` includes a `z` field, whereas Subgraph A's definition only includes `x` and `y`.
-
+* Subgraph B's `Position` includes a `z` field, whereas Subgraph A's definition only includes shared `x` and `y` fields.
 
 Individually, these subgraph schemas are perfectly valid. However, if they're combined, **they break composition**. Why?
 
@@ -148,8 +150,7 @@ The composition process attempts to merge inconsistent type definitions into a _
 
 <p style="margin-bottom: 0">❌</p>
 
-```graphql
-# Hypothetical supergraph schema
+```graphql title="Hypothetical supergraph schema"
 type Query {
   # From A
   positionA: Position!
@@ -168,7 +169,7 @@ type Position {
 
 Based on this hypothetical supergraph schema, the following query _should_ be valid:
 
-```graphql{5}
+```graphql {5}
 query GetPosition {
   positionA {
     x
@@ -184,7 +185,7 @@ If the gateway sent this query to Subgraph A, it would return an error. And with
 
 Composition recognizes this potential issue, and it fails. The hypothetical supergraph schema above would never actually be generated.
 
-`Position.z` is an example of a field in a shared type that is _not_ always resolvable. So now, how do we make sure that such a field _is_ always resolvable?
+`Position.z` is an example of a field that is _not_ always resolvable. So now, how do we make sure that such a field _is_ always resolvable?
 
 ### Solutions for unresolvable fields
 
@@ -198,18 +199,16 @@ If every subgraph that defines a type _could_ resolve every field of that type w
 
 <CodeColumns>
 
-```graphql{5}
-# Subgraph A
-type Position {
+```graphql {4} title="Subgraph A"
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int
 }
 ```
 
-```graphql
-# Subgraph B
-type Position {
+```graphql title="Subgraph B"
+type Position @shareable {
   x: Int!
   y: Int!
   z: Int!
@@ -222,23 +221,23 @@ In this case, if Subgraph A only cares about the `x` and `y` fields, its resolve
 
 This is a useful solution for shared types that encapsulate simple scalar data.
 
+> You can use the `@inaccessible` directive to incrementally add a value type field to multiple subgraphs _without_ breaking composition. [Learn more.](./sharing-types/#adding-new-shared-fields)
+
 #### Make the shared type an entity.
 
 <p style="margin-bottom: 0">✅</p>
 
 <CodeColumns>
 
-```graphql
-# Subgraph A
+```graphql title="Subgraph A"
 type User @key(fields: "id") {
   id: ID!
   name: String!
 }
 ```
 
-```graphql
-# Subgraph B
-extend type User @key(fields: "id") {
+```graphql title="Subgraph B"
+type User @key(fields: "id") {
   id: ID!
   age: Int!
 }

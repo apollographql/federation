@@ -1,5 +1,6 @@
 import {
   ArgumentDefinition,
+  InputFieldDefinition,
   InputObjectType,
   InputType,
   isBooleanType,
@@ -17,28 +18,50 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
-  Variables
+  Variables,
 } from './definitions';
-import { ArgumentNode, GraphQLError, Kind, print, ValueNode } from 'graphql';
+import {
+  ArgumentNode,
+  GraphQLError,
+  Kind,
+  print,
+  ValueNode,
+  ObjectFieldNode,
+  ConstValueNode,
+  ConstObjectFieldNode,
+} from 'graphql';
 import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
 import { sameType } from './types';
-import { assert } from './utils';
+import { assert, assertUnreachable } from './utils';
 
 // Per-GraphQL spec, max and value for an Int type.
 const MAX_INT = 2147483647;
 const MIN_INT = -2147483648;
 
+/**
+ * Converts a graphQL value into it's textual representation.
+ *
+ * @param v - the value to convert/display. This method assumes that it is a value graphQL
+ *   value (essentially, one that could have been produced by `valueFromAST`/`valueFormASTUntyped`).
+ *   If this is not the case, the behaviour is unspecified, and in particular this method may
+ *   throw or produce an output that is not valid graphQL syntax.
+ * @param expectedType - the type of the value being converted. This is optional is only used to
+ *   ensure enum values are displayed as such and not as strings. In other words, the type of
+ *   the value should be provided when possible (when the value is known to be of a ype) but
+ *   using this method without a type is useful to dispaly the value in error/debug messages
+ *   where no type may be known. Note that if `v` is not a valid value for `expectedType`,
+ *   this method will not throw but enum values may be represented by strings in the output.
+ * @return a textual representation of the value. It is guaranteed to  be valid graphQL syntax
+ *   if the input value is a valid graphQL value.
+ */
 export function valueToString(v: any, expectedType?: InputType): string {
   if (v === undefined || v === null) {
-    if (expectedType && isNonNullType(expectedType)) {
-      throw buildError(`Invalid undefined/null value for non-null type ${expectedType}`);
-    }
     return "null";
   }
 
   if (expectedType && isNonNullType(expectedType)) {
-    expectedType = expectedType.ofType;
+    return valueToString(v, expectedType.ofType);
   }
 
   if (expectedType && isCustomScalarType(expectedType)) {
@@ -52,18 +75,26 @@ export function valueToString(v: any, expectedType?: InputType): string {
 
   if (Array.isArray(v)) {
     let elementsType: InputType | undefined = undefined;
-    if (expectedType) {
-      if (!isListType(expectedType)) {
-        throw buildError(`Invalid list value for non-list type ${expectedType}`);
-      }
+    // If the expected type is not a list, we've been given an invalid type. We don't want this
+    // method to fail though, so we just ignore the provided type from that point one (passing
+    // `undefined` to the recursion).
+    if (expectedType && isListType(expectedType)) {
       elementsType = expectedType.ofType;
     }
     return '[' + v.map(e => valueToString(e, elementsType)).join(', ') + ']';
   }
 
+  // We know the value is not a list/array. But if the type is a list, we still want to print
+  // the value correctly, at least as long as it's a valid value for the element type, since
+  // list input coercions may allow this.
+  if (expectedType && isListType(expectedType)) {
+    return valueToString(v, expectedType.ofType);
+  }
+
   if (typeof v === 'object') {
     if (expectedType && !isInputObjectType(expectedType)) {
-      throw buildError(`Invalid object value for non-input-object type ${expectedType} (isCustomScalar? ${isCustomScalarType(expectedType)})`);
+      // expectedType does not match the value, we ignore it for what remains.
+      expectedType = undefined;
     }
     return '{' + Object.keys(v).map(k => {
       const valueType = expectedType ? (expectedType as InputObjectType).field(k)?.type : undefined;
@@ -74,7 +105,12 @@ export function valueToString(v: any, expectedType?: InputType): string {
   if (typeof v === 'string') {
     if (expectedType) {
       if (isEnumType(expectedType)) {
-        return v;
+        // If the value is essentially invalid (not one of the enum value), then we display it as a string. This
+        // avoid strange syntax errors if the string itself is not even valid graphQL. Note that validation will
+        // reject such a value at some point with a proper error message, but this isn't the right place to error
+        // out and generate something syntactially invalid is dodgy (in particular because the input from which this
+        // value comes was probably syntactially valid, so the value was probably inputed as a string there).
+        return expectedType.value(v) ? v : JSON.stringify(v);
       }
       if (expectedType === expectedType.schema().idType() && integerStringRegExp.test(v)) {
         return v;
@@ -140,7 +176,6 @@ export function argumentsEquals(args1: {[key: string]: any}, args2: {[key: strin
   }
   return objectEquals(args1, args2);
 }
-
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
@@ -219,6 +254,39 @@ export function withDefaultValues(value: any, argument: ArgumentDefinition<any>)
 
 const integerStringRegExp = /^-?(?:0|[1-9][0-9]*)$/;
 
+function objectFieldNodeToConst(field: ObjectFieldNode): ConstObjectFieldNode {
+  return { ...field, value: valueNodeToConstValueNode(field.value) };
+}
+
+/**
+ * Transforms a ValueNode to a ConstValueNode. This should only be invoked when we know that the value node can be const
+ * as it will result in an exception if it contains a VariableNode
+ */
+export function valueNodeToConstValueNode(value: ValueNode): ConstValueNode {
+  if (value.kind === Kind.NULL
+    || value.kind === Kind.INT
+    || value.kind === Kind.FLOAT
+    || value.kind === Kind.STRING
+    || value.kind === Kind.BOOLEAN
+    || value.kind === Kind.ENUM
+    ) {
+    return value;
+  }
+  if (value.kind === Kind.LIST) {
+    const constValues = value.values.map(v => valueNodeToConstValueNode(v));
+    return { ...value, values: constValues };
+  }
+  if (value.kind === Kind.OBJECT) {
+    const constFields = value.fields.map(f => objectFieldNodeToConst(f));
+    return { ...value, fields: constFields };
+  }
+  if (value.kind === Kind.VARIABLE) {
+    // VarableNode does not exist in ConstValueNode
+    throw new Error('Unexpected VariableNode in const AST');
+  }
+  assertUnreachable(value);
+}
+
 // Adapted from the `astFromValue` function in graphQL-js
 export function valueToAST(value: any, type: InputType): ValueNode | undefined {
   if (value === undefined) {
@@ -270,7 +338,7 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
     if (typeof value !== 'object') {
       throw buildError(`Invalid non-objet value for input type ${type}, cannot be converted to AST: ${inspect(value, true, 10, true)}`);
     }
-    const fieldNodes = [];
+    const fieldNodes: ObjectFieldNode[] = [];
     for (const field of type.fields()) {
       if (!field.type) {
         throw buildError(`Cannot convert value ${valueToString(value)} as field ${field} has no type set`);
@@ -348,7 +416,7 @@ function valueToASTUntyped(value: any): ValueNode | undefined {
   }
 
   if (typeof value === 'object') {
-    const fieldNodes = [];
+    const fieldNodes: ObjectFieldNode[] = [];
     for (const key of Object.keys(value)) {
       const fieldValue = valueToASTUntyped(value[key]);
       if (fieldValue) {
@@ -416,7 +484,7 @@ function areTypesCompatible(variableType: InputType, locationType: InputType): b
   return !isListType(variableType) && sameType(variableType, locationType);
 }
 
-export function isValidValue(value: any, argument: ArgumentDefinition<any>, variableDefinitions: VariableDefinitions): boolean {
+export function isValidValue(value: any, argument: ArgumentDefinition<any> | InputFieldDefinition, variableDefinitions: VariableDefinitions): boolean {
   return isValidValueApplication(value, argument.type!, argument.defaultValue, variableDefinitions);
 }
 
@@ -453,8 +521,13 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     if (typeof value !== 'object') {
       return false;
     }
-    const isValid = locationType.fields().every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
-    return isValid;
+    const valueKeys = new Set(Object.keys(value));
+    const fieldsAreValid = locationType.fields().every(field => {
+      valueKeys.delete(field.name);
+      return isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions)
+    });
+    const hasUnexpectedField = valueKeys.size !== 0
+    return fieldsAreValid && !hasUnexpectedField;
   }
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
@@ -592,7 +665,7 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
   assert(false, () => `Unexpected input type ${expectedType} of kind ${expectedType.kind}.`);
 }
 
-function valueFromASTUntyped(node: ValueNode): any {
+export function valueFromASTUntyped(node: ValueNode): any {
   switch (node.kind) {
     case Kind.NULL:
       return null;

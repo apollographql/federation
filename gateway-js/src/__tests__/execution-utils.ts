@@ -2,8 +2,9 @@ import {
   GraphQLSchemaValidationError,
   GraphQLSchemaModule,
   GraphQLResolverMap,
-} from 'apollo-graphql';
-import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
+} from '../schema-helper';
+import { GraphQLRequest, GraphQLExecutionResult } from 'apollo-server-types';
+import type { Logger } from '@apollo/utils.logger';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
   executeQueryPlan,
@@ -11,7 +12,7 @@ import {
 } from '@apollo/gateway';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { mergeDeep } from 'apollo-utilities';
+import { mergeDeep } from '@apollo/client/utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
@@ -109,8 +110,8 @@ export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
   throw new Error(`Testing fixtures don't compose properly!\nCauses:\n${compositionResult.errors.join('\n\n')}`);
 }
 
-export function wait(ms: number) {
-  return new Promise(r => setTimeout(r, ms));
+export function wait(ms: number, toResolveTo?: any) {
+  return new Promise((r) => setTimeout(() => r(toResolveTo), ms));
 }
 
 export function printPlan(queryPlan: QueryPlan): string {

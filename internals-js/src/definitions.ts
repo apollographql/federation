@@ -1,10 +1,10 @@
 import {
-  ArgumentNode,
+  ConstArgumentNode,
   ASTNode,
   buildASTSchema as buildGraphqlSchemaFromAST,
   DirectiveLocation,
-  DirectiveLocationEnum,
-  DirectiveNode,
+  ConstDirectiveNode,
+  ConstValueNode,
   DocumentNode,
   GraphQLError,
   GraphQLSchema,
@@ -12,16 +12,24 @@ import {
   ListTypeNode,
   NamedTypeNode,
   parse,
-  printError,
   TypeNode,
   VariableDefinitionNode,
   VariableNode
 } from "graphql";
-import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
-import { arrayEquals, assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
+import {
+  CoreImport,
+  CoreOrLinkDirectiveArgs,
+  CoreSpecDefinition,
+  extractCoreFeatureImports,
+  FeatureUrl,
+  findCoreSpecVersion,
+  isCoreSpecDirectiveApplication,
+  removeAllCoreFeatures,
+} from "./coreSpec";
+import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
+import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
-import { printSchema, Options, defaultPrintOptions } from './print';
+import { defaultPrintOptions, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
 import { err } from '@apollo/core-schema';
@@ -30,12 +38,24 @@ import { validateSDL } from "graphql/validation/validate";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { validateSchema } from "./validate";
+import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
+import { didYouMean, suggestionList } from "./suggestions";
+import { withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
+const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
-export const ErrGraphQLValidationFailed = (causes: GraphQLError[]) =>
+export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   err(validationErrorCode, {
-    message: 'The schema is not a valid GraphQL schema',
+    message: message + '. Caused by:\n' + causes.map((c) => c.toString()).join('\n\n'),
+    causes
+  });
+
+const apiSchemaValidationErrorCode = 'GraphQLAPISchemaValidationFailed';
+
+export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
+  err(apiSchemaValidationErrorCode, {
+    message: 'The supergraph schema failed to produce a valid API schema',
     causes
   });
 
@@ -45,7 +65,7 @@ export const ErrGraphQLValidationFailed = (causes: GraphQLError[]) =>
  */
 export function errorCauses(e: Error): GraphQLError[] | undefined {
   if (e instanceof GraphQLErrorExt) {
-    if (e.code === validationErrorCode) {
+    if (e.code === validationErrorCode || e.code === apiSchemaValidationErrorCode) {
       return ((e as any).causes) as GraphQLError[];
     }
     return [e];
@@ -61,11 +81,11 @@ export function printGraphQLErrorsOrRethrow(e: Error): string {
   if (!causes) {
     throw e;
   }
-  return causes.map(e => printError(e)).join('\n\n');
+  return causes.map(e => e.toString()).join('\n\n');
 }
 
 export function printErrors(errors: GraphQLError[]): string {
-  return errors.map(e => printError(e)).join('\n\n');
+  return errors.map(e => e.toString()).join('\n\n');
 }
 
 export const typenameFieldName = '__typename';
@@ -91,6 +111,10 @@ function checkDefaultSchemaRoot(type: NamedType): SchemaRootKind | undefined {
     case 'Subscription': return 'subscription';
     default: return undefined;
   }
+}
+
+export function isSchemaRootType(type: NamedType): boolean {
+  return isObjectType(type) && type.isRootType();
 }
 
 export type Type = NamedType | WrapperType;
@@ -131,7 +155,7 @@ export function isScalarType(type: Type): type is ScalarType {
 }
 
 export function isCustomScalarType(type: Type): boolean {
-  return isScalarType(type) && !graphQLBuiltIns.defaultGraphQLBuiltInTypes.includes(type.name);
+  return isScalarType(type) && !graphQLBuiltInTypes.includes(type.name);
 }
 
 export function isIntType(type: Type): boolean {
@@ -198,6 +222,22 @@ export function isInputType(type: Type): type is InputType {
   }
 }
 
+export function isTypeOfKind<T extends Type>(type: Type, kind: T['kind']): type is T {
+  return type.kind === kind;
+}
+
+export function filterTypesOfKind<T extends Type>(types: readonly Type[], kind: T['kind']): T[] {
+  return types.reduce(
+    (acc: T[], type: Type) => {
+      if (isTypeOfKind(type, kind)) {
+        acc.push(type);
+      }
+      return acc;
+    },
+    [],
+  );
+}
+
 export function baseType(type: Type): NamedType {
   return isWrapperType(type) ? type.baseType() : type;
 }
@@ -233,15 +273,15 @@ export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): bo
   return false;
 }
 
-export const executableDirectiveLocations: DirectiveLocationEnum[] = [
-  'QUERY',
-  'MUTATION',
-  'SUBSCRIPTION',
-  'FIELD',
-  'FRAGMENT_DEFINITION',
-  'FRAGMENT_SPREAD',
-  'INLINE_FRAGMENT',
-  'VARIABLE_DEFINITION',
+export const executableDirectiveLocations: DirectiveLocation[] = [
+  DirectiveLocation.QUERY,
+  DirectiveLocation.MUTATION,
+  DirectiveLocation.SUBSCRIPTION,
+  DirectiveLocation.FIELD,
+  DirectiveLocation.FRAGMENT_DEFINITION,
+  DirectiveLocation.FRAGMENT_SPREAD,
+  DirectiveLocation.INLINE_FRAGMENT,
+  DirectiveLocation.VARIABLE_DEFINITION,
 ];
 
 /**
@@ -253,27 +293,27 @@ export function typeToAST(type: Type): TypeNode {
   switch (type.kind) {
     case 'ListType':
       return {
-        kind: 'ListType',
+        kind: Kind.LIST_TYPE,
         type: typeToAST(type.ofType)
       };
     case 'NonNullType':
       return {
-        kind: 'NonNullType',
+        kind: Kind.NON_NULL_TYPE,
         type: typeToAST(type.ofType) as NamedTypeNode | ListTypeNode
       };
     default:
       return {
-        kind: 'NamedType',
-        name: { kind: 'Name', value: type.name }
+        kind: Kind.NAMED_TYPE,
+        name: { kind: Kind.NAME, value: type.name }
       };
   }
 }
 
 export function typeFromAST(schema: Schema, node: TypeNode): Type {
   switch (node.kind) {
-    case 'ListType':
+    case Kind.LIST_TYPE:
       return new ListType(typeFromAST(schema, node.type));
-    case 'NonNullType':
+    case Kind.NON_NULL_TYPE:
       return new NonNullType(typeFromAST(schema, node.type) as NullableType);
     default:
       const type = schema.type(node.name.value);
@@ -339,14 +379,14 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
     return toAdd;
   }
 
-  appliedDirectivesToDirectiveNodes() : DirectiveNode[] | undefined {
+  appliedDirectivesToDirectiveNodes() : ConstDirectiveNode[] | undefined {
     if (this.appliedDirectives.length == 0) {
       return undefined;
     }
 
     return this.appliedDirectives.map(directive => {
       return {
-        kind: 'Directive',
+        kind: Kind.DIRECTIVE,
         name: {
           kind: Kind.NAME,
           value: directive.name,
@@ -367,8 +407,8 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   }
 }
 
-export function sourceASTs(...elts: ({ sourceAST?: ASTNode } | undefined)[]): ASTNode[] {
-  return elts.map(elt => elt?.sourceAST).filter(elt => elt !== undefined) as ASTNode[];
+export function sourceASTs<TNode extends ASTNode = ASTNode>(...elts: ({ sourceAST?: TNode } | undefined)[]): TNode[] {
+  return elts.map(elt => elt?.sourceAST).filter((elt): elt is TNode => elt !== undefined);
 }
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
@@ -476,34 +516,36 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<TOwnType, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
-    args?: TApplicationArgs
+    nameOrDef: DirectiveDefinition<TApplicationArgs> | string,
+    args?: TApplicationArgs,
+    asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
-    let toAdd: Directive<TOwnType, TApplicationArgs>;
-    if (nameOrDefOrDirective instanceof Directive) {
-      this.checkUpdate(nameOrDefOrDirective);
-      toAdd = nameOrDefOrDirective;
-      if (args) {
-        toAdd.setArguments(args);
+    let name: string;
+    if (typeof nameOrDef === 'string') {
+      this.checkUpdate();
+      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDef, args);
+      if (!def) {
+        throw this.schema().blueprint.onGraphQLJSValidationError(
+          this.schema(),
+          new GraphQLError(`Unknown directive "@${nameOrDef}".`)
+        );
       }
+      if (Array.isArray(def)) {
+        throw ErrGraphQLValidationFailed(def);
+      }
+      name = nameOrDef;
     } else {
-      let name: string;
-      if (typeof nameOrDefOrDirective === 'string') {
-        this.checkUpdate();
-        const def = this.schema().directive(nameOrDefOrDirective);
-        if (!def) {
-          throw new GraphQLError(`Cannot apply unknown directive "@${nameOrDefOrDirective}"`);
-        }
-        name = nameOrDefOrDirective;
-      } else {
-        this.checkUpdate(nameOrDefOrDirective);
-        name = nameOrDefOrDirective.name;
-      }
-      toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
-      Element.prototype['setParent'].call(toAdd, this);
+      this.checkUpdate(nameOrDef);
+      name = nameOrDef.name;
     }
+    const toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
+    Element.prototype['setParent'].call(toAdd, this);
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
-    this._appliedDirectives.push(toAdd);
+    if (asFirstDirective) {
+      this._appliedDirectives.unshift(toAdd);
+    } else {
+      this._appliedDirectives.push(toAdd);
+    }
     DirectiveDefinition.prototype['addReferencer'].call(toAdd.definition!, toAdd);
     this.onModification();
     return toAdd;
@@ -636,6 +678,18 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     return extension;
   }
 
+  removeExtensions() {
+    if (this._extensions.size === 0) {
+      return;
+    }
+
+    this._extensions.clear();
+    for (const directive of this._appliedDirectives) {
+      directive.removeOfExtension();
+    }
+    this.removeInnerElementsExtensions();
+  }
+
   isIntrospectionType(): boolean {
     return isIntrospectionName(this.name);
   }
@@ -649,6 +703,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   protected abstract hasNonExtensionInnerElements(): boolean;
+  protected abstract removeInnerElementsExtensions(): void;
 
   protected isElementBuiltIn(): boolean {
     return this.isBuiltIn;
@@ -668,7 +723,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   /**
    * Removes this type definition from its parent schema.
    *
-   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
+   * After calling this method, this type will be "detached": it will have no parent, schema, fields,
    * values, directives, etc...
    *
    * Note that it is always allowed to remove a type, but this may make a valid schema
@@ -684,18 +739,41 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     }
     this.checkRemoval();
     this.onModification();
-    this.removeInnerElements();
-    Schema.prototype['removeTypeInternal'].call(this._parent, this);
-    this.removeAppliedDirectives();
+    // Remove this type's children.
     this.sourceAST = undefined;
+    this.removeAppliedDirectives();
+    this.removeInnerElements();
+    // Remove this type's references.
     const toReturn = setValues(this._referencers).map(r => {
       SchemaElement.prototype['removeTypeReferenceInternal'].call(r, this);
       return r;
     });
     this._referencers.clear();
+    // Remove this type from its parent schema.
+    Schema.prototype['removeTypeInternal'].call(this._parent, this);
     this._parent = undefined;
     return toReturn;
   }
+
+  /**
+   * Removes this this definition _and_, recursively, any other elements that references this type and would be invalid
+   * after the removal.
+   *
+   * Note that contrarily to `remove()` (which this method essentially call recursively), this method leaves the schema
+   * valid (assuming it was valid beforehand) _unless_ all the schema ends up being removed through recursion (in which
+   * case this leaves an empty schema, and that is not technically valid).
+   *
+   * Also note that this method does _not_ necessarily remove all the elements that reference this type: for instance,
+   * if this type is an interface, objects implementing it will _not_ be removed, they will simply stop implementing
+   * the interface. In practice, this method mainly remove fields that were using the removed type (in either argument or
+   * return type), but it can also remove object/input object/interface if through such field removal some type ends up
+   * empty, and it can remove unions if through that removal process and union becomes empty.
+   */
+  removeRecursive(): void {
+    this.remove().forEach(ref => this.removeReferenceRecursive(ref));
+  }
+
+  protected abstract removeReferenceRecursive(ref: TReferencer): void;
 
   referencers(): readonly TReferencer[] {
     return setValues(this._referencers);
@@ -753,6 +831,10 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
     return this._extension;
   }
 
+  removeOfExtension() {
+    this._extension = undefined;
+  }
+
   setOfExtension(extension: Extension<TExtended> | undefined) {
     this.checkUpdate();
     // See similar comment on FieldDefinition.setOfExtension for why we have to cast.
@@ -772,227 +854,108 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
   protected abstract removeInner(): void;
 }
 
-function sortedMemberNames(u: UnionType): string[] {
-  return u.members().map(m => m.type.name).sort((n1, n2) => n1.localeCompare(n2));
-}
-
-export class BuiltIns {
-  readonly defaultGraphQLBuiltInTypes: readonly string[] = [ 'Int', 'Float', 'String', 'Boolean', 'ID' ];
-  private readonly defaultGraphQLBuiltInDirectives: readonly string[] = [ 'include', 'skip', 'deprecated', 'specifiedBy' ];
-
-  addBuiltInTypes(schema: Schema) {
-    this.defaultGraphQLBuiltInTypes.forEach(t => this.addBuiltInScalar(schema, t));
+export class SchemaBlueprint {
+  onMissingDirectiveDefinition(_schema: Schema, _name: string, _args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
+    // No-op by default, but used for federation.
+    return undefined;
   }
 
-  addBuiltInDirectives(schema: Schema) {
-    for (const name of ['include', 'skip']) {
-      this.addBuiltInDirective(schema, name)
-        .addLocations('FIELD', 'FRAGMENT_SPREAD', 'INLINE_FRAGMENT')
-        .addArgument('if', new NonNullType(schema.booleanType()));
-    }
-    this.addBuiltInDirective(schema, 'deprecated')
-      .addLocations('FIELD_DEFINITION', 'ENUM_VALUE', 'ARGUMENT_DEFINITION', 'INPUT_FIELD_DEFINITION')
-      .addArgument('reason', schema.stringType(), 'No longer supported');
-    this.addBuiltInDirective(schema, 'specifiedBy')
-      .addLocations('SCALAR')
-      .addArgument('url', new NonNullType(schema.stringType()));
+  onDirectiveDefinitionAndSchemaParsed(_: Schema): GraphQLError[] {
+    // No-op by default, but used for federation.
+    return [];
   }
 
-  isGraphQLBuiltIn(element: NamedType | DirectiveDefinition | FieldDefinition<any>): boolean {
-    if (isIntrospectionName(element.name)) {
-      return true;
-    }
-    if (element instanceof FieldDefinition) {
-      return false;
-    } else if (element instanceof DirectiveDefinition) {
-      return this.defaultGraphQLBuiltInDirectives.includes(element.name);
-    } else {
-      return this.defaultGraphQLBuiltInTypes.includes(element.name);
-    }
+  ignoreParsedField(_type: NamedType, _fieldName: string): boolean {
+    // No-op by default, but used for federation.
+    return false;
   }
 
-  prepareValidation(_: Schema) {
-    // No-op for graphQL built-ins, but overriden for federation built-ins.
+  onConstructed(_: Schema) {
+    // No-op by default, but used for federation.
   }
 
-  onValidation(schema: Schema, unvalidatedDirectives?: string[]): GraphQLError[] {
-    const errors: GraphQLError[] = [];
-    // We make sure that if any of the built-ins has been redefined, then the redefinition is
-    // the same as the built-in one.
-    for (const type of schema.builtInTypes(undefined, true)) {
-      const maybeRedefined = schema.type(type.name)!;
-      if (!maybeRedefined.isBuiltIn) {
-        this.ensureSameTypeStructure(type, maybeRedefined, errors);
-      }
-    }
+  onAddedCoreFeature(_schema: Schema, _feature: CoreFeature) {
+    // No-op by default, but used for federation.
+  }
 
-    for (const directive of schema.builtInDirectives(true)) {
-      if (unvalidatedDirectives && unvalidatedDirectives.includes(directive.name)) {
-        continue;
-      }
-      const maybeRedefined = schema.directive(directive.name)!;
-      if (!maybeRedefined.isBuiltIn) {
-        this.ensureSameDirectiveStructure(directive, maybeRedefined, errors);
-      }
-    }
-    return errors;
+  onInvalidation(_: Schema) {
+    // No-op by default, but used for federation.
+  }
+
+  onValidation(_schema: Schema): GraphQLError[] {
+    // No-op by default, but used for federation.
+    return []
   }
 
   validationRules(): readonly SDLValidationRule[] {
     return specifiedSDLRules;
   }
 
-  maybeUpdateSubgraphDocument(_: Schema, document: DocumentNode): DocumentNode {
-    return document;
-  }
+  /**
+   * Allows to intercept some graphQL-js error messages when we can provide additional guidance to users.
+   */
+  onGraphQLJSValidationError(schema: Schema, error: GraphQLError): GraphQLError {
+    // For now, the main additional guidance we provide is around directives, where we could provide additional help in 2 main ways:
+    // - if a directive name is likely misspelled (somehow, graphQL-js has methods to offer suggestions on likely mispelling, but don't use this (at the
+    //   time of this writting) for directive names).
+    // - for fed 2 schema, if a federation directive is refered under it's "default" naming but is not properly imported (not enforced
+    //   in the method but rather in the `FederationBlueprint`).
+    //
+    // Note that intercepting/parsing error messages to modify them is never ideal, but pragmatically, it's probably better than rewriting the relevant
+    // rules entirely (in that later case, our "copied" rule would stop getting any potential graphQL-js made improvements for instance). And while such
+    // parsing is fragile, in that it'll break if the original message change, we have unit tests to surface any such breakage so it's not really a risk.
+    const matcher = /^Unknown directive "@(?<directive>[_A-Za-z][_0-9A-Za-z]*)"\.$/.exec(error.message);
+    const name = matcher?.groups?.directive;
+    if (!name) {
+      return error;
+    }
 
-  private ensureSameDirectiveStructure(builtIn: DirectiveDefinition<any>, manuallyDefined: DirectiveDefinition<any>, errors: GraphQLError[]) {
-    this.ensureSameArguments(builtIn, manuallyDefined, `directive ${builtIn}`, errors);
-    // It's ok to say you'll never repeat a built-in that is repeatable. It's not ok to repeat one that isn't.
-    if (!builtIn.repeatable && manuallyDefined.repeatable) {
-      errors.push(error(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should${builtIn.repeatable ? "" : " not"} be repeatable`));
-    }
-    // Similarly, it's ok to say that you will never use a directive in some locations, but not that you will use it in places not allowed by the built-in.
-    if (!manuallyDefined.locations.every(loc => builtIn.locations.includes(loc))) {
-      errors.push(error(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should have locations ${builtIn.locations.join(', ')}, but found (non-subset) ${manuallyDefined.locations.join(', ')}`));
-    }
-  }
-
-  private ensureSameArguments(
-    builtIn: { arguments(): readonly ArgumentDefinition<any>[] },
-    manuallyDefined: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): readonly ArgumentDefinition<any>[] },
-    what: string,
-    errors: GraphQLError[]
-  ) {
-    const expectedArguments = builtIn.arguments();
-    const foundArguments = manuallyDefined.arguments();
-    if (expectedArguments.length !== foundArguments.length) {
-      errors.push(error(`Invalid redefinition of built-in ${what}: should have ${expectedArguments.length} arguments but ${foundArguments.length} found in redefinition`));
-      return;
-    }
-    for (const expectedArgument of expectedArguments) {
-      const foundArgument = manuallyDefined.argument(expectedArgument.name)!;
-      const expectedType = expectedArgument.type!;
-      let actualType = foundArgument.type!;
-      if (isNonNullType(actualType) && !isNonNullType(expectedType)) {
-        // It's ok to redefine an optional argument as mandatory. For instance, if you want to force people on your team to provide a "deprecation reason", you can
-        // redefine @deprecated as `directive @deprecated(reason: String!)...` to get validation. In other words, you are allowed to always pass an argument that
-        // is optional if you so wish.
-        actualType = actualType.ofType;
-      }
-      if (!sameType(expectedType, actualType)) {
-        errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have type ${expectedArgument.type!} but found type ${foundArgument.type!}`));
-      } else if (!isNonNullType(actualType) && !valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
-        errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have default value ${valueToString(expectedArgument.defaultValue)} but found default value ${valueToString(foundArgument.defaultValue)}`));
-      }
+    const allDefinedDirectiveNames = schema.allDirectives().map((d) => d.name);
+    const suggestions = suggestionList(name, allDefinedDirectiveNames);
+    if (suggestions.length === 0) {
+      return this.onUnknownDirectiveValidationError(schema, name, error);
+    } else {
+      return withModifiedErrorMessage(error, `${error.message}${didYouMean(suggestions.map((s) => '@' + s))}`);
     }
   }
 
-  private ensureSameTypeStructure(builtIn: NamedType, manuallyDefined: NamedType, errors: GraphQLError[]) {
-    if (builtIn.kind !== manuallyDefined.kind) {
-      errors.push(error(`Invalid redefinition of built-in type ${builtIn}: ${builtIn} should be a ${builtIn.kind} type but redefined as a ${manuallyDefined.kind}`));
-      return;
-    }
-
-    switch (builtIn.kind) {
-      case 'ScalarType':
-        // Nothing more to check for scalars.
-        return;
-      case 'ObjectType':
-        const redefinedObject = manuallyDefined as ObjectType;
-        for (const builtInField of builtIn.fields()) {
-          const redefinedField = redefinedObject.field(builtInField.name);
-          if (!redefinedField) {
-            errors.push(error(`Invalid redefinition of built-in type ${builtIn}: redefinition is missing field ${builtInField}`));
-            return;
-          }
-          // We allow adding non-nullability because we've seen redefinition of the federation _Service type with type String! for the `sdl` field
-          // and we don't want to break backward compatibility as this doesn't feel too harmful.
-          let rType = redefinedField.type!;
-          if (!isNonNullType(builtInField.type!) && isNonNullType(rType)) {
-            rType = rType.ofType;
-          }
-          if (!sameType(builtInField.type!, rType)) {
-            errors.push(error(`Invalid redefinition of field ${builtInField} of built-in type ${builtIn}: should have type ${builtInField.type} but redefined with type ${redefinedField.type}`));
-            return;
-          }
-          this.ensureSameArguments(builtInField, redefinedField, `field ${builtInField.coordinate}`, errors);
-        }
-        break;
-      case 'UnionType':
-        const redefinedUnion = manuallyDefined as UnionType;
-        const builtInMembers = sortedMemberNames(builtIn);
-        const redefinedMembers = sortedMemberNames(redefinedUnion);
-        if (!arrayEquals(builtInMembers, redefinedMembers)) {
-          errors.push(error(`Invalid redefinition of built-in type ${builtIn}: redefinition has members [${redefinedMembers}] but should have members [${builtInMembers}]`));
-        }
-        break;
-      default:
-        // Let's not bother with the rest until we actually need it.
-        errors.push(error(`Invalid redefinition of built-in type ${builtIn}: cannot redefine ${builtIn.kind} built-in types`));
-    }
-  }
-
-  protected addBuiltInScalar(schema: Schema, name: string): ScalarType {
-    return schema.addType(new ScalarType(name, true));
-  }
-
-  protected addBuiltInObject(schema: Schema, name: string): ObjectType {
-    return schema.addType(new ObjectType(name, true));
-  }
-
-  protected addBuiltInUnion(schema: Schema, name: string): UnionType {
-    return schema.addType(new UnionType(name, true));
-  }
-
-  protected addBuiltInDirective(schema: Schema, name: string): DirectiveDefinition {
-    return schema.addDirectiveDefinition(new DirectiveDefinition(name, true));
-  }
-
-  protected addBuiltInField(parentType: ObjectType, name: string, type: OutputType): FieldDefinition<ObjectType> {
-    return parentType.addField(new FieldDefinition(name, true), type);
-  }
-
-  protected getTypedDirective<TApplicationArgs extends {[key: string]: any}>(
-    schema: Schema,
-    name: string
-  ): DirectiveDefinition<TApplicationArgs> {
-    const directive = schema.directive(name);
-    if (!directive) {
-      throw new Error(`The provided schema has not be built with the ${name} directive built-in`);
-    }
-    return directive as DirectiveDefinition<TApplicationArgs>;
-  }
-
-  includeDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
-    return this.getTypedDirective(schema, 'include');
-  }
-
-  skipDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
-    return this.getTypedDirective(schema, 'skip');
-  }
-
-  deprecatedDirective(schema: Schema): DirectiveDefinition<{reason?: string}> {
-    return this.getTypedDirective(schema, 'deprecated');
-  }
-
-  specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
-    return this.getTypedDirective(schema, 'specifiedBy');
+  onUnknownDirectiveValidationError(_schema: Schema, _unknownDirectiveName: string, error: GraphQLError): GraphQLError {
+    return error;
   }
 }
+
+export const defaultSchemaBlueprint = new SchemaBlueprint();
 
 export class CoreFeature {
   constructor(
     readonly url: FeatureUrl,
     readonly nameInSchema: string,
     readonly directive: Directive<SchemaDefinition>,
+    readonly imports: CoreImport[],
     readonly purpose?: string,
   ) {
   }
 
   isFeatureDefinition(element: NamedType | DirectiveDefinition): boolean {
+    const importName = element.kind === 'DirectiveDefinition'
+      ? '@' + element.name
+      : element.name;
     return element.name.startsWith(this.nameInSchema + '__')
-      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema);
+      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema)
+      || !!this.imports.find((i) => importName === (i.as ?? i.name));
+  }
+
+  directiveNameInSchema(name: string): string {
+    if (name === this.url.name) {
+      return this.nameInSchema;
+    }
+    const elementImport = this.imports.find((i) => i.name.charAt(0) === '@' && i.name.slice(1) === name);
+    return elementImport ? (elementImport.as?.slice(1) ?? name) : this.nameInSchema + '__' + name;
+  }
+
+  typeNameInSchema(name: string): string {
+    const elementImport = this.imports.find((i) => i.name === name);
+    return elementImport ? (elementImport.as ?? name) : this.nameInSchema + '__' + name;
   }
 }
 
@@ -1003,9 +966,9 @@ export class CoreFeatures {
 
   constructor(readonly coreItself: CoreFeature) {
     this.add(coreItself);
-    const coreDef = CORE_VERSIONS.find(coreItself.url.version);
+    const coreDef = findCoreSpecVersion(coreItself.url);
     if (!coreDef) {
-      throw error(`Schema uses unknown version ${coreItself.url.version} of the core spec (known versions: ${CORE_VERSIONS.versions().join(', ')})`);
+      throw error(`Schema uses unknown version ${coreItself.url.version} of the ${coreItself.url.name} spec`);
     }
     this.coreDefinition = coreDef;
   }
@@ -1030,14 +993,17 @@ export class CoreFeatures {
     if (directive.definition?.name !== this.coreItself.nameInSchema) {
       return undefined;
     }
-    const args = (directive as Directive<SchemaDefinition, CoreDirectiveArgs>).arguments();
-    const url = FeatureUrl.parse(args.feature);
+    const typedDirective = directive as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>
+    const args = typedDirective.arguments();
+    const url = this.coreDefinition.extractFeatureUrl(args);
     const existing = this.byIdentity.get(url.identity);
     if (existing) {
       throw error(`Duplicate inclusion of feature ${url.identity}`);
     }
-    const feature = new CoreFeature(url, args.as ?? url.name, directive, args.for);
+    const imports = extractCoreFeatureImports(url, typedDirective);
+    const feature = new CoreFeature(url, args.as ?? url.name, directive, imports, args.for);
     this.add(feature);
+    directive.schema().blueprint.onAddedCoreFeature(directive.schema(), feature);
     return feature;
   }
 
@@ -1045,9 +1011,62 @@ export class CoreFeatures {
     this.byAlias.set(feature.nameInSchema, feature);
     this.byIdentity.set(feature.url.identity, feature);
   }
+
+  sourceFeature(element: DirectiveDefinition | NamedType): CoreFeature | undefined {
+    const isDirective = element instanceof DirectiveDefinition;
+    const splitted = element.name.split('__');
+    if (splitted.length > 1) {
+      return this.byAlias.get(splitted[0]);
+    } else {
+      const directFeature = this.byAlias.get(element.name);
+      if (directFeature && isDirective) {
+        return directFeature;
+      }
+
+      // Let's see if it's an import. If not, it's not associated to a declared feature.
+      const importName = isDirective ? '@' + element.name : element.name;
+      const allFeatures = [this.coreItself, ...this.byIdentity.values()];
+      for (const feature of allFeatures) {
+        for (const { as } of feature.imports) {
+          if (as === importName) {
+            return feature;
+          }
+        }
+      }
+      return undefined;
+    }
+  }
 }
 
-const toASTPrintOptions: Options = { ...defaultPrintOptions, showNonGraphQLBuiltIns: true };
+const graphQLBuiltInTypes: readonly string[] = [ 'Int', 'Float', 'String', 'Boolean', 'ID' ];
+const graphQLBuiltInTypesSpecifications: readonly TypeSpecification[] = graphQLBuiltInTypes.map((name) => createScalarTypeSpecification({ name }));
+
+const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] = [
+  createDirectiveSpecification({
+    name: 'include',
+    locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
+    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
+  }),
+  createDirectiveSpecification({
+    name: 'skip',
+    locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
+    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
+  }),
+  createDirectiveSpecification({
+    name: 'deprecated',
+    locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION],
+    argumentFct: (schema) => ({ args: [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }], errors: [] })
+  }),
+  createDirectiveSpecification({
+    name: 'specifiedBy',
+    locations: [DirectiveLocation.SCALAR],
+    argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
+  }),
+];
+
+
+// A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
+const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
 
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
@@ -1057,16 +1076,17 @@ export class Schema {
   private readonly _directives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private _coreFeatures?: CoreFeatures;
   private isConstructed: boolean = false;
-  private isValidated: boolean = false;
+  public isValidated: boolean = false;
 
   private cachedDocument?: DocumentNode;
   private apiSchema?: Schema;
 
-  constructor(readonly builtIns: BuiltIns = graphQLBuiltIns) {
+  constructor(readonly blueprint: SchemaBlueprint = defaultSchemaBlueprint) {
     this._schemaDefinition = new SchemaDefinition();
     Element.prototype['setParent'].call(this._schemaDefinition, this);
-    builtIns.addBuiltInTypes(this);
-    builtIns.addBuiltInDirectives(this);
+    graphQLBuiltInTypesSpecifications.forEach((spec) => spec.checkOrAdd(this, undefined, true));
+    graphQLBuiltInDirectivesSpecifications.forEach((spec) => spec.checkOrAdd(this, undefined, true));
+    blueprint.onConstructed(this);
     this.isConstructed = true;
   }
 
@@ -1111,10 +1131,8 @@ export class Schema {
     }
   }
 
-  private forceSetCachedDocument(document: DocumentNode, addNonGraphQLBuiltIns: boolean = true) {
-    this.cachedDocument = addNonGraphQLBuiltIns
-    ? this.builtIns.maybeUpdateSubgraphDocument(this, document)
-    : document;
+  private forceSetCachedDocument(document: DocumentNode) {
+    this.cachedDocument = document;
   }
 
   isCoreSchema(): boolean {
@@ -1128,7 +1146,7 @@ export class Schema {
   toAST(): DocumentNode {
     if (!this.cachedDocument) {
       // As we're not building the document from a file, having locations info might be more confusing that not.
-      this.forceSetCachedDocument(parse(printSchema(this, toASTPrintOptions), { noLocation: true }), false);
+      this.forceSetCachedDocument(parse(printSchema(this), { noLocation: true }));
     }
     return this.cachedDocument!;
   }
@@ -1139,13 +1157,7 @@ export class Schema {
 
       const apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
-      const coreFeatures = apiSchema.coreFeatures;
-      if (coreFeatures) {
-        // Note that core being a feature itself, this will remove core itself and mark apiSchema as 'not core'
-        for (const coreFeature of coreFeatures.allFeatures()) {
-          removeFeatureElements(apiSchema, coreFeature);
-        }
-      }
+      removeAllCoreFeatures(apiSchema);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
       this.apiSchema = apiSchema;
@@ -1161,8 +1173,8 @@ export class Schema {
 
     // Some subgraphs, especially federation 1 ones, cannot be properly converted to a GraphQLSchema because they are invalid graphQL.
     // And the main culprit is type extensions that don't have a corresponding definition. So to avoid that problem, we print
-    // up the AST without extensions. Another issue is the non graph built-ins which needs to be explicitely defined.
-    const ast = parse(printSchema(this, { ...toASTPrintOptions, mergeTypesAndExtensions: true }), { noLocation: true });
+    // up the AST without extensions.
+    const ast = parse(printSchema(this, { ...defaultPrintOptions, mergeTypesAndExtensions: true }), { noLocation: true });
     return buildGraphqlSchemaFromAST(ast);
   }
 
@@ -1173,23 +1185,42 @@ export class Schema {
   /**
    * All the types defined on this schema, excluding the built-in types.
    */
-  types<T extends NamedType>(kind?: T['kind'], includeNonGraphQLBuiltIns: boolean = false): readonly T[] {
-    const allKinds = this._types.values();
-    const forKind = (kind ? allKinds.filter(t => t.kind === kind) : allKinds) as readonly T[];
-    return includeNonGraphQLBuiltIns
-      ? this.builtInTypes(kind).filter(t => !graphQLBuiltIns.isGraphQLBuiltIn(t)).concat(forKind)
-      : forKind;
+  types(): readonly NamedType[] {
+    return this._types.values();
+  }
+
+  interfaceTypes(): readonly InterfaceType[] {
+    return filterTypesOfKind<InterfaceType>(this.types(), 'InterfaceType');
+  }
+
+  objectTypes(): readonly ObjectType[] {
+    return filterTypesOfKind<ObjectType>(this.types(), 'ObjectType');
+  }
+
+  unionTypes(): readonly UnionType[] {
+    return filterTypesOfKind<UnionType>(this.types(), 'UnionType');
+  }
+
+  scalarTypes(): readonly ScalarType[] {
+    return filterTypesOfKind<ScalarType>(this.types(), 'ScalarType');
+  }
+
+  inputTypes(): readonly InputObjectType[] {
+    return filterTypesOfKind<InputObjectType>(this.types(), 'InputObjectType');
+  }
+
+  enumTypes(): readonly EnumType[] {
+    return filterTypesOfKind<EnumType>(this.types(), 'EnumType');
   }
 
   /**
    * All the built-in types for this schema (those that are not displayed when printing the schema).
    */
-  builtInTypes<T extends NamedType>(kind?: T['kind'], includeShadowed: boolean = false): readonly T[] {
+  builtInTypes(includeShadowed: boolean = false): readonly NamedType[] {
     const allBuiltIns = this._builtInTypes.values();
-    const forKind = (kind ? allBuiltIns.filter(t => t.kind === kind) : allBuiltIns) as readonly T[];
     return includeShadowed
-      ? forKind
-      : forKind.filter(t => !this.isShadowedBuiltInType(t));
+      ? allBuiltIns
+      : allBuiltIns.filter(t => !this.isShadowedBuiltInType(t));
   }
 
   private isShadowedBuiltInType(type: NamedType) {
@@ -1199,8 +1230,8 @@ export class Schema {
   /**
     * All the types, including the built-in ones.
     */
-  allTypes<T extends NamedType>(kind?: T['kind']): readonly T[] {
-    return this.builtInTypes(kind).concat(this.types(kind));
+  allTypes(): readonly NamedType[] {
+    return this.builtInTypes().concat(this.types());
   }
 
   /**
@@ -1238,9 +1269,12 @@ export class Schema {
 
   addType<T extends NamedType>(type: T): T {
     const existing = this.type(type.name);
-    // Like for directive, we let use shadow built-in types, but validation will ensure the definition is compatible.
-    if (existing && !existing.isBuiltIn) {
-      throw error(`Type ${type} already exists in this schema`);
+    if (existing) {
+      // Like for directive, we let user shadow built-in types, but the definition must be valid.
+      if (existing.isBuiltIn) {
+      } else {
+        throw error(`Type ${type} already exists in this schema`);
+      }
     }
     if (type.isAttached()) {
       // For convenience, let's not error out on adding an already added type.
@@ -1273,10 +1307,8 @@ export class Schema {
   /**
    * All the directive defined on this schema, excluding the built-in directives.
    */
-  directives(includeNonGraphQLBuiltIns: boolean = false): readonly DirectiveDefinition[] {
-    return includeNonGraphQLBuiltIns
-      ? this.builtInDirectives().filter(d => !graphQLBuiltIns.isGraphQLBuiltIn(d)).concat(this._directives.values())
-      : this._directives.values();
+  directives(): readonly DirectiveDefinition[] {
+    return this._directives.values();
   }
 
   /**
@@ -1298,7 +1330,11 @@ export class Schema {
 
   directive(name: string): DirectiveDefinition | undefined {
     const directive = this._directives.get(name);
-    return directive ? directive : this._builtInDirectives.get(name);
+    return directive ? directive : this.builtInDirective(name);
+  }
+
+  builtInDirective(name: string): DirectiveDefinition | undefined {
+    return this._builtInDirectives.get(name);
   }
 
   *allNamedSchemaElement(): Generator<NamedSchemaElement<any, any, any>, void, undefined> {
@@ -1350,6 +1386,7 @@ export class Schema {
 
   invalidate() {
     this.isValidated = false;
+    this.blueprint.onInvalidation(this);
   }
 
   validate() {
@@ -1357,34 +1394,32 @@ export class Schema {
       return;
     }
 
-    // This needs to run _before_ graphQL validation: otherwise, the _Entity union will be empty and fail validation.
     this.runWithBuiltInModificationAllowed(() => {
-      this.builtIns.prepareValidation(this);
       addIntrospectionFields(this);
     });
 
-    // TODO: we should ensure first that there is no undefined types (or maybe throw properly when printing the AST
-    // and catching that properly).
-    let errors: GraphQLError[] = validateSDL(this.toAST(), undefined, this.builtIns.validationRules());
+    // TODO: we check that all types are properly set (aren't undefined) in `validateSchema`, but `validateSDL` will error out beforehand. We should
+    // probably extract that part of `validateSchema` and run `validateSDL` conditionally on that first check.
+    let errors = validateSDL(this.toAST(), undefined, this.blueprint.validationRules()).map((e) => this.blueprint.onGraphQLJSValidationError(this, e));
     errors = errors.concat(validateSchema(this));
 
     // We avoid adding federation-specific validations if the base schema is not proper graphQL as the later can easily trigger
     // the former (for instance, someone mistyping the 'fields' argument name of a @key).
     if (errors.length === 0) {
       this.runWithBuiltInModificationAllowed(() => {
-        errors = this.builtIns.onValidation(this);
+        errors = this.blueprint.onValidation(this);
       });
     }
 
     if (errors.length > 0) {
-      throw ErrGraphQLValidationFailed(errors);
+      throw ErrGraphQLValidationFailed(errors as GraphQLError[]);
     }
 
     this.isValidated = true;
   }
 
-  clone(builtIns?: BuiltIns): Schema {
-    const cloned = new Schema(builtIns ?? this.builtIns);
+  clone(builtIns?: SchemaBlueprint): Schema {
+    const cloned = new Schema(builtIns ?? this.blueprint);
     copy(this, cloned);
     if (this.isValidated) {
       // TODO: when we do actual validation, no point in redoing it, but we should
@@ -1392,6 +1427,81 @@ export class Schema {
       cloned.validate();
     }
     return cloned;
+  }
+
+  private getBuiltInDirective<TApplicationArgs extends {[key: string]: any}>(
+    schema: Schema,
+    name: string
+  ): DirectiveDefinition<TApplicationArgs> {
+    const directive = schema.directive(name);
+    assert(directive, `The provided schema has not be built with the ${name} directive built-in`);
+    return directive as DirectiveDefinition<TApplicationArgs>;
+  }
+
+  includeDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
+    return this.getBuiltInDirective(schema, 'include');
+  }
+
+  skipDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
+    return this.getBuiltInDirective(schema, 'skip');
+  }
+
+  deprecatedDirective(schema: Schema): DirectiveDefinition<{reason?: string}> {
+    return this.getBuiltInDirective(schema, 'deprecated');
+  }
+
+  specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
+    return this.getBuiltInDirective(schema, 'specifiedBy');
+  }
+
+  /**
+   * Gets an element of the schema given its "schema coordinate".
+   *
+   * Note that the syntax for schema coordinates is the one from the upcoming GraphQL spec: https://github.com/graphql/graphql-spec/pull/794.
+   */
+  elementByCoordinate(coordinate: string): NamedSchemaElement<any, any, any> | undefined {
+    if (!coordinate.match(coordinateRegexp)) {
+      throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+    }
+
+    const argStartIdx = coordinate.indexOf('(');
+    const start = argStartIdx < 0 ? coordinate : coordinate.slice(0, argStartIdx);
+    // Argument syntax is `foo(argName:)`, so the arg name start after the open parenthesis and go until the final ':)'.
+    const argName = argStartIdx < 0 ? undefined : coordinate.slice(argStartIdx + 1, coordinate.length - 2);
+    const splittedStart = start.split('.');
+    const typeOrDirectiveName = splittedStart[0];
+    const fieldOrEnumName = splittedStart[1];
+    const isDirective = typeOrDirectiveName.startsWith('@');
+    if (isDirective) {
+      if (fieldOrEnumName) {
+        throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+      const directive = this.directive(typeOrDirectiveName.slice(1));
+      return argName ? directive?.argument(argName) : directive;
+    } else {
+      const type = this.type(typeOrDirectiveName);
+      if (!type || !fieldOrEnumName) {
+        return type;
+      }
+      switch (type.kind) {
+        case 'ObjectType':
+        case 'InterfaceType':
+          const field = type.field(fieldOrEnumName);
+          return argName ? field?.argument(argName) : field;
+        case 'InputObjectType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.field(fieldOrEnumName);
+        case 'EnumType':
+          if (argName) {
+            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          }
+          return type.value(fieldOrEnumName);
+        default:
+          throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      }
+    }
   }
 }
 
@@ -1419,21 +1529,27 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<SchemaDefinition, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
-    args?: TApplicationArgs
+    nameOrDef: DirectiveDefinition<TApplicationArgs> | string,
+    args?: TApplicationArgs,
+    asFirstDirective: boolean = false,
   ): Directive<SchemaDefinition, TApplicationArgs> {
-    const applied = super.applyDirective(nameOrDefOrDirective, args) as Directive<SchemaDefinition, TApplicationArgs>;
+    const applied = super.applyDirective(nameOrDef, args, asFirstDirective) as Directive<SchemaDefinition, TApplicationArgs>;
     const schema = this.schema();
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
       if (coreFeatures) {
-        throw error(`Invalid duplicate application of the @core feature`);
+        throw error(`Invalid duplicate application of @core/@link`);
       }
-      const schemaDirective = applied as Directive<SchemaDefinition, CoreDirectiveArgs>;
+      const schemaDirective = applied as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>;
       const args = schemaDirective.arguments();
-      const url = FeatureUrl.parse(args.feature);
-      const core = new CoreFeature(url, args.as ?? 'core', schemaDirective, args.for);
+      const url = FeatureUrl.parse((args.url ?? args.feature)!);
+      const imports = extractCoreFeatureImports(url, schemaDirective);
+      const core = new CoreFeature(url, args.as ?? url.name, schemaDirective, imports, args.for);
       Schema.prototype['markAsCoreSchema'].call(schema, core);
+      // We also any core features that may have been added before we saw the @link for link itself
+      this.appliedDirectives
+        .filter((a) => a !== applied)
+        .forEach((other) => CoreFeatures.prototype['maybeAddFeature'].call(schema.coreFeatures, other));
     } else if (coreFeatures) {
       CoreFeatures.prototype['maybeAddFeature'].call(coreFeatures, applied);
     }
@@ -1527,8 +1643,16 @@ export class ScalarType extends BaseNamedType<OutputTypeReferencer | InputTypeRe
     return false; // No inner elements
   }
 
+  protected removeInnerElementsExtensions(): void {
+    // No inner elements
+  }
+
   protected removeInnerElements(): void {
     // No inner elements
+  }
+
+  protected removeReferenceRecursive(ref: OutputTypeReferencer | InputTypeReferencer): void {
+    ref.remove();
   }
 }
 
@@ -1629,18 +1753,15 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
   /**
    * All the fields of this type, excluding the built-in ones.
    */
-  fields(includeNonGraphQLBuiltIns: boolean = false): readonly FieldDefinition<T>[] {
-    if (includeNonGraphQLBuiltIns) {
-      return this.allFields().filter(f => !graphQLBuiltIns.isGraphQLBuiltIn(f));
-    }
+  fields(): readonly FieldDefinition<T>[] {
     if (!this._cachedNonBuiltInFields) {
       this._cachedNonBuiltInFields = this._fields.values().filter(f => !f.isBuiltIn);
     }
     return this._cachedNonBuiltInFields;
   }
 
-  hasFields(includeNonGraphQLBuiltIns: boolean = false): boolean {
-    return this.fields(includeNonGraphQLBuiltIns).length > 0;
+  hasFields(): boolean {
+    return this.fields().length > 0;
   }
 
   /**
@@ -1733,6 +1854,11 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
     return this.interfaceImplementations().some(itf => itf.ofExtension() === undefined)
       || this.fields().some(f => f.ofExtension() === undefined);
   }
+
+  protected removeInnerElementsExtensions(): void {
+    this.interfaceImplementations().forEach(itf => itf.removeOfExtension());
+    this.fields().forEach(f => f.removeOfExtension());
+  }
 }
 
 export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer> {
@@ -1753,6 +1879,20 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
     const schema = this.schema();
     return schema.schemaDefinition.root('query')?.type === this;
   }
+
+  protected removeReferenceRecursive(ref: ObjectTypeReferencer): void {
+    // Note that the ref can also be a`SchemaDefinition`, but don't have anything to do then.
+    switch (ref.kind) {
+      case 'FieldDefinition':
+        ref.removeRecursive();
+        break;
+      case 'UnionType':
+        if (ref.membersCount() === 0) {
+          ref.removeRecursive();
+        }
+        break;
+    }
+  }
 }
 
 export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeReferencer> {
@@ -1770,6 +1910,14 @@ export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeRe
   isPossibleRuntimeType(type: string | NamedType): boolean {
     const typeName = typeof type === 'string' ? type : type.name;
     return this.possibleRuntimeTypes().some(t => t.name == typeName);
+  }
+
+  protected removeReferenceRecursive(ref: InterfaceTypeReferencer): void {
+    // Note that an interface can be referenced by an object/interface that implements it, but after remove(), said object/interface
+    // will simply not implement "this" anymore and we have nothing more to do.
+    if (ref.kind === 'FieldDefinition') {
+      ref.removeRecursive();
+    }
   }
 }
 
@@ -1895,6 +2043,14 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   protected hasNonExtensionInnerElements(): boolean {
     return this.members().some(m => m.ofExtension() === undefined);
   }
+
+  protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
+    ref.removeRecursive();
+  }
+
+  protected removeInnerElementsExtensions(): void {
+    this.members().forEach(m => m.removeOfExtension());
+  }
 }
 
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
@@ -1902,11 +2058,16 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   protected readonly _values: EnumValue[] = [];
 
   get values(): readonly EnumValue[] {
-    return this._values;
+    // Because our abstractions are mutable, and removal is done by calling
+    // `remove()` on the element to remove, it's not unlikely someone mauy
+    // try to iterate on the result of this method and call `remove()` on
+    // some of the return value based on some condition. But this will break
+    // in an error-prone way if we don't copy, so we do.
+    return Array.from(this._values);
   }
 
   value(name: string): EnumValue | undefined {
-    return this._values.find(v => v.name == name);
+    return this._values.find(v => v.name === name);
   }
 
   addValue(value: EnumValue): EnumValue;
@@ -1948,6 +2109,14 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
 
   protected hasNonExtensionInnerElements(): boolean {
     return this._values.some(v => v.ofExtension() === undefined);
+  }
+
+  protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
+    ref.removeRecursive();
+  }
+
+  protected removeInnerElementsExtensions(): void {
+    this._values.forEach(v => v.removeOfExtension());
   }
 }
 
@@ -2018,6 +2187,23 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
 
   protected hasNonExtensionInnerElements(): boolean {
     return this.fields().some(f => f.ofExtension() === undefined);
+  }
+
+  protected removeReferenceRecursive(ref: InputTypeReferencer): void {
+    if (ref.kind === 'ArgumentDefinition') {
+      // Not only do we want to remove the argument, but we want to remove its parent. Technically, only removing the argument would
+      // leave the schema in a valid state so it would be an option, but this feel a bit too weird of a behaviour in practice for a
+      // method calling `removeRecursive`. And in particular, it would mean that if the argument is a directive definition one,
+      // we'd also have to update each of the directive application to remove the correspond argument. Removing the full directive
+      // definition (and all its applications) feels a bit more predictable.
+      ref.parent().removeRecursive();
+    } else {
+      ref.removeRecursive();
+    }
+  }
+
+  protected removeInnerElementsExtensions(): void {
+    this.fields().forEach(f => f.removeOfExtension());
   }
 }
 
@@ -2137,6 +2323,10 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     return this._extension;
   }
 
+  removeOfExtension() {
+    this._extension = undefined;
+  }
+
   setOfExtension(extension: Extension<TParent> | undefined) {
     this.checkUpdate();
     // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
@@ -2172,24 +2362,50 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   /**
    * Removes this field definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
-   * arguments or directives.
+   * After calling this method, this field definition will be "detached": it will have no parent, schema, type,
+   * arguments, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
-    this.removeAppliedDirectives();
+    // Remove this field's children.
+    this.sourceAST = undefined;
     this.type = undefined;
-    this._extension = undefined;
+    this.removeAppliedDirectives();
     for (const arg of this.arguments()) {
       arg.remove();
     }
+    // Note that we don't track field references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider interface fields as references to implementing
+    //   object/interface fields, in the sense that removing an implementing
+    //   object/interface field breaks the validity of the implementing
+    //   interface field. Being aware that an object/interface field is being
+    //   referenced in such a way would be useful for understanding breakages
+    //   that need to be resolved as a consequence of removal.
+    //
+    // Remove this field from its parent object/interface type.
     FieldBasedType.prototype['removeFieldInternal'].call(this._parent, this);
     this._parent = undefined;
-    // Fields have nothing that can reference them outside of their parents
+    this._extension = undefined;
     return [];
+  }
+
+  /**
+   * Like `remove()`, but if this field was the last field of its parent type, the parent type is removed through its `removeRecursive` method.
+   */
+  removeRecursive(): void {
+    const parent = this._parent;
+    this.remove();
+    // Note that we exclude the union type here because it doesn't have the `fields()` method, but the only field unions can have is the __typename
+    // one and it cannot be removed, so remove() above will actually throw in practice before reaching this.
+    if (parent && !isUnionType(parent) && parent.fields().length === 0) {
+      parent.removeRecursive();
+    }
   }
 
   toString(): string {
@@ -2218,6 +2434,10 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
     return this._extension;
   }
 
+  removeOfExtension() {
+    this._extension = undefined;
+  }
+
   setOfExtension(extension: Extension<InputObjectType> | undefined) {
     this.checkUpdate();
     // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
@@ -2234,21 +2454,50 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
   }
 
   /**
-   * Removes this field definition from its parent type.
+   * Removes this input field definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
-   * arguments or directives.
+   * After calling this method, this input field definition will be "detached": it will have no parent, schema,
+   * type, default value, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
+    // Remove this input field's children.
+    this.sourceAST = undefined;
+    this.type = undefined;
+    this.defaultValue = undefined;
+    this.removeAppliedDirectives();
+    // Note that we don't track input field references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider default values (in field arguments, input
+    //   fields, or directive definitions) as references to input fields they
+    //   use, in the sense that removing the input field breaks the validity of
+    //   the default value. Being aware that an input field is being referenced
+    //   in such a way would be useful for understanding breakages that need to
+    //   be resolved as a consequence of removal. (The reference is indirect
+    //   though, as input field usages are currently represented as strings
+    //   within GraphQL values).
+    //
+    // Remove this input field from its parent input object type.
     InputObjectType.prototype['removeFieldInternal'].call(this._parent, this);
     this._parent = undefined;
-    this.type = undefined;
-    // Fields have nothing that can reference them outside of their parents
+    this._extension = undefined;
     return [];
+  }
+
+  /**
+   * Like `remove()`, but if this field was the last field of its parent type, the parent type is removed through its `removeRecursive` method.
+   */
+  removeRecursive(): void {
+    const parent = this._parent;
+    this.remove();
+    if (parent && parent.fields().length === 0) {
+      parent.removeRecursive();
+    }
   }
 
   toString(): string {
@@ -2281,22 +2530,39 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
   /**
    * Removes this argument definition from its parent element (field or directive).
    *
-   * After calling this method, this argument definition will be "detached": it wil have no parent, schema, type,
-   * default value or directives.
+   * After calling this method, this argument definition will be "detached": it will have no parent, schema, type,
+   * default value, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
+    // Remove this argument's children.
+    this.sourceAST = undefined;
+    this.type = undefined;
+    this.defaultValue = undefined;
+    this.removeAppliedDirectives();
+    // Note that we don't track argument references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider the arguments of directive applications as
+    //   references to the arguments of directive definitions, in the sense that
+    //   removing a directive definition argument can break the validity of the
+    //   directive application. Being aware that a directive definition argument
+    //   is being referenced in such a way would be useful for understanding
+    //   breakages that need to be resolved as a consequence of removal. (You
+    //   could make a similar claim about interface field arguments being
+    //   references to object field arguments.)
+    //
+    // Remove this argument from its parent field or directive definition.
     if (this._parent instanceof FieldDefinition) {
       FieldDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     } else {
       DirectiveDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     }
     this._parent = undefined;
-    this.type = undefined;
-    this.defaultValue = undefined;
     return [];
   }
 
@@ -2319,6 +2585,10 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
     return this._extension;
   }
 
+  removeOfExtension() {
+    this._extension = undefined;
+  }
+
   setOfExtension(extension: Extension<EnumType> | undefined) {
     this.checkUpdate();
     if (extension && !this._parent?.extensions().has(extension)) {
@@ -2333,23 +2603,36 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
   }
 
   /**
-   * Removes this field definition from its parent type.
+   * Removes this enum value definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
-   * arguments or directives.
+   * After calling this method, this enum value definition will be "detached": it will have no parent, schema, type,
+   * arguments, or directives.
    */
   remove(): never[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
+    // Remove this enum value's children.
+    this.sourceAST = undefined;
+    this.removeAppliedDirectives();
+    // Note that we don't track enum value references outside of parents, so no
+    // removal needed there.
+    //
+    // TODO: One could consider default values (in field arguments, input
+    //   fields, or directive definitions) as references to enum values they
+    //   use, in the sense that removing the enum value breaks the validity of
+    //   the default value. Being aware that an enum value is being referenced
+    //   in such a way would be useful for understanding breakages that need to
+    //   be resolved as a consequence of removal. (The reference is indirect
+    //   though, as enum value usages are currently represented as strings
+    //   within GraphQL values).
+    //
+    // Remove this enum value from its parent enum type.
     EnumType.prototype['removeValueInternal'].call(this._parent, this);
     this._parent = undefined;
-    // Enum values have nothing that can reference them outside of their parents
-    // TODO: that's actually only semi-true if you include arguments, because default values in args and concrete directive applications can
-    //   indirectly refer to enum value. It's indirect though as we currently keep enum value as string in values. That said, it would
-    //   probably be really nice to be able to known if an enum value is used or not, rather then removing it and not knowing if we broke
-    //   something).
+    this._extension = undefined;
     return [];
   }
 
@@ -2367,7 +2650,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
 
   private readonly _args: MapWithCachedArrays<string, ArgumentDefinition<DirectiveDefinition>> = new MapWithCachedArrays();
   repeatable: boolean = false;
-  private readonly _locations: DirectiveLocationEnum[] = [];
+  private readonly _locations: DirectiveLocation[] = [];
   private readonly _referencers: Set<Directive<SchemaElement<any, any>, TApplicationArgs>> = new Set();
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
@@ -2414,11 +2697,11 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     this._args.delete(name);
   }
 
-  get locations(): readonly DirectiveLocationEnum[] {
+  get locations(): readonly DirectiveLocation[] {
     return this._locations;
   }
 
-  addLocations(...locations: DirectiveLocationEnum[]): DirectiveDefinition {
+  addLocations(...locations: DirectiveLocation[]): DirectiveDefinition {
     let modified = false;
     for (const location of locations) {
       if (!this._locations.includes(location)) {
@@ -2437,10 +2720,17 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 
   addAllTypeLocations(): DirectiveDefinition {
-    return this.addLocations('SCALAR', 'OBJECT', 'INTERFACE', 'UNION', 'ENUM', 'INPUT_OBJECT');
+    return this.addLocations(
+      DirectiveLocation.SCALAR,
+      DirectiveLocation.OBJECT,
+      DirectiveLocation.INTERFACE,
+      DirectiveLocation.UNION,
+      DirectiveLocation.ENUM,
+      DirectiveLocation.INPUT_OBJECT,
+    );
   }
 
-  removeLocations(...locations: DirectiveLocationEnum[]): DirectiveDefinition {
+  removeLocations(...locations: DirectiveLocation[]): DirectiveDefinition {
     let modified = false;
     for (const location of locations) {
       const index = this._locations.indexOf(location);
@@ -2472,23 +2762,43 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     assert(false, `Directive definition ${this} can't reference other types (it's arguments can); shouldn't be asked to remove reference to ${type}`);
   }
 
+    /**
+   * Removes this directive definition from its parent schema.
+   *
+   * After calling this method, this directive definition will be "detached": it will have no parent, schema, or
+   * arguments.
+   */
   remove(): Directive[] {
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
-    Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
-    this._parent = undefined;
+    // Remove this directive definition's children.
+    this.sourceAST = undefined;
     assert(this._appliedDirectives.length === 0, "Directive definition should not have directive applied to it");
     for (const arg of this.arguments()) {
       arg.remove();
     }
-    // Note that directive applications don't link directly to their definitions. Instead, we fetch
-    // their definition from the schema when requested. So we don't have to do anything on the referencers
-    // other than return them.
+    // Remove this directive definition's references.
+    //
+    // Note that while a directive application references its definition, it
+    // doesn't store a link to that definition. Instead, we fetch the definition
+    // from the schema when requested. So we don't have to do anything on the
+    // referencers other than clear them (and return the pre-cleared set).
     const toReturn = setValues(this._referencers);
     this._referencers.clear();
+    // Remove this directive definition from its parent schema.
+    Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
+    this._parent = undefined;
     return toReturn;
+  }
+
+  /**
+   * Removes this this directive definition _and_ all its applications.
+   */
+  removeRecursive(): void {
+    this.remove().forEach(ref => ref.remove());
   }
 
   toString(): string {
@@ -2513,6 +2823,9 @@ export class Directive<
   }
 
   get definition(): DirectiveDefinition | undefined {
+    if (!this.isAttached()) {
+      return undefined;
+    }
     const doc = this.schema();
     return doc.directive(this.name);
   }
@@ -2572,6 +2885,10 @@ export class Directive<
     return this._extension;
   }
 
+  removeOfExtension() {
+    this._extension = undefined;
+  }
+
   setOfExtension(extension: Extension<any> | undefined) {
     this.checkUpdate();
     if (extension) {
@@ -2588,7 +2905,7 @@ export class Directive<
     this.onModification();
   }
 
-  argumentsToAST(): ArgumentNode[] | undefined {
+  argumentsToAST(): ConstArgumentNode[] | undefined {
     const entries = Object.entries(this._args);
     if (entries.length === 0) {
       return undefined;
@@ -2598,9 +2915,9 @@ export class Directive<
     assert(definition, () => `Cannot convert arguments of detached directive ${this}`);
     return entries.map(([n, v]) => {
       return {
-        kind: 'Argument',
+        kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: n },
-        value: valueToAST(v, definition.argument(n)!.type!)!,
+        value: valueToAST(v, definition.argument(n)!.type!)! as ConstValueNode,
       };
     });
   }
@@ -2617,9 +2934,9 @@ export class Directive<
     this.onModification();
     const coreFeatures = this.schema().coreFeatures;
     if (coreFeatures && this.name === coreFeatures.coreItself.nameInSchema) {
-      // We're removing a @core directive application, so we remove it from the list of core features. And
+      // We're removing a @core/@link directive application, so we remove it from the list of core features. And
       // if it is @core itself, we clean all features (to avoid having things too inconsistent).
-      const url = FeatureUrl.parse(this._args['feature']!);
+      const url = FeatureUrl.parse(this._args[coreFeatures.coreDefinition.urlArgName()]!);
       if (url.identity === coreFeatures.coreItself.url.identity) {
         // Note that we unmark first because the loop after that will nuke our parent.
         Schema.prototype['unmarkAsCoreSchema'].call(this.schema());
@@ -2639,10 +2956,12 @@ export class Directive<
     if (!this._parent) {
       return false;
     }
+    // Remove this directive application's reference to its definition.
     const definition = this.definition;
     if (definition && this.isAttachedToSchemaElement()) {
       DirectiveDefinition.prototype['removeReferencer'].call(definition, this as Directive<SchemaElement<any, any>>);
     }
+    // Remove this directive application from its parent schema element.
     const parentDirectives = this._parent.appliedDirectives as Directive<TParent>[];
     const index = parentDirectives.indexOf(this);
     assert(index >= 0, () => `Directive ${this} lists ${this._parent} as parent, but that parent doesn't list it as applied directive`);
@@ -2664,8 +2983,8 @@ export class Variable {
 
   toVariableNode(): VariableNode {
     return {
-      kind: 'Variable',
-      name: { kind: 'Name', value: this.name },
+      kind: Kind.VARIABLE,
+      name: { kind: Kind.NAME, value: this.name },
     }
   }
 
@@ -2719,12 +3038,14 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
   }
 
   toVariableDefinitionNode(): VariableDefinitionNode {
+    const ast = valueToAST(this.defaultValue, this.type);
+
     return {
-      kind: 'VariableDefinition',
+      kind: Kind.VARIABLE_DEFINITION,
       variable: this.variable.toVariableNode(),
       type: typeToAST(this.type),
-      defaultValue: valueToAST(this.defaultValue, this.type),
-      directives: this.appliedDirectivesToDirectiveNodes()
+      defaultValue: (ast !== undefined) ? valueNodeToConstValueNode(ast) : undefined,
+      directives: this.appliedDirectivesToDirectiveNodes(),
     }
   }
 
@@ -2821,8 +3142,6 @@ export function variableDefinitionFromAST(schema: Schema, definitionNode: Variab
   );
   return def;
 }
-
-export const graphQLBuiltIns = new BuiltIns();
 
 function addReferenceToType(referencer: SchemaElement<any, any>, type: Type) {
   switch (type.kind) {
@@ -2932,7 +3251,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
   // Same as copyAppliedDirectives, but as the directive applies to the schema definition, we need to remember if the application
   // is for the extension or not.
   for (const directive of source.appliedDirectives) {
-    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
+    copyOfExtension(extensionsMap, directive, copyAppliedDirective(directive, dest));
   }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
@@ -2943,7 +3262,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
   // Same as copyAppliedDirectives, but as the directive applies to the type, we need to remember if the application
   // is for the extension or not.
   for (const directive of source.appliedDirectives) {
-    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
+    copyOfExtension(extensionsMap, directive, copyAppliedDirective(directive, dest));
   }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
@@ -2988,9 +3307,13 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
 }
 
 function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
-  for (const directive of source.appliedDirectives) {
-    dest.applyDirective(directive.name, { ...directive.arguments() });
-  }
+  source.appliedDirectives.forEach((d) => copyAppliedDirective(d, dest));
+}
+
+function copyAppliedDirective(source: Directive<any, any>, dest: SchemaElement<any, any>): Directive<any, any> {
+  const res = dest.applyDirective(source.name, { ...source.arguments() });
+  res.sourceAST = source.sourceAST
+  return res;
 }
 
 function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>) {

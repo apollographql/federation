@@ -105,15 +105,53 @@ export function errorCodeDef(e: GraphQLError | string): ErrorCodeDefinition | un
   return code ? codeDefByCode[code] : undefined;
 }
 
+export function withModifiedErrorMessage(e: GraphQLError, newMessage: string): GraphQLError {
+  return new GraphQLError(
+    newMessage,
+    {
+      nodes: e.nodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
+export function withModifiedErrorNodes(e: GraphQLError, newNodes: readonly ASTNode[] | ASTNode | undefined): GraphQLError {
+  return new GraphQLError(
+    e.message,
+    {
+      nodes: newNodes,
+      source: e.source,
+      positions: e.positions,
+      path: e.path,
+      originalError: e.originalError,
+      extensions: e.extensions
+    }
+  );
+}
+
 const INVALID_GRAPHQL = makeCodeDefinition(
   'INVALID_GRAPHQL',
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
 );
 
-const TAG_DEFINITION_INVALID = makeCodeDefinition(
-  'TAG_DIRECTIVE_DEFINITION_INVALID',
-  'The @tag directive has an invalid defintion in the schema.',
-  { addedIn: FED1_CODE },
+const DIRECTIVE_DEFINITION_INVALID = makeCodeDefinition(
+  'DIRECTIVE_DEFINITION_INVALID',
+  'A built-in or federation directive has an invalid definition in the schema.',
+  { ...DEFAULT_METADATA, replaces: ['TAG_DEFINITION_INVALID'] },
+);
+
+const TYPE_DEFINITION_INVALID = makeCodeDefinition(
+  'TYPE_DEFINITION_INVALID',
+  'A built-in or federation type has an invalid definition in the schema.',
+);
+
+const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
+  'UNKNOWN_FEDERATION_LINK_VERSION',
+  'The version of federation in a @link directive on the schema is unknown.',
 );
 
 const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
@@ -147,6 +185,13 @@ const EXTERNAL_UNUSED = makeCodeDefinition(
   'EXTERNAL_UNUSED',
   'An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implememtation.',
   { addedIn: FED1_CODE },
+);
+
+const TYPE_WITH_ONLY_UNUSED_EXTERNAL = makeCodeDefinition(
+  'TYPE_WITH_ONLY_UNUSED_EXTERNAL',
+  'A federation 1 schema has a composite type comprised only of unused external fields.'
+  + ` Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code ${EXTERNAL_UNUSED.code} will be raised in that case).`
+  + ' But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automaticaly removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised',
 );
 
 const PROVIDES_ON_NON_OBJECT_FIELD = makeCodeDefinition(
@@ -230,6 +275,16 @@ const EXTERNAL_ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
 );
 
+const EXTERNAL_ON_INTERFACE = makeCodeDefinition(
+  'EXTERNAL_ON_INTERFACE',
+  'The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical',
+);
+
+const MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL = makeCodeDefinition(
+  'MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL',
+  'In a subgraph, a field is both marked @external and has a merged directive applied to it',
+);
+
 const FIELD_TYPE_MISMATCH = makeCodeDefinition(
   'FIELD_TYPE_MISMATCH',
   'A field has a type that is incompatible with other declarations of that field in other subgraphs.',
@@ -252,6 +307,11 @@ const ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.',
 );
 
+const NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH = makeCodeDefinition(
+  'NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
+  'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
+);
+
 const EXTENSION_WITH_NO_BASE = makeCodeDefinition(
   'EXTENSION_WITH_NO_BASE',
   'A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph.',
@@ -264,9 +324,104 @@ const EXTERNAL_MISSING_ON_BASE = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH = makeCodeDefinition(
+  'INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH',
+  'For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257)'
+);
+
+const INVALID_FIELD_SHARING = makeCodeDefinition(
+  'INVALID_FIELD_SHARING',
+  'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
+);
+
+const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
+  'INVALID_LINK_DIRECTIVE_USAGE',
+  'An application of the @link directive is invalid/does not respect the specification.'
+);
+
+const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
+  'LINK_IMPORT_NAME_MISMATCH',
+  'The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs.'
+);
+
+const REFERENCED_INACCESSIBLE = makeCodeDefinition(
+  'REFERENCED_INACCESSIBLE',
+  'An element is marked as @inaccessible but is referenced by an element visible in the API schema.'
+);
+
+const DEFAULT_VALUE_USES_INACCESSIBLE = makeCodeDefinition(
+  'DEFAULT_VALUE_USES_INACCESSIBLE',
+  'An element is marked as @inaccessible but is used in the default value of an element visible in the API schema.'
+);
+
+const QUERY_ROOT_TYPE_INACCESSIBLE = makeCodeDefinition(
+  'QUERY_ROOT_TYPE_INACCESSIBLE',
+  'An element is marked as @inaccessible but is the query root type, which must be visible in the API schema.'
+);
+
+const REQUIRED_INACCESSIBLE = makeCodeDefinition(
+  'REQUIRED_INACCESSIBLE',
+  'An element is marked as @inaccessible but is required by an element visible in the API schema.'
+);
+
+const IMPLEMENTED_BY_INACCESSIBLE = makeCodeDefinition(
+  'IMPLEMENTED_BY_INACCESSIBLE',
+  'An element is marked as @inaccessible but implements an element visible in the API schema.'
+);
+
+const DISALLOWED_INACCESSIBLE = makeCodeDefinition(
+  'DISALLOWED_INACCESSIBLE',
+  'An element is marked as @inaccessible that is not allowed to be @inaccessible.'
+);
+
+const ONLY_INACCESSIBLE_CHILDREN = makeCodeDefinition(
+  'ONLY_INACCESSIBLE_CHILDREN',
+  'A type visible in the API schema has only @inaccessible children.'
+);
+
+const REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
+  'REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH',
+  'A field of an input object type is mandatory in some subgraphs, but the field is not defined in all the subgraphs that define the input object type.'
+);
+
+const REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH = makeCodeDefinition(
+  'REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH',
+  'An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all the subgraphs that define the field or directive definition.'
+);
+
+const EMPTY_MERGED_INPUT_TYPE = makeCodeDefinition(
+  'EMPTY_MERGED_INPUT_TYPE',
+  'An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type.'
+);
+
+const ENUM_VALUE_MISMATCH = makeCodeDefinition(
+  'ENUM_VALUE_MISMATCH',
+  'An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.'
+);
+
+const EMPTY_MERGED_ENUM_TYPE = makeCodeDefinition(
+  'EMPTY_MERGED_ENUM_TYPE',
+  'An enum type has no value common to all the subgraphs that define the type. Merging that type would result in an invalid empty enum type.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
+);
+
+const OVERRIDE_FROM_SELF_ERROR = makeCodeDefinition(
+  'OVERRIDE_FROM_SELF_ERROR',
+  'Field with `@override` directive has "from" location that references its own subgraph.',
+);
+
+const OVERRIDE_SOURCE_HAS_OVERRIDE = makeCodeDefinition(
+  'OVERRIDE_SOURCE_HAS_OVERRIDE',
+  'Field which is overridden to another subgraph is also marked @override.',
+);
+
+const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
+  'OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE',
+  'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
 export const ERROR_CATEGORIES = {
@@ -280,7 +435,9 @@ export const ERROR_CATEGORIES = {
 
 export const ERRORS = {
   INVALID_GRAPHQL,
-  TAG_DEFINITION_INVALID,
+  DIRECTIVE_DEFINITION_INVALID,
+  TYPE_DEFINITION_INVALID,
+  UNKNOWN_FEDERATION_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
   REQUIRES_FIELDS_HAS_ARGS,
@@ -290,6 +447,7 @@ export const ERRORS = {
   PROVIDES_UNSUPPORTED_ON_INTERFACE,
   REQUIRES_UNSUPPORTED_ON_INTERFACE,
   EXTERNAL_UNUSED,
+  TYPE_WITH_ONLY_UNUSED_EXTERNAL,
   PROVIDES_ON_NON_OBJECT_FIELD,
   KEY_INVALID_FIELDS_TYPE,
   PROVIDES_INVALID_FIELDS_TYPE,
@@ -309,13 +467,35 @@ export const ERRORS = {
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
+  EXTERNAL_ON_INTERFACE,
+  MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL,
   FIELD_TYPE_MISMATCH,
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
   ARGUMENT_DEFAULT_MISMATCH,
+  NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH,
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
+  INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
+  INVALID_FIELD_SHARING,
+  INVALID_LINK_DIRECTIVE_USAGE,
+  LINK_IMPORT_NAME_MISMATCH,
+  REFERENCED_INACCESSIBLE,
+  DEFAULT_VALUE_USES_INACCESSIBLE,
+  QUERY_ROOT_TYPE_INACCESSIBLE,
+  REQUIRED_INACCESSIBLE,
+  DISALLOWED_INACCESSIBLE,
+  IMPLEMENTED_BY_INACCESSIBLE,
+  ONLY_INACCESSIBLE_CHILDREN,
+  REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH,
+  REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH,
+  EMPTY_MERGED_INPUT_TYPE,
+  ENUM_VALUE_MISMATCH,
+  EMPTY_MERGED_ENUM_TYPE,
   SATISFIABILITY_ERROR,
+  OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
+  OVERRIDE_FROM_SELF_ERROR,
+  OVERRIDE_SOURCE_HAS_OVERRIDE,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

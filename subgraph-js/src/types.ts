@@ -10,6 +10,7 @@ import {
   GraphQLNamedType,
   isNamedType,
   isObjectType,
+  GraphQLResolveInfo,
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
 import type { CacheHint } from 'apollo-server-types';
@@ -39,8 +40,13 @@ export const AnyType = new GraphQLScalarType({
   },
 });
 
+export const LinkImportType = new GraphQLScalarType({
+  name: 'link__Import',
+  specifiedByURL: null
+});
+
 function isPromise<T>(value: PromiseOrValue<T>): value is Promise<T> {
-  return Boolean(value && 'then' in value && typeof value.then === 'function');
+  return typeof (value as {then?: unknown})?.then === 'function';
 }
 
 function addTypeNameToPossibleReturn<T>(
@@ -55,6 +61,58 @@ function addTypeNameToPossibleReturn<T>(
   return maybeObject as null | (T & { __typename: string });
 }
 
+export function entitiesResolver({
+  representations,
+  context,
+  info
+}: {
+  representations: any,
+  context: any,
+  info: GraphQLResolveInfo
+}) {
+  return representations.map((reference: { __typename: string } & object) => {
+    const { __typename } = reference;
+
+    const type = info.schema.getType(__typename);
+    if (!type || !isObjectType(type)) {
+      throw new Error(
+        `The _entities resolver tried to load an entity for type "${__typename}", but no object type of that name was found in the schema`,
+      );
+    }
+
+    // Note that while our TypeScript types (as of apollo-server-types@3.0.2)
+    // tell us that cacheControl and restrict are always defined, we want to
+    // avoid throwing when used with Apollo Server 2 which doesn't have
+    // `restrict`, or if the cache control plugin has been disabled.
+    if (info.cacheControl?.cacheHint?.restrict) {
+      const cacheHint: CacheHint | undefined =
+        info.cacheControl.cacheHintFromType(type);
+
+      if (cacheHint) {
+        info.cacheControl.cacheHint.restrict(cacheHint);
+      }
+    }
+
+    const resolveReference = type.resolveReference
+      ? type.resolveReference
+      : function defaultResolveReference() {
+        return reference;
+      };
+
+    // FIXME somehow get this to show up special in Studio traces?
+    const result = resolveReference(reference, context, info);
+
+    if (isPromise(result)) {
+      return result.then((x: any) =>
+        addTypeNameToPossibleReturn(x, __typename),
+      );
+    }
+
+    return addTypeNameToPossibleReturn(result, __typename);
+  });
+}
+
+
 export const entitiesField: GraphQLFieldConfig<any, any> = {
   type: new GraphQLNonNull(new GraphQLList(EntityType)),
   args: {
@@ -63,46 +121,7 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
     },
   },
   resolve(_source, { representations }, context, info) {
-    return representations.map((reference: { __typename: string } & object) => {
-      const { __typename } = reference;
-
-      const type = info.schema.getType(__typename);
-      if (!type || !isObjectType(type)) {
-        throw new Error(
-          `The _entities resolver tried to load an entity for type "${__typename}", but no object type of that name was found in the schema`,
-        );
-      }
-
-      // Note that while our TypeScript types (as of apollo-server-types@3.0.2)
-      // tell us that cacheControl and restrict are always defined, we want to
-      // avoid throwing when used with Apollo Server 2 which doesn't have
-      // `restrict`, or if the cache control plugin has been disabled.
-      if (info.cacheControl?.cacheHint?.restrict) {
-        const cacheHint: CacheHint | undefined =
-          info.cacheControl.cacheHintFromType(type);
-
-        if (cacheHint) {
-          info.cacheControl.cacheHint.restrict(cacheHint);
-        }
-      }
-
-      const resolveReference = type.resolveReference
-        ? type.resolveReference
-        : function defaultResolveReference() {
-            return reference;
-          };
-
-      // FIXME somehow get this to show up special in Studio traces?
-      const result = resolveReference(reference, context, info);
-
-      if (isPromise(result)) {
-        return result.then((x: any) =>
-          addTypeNameToPossibleReturn(x, __typename),
-        );
-      }
-
-      return addTypeNameToPossibleReturn(result, __typename);
-    });
+    return entitiesResolver({ representations, context, info });
   },
 };
 
@@ -114,6 +133,7 @@ export const federationTypes: GraphQLNamedType[] = [
   ServiceType,
   AnyType,
   EntityType,
+  LinkImportType,
 ];
 
 export function isFederationType(type: GraphQLType): boolean {

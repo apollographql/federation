@@ -14,7 +14,6 @@ import {
   UnionType,
   baseType,
   SelectionSet,
-  federationBuiltIns,
   isFederationSubgraphSchema,
   CompositeType,
   extractSubgraphsFromSupergraph,
@@ -28,19 +27,18 @@ import {
   mapKeys,
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
-  ALL_SUBTYPING_RULES,
-  externalDirectiveName,
-  requiresDirectiveName,
-  ExternalTester,
+  federationMetadata,
+  FederationMetadata,
+  DirectiveDefinition,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
-import { isStructuralFieldSubtype } from './structuralSubtyping';
+import { preComputeNonTrivialFollowupEdges } from './nonTrivialEdgePrecomputing';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
 // deal, but safer that way). Using something short like `_` is also on purpose: it makes it stand out in debug messages
 // without taking space.
-const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
+export const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
 
 export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {
@@ -163,27 +161,13 @@ export class Edge {
     return this.transition.kind === 'FieldCollection' && this.transition.definition.name === name;
   }
 
-  matchesSupergraphTransition(supergraph: Schema, otherTransition: Transition): boolean {
+  matchesSupergraphTransition(otherTransition: Transition): boolean {
+    assert(otherTransition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
     const transition = this.transition;
     switch (transition.kind) {
-      case 'FieldCollection':
-        if (otherTransition.kind === 'FieldCollection') {
-          // isStructuralFieldSubtype relies on being about to check subtypes. And when comparing types, we
-          // want to know if types are subtypes 'in the supergraph'.
-          return isStructuralFieldSubtype(
-            transition.definition,
-            otherTransition.definition,
-            ALL_SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
-            (union, maybeMember) => (supergraph.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
-            (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
-          );
-        } else {
-          return false;
-        }
-      case 'DownCast':
-        return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
-      default:
-        return transition.kind === otherTransition.kind;
+      case 'FieldCollection': return otherTransition.kind === 'FieldCollection' && transition.definition.name === otherTransition.definition.name;
+      case 'DownCast': return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
+      default: return false;
     }
   }
 
@@ -243,11 +227,28 @@ export class Edge {
  * that points to "reachable" types (reachable from any kind of operations).
  */
 export class QueryGraph {
-  // Because of the "fake externals" of type extension that we still support for fed1 backward compatibility, checking
-  // is a field is truly external or not is kind of expensive and that's why we have `ExternalTester` which is costly
-  // to build initially but then allow checking field cheaply. Anyway, we sometimes need those for the source schema
-  // of the query graph, and storing it here is convenient if a bit hacky. Those testers are lazily created.
-  private readonly externalTesters: Map<string, ExternalTester> = new Map();
+  /**
+   * Given an edge, returns the possible edges that can follow it "productively", that is without creating
+   * a trivially inefficient path.
+   *
+   * More precisely, `nonTrivialFollowupEdges(e)` is equivalent calling `outEdges(e.tail)` and filtering
+   * the edges that "never make sense" after `e`, which mainly amounts to avoiding chaining key edges
+   * when we know there is guaranteed to be a better option. As an example, suppose we have 3 subgraphs
+   * A, B and C which all defined a `@key(fields: "id")` on some entity type `T`. Then it is never
+   * interesting to take that key edge from B -> C after A -> B because if we're in A and want to get
+   * to C, we can always do A -> C (of course, this is only true because it's the "same" key).
+   *
+   * See `preComputeNonTrivialFollowupEdges` for more details on which exact edges are filtered.
+   *
+   * Lastly, note that the main reason for exposing this method is that its result is pre-computed.
+   * Which in turn is done for performance reasons: having the same key defined in multiple subgraphs
+   * is _the_ most common pattern, and while our later algorithms (composition validation and query
+   * planning) would know to not select those trivially inefficient "detour", they might have to redo
+   * those checks many times and pre-computing once it is significantly faster (and pretty easy).
+   * Fwiw, when originally introduced, this optimization lowered composition validation on a big
+   * composition (100+ subgraphs) from ~4 "minutes" to ~10 seconds.
+   */
+  readonly nonTrivialFollowupEdges: (edge: Edge) => readonly Edge[];
 
   /**
    * Creates a new query graph.
@@ -279,6 +280,7 @@ export class QueryGraph {
      */
     readonly sources: ReadonlyMap<string, Schema>
   ) {
+    this.nonTrivialFollowupEdges = preComputeNonTrivialFollowupEdges(this);
   }
 
   /** The number of vertices in this query graph. */
@@ -359,16 +361,6 @@ export class QueryGraph {
   verticesForType(typeName: string): Vertex[] {
     const indexes = this.typesToVertices.get(typeName);
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
-  }
-
-  externalTester(source: string): ExternalTester {
-    let tester = this.externalTesters.get(source);
-    if (!tester) {
-      const schema = this.sources.get(source);
-      assert(schema, () => `Unknown source: ${source}`);
-      tester = new ExternalTester(schema);
-    }
-    return tester;
   }
 }
 
@@ -493,7 +485,11 @@ export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
 }
 
 function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractTypeEdges: boolean, supergraphSchema?: Schema): QueryGraph {
-  const builder = new GraphBuilderFromSchema(name, schema, supergraphSchema);
+  const builder = new GraphBuilderFromSchema(
+    name,
+    schema,
+    supergraphSchema ? { apiSchema: supergraphSchema.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
+  );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
   }
@@ -517,7 +513,7 @@ function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractT
  * @returns the built query graph.
  */
 export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
-  return buildQueryGraph("supergraph", supergraph);
+  return buildQueryGraph("supergraph", supergraph.toAPISchema());
 }
 
 /**
@@ -532,7 +528,7 @@ export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
  *   The provided schema _must_ be a "supergraph" as generated by composition merging,
  *   one that includes join spec directives in particular.
  * @param forQueryPlanning - whether the build query graph is built for query planning (if
- *   so, it will included some additional edges that don't impact validation but allow
+ *   so, it will include some additional edges that don't impact validation but allow
  *   to generate more efficient query plans).
  * @returns the built federated query graph.
  */
@@ -600,13 +596,19 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // copying vertex and their edges, and it's easier to reason about this if we know all keys have already been created.
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
-    const keyDirective = federationBuiltIns.keyDirective(subgraphSchema);
-    const requireDirective = federationBuiltIns.requiresDirective(subgraphSchema);
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const keyDirective = subgraphMetadata.keyDirective();
+    const requireDirective = subgraphMetadata.requiresDirective();
     simpleTraversal(
       subgraph,
       v => {
         const type = v.type;
         for (const keyApplication of type.appliedDirectivesOf(keyDirective)) {
+          if (!(keyApplication.arguments().resolvable ?? true)) {
+            continue;
+          }
+
           // The @key directive creates an edge from every other subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
           // that the service of the current subgraph can be queried for the entity (through
@@ -619,7 +621,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // restriction, and this may be useful at least temporarily to allow convert a type to
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
-          const conditions = parseFieldSetArgument(type, keyApplication);
+          const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
           for (const [j, otherSubgraph] of subgraphs.entries()) {
             if (i == j) {
               continue;
@@ -648,7 +650,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
-            const conditions = parseFieldSetArgument(type, requiresApplication);
+            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication });
             const head = copyPointers[i].copiedVertex(e.head);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
             // this to not be the case at this point so...
@@ -663,7 +665,9 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // Now we handle @provides
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
-    const providesDirective = federationBuiltIns.providesDirective(subgraphSchema);
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const providesDirective = subgraphMetadata.providesDirective();
     simpleTraversal(
       subgraph,
       _ => undefined,
@@ -676,7 +680,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
             assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
-            const provided = parseFieldSetArgument(fieldType, providesApplication);
+            const provided = parseFieldSetArgument({ parentType: fieldType, directive: providesApplication });
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
@@ -916,14 +920,19 @@ class GraphBuilderFromSchema extends GraphBuilder {
   constructor(
     private readonly name: string,
     private readonly schema: Schema,
-    private readonly supergraphSchema?: Schema
+    private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
   ) {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
-    assert(!this.isFederatedSubgraph || supergraphSchema, `Missing supergraph schema for building the federated subgraph graph`);
+    assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
     // The join spec 0.1 used by "fed1" does not preserve the information on where (in which subgraphs)
     // an interface is defined, so we cannot ever safely avoid type explosion.
-    this.forceTypeExplosion = supergraphSchema !== undefined && isFed1Supergraph(supergraphSchema);
+    this.forceTypeExplosion = supergraph !== undefined && supergraph.isFed1;
+  }
+
+  private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
+    const metadata = federationMetadata(this.schema);
+    return !!metadata && field.hasAppliedDirective(directiveFct(metadata));
   }
 
   /**
@@ -980,7 +989,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (field.isSchemaIntrospectionField() || field.hasAppliedDirective(externalDirectiveName)) {
+      if (field.isSchemaIntrospectionField() || this.hasDirective(field, (m) => m.externalDirective())) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -1000,12 +1009,12 @@ class GraphBuilderFromSchema extends GraphBuilder {
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
     //      need to type-explode to make we handle that @require).
-    return field && !field.hasAppliedDirective(externalDirectiveName) && !field.hasAppliedDirective(requiresDirectiveName);
+    return field && !this.hasDirective(field, (m) => m.externalDirective()) && !this.hasDirective(field, (m) => m.requiresDirective());
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
-    assert(this.supergraphSchema, 'Missing supergraph schema when building a subgraph');
-    const supergraphType = this.supergraphSchema.type(type.name);
+    assert(this.supergraph, 'Missing supergraph schema when building a subgraph');
+    const supergraphType = this.supergraph.apiSchema.type(type.name);
     // In theory, the interface might have been marked inaccessible and not be in the supergraph. If that's the case,
     // we just don't add direct edges at all (adding interface edges is an optimization and if the interface is inaccessible, it
     // probably doesn't play any role in query planning anyway, so it doesn't matter).
@@ -1018,13 +1027,13 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // interface was resolved in this subgraph and can never return one of those unknown runtime types. So we can ignore them.
     // TODO: We *must* revisit this once we add @key for interfaces as it will invalidate the "edges to interfaces can only
     // come from the current subgraph". Most likely, _if_ an interface has a key, then we should return early from this
-    // function (add no field edges at all) if subgraph don't know of at least one implementation.
+    // function (add no field edges at all) if subgraph doesn't know of at least one implementation.
     const localRuntimeTypes = supergraphRuntimeTypes.map(t => this.schema.type(t) as ObjectType).filter(t => t !== undefined);
     // Same as for objects, we want `allFields` so we capture __typename (which will never be external and always provided
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
-      // To include the field, it must not be external himself, and it must be provided on every of the runtime types
-      if (field.hasAppliedDirective(externalDirectiveName) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      // To include the field, it must not be external itself, and it must be provided on every of the runtime types
+      if (this.hasDirective(field, (m) => m.externalDirective()) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -1126,7 +1135,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // possible that we don't create any edge to that created vertex, so we may be creating a disconnected subset
       // of the graph, a part that is not reachable from any root. It's not optimal, but it's a bit hard to avoid
       // in the first place (we could also try to purge such subset after this method, but it's probably not worth
-      // it in general) and it's not a big deal: it will just a bit more memory than necessary, and it's probably
+      // it in general) and it's not a big deal: it will just use a bit more memory than necessary, and it's probably
       // pretty rare in the first place.
       const t1Vertex = this.addTypeRecursively(t1);
       for (let j = i; j < abstractTypesWithTheirRuntimeTypes.length; j++) {
@@ -1157,7 +1166,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
  * Performs a simple traversal of a query graph that _ignores_ edge conditions.
  *
  * Note that the order of the traversal shouldn't be relied on strongly, only that
- * the provided `onVertex` and `onEdges` will called (exactly) once for every vertices
+ * the provided `onVertex` and `onEdges` will get called (exactly) once for every vertices
  * and edges in the query graph.
  *
  * That said, in practice, this method does `n` traversals, one from each root vertex in the

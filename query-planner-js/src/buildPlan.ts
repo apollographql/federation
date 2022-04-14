@@ -3,11 +3,9 @@ import {
   arrayEquals,
   baseType,
   CompositeType,
-  entityTypeName,
   Field,
   FieldSelection,
   FragmentElement,
-  FragmentSelection,
   isAbstractType,
   isCompositeType,
   isListType,
@@ -26,7 +24,6 @@ import {
   selectionSetOf,
   selectionSetOfPath,
   Type,
-  UnionType,
   Variable,
   VariableDefinition,
   VariableDefinitions,
@@ -36,6 +33,11 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
+  FragmentSelection,
+  sameType,
+  FederationMetadata,
+  federationMetadata,
+  entitiesFieldName,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -68,7 +70,7 @@ import {
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
 } from "@apollo/query-graphs";
-import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
+import { stripIgnoredCharacters, print, GraphQLError, parse, OperationTypeNode } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -267,7 +269,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       i++;
     }
     // `i` is the smallest index of an element having the same number or less options than the first one,
-    // so we switch that first branch with the element "before" `i` (which has more elements). 
+    // so we switch that first branch with the element "before" `i` (which has more elements).
     this.closedBranches[0] = this.closedBranches[i - 1];
     this.closedBranches[i - 1] = firstBranch;
   }
@@ -508,7 +510,7 @@ export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: 
 
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
-  const processor = fetchGroupToPlanProcessor(operation.variableDefinitions, operation.selectionSet.fragments);
+  const processor = fetchGroupToPlanProcessor(operation.variableDefinitions, operation.selectionSet.fragments, operation.name);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
@@ -615,12 +617,30 @@ function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
   });
 }
 
+function toValidGraphQLName(subgraphName: string): string {
+  // We have almost no limitations on subgraph names, so we cannot use them inside query names
+  // without some cleaning up. GraphQL names can only be: [_A-Za-z][_0-9A-Za-z]*.
+  // To do so, we:
+  //  1. replace '-' by '_' because the former is not allowed but it's probably pretty
+  //   common and using the later should be fairly readable.
+  //  2. remove any character in what remains that is not allowed.
+  //  3. Unsure the first character is not a number, and if it is, add a leading `_`.
+  // Note that this could theoretically lead to substantial changes to the name but should
+  // work well in practice (and if it's a huge problem for someone, we can change it).
+  const sanitized = subgraphName
+    .replace(/-/ig, '_')
+    .replace(/[^_0-9A-Za-z]/ig, '');
+  return sanitized.match(/^[0-9].*/i) ? '_' + sanitized : sanitized;
+}
+
 function fetchGroupToPlanProcessor(
   variableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
+  operationName?: string
 ): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
+  let counter = 0;
   return {
-    onFetchGroup: (group: FetchGroup) => group.toPlanNode(variableDefinitions, fragments),
+    onFetchGroup: (group: FetchGroup) => group.toPlanNode(variableDefinitions, fragments, operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined),
     reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
     finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
@@ -767,12 +787,18 @@ class FetchGroup {
     assert(!toMerge.isTopLevel, () => `Shouldn't merge top level group ${toMerge} into ${this}`);
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
-    // But when we merge-in, the type cast can be skipped.
-    const selectionSet = selectionSetOfPath(mergePath, endOfPathSet => {
+    // But when we merge-in, if the point we're merging in is already the entity, then the cast can be skipped.
+    const selectionSet = selectionSetOfPath(mergePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
       for (const typeCastSel of toMerge.selection.selections()) {
         assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
-        endOfPathSet.mergeIn(typeCastSel.selectionSet);
+        const entityType = typeCastSel.element().typeCondition;
+        assert(entityType, () => `Unexpected fragment _without_ condition at start of ${toMerge}`);
+        if (sameType(endOfPathSet.parentType, entityType)) {
+          endOfPathSet.mergeIn(typeCastSel.selectionSet);
+        } else {
+          endOfPathSet.add(typeCastSel);
+        }
       }
     });
 
@@ -780,7 +806,7 @@ class FetchGroup {
     this.dependencyGraph.onMergedIn(this, toMerge);
   }
 
-  toPlanNode(variableDefinitions: VariableDefinitions, fragments?: NamedFragments) : PlanNode {
+  toPlanNode(variableDefinitions: VariableDefinitions, fragments?: NamedFragments, operationName?: string) : PlanNode {
     addTypenameFieldForAbstractTypes(this.selection);
 
     this.selection.validate();
@@ -792,15 +818,29 @@ class FetchGroup {
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
     const operation = this.isEntityFetch
-      ? operationForEntitiesFetch(this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!, this.selection, variableDefinitions, fragments)
-      : operationForQueryFetch(this.rootKind, this.selection, variableDefinitions, fragments);
+      ? operationForEntitiesFetch(
+          this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
+          this.selection,
+          variableDefinitions,
+          fragments,
+          operationName,
+        )
+      : operationForQueryFetch(
+          this.rootKind,
+          this.selection,
+          variableDefinitions,
+          fragments,
+          operationName,
+        );
 
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
       variableUsages: this.selection.usedVariables().map(v => v.name),
-      operation: stripIgnoredCharacters(print(operation)),
+      operation: stripIgnoredCharacters(print(operationToDocument(operation))),
+      operationKind:schemaRootKindToOperationKind(operation.rootKind),
+      operationName: operation.name,
     };
 
     return this.isTopLevel
@@ -816,6 +856,14 @@ class FetchGroup {
     return this.isTopLevel
       ? `[${this.index}]${this.subgraphName}[${this._selection}]`
       : `[${this.index}]${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function schemaRootKindToOperationKind(operation: SchemaRootKind): OperationTypeNode {
+  switch(operation) {
+    case "query": return OperationTypeNode.QUERY;
+    case "mutation": return OperationTypeNode.MUTATION;
+    case "subscription": return  OperationTypeNode.SUBSCRIPTION;
   }
 }
 
@@ -871,6 +919,14 @@ class FetchDependencyGraph {
       [],
       []
     );
+  }
+
+  private federationMetadata(subgraphName: string): FederationMetadata {
+    const schema = this.subgraphSchemas.get(subgraphName);
+    assert(schema, () => `Unknown schema ${subgraphName}`)
+    const metadata = federationMetadata(schema);
+    assert(metadata, () => `Schema ${subgraphName} should be a federation subgraph`);
+    return metadata;
   }
 
   clone(): FetchDependencyGraph {
@@ -963,7 +1019,8 @@ class FetchDependencyGraph {
         return existing;
       }
     }
-    const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
+    const entityType = this.federationMetadata(subgraphName).entityType();
+    assert(entityType, () => `Subgraph ${subgraphName} has not entities defined`);
     return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt, directParent, pathInParent);
   }
 
@@ -996,7 +1053,8 @@ class FetchDependencyGraph {
     subgraphName: string,
     mergeAt: ResponsePath,
   ): FetchGroup {
-    const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
+    const entityType = this.federationMetadata(subgraphName).entityType();
+    assert(entityType, () => `Subgraph ${subgraphName} has not entities defined`);
     return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt);
   }
 
@@ -1390,6 +1448,18 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
   return [inputSelection, path];
 }
 
+function extractPathInParentForKeyFetch(type: CompositeType, path: OperationPath): OperationPath {
+  // A "key fetch" (calls to the `_entities` operation) always have to start with some type-cast into
+  // the entity fetched (`type` in this function), so we can remove a type-cast into the entity from
+  // the parent path if it is the last thing in the past. And doing that removal ensures the code
+  // later reuse fetch groups for different entities, as long as they get otherwise merged into the
+  // parent at the same place.
+  const lastElement = path[path.length - 1];
+  return (lastElement && lastElement.kind === 'FragmentElement' && lastElement.typeCondition?.name === type.name)
+    ? path.slice(0, path.length - 1)
+    : path;
+}
+
 function computeGroupsForTree(
   dependencyGraph: FetchDependencyGraph,
   pathTree: OpPathTree<any>,
@@ -1419,11 +1489,12 @@ function computeGroupsForTree(
             const groupsForConditions = computeGroupsForTree(dependencyGraph, conditions, group, mergeAt, path);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
-            const newGroup = dependencyGraph.getOrCreateKeyFetchGroup(edge.tail.source, mergeAt, group, path, groupsForConditions);
+            const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
+            const pathInParent = extractPathInParentForKeyFetch(type, path);
+            const newGroup = dependencyGraph.getOrCreateKeyFetchGroup(edge.tail.source, mergeAt, group, pathInParent, groupsForConditions);
             createdGroups.push(newGroup);
             // The new group depends on the current group but 'newKeyFetchGroup' already handled that.
             newGroup.addDependencyOn(groupsForConditions);
-            const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
             const inputSelections = new SelectionSet(type);
             inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
             inputSelections.mergeIn(edge.conditions!);
@@ -1562,7 +1633,7 @@ function handleRequires(
     if (newGroupIsUseless) {
       // We can remove `newGroup` and attach `createdGroups` as dependencies of `group`'s parents. That said,
       // as we do so, we check if one/some of the created groups can be "merged" into the parent
-      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we known the path in this parent).
+      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we know the path in this parent).
       // If it can, that essentially means that the requires could have been fetched directly from the parent,
       // and that will likely be common.
       for (const created of createdGroups) {
@@ -1639,7 +1710,6 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
-    debug.log(`Trying to add ${inputs} to ${newGroup}`);
     newGroup.addInputs(inputs);
     return [newGroup, mergeAt, newPath];
   }
@@ -1660,9 +1730,9 @@ function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge,
 
 const representationsVariable = new Variable('representations');
 function representationsVariableDefinition(schema: Schema): VariableDefinition {
-  const anyType = schema.type('_Any');
-  assert(anyType, `Cannot find _Any type in schema`);
-  const representationsType = new NonNullType(new ListType(new NonNullType(anyType)));
+  const metadata = federationMetadata(schema);
+  assert(metadata, 'Expected schema to be a federation subgraph')
+  const representationsType = new NonNullType(new ListType(new NonNullType(metadata.anyType())));
   return new VariableDefinition(schema, representationsVariable, representationsType);
 }
 
@@ -1670,25 +1740,39 @@ function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
-): DocumentNode {
+  fragments?: NamedFragments,
+  operationName?: string
+): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
-  variableDefinitions.addAll(allVariableDefinitions.filter(selectionSet.usedVariables()));
+  variableDefinitions.addAll(
+    allVariableDefinitions.filter(selectionSet.usedVariables()),
+  );
 
   const queryType = subgraphSchema.schemaDefinition.rootType('query');
-  assert(queryType, `Subgraphs should always have a query root (they should at least provides _entities)`);
+  assert(
+    queryType,
+    `Subgraphs should always have a query root (they should at least provides _entities)`,
+  );
 
-  const entities = queryType.field('_entities');
+  const entities = queryType.field(entitiesFieldName);
   assert(entities, `Subgraphs should always have the _entities field`);
 
   const entitiesCall: SelectionSet = new SelectionSet(queryType);
-  entitiesCall.add(new FieldSelection(
-    new Field(entities, { 'representations': representationsVariable }, variableDefinitions),
-    selectionSet
-  ));
+  entitiesCall.add(
+    new FieldSelection(
+      new Field(
+        entities,
+        { representations: representationsVariable },
+        variableDefinitions,
+      ),
+      selectionSet,
+    ),
+  );
 
-  return operationToDocument(new Operation('query', entitiesCall, variableDefinitions).optimize(fragments));
+  return new Operation('query', entitiesCall, variableDefinitions, operationName).optimize(
+    fragments,
+  );
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
@@ -1714,8 +1798,8 @@ function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
-): DocumentNode {
-  const operation = new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
-  return operationToDocument(operation);
+  fragments?: NamedFragments,
+  operationName?: string
+): Operation {
+  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName).optimize(fragments);
 }

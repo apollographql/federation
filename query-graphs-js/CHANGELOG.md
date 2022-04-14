@@ -1,8 +1,88 @@
 # CHANGELOG for `@apollo/query-graphs`
 
-## vNEXT
+## v2.0.1
 
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0
+
+- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+
+## v2.0.0-preview.14
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.13
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.12
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.11
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.10
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.9
+
+- Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
+
+## v2.0.0-preview.8
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.7
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.6
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.5
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.4
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.3
+
+- Released in sync with other federation packages but no changes to this package.
+
+## v2.0.0-preview.2
+
+- Re-publishing release which published to npm with stale build artifacts from `version-0.x` release.
+
+## v2.0.0-preview.1
+
+- No-op publish to account for publishing difficulties.
+
+## v2.0.0-preview.0
+
+- Initial "preview" release.
+
+## v2.0.0-alpha.6
+
+- No direct changes, only transitive updates to `@apollo/federation-internals`.
+
+## v2.0.0-alpha.5
+
+- Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
+
+## v2.0.0-alpha.4
+
+- Add missing `deep-equal` dependency [PR #1391](https://github.com/apollographql/federation/pull/1391)
+
+## v2.0.0-alpha.3
+
+- Fix issue with nested `@requires` directives [PR #1306](https://github.com/apollographql/federation/pull/1306).
 
 ## v2.0.0-alpha.2
 

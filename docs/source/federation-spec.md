@@ -1,6 +1,5 @@
 ---
 title: Apollo Federation subgraph specification
-sidebar_title: Subgraph specification
 description: For implementing subgraphs in other languages
 ---
 
@@ -68,7 +67,7 @@ The generated SDL should match that exactly with no additions. It is important t
 
 Some libraries such as `graphql-java` don't have native support for type extensions in their printer. Apollo Federation supports using an `@extends` directive in place of `extend type` to annotate type references:
 
-```graphql{1}
+```graphql {1}
 type User @key(fields: "id") @extends {
   id: ID! @external
   reviews: [Review]
@@ -253,6 +252,44 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 > Note: Repeated directives (in this case, `@key`, used multiple times) require support by the underlying GraphQL implementation.
 
+### `@link`
+
+```graphql
+directive @link(
+  url: String, 
+  as: String, 
+  for: link__Purpose, 
+  import: [link__Import]
+) repeatable on SCHEMA
+```
+
+The `@link` directive links definitions within the document to external schemas. 
+
+External schemas are identified by their `url`, which optionally ends with a name and version with the following format: `{NAME}`/v`{MAJOR}`.`{MINOR}`
+
+The presence of a `@link` directive makes a document a [core schema](https://specs.apollo.dev/#def-core-schema).
+
+The `for` argument describes the purpose of a `@link`. Currently accepted values are `SECURITY` or `EXECUTION`. Core schema-aware servers such as Apollo Router and Gateway will refuse to operate on schemas that contain `@link`s to unsupported specs which are `for: SECURITY` or `for: EXECUTION`.
+
+By default, `@link`ed definitions will be namespaced, i.e., `@federation__requires`. The `as` argument lets you pick the name for this namespace:
+```graphql
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", as: "fed2")
+type User {
+  metrics: Metrics @external
+  favorites: UserFavorites @fed2__requires(fields: "metrics")
+}
+```
+
+The `import` argument enables you to import external definitions into your namespace, so they are not prefixed.
+
+```graphql
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as: "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
+```
+ 
+In the example above, we import various directives from `federation/v2.0` into our namespace. We also rename one of them, bringing in federation's `@tag` as `@mytag` to distinguish it from a different `@tag` directive already in the schema.
+
 ### `@provides`
 
 ```graphql
@@ -310,3 +347,50 @@ extend type User @key(fields: "email") {
 ```
 
 This type extension in the Reviews service extends the `User` type from the Users service. It extends it for the purpose of adding a new field called `reviews`, which returns a list of `Review`s.
+
+### `@shareable`
+
+```graphql
+directive @shareable on FIELD_DEFINITION | OBJECT
+```
+
+The `@shareable` directive is used to indicate that a field can be resolved by multiple subgraphs. Any subgraph that includes a shareable field can potentially resolve a query for that field.  To successfully compose, a field must have the same shareability mode (either shareable or non-shareable) across all subgraphs.
+
+Any field using the [`@key` directive](#key) is automatically shareable. Adding the `@shareable` directive to an object is equivalent to marking each field on the object `@shareable`.
+
+```graphql
+type Product @key(fields: "upc") {
+  upc: UPC!                         # shareable because upc is a key field
+  name: String                      # non-shareable
+  description: String @shareable    # shareable
+}
+
+type User @key(fields: "email") @shareable {
+  email: String                    # shareable because User is marked shareable
+  name: String                     # shareable because User is marked shareable
+}
+```
+
+### `@override`
+
+```graphql
+directive @override(from: String!) on FIELD_DEFINITION
+```
+
+The `@override` directive is used to indicate that the current subgraph is taking responsibility for resolving the marked field _away_ from the subgraph specified in the `from` argument. 
+
+The following example will result in all query plans made to resolve `User.name` to be directed to SubgraphB.
+
+```graphql
+# in SubgraphA
+type User @key(fields: "id") {
+  id: ID!
+  name: String
+}
+
+# in SubgraphB
+type User @key(fields: "id") {
+  id: ID!
+  name: String @override(from: "SubgraphA")
+}
+```

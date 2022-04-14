@@ -1,12 +1,7 @@
 ---
-title: "Federation quickstart"
-sidebar_title: "3️⃣ Local schema composition"
-description: "Part 3 - Local schema composition"
+title: Federation quickstart
+description: Part 3 - Local schema composition
 ---
-
-import {Button} from '@apollo/space-kit/Button';
-import {Link} from 'gatsby';
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 [Back in Part 2](./studio-composition/), we used managed federation with Apollo Studio to compose our gateway's supergraph schema. Next, let's try out composing _locally_ with the Rover CLI.
 
@@ -21,7 +16,8 @@ To provide these details to Rover, we define a YAML configuration file.
 
 In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
-```yaml:title=supergraph-config.yaml
+```yaml title="supergraph-config.yaml"
+federation_version: 2 # Without this line, Rover uses Federation 1
 subgraphs:
   products:
     routing_url: https://rover.apollo.dev/quickstart/products/graphql
@@ -42,15 +38,21 @@ These URLs might theoretically differ. The YAML file also supports providing a s
 
 ## 2. Perform composition
 
-Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `fed2 supergraph compose` command.
+Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
+
+> [Haven't installed the latest version of Rover?](./setup/#1-install-the-rover-cli)
 
 From your project directory, run the following command in your terminal:
 
 ```bash
-rover fed2 supergraph compose --config ./supergraph-config.yaml
+rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-> 📣 **Federation 2 changes:** Note that this command is `rover fed2 supergraph compose`, _not_ `rover supergraph compose` (which uses Federation 1 composition).
+> ⚠️ **Important:** The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
+>
+> To automatically accept this prompt (especially important for CI environments), set `APOLLO_ELV2_LICENSE=accept`.
+>
+> [Learn more.](/resources/elastic-license-v2-faq/)
 
 Rover outputs the following schema:
 
@@ -187,7 +189,7 @@ As you can see, this composed schema includes all of the types and fields from o
 Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
-rover fed2 supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
+rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
 ```
 
 ## 3. Update the gateway
@@ -196,7 +198,7 @@ When we provide a _Rover-composed_ supergraph schema to our gateway, we pass it 
 
 Open your `index.js` file and replace its contents with the following:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');

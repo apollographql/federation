@@ -1,14 +1,11 @@
 ---
-title: "Federation 2 quickstart"
-sidebar_title: "1️⃣ Project setup"
-description: "Part 1 - Project setup"
+title: Federation 2 quickstart
+description: Part 1 - Project setup
 ---
-
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 > 📣 **Federation 2 demo:** In addition to completing this tutorial, you can [clone our Federation 2 demo on GitHub](https://github.com/apollographql/supergraph-demo-fed2). The demo is distinct from the project you create in this tutorial, and it helps demonstrate many concepts of Federation 2.
 
-Hello! This tutorial gets you up and running with Apollo Federation 2. It currently requires [Node.js version 12 or 14](https://nodejs.org/en/download/).
+Hello! This tutorial gets you up and running with Apollo Federation 2. It requires [Node.js version 12 or later](https://nodejs.org/en/download/).
 
 ## Federation concepts
 
@@ -27,7 +24,7 @@ graph BT;
 
 Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
 
-The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. Each subgraph's schema can even reference and extend types that are also defined in _another_ subgraph.
+The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives.
 
 This architecture enables clients to query data from _all_ subgraphs _simultaneously_, just by querying the gateway. It also enables different teams to own independent parts of a unified graph.
 
@@ -52,7 +49,7 @@ This tutorial uses two Apollo-hosted subgraphs for an example application: a Pro
 
 URL: `https://rover.apollo.dev/quickstart/products/graphql`
 
-```graphql:title=Products
+```graphql title="Products"
 type Product @key(fields: "id") {
   id: ID!
   title: String
@@ -100,7 +97,7 @@ enum CURRENCY_CODE {
   EUR
 }
 
-extend type Query {
+type Query {
   bestSellers(category: ProductCategory = ALL): [Product]
   categories: [Department]
   product(id: ID!): Product
@@ -113,7 +110,7 @@ extend type Query {
 
 URL: `https://rover.apollo.dev/quickstart/reviews/graphql`
 
-```graphql:title=Reviews
+```graphql title="Reviews"
 type Review @key(fields: "id") {
   id: ID!
   rating: Float
@@ -125,7 +122,7 @@ type ReviewSummary {
   averageRating: Float
 }
 
-extend type Product @key(fields: "id") {
+type Product @key(fields: "id") {
   id: ID! @external
   reviews: [Review]
   reviewSummary: ReviewSummary
@@ -138,38 +135,19 @@ extend type Product @key(fields: "id") {
 
 **Rover** is Apollo's CLI for managing graphs, including federated ones. We'll use it throughout this quickstart.
 
-### Core binary
-
-> ⚠️ If you already have Rover globally installed and you installed it with `npm`, first _uninstall_ that version with `npm uninstall @apollo/rover`. This is required for the Federation 2 alpha.
+> Federation 2 requires Rover v0.5.0 or later.
 
 Install the core Rover binary with the appropriate command for your system:
 
-```bash
-# MacOS / Unix-like
+```bash title="MacOS / Unix-like"
 curl -sSL https://rover.apollo.dev/nix/latest | sh
 ```
 
-```bash
-# Windows
+```bash title="Windows"
 iwr 'https://rover.apollo.dev/win/latest' | iex
 ```
 
-### Federation 2 plugin
-
-To use Federation 2 schema composition, you _also_ need to install Rover's Federation 2 plugin:
-
-```bash
-# MacOS / Unix-like
-curl https://rover.apollo.dev/plugins/rover-fed2/nix/latest | sh
-```
-```bash
-# Windows
-iwr https://rover.apollo.dev/plugins/rover-fed2/win/latest | iex
-```
-
 After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully.
-
-> During the Federation 2 alpha, your installed versions of Rover and its Federation 2 plugin must be _identical_. If you encounter an error when using the plugin, try updating _both_ binaries to their latest version.
 
 ## 2. Create a new gateway project
 
@@ -186,14 +164,12 @@ npm init
 Next, install the following required libraries:
 
 ```shell
-npm install apollo-server @apollo/gateway@latest-2 graphql
+npm install apollo-server @apollo/gateway graphql
 ```
-
-> ⚠️ To support the Federation 2 alpha, you need to install `@apollo/gateway@latest-2` specifically, _not_ `@apollo/gateway`.
 
 Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 
@@ -241,7 +217,7 @@ Do the following in your project's root directory:
 
     <ExpansionPanel title="Products">
 
-    ```graphql:title=products.graphql
+    ```graphql title="products.graphql"
     type Product @key(fields: "id") {
       id: ID!
       title: String
@@ -289,7 +265,7 @@ Do the following in your project's root directory:
       EUR
     }
 
-    extend type Query {
+    type Query {
       bestSellers(category: ProductCategory = ALL): [Product]
       categories: [Department]
       product(id: ID!): Product
@@ -302,7 +278,7 @@ Do the following in your project's root directory:
 
     <ExpansionPanel title="Reviews">
 
-    ```graphql:title=reviews.graphql
+    ```graphql title="reviews.graphql"
     type Review @key(fields: "id") {
       id: ID!
       rating: Float
@@ -314,8 +290,8 @@ Do the following in your project's root directory:
       averageRating: Float
     }
 
-    extend type Product @key(fields: "id") {
-      id: ID! @external
+    type Product @key(fields: "id") {
+      id: ID!
       reviews: [Review]
       reviewSummary: ReviewSummary
     }
