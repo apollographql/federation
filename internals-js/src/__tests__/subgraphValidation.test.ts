@@ -879,3 +879,77 @@ describe('@core/@link handling', () => {
     buildAndValidate(doc);
   });
 });
+
+describe('federation 1 schema', () => {
+  it('accepts federation directive definitions without arguments', () => {
+    const doc = gql`
+      type Query {
+        a: Int
+      }
+
+      directive @key on OBJECT | INTERFACE
+      directive @requires on FIELD_DEFINITION
+    `;
+
+    buildAndValidate(doc);
+  });
+
+  it('accepts federation directive definitions with nullable arguments', () => {
+    const doc = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id") {
+        id: ID! @requires(fields: "x")
+        x: Int @external
+      }
+
+      # Tests with the _FieldSet argument non-nullable
+      scalar _FieldSet
+      directive @key(fields: _FieldSet) on OBJECT | INTERFACE
+
+      # Tests with the argument as String and non-nullable
+      directive @requires(fields: String) on FIELD_DEFINITION
+    `;
+
+    buildAndValidate(doc);
+  });
+
+  it('accepts federation directive definitions with "FieldSet" type instead of "_FieldSet"', () => {
+    const doc = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+      }
+
+      scalar FieldSet
+      directive @key(fields: FieldSet) on OBJECT | INTERFACE
+    `;
+
+    buildAndValidate(doc);
+  });
+
+  it('rejects federation directive definition with unknown arguments', () => {
+    const doc = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id", unknown: 42) {
+        id: ID!
+      }
+
+      scalar _FieldSet
+      directive @key(fields: _FieldSet!, unknown: Int) on OBJECT | INTERFACE
+    `;
+
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'DIRECTIVE_DEFINITION_INVALID',
+      '[S] Invalid definition for directive "@key": unknown/unsupported argument "unknown"'
+    ]]);
+  });
+})

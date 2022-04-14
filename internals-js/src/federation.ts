@@ -1013,6 +1013,56 @@ function isFedSpecLinkDirective(directive: Directive<SchemaDefinition>): directi
 }
 
 function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
+
+  // We special case @key, @requires and @provides because we've seen existing user schema where those
+  // have been defined in an invalid way, but in a way that fed1 wasn't rejecting. So for convenience,
+  // if we detect one of those case, we just remove the definition and let the code afteward add the
+  // proper definition back.
+  // Note that, in a perfect world, we'd do this within the `SchemaUpgrader`. But the way the code
+  // is organised, this method is called before we reach the `SchemaUpgrader`, and it doesn't seem
+  // worth refactoring things drastically for that minor convenience.
+  for (const spec of [keyDirectiveSpec, providesDirectiveSpec, requiresDirectiveSpec]) {
+    const directive = schema.directive(spec.name);
+    if (!directive) {
+      continue;
+    }
+
+    // We shouldn't have applications at the time of this writing because `completeSubgraphSchema`, which calls this,
+    // is only called:
+    // 1. during schema parsing, by `FederationBluePrint.onDirectiveDefinitionAndSchemaParsed`, and that is called
+    //   before we process any directive applications.
+    // 2. by `setSchemaAsFed2Subgraph`, but as the name imply, this trickles to `completeFed2SubgraphSchema`, not
+    //   this one method.
+    // In other words, there is currently no way to create a full fed1 schema first, and get that method called
+    // second. If that changes (no real reason but...), we'd have to modify this because when we remove the
+    // definition to re-add the "correct" version, we'd have to re-attach existing applications (doable but not
+    // done). This assert is so we notice it quickly if that ever happens (again, unlikely, because fed1 schema
+    // is a backward compatibility thing and there is no reason to expand that too much in the future).
+    assert(directive.applications().length === 0, `${directive} shouldn't have had validation at that places`);
+
+    // The patterns we recognize and "correct" (by essentially ignoring the definition)
+    // are:
+    //  1. if the definition has no arguments at all.
+    //  2. if the `fields` argument is declared as nullable.
+    //  3. if the `fields` argument type is named "FieldSet" instead of "_FieldSet".
+    //
+    // Note that they all correspong to things we've seen in use schema.
+    const fieldType = directive.argument('fields')?.type?.toString();
+    // Note that to be on the safe side, we check that `fields` is the only argument. That's
+    // because while fed2 accepts the optional `resolvable` arg for @key, fed1 only ever
+    // accepted that one argument for all those directives. But if the use had definited
+    // more arguments _and_ provided value for such extra argument in some applications,
+    // us removing the definition would create validation errors that would be hard to
+    // understand for the user.
+    const fieldTypeIsWrongInKnownWays = !!fieldType
+      && directive.arguments().length === 1
+      && (fieldType === 'String' || fieldType === '_FieldSet' || fieldType === 'FieldSet');
+
+    if (directive.arguments().length === 0 || fieldTypeIsWrongInKnownWays) {
+      directive.remove();
+    }
+  }
+
   return [
     fieldSetTypeSpec.checkOrAdd(schema, '_' + fieldSetTypeSpec.name),
     keyDirectiveSpec.checkOrAdd(schema),
