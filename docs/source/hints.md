@@ -21,6 +21,7 @@ The following hints might be generated during composition:
 
 ### WARN
 
+<div class="sticky-table">
 | Level | Code | Description |
 |---|---|---|
 | `WARN` | `INCONSISTENT_DEFAULT_VALUE_PRESENCE` | Indicates that an argument definition (of a field/input field/directive definition) has a default value in only some of the subgraphs that define the argument. |
@@ -33,10 +34,11 @@ The following hints might be generated during composition:
 | `WARN` | `INCONSISTENT_DESCRIPTION` | Indicates that an element has a description in more than one subgraph, and the descriptions are not equal. |
 | `WARN` | `INCONSISTENT_ARGUMENT_PRESENCE` | Indicates that an optional argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph. |
 | `WARN` | `FROM_SUBGRAPH_DOES_NOT_EXIST` | Source subgraph specified by @override directive does not exist |
-
+</div>
 
 ### INFO
 
+<div class="sticky-table">
 | Level | Code | Description |
 |---|---|---|
 | `INFO` | `INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE` | Indicates that a field does not have the exact same types in all subgraphs, but that the types are "compatible" (2 types are compatible if one is a non-nullable version of the other, a list version, a subtype, or a combination of the former). |
@@ -44,10 +46,11 @@ The following hints might be generated during composition:
 | `INFO` | `INCONSISTENT_ENTITY` | Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined. |
 | `INFO` | `OVERRIDDEN_FIELD_CAN_BE_REMOVED` | Field has been overridden by another subgraph. Consider removing. |
 | `INFO` | `OVERRIDE_DIRECTIVE_CAN_BE_REMOVED` | Field with @override directive no longer exists in source subgraph, the directive can be safely removed |
-
+</div>
 
 ### DEBUG
 
+<div class="sticky-table">
 | Level | Code | Description |
 |---|---|---|
 | `DEBUG` | `INCONSISTENT_OBJECT_VALUE_TYPE_FIELD` | Indicates that a field of an object "value type" (has no `@key` in any subgraph) is not defined in all the subgraphs that declare the type. |
@@ -57,4 +60,4 @@ The following hints might be generated during composition:
 | `DEBUG` | `INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE` | Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph). |
 | `DEBUG` | `INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS` | Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph). |
 | `DEBUG` | `UNUSED_ENUM_TYPE` | Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it). All the values from subgraphs defining that enum will be included in the supergraph. |
-
+</div>

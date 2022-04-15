@@ -26,7 +26,7 @@ function makeMarkdownArray(
   let out = '| ' + headers.join(' | ') + ' |\n';
   out += '|' + headers.map(_ => '---').join('|') + '|\n';
   for (const row of rows) {
-    assert(row.length <= columns, `Row [${row}] has too columns (expect ${columns} but got ${row.length})`);
+    assert(row.length <= columns, `Row [${row}] has too few columns (expect ${columns} but got ${row.length})`);
     const frow = row.length === columns
       ? row
       : row.concat(new Array<string>(columns - row.length).fill(''));
@@ -74,10 +74,10 @@ for (const level of [HintLevel.WARN, HintLevel.INFO, HintLevel.DEBUG]) {
   ]);
   hintsByLevel.push(`### ${levelName}`
     + '\n\n'
-    + makeMarkdownArray(
-      [ 'Level', 'Code', 'Description' ],
-      rows,
-    ));
+    + '<div class="sticky-table">\n'
+    + makeMarkdownArray([ 'Level', 'Code', 'Description' ], rows)
+    + '</div>'
+  );
 }
 
 console.log(
