@@ -21,7 +21,7 @@
     "codegen": "graphql-codegen --config codegen.yml",
     "codegen:check": "npm run codegen && git diff --exit-code",
     "lint": "eslint . --ext .ts",
-    "error-code-doc": "node ./internals-js/dist/genErrorCodeDoc.js > ./docs/source/errors.md",
+    "error-code-doc": "ts-node ./internals-js/src/genErrorCodeDoc.ts > ./docs/source/errors.md",
     "error-code-doc:check": "npm run error-code-doc && git diff --exit-code",
     "hints-doc": "node ./composition-js/dist/genHintDoc.js > ./docs/source/hints.md",
     "hints-doc:check": "npm run hints-doc && git diff --exit-code"
@@ -77,6 +77,7 @@
     "prettier": "2.6.2",
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.4",
+    "ts-node": "^10.7.0",
     "typescript": "4.6.3",
     "winston": "3.7.2",
     "winston-transport": "4.5.0"
