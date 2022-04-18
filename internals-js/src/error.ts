@@ -183,7 +183,7 @@ const REQUIRES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.cre
 
 const EXTERNAL_UNUSED = makeCodeDefinition(
   'EXTERNAL_UNUSED',
-  'An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implememtation.',
+  'An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implementation.',
   { addedIn: FED1_CODE },
 );
 
@@ -191,7 +191,7 @@ const TYPE_WITH_ONLY_UNUSED_EXTERNAL = makeCodeDefinition(
   'TYPE_WITH_ONLY_UNUSED_EXTERNAL',
   'A federation 1 schema has a composite type comprised only of unused external fields.'
   + ` Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code ${EXTERNAL_UNUSED.code} will be raised in that case).`
-  + ' But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automaticaly removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised',
+  + ' But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised',
 );
 
 const PROVIDES_ON_NON_OBJECT_FIELD = makeCodeDefinition(
@@ -245,7 +245,7 @@ const NO_QUERIES = makeCodeDefinition(
 
 const INTERFACE_FIELD_NO_IMPLEM = makeCodeDefinition(
   'INTERFACE_FIELD_NO_IMPLEM',
-  'After subgraph merging, an implemenation is missing a field of one of the interface it implements (which can happen for valid subgraphs).'
+  'After subgraph merging, an implementation is missing a field of one of the interface it implements (which can happen for valid subgraphs).'
 );
 
 const TYPE_KIND_MISMATCH = makeCodeDefinition(
@@ -267,12 +267,12 @@ const EXTERNAL_ARGUMENT_MISSING = makeCodeDefinition(
 
 const EXTERNAL_ARGUMENT_TYPE_MISMATCH = makeCodeDefinition(
   'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
-  'An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
+  'An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs.',
 );
 
 const EXTERNAL_ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'EXTERNAL_ARGUMENT_DEFAULT_MISMATCH',
-  'An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
+  'An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs.',
 );
 
 const EXTERNAL_ON_INTERFACE = makeCodeDefinition(
@@ -510,7 +510,7 @@ const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorC
  */
 export const REMOVED_ERRORS = [
   ['KEY_FIELDS_MISSING_ON_BASE', 'Keys can now use any field from any other subgraph.'],
-  ['KEY_FIELDS_MISSING_EXTERNAL', 'Using `@external` for key fields is now decouraged, unless the field is truly meant to be external.'],
+  ['KEY_FIELDS_MISSING_EXTERNAL', 'Using `@external` for key fields is now discouraged, unless the field is truly meant to be external.'],
   ['KEY_MISSING_ON_BASE', 'Each subgraph is now free to declare a key only if it needs it.'],
   ['MULTIPLE_KEYS_ON_EXTENSION', 'Every subgraph can have multiple keys, as necessary.'],
   ['KEY_NOT_SPECIFIED', 'Each subgraph can declare key independently of any other subgraph.'],
@@ -528,5 +528,5 @@ export const REMOVED_ERRORS = [
   ['VALUE_TYPE_NO_ENTITY', 'There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another.'],
   ['VALUE_TYPE_UNION_TYPES_MISMATCH', 'Subgraph definitions for an union are now merged by composition'],
   ['PROVIDES_FIELDS_SELECT_INVALID_TYPE', '@provides can now be used on field of interface, union and list types'],
-  ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overriden; this is still the case'],
+  ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case'],
 ];

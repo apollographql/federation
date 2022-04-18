@@ -16,6 +16,8 @@ If Apollo Gateway encounters an error, composition fails. This document lists su
 
 The following errors might be raised during composition:
 
+<div class="sticky-table">
+
 | Code | Description | Since | Comment |
 |---|---|---|---|
 | `DEFAULT_VALUE_USES_INACCESSIBLE` | An element is marked as @inaccessible but is used in the default value of an element visible in the API schema. | 2.0.0 |  |
@@ -25,20 +27,20 @@ The following errors might be raised during composition:
 | `EMPTY_MERGED_INPUT_TYPE` | An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type. | 2.0.0 |  |
 | `ENUM_VALUE_MISMATCH` | An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type. | 2.0.0 |  |
 | `EXTENSION_WITH_NO_BASE` | A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph. | 0.x |  |
-| `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH` | An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs. | 2.0.0 |  |
+| `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH` | An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
 | `EXTERNAL_ARGUMENT_MISSING` | An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
-| `EXTERNAL_ARGUMENT_TYPE_MISMATCH` | An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs. | 2.0.0 |  |
+| `EXTERNAL_ARGUMENT_TYPE_MISMATCH` | An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
 | `EXTERNAL_MISSING_ON_BASE` | A field is marked as `@external` in a subgraph but with no non-external declaration in any other subgraph. | 0.x |  |
 | `EXTERNAL_ON_INTERFACE` | The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical | 2.0.0 |  |
 | `EXTERNAL_TYPE_MISMATCH` | An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs. | 0.x |  |
-| `EXTERNAL_UNUSED` | An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implememtation. | 0.x |  |
+| `EXTERNAL_UNUSED` | An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implementation. | 0.x |  |
 | `FIELD_ARGUMENT_DEFAULT_MISMATCH` | An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 |  |
 | `FIELD_ARGUMENT_TYPE_MISMATCH` | An argument (of a field/directive) has a type that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_INPUT_VALUE_MISMATCH` |
 | `FIELD_TYPE_MISMATCH` | A field has a type that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_FIELD_TYPE_MISMATCH` |
 | `IMPLEMENTED_BY_INACCESSIBLE` | An element is marked as @inaccessible but implements an element visible in the API schema. | 2.0.0 |  |
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
 | `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257) | 2.0.0 |  |
-| `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implemenation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
+| `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implementation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
 | `INVALID_FIELD_SHARING` | A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs. | 2.0.0 |  |
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
 | `INVALID_LINK_DIRECTIVE_USAGE` | An application of the @link directive is invalid/does not respect the specification. | 2.0.0 |  |
@@ -78,13 +80,16 @@ The following errors might be raised during composition:
 | `SATISFIABILITY_ERROR` | Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs. | 2.0.0 |  |
 | `TYPE_DEFINITION_INVALID` | A built-in or federation type has an invalid definition in the schema. | 2.0.0 |  |
 | `TYPE_KIND_MISMATCH` | A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface. | 2.0.0 | Replaces: `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE` |
-| `TYPE_WITH_ONLY_UNUSED_EXTERNAL` | A federation 1 schema has a composite type comprised only of unused external fields. Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code EXTERNAL_UNUSED will be raised in that case). But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automaticaly removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised | 2.0.0 |  |
+| `TYPE_WITH_ONLY_UNUSED_EXTERNAL` | A federation 1 schema has a composite type comprised only of unused external fields. Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code EXTERNAL_UNUSED will be raised in that case). But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised | 2.0.0 |  |
 | `UNKNOWN_FEDERATION_LINK_VERSION` | The version of federation in a @link directive on the schema is unknown. | 2.0.0 |  |
 
+</div>
 
 ## Removed codes
 
 The following error codes have been removed and are no longer generated by the most recent version of the `@apollo/gateway` library:
+
+<div class="sticky-table">
 
 | Removed Code | Comment |
 |---|---|
@@ -93,7 +98,7 @@ The following error codes have been removed and are no longer generated by the m
 | `DUPLICATE_SCALAR_DEFINITION` | As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
 | `ENUM_MISMATCH` | Subgraph definitions for an enum are now merged by composition |
 | `EXTERNAL_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to where a field can be external. |
-| `KEY_FIELDS_MISSING_EXTERNAL` | Using `@external` for key fields is now decouraged, unless the field is truly meant to be external. |
+| `KEY_FIELDS_MISSING_EXTERNAL` | Using `@external` for key fields is now discouraged, unless the field is truly meant to be external. |
 | `KEY_FIELDS_MISSING_ON_BASE` | Keys can now use any field from any other subgraph. |
 | `KEY_MISSING_ON_BASE` | Each subgraph is now free to declare a key only if it needs it. |
 | `KEY_NOT_SPECIFIED` | Each subgraph can declare key independently of any other subgraph. |
@@ -102,7 +107,8 @@ The following error codes have been removed and are no longer generated by the m
 | `PROVIDES_NOT_ON_ENTITY` | @provides can now be used on any type. |
 | `REQUIRES_FIELDS_MISSING_ON_BASE` | Fields in @requires can now be from any subgraph. |
 | `REQUIRES_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires. |
-| `RESERVED_FIELD_USED` | This error was previously not correctly enforced: the _service and _entities, if present, were overriden; this is still the case |
+| `RESERVED_FIELD_USED` | This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case |
 | `VALUE_TYPE_NO_ENTITY` | There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another. |
 | `VALUE_TYPE_UNION_TYPES_MISMATCH` | Subgraph definitions for an union are now merged by composition |
 
+</div>

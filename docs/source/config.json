@@ -64,6 +64,7 @@
     },
     "Debugging & Metrics": {
       "Error codes": "/errors",
+      "Composition hints": "/hints",
       "Federated trace data": "/metrics",
       "OpenTelemetry": "/opentelemetry"
     },
