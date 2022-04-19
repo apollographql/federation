@@ -7,11 +7,7 @@ type GraphQLReferenceResolver<TContext> = (
 ) => any;
 
 declare module 'graphql/type/definition' {
-  interface GraphQLObjectType {
-    resolveReference?: GraphQLReferenceResolver<any>;
-  }
-
-  interface GraphQLObjectTypeConfig<TSource, TContext> {
-    resolveReference?: GraphQLReferenceResolver<TContext>;
+  interface GraphQLObjectTypeExtensions<_TSource = any, _TContext = any> {
+    resolveReference?: GraphQLReferenceResolver<_TContext>
   }
 }
