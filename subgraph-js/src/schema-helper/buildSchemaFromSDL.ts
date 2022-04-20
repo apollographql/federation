@@ -111,9 +111,12 @@ export function addResolversToSchema(
         if (fieldName === "__resolveReference") {
           type.extensions = {
             ...type.extensions,
-            apolloSubgraph: {
-              ...type.extensions.apolloSubgraph,
-              resolveReference: fieldConfig
+            apollo: {
+              ...type.extensions.apollo,
+              subgraph: {
+                ...type.extensions.apollo?.subgraph,
+                resolveReference: fieldConfig,
+              }
             },
           };
         } else if (fieldName.startsWith("__")) {
@@ -165,9 +168,12 @@ export function addResolversToSchema(
       if (fieldName === "__resolveReference") {
         type.extensions = {
           ...type.extensions,
-          apolloSubgraph: {
-            ...type.extensions.apolloSubgraph,
-            resolveReference: fieldConfig
+          apollo: {
+            ...type.extensions.apollo,
+            subgraph: {
+              ...type.extensions.apollo?.subgraph,
+              resolveReference: fieldConfig,
+            }
           },
         };
       } else if (fieldName.startsWith("__")) {

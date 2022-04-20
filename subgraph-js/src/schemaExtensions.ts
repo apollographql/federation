@@ -12,14 +12,20 @@ interface ApolloSubgraphExtensions<TContext> {
 
 declare module 'graphql/type/definition' {
   interface GraphQLObjectTypeExtensions<_TSource = any, _TContext = any> {
-    apolloSubgraph?: ApolloSubgraphExtensions<_TContext>;
+    apollo?: {
+      subgraph?: ApolloSubgraphExtensions<_TContext>;
+    };
   }
 
   interface GraphQLInterfaceTypeExtensions<_TSource = any, _TContext = any> {
-    apolloSubgraph?: ApolloSubgraphExtensions<_TContext>;
+    apollo?: {
+      subgraph?: ApolloSubgraphExtensions<_TContext>;
+    };
   }
 
   interface GraphQLUnionTypeExtensions<_TSource = any, _TContext = any> {
-    apolloSubgraph?: ApolloSubgraphExtensions<_TContext>;
+    apollo?: {
+      subgraph?: ApolloSubgraphExtensions<_TContext>;
+    };
   }
 }
