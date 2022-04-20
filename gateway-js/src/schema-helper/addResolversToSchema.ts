@@ -19,7 +19,18 @@ export function addResolversToSchema(
 
     if (isAbstractType(type)) {
       for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
-        if (fieldName.startsWith("__")) {
+        if (fieldName === "__resolveReference") {
+          type.extensions = {
+            ...type.extensions,
+            apollo: {
+              ...type.extensions.apollo,
+              subgraph: {
+                ...type.extensions.apollo?.subgraph,
+                resolveReference: fieldConfig,
+              }
+            },
+          };
+        } else if (fieldName.startsWith("__")) {
           (type as any)[fieldName.substring(2)] = fieldConfig;
         }
       }
@@ -65,7 +76,18 @@ export function addResolversToSchema(
     const fieldMap = type.getFields();
 
     for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
-      if (fieldName.startsWith("__")) {
+      if (fieldName === "__resolveReference") {
+        type.extensions = {
+          ...type.extensions,
+          apollo: {
+            ...type.extensions.apollo,
+            subgraph: {
+              ...type.extensions.apollo?.subgraph,
+              resolveReference: fieldConfig,
+            }
+          },
+        };
+      } else if (fieldName.startsWith("__")) {
         (type as any)[fieldName.substring(2)] = fieldConfig;
         continue;
       }
