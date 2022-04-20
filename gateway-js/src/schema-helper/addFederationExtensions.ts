@@ -1,12 +1,15 @@
 import { GraphQLSchema } from 'graphql';
-import { version as gatewayVersion } from '../version';
+import { version } from '../version';
 
 export function addFederationExtensions(schema: GraphQLSchema): GraphQLSchema {
   schema.extensions = {
     ...schema.extensions,
-    apolloFederation: {
-      ...(schema.extensions?.apolloFederation as object | undefined),
-      gatewayVersion,
+    apollo: {
+      ...schema.extensions.apollo,
+      gateway: {
+        ...schema.extensions.apollo?.gateway,
+        version,
+      }
     },
   };
 
