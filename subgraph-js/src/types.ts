@@ -94,7 +94,7 @@ export function entitiesResolver({
     }
 
     const resolveReference =
-      type.extensions?.resolveReference ??
+      type.extensions?.apolloSubgraph?.resolveReference ??
       function defaultResolveReference() {
         return reference;
       };

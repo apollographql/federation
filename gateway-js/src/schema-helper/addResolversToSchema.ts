@@ -22,7 +22,10 @@ export function addResolversToSchema(
         if (fieldName === "__resolveReference") {
           type.extensions = {
             ...type.extensions,
-            resolveReference: fieldConfig,
+            apolloSubgraph: {
+              ...type.extensions.apolloSubgraph,
+              resolveReference: fieldConfig,
+            },
           };
         } else if (fieldName.startsWith("__")) {
           (type as any)[fieldName.substring(2)] = fieldConfig;
@@ -73,7 +76,10 @@ export function addResolversToSchema(
       if (fieldName === "__resolveReference") {
         type.extensions = {
           ...type.extensions,
-          resolveReference: fieldConfig,
+          apolloSubgraph: {
+            ...type.extensions.apolloSubgraph,
+            resolveReference: fieldConfig
+          },
         };
       } else if (fieldName.startsWith("__")) {
         (type as any)[fieldName.substring(2)] = fieldConfig;
