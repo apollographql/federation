@@ -19,7 +19,6 @@ import {
   isScalarType,
   isEnumType,
   GraphQLEnumValueConfig,
-  ConstDirectiveNode,
   ASTNode,
   StringValueNode,
 } from 'graphql';
