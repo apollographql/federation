@@ -86,11 +86,11 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
         }
       }
 
-      const resolveReference = type.resolveReference
-        ? type.resolveReference
-        : function defaultResolveReference() {
-            return reference;
-          };
+      const resolveReference =
+        type.extensions?.apollo?.subgraph?.resolveReference ??
+        function defaultResolveReference() {
+          return reference;
+        };
 
       // FIXME somehow get this to show up special in Studio traces?
       const result = resolveReference(reference, context, info);
