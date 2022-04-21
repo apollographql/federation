@@ -2762,7 +2762,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     assert(false, `Directive definition ${this} can't reference other types (it's arguments can); shouldn't be asked to remove reference to ${type}`);
   }
 
-    /**
+  /**
    * Removes this directive definition from its parent schema.
    *
    * After calling this method, this directive definition will be "detached": it will have no parent, schema, or
