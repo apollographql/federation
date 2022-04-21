@@ -2,7 +2,7 @@
 title: Implementing the gateway
 ---
 
-> 📣 **The Apollo Router** is a new high-performance graph router written in Rust that is currently in alpha. You can try out the Apollo Router in place of the Apollo Gateway documented here. [See the documentation.](https://www.apollographql.com/docs/router/)
+> 📣 **The Apollo Router** is a new high-performance graph router written in Rust that is currently in preview. You can try out the Apollo Router in place of the Apollo Gateway documented here. [See the documentation.](https://www.apollographql.com/docs/router/)
 
 After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **gateway** to sit in front of your subgraphs. The gateway executes incoming operations across those subgraphs.
 
@@ -15,12 +15,12 @@ The [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) package e
 First, let's install the necessary packages:
 
 ```shell
-npm install @apollo/gateway@latest-2 apollo-server graphql
+npm install @apollo/gateway apollo-server graphql
 ```
 
 The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
-```js {8-12,14-17} title="index.js"
+```js {7-11,13-16} title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
@@ -65,7 +65,7 @@ const { readFile } = require('fs/promises');
 let supergraphUpdate;
 const gateway = new ApolloGateway({
   async supergraphSdl({ update }) {
-    // `update` is a function which we'll save for later use
+    // `update` is a function that we'll save for later use
     supergraphUpdate = update;
     return {
       supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
@@ -89,7 +89,7 @@ Note that `supergraphSdl` is now an `async` function. This function is called ex
 - It receives the `update` function, which we use to update the supergraph schema.
 - It returns the initial supergraph schema, which the gateway uses at startup.
 
-With the `update` function, we can now programatically update the supergraph. Polling, webhooks, and file watchers are all good examples of ways we can go about updating the supergraph.
+With the `update` function, we can now programatically update the supergraph schema. Polling, webhooks, and file watchers are all examples of ways we can go about doing this.
 
 The code below demonstrates a more complete example using a file watcher. In this example, assume that we're updating the `supergraphSdl.graphql` file with the Rover CLI.
 
@@ -226,7 +226,7 @@ After adding the `userId` to the shared `context` object, the gateway can then a
 
 <ExpansionPanel title="Expand example">
 
-```javascript {6-12,17-19,24-31}
+```javascript {7-13,17-19,25-32}
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
