@@ -13,7 +13,7 @@ import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
-import { GraphQLSchemaModule } from '@apollo/subgraph/dist/schema-helper';
+import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 import resolvable, { Resolvable } from '@josephg/resolvable';
 
 // Normalize specific fields that change often (eg timestamps) to static values,

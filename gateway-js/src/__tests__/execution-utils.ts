@@ -2,7 +2,7 @@ import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
   GraphQLSchemaValidationError,
-} from '@apollo/subgraph/dist/schema-helper';
+} from '@apollo/subgraph/src/schema-helper';
 import { GraphQLRequest, GraphQLExecutionResult } from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { buildSubgraphSchema } from '@apollo/subgraph';

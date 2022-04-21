@@ -163,7 +163,6 @@ export function addResolversToSchema(
     if (!isObjectType(type)) continue;
 
     const fieldMap = type.getFields();
-
     for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
       if (fieldName === '__resolveReference') {
         type.extensions = {
@@ -176,6 +175,9 @@ export function addResolversToSchema(
             },
           },
         };
+        continue;
+      } else if (fieldName === '__isTypeOf') {
+        type.isTypeOf = fieldConfig;
         continue;
       }
 

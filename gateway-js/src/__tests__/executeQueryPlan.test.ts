@@ -23,7 +23,7 @@ import { Schema, Operation, parseOperation, buildSchemaFromAST, arrayEquals } fr
 import {
   addResolversToSchema,
   GraphQLResolverMap,
-} from '@apollo/subgraph/dist/schema-helper';
+} from '@apollo/subgraph/src/schema-helper';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
