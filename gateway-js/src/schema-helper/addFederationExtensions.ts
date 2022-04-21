@@ -1,5 +1,5 @@
 import { GraphQLSchema } from 'graphql';
-import { version } from '../version';
+const { version } = require('../package.json');
 
 export function addFederationExtensions(schema: GraphQLSchema): GraphQLSchema {
   schema.extensions = {
