@@ -290,7 +290,7 @@ By defining the `User.purchases` field in the Products subgraph instead:
 
 The following schema uses Apollo Federation to divide the same set of types and fields across the same three subgraphs:
 
-> Some federation-specific directives are omitted here for clarity. For details, see [Entities](./entities/).
+> Some federation-specific syntax is omitted here for clarity. For details, see [Entities](./entities/).
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -339,9 +339,11 @@ type Product {
 
 </CodeColumns>
 
-The difference is that now, each subgraph defines the types and fields that it is capable of (and _should_ be responsible for) populating from its back-end data store.
+The difference is that now, each subgraph _mostly_ defines types and fields that it is capable of (and _should_ be responsible for) populating from its back-end data store.
 
-The result provides the best of both worlds:
+> You'll notice some exceptions to this, such as `Review.product` (which is still defined in the Reviews subgraph even though it requires data from the Products subgraph). Exceptions like this improve data encapsulation (the Products subgraph doesn't really need to know about the `Review` type), and we handle them with powerful federated types called [entities](./entities/).
+
+These resulting schemas provide the best of both worlds:
 
 * An implementation that keeps the code for a given feature in a single subgraph and separated from unrelated concerns
 * A product-centric schema with rich types that reflect the natural way an application developer wants to consume the graph
