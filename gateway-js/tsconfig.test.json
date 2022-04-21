@@ -3,7 +3,7 @@
   "files": [
     "./src/__tests__/testSetup.ts"
   ],
-  "include": ["**/__tests__/**/*", "**/__mocks__/**/*", "src/**/*"],
+  "include": ["**/__tests__/**/*", "**/__mocks__/**/*"],
   "references": [
     { "path": "./" },
     { "path": "../federation-integration-testsuite-js" },
