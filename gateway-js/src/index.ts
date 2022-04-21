@@ -54,7 +54,7 @@ import {
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { createHash } from './utilities/createHash';
-import { addFederationExtensions } from './schema-helper';
+import { addExtensions } from './schema-helper';
 import {
   IntrospectAndCompose,
   UplinkFetcher,
@@ -432,7 +432,7 @@ export class ApolloGateway implements GraphQLService {
       }`,
     );
 
-    addFederationExtensions(this.schema!);
+    addExtensions(this.schema!);
 
     return {
       schema: this.schema!,
@@ -643,7 +643,7 @@ export class ApolloGateway implements GraphQLService {
   ): void {
     if (this.queryPlanStore) this.queryPlanStore.flush();
     this.apiSchema = coreSchema.toAPISchema();
-    this.schema = addFederationExtensions(
+    this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
     );
     this.queryPlanner = new QueryPlanner(coreSchema);
