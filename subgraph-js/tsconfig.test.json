@@ -3,7 +3,10 @@
   "files": [
     "./src/__tests__/testSetup.ts"
   ],
-  "include": ["**/__tests__/**/*"],
+  "include": [
+    "src/schemaExtensions.ts",
+    "**/__tests__/**/*"
+  ],
   "references": [
     { "path": "./" },
   ]
