@@ -91,11 +91,11 @@ const userService: ServiceDefinitionModule = {
         );
       },
       organization(user) {
-        return { id: user.organizationId };
+        return organizations.find(org => org.id === user.organizationId);
       },
     },
     Organization: {
-      __resolveObject(object) {
+      __resolveReference(object) {
         return organizations.find(org => org.id === object.id);
       },
     },

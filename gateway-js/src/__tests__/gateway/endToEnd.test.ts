@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
-import { GraphQLSchemaModule } from '../../schema-helper';
+import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 
 async function startFederatedServer(modules: GraphQLSchemaModule[]) {
   const schema = buildSubgraphSchema(modules);
