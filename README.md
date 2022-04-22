@@ -8,9 +8,9 @@ Apollo Federation is an architecture for declaratively composing APIs into a uni
 
 Federation 2 is an evolution of the original Apollo Federation with an improved shared ownership model, enhanced type merging, and cleaner syntax for a smoother developer experience. It’s backwards compatible, requiring no major changes to your subgraphs.
 
-Checkout the [v2 docs](https://www.apollographql.com/docs/federation/v2) and [demo repo](https://github.com/apollographql/supergraph-demo-fed2) to take it for a spin and [let us know what you think](https://community.apollographql.com/t/announcing-apollo-federation-2/1821)!
+Checkout the [Federation 2 docs](https://www.apollographql.com/docs/federation) and [demo repo](https://github.com/apollographql/supergraph-demo-fed2) to take it for a spin and [let us know what you think](https://community.apollographql.com/t/announcing-apollo-federation-2/1821)!
 
-For Federation 1, see the [v1 docs](https://www.apollographql.com/docs/federation) and [the branch we'll be using to maintain Federation 1](https://github.com/apollographql/federation/tree/version-0.x).
+For Federation 1, see the [docs](https://www.apollographql.com/docs/federation/v1) and [code](https://github.com/apollographql/federation/tree/version-0.x).
 
 Checkout the [project roadmap](ROADMAP.md) to see what's coming next!
 
@@ -24,8 +24,8 @@ If you ever have any problems, questions, or ideas, the maintainers of this proj
 
 ### Current branches
 
-1. **Federation 2 (alpha)** is the current `main` branch.
-2. **Prior releases** are located under the `version-0.x` branch.  This comprises all 0.x packages previously released.  Installing `latest` from npm will pull from here.
+1. **Federation 2** is the current `main` branch. Installing `latest` from npm is the most recent published code from `main`.
+2. **Prior releases** are located under the `version-0.x` branch. This comprises all 0.x packages previously released. Installing `latest-1` from npm is the most recent published code from `version-0.x`.
 
 ## Who is Apollo?
 
