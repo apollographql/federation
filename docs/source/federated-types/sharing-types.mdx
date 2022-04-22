@@ -480,6 +480,7 @@ interface User {
 union Media = Book | Podcast
 
 enum Color {
+  RED
   CYAN
   MAGENTA
   YELLOW
@@ -495,7 +496,7 @@ interface User {
 
 </CodeColumns>
 
-Compositional logic merges these definitions in your supergraph schema:
+Compositional logic merges these definitions differently in your supergraph schema depending on whether they are used as an input or output type. Output types are merged by "union", and input types are merged by "intersection". If the above are output types, the composed schema looks like this:
 
 ```graphql title="Supergraph schema"
 union Media = Book | Movie | Podcast
@@ -516,5 +517,23 @@ interface User {
   age: Int!
 }
 ```
+
+Whereas if they are input types, this would be the result:
+
+```graphql title="Supergraph schema"
+union Media = Book
+
+enum Color {
+  RED
+}
+
+# The object types that implement this interface are
+# responsible for resolving these fields.
+interface User {
+  name: String!
+}
+```
+
+For output types, the supergraph schema lists all values that may be returned, but for input types we restrict values that are allowed in the shared type so that we can ensure all subgraphs can process the value provided.
 
 This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.
