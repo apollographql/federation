@@ -10,7 +10,7 @@ import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import resolvable, { Resolvable } from '@josephg/resolvable';
-import { GraphQLSchemaModule } from '../../schema-helper';
+import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally

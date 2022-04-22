@@ -1,7 +1,7 @@
 import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
-} from '../schema-helper';
+} from '@apollo/subgraph/src/schema-helper';
 import { GraphQLRequest, GraphQLExecutionResult } from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import {
