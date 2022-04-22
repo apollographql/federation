@@ -1061,6 +1061,120 @@ describe('@requires', () => {
         },
       }
     `);
+  });
+
+  test('handles multiple requires involving different nestedness', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          list: [Item]
+        }
+
+        type Item @key(fields: "user { id }") {
+          id: ID!
+          value: String
+          user: User
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          value: String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Item @key(fields: "user { id }") {
+          user: User
+          value: String @external
+          computed: String @requires(fields: "user { value } value")
+          computed2: String @requires(fields: "user { value }")
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          value: String @external
+          computed: String @requires(fields: "value")
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        list {
+          computed
+          computed2
+          user {
+            computed
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
+    // into the same fetch group.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              list {
+                __typename
+                user {
+                  __typename
+                  id
+                  value
+                }
+                value
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "list.@") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on Item {
+                    __typename
+                    user {
+                      id
+                      value
+                    }
+                    value
+                  }
+                } =>
+                {
+                  ... on Item {
+                    computed
+                    computed2
+                  }
+                }
+              },
+            },
+            Flatten(path: "list.@.user") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                    value
+                  }
+                } =>
+                {
+                  ... on User {
+                    computed
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
   })
 });
 

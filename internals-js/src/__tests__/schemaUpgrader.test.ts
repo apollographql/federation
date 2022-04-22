@@ -1,4 +1,5 @@
 import { FEDERATION2_LINK_WTH_FULL_IMPORTS } from '..';
+import { ObjectType } from '../definitions';
 import { buildSubgraph, Subgraphs } from '../federation';
 import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
 import './matchers';
@@ -166,4 +167,41 @@ test('update federation directive non-string arguments', () => {
       x: Int
     }
   `);
+})
+
+
+test('remove tag on external field if found on definition', () => {
+  const s1 = `
+    type Query {
+      a: A @provides(fields: "y")
+    }
+
+    type A @key(fields: "id") {
+      id: String
+      x: Int
+      y: Int @external @tag(name: "a tag")
+    }
+  `;
+
+  const s2 = `
+    type A @key(fields: "id") {
+      id: String
+      y: Int @tag(name: "a tag")
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors).toBeUndefined();
+
+  expect(changeMessages(res, 's1', 'REMOVED_TAG_ON_EXTERNAL')).toStrictEqual([
+    'Removed @tag(name: "a tag") application on @external "A.y" as the @tag application is on another definition',
+  ]);
+
+  const typeAInS1 = res.subgraphs?.get('s1')?.schema.type("A") as ObjectType;
+  const typeAInS2 = res.subgraphs?.get('s2')?.schema.type("A") as ObjectType;
+  expect(typeAInS1.field("y")?.appliedDirectivesOf('tag').map((d) => d.toString())).toStrictEqual([]);
+  expect(typeAInS2.field("y")?.appliedDirectivesOf('tag').map((d) => d.toString())).toStrictEqual([ '@tag(name: "a tag")' ]);
 })

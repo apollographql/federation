@@ -20,7 +20,10 @@ import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
 import { Schema, Operation, parseOperation, buildSchemaFromAST, arrayEquals } from '@apollo/federation-internals';
-import { addResolversToSchema, GraphQLResolverMap } from '../schema-helper';
+import {
+  addResolversToSchema,
+  GraphQLResolverMap,
+} from '@apollo/subgraph/src/schema-helper';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);

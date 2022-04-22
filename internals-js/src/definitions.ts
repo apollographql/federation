@@ -946,11 +946,13 @@ export class CoreFeature {
   }
 
   directiveNameInSchema(name: string): string {
-    if (name === this.url.name) {
-      return this.nameInSchema;
-    }
     const elementImport = this.imports.find((i) => i.name.charAt(0) === '@' && i.name.slice(1) === name);
-    return elementImport ? (elementImport.as?.slice(1) ?? name) : this.nameInSchema + '__' + name;
+    return elementImport
+      ? (elementImport.as?.slice(1) ?? name)
+      : (name === this.url.name
+        ? this.nameInSchema
+        : this.nameInSchema + '__' + name
+      );
   }
 
   typeNameInSchema(name: string): string {
@@ -2762,7 +2764,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     assert(false, `Directive definition ${this} can't reference other types (it's arguments can); shouldn't be asked to remove reference to ${type}`);
   }
 
-    /**
+  /**
    * Removes this directive definition from its parent schema.
    *
    * After calling this method, this directive definition will be "detached": it will have no parent, schema, or

@@ -38,6 +38,7 @@ import {
   FederationMetadata,
   federationMetadata,
   entitiesFieldName,
+  concatOperationPaths,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1366,7 +1367,10 @@ class FetchDependencyGraph {
     return rootNodes;
   }
 
-  dumpOnConsole() {
+  dumpOnConsole(msg?: string) {
+    if (msg) {
+      console.log(msg);
+    }
     console.log('Groups:');
     for (const group of this.groups) {
       console.log(`  ${group}`);
@@ -1579,6 +1583,10 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
   }
 }
 
+function withoutTypename(selectionSet: SelectionSet): SelectionSet {
+  return selectionSet.filter((selection) => selection.kind !== 'FieldSelection' || selection.element().name === '__typename');
+}
+
 function handleRequires(
   dependencyGraph: FetchDependencyGraph,
   edge: Edge,
@@ -1626,23 +1634,42 @@ function handleRequires(
     // is more complex however and it's sufficiently unlikely to happpen that we ignore that "optimization"
     // for now. If someone run into this and notice, we can optimize then.
     // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
-    const newGroupIsUseless = newGroup.inputs!.contains(newGroup.selection);
+    // Note2: `__typename` selections adds a bit of complexity. That is, if `newGroup` selection is not
+    // strictly contained in its inputs but only due to the selection of some `__typename`, then we
+    // still want to ignore that group, because `__typename` are always trivially queriable from any
+    // type in any subgraph and so that `__typename` can always be fetched from the parent. Which is
+    // what the `newGroupIsUseless` check ignores `__typename` in the selection.
+    const newGroupIsUnneeded = newGroup.inputs!.contains(withoutTypename(newGroup.selection));
     const parents = dependencyGraph.dependencies(group);
     const pathInParent = dependencyGraph.pathInParent(group);
     const unmergedGroups = [];
-    if (newGroupIsUseless) {
+
+    // As just explained, we've ignored `__typename` in the selection when checking if the group
+    // is "useless". But if the selection _did_ have `__typename` that weren't in the inputs then
+    // we still need to ensure those additional `__typename` are fetched from the parent, and we're
+    // not sure they are, so we detect this case and merge the selection into the parent (which is
+    // safe, we're merging inputs that come from the parents with just a few additional `__typename`).
+    //
+    // Note that if we have multiple parents, we don't preserve the `pathInParent` for each and so
+    // we cannot merge `newGroup` into parents, so in that case we don't remove `newGroup` at all.
+    // This could possibly be optimised later but it's likely excessively rare (in fact, it's
+    // worth double-checking if it's even possible to have multiple parents at this stage of
+    // handling requires).
+    const shouldMergeNewGroupToParent = newGroupIsUnneeded && !newGroup.inputs!.contains(newGroup.selection);
+    if (newGroupIsUnneeded && (pathInParent || !shouldMergeNewGroupToParent)) {
       // We can remove `newGroup` and attach `createdGroups` as dependencies of `group`'s parents. That said,
       // as we do so, we check if one/some of the created groups can be "merged" into the parent
       // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we know the path in this parent).
       // If it can, that essentially means that the requires could have been fetched directly from the parent,
       // and that will likely be common.
       for (const created of createdGroups) {
-        // Note that pathInParent != undefined implies that parents is of size 1
+        const createdPathInParent = dependencyGraph.pathInParent(created);
+        // Note that pathInParent !== undefined implies that parents is of size 1
         if (pathInParent
+          && createdPathInParent
           && created.subgraphName === parents[0].subgraphName
-          && sameMergeAt(created.mergeAt, group.mergeAt)
         ) {
-          parents[0].mergeIn(created, pathInParent);
+          parents[0].mergeIn(created, concatOperationPaths(pathInParent, createdPathInParent));
         } else {
           // We move created from depending on `newGroup` to depend on all of `group`'s parents.
           created.removeDependencyOn(newGroup);
@@ -1651,8 +1678,13 @@ function handleRequires(
         }
       }
 
-      // We know newGroup is useless and nothing should depend on it anymore, we can remove it.
-      dependencyGraph.remove(newGroup);
+      if (shouldMergeNewGroupToParent) {
+        // Note that we're guaranteed that pathInParent is defined, but typescript don't seem to be able to figure it out.
+        parents[0].mergeIn(newGroup, pathInParent!);
+      } else {
+        // We know newGroup is useless and nothing should depend on it anymore, we can remove it.
+        dependencyGraph.remove(newGroup);
+      }
     } else {
       // There is things in `newGroup`, let's merge them in `group` (no reason not to). This will
       // make the created groups depend on `group`, which we want.

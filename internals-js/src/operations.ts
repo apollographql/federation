@@ -42,6 +42,7 @@ import {
   typenameFieldName,
   NamedType,
 } from "./definitions";
+import { sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
@@ -303,6 +304,37 @@ export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolea
     }
   }
   return true;
+}
+
+export function concatOperationPaths(head: OperationPath, tail: OperationPath): OperationPath {
+  // While this is mainly a simple array concatenation, we optimize slightly by recognizing if the
+  // tail path starts by a fragment selection that is useless given the end of the head path.
+  if (head.length === 0) {
+    return tail;
+  }
+  if (tail.length === 0) {
+    return head;
+  }
+  const lastOfHead = head[head.length - 1];
+  const firstOfTail = tail[0];
+  if (isUselessFollowupElement(lastOfHead, firstOfTail)) {
+    tail = tail.slice(1);
+  }
+  return head.concat(tail);
+}
+
+function isUselessFollowupElement(first: OperationElement, followup: OperationElement): boolean {
+  const typeOfFirst = first.kind === 'Field'
+    ? baseType(first.definition.type!)
+    : first.typeCondition;
+
+  // The followup is useless if it's a fragment (with no directives we would want to preserve) whose type
+  // is already that of the first element.
+  return !!typeOfFirst
+    && followup.kind === 'FragmentElement'
+    && !!followup.typeCondition
+    && followup.appliedDirectives.length === 0
+    && sameType(typeOfFirst, followup.typeCondition);
 }
 
 export type RootOperationPath = {
@@ -602,6 +634,23 @@ export class SelectionSet {
       withExpanded.add(selection.expandFragments(names, updateSelectionSetFragments));
     }
     return withExpanded;
+  }
+
+  /**
+   * Returns the selection select from filtering out any selection that does not match the provided predicate.
+   *
+   * Please that this method will expand *ALL* fragments as the result of applying it's filtering. You should
+   * call `optimize` on the result if you want to re-apply some fragments.
+   */
+  filter(predicate: (selection: Selection) => boolean): SelectionSet {
+    const filtered = new SelectionSet(this.parentType, this.fragments);
+    for (const selection of this.selections()) {
+      const filteredSelection = selection.filter(predicate);
+      if (filteredSelection) {
+        filtered.add(filteredSelection);
+      }
+    }
+    return filtered;
   }
 
   mergeIn(selectionSet: SelectionSet) {
@@ -940,6 +989,16 @@ export class FieldSelection {
       : new FieldSelection(this.field, optimizedSelection);
   }
 
+  filter(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
+    if (!predicate(this)) {
+      return undefined;
+    }
+    if (!this.selectionSet) {
+      return this;
+    }
+    return new FieldSelection(this.field, this.selectionSet.filter(predicate));
+  }
+
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FieldSelection {
     const expandedSelection = this.selectionSet ? this.selectionSet.expandFragments(names, updateSelectionSetFragments) : undefined;
     return this.selectionSet === expandedSelection
@@ -1055,7 +1114,6 @@ export abstract class FragmentSelection {
 
   abstract validate(): void;
 
-
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
   }
@@ -1064,6 +1122,15 @@ export abstract class FragmentSelection {
     const updatedFragment = this.element().updateForAddingTo(selectionSet);
     return this.element() === updatedFragment ? this : new InlineFragmentSelection(updatedFragment, this.selectionSet);
   }
+
+  filter(predicate: (selection: Selection) => boolean): InlineFragmentSelection | undefined {
+    if (!predicate(this)) {
+      return undefined;
+    }
+    // Note that we essentially expand all fragments as part of this.
+    return new InlineFragmentSelection(this.element(), this.selectionSet.filter(predicate));
+  }
+
 
   equals(that: Selection): boolean {
     if (this === that) {
@@ -1143,7 +1210,6 @@ class InlineFragmentSelection extends FragmentSelection {
       selectionSet: this.selectionSet.toSelectionSetNode()
     };
   }
-
 
   optimize(fragments: NamedFragments): FragmentSelection {
     const optimizedSelection = this.selectionSet.optimize(fragments);

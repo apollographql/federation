@@ -7,6 +7,7 @@ import {
 import { ERRORS } from "./error";
 import {
   baseType,
+  CompositeType,
   Directive,
   errorCauses,
   Extension,
@@ -33,6 +34,7 @@ import {
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
 import { FEDERATION_SPEC_TYPES } from "./federationSpec";
+import { valueEquals } from "./values";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
@@ -66,6 +68,7 @@ export type UpgradeChange =
   | ProvidesOrRequiresOnInterfaceFieldRemoval
   | ProvidesOnNonCompositeRemoval
   | FieldsArgumentCoercionToString
+  | RemovedTagOnExternal
 ;
 
 export class ExternalOnTypeExtensionRemoval {
@@ -198,6 +201,16 @@ export class FieldsArgumentCoercionToString {
   }
 }
 
+export class RemovedTagOnExternal {
+  readonly id = 'REMOVED_TAG_ON_EXTERNAL' as const;
+
+  constructor(readonly application: string, readonly element: string) {}
+
+  toString() {
+    return `Removed ${this.application} application on @external "${this.element}" as the @tag application is on another definition`;
+  }
+}
+
 export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
   const changes: Map<string, UpgradeChanges> = new Map();
   if (inputs.values().every((s) => s.isFed2Subgraph())) {
@@ -263,6 +276,11 @@ function resolvesField(subgraph: Subgraph, field: FieldDefinition<ObjectType>): 
   }
   const f = t.field(field.name);
   return !!f && (!metadata.isFieldExternal(f) || metadata.isFieldPartiallyExternal(f));
+}
+
+function getField(schema: Schema, typeName: string, fieldName: string): FieldDefinition<CompositeType> | undefined {
+  const type = schema.type(typeName);
+  return type && isCompositeType(type) ? type.field(fieldName) : undefined;
 }
 
 class SchemaUpgrader {
@@ -383,6 +401,8 @@ class SchemaUpgrader {
     this.removeUnusedExternals();
 
     this.addShareable();
+
+    this.removeTagOnExternal();
 
     // If we had errors during the upgrade, we throw them before trying to validate the resulting subgraph, because any invalidity in the
     // migrated subgraph may well due to those migration errors and confuse users.
@@ -666,6 +686,31 @@ class SchemaUpgrader {
         if (otherDeclaringSubgraphs.length > 0) {
           type.applyDirective(shareableDirective);
           this.addChange(new ShareableTypeAddition(type.coordinate, otherDeclaringSubgraphs.map((s) => s.name)));
+        }
+      }
+    }
+  }
+
+  private removeTagOnExternal() {
+    const tagDirective = this.schema.directive('tag');
+    if (!tagDirective) {
+      return;
+    }
+
+    for (const application of tagDirective.applications()) {
+      const element = application.parent;
+      if (!(element instanceof FieldDefinition)) {
+        continue;
+      }
+      if (this.external(element)) {
+        const tagIsUsedInOtherDefinition = this.otherSubgraphs
+          .map((s) => getField(s.schema, element.parent.name, element.name))
+          .filter((f) => !(f && f.hasAppliedDirective('external')))
+          .some((f) => f && f.appliedDirectivesOf('tag').some((d) => valueEquals(application.arguments(), d.arguments())));
+
+        if (tagIsUsedInOtherDefinition) {
+          this.addChange(new RemovedTagOnExternal(application.toString(), element.coordinate));
+          application.remove();
         }
       }
     }

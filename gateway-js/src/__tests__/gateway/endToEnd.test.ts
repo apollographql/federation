@@ -4,7 +4,7 @@ import fetch, { Response } from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
-import { GraphQLSchemaModule } from '../../schema-helper';
+import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 import { buildSchema, ObjectType, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { printSchema } from 'graphql';

@@ -54,7 +54,7 @@ import {
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { createHash } from './utilities/createHash';
-import { addExtensions } from './schema-helper';
+import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
   UplinkFetcher,

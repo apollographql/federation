@@ -178,7 +178,7 @@ describe("removeInaccessibleElements", () => {
     `);
   });
 
-  it(`handles renames of @inaccessible`, () => {
+  it(`handles renames of @inaccessible via core "as"`, () => {
     const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
@@ -192,6 +192,42 @@ describe("removeInaccessibleElements", () => {
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.2", as: "foo")
+      {
+        query: Query
+      }
+
+      type Query {
+        someField: Bar @inaccessible
+        privateField: String @foo
+      }
+
+      scalar Bar
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+    `);
+
+    removeInaccessibleElements(schema);
+    schema.validate();
+    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
+    expect(schema.elementByCoordinate("Query.privateField")).toBeUndefined();
+  });
+
+  it(`handles renames of @inaccessible via import "as"`, () => {
+    const schema = buildSchema(`
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      enum link__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      scalar link__Import
+
+      directive @foo on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/inaccessible/v0.2", import: [{name: "@inaccessible", as: "@foo"}])
       {
         query: Query
       }
