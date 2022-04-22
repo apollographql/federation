@@ -28,7 +28,6 @@ import {
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
-  RemoveCoreFeaturesOptions,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
@@ -343,6 +342,10 @@ export interface Named {
 }
 
 export type ExtendableElement = SchemaDefinition | NamedType;
+
+export type ToAPISchemaOptions = {
+  exposeDirectives?: string[],
+};
 
 export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   public readonly appliedDirectives: Directive<T>[] = [];
@@ -1164,13 +1167,13 @@ export class Schema {
     return this.cachedDocument!;
   }
 
-  toAPISchema(options?: RemoveCoreFeaturesOptions): Schema {
+  toAPISchema(options?: ToAPISchemaOptions): Schema {
     if (!this.apiSchema) {
       this.validate();
 
       const apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
-      removeAllCoreFeatures(apiSchema, options);
+      removeAllCoreFeatures(apiSchema, options?.exposeDirectives);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
       this.apiSchema = apiSchema;

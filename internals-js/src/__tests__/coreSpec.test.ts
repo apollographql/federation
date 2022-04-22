@@ -5,7 +5,6 @@ import { errorCauses } from "../definitions";
 import { assert } from "../utils";
 import { buildSchemaFromAST } from "../buildSchema";
 import { removeAllCoreFeatures } from "../coreSpec";
-import { printSubgraphSchema } from "@apollo/subgraph";
 
 function expectErrors(
   subgraphDefs: DocumentNode,
@@ -183,7 +182,7 @@ describe('removeAllCoreFeatures', () => {
       directive @foo__quz on FIELD
     `);
 
-    removeAllCoreFeatures(schema,);
+    removeAllCoreFeatures(schema);
     schema.validate();
 
     expect(schema.elementByCoordinate("@lonk")).toBeUndefined();
@@ -211,12 +210,10 @@ describe('removeAllCoreFeatures', () => {
     expect(schema.elementByCoordinate("@foo__quz")).toBeUndefined();
   });
 
-  it('does not remove tags', () => {
+  it('does not remove tags in API schema', () => {
     const subgraph = buildSubgraph('S', '', gql`
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
-        @link(url: "https://specs.apollo.dev/tag/v1.0", as: "cooltag")
-        @link(url: "https://specs.apollo.dev/cool/v1.0", import: [{name: "@tag", as: "@cooltag"}])
 
       type Query {
         q: Int
@@ -225,14 +222,61 @@ describe('removeAllCoreFeatures', () => {
       type User {
         k: ID
         a: Int @tag(name: "foo")
-        b: Int @cool__cooltag(name: "bar")
       }
     `);
     const { schema } = subgraph;
-    console.log(printSubgraphSchema(schema.toGraphQLJSSchema()));
-    removeAllCoreFeatures(schema, { promoteDirectives: ["cooltag"] });
+    removeAllCoreFeatures(schema, ["https://specs.apollo.dev/federation/v2.0#@tag"]);
     schema.validate();
 
-    expect(schema.elementByCoordinate("@cooltag")).toBeDefined();
+    expect(schema.elementByCoordinate("@tag")).toBeDefined();
   });
+
+  it('removing in one schema should not affect another', () => {
+    const subgraph = buildSubgraph('S', '', gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+
+      type Query {
+        q: Int
+      }
+
+      type User {
+        k: ID
+        a: Int @tag(name: "foo")
+      }
+    `);
+    const { schema } = subgraph;
+    removeAllCoreFeatures(schema, ["https://specs.apollo.dev/link/v1.0#@tag"]);
+    schema.validate();
+
+    expect(schema.elementByCoordinate("@tag")).toBeUndefined();
+  });
+
+  it('exposeDirectives should be in the right format', () => {
+    const subgraph = buildSubgraph('S', '', gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+
+      type Query {
+        q: Int
+      }
+
+      type User {
+        k: ID
+        a: Int @tag(name: "foo")
+      }
+    `);
+    const { schema } = subgraph;
+    expect(() => removeAllCoreFeatures(schema, ["https://specs.apollo.dev/link/v1.0"]))
+      .toThrowError(new GraphQLError('exposeDirectives must be in the form of "https://specs.apollo.dev/federation/v2.0#@tag"'));
+
+    // no @ in directive name
+    expect(() => removeAllCoreFeatures(schema, ["https://specs.apollo.dev/link/v1.0#foo"]))
+      .toThrowError(new GraphQLError('exposeDirectives must be in the form of "https://specs.apollo.dev/federation/v2.0#@tag"'));
+
+    expect(() => removeAllCoreFeatures(schema, ["https://specs.apollo.dev/link/v1.0#@foo#@bar"]))
+      .toThrowError(new GraphQLError('exposeDirectives must be in the form of "https://specs.apollo.dev/federation/v2.0#@tag"'));
+    });
 });
