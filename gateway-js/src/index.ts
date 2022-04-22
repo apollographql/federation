@@ -4,6 +4,7 @@ import {
   GraphQLExecutionResult,
   GraphQLRequestContextExecutionDidStart,
 } from 'apollo-server-types';
+import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -53,7 +54,6 @@ import {
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
-import { createHash } from './utilities/createHash';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,

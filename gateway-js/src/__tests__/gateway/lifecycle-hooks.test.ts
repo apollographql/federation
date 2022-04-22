@@ -16,9 +16,9 @@ import {
   fixtures,
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
+import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
 import resolvable from '@josephg/resolvable';
-import { createHash } from '../../utilities/createHash';
 import { getTestingSupergraphSdl } from '../execution-utils';
 
 // The order of this was specified to preserve existing test coverage. Typically
