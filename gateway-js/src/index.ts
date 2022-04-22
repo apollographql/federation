@@ -62,7 +62,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
 import { featureSupport } from './core';
-import { createHash } from './utilities/createHash';
+import { createHash } from '@apollo/utils.createhash';
 import {
   IntrospectAndCompose,
   UplinkFetcher,
