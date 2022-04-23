@@ -15,7 +15,7 @@ import {
 import { fetch, Request, Headers, Response } from 'apollo-server-env';
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
-import createSHA from 'apollo-server-core/dist/utils/createSHA';
+import { createHash } from '@apollo/utils.createhash';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
 import fetcher from 'make-fetch-happen';
 export class RemoteGraphQLDataSource<
@@ -112,7 +112,7 @@ export class RemoteGraphQLDataSource<
         : null;
 
     if (this.apq) {
-      const apqHash = createSHA('sha256').update(request.query).digest('hex');
+      const apqHash = createHash('sha256').update(request.query).digest('hex');
 
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
