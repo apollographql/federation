@@ -2,7 +2,15 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## v2.0.2-alpha.0
+
+- Improve fed1 schema support during composition [PR #1735](https://github.com/apollographql/federation/pull/1735)
 - Add missing @apollo/federation-internals dependency to gateway [PR #1721](https://github.com/apollographql/federation/pull/1721)
+- Improve merging of groups during `@require` handling in query planning [PR #1732](https://github.com/apollographql/federation/pull/1732)
+- Move `__resolveReference` resolvers on to `extensions` [PR #1746](https://github.com/apollographql/federation/pull/1746)
+- Add gateway version to schema extensions [PR #1751](https://github.com/apollographql/federation/pull/1751)
+- Honor directive imports when directive name is spec name [PR #1720](https://github.com/apollographql/federation/pull/1720)
+- Migrate to `@apollo/utils` packages for `createSHA` and `isNodeLike` [PR #1765](https://github.com/apollographql/federation/pull/1765)
 
 ## v2.0.1
 
