@@ -279,7 +279,7 @@ export class RemoteGraphQLDataSource<
     _context?: TContext,
   ): Promise<object | string> {
     const contentType = fetchResponse.headers.get('Content-Type');
-    if (contentType && contentType.startsWith('application/json')) {
+    if (contentType && (contentType.startsWith('application/json') || contentType.startsWith("application/graphql+json"))) {
       return fetchResponse.json();
     } else {
       return fetchResponse.text();
