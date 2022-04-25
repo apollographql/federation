@@ -1,5 +1,10 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## v2.0.2-alpha.0
+
+- Improve fed1 schema support during composition [PR #1735](https://github.com/apollographql/federation/pull/1735)
+- Honor directive imports when directive name is spec name [PR #1720](https://github.com/apollographql/federation/pull/1720)
+
 ## v2.0.1
 
 - Use `for: SECURITY` in the core/link directive application in the supergraph for `@inaccessible` [PR #1715](https://github.com/apollographql/federation/pull/1715)
