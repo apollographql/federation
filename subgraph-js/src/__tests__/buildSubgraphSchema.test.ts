@@ -1,5 +1,11 @@
 import gql from 'graphql-tag';
-import { Kind, graphql, DocumentNode, execute } from 'graphql';
+import {
+  Kind,
+  graphql,
+  DocumentNode,
+  execute,
+  GraphQLUnionType,
+} from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
 
@@ -625,6 +631,15 @@ type Product {
       `union _Entity = Product`,
     );
   });
+
+  it('defines the `resolveType` resolver on the `_Entity` union', async () => {
+    const schema = buildSubgraphSchema({ typeDefs });
+
+    expect(
+      (schema.getType('_Entity') as GraphQLUnionType).resolveType,
+    ).toBeDefined();
+  });
+
   it('allows legacy schema module interface as a simple array of documents', async () => {
     const schema = buildSubgraphSchema({ typeDefs });
     expect(schema.getType('Product')).toMatchInlineSnapshot(`
