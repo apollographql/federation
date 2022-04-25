@@ -122,6 +122,9 @@ export function buildSubgraphSchema(
       return new GraphQLUnionType({
         ...EntityType.toConfig(),
         types: entityTypes.filter(isObjectType),
+        resolveType(parent: { __typename: string }) {
+          return parent.__typename;
+        },
       });
     }
     return undefined;
