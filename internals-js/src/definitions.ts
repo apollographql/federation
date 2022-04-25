@@ -1168,17 +1168,21 @@ export class Schema {
   }
 
   toAPISchema(options?: ToAPISchemaOptions): Schema {
-    if (!this.apiSchema) {
+    let apiSchema = this?.apiSchema;
+    if (!apiSchema || options?.exposeDirectives) {
       this.validate();
 
-      const apiSchema = this.clone();
+      apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
       removeAllCoreFeatures(apiSchema, options?.exposeDirectives);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
-      this.apiSchema = apiSchema;
+
+      if (!options?.exposeDirectives) {
+        this.apiSchema = apiSchema;
+      }
     }
-    return this.apiSchema;
+    return apiSchema;
   }
 
   private emptyASTDefinitionsForExtensionsWithoutDefinition(): TypeSystemDefinitionNode[] {

@@ -3030,4 +3030,67 @@ describe('composition', () => {
     const result = composeServices([subgraphA]);
     assertCompositionSuccess(result);
   });
+
+  describe("toAPISchema", () => {
+    it("composed subgraphs should allow filtering in toAPISchema", () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+          type Query {
+            hi: String! @tag(name: "cool")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            bye: String!
+          }
+        `,
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const { schema } = result;
+
+      const apiSchema = schema.toAPISchema({exposeDirectives: ["@tag"]})
+      expect(apiSchema.elementByCoordinate("@tag")).toBeDefined();
+    });
+
+    it("composed subgraphs should allow filtering of custom tags in toAPISchema", () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          directive @tag(
+            name: String!
+          ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+          type Query {
+            hi: String! @tag(name: "cool")
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          type Query {
+            bye: String!
+          }
+        `,
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const { schema } = result;
+
+      const apiSchema = schema.toAPISchema({exposeDirectives: ["@tag"]})
+      expect(apiSchema.elementByCoordinate("@tag")).toBeDefined();
+    });
+  });
 });

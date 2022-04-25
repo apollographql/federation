@@ -210,7 +210,7 @@ describe('removeAllCoreFeatures', () => {
     expect(schema.elementByCoordinate("@foo__quz")).toBeUndefined();
   });
 
-  it('does not remove tags in API schema', () => {
+  it('exposes tags in API schema', () => {
     const subgraph = buildSubgraph('S', '', gql`
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
@@ -229,6 +229,53 @@ describe('removeAllCoreFeatures', () => {
     schema.validate();
 
     expect(schema.elementByCoordinate("@tag")).toBeDefined();
+  });
+
+  it('exposes renamed tags in API schema', () => {
+    const subgraph = buildSubgraph('S', '', gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@fedtag"}])
+
+      type Query {
+        q: Int
+      }
+
+      type User {
+        k: ID
+        a: Int @fedtag(name: "foo")
+      }
+    `);
+    const { schema } = subgraph;
+    removeAllCoreFeatures(schema, ["@fedtag"]);
+    schema.validate();
+
+    expect(schema.elementByCoordinate("@fedtag")).toBeDefined();
+  });
+
+  it('exposes custom tags in API schema', () => {
+    const subgraph = buildSubgraph('S', '', gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@fedtag"}])
+
+      directive @tag(
+        name: String!
+      ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+      type Query {
+        q: Int
+      }
+
+      type User {
+        k: ID @fedtag(name: "fed")
+        a: Int @tag(name: "custom")
+      }
+    `);
+    const { schema } = subgraph;
+    removeAllCoreFeatures(schema, ["@tag"]);
+    schema.validate();
+
+    expect(schema.elementByCoordinate("@tag")).toBeDefined();
+    expect(schema.elementByCoordinate("@fedtag")).toBeUndefined();
   });
 
   it('exposeDirectives should be in the right format', () => {
