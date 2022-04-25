@@ -1057,9 +1057,10 @@ type Product {
 
   it('defines the `resolveType` resolver on the `_Entity` union', async () => {
     const schema = buildSubgraphSchema({ typeDefs });
-    const entityUnion = schema.getType('_Entity') as GraphQLUnionType;
 
-    expect(entityUnion.toConfig().resolveType).toBeDefined();
+    expect(
+      (schema.getType('_Entity') as GraphQLUnionType).resolveType,
+    ).toBeDefined();
   });
 
   it('allows legacy schema module interface as a simple array of documents', async () => {
