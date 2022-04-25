@@ -76,6 +76,11 @@ export function buildSubgraphSchema(
     addResolversToSchema(schema, {
      [queryRootName] : {
         _entities: (_source, { representations }, context, info) => entitiesResolver({ representations, context, info }),
+      },
+      _Entity: {
+        __resolveType(parent: { __typename: string }) {
+          return parent.__typename;
+        },
       }
     });
   }
