@@ -715,6 +715,9 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
   // removal. (Also note that core being a feature itself, this will remove core
   // itself and mark the schema as 'not core').
   const directivesToPromote = exposeDirectives || [];
+  if (!directivesToPromote.every(d => d[0] === '@')) {
+    throw new GraphQLError('Directive names must start with "@"');
+  }
   const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
 
   // Remove all feature elements, keeping track of any type references found
@@ -725,36 +728,11 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
     references: SchemaElement<any, any>[];
   }[] = [];
 
-  // takes all the directives we're going to expose and puts them into a map
-  // also strips out the "@" portion of the directive
-  const directiveMap = directivesToPromote.reduce((acc: { [key: string]: string[] }, d) => {
-    const [url, tag, ...rest] = d.split('#');
-    if (tag === undefined || rest.length !== 0 || tag[0] !== '@') {
-      throw new GraphQLError('exposeDirectives must be in the form of "https://specs.apollo.dev/federation/v2.0#@tag"');
-    }
-    if (acc[url]) {
-      acc[url].push(tag.slice(1));
-    } else {
-      acc[url] = [tag.slice(1)];
-    }
-    return acc;
-  }, {});
-
   for (const feature of coreFeatures) {
     // Remove feature directive definitions and their applications.
     schema.directives()
       .filter(d => feature.isFeatureDefinition(d))
-      .filter(d => {
-        // at this point we already know that the DirectiveDefinition
-        // is for this CoreFeature
-        const promoteForFeature = directiveMap[feature.url.url];
-
-        // we want to return true (i.e. continue to remove directive)
-        // if the directive does not appear in the list of directives
-        // to remove for this feature
-        return !promoteForFeature
-          || !promoteForFeature.some(tag => d.name === tag || d.name === `${feature.nameInSchema}__${tag}`);
-      })
+      .filter(d => !directivesToPromote.includes(`@${d.name}`))
       .forEach(def => {
         def.remove().forEach(application => application.remove());
       });
