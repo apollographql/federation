@@ -2423,4 +2423,51 @@ describe("removeInaccessibleElements", () => {
       ]
     `);
   });
+
+  it(`fails to remove @inaccessible non-core feature elements referenced by core feature elements`, () => {
+    const schema = buildSchema(`
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.2")
+        @core(feature: "http://localhost/foo/v1.0")
+      {
+        query: Query
+      }
+
+      type Query {
+        someField: String
+      }
+
+      # Inaccessible input object field
+      input InputObject {
+        someField: String
+        privateField: String @inaccessible
+      }
+
+      # Inaccessible input object field can't be referenced by default value of
+      # directive argument of a core feature element
+      directive @foo__referencer(
+        someArg: InputObject = { privateField: "" }
+      ) on FIELD
+    `);
+
+    const errorMessages = expectErrors(1, () => {
+      removeInaccessibleElements(schema);
+    });
+
+    expect(errorMessages).toMatchInlineSnapshot(`
+      Array [
+        "Input field \\"InputObject.privateField\\" is @inaccessible but is used in the default value of \\"@foo__referencer(someArg:)\\", which is in the API schema.",
+      ]
+    `);
+  });
 });

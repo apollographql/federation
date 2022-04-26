@@ -211,8 +211,18 @@ function validateInaccessibleElements(
     ) {
       // These are top-level elements. If they're not @inaccessible, the only
       // way they won't be in the API schema is if they're definitions of some
-      // core feature.
-      return !isFeatureDefinition(element);
+      // core feature. However, we do intend on introducing mechanisms for
+      // exposing core feature elements in the API schema in the near feature.
+      // Because such mechanisms aren't completely nailed down yet, we opt to
+      // pretend here that all core feature elements are in the API schema for
+      // simplicity sake.
+      //
+      // This has the effect that if a non-core schema element is referenced by
+      // a core schema element, that non-core schema element can't be marked
+      // @inaccessible, despite that the core schema element may likely not be
+      // in the API schema. This may be relaxed in a later version of the
+      // inaccessible spec.
+      return true;
     } else if (
       (element instanceof FieldDefinition) ||
       (element instanceof ArgumentDefinition) ||
