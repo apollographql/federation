@@ -3201,13 +3201,48 @@ function *typesToCopy(source: Schema, dest: Schema): Generator<NamedType, void, 
   yield* source.types();
 }
 
+/**
+ * Iterate through schema directives in a safe order. This means a directive
+ * that's used by another directive will be yielded first.
+ *
+ * For example, the directive order in this schema will be `@bar` then `@foo`
+ * because `@foo` uses `@bar`.
+ *
+ * ```graphql
+ * directive @foo(arg: String @bar) on FIELD_DEFINITION
+ * directive @bar on ARGUMENT_DEFINITION
+ * ```
+ */
+function *walkDirectives(schema: Schema): Generator<DirectiveDefinition, void, undefined> {
+  function _walk(directive: DirectiveDefinition, visited: Set<DirectiveDefinition>) {
+    if (visited.has(directive)) {
+      return;
+    }
+
+    for (const argument of directive.arguments()) {
+      for (const argDirective of argument.appliedDirectives) {
+        _walk(argDirective.definition as DirectiveDefinition, visited);
+      }
+    }
+
+    visited.add(directive);
+  }
+
+  const visitedDirectives = new Set<DirectiveDefinition>();
+  for (const directive of schema.directives()) {
+    _walk(directive, visitedDirectives);
+  }
+
+  yield* visitedDirectives;
+}
+
 function *directivesToCopy(source: Schema, dest: Schema): Generator<DirectiveDefinition, void, undefined>  {
   for (const directive of source.builtInDirectives()) {
     if (!dest.directive(directive.name)?.isBuiltIn) {
       yield directive;
     }
   }
-  yield* source.directives();
+  yield* walkDirectives(source);
 }
 
 function copy(source: Schema, dest: Schema) {

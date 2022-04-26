@@ -590,6 +590,34 @@ test('default arguments for directives', () => {
   expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 }});
 });
 
+describe('clone', () => {
+  it('should allow directive application before definition', () => {
+    buildSchema(`
+      directive @foo(arg: String @wizz(arg: "foo")) on FIELD_DEFINITION
+      directive @wizz(arg: String @fuzz(arg: "wizz")) on ARGUMENT_DEFINITION
+      directive @fuzz(arg: String @buzz(arg: "fuzz")) on ARGUMENT_DEFINITION
+      directive @buzz(arg: String @baz(arg: "buzz")) on ARGUMENT_DEFINITION
+      directive @baz(arg: String @bar) on ARGUMENT_DEFINITION
+      directive @bar on ARGUMENT_DEFINITION
+
+      type Query {
+        foo: String! @foo(arg: "query")
+      }
+    `).clone();
+  });
+
+  it('should allow type use in directives', () => {
+    buildSchema(`
+      scalar Thing
+      directive @foo(arg: Thing!) on FIELD_DEFINITION
+
+      type Query {
+        foo: String! @foo(arg: "sunshine")
+      }
+    `).clone();
+  });
+});
+
 test('correctly convert to a graphQL-js schema', () => {
   const sdl = `
     schema {

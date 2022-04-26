@@ -2,6 +2,10 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## vNext
+
+- Fix `Schema.clone` when directive application happens before definition [PR #1782](https://github.com/apollographql/federation/pull/1782)
+
 ## v2.0.2-alpha.0
 
 - Improve fed1 schema support during composition [PR #1735](https://github.com/apollographql/federation/pull/1735)
