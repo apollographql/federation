@@ -542,6 +542,7 @@ export class SelectionSet {
   private readonly _selections = new MultiMap<string, Selection>();
   private _selectionCount = 0;
   private _cachedSelections?: readonly Selection[];
+  private _isFrozen: boolean = false;
 
   constructor(
     readonly parentType: CompositeType,
@@ -653,18 +654,84 @@ export class SelectionSet {
     return filtered;
   }
 
+  /**
+   * Freezes this selection set, making it immutable after that point (that is, attempts to modify it will error out).
+   *
+   * This method should be used when a selection sets should not be modified. It ensures both that:
+   *  1. direct attempts to modify the selection set afterward fails (at runtime, but the goal is to fetch bugs early and easily).
+   *  2. if this set is "added" to another non-frozen selection (say, if this set is input to `anotherSet.mergeIn(this)`), then it
+   *  is automatically cloned first (thus ensuring this copy is not modified). Note that this properly is not guaranteed for
+   *  non frozen sets. Meaning that if one does `s1.mergeIn(s2)` and `s2` is not frozen, then `s1` may (or may not) reference
+   *  `s2` directly (without cloning) and thus later modifications to `s1` may (or may not) modify `s2`. This
+   *  do-not-defensively-clone-by-default behaviour is done for performance reasons.
+   *
+   * Note that freezing is a "deep" operation, in that the whole structure of the selection set is frozen by this method
+   * (and so this is not an excessively cheap operation).
+   *
+   * @return this selection set (for convenience, to allow method chaining).
+   */
+  freeze(): SelectionSet {
+    if (!this.isFrozen()) {
+      for (const selection of this.selections()) {
+        selection.freeze();
+      }
+      this._isFrozen = true;
+    }
+    return this;
+  }
+
+  /**
+   * Whether this selection set is frozen. See `freeze` for details.
+   */
+  isFrozen(): boolean {
+    return this._isFrozen;
+  }
+
+  /**
+   * A shortcut for returning a mutable version of this selection set by cloning it if it is frozen, but returning this set directly
+   * if it is not frozen.
+   */
+  cloneIfFrozen(): SelectionSet {
+    return this.isFrozen() ? this.clone() : this;
+  }
+
+  /**
+   * Adds the selections of the provided selection set to this selection, merging common selection as necessary.
+   *
+   * Please note that by default, the selection from the input may (or may not) be directly referenced by this selection
+   * set after this method return. That is, future modification of this selection set may end up modifying the input
+   * set due to direct aliasing. If direct aliasing should be prevented, the input selection set should be frozen (see
+   * `freeze` for details).
+   */
   mergeIn(selectionSet: SelectionSet) {
     for (const selection of selectionSet.selections()) {
       this.add(selection);
     }
   }
 
+  /**
+   * Adds the provided selections to this selection, merging common selection as necessary.
+   *
+   * This is very similar to `mergeIn` except that it takes a direct array of selection, and the direct aliasing
+   * remarks from `mergeInd` applies here too.
+   */
   addAll(selections: Selection[]): SelectionSet {
     selections.forEach(s => this.add(s));
     return this;
   }
 
+  /**
+   * Adds the provided selection to this selection, merging it to any existing selection of this set as appropriate.
+   *
+   * Please note that by default, the input selection may (or may not) be directly referenced by this selection
+   * set after this method return. That is, future modification of this selection set may end up modifying the input
+   * selection due to direct aliasing. If direct aliasing should be prevented, the input selection should be frozen
+   * (see `freeze` for details).
+   */
   add(selection: Selection): Selection {
+    // It's a but to try to add to a frozen selection set
+    assert(!this.isFrozen(), () => `Cannot add to frozen selection: ${this}`);
+
     const toAdd = selection.updateForAddingTo(this);
     const key = toAdd.key();
     const existing: Selection[] | undefined = this._selections.get(key);
@@ -954,6 +1021,7 @@ export type Selection = FieldSelection | FragmentSelection;
 export class FieldSelection {
   readonly kind = 'FieldSelection' as const;
   readonly selectionSet?: SelectionSet;
+  private _isFrozen: boolean = false;
 
   constructor(
     readonly field: Field<any>,
@@ -961,7 +1029,7 @@ export class FieldSelection {
   ) {
     const type = baseType(field.definition.type!);
     // Field types are output type, and a named typethat is an output one and isn't a leaf is guaranteed to be selectable.
-    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as CompositeType));
+    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet.cloneIfFrozen() : new SelectionSet(type as CompositeType));
   }
 
   key(): string {
@@ -999,6 +1067,19 @@ export class FieldSelection {
     return new FieldSelection(this.field, this.selectionSet.filter(predicate));
   }
 
+  freeze() {
+    this.selectionSet?.freeze();
+    this._isFrozen = true;
+  }
+
+  isFrozen(): boolean {
+    return this._isFrozen;
+  }
+
+  cloneIfFrozen(): FieldSelection {
+    return this.isFrozen() ? this.clone() : this;
+  }
+
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FieldSelection {
     const expandedSelection = this.selectionSet ? this.selectionSet.expandFragments(names, updateSelectionSetFragments) : undefined;
     return this.selectionSet === expandedSelection
@@ -1034,7 +1115,9 @@ export class FieldSelection {
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const updatedField = this.field.updateForAddingTo(selectionSet);
-    return this.field === updatedField ? this : new FieldSelection(updatedField, this.selectionSet);
+    return this.field === updatedField
+      ? this.cloneIfFrozen()
+      : new FieldSelection(updatedField, this.selectionSet?.cloneIfFrozen());
   }
 
   toSelectionNode(): FieldNode {
@@ -1095,6 +1178,7 @@ export class FieldSelection {
 
 export abstract class FragmentSelection {
   readonly kind = 'FragmentSelection' as const;
+  private _isFrozen: boolean = false;
 
   abstract key(): string;
 
@@ -1120,7 +1204,9 @@ export abstract class FragmentSelection {
 
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
     const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    return this.element() === updatedFragment ? this : new InlineFragmentSelection(updatedFragment, this.selectionSet);
+    return this.element() === updatedFragment
+      ? this.cloneIfFrozen()
+      : new InlineFragmentSelection(updatedFragment, this.selectionSet.cloneIfFrozen());
   }
 
   filter(predicate: (selection: Selection) => boolean): InlineFragmentSelection | undefined {
@@ -1131,6 +1217,18 @@ export abstract class FragmentSelection {
     return new InlineFragmentSelection(this.element(), this.selectionSet.filter(predicate));
   }
 
+  freeze() {
+    this.selectionSet.freeze();
+    this._isFrozen = true;
+  }
+
+  isFrozen(): boolean {
+    return this._isFrozen;
+  }
+
+  cloneIfFrozen(): FragmentSelection {
+    return this.isFrozen() ? this.clone() : this;
+  }
 
   equals(that: Selection): boolean {
     if (this === that) {
@@ -1162,7 +1260,7 @@ class InlineFragmentSelection extends FragmentSelection {
     super();
     // TODO: we should do validate the type of the initial selection set.
     this._selectionSet = initialSelectionSet
-      ? initialSelectionSet
+      ? initialSelectionSet.cloneIfFrozen()
       : new SelectionSet(fragmentElement.typeCondition ? fragmentElement.typeCondition : fragmentElement.parentType);
   }
 

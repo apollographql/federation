@@ -1854,6 +1854,147 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it('planning does not modify the underlying query graph', () => {
+    // Test the fixes for issue #1750. Before that fix, the 2nd query planned in this
+    // test was unexpectedly mutating some edge conditions of the query planner underlying
+    // query graph, resulting in the last assertion of this test failing (despite the
+    // 2 compared plans being for the exact same query).
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          entity: Entity
+        }
+
+        type Entity @key(fields: "k") {
+          k: String
+          f1: ValueType
+        }
+
+        type ValueType @shareable {
+          v1: String
+          v2: String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Entity @key(fields: "k") {
+          k: String
+          f1: ValueType @external
+          f2: String @requires(fields: "f1 { v1 }")
+          f3: String @requires(fields: "f1 { v2 }")
+        }
+
+        type ValueType @shareable {
+          v1: String
+          v2: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const op1 = operationFromDocument(api, gql`
+      {
+        entity {
+          f2
+          f3
+        }
+      }
+    `);
+
+    const op2 = operationFromDocument(api, gql`
+      {
+        entity {
+          f3
+        }
+      }
+    `);
+
+    const plan1 = queryPlanner.buildQueryPlan(op2);
+    const expectedPlan = `
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              entity {
+                __typename
+                k
+                f1 {
+                  v2
+                }
+              }
+            }
+          },
+          Flatten(path: "entity") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on Entity {
+                  __typename
+                  k
+                  f1 {
+                    v2
+                  }
+                }
+              } =>
+              {
+                ... on Entity {
+                  f3
+                }
+              }
+            },
+          },
+        },
+      }
+    `;
+    expect(plan1).toMatchInlineSnapshot(expectedPlan);
+
+    const plan2 = queryPlanner.buildQueryPlan(op1);
+    expect(plan2).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              entity {
+                __typename
+                k
+                f1 {
+                  v2
+                  v1
+                }
+              }
+            }
+          },
+          Flatten(path: "entity") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on Entity {
+                  __typename
+                  k
+                  f1 {
+                    v2
+                    v1
+                  }
+                }
+              } =>
+              {
+                ... on Entity {
+                  f2
+                  f3
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    const plan3 = queryPlanner.buildQueryPlan(op2);
+    expect(plan3).toMatchInlineSnapshot(expectedPlan);
+  });
 });
 
 describe('fetch operation names', () => {
@@ -2115,3 +2256,4 @@ test('Correctly handle case where there is too many plans to consider', () => {
   queriedFields.sort();
   expect(queriedFields).toStrictEqual(fields);
 });
+
