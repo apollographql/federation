@@ -3215,12 +3215,16 @@ function copy(source: Schema, dest: Schema) {
   for (const type of typesToCopy(source, dest)) {
     dest.addType(newNamedType(type.kind, type.name));
   }
+  // Same for directives (which can use other directives in their arguments)
   for (const directive of directivesToCopy(source, dest)) {
-    copyDirectiveDefinitionInner(directive, dest.addDirectiveDefinition(directive.name));
+    dest.addDirectiveDefinition(directive.name)
   }
   copySchemaDefinitionInner(source.schemaDefinition, dest.schemaDefinition);
   for (const type of typesToCopy(source, dest)) {
     copyNamedTypeInner(type, dest.type(type.name)!);
+  }
+  for (const directive of directivesToCopy(source, dest)) {
+    copyDirectiveDefinitionInner(directive, dest.directive(directive.name)!);
   }
 }
 
