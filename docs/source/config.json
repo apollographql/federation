@@ -47,16 +47,6 @@
       "Opt-in error reporting": "/managed-federation/error-reporting",
       "Studio features": "https://www.apollographql.com/docs/studio/federated-graphs/"
     },
-    "Enterprise Guide": {
-      "Introduction": "/enterprise-guide/introduction",
-      "GraphQL consolidation": "/enterprise-guide/graphql-consolidation",
-      "Federated schema design": "/enterprise-guide/federated-schema-design",
-      "Graph administration": "/enterprise-guide/graph-administration",
-      "Graph security": "/enterprise-guide/graph-security",
-      "Change management": "/enterprise-guide/change-management",
-      "Federation case studies": "/enterprise-guide/federation-case-studies",
-      "Additional resources": "/enterprise-guide/additional-resources"
-    },
     "Performance": {
       "Caching": "/performance/caching",
       "Monitoring": "/performance/monitoring",
