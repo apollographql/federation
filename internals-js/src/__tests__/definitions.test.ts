@@ -590,6 +590,72 @@ test('default arguments for directives', () => {
   expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 }});
 });
 
+describe('clone', () => {
+  it('should allow directive application before definition', () => {
+    const schema = buildSchema(`
+      directive @foo(arg: String @wizz(arg: "foo")) on FIELD_DEFINITION
+      directive @wizz(arg: String @fuzz(arg: "wizz")) on ARGUMENT_DEFINITION
+      directive @fuzz(arg: String @buzz(arg: "fuzz")) on ARGUMENT_DEFINITION
+      directive @buzz(arg: String @baz(arg: "buzz")) on ARGUMENT_DEFINITION
+      directive @baz(arg: String @bar) on ARGUMENT_DEFINITION
+      directive @bar on ARGUMENT_DEFINITION
+
+      type Query {
+        foo: String! @foo(arg: "query")
+      }
+    `).clone();
+
+    expect(schema.elementByCoordinate("@foo")).toBeDefined();
+    expect(schema.elementByCoordinate("@wizz")).toBeDefined();
+    expect(schema.elementByCoordinate("@fuzz")).toBeDefined();
+    expect(schema.elementByCoordinate("@buzz")).toBeDefined();
+    expect(schema.elementByCoordinate("@baz")).toBeDefined();
+    expect(schema.elementByCoordinate("@bar")).toBeDefined();
+  });
+
+  it('should allow using a core feature in a directive', () => {
+    const subgraph = buildSubgraph('subgraph', '', `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+      directive @foo(arg: String @tag(name: "tag")) on FIELD_DEFINITION
+
+      type Query {
+        hi: String! @foo
+      }
+    `);
+    const schema = subgraph.schema.clone();
+    expect(schema.elementByCoordinate("@foo")).toBeDefined();
+    expect(schema.elementByCoordinate("@bar")).toBeDefined();
+  });
+
+  it('should allow type use in directives', () => {
+    const schema = buildSchema(`
+      scalar Thing
+      directive @foo(arg: Thing!) on FIELD_DEFINITION
+
+      type Query {
+        foo: String! @foo(arg: "sunshine")
+      }
+    `).clone();
+
+    expect(schema.elementByCoordinate("@foo")).toBeDefined();
+  });
+
+  it('should error on recursive directive definitions', () => {
+    const schema = buildSchema(`
+      directive @foo(a: Int @bar) on ARGUMENT_DEFINITION
+      directive @bar(b: Int @foo) on ARGUMENT_DEFINITION
+
+      type Query {
+        getData(arg: String @foo): String!
+      }
+    `).clone();
+    expect(schema.elementByCoordinate("@foo")).toBeDefined();
+    expect(schema.elementByCoordinate("@bar")).toBeDefined();
+  });
+});
+
 test('correctly convert to a graphQL-js schema', () => {
   const sdl = `
     schema {
