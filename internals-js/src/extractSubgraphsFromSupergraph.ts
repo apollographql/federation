@@ -72,244 +72,269 @@ function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition)
   return [subgraphs, graphEnumNameToSubgraphName];
 }
 
+class SubgraphExtractionError {
+  constructor(
+    readonly originalError: any,
+    readonly subgraph: Subgraph,
+  ) {
+  }
+}
+
 export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   const [coreFeatures, joinSpec] = validateSupergraph(supergraph);
   const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
+  try {
+    // We first collect the subgraphs (creating an empty schema that we'll populate next for each).
+    const [subgraphs, graphEnumNameToSubgraphName] = collectEmptySubgraphs(supergraph, joinSpec);
+    const typeDirective = joinSpec.typeDirective(supergraph);
+    const implementsDirective = joinSpec.implementsDirective(supergraph);
 
-  // We first collect the subgraphs (creating an empty schema that we'll populate next for each).
-  const [subgraphs, graphEnumNameToSubgraphName] = collectEmptySubgraphs(supergraph, joinSpec);
-  const typeDirective = joinSpec.typeDirective(supergraph);
-  const implementsDirective = joinSpec.implementsDirective(supergraph);
-
-  // Next, we iterate on all types and add it to the proper subgraphs (along with any @key).
-  // Note that we first add all types empty and populate the types next. This avoids having to care about the iteration
-  // order if we have fields than depends on other types.
-  for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
-    const typeApplications = type.appliedDirectivesOf(typeDirective);
-    if (!typeApplications.length) {
-      // Imply the type is in all subgraphs (technically, some subgraphs may not have had this type, but adding it
-      // in that case is harmless because it will be unreachable anyway).
-      subgraphs.values().map(sg => sg.schema).forEach(schema => schema.addType(newNamedType(type.kind, type.name)));
-    } else {
-      for (const application of typeApplications) {
-        const args = application.arguments();
-        const subgraphName = graphEnumNameToSubgraphName.get(args.graph)!;
-        const schema = subgraphs.get(subgraphName)!.schema;
-        // We can have more than one type directive for a given subgraph
-        let subgraphType = schema.type(type.name);
-        if (!subgraphType) {
-          subgraphType = schema.addType(newNamedType(type.kind, type.name));
-        }
-        if (args.key) {
-          const { resolvable } = args;
-          const directive = subgraphType.applyDirective('key', {'fields': args.key, resolvable});
-          if (args.extension) {
-            directive.setOfExtension(subgraphType.newExtension());
+    // Next, we iterate on all types and add it to the proper subgraphs (along with any @key).
+    // Note that we first add all types empty and populate the types next. This avoids having to care about the iteration
+    // order if we have fields than depends on other types.
+    for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
+      const typeApplications = type.appliedDirectivesOf(typeDirective);
+      if (!typeApplications.length) {
+        // Imply the type is in all subgraphs (technically, some subgraphs may not have had this type, but adding it
+        // in that case is harmless because it will be unreachable anyway).
+        subgraphs.values().map(sg => sg.schema).forEach(schema => schema.addType(newNamedType(type.kind, type.name)));
+      } else {
+        for (const application of typeApplications) {
+          const args = application.arguments();
+          const subgraphName = graphEnumNameToSubgraphName.get(args.graph)!;
+          const schema = subgraphs.get(subgraphName)!.schema;
+          // We can have more than one type directive for a given subgraph
+          let subgraphType = schema.type(type.name);
+          if (!subgraphType) {
+            subgraphType = schema.addType(newNamedType(type.kind, type.name));
+          }
+          if (args.key) {
+            const { resolvable } = args;
+            const directive = subgraphType.applyDirective('key', {'fields': args.key, resolvable});
+            if (args.extension) {
+              directive.setOfExtension(subgraphType.newExtension());
+            }
           }
         }
       }
     }
-  }
 
-  const ownerDirective = joinSpec.ownerDirective(supergraph);
-  const fieldDirective = joinSpec.fieldDirective(supergraph);
-  // We can now populate all those types (with relevant @provides and @requires on fields).
-  for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
-    switch (type.kind) {
-      case 'ObjectType':
-      // @ts-expect-error: we fall-through the inputObjectType for fields.
-      case 'InterfaceType':
-        const addedInterfaces = [];
-        const implementsApplications = implementsDirective ? type.appliedDirectivesOf(implementsDirective) : [];
-        for (const application of implementsApplications) {
-          const args = application.arguments();
-          const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
-          const schema = subgraph.schema;
-          (schema.type(type.name)! as (ObjectType | InterfaceType)).addImplementedInterface(args.interface);
-          addedInterfaces.push(args.interface);
-        }
-        for (const implementations of type.interfaceImplementations()) {
-          // If the object/interface implements an interface but we had no @join__implements for it (which will
-          // always be the case for join v0.1 in particular), then that means the object/interface should implement
-          // the interface in all subgraphs (which contains both types).
-          const name = implementations.interface.name;
-          if (!addedInterfaces.includes(name)) {
-            for (const subgraph of subgraphs) {
-              const subgraphType = subgraph.schema.type(type.name);
-              const subgraphItf = subgraph.schema.type(name);
-              if (subgraphType && subgraphItf) {
-                (subgraphType as (ObjectType | InterfaceType)).addImplementedInterface(name);
-              }
-            }
-          }
-        }
-        // Fall-through on purpose.
-      case 'InputObjectType':
-        for (const field of type.fields()) {
-          const fieldApplications = field.appliedDirectivesOf(fieldDirective);
-          if (!fieldApplications.length) {
-            // The meaning of having no join__field depends on whether the parent type has a join__owner.
-            // If it does, it means the field is only on that owner subgraph. Otherwise, we kind of don't
-            // know, so we add it to all subgraphs that have the parent type and, if the field base type
-            // is a named type, know that field type.
-            const ownerApplications = ownerDirective ? type.appliedDirectivesOf(ownerDirective) : [];
-            if (!ownerApplications.length) {
-              const fieldBaseType = baseType(field.type!);
-              for (const subgraph of subgraphs) {
-                if (subgraph.schema.type(fieldBaseType.name)) {
-                  addSubgraphField(field, subgraph);
-                }
-              }
-            } else {
-              assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`)
-              const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
-              const subgraphField = addSubgraphField(field, subgraph);
-              assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
-            }
-          } else {
-            for (const application of fieldApplications) {
-              const args = application.arguments();
-              const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
-              const subgraphField = addSubgraphField(field, subgraph, args.type);
-              assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
-              if (args.requires) {
-                subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': args.requires});
-              }
-              if (args.provides) {
-                subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': args.provides});
-              }
-              if (args.external) {
-                subgraphField.applyDirective(subgraph.metadata().externalDirective());
-              }
-              if (args.usedOverridden) {
-                subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
-              }
-              if (args.override) {
-                subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': args.override});
-              }
-            }
-          }
-        }
-        break;
-      case 'EnumType':
-        // TODO: it's not guaranteed that every enum value was in every subgraph declaring the enum and we should preserve
-        // that info with the join spec. But for now, we add every values to all subgraphs (having the enum)
-        for (const subgraph of subgraphs) {
-          const subgraphEnum = subgraph.schema.type(type.name);
-          if (!subgraphEnum) {
-            continue;
-          }
-          assert(isEnumType(subgraphEnum), () => `${subgraphEnum} should be an enum but found a ${subgraphEnum.kind}`);
-          for (const value of type.values) {
-            subgraphEnum.addValue(value.name);
-          }
-        }
-        break;
-      case 'UnionType':
-        // TODO: Same as for enums. We need to know in which subgraph each member is defined.
-        // But for now, we also add every members to all subgraphs (as long as the subgraph has both the union type
-        // and the member in question).
-        for (const subgraph of subgraphs) {
-          const subgraphUnion = subgraph.schema.type(type.name);
-          if (!subgraphUnion) {
-            continue;
-          }
-          assert(isUnionType(subgraphUnion), () => `${subgraphUnion} should be an enum but found a ${subgraphUnion.kind}`);
-          for (const memberType of type.types()) {
-            const subgraphType = subgraph.schema.type(memberType.name);
-            if (subgraphType) {
-              subgraphUnion.addType(subgraphType as ObjectType);
-            }
-          }
-        }
-        break;
-    }
-  }
-
-  for (const subgraph of subgraphs) {
-    if (isFed1) {
-      // The join spec in fed1 was not including external fields. Let's make sure we had them or we'll get validation
-      // errors later.
-      addExternalFields(subgraph, supergraph, isFed1);
-    }
-    removeInactiveProvidesAndRequires(subgraph.schema);
-
-    // We now do an additional path on all types because we sometimes added types to subgraphs without
-    // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
-    // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
-    // didn't belong to the subgraph in the first) and we need to remove them.
-    // Note that need to do this _after_ the `addExternalFields` call above since it may have added (external) fields
-    // to some of the types.
-    for (const type of subgraph.schema.types()) {
+    const ownerDirective = joinSpec.ownerDirective(supergraph);
+    const fieldDirective = joinSpec.fieldDirective(supergraph);
+    // We can now populate all those types (with relevant @provides and @requires on fields).
+    for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
       switch (type.kind) {
         case 'ObjectType':
+          // @ts-expect-error: we fall-through the inputObjectType for fields.
         case 'InterfaceType':
+          const addedInterfaces = [];
+          const implementsApplications = implementsDirective ? type.appliedDirectivesOf(implementsDirective) : [];
+          for (const application of implementsApplications) {
+            const args = application.arguments();
+            const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
+            const schema = subgraph.schema;
+            (schema.type(type.name)! as (ObjectType | InterfaceType)).addImplementedInterface(args.interface);
+            addedInterfaces.push(args.interface);
+          }
+          for (const implementations of type.interfaceImplementations()) {
+            // If the object/interface implements an interface but we had no @join__implements for it (which will
+            // always be the case for join v0.1 in particular), then that means the object/interface should implement
+            // the interface in all subgraphs (which contains both types).
+            const name = implementations.interface.name;
+            if (!addedInterfaces.includes(name)) {
+              for (const subgraph of subgraphs) {
+                const subgraphType = subgraph.schema.type(type.name);
+                const subgraphItf = subgraph.schema.type(name);
+                if (subgraphType && subgraphItf) {
+                  (subgraphType as (ObjectType | InterfaceType)).addImplementedInterface(name);
+                }
+              }
+            }
+          }
+          // Fall-through on purpose.
         case 'InputObjectType':
-          if (!type.hasFields()) {
-            // Note that we have to use removeRecursive or this could leave the subgraph invalid. But if the
-            // type was not in this subgraphs, nothing that depends on it should be either.
-            type.removeRecursive();
+          for (const field of type.fields()) {
+            const fieldApplications = field.appliedDirectivesOf(fieldDirective);
+            if (!fieldApplications.length) {
+              // The meaning of having no join__field depends on whether the parent type has a join__owner.
+              // If it does, it means the field is only on that owner subgraph. Otherwise, we kind of don't
+              // know, so we add it to all subgraphs that have the parent type and, if the field base type
+              // is a named type, know that field type.
+              const ownerApplications = ownerDirective ? type.appliedDirectivesOf(ownerDirective) : [];
+              if (!ownerApplications.length) {
+                const fieldBaseType = baseType(field.type!);
+                for (const subgraph of subgraphs) {
+                  if (subgraph.schema.type(fieldBaseType.name)) {
+                    addSubgraphField(field, subgraph);
+                  }
+                }
+              } else {
+                assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`)
+                const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
+                const subgraphField = addSubgraphField(field, subgraph);
+                assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
+              }
+            } else {
+              for (const application of fieldApplications) {
+                const args = application.arguments();
+                const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
+                const subgraphField = addSubgraphField(field, subgraph, args.type);
+                assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
+                if (args.requires) {
+                  subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': args.requires});
+                }
+                if (args.provides) {
+                  subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': args.provides});
+                }
+                if (args.external) {
+                  subgraphField.applyDirective(subgraph.metadata().externalDirective());
+                }
+                if (args.usedOverridden) {
+                  subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
+                }
+                if (args.override) {
+                  subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': args.override});
+                }
+              }
+            }
+          }
+          break;
+        case 'EnumType':
+          // TODO: it's not guaranteed that every enum value was in every subgraph declaring the enum and we should preserve
+          // that info with the join spec. But for now, we add every values to all subgraphs (having the enum)
+          for (const subgraph of subgraphs) {
+            const subgraphEnum = subgraph.schema.type(type.name);
+            if (!subgraphEnum) {
+              continue;
+            }
+            assert(isEnumType(subgraphEnum), () => `${subgraphEnum} should be an enum but found a ${subgraphEnum.kind}`);
+            for (const value of type.values) {
+              subgraphEnum.addValue(value.name);
+            }
           }
           break;
         case 'UnionType':
-          if (type.membersCount() === 0) {
-            type.removeRecursive();
+          // TODO: Same as for enums. We need to know in which subgraph each member is defined.
+          // But for now, we also add every members to all subgraphs (as long as the subgraph has both the union type
+          // and the member in question).
+          for (const subgraph of subgraphs) {
+            const subgraphUnion = subgraph.schema.type(type.name);
+            if (!subgraphUnion) {
+              continue;
+            }
+            assert(isUnionType(subgraphUnion), () => `${subgraphUnion} should be an enum but found a ${subgraphUnion.kind}`);
+            for (const memberType of type.types()) {
+              const subgraphType = subgraph.schema.type(memberType.name);
+              if (subgraphType) {
+                subgraphUnion.addType(subgraphType as ObjectType);
+              }
+            }
           }
           break;
       }
     }
-  }
 
-  // TODO: Not sure that code is needed anymore (any field necessary to validate an interface will have been marked
-  // external)?
-  if (isFed1) {
-    // We now make a pass on every field of every interface and check that all implementers do have that field (even if
-    // external). If not (which can happen because, again, the v0.1 spec had no information on where an interface was
-    // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
-    // of an extension and be only in a few subgraphs), we remove the field or the subgraph would be invalid.
     for (const subgraph of subgraphs) {
-      for (const itf of subgraph.schema.interfaceTypes()) {
-        // We only look at objects because interfaces are handled by this own loop in practice.
-        const implementations = itf.possibleRuntimeTypes();
-        for (const field of itf.fields()) {
-          if (!implementations.every(implem => implem.field(field.name))) {
-            field.remove();
+      if (isFed1) {
+        // The join spec in fed1 was not including external fields. Let's make sure we had them or we'll get validation
+        // errors later.
+        addExternalFields(subgraph, supergraph, isFed1);
+      }
+      removeInactiveProvidesAndRequires(subgraph.schema);
+
+      // We now do an additional path on all types because we sometimes added types to subgraphs without
+      // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
+      // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
+      // didn't belong to the subgraph in the first) and we need to remove them.
+      // Note that need to do this _after_ the `addExternalFields` call above since it may have added (external) fields
+      // to some of the types.
+      for (const type of subgraph.schema.types()) {
+        switch (type.kind) {
+          case 'ObjectType':
+          case 'InterfaceType':
+          case 'InputObjectType':
+            if (!type.hasFields()) {
+              // Note that we have to use removeRecursive or this could leave the subgraph invalid. But if the
+              // type was not in this subgraphs, nothing that depends on it should be either.
+              type.removeRecursive();
+            }
+            break;
+          case 'UnionType':
+            if (type.membersCount() === 0) {
+              type.removeRecursive();
+            }
+            break;
+        }
+      }
+    }
+
+    // TODO: Not sure that code is needed anymore (any field necessary to validate an interface will have been marked
+    // external)?
+    if (isFed1) {
+      // We now make a pass on every field of every interface and check that all implementers do have that field (even if
+      // external). If not (which can happen because, again, the v0.1 spec had no information on where an interface was
+      // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
+      // of an extension and be only in a few subgraphs), we remove the field or the subgraph would be invalid.
+      for (const subgraph of subgraphs) {
+        for (const itf of subgraph.schema.interfaceTypes()) {
+          // We only look at objects because interfaces are handled by this own loop in practice.
+          const implementations = itf.possibleRuntimeTypes();
+          for (const field of itf.fields()) {
+            if (!implementations.every(implem => implem.field(field.name))) {
+              field.remove();
+            }
+          }
+          // And it may be that the interface wasn't part of the subgraph at all!
+          if (!itf.hasFields()) {
+            itf.remove();
           }
         }
-        // And it may be that the interface wasn't part of the subgraph at all!
-        if (!itf.hasFields()) {
-          itf.remove();
-        }
       }
     }
-  }
 
-  // We're done with the subgraphs, so call validate (which, amongst other things, sets up the _entities query field, which ensures
-  // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
-  for (const subgraph of subgraphs) {
-    try {
-      subgraph.validate();
-    } catch (e) {
-      // There is 2 reasons this could happen:
-      // 1. if the subgraph is a Fed1 one, because fed2 has stricter validation than fed1, this could be due to the supergraph having been generated by fed1 and
-      //    containing something invalid that fed1 accepted and fed2 didn't (for instance, an invalid `@provides` selection).
-      // 2. otherwise, this would be a bug (because fed1 compatibility excluded, we shouldn't extract invalid subgraphs from valid supergraphs).
-      // We throw essentially the same thing in both cases, but adapt the message slightly.
-      if (isFed1) {
-        // Note that this could be a bug with the code handling fed1 as well, but it's more helpful to ask users to recompose their subgraphs with fed2 as either
-        // it'll solve the issue and that's good, or we'll hit the other message anyway.
-        const msg = `Error extracting subgraph "${subgraph.name}" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
-          + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph';
-        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}`);
-      } else {
-        const msg = `Unexpected error extracting subgraph ${subgraph.name} from the supergraph: this is either a bug, or the supergraph has been corrupted`;
-        const dumpMsg = maybeDumpSubgraphSchema(subgraph);
-        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}\n\n${dumpMsg}`);
+    // We're done with the subgraphs, so call validate (which, amongst other things, sets up the _entities query field, which ensures
+    // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
+    for (const subgraph of subgraphs) {
+      try {
+        subgraph.validate();
+      } catch (e) {
+        // This is going to be caught directly by the enclosing try-catch, but this is so we indicate the subgraph having the issue.
+        throw new SubgraphExtractionError(e, subgraph);
       }
     }
-  }
 
-  return subgraphs;
+    return subgraphs;
+  } catch (e) {
+    let error = e;
+    let subgraph: Subgraph | undefined = undefined;
+    // We want this catch to capture all errors happening during extraction, but the most common
+    // case is likely going to be fed2 validation that fed1 didn't enforced, and those will be
+    // throw when validating the extracted subgraphs, and n that case we use
+    // `SubgraphExtractionError` to pass the subgraph that errored out, which allows us
+    // to provide a bit more context in those cases.
+    if (e instanceof SubgraphExtractionError) {
+      error = e.originalError;
+      subgraph = e.subgraph;
+    }
+
+    // There is 2 reasons this could happen:
+    // 1. if the supergraph is a Fed1 one, because fed2 has stricter validations than fed1, this could be due to the supergraph
+    //    containing something invalid that fed1 accepted and fed2 didn't (for instance, an invalid `@provides` selection).
+    // 2. otherwise, this would be a bug (because fed1 compatibility excluded, we shouldn't extract invalid subgraphs from valid supergraphs).
+    // We throw essentially the same thing in both cases, but adapt the message slightly.
+    const impacted = subgraph ? `subgraph "${subgraph.name}"` : 'subgraphs';
+    if (isFed1) {
+      // Note that this could be a bug with the code handling fed1 as well, but it's more helpful to ask users to recompose their subgraphs with fed2 as either
+      // it'll solve the issue and that's good, or we'll hit the other message anyway.
+      const msg = `Error extracting ${impacted} from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
+        + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph';
+      throw new Error(`${msg}.\n\nDetails:\n${errorToString(error)}`);
+    } else {
+      const msg = `Unexpected error extracting ${impacted} from the supergraph: this is either a bug, or the supergraph has been corrupted`;
+      const dumpMsg = subgraph ? '\n\n' + maybeDumpSubgraphSchema(subgraph) : '';
+      throw new Error(`${msg}.\n\nDetails:\n${errorToString(error)}${dumpMsg}`);
+    }
+  }
 }
 
 const DEBUG_SUBGRAPHS_ENV_VARIABLE_NAME = 'APOLLO_FEDERATION_DEBUG_SUBGRAPHS';
@@ -401,8 +426,8 @@ function copyType(type: Type, subgraph: Schema, subgraphName: string): Type {
       return new NonNullType(copyType(type.ofType, subgraph, subgraphName) as NullableType);
     default:
       const subgraphType = subgraph.type(type.name);
-      assert(subgraphType, () => `Cannot find type ${type.name} in subgraph ${subgraphName}`);
-      return subgraphType!;
+      assert(subgraphType, () => `Cannot find type "${type.name}" in subgraph "${subgraphName}"`);
+      return subgraphType;
   }
 }
 
