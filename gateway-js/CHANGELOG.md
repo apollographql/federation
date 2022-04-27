@@ -2,6 +2,10 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## vNEXT
+
+- The `fetch` implementation returned by `getDefaultFetcher` no longer performs in-memory caching. This fetcher is currently only used by `@apollo/gateway` to make uncacheable `POST` requests to Uplink, so this is a no-op for Gateway's own behavior, but if you used the function returned `getDefaultFetcher` in your own code to perform `GET` requests against servers that return cache-related response headers, it will no longer cache results. You can use the underlying [`make-fetch-happen`](https://www.npmjs.com/package/make-fetch-happen) package directly to use its cache capabilities instead of using the function returned by `getDefaultFetcher`. [PR #1792](https://github.com/apollographql/federation/pull/1792)
+
 ## v2.0.2-alpha.0
 
 - Improve fed1 schema support during composition [PR #1735](https://github.com/apollographql/federation/pull/1735)
