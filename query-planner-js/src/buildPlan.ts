@@ -1482,10 +1482,15 @@ function computeGroupsForTree(
   initialMergeAt: ResponsePath = [],
   initialPath: OperationPath = [],
 ): FetchGroup[] {
-  const stack: [OpPathTree, FetchGroup, ResponsePath, OperationPath][] = [[pathTree, startGroup, initialMergeAt, initialPath]];
+  const stack: {
+    tree: OpPathTree,
+    group: FetchGroup,
+    mergeAt: ResponsePath,
+    path: OperationPath,
+  }[] = [{ tree: pathTree, group: startGroup, mergeAt: initialMergeAt, path: initialPath }];
   const createdGroups = [ ];
   while (stack.length > 0) {
-    const [tree, group, mergeAt, path] = stack.pop()!;
+    const {tree, group, mergeAt, path} = stack.pop()!;
     if (tree.isLeaf()) {
       group.addSelection(path);
     } else {
@@ -1520,7 +1525,7 @@ function computeGroupsForTree(
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
 
-            stack.push([child, newGroup, mergeAt, newPath]);
+            stack.push({tree: child, group: newGroup, mergeAt, path: newPath});
           } else {
             assert(edge.transition.kind === 'RootTypeResolution', () => `Unexpected non-collecting edge ${edge}`);
             const rootKind = edge.transition.rootKind;
@@ -1541,7 +1546,7 @@ function computeGroupsForTree(
             // preserve this ordering somewhat (debatable, possibly).
             const newGroup = dependencyGraph.newRootTypeFetchGroup(edge.tail.source, rootKind, type, mergeAt, group, path);
             const newPath = createNewFetchSelectionContext(type, undefined, operation)[1];
-            stack.push([child, newGroup, mergeAt, newPath]);
+            stack.push({tree: child, group: newGroup, mergeAt, path: newPath });
           }
         } else if (edge === null) {
           // A null edge means that the operation does nothing but may contain directives to preserve.
@@ -1549,16 +1554,13 @@ function computeGroupsForTree(
           // as a minor optimization (it makes the query slighly smaller, but on complex queries, it
           // might also deduplicate similar selections).
           const newPath = operation.appliedDirectives.length === 0 ? path : path.concat(operation);
-          stack.push([child, group, mergeAt, newPath]);
+          stack.push({ tree: child, group, mergeAt, path: newPath });
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
-          let updatedGroup = group;
-          let updatedMergeAt = mergeAt;
-          let updatedPath = path;
+          const updated = { tree: child, group, mergeAt, path };
           if (conditions) {
             // We have some @requires.
-            let createdForRequires = [];
-            [updatedGroup, updatedMergeAt, updatedPath, createdForRequires] =  handleRequires(
+            const requireResult =  handleRequires(
               dependencyGraph,
               edge,
               conditions,
@@ -1566,13 +1568,17 @@ function computeGroupsForTree(
               mergeAt,
               path
             );
-            createdGroups.push(...createdForRequires);
+            updated.group = requireResult.group;
+            updated.mergeAt = requireResult.mergeAt;
+            updated.path = requireResult.path;
+            createdGroups.push(...requireResult.createdGroups);
           }
 
-          const newMergeAt = operation.kind === 'Field'
-            ? addToResponsePath(updatedMergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type!)
-            : updatedMergeAt;
-          stack.push([child, updatedGroup, newMergeAt, updatedPath.concat(operation)]);
+          if (operation.kind === 'Field') {
+            updated.mergeAt = addToResponsePath(updated.mergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type!);
+          }
+          updated.path = updated.path.concat(operation);
+          stack.push(updated);
         }
       }
     }
@@ -1607,7 +1613,12 @@ function handleRequires(
   group: FetchGroup,
   mergeAt: ResponsePath,
   path: OperationPath
-): [FetchGroup, ResponsePath, OperationPath, FetchGroup[]] {
+): {
+  group: FetchGroup,
+  mergeAt: ResponsePath,
+  path: OperationPath,
+  createdGroups: FetchGroup[],
+} {
   // @requires should be on an entity type, and we only support object types right now
   const entityType = edge.head.type as ObjectType;
 
@@ -1631,7 +1642,7 @@ function handleRequires(
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
       group.mergeIn(newGroup, path);
-      return [group, mergeAt, path, []];
+      return {group, mergeAt, path, createdGroups: []};
     }
 
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
@@ -1732,7 +1743,7 @@ function handleRequires(
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
       group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, false)[0]);
-      return [group, mergeAt, path, []];
+      return { group, mergeAt, path, createdGroups: [] };
     }
 
     // If we get here, it means the @require needs the information from `createdGroups` _and_ those
@@ -1743,13 +1754,18 @@ function handleRequires(
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
     postRequireGroup.addInputs(inputs);
-    return [postRequireGroup, mergeAt, newPath, unmergedGroups.concat(postRequireGroup)];
+    return {
+      group: postRequireGroup,
+      mergeAt,
+      path: newPath,
+      createdGroups: unmergedGroups.concat(postRequireGroup),
+    };
   } else {
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, mergeAt, path);
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {
-      return [group, mergeAt, path, []];
+      return { group, mergeAt, path, createdGroups: []};
     }
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
@@ -1758,7 +1774,7 @@ function handleRequires(
     newGroup.addDependencyOn(createdGroups);
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     newGroup.addInputs(inputs);
-    return [newGroup, mergeAt, newPath, createdGroups];
+    return { group: newGroup, mergeAt, path: newPath, createdGroups };
   }
 }
 
