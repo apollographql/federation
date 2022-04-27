@@ -1,5 +1,6 @@
 /v2/* /docs/federation/:splat
 /workbench/* /docs/federation/v1/workbench/:splat
+/enterprise-guide/* /docs/enterprise-guide/:splat
 
 /value-types/ /docs/federation/v2/federated-types/sharing-types/
 /federated-types/value-types/  /docs/federation/v2/federated-types/sharing-types/
