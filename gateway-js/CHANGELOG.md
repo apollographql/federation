@@ -6,7 +6,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually)
 
- - Nothing yet! Stay tuned.
+- The `fetch` implementation returned by `getDefaultFetcher` no longer performs in-memory caching. This fetcher is currently only used by `@apollo/gateway` to make uncacheable `POST` requests to Uplink, so this is a no-op for Gateway's own behavior, but if you used the function returned `getDefaultFetcher` in your own code to perform `GET` requests against servers that return cache-related response headers, it will no longer cache results. You can use the underlying [`make-fetch-happen`](https://www.npmjs.com/package/make-fetch-happen) package directly to use its cache capabilities instead of using the function returned by `getDefaultFetcher`. [PR #1792](https://github.com/apollographql/federation/pull/1792)
 
 ## v0.50.2
 
