@@ -5,9 +5,9 @@ description: Upgrade your supergraph incrementally at any pace
 
 > 📣 If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
-You can move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as you expect at each step in the process, even if some (or all!) of your subgraphs continue using Federation 1 schemas.
+You can and should move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even if some of your subgraphs continue using Federation 1 schemas.
 
-Each individual step of moving your supergraph has benefits, so it's useful to complete however many steps your team is ready to. You can always complete the rest later.
+Additionally, each individual step of moving your supergraph has benefits, so it's useful to complete however many steps your team is ready to. You can always complete the rest later.
 
 Here are the three steps for moving to Federation 2:
 
@@ -38,7 +38,10 @@ Alternatively, you can _swap out_ your supergraph's gateway for the **Apollo Rou
 
 ## Step 2: Configure your composition method
 
-Federation 2 uses a completely new method to compose supergraph schemas. This method is backward compatible with Federation 1 subgraph schemas, and it outputs [helpful hints](../hints/) when schema definitions are inconsistent between your subgraphs.
+Federation 2 uses a completely new method to compose supergraph schemas. This method is backward compatible with Federation 1 subgraph schemas, and it provides the following benefits even for Federation 1 subgraphs:
+
+* Helpful [composition hints](../hints/) when schema definitions are inconsistent between your subgraphs
+* Support for interfaces implementing _other_ interfaces (which Federation 1 composition doesn't support)
 
 Follow the instructions below to configure whichever composition method(s) you currently use:
 
@@ -114,9 +117,15 @@ Your Federation 1 subgraphs are now composed using Federation 2 composition! The
 
 ## Step 3: Update individual subgraph schemas
 
-If you want to take full advantage of Federation 2 features like improved control for type sharing, you now need to make some changes to your subgraph schemas. These changes are **backward incompatible** with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert the changes.
+> **You can update your subgraph schemas one at a time!** The steps below describe how to modify a single subgraph schema for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
 
-**You can update your subgraph schemas one at a time!** The steps below describe how to modify a single subgraph schema for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
+Federation 2 provides powerful new features that require making some changes to your subgraph schemas. These features include:
+
+* Selectively sharing types and fields across subgraphs with [`@shareable`](../federated-types/federated-directives#shareable)
+* Safely migrating fields from one subgraph to another with [`@override`](../federated-types/federated-directives#override)
+* Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-types/federated-directives#inaccessible)
+
+The schema changes you make are **backward incompatible** with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert the changes.
 
 ### Opt in to Federation 2
 
@@ -128,17 +137,15 @@ extend schema
         import: ["@key", "@shareable"])
 ```
 
-This definition identifies a schema as a true Federation 2 schema, and it `import`s any federation-specific directives that the schema uses.
+This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. _Without_ this definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
 
-> **Important:** Most subgraph schemas use the `@key` and `@shareable` directives, so we've included them in the snippet above. Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
+> **Important:** Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
 >
 > [See all Federation-specific directives.](../federated-types/federated-directives/)
 
-_Without_ the above definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
-
 #### Update `@apollo/subgraph`
 
-If your subgraphs use Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` to version `2.0.0` or later:
+If your subgraph uses Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` to version `2.0.0` or later:
 
 ```bash
 npm install @apollo/subgraph
