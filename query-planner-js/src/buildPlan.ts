@@ -1179,9 +1179,7 @@ class FetchDependencyGraph {
     }
 
     for (const group of this.groups) {
-      for (const adjacent of this.adjacencies[group.index]) {
-        this.dfsRemoveRedundantEdges(group.index, adjacent);
-      }
+      this.dfsRemoveRedundantEdges(group);
     }
 
     for (const group of this.rootGroups.values()) {
@@ -1243,6 +1241,24 @@ class FetchDependencyGraph {
             }
             merged.addSelections(g2.selection);
             this.onMergedIn(merged, g2);
+
+            // We're working on a minimal graph (we've done a transitive reduction beforehand) and we need to keep the graph
+            // minimal as post-reduce steps (the `process` method) rely on it. But merging 2 groups _can_ break minimality.
+            // Say we have:
+            //   0 ------
+            //            \
+            //             4
+            //   1 -- 3 --/
+            // and we merge groups 0 and 1 (and let's call 2 the result), then we now have:
+            //      ------
+            //     /       \
+            //   2 <-- 3 -- 4
+            // which is not minimal.
+            //
+            // So to fix it, we just re-run our dfs removal from that merged edge (which is probably a tad overkill in theory,
+            // but for the reasons mentioned on `reduce`, this is most likely a non-issue in practice). 
+            this.dfsRemoveRedundantEdges(merged);
+
             // As we've just changed the dependency graph, our current iterations are kind of invalid anymore. So
             // we simply call ourselves back on the current group, which will retry the newly modified dependencies.
             this.mergeDependentFetchesForSameSubgraphAndPath(group);
@@ -1266,14 +1282,18 @@ class FetchDependencyGraph {
     return this.adjacencies[group.index].map(i => this.groups[i]);
   }
 
-  private dfsRemoveRedundantEdges(parentVertex: number, startVertex: number) {
-    const parentAdjacencies = this.adjacencies[parentVertex];
-    const stack = [ ...this.adjacencies[startVertex] ];
-    while (stack.length > 0) {
-      const v = stack.pop()!;
-      removeInPlace(v, parentAdjacencies);
-      removeInPlace(parentVertex, this.inEdges[v]);
-      stack.push(...this.adjacencies[v]);
+  private dfsRemoveRedundantEdges(from: FetchGroup) {
+    for (const startVertex of this.adjacencies[from.index]) {
+      // Note that we re-get the adjacencies of our starting point in each loop because it may change
+      // between loop iterations.
+      const parentAdjacencies = this.adjacencies[from.index];
+      const stack = [ ...this.adjacencies[startVertex] ];
+      while (stack.length > 0) {
+        const v = stack.pop()!;
+        removeInPlace(v, parentAdjacencies);
+        removeInPlace(from.index, this.inEdges[v]);
+        stack.push(...this.adjacencies[v]);
+      }
     }
   }
 
@@ -1371,7 +1391,7 @@ class FetchDependencyGraph {
 
     const rootNodes: G[] = this.rootGroups.values().map(rootGroup => {
       const [node, remaining] = this.processGroup(processor, rootGroup, true);
-      assert(remaining.length == 0, `A root group should have no remaining groups unhandled`);
+      assert(remaining.length == 0, () => `Root group ${rootGroup} should have no remaining groups unhandled, but got ${remaining}`);
       return node;
     });
     return rootNodes;
