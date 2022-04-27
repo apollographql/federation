@@ -12,17 +12,19 @@ import {
   AuthenticationError,
   ForbiddenError,
 } from 'apollo-server-errors';
-import { fetch, Request, Headers, Response } from 'apollo-server-env';
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import { createHash } from '@apollo/utils.createhash';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
 import fetcher from 'make-fetch-happen';
+import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-fetch';
+import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
+
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
 > implements GraphQLDataSource<TContext>
 {
-  fetcher: typeof fetch;
+  fetcher: Fetcher;
 
   constructor(
     config?: Partial<RemoteGraphQLDataSource<TContext>> &
@@ -30,6 +32,11 @@ export class RemoteGraphQLDataSource<
       ThisType<RemoteGraphQLDataSource<TContext>>,
   ) {
     this.fetcher = fetcher.defaults({
+      // Allow an arbitrary number of sockets per subgraph. This is the default
+      // behavior of Node's http.Agent as well as the npm package agentkeepalive
+      // which wraps it, but is not the default behavior of make-fetch-happen
+      // which wraps agentkeepalive (that package sets this to 15 by default).
+      maxSockets: Infinity,
       // although this is the default, we want to take extra care and be very
       // explicity to ensure that mutations cannot be retried. please leave this
       // intact.
@@ -82,7 +89,12 @@ export class RemoteGraphQLDataSource<
     const context = originalContext as TContext;
 
     // Respect incoming http headers (eg, apollo-federation-include-trace).
-    const headers = (request.http && request.http.headers) || new Headers();
+    const headers = new NodeFetchHeaders();
+    if (request.http?.headers) {
+      for (const [name, value] of request.http.headers) {
+        headers.append(name, value);
+      }
+    }
     headers.set('Content-Type', 'application/json');
 
     request.http = {
@@ -177,20 +189,24 @@ export class RemoteGraphQLDataSource<
     // we're accessing (e.g. url) and what we access it with (e.g. headers).
     const { http, ...requestWithoutHttp } = request;
     const stringifiedRequestWithoutHttp = JSON.stringify(requestWithoutHttp);
-    const fetchRequest = new Request(http.url, {
-      ...http,
+    const requestInit: FetcherRequestInit = {
+      method: http.method,
+      headers: Object.fromEntries(http.headers),
       body: stringifiedRequestWithoutHttp,
-    });
+    };
+    // Note that we don't actually send this Request object to the fetcher; it
+    // is merely sent to methods on this object that might be overridden by users.
+    // We are careful to only send data to the overridable fetcher function that uses
+    // plain JS objects --- some fetch implementations don't know how to handle
+    // Request or Headers objects created by other fetch implementations.
+    const fetchRequest = new NodeFetchRequest(http.url, requestInit);
 
-    let fetchResponse: Response | undefined;
+    let fetchResponse: FetcherResponse | undefined;
 
     try {
       // Use our local `fetcher` to allow for fetch injection
       // Use the fetcher's `Request` implementation for compatibility
-      fetchResponse = await this.fetcher(http.url, {
-        ...http,
-        body: stringifiedRequestWithoutHttp,
-      });
+      fetchResponse = await this.fetcher(http.url, requestInit);
 
       if (!fetchResponse.ok) {
         throw await this.errorFromResponse(fetchResponse);
@@ -266,16 +282,16 @@ export class RemoteGraphQLDataSource<
 
   public didEncounterError(
     error: Error,
-    _fetchRequest: Request,
-    _fetchResponse?: Response,
+    _fetchRequest: NodeFetchRequest,
+    _fetchResponse?: FetcherResponse,
     _context?: TContext,
   ) {
     throw error;
   }
 
   public parseBody(
-    fetchResponse: Response,
-    _fetchRequest?: Request,
+    fetchResponse: FetcherResponse,
+    _fetchRequest?: NodeFetchRequest,
     _context?: TContext,
   ): Promise<object | string> {
     const contentType = fetchResponse.headers.get('Content-Type');
@@ -286,7 +302,7 @@ export class RemoteGraphQLDataSource<
     }
   }
 
-  public async errorFromResponse(response: Response) {
+  public async errorFromResponse(response: FetcherResponse) {
     const message = `${response.status}: ${response.statusText}`;
 
     let error: ApolloError;

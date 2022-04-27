@@ -27,7 +27,6 @@ import {
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
-import { fetch } from 'apollo-server-env';
 import {
   QueryPlanner,
   QueryPlan,
@@ -66,6 +65,7 @@ import {
   Schema,
   ServiceDefinition,
 } from '@apollo/federation-internals';
+import { Fetcher } from '@apollo/utils.fetcher';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -79,29 +79,6 @@ type DataSourceMap = {
 type WarnedStates = {
   remoteWithLocalConfig?: boolean;
 };
-
-export function getDefaultFetcher() {
-  const { name, version } = require('../package.json');
-  return fetcher.defaults({
-    // All headers should be lower-cased here, as `make-fetch-happen`
-    // treats differently cased headers as unique (unlike the `Headers` object).
-    // @see: https://git.io/JvRUa
-    headers: {
-      'apollographql-client-name': name,
-      'apollographql-client-version': version,
-      'user-agent': `${name}/${version}`,
-      'content-type': 'application/json',
-    },
-    retry: {
-      retries: 5,
-      // The default factor: expected attempts at 0, 1, 3, 7, 15, and 31 seconds elapsed
-      factor: 2,
-      // 1 second
-      minTimeout: 1000,
-      randomize: true,
-    },
-  });
-}
 
 export const HEALTH_CHECK_QUERY =
   'query __ApolloServiceHealthCheck__ { __typename }';
@@ -168,7 +145,7 @@ export class ApolloGateway implements GraphQLService {
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
-  private fetcher: typeof fetch;
+  private fetcher: Fetcher;
   private compositionId?: string;
   private state: GatewayState;
 
@@ -196,7 +173,7 @@ export class ApolloGateway implements GraphQLService {
     this.queryPlanStore = this.initQueryPlanStore(
       config?.experimental_approximateQueryPlanStoreMiB,
     );
-    this.fetcher = config?.fetcher || getDefaultFetcher();
+    this.fetcher = config?.fetcher || fetcher;
 
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =

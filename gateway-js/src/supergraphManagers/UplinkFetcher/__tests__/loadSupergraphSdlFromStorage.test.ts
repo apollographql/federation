@@ -3,7 +3,7 @@ import {
   loadSupergraphSdlFromUplinks,
   UplinkFetcherError,
 } from '../loadSupergraphSdlFromStorage';
-import { getDefaultFetcher } from '../../..';
+import fetcher from 'make-fetch-happen';
 import {
   graphRef,
   apiKey,
@@ -14,10 +14,13 @@ import {
   mockOutOfBandReportRequestSuccess,
   mockSupergraphSdlRequestSuccess,
   mockSupergraphSdlRequestIfAfterUnchanged,
-  mockSupergraphSdlRequestIfAfter
+  mockSupergraphSdlRequestIfAfter,
 } from '../../../__tests__/integration/nockMocks';
-import { getTestingSupergraphSdl } from "../../../__tests__/execution-utils";
-import { nockAfterEach, nockBeforeEach } from '../../../__tests__/nockAssertions';
+import { getTestingSupergraphSdl } from '../../../__tests__/execution-utils';
+import {
+  nockAfterEach,
+  nockBeforeEach,
+} from '../../../__tests__/nockAssertions';
 
 describe('loadSupergraphSdlFromStorage', () => {
   beforeEach(nockBeforeEach);
@@ -25,7 +28,6 @@ describe('loadSupergraphSdlFromStorage', () => {
 
   it('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
-    const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
       graphRef,
       apiKey,
@@ -42,27 +44,29 @@ describe('loadSupergraphSdlFromStorage', () => {
 
   it('Queries alternate Uplink URL if first one fails', async () => {
     mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
-    mockSupergraphSdlRequestIfAfter('originalId-1234', mockCloudConfigUrl2).reply(
+    mockSupergraphSdlRequestIfAfter(
+      'originalId-1234',
+      mockCloudConfigUrl2,
+    ).reply(
       200,
       JSON.stringify({
         data: {
           routerConfig: {
             __typename: 'RouterConfigResult',
             id: 'originalId-1234',
-            supergraphSdl: getTestingSupergraphSdl()
+            supergraphSdl: getTestingSupergraphSdl(),
           },
         },
       }),
     );
 
-    const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromUplinks({
       graphRef,
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: undefined,
       fetcher,
-      compositionId: "originalId-1234",
+      compositionId: 'originalId-1234',
       maxRetries: 1,
       roundRobinSeed: 0,
       earliestFetchTime: null,
@@ -75,10 +79,12 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('Throws error if all Uplink URLs fail', async () => {
-    mockSupergraphSdlRequest("originalId-1234", mockCloudConfigUrl1).reply(500);
-    mockSupergraphSdlRequestIfAfter("originalId-1234", mockCloudConfigUrl2).reply(500);
+    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
+    mockSupergraphSdlRequestIfAfter(
+      'originalId-1234',
+      mockCloudConfigUrl2,
+    ).reply(500);
 
-    const fetcher = getDefaultFetcher();
     await expect(
       loadSupergraphSdlFromUplinks({
         graphRef,
@@ -86,23 +92,22 @@ describe('loadSupergraphSdlFromStorage', () => {
         endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
         errorReportingEndpoint: undefined,
         fetcher,
-        compositionId: "originalId-1234",
+        compositionId: 'originalId-1234',
         maxRetries: 1,
         roundRobinSeed: 0,
         earliestFetchTime: null,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
-        "An error occurred while fetching your schema from Apollo: 500 Internal Server Error",
-      )
+        'An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+      ),
     );
-  })
+  });
 
   describe('errors', () => {
     it('throws on a malformed response', async () => {
       mockSupergraphSdlRequest().reply(200, 'Invalid JSON');
 
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -114,8 +119,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"
-        )
+          'An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0',
+        ),
       );
     });
 
@@ -128,26 +133,6 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       );
 
-      const fetcher = getDefaultFetcher();
-      await expect(
-        loadSupergraphSdlFromStorage({
-          graphRef,
-          apiKey,
-          endpoint: mockCloudConfigUrl1,
-          errorReportingEndpoint: mockOutOfBandReporterUrl,
-          fetcher,
-          compositionId: null,
-        }),
-      ).rejects.toThrowError(
-        new UplinkFetcherError(`An error occurred while fetching your schema from Apollo: \n${message}`)
-      );
-    });
-
-    it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
-      mockSupergraphSdlRequest().reply(500);
-      mockOutOfBandReportRequestSuccess();
-
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -159,8 +144,28 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 500 Internal Server Error"
-        )
+          `An error occurred while fetching your schema from Apollo: \n${message}`,
+        ),
+      );
+    });
+
+    it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
+      mockSupergraphSdlRequest().reply(500);
+      mockOutOfBandReportRequestSuccess();
+
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphRef,
+          apiKey,
+          endpoint: mockCloudConfigUrl1,
+          errorReportingEndpoint: mockOutOfBandReporterUrl,
+          fetcher,
+          compositionId: null,
+        }),
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          'An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+        ),
       );
     });
 
@@ -169,7 +174,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     it("Out of band reporting doesn't submit reports when endpoint is not configured", async () => {
       mockSupergraphSdlRequest().reply(400);
 
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -181,16 +185,14 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input",
-        )
+          'An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input',
+        ),
       );
     });
 
     it('throws on 400 status response and does not submit an out of band error', async () => {
-
       mockSupergraphSdlRequest().reply(400);
 
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -202,8 +204,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input",
-        )
+          'An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input',
+        ),
       );
     });
 
@@ -211,7 +213,6 @@ describe('loadSupergraphSdlFromStorage', () => {
       mockSupergraphSdlRequest().reply(413);
       mockOutOfBandReportRequestSuccess();
 
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -223,8 +224,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 413 Payload Too Large",
-        )
+          'An error occurred while fetching your schema from Apollo: 413 Payload Too Large',
+        ),
       );
     });
 
@@ -232,7 +233,6 @@ describe('loadSupergraphSdlFromStorage', () => {
       mockSupergraphSdlRequest().reply(422);
       mockOutOfBandReportRequestSuccess();
 
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -244,8 +244,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 422 Unprocessable Entity",
-        )
+          'An error occurred while fetching your schema from Apollo: 422 Unprocessable Entity',
+        ),
       );
     });
 
@@ -253,7 +253,6 @@ describe('loadSupergraphSdlFromStorage', () => {
       mockSupergraphSdlRequest().reply(408);
       mockOutOfBandReportRequestSuccess();
 
-      const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
           graphRef,
@@ -265,18 +264,16 @@ describe('loadSupergraphSdlFromStorage', () => {
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
-          "An error occurred while fetching your schema from Apollo: 408 Request Timeout",
-        )
+          'An error occurred while fetching your schema from Apollo: 408 Request Timeout',
+        ),
       );
     });
   });
 
   it('throws on 504 status response and successfully submits an out of band error', async () => {
-
     mockSupergraphSdlRequest().reply(504);
     mockOutOfBandReportRequestSuccess();
 
-    const fetcher = getDefaultFetcher();
     await expect(
       loadSupergraphSdlFromStorage({
         graphRef,
@@ -288,8 +285,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
-        "An error occurred while fetching your schema from Apollo: 504 Gateway Timeout",
-      )
+        'An error occurred while fetching your schema from Apollo: 504 Gateway Timeout',
+      ),
     );
   });
 
@@ -297,7 +294,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     mockSupergraphSdlRequest().replyWithError('no response');
     mockOutOfBandReportRequestSuccess();
 
-    const fetcher = getDefaultFetcher();
     await expect(
       loadSupergraphSdlFromStorage({
         graphRef,
@@ -309,8 +305,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
-        "An error occurred while fetching your schema from Apollo: request to https://example1.cloud-config-url.com/cloudconfig/ failed, reason: no response",
-      )
+        'An error occurred while fetching your schema from Apollo: request to https://example1.cloud-config-url.com/cloudconfig/ failed, reason: no response',
+      ),
     );
   });
 
@@ -318,7 +314,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     mockSupergraphSdlRequest().reply(502);
     mockOutOfBandReportRequestSuccess();
 
-    const fetcher = getDefaultFetcher();
     await expect(
       loadSupergraphSdlFromStorage({
         graphRef,
@@ -330,8 +325,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
-        "An error occurred while fetching your schema from Apollo: 502 Bad Gateway",
-      )
+        'An error occurred while fetching your schema from Apollo: 502 Bad Gateway',
+      ),
     );
   });
 
@@ -339,7 +334,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     mockSupergraphSdlRequest().reply(503);
     mockOutOfBandReportRequestSuccess();
 
-    const fetcher = getDefaultFetcher();
     await expect(
       loadSupergraphSdlFromStorage({
         graphRef,
@@ -351,69 +345,72 @@ describe('loadSupergraphSdlFromStorage', () => {
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
-        "An error occurred while fetching your schema from Apollo: 503 Service Unavailable",
-      )
+        'An error occurred while fetching your schema from Apollo: 503 Service Unavailable',
+      ),
     );
   });
 
   it('successfully responds to SDL unchanged by returning null', async () => {
-    mockSupergraphSdlRequestIfAfterUnchanged("id-1234");
+    mockSupergraphSdlRequestIfAfterUnchanged('id-1234');
 
-    const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
-        graphRef,
-        apiKey,
-        endpoint: mockCloudConfigUrl1,
-        errorReportingEndpoint: mockOutOfBandReporterUrl,
-        fetcher,
-        compositionId: "id-1234",
+      graphRef,
+      apiKey,
+      endpoint: mockCloudConfigUrl1,
+      errorReportingEndpoint: mockOutOfBandReporterUrl,
+      fetcher,
+      compositionId: 'id-1234',
     });
     expect(result).toBeNull();
   });
 });
 
-
-describe("loadSupergraphSdlFromUplinks", () => {
+describe('loadSupergraphSdlFromUplinks', () => {
   beforeEach(nockBeforeEach);
   afterEach(nockAfterEach);
 
   it("doesn't retry in the unchanged / null case", async () => {
-    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl1);
+    mockSupergraphSdlRequestIfAfterUnchanged('id-1234', mockCloudConfigUrl1);
 
-    const fetcher = jest.fn(getDefaultFetcher());
+    let calls = 0;
     const result = await loadSupergraphSdlFromUplinks({
       graphRef,
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: mockOutOfBandReporterUrl,
-      fetcher: fetcher as any,
-      compositionId: "id-1234",
+      fetcher: (...args) => {
+        calls++;
+        return fetcher(...args);
+      },
+      compositionId: 'id-1234',
       maxRetries: 5,
       roundRobinSeed: 0,
       earliestFetchTime: null,
     });
 
     expect(result).toBeNull();
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(calls).toBe(1);
   });
 
-  it("Waits the correct time before retrying", async () => {
+  it('Waits the correct time before retrying', async () => {
     const timeoutSpy = jest.spyOn(global, 'setTimeout');
 
     mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
-    mockSupergraphSdlRequestIfAfter('originalId-1234', mockCloudConfigUrl2).reply(
+    mockSupergraphSdlRequestIfAfter(
+      'originalId-1234',
+      mockCloudConfigUrl2,
+    ).reply(
       200,
       JSON.stringify({
         data: {
           routerConfig: {
             __typename: 'RouterConfigResult',
             id: 'originalId-1234',
-            supergraphSdl: getTestingSupergraphSdl()
+            supergraphSdl: getTestingSupergraphSdl(),
           },
         },
       }),
     );
-    const fetcher = getDefaultFetcher();
 
     await loadSupergraphSdlFromUplinks({
       graphRef,
@@ -421,7 +418,7 @@ describe("loadSupergraphSdlFromUplinks", () => {
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: undefined,
       fetcher: fetcher,
-      compositionId: "originalId-1234",
+      compositionId: 'originalId-1234',
       maxRetries: 1,
       roundRobinSeed: 0,
       earliestFetchTime: new Date(Date.now() + 1000),
@@ -435,4 +432,3 @@ describe("loadSupergraphSdlFromUplinks", () => {
     timeoutSpy.mockRestore();
   });
 });
-

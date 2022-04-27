@@ -43,12 +43,6 @@
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "12.x"
     },
-    // make-fetch-happen is used by the HttpRequestCache in gateway, which uses
-    // a cache API that is removed in v9.
-    {
-      "matchPackageNames": ["make-fetch-happen"],
-      "allowedVersions": "8.x"
-    },
     // node-fetch v3 only ships as ESM. We currently build to CommonJS and even
     // if we start publishing as ESM we're not going to go ESM-only for a while.
     // (Plus it requires Node v12.20 and we support v12.13.) So let's stay on

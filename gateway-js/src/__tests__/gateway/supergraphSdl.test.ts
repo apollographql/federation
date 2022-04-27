@@ -4,15 +4,15 @@ import {
   SubgraphHealthCheckFunction,
   SupergraphSdlUpdateFunction,
 } from '@apollo/gateway';
-import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
+import { accounts, fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from '@apollo/utils.createhash';
 import { ApolloServer } from 'apollo-server';
 import type { Logger } from '@apollo/utils.logger';
-import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 import resolvable from '@josephg/resolvable';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import nock from 'nock';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
@@ -21,7 +21,6 @@ async function getSupergraphSdlGatewayServer() {
       buildService({ url }) {
         return new RemoteGraphQLDataSource({
           url,
-          fetcher: fetch,
         });
       },
     }),
@@ -59,9 +58,10 @@ describe('Using supergraphSdl static configuration', () => {
   it('successfully starts and serves requests to the proper services', async () => {
     const server = await getSupergraphSdlGatewayServer();
 
-    fetch.mockJSONResponseOnce({
-      data: { me: { username: '@jbaxleyiii' } },
-    });
+    nock(accounts.url)
+      .post('/', { query: '{me{username}}', variables: {} })
+      .reply(200, { data: { me: { username: '@jbaxleyiii' } } });
+
 
     const result = await server.executeOperation({
       query: '{ me { username } }',
@@ -75,11 +75,6 @@ describe('Using supergraphSdl static configuration', () => {
       }
     `);
 
-    const [url, request] = fetch.mock.calls[0];
-    expect(url).toEqual('https://accounts.api.com.invalid');
-    expect(request?.body).toEqual(
-      JSON.stringify({ query: '{me{username}}', variables: {} }),
-    );
     await server.stop();
   });
 });
