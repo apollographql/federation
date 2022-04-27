@@ -31,7 +31,6 @@ import {
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
-import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import {
   QueryPlanner,
@@ -86,7 +85,6 @@ type WarnedStates = {
 export function getDefaultFetcher() {
   const { name, version } = require('../package.json');
   return fetcher.defaults({
-    cacheManager: new HttpRequestCache(),
     // All headers should be lower-cased here, as `make-fetch-happen`
     // treats differently cased headers as unique (unlike the `Headers` object).
     // @see: https://git.io/JvRUa
