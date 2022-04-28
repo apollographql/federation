@@ -1248,12 +1248,6 @@ export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subg
 export class Subgraphs {
   private readonly subgraphs = new OrderedMap<string, Subgraph>();
 
-  constructor(subgraphs?: Subgraph[]) {
-    for (const subgraph of subgraphs ?? []) {
-      this.add(subgraph);
-    }
-  }
-
   add(subgraph: Subgraph): Subgraph {
     if (this.subgraphs.has(subgraph.name)) {
       throw new Error(`A subgraph named ${subgraph.name} already exists` + (subgraph.url ? ` (with url '${subgraph.url}')` : ''));
