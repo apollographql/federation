@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNext
+
+- Fix `Schema.clone` when directive application happens before definition [PR #1785](https://github.com/apollographql/federation/pull/1785)
+
 ## v2.0.2-alpha.0
 
 - Improve fed1 schema support during composition [PR #1735](https://github.com/apollographql/federation/pull/1735)
