@@ -613,26 +613,26 @@ describe('clone', () => {
     expect(schema.elementByCoordinate("@bar")).toBeDefined();
   });
 
-  it('should allow using a core feature in a directive', () => {
-    const subgraph = buildSubgraph('subgraph', '', `
-    extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+  // https://github.com/apollographql/federation/issues/1794
+  it.skip('should allow using a core feature in a directive', () => {
+    const schema = buildSchema(`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
 
       directive @foo(arg: String @tag(name: "tag")) on FIELD_DEFINITION
 
       type Query {
         hi: String! @foo
       }
-    `);
-    const schema = subgraph.schema.clone();
+    `).clone();
     expect(schema.elementByCoordinate("@foo")).toBeDefined();
     expect(schema.elementByCoordinate("@bar")).toBeDefined();
   });
 
   it('should allow type use in directives', () => {
     const schema = buildSchema(`
-      scalar Thing
       directive @foo(arg: Thing!) on FIELD_DEFINITION
+      scalar Thing
 
       type Query {
         foo: String! @foo(arg: "sunshine")
@@ -642,7 +642,7 @@ describe('clone', () => {
     expect(schema.elementByCoordinate("@foo")).toBeDefined();
   });
 
-  it('should error on recursive directive definitions', () => {
+  it('should allow recursive directive definitions', () => {
     const schema = buildSchema(`
       directive @foo(a: Int @bar) on ARGUMENT_DEFINITION
       directive @bar(b: Int @foo) on ARGUMENT_DEFINITION
