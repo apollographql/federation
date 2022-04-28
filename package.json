@@ -23,7 +23,7 @@
     "lint": "eslint . --ext .ts",
     "error-code-doc": "ts-node ./internals-js/src/genErrorCodeDoc.ts > ./docs/source/errors.md",
     "error-code-doc:check": "npm run error-code-doc && git diff --exit-code",
-    "hints-doc": "ts-node ./composition-js/src/genHintDoc.ts > ./docs/source/hints.md",
+    "hints-doc": "ts-node ./composition-js/scripts/genHintDoc.ts > ./docs/source/hints.md",
     "hints-doc:check": "npm run hints-doc && git diff --exit-code"
   },
   "engines": {

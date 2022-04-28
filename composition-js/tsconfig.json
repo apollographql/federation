@@ -2,7 +2,8 @@
   "extends": "../tsconfig.base",
   "compilerOptions": {
     "rootDir": "./src",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "types": [],
   },
   "include": ["src/**/*"],
   "exclude": ["**/__tests__"],
