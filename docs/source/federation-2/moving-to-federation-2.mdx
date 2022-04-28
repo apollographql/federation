@@ -5,9 +5,9 @@ description: Upgrade your supergraph incrementally at any pace
 
 > 📣 If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
-You can and should move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even if some of your subgraphs continue using Federation 1 schemas.
+You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even if some of your subgraphs continue using Federation 1 schemas.
 
-Additionally, each individual step of moving your supergraph has benefits, so it's useful to complete however many steps your team is ready to. You can always complete the rest later.
+Each individual step of moving your supergraph has benefits, so it's useful to complete however many steps your team is ready to. You can always complete the rest later.
 
 Here are the three steps for moving to Federation 2:
 
@@ -23,6 +23,8 @@ graph LR;
 3. Modify your subgraph schemas to convert them to true Federation 2 subgraph schemas.
 
 Steps 1 and 2 are quick, and it's straightforward to reverse them if you need to for any reason. Step 3 requires schema changes that _remove_ backward compatibility with Federation 1. Because of this, we recommend first completing it with a test instance of your graph.
+
+> If you encounter an issue while moving your supergraph to Federation 2, please describe the issue in the [community forums](https://community.apollographql.com/).
 
 ## Step 1: Update `@apollo/gateway`
 
@@ -115,21 +117,34 @@ Your Federation 1 subgraphs are now composed using Federation 2 composition! The
 
 > If your supergraph is _not_ successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
 
-## Step 3: Update individual subgraph schemas
+## Step 3: Update individual subgraphs
 
-> **You can update your subgraph schemas one at a time!** The steps below describe how to modify a single subgraph schema for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
+> **You can update your subgraphs one at a time!** The steps below describe how to modify a single subgraph for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
 
-Federation 2 provides powerful new features that require making some changes to your subgraph schemas. These features include:
+Federation 2 provides powerful new features that require making some changes to your subgraphs. These features include:
 
 * Selectively sharing types and fields across subgraphs with [`@shareable`](../federated-types/federated-directives#shareable)
 * Safely migrating fields from one subgraph to another with [`@override`](../federated-types/federated-directives#override)
 * Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-types/federated-directives#inaccessible)
 
-The schema changes you make are **backward incompatible** with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert the changes.
+The schema changes you make are **backward incompatible** with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
+
+### Update your subgraph library
+
+To use new Federation 2 features and their associated directives, it's helpful to update your subgraph library to a version that automatically supports those directives.
+
+* If your subgraph uses Apollo Server and the `@apollo/subgraph` library, update `@apollo/subgraph` to version `2.0.0` or later like so:
+
+    ```bash
+    npm install @apollo/subgraph
+    ```
+
+* If your subgraph uses another server library, check the [compatibility table](../other-servers/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
+    * If your library _doesn't_ support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
 
 ### Opt in to Federation 2
 
-First, add the following definition to your subgraph schema:
+Add the following definition to your subgraph schema:
 
 ```graphql
 extend schema
@@ -137,42 +152,36 @@ extend schema
         import: ["@key", "@shareable"])
 ```
 
-This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. _Without_ this definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
+This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. _Without_ this `@link` definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
 
-> **Important:** Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
+> ⚠️ **Important:** Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
 >
 > [See all Federation-specific directives.](../federated-types/federated-directives/)
 
-#### Update `@apollo/subgraph`
+### Add directive definitions if needed
 
-If your subgraph uses Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` to version `2.0.0` or later:
-
-```bash
-npm install @apollo/subgraph
-```
-
-This adds built-in support for new federation directives, such as `@shareable`.
-
-### Add schema definitions to non-Apollo subgraphs
-
-Currently, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
+Currently, not all [subgraph libraries](../other-servers/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
 
 <ExpansionPanel title="Click to expand">
 
 ```graphql
-directive @shareable on FIELD_DEFINITION | OBJECT
-
+# Required for all subgraph schemas
 scalar link__Import
 
 directive @link(
   url: String!,
   import: [link__Import],
 ) repeatable on SCHEMA
+
+# Required if the corresponding directive is used
+directive @shareable on FIELD_DEFINITION | OBJECT
 ```
 
 </ExpansionPanel>
 
-We'll be working with library maintainers to help automatically add these schema definitions in libraries besides `@apollo/subgraph`.
+> Some subgraph libraries are "code-first" (they dynamically generate their schema from code) instead of "schema-first" (they use a static schema file). For code-first libraries, manually adding these directive definitions is less straightforward. If you encounter this with your library, please let us know by [submitting an issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues).
+
+We'll be working with library maintainers to help automatically add these schema definitions in more subgraph libraries.
 
 ### Mark all value types as `@shareable`
 
@@ -377,3 +386,7 @@ type Review {
 </CodeColumns>
 
 Setting `resolvable: false` tells the gateway that a subgraph doesn't define a reference resolver for a particular entity. This is most common when [referencing an entity without contributing fields to it](../entities/#referencing-an-entity-without-contributing-fields).
+
+---
+
+You're done! You should now have a Federation 2 supergraph that composes successfully and takes full advantage of new federation features. If you encounter an issue, please let us know in the [community forums](https://community.apollographql.com/).
