@@ -614,8 +614,8 @@ describe('clone', () => {
   });
 
   // https://github.com/apollographql/federation/issues/1794
-  it.skip('should allow using a core feature in a directive', () => {
-    const schema = buildSchema(`
+  it('should allow using an imported federation diretive in another directive', () => {
+    const schema = buildSubgraph('foo', "", `
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
 
@@ -624,9 +624,9 @@ describe('clone', () => {
       type Query {
         hi: String! @foo
       }
-    `).clone();
+    `).schema.clone();
     expect(schema.elementByCoordinate("@foo")).toBeDefined();
-    expect(schema.elementByCoordinate("@bar")).toBeDefined();
+    expect(schema.elementByCoordinate("@tag")).toBeDefined();
   });
 
   it('should allow type use in directives', () => {

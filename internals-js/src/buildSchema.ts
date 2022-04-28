@@ -79,8 +79,13 @@ export function buildSchemaFromAST(
   // to the schema element. But that detection necessitates that the corresponding directive definition has been fully
   // populated (and at this point, we don't really know the name of the `@core` directive since it can be renamed, so
   // we just handle all directives).
+  // Note that one subtlety is that we skip, for now, directive _applications_ within those directive definitions (we can
+  // have such applications on the arguments). The reason is again core schema related: we haven't yet properly detected
+  // if the schema if a core-schema yet, and for federation subgraphs, we haven't yet "imported" federation definitions.
+  // So if one of those directive application was relying on that "importing", it would fail at this point. Which is why
+  // directive application is delayed to later in that method.
   for (const directiveDefinitionNode of directiveDefinitions) {
-    buildDirectiveDefinitionInner(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!, errors);
+    buildDirectiveDefinitionInnerWithoutDirectiveApplications(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!, errors);
   }
   for (const schemaDefinition of schemaDefinitions) {
     buildSchemaDefinitionInner(schemaDefinition, schema.schemaDefinition, errors);
@@ -89,7 +94,16 @@ export function buildSchemaFromAST(
     buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, errors, schema.schemaDefinition.newExtension());
   }
 
+  // The following is a no-op for "standard" schema, but for federation subgraphs, this is where we handle the auto-addition
+  // of imported federation directive definitions. That is why we have avoid looking at directive applications within
+  // directive definition earlier: if one of those application was of an imported federation directive, the definition
+  // wouldn't be presence before this point and we'd have triggered an error. After this, we can handle any directive
+  // application safely.
   errors.push(...schema.blueprint.onDirectiveDefinitionAndSchemaParsed(schema));
+
+  for (const directiveDefinitionNode of directiveDefinitions) {
+    buildDirectiveApplicationsInDirectiveDefinition(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!, errors);
+  }
 
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
@@ -360,7 +374,7 @@ function buildFieldDefinitionInner(
   const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
   field.type = validateOutputType(type, field.coordinate, fieldNode, errors);
   for (const inputValueDef of fieldNode.arguments ?? []) {
-    buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value), errors);
+    buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value), errors, true);
   }
   buildAppliedDirectives(fieldNode, field, errors);
   field.description = fieldNode.description?.value;
@@ -408,11 +422,14 @@ function buildArgumentDefinitionInner(
   inputNode: InputValueDefinitionNode,
   arg: ArgumentDefinition<any>,
   errors: GraphQLError[],
+  includeDirectiveApplication: boolean,
 ) {
   const type = buildTypeReferenceFromAST(inputNode.type, arg.schema());
   arg.type = validateInputType(type, arg.coordinate, inputNode, errors);
   arg.defaultValue = buildValue(inputNode.defaultValue);
-  buildAppliedDirectives(inputNode, arg, errors);
+  if (includeDirectiveApplication) {
+    buildAppliedDirectives(inputNode, arg, errors);
+  }
   arg.description = inputNode.description?.value;
   arg.sourceAST = inputNode;
 }
@@ -430,17 +447,27 @@ function buildInputFieldDefinitionInner(
   field.sourceAST = fieldNode;
 }
 
-function buildDirectiveDefinitionInner(
+function buildDirectiveDefinitionInnerWithoutDirectiveApplications(
   directiveNode: DirectiveDefinitionNode,
   directive: DirectiveDefinition,
   errors: GraphQLError[],
 ) {
   for (const inputValueDef of directiveNode.arguments ?? []) {
-    buildArgumentDefinitionInner(inputValueDef, directive.addArgument(inputValueDef.name.value), errors);
+    buildArgumentDefinitionInner(inputValueDef, directive.addArgument(inputValueDef.name.value), errors, false);
   }
   directive.repeatable = directiveNode.repeatable;
   const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocation);
   directive.addLocations(...locations);
   directive.description = directiveNode.description?.value;
   directive.sourceAST = directiveNode;
+}
+
+function buildDirectiveApplicationsInDirectiveDefinition(
+  directiveNode: DirectiveDefinitionNode,
+  directive: DirectiveDefinition,
+  errors: GraphQLError[],
+) {
+  for (const inputValueDef of directiveNode.arguments ?? []) {
+    buildAppliedDirectives(inputValueDef, directive.argument(inputValueDef.name.value)!, errors);
+  }
 }
