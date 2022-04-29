@@ -6,6 +6,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - The `fetch` implementation returned by `getDefaultFetcher` no longer performs in-memory caching. This fetcher is currently only used by `@apollo/gateway` to make uncacheable `POST` requests to Uplink, so this is a no-op for Gateway's own behavior, but if you used the function returned `getDefaultFetcher` in your own code to perform `GET` requests against servers that return cache-related response headers, it will no longer cache results. You can use the underlying [`make-fetch-happen`](https://www.npmjs.com/package/make-fetch-happen) package directly to use its cache capabilities instead of using the function returned by `getDefaultFetcher`. [PR #1792](https://github.com/apollographql/federation/pull/1792)
 - Fix `Schema.clone` when directive application happens before definition [PR #1785](https://github.com/apollographql/federation/pull/1785)
+- More helpful error message for errors encountered while reading supergraphs generated pre-federation 2 [PR #1796](https://github.com/apollographql/federation/pull/1796)
 
 ## v2.0.2-alpha.0
 
