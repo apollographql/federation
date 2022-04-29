@@ -7,7 +7,7 @@ description: Upgrade your supergraph incrementally at any pace
 
 You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even if some of your subgraphs continue using Federation 1 schemas.
 
-Each individual step of moving your supergraph has benefits, so it's useful to complete however many steps your team is ready to. You can always complete the rest later.
+Each individual step of moving your supergraph has its own benefits, so it's useful to complete as many steps as you're ready to complete. You can always complete the rest later.
 
 Here are the three steps for moving to Federation 2:
 
@@ -15,12 +15,12 @@ Here are the three steps for moving to Federation 2:
 graph LR;
   gateway(Update your gateway)
   gateway --> composition(Use Federation 2 composition);
-  composition --> subgrahs(Modify your subgraph schemas);
+  composition --> subgrahs(Update individual subgraphs);
 ```
 
 1. Update your gateway to a version that supports Federation 2 (or swap out your gateway for the [Apollo Router](/router/)).
 2. Begin composing your supergraph schema with Federation 2 composition logic.
-3. Modify your subgraph schemas to convert them to true Federation 2 subgraph schemas.
+3. Update your individual subgraphs to use Federation 2 features and directives.
 
 Steps 1 and 2 are quick, and it's straightforward to reverse them if you need to for any reason. Step 3 requires schema changes that _remove_ backward compatibility with Federation 1. Because of this, we recommend first completing it with a test instance of your graph.
 
