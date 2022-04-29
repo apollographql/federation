@@ -536,19 +536,72 @@ export class NamedFragments {
   }
 }
 
-export class SelectionSet {
+abstract class Freezable<T> {
+  private _isFrozen: boolean = false;
+
+  protected abstract us(): T;
+
+  /**
+   * Freezes this selection/selection set, making it immutable after that point (that is, attempts to modify it will error out).
+   *
+   * This method should be used when a selection/selection set should not be modified. It ensures both that:
+   *  1. direct attempts to modify the selection afterward fails (at runtime, but the goal is to fetch bugs early and easily).
+   *  2. if this selection/selection set is "added" to another non-frozen selection (say, if this is input to `anotherSet.mergeIn(this)`),
+   *   then it is automatically cloned first (thus ensuring this copy is not modified). Note that this properly is not guaranteed for
+   *   non frozen selections. Meaning that if one does `s1.mergeIn(s2)` and `s2` is not frozen, then `s1` may (or may not) reference
+   *   `s2` directly (without cloning) and thus later modifications to `s1` may (or may not) modify `s2`. This
+   *   do-not-defensively-clone-by-default behaviour is done for performance reasons.
+   *
+   * Note that freezing is a "deep" operation, in that the whole structure of the selection/selection set is frozen by this method
+   * (and so this is not an excessively cheap operation).
+   *
+   * @return this selection/selection set (for convenience, to allow method chaining).
+   */
+  freeze(): T {
+    if (!this.isFrozen()) {
+      this.freezeInternals();
+      this._isFrozen = true;
+    }
+    return this.us();
+  }
+
+  protected abstract freezeInternals(): void;
+
+  /**
+   * Whether this selection/selection set is frozen. See `freeze` for details.
+   */
+  isFrozen(): boolean {
+    return this._isFrozen;
+  }
+
+  /**
+   * A shortcut for returning a mutable version of this selection/selection set by cloning it if it is frozen, but returning this set directly
+   * if it is not frozen.
+   */
+  cloneIfFrozen(): T {
+    return this.isFrozen() ? this.clone() : this.us();
+  }
+
+  abstract clone(): T;
+}
+
+export class SelectionSet extends Freezable<SelectionSet> {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
   private readonly _selections = new MultiMap<string, Selection>();
   private _selectionCount = 0;
   private _cachedSelections?: readonly Selection[];
-  private _isFrozen: boolean = false;
 
   constructor(
     readonly parentType: CompositeType,
     readonly fragments?: NamedFragments
   ) {
+    super();
     validate(!isLeafType(parentType), () => `Cannot have selection on non-leaf type ${parentType}`);
+  }
+
+  protected us(): SelectionSet {
+    return this;
   }
 
   selections(reversedOrder: boolean = false): readonly Selection[] {
@@ -654,45 +707,10 @@ export class SelectionSet {
     return filtered;
   }
 
-  /**
-   * Freezes this selection set, making it immutable after that point (that is, attempts to modify it will error out).
-   *
-   * This method should be used when a selection sets should not be modified. It ensures both that:
-   *  1. direct attempts to modify the selection set afterward fails (at runtime, but the goal is to fetch bugs early and easily).
-   *  2. if this set is "added" to another non-frozen selection (say, if this set is input to `anotherSet.mergeIn(this)`), then it
-   *  is automatically cloned first (thus ensuring this copy is not modified). Note that this properly is not guaranteed for
-   *  non frozen sets. Meaning that if one does `s1.mergeIn(s2)` and `s2` is not frozen, then `s1` may (or may not) reference
-   *  `s2` directly (without cloning) and thus later modifications to `s1` may (or may not) modify `s2`. This
-   *  do-not-defensively-clone-by-default behaviour is done for performance reasons.
-   *
-   * Note that freezing is a "deep" operation, in that the whole structure of the selection set is frozen by this method
-   * (and so this is not an excessively cheap operation).
-   *
-   * @return this selection set (for convenience, to allow method chaining).
-   */
-  freeze(): SelectionSet {
-    if (!this.isFrozen()) {
-      for (const selection of this.selections()) {
-        selection.freeze();
-      }
-      this._isFrozen = true;
+  protected freezeInternals(): void {
+    for (const selection of this.selections()) {
+      selection.freeze();
     }
-    return this;
-  }
-
-  /**
-   * Whether this selection set is frozen. See `freeze` for details.
-   */
-  isFrozen(): boolean {
-    return this._isFrozen;
-  }
-
-  /**
-   * A shortcut for returning a mutable version of this selection set by cloning it if it is frozen, but returning this set directly
-   * if it is not frozen.
-   */
-  cloneIfFrozen(): SelectionSet {
-    return this.isFrozen() ? this.clone() : this;
   }
 
   /**
@@ -1018,18 +1036,22 @@ export function selectionSetOfPath(path: OperationPath, onPathEnd?: (finalSelect
 
 export type Selection = FieldSelection | FragmentSelection;
 
-export class FieldSelection {
+export class FieldSelection extends Freezable<FieldSelection> {
   readonly kind = 'FieldSelection' as const;
   readonly selectionSet?: SelectionSet;
-  private _isFrozen: boolean = false;
 
   constructor(
     readonly field: Field<any>,
     initialSelectionSet? : SelectionSet
   ) {
+    super();
     const type = baseType(field.definition.type!);
     // Field types are output type, and a named typethat is an output one and isn't a leaf is guaranteed to be selectable.
     this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet.cloneIfFrozen() : new SelectionSet(type as CompositeType));
+  }
+
+  protected us(): FieldSelection {
+    return this;
   }
 
   key(): string {
@@ -1067,17 +1089,8 @@ export class FieldSelection {
     return new FieldSelection(this.field, this.selectionSet.filter(predicate));
   }
 
-  freeze() {
+  protected freezeInternals(): void {
     this.selectionSet?.freeze();
-    this._isFrozen = true;
-  }
-
-  isFrozen(): boolean {
-    return this._isFrozen;
-  }
-
-  cloneIfFrozen(): FieldSelection {
-    return this.isFrozen() ? this.clone() : this;
   }
 
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FieldSelection {
@@ -1176,9 +1189,8 @@ export class FieldSelection {
   }
 }
 
-export abstract class FragmentSelection {
+export abstract class FragmentSelection extends Freezable<FragmentSelection> {
   readonly kind = 'FragmentSelection' as const;
-  private _isFrozen: boolean = false;
 
   abstract key(): string;
 
@@ -1197,6 +1209,10 @@ export abstract class FragmentSelection {
   abstract toSelectionNode(): SelectionNode;
 
   abstract validate(): void;
+
+  protected us(): FragmentSelection {
+    return this;
+  }
 
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
@@ -1217,17 +1233,8 @@ export abstract class FragmentSelection {
     return new InlineFragmentSelection(this.element(), this.selectionSet.filter(predicate));
   }
 
-  freeze() {
+  protected freezeInternals() {
     this.selectionSet.freeze();
-    this._isFrozen = true;
-  }
-
-  isFrozen(): boolean {
-    return this._isFrozen;
-  }
-
-  cloneIfFrozen(): FragmentSelection {
-    return this.isFrozen() ? this.clone() : this;
   }
 
   equals(that: Selection): boolean {
