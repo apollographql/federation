@@ -1,16 +1,16 @@
-import { fetch } from 'apollo-server-env';
 import type { Logger } from '@apollo/utils.logger';
 import resolvable from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
 import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '../..';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
+import { Fetcher } from '@apollo/utils.fetcher';
 
 export interface UplinkFetcherOptions {
   fallbackPollIntervalInMs: number;
   subgraphHealthCheck?: boolean;
   graphRef: string;
   apiKey: string;
-  fetcher: typeof fetch;
+  fetcher: Fetcher;
   maxRetries: number;
   uplinkEndpoints: string[];
   logger?: Logger;
