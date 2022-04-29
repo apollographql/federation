@@ -101,7 +101,9 @@ class QueryPlanningTaversal<RV extends Vertex> {
   private readonly closedBranches: SimultaneousPaths<RV>[][] = [];
 
   constructor(
-    readonly supergraphSchema: Schema, readonly subgraphs: QueryGraph, selectionSet: SelectionSet,
+    readonly supergraphSchema: Schema,
+    readonly subgraphs: QueryGraph,
+    selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     private readonly startVertex: RV,
     private readonly rootKind: SchemaRootKind,
