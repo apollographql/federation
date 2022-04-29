@@ -12,7 +12,7 @@ import FederationArchitecture from '../shared/diagrams/federation-architecture.m
 >
 > Docs for Federation 1 are [available here](/federation/v1/).
 
-**Apollo Federation** is a powerful open-source architecture that helps you create a **unified graph** that combines multiple GraphQL APIs:
+**Apollo Federation** is a powerful open-source architecture that helps you create a **unified supergraph** that combines multiple GraphQL APIs:
 
 ```mermaid
 graph BT;
@@ -25,9 +25,9 @@ graph BT;
   end;
 ```
 
-With federation, you can responsibly share ownership of your graph across any number of teams.  And even if you currently only have _one_ GraphQL API, Apollo Federation is essential for scaling that API as you grow your features, user base, and organization.
+With federation, you can responsibly share ownership of your supergraph across any number of teams.  And even if you currently only have _one_ GraphQL API, Apollo Federation is essential for scaling that API as you grow your features, user base, and organization.
 
-Federation also supports a free managed mode with Apollo Studio, which helps you modify and grow your graph without any downtime.
+Federation also supports a free managed mode with Apollo Studio, which helps you modify and grow your supergraph without any downtime.
 
 <div>
   <ButtonLink
@@ -160,7 +160,7 @@ graph TB;
 
 But with an architecture like this, a client might need to communicate with _multiple_ APIs to fetch all of the data it needs. This diminishes a powerful advantage of GraphQL over REST.
 
-Instead, your organization should expose a [unified graph](https://principledgraphql.com/integrity) that lets clients fetch _all_ of the data that they need from a single endpoint:
+Instead, your organization should expose a [unified supergraph](https://principledgraphql.com/integrity) that lets clients fetch _all_ of the data that they need from a single endpoint:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -177,7 +177,7 @@ graph BT;
   class clients secondary;
 ```
 
-By unifying your graph with Apollo Federation, teams can continue to own and develop their subgraphs independently, and clients can fetch data from _all_ of those subgraphs with a single query.
+By unifying your supergraph with Apollo Federation, teams can continue to own and develop their subgraphs independently, and clients can fetch data from _all_ of those subgraphs with a single query.
 
 ### Break up monolithic code
 
@@ -197,7 +197,7 @@ flowchart TB;
   class teamA,teamB,teamC,teamD,teamE tertiary;
 ```
 
-By federating your graph, you can reduce performance _and_ productivity bottlenecks simultaneously. Each team can maintain their own subgraph(s) independently, and your graph's gateway serves primarily to _route_ incoming operations, not to resolve each of them completely.
+With a supergraph, you can reduce performance _and_ productivity bottlenecks simultaneously. Each team can maintain their own subgraph(s) independently, and your supergraph's gateway serves primarily to _route_ incoming operations, not to resolve each of them completely.
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -368,7 +368,7 @@ graph LR;
   class uplink secondary;
 ```
 
-This mode helps multiple teams working on a graph to coordinate when and how to change individual subgraphs. It's recommended for all federated graphs. For more information, read [Managed federation overview](./managed-federation/overview/).
+This mode helps multiple teams working on a supergraph to coordinate when and how to change individual subgraphs. It's recommended for all supergraphs. For more information, read [Managed federation overview](./managed-federation/overview/).
 
 ---
 

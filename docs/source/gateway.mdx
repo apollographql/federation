@@ -4,9 +4,9 @@ title: Implementing the gateway
 
 > 📣 **The Apollo Router** is a new high-performance graph router written in Rust that is currently in preview. You can try out the Apollo Router in place of the Apollo Gateway documented here. [See the documentation.](https://www.apollographql.com/docs/router/)
 
-After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **gateway** to sit in front of your subgraphs. The gateway executes incoming operations across those subgraphs.
+After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **gateway** to sit in front of your subgraphs. The gateway serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs.
 
-The [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) package extends Apollo Server's functionality, enabling it to act as a gateway for an Apollo Federation architecture.
+The [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) package extends Apollo Server's functionality, enabling it to act as the gateway for a supergraph.
 
 > We recommend against running your gateway in a serverless environment (such as AWS Lambda), because schema composition increases Apollo Server's startup time. If you _do_ run your gateway in a serverless environment, set your function's timeout to at least 10 seconds to prevent unexpected errors.
 
@@ -28,7 +28,7 @@ const { readFileSync } = require('fs');
 const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 // Initialize an ApolloGateway instance and pass it
-// the supergraph schema
+// the supergraph schema as a string
 const gateway = new ApolloGateway({
   supergraphSdl,
 });

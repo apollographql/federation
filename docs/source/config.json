@@ -25,7 +25,7 @@
       "3️⃣ Local schema composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
-    "Implementing": {
+    "Implementing a Supergraph": {
       "Subgraphs": "/subgraphs",
       "The gateway": "/gateway"
     },
