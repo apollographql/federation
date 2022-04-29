@@ -1,6 +1,6 @@
 # CHANGELOG for `@apollo/query-graphs`
 
-## vNEXT
+## 2.0.2-alpha.1
 
 - Fix bug where planning a query with `@require` impacts the plans of followup queries [PR #1783](https://github.com/apollographql/federation/pull/1783).
 
