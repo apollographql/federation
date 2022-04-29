@@ -1176,6 +1176,684 @@ describe('@requires', () => {
       }
     `);
   })
+
+  it('handles simple require chain (require that depends on another require)', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v: Int!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            v: Int! @external
+            inner: Int! @requires(fields: "v")
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          inner: Int! @external
+          outer: Int! @requires(fields: "inner")
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    // Ensures that if we only ask `outer`, we get everything needed in between.
+    let operation = operationFromDocument(api, gql`
+      {
+        t {
+          outer
+        }
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                v
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  v
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  inner
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on T {
+                  __typename
+                  inner
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  outer
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    // Ensures that manually asking for the required dependencies doesn't change anything 
+    // (note: technically it happens to switch the order of fields in the inputs of "Subgraph2"
+    // so the plans are not 100% the same "string", which is why we inline it in both cases,
+    // but that's still the same plan and a perfectly valid output).
+    operation = operationFromDocument(api, gql`
+      {
+        t {
+          v
+          inner
+          outer
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                v
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                  v
+                }
+              } =>
+              {
+                ... on T {
+                  inner
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on T {
+                  __typename
+                  inner
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  outer
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it('handles require chain not ending in original group', () => {
+    // This is somewhat simiar to the 'simple require chain' case, but the chain does not
+    // end in the group in which the query start
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            v: Int! @external
+            inner: Int! @requires(fields: "v")
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          inner: Int! @external
+          outer: Int! @requires(fields: "inner")
+        }
+      `
+    }
+
+    const subgraph4 = {
+      name: 'Subgraph4',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v: Int!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4);
+    // Ensures that if we only ask `outer`, we get everything needed in between.
+    let operation = operationFromDocument(api, gql`
+      {
+        t {
+          outer
+        }
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    const expectedPlan = `
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph4") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  v
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  v
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  inner
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on T {
+                  __typename
+                  inner
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  outer
+                }
+              }
+            },
+          },
+        },
+      }
+    `;
+    expect(plan).toMatchInlineSnapshot(expectedPlan);
+
+    // Ensures that manually asking for the required dependencies doesn't change anything.
+    operation = operationFromDocument(api, gql`
+      {
+        t {
+          v
+          inner
+          outer
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(expectedPlan);
+  });
+
+  it('handles longer require chain (a chain of 10 requires)', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v1: Int!
+        }
+      `
+    }
+
+    const totalRequires = 10;
+    const subgraphs: ServiceDefinition[] = [subgraph1];
+    for (let i = 2; i <= totalRequires; i++) {
+      subgraphs.push({
+        name: `Subgraph${i}`,
+        typeDefs: gql`
+          type T @key(fields: "id") {
+              id: ID!
+              v${i-1}: Int! @external
+              v${i}: Int! @requires(fields: "v${i-1}")
+          }
+        `
+      });
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(...subgraphs);
+    // Ensures that if we only ask `outer`, we get everything needed in between.
+    let operation = operationFromDocument(api, gql`
+      {
+        t {
+          v${totalRequires}
+        }
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    const dependentFetches: string[] = [];
+    for (let i = 2; i <= totalRequires; i++) {
+      dependentFetches.push(`${i === 2 ? '' : '          '}Flatten(path: "t") {
+            Fetch(service: "Subgraph${i}") {
+              {
+                ... on T {
+                  __typename
+                  v${i-1}
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  v${i}
+                }
+              }
+            },
+          },`
+      );
+    }
+    const expectedPlan = `
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                v1
+              }
+            }
+          },
+          ${dependentFetches.join('\n')}
+        },
+      }
+    `;
+    expect(plan).toMatchInlineSnapshot(expectedPlan);
+  });
+
+  it('handles complex require chain', () => {
+    // Another "require chain" test but with more complexity as we have a require on multiple fields, some of which being
+    // nested, and having requirements of their own.
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            inner1: Int!
+            inner2_required: Int!
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            inner2_required: Int! @external
+            inner2: Int! @requires(fields: "inner2_required")
+        }
+      `
+    }
+
+    const subgraph4 = {
+      name: 'Subgraph4',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            inner3: Inner3Type!
+        }
+
+        type Inner3Type @key(fields: "k3") {
+          k3: ID!
+        }
+
+        type Inner4Type @key(fields: "k4") {
+          k4: ID!
+          inner4_required: Int!
+        }
+      `
+    }
+
+    const subgraph5 = {
+      name: 'Subgraph5',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          inner1: Int! @external
+          inner2: Int! @external
+          inner3: Inner3Type! @external
+          inner4: Inner4Type! @external
+          inner5: Int! @external
+          outer: Int! @requires(fields: "inner1 inner2 inner3 { inner3_nested } inner4 { inner4_nested } inner5")
+        }
+
+      type Inner3Type @key(fields: "k3") {
+        k3: ID!
+        inner3_nested: Int!
+      }
+
+      type Inner4Type @key(fields: "k4") {
+        k4: ID!
+        inner4_nested: Int! @requires(fields: "inner4_required")
+        inner4_required: Int! @external
+      }
+      `
+    }
+
+    const subgraph6 = {
+      name: 'Subgraph6',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            inner4: Inner4Type!
+        }
+
+        type Inner4Type @key(fields: "k4") {
+          k4: ID!
+        }
+      `
+    }
+
+    const subgraph7 = {
+      name: 'Subgraph7',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+            id: ID!
+            inner5: Int!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4, subgraph5, subgraph6, subgraph7);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          outer
+        }
+      }
+    `);
+
+    // This is a big plan, but afaict, this is optimal. That is, there is 3 main steps:
+    // 1. it get the `id` for `T`, which is needed for anything else.
+    // 2. it gets all the dependencies of for the @require on `outer` in parallel
+    // 3. it finally get `outer`, passing all requirements as inputs.
+    //
+    // The 2nd step is the most involved, but it's just gathering the "outer" requirements in parallel,
+    // while satisfying the "inner" requirements in each branch.
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph7") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    inner5
+                  }
+                }
+              },
+            },
+            Sequence {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph6") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      inner4 {
+                        __typename
+                        k4
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t.inner4") {
+                Fetch(service: "Subgraph4") {
+                  {
+                    ... on Inner4Type {
+                      __typename
+                      k4
+                    }
+                  } =>
+                  {
+                    ... on Inner4Type {
+                      inner4_required
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t.inner4") {
+                Fetch(service: "Subgraph5") {
+                  {
+                    ... on Inner4Type {
+                      __typename
+                      inner4_required
+                      k4
+                    }
+                  } =>
+                  {
+                    ... on Inner4Type {
+                      inner4_nested
+                    }
+                  }
+                },
+              },
+            },
+            Sequence {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph4") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      inner3 {
+                        __typename
+                        k3
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t.inner3") {
+                Fetch(service: "Subgraph5") {
+                  {
+                    ... on Inner3Type {
+                      __typename
+                      k3
+                    }
+                  } =>
+                  {
+                    ... on Inner3Type {
+                      inner3_nested
+                    }
+                  }
+                },
+              },
+            },
+            Sequence {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      inner1
+                      inner2_required
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph3") {
+                  {
+                    ... on T {
+                      __typename
+                      inner2_required
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      inner2
+                    }
+                  }
+                },
+              },
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph5") {
+              {
+                ... on T {
+                  __typename
+                  inner1
+                  inner2
+                  inner3 {
+                    inner3_nested
+                  }
+                  inner4 {
+                    inner4_nested
+                  }
+                  inner5
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  outer
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {

@@ -759,8 +759,8 @@ class FetchGroup {
     return this._inputs?.clone();
   }
 
-  addDependencyOn(groups: FetchGroup | FetchGroup[]) {
-    this.dependencyGraph.addDependency(this, groups);
+  addDependencyOn(groups: FetchGroup | FetchGroup[], pathInGroups?: OperationPath) {
+    this.dependencyGraph.addDependency(this, groups, pathInGroups);
   }
 
   removeDependencyOn(groups: FetchGroup | FetchGroup[]) {
@@ -1059,11 +1059,11 @@ class FetchDependencyGraph {
     return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt);
   }
 
-  addDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
+  addDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[], pathInDependentOn?: OperationPath) {
     this.onModification();
     const groups = Array.isArray(dependentOn) ? dependentOn : [ dependentOn ];
     for (const group of groups) {
-      this.addEdge(group.index, dependentGroup.index);
+      this.addEdge(group.index, dependentGroup.index, pathInDependentOn);
     }
   }
 
@@ -1140,6 +1140,7 @@ class FetchDependencyGraph {
     this.groups.splice(mergedIndex, 1);
     this.adjacencies.splice(mergedIndex, 1);
     this.inEdges.splice(mergedIndex, 1);
+    this.pathsInParents.splice(mergedIndex, 1);
 
     // But now, every group index above `merge.index` is one-off.
     this.groups.forEach(g => {
@@ -1176,10 +1177,9 @@ class FetchDependencyGraph {
     if (this.isReduced) {
       return;
     }
+
     for (const group of this.groups) {
-      for (const adjacent of this.adjacencies[group.index]) {
-        this.dfsRemoveRedundantEdges(group.index, adjacent);
-      }
+      this.dfsRemoveRedundantEdges(group);
     }
 
     for (const group of this.rootGroups.values()) {
@@ -1196,7 +1196,15 @@ class FetchDependencyGraph {
   private removeEmptyGroups(group: FetchGroup) {
     const dependents = this.dependents(group);
     if (group.selection.isEmpty()) {
-      assert(dependents.length === 0, () => `Empty group ${group} has dependents: ${dependents}`);
+      for (const dependent of dependents) {
+        // When we handle nested requires (@require of a field that has itself some @require), we may create temporary group
+        // for the "inner" require that never get any selection filled-in but are a dependency for the "outer" require. When,
+        // that happens however, the "outer" group should have dependency on other non-empty groups, and in that case it's
+        // safe to remove that one empty group (the group is useless and removing it doesn't break the dependency graph
+        // with remains connected).
+        assert(this.dependencies(dependent).length > 1, () => `Empty group ${group} is the *only* dependency of ${dependent}`);
+        this.removeDependency(dependent, group);
+      }
       this.remove(group);
     }
     for (const g of dependents) {
@@ -1233,6 +1241,24 @@ class FetchDependencyGraph {
             }
             merged.addSelections(g2.selection);
             this.onMergedIn(merged, g2);
+
+            // We're working on a minimal graph (we've done a transitive reduction beforehand) and we need to keep the graph
+            // minimal as post-reduce steps (the `process` method) rely on it. But merging 2 groups _can_ break minimality.
+            // Say we have:
+            //   0 ------
+            //            \
+            //             4
+            //   1 -- 3 --/
+            // and we merge groups 0 and 1 (and let's call 2 the result), then we now have:
+            //      ------
+            //     /       \
+            //   2 <-- 3 -- 4
+            // which is not minimal.
+            //
+            // So to fix it, we just re-run our dfs removal from that merged edge (which is probably a tad overkill in theory,
+            // but for the reasons mentioned on `reduce`, this is most likely a non-issue in practice). 
+            this.dfsRemoveRedundantEdges(merged);
+
             // As we've just changed the dependency graph, our current iterations are kind of invalid anymore. So
             // we simply call ourselves back on the current group, which will retry the newly modified dependencies.
             this.mergeDependentFetchesForSameSubgraphAndPath(group);
@@ -1256,14 +1282,18 @@ class FetchDependencyGraph {
     return this.adjacencies[group.index].map(i => this.groups[i]);
   }
 
-  private dfsRemoveRedundantEdges(parentVertex: number, startVertex: number) {
-    const parentAdjacencies = this.adjacencies[parentVertex];
-    const stack = [ ...this.adjacencies[startVertex] ];
-    while (stack.length > 0) {
-      const v = stack.pop()!;
-      removeInPlace(v, parentAdjacencies);
-      removeInPlace(parentVertex, this.inEdges[v]);
-      stack.push(...this.adjacencies[v]);
+  private dfsRemoveRedundantEdges(from: FetchGroup) {
+    for (const startVertex of this.adjacencies[from.index]) {
+      // Note that we re-get the adjacencies of our starting point in each loop because it may change
+      // between loop iterations.
+      const parentAdjacencies = this.adjacencies[from.index];
+      const stack = [ ...this.adjacencies[startVertex] ];
+      while (stack.length > 0) {
+        const v = stack.pop()!;
+        removeInPlace(v, parentAdjacencies);
+        removeInPlace(from.index, this.inEdges[v]);
+        stack.push(...this.adjacencies[v]);
+      }
     }
   }
 
@@ -1361,7 +1391,7 @@ class FetchDependencyGraph {
 
     const rootNodes: G[] = this.rootGroups.values().map(rootGroup => {
       const [node, remaining] = this.processGroup(processor, rootGroup, true);
-      assert(remaining.length == 0, `A root group should have no remaining groups unhandled`);
+      assert(remaining.length == 0, () => `Root group ${rootGroup} should have no remaining groups unhandled, but got ${remaining}`);
       return node;
     });
     return rootNodes;
@@ -1373,7 +1403,8 @@ class FetchDependencyGraph {
     }
     console.log('Groups:');
     for (const group of this.groups) {
-      console.log(`  ${group}`);
+      const pathInParent = this.pathsInParents[group.index];
+      console.log(`  ${group}${pathInParent ? ` (path in parent: ${pathInParent.map(p => p.toString()).join('::')})` : ''}`);
     }
     console.log('Adjacencies:');
     for (const [i, adj] of this.adjacencies.entries()) {
@@ -1471,10 +1502,15 @@ function computeGroupsForTree(
   initialMergeAt: ResponsePath = [],
   initialPath: OperationPath = [],
 ): FetchGroup[] {
-  const stack: [OpPathTree, FetchGroup, ResponsePath, OperationPath][] = [[pathTree, startGroup, initialMergeAt, initialPath]];
+  const stack: {
+    tree: OpPathTree,
+    group: FetchGroup,
+    mergeAt: ResponsePath,
+    path: OperationPath,
+  }[] = [{ tree: pathTree, group: startGroup, mergeAt: initialMergeAt, path: initialPath }];
   const createdGroups = [ ];
   while (stack.length > 0) {
-    const [tree, group, mergeAt, path] = stack.pop()!;
+    const {tree, group, mergeAt, path} = stack.pop()!;
     if (tree.isLeaf()) {
       group.addSelection(path);
     } else {
@@ -1509,7 +1545,7 @@ function computeGroupsForTree(
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
 
-            stack.push([child, newGroup, mergeAt, newPath]);
+            stack.push({tree: child, group: newGroup, mergeAt, path: newPath});
           } else {
             assert(edge.transition.kind === 'RootTypeResolution', () => `Unexpected non-collecting edge ${edge}`);
             const rootKind = edge.transition.rootKind;
@@ -1530,7 +1566,7 @@ function computeGroupsForTree(
             // preserve this ordering somewhat (debatable, possibly).
             const newGroup = dependencyGraph.newRootTypeFetchGroup(edge.tail.source, rootKind, type, mergeAt, group, path);
             const newPath = createNewFetchSelectionContext(type, undefined, operation)[1];
-            stack.push([child, newGroup, mergeAt, newPath]);
+            stack.push({tree: child, group: newGroup, mergeAt, path: newPath });
           }
         } else if (edge === null) {
           // A null edge means that the operation does nothing but may contain directives to preserve.
@@ -1538,15 +1574,13 @@ function computeGroupsForTree(
           // as a minor optimization (it makes the query slighly smaller, but on complex queries, it
           // might also deduplicate similar selections).
           const newPath = operation.appliedDirectives.length === 0 ? path : path.concat(operation);
-          stack.push([child, group, mergeAt, newPath]);
+          stack.push({ tree: child, group, mergeAt, path: newPath });
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
-          let updatedGroup = group;
-          let updatedMergeAt = mergeAt;
-          let updatedPath = path;
+          const updated = { tree: child, group, mergeAt, path };
           if (conditions) {
             // We have some @requires.
-            [updatedGroup, updatedMergeAt, updatedPath] =  handleRequires(
+            const requireResult =  handleRequires(
               dependencyGraph,
               edge,
               conditions,
@@ -1554,12 +1588,17 @@ function computeGroupsForTree(
               mergeAt,
               path
             );
+            updated.group = requireResult.group;
+            updated.mergeAt = requireResult.mergeAt;
+            updated.path = requireResult.path;
+            createdGroups.push(...requireResult.createdGroups);
           }
 
-          const newMergeAt = operation.kind === 'Field'
-            ? addToResponsePath(updatedMergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type!)
-            : updatedMergeAt;
-          stack.push([child, updatedGroup, newMergeAt, updatedPath.concat(operation)]);
+          if (operation.kind === 'Field') {
+            updated.mergeAt = addToResponsePath(updated.mergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type!);
+          }
+          updated.path = updated.path.concat(operation);
+          stack.push(updated);
         }
       }
     }
@@ -1594,7 +1633,12 @@ function handleRequires(
   group: FetchGroup,
   mergeAt: ResponsePath,
   path: OperationPath
-): [FetchGroup, ResponsePath, OperationPath] {
+): {
+  group: FetchGroup,
+  mergeAt: ResponsePath,
+  path: OperationPath,
+  createdGroups: FetchGroup[],
+} {
   // @requires should be on an entity type, and we only support object types right now
   const entityType = edge.head.type as ObjectType;
 
@@ -1613,13 +1657,12 @@ function handleRequires(
     const originalInputs = group.clonedInputs()!;
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
     newGroup.addInputs(originalInputs.forRead());
-
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, mergeAt, path);
     if (createdGroups.length == 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
       group.mergeIn(newGroup, path);
-      return [group, mergeAt, path];
+      return {group, mergeAt, path, createdGroups: []};
     }
 
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
@@ -1673,7 +1716,10 @@ function handleRequires(
         } else {
           // We move created from depending on `newGroup` to depend on all of `group`'s parents.
           created.removeDependencyOn(newGroup);
-          created.addDependencyOn(parents);
+          const pathInParents = pathInParent && createdPathInParent
+            ? concatOperationPaths(pathInParent, createdPathInParent)
+            : undefined;
+          created.addDependencyOn(parents, pathInParents);
           unmergedGroups.push(created);
         }
       }
@@ -1717,7 +1763,7 @@ function handleRequires(
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
       group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, false)[0]);
-      return [group, mergeAt, path];
+      return { group, mergeAt, path, createdGroups: [] };
     }
 
     // If we get here, it means the @require needs the information from `createdGroups` _and_ those
@@ -1728,13 +1774,18 @@ function handleRequires(
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
     postRequireGroup.addInputs(inputs);
-    return [postRequireGroup, mergeAt, newPath];
+    return {
+      group: postRequireGroup,
+      mergeAt,
+      path: newPath,
+      createdGroups: unmergedGroups.concat(postRequireGroup),
+    };
   } else {
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, mergeAt, path);
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {
-      return [group, mergeAt, path];
+      return { group, mergeAt, path, createdGroups: []};
     }
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
@@ -1743,7 +1794,7 @@ function handleRequires(
     newGroup.addDependencyOn(createdGroups);
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     newGroup.addInputs(inputs);
-    return [newGroup, mergeAt, newPath];
+    return { group: newGroup, mergeAt, path: newPath, createdGroups };
   }
 }
 
