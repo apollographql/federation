@@ -2,7 +2,7 @@ import {
   Schema,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { parseOperation, SelectionSet } from '../../dist/operations';
+import { Field, FieldSelection, parseOperation, SelectionSet } from '../../dist/operations';
 import './matchers';
 
 function parseSchema(schema: string): Schema {
@@ -143,18 +143,20 @@ test('fragments optimization of selection sets', () => {
 });
 
 describe('selection set freezing', () => {
+  const schema = parseSchema(`
+    type Query {
+      t: T
+    }
+
+    type T {
+      a: Int
+      b: Int
+    }
+  `);
+
+  const tField = schema.schemaDefinition.rootType('query')!.field('t')!;
+
   it('throws if one tries to modify a frozen selection set', () => {
-    const schema = parseSchema(`
-      type Query {
-        t: T
-      }
-
-      type T {
-        a: Int
-        b: Int
-      }
-    `);
-
     // Note that we use parseOperation to help us build selection/selection sets because it's more readable/convenient
     // thant to build the object "programmatically".
     const s1 = parseOperation(schema, `{ t { a } }`).selectionSet;
@@ -179,17 +181,6 @@ describe('selection set freezing', () => {
     // That is, this test show what happens if the test
     //   "it automaticaly clones frozen selections when adding to another one"
     // is done without freezing.
-
-    const schema = parseSchema(`
-      type Query {
-        t: T
-      }
-
-      type T {
-        a: Int
-        b: Int
-      }
-    `);
 
     const s1 = parseOperation(schema, `{ t { a } }`).selectionSet;
     const s2 = parseOperation(schema, `{ t { b } }`).selectionSet;
@@ -216,24 +207,49 @@ describe('selection set freezing', () => {
     expect(s2.toString()).toBe('{ t { b } }');
   });
 
-  it('it automaticaly clones frozen selections when adding to another one', () => {
-    const schema = parseSchema(`
-      type Query {
-        t: T
-      }
-
-      type T {
-        a: Int
-        b: Int
-      }
-    `);
-
+  it('it automaticaly clones frozen field selections when merging to another one', () => {
     const s1 = parseOperation(schema, `{ t { a } }`).selectionSet.freeze();
     const s2 = parseOperation(schema, `{ t { b } }`).selectionSet.freeze();
     const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
 
     s.mergeIn(s1);
     s.mergeIn(s2);
+
+    // We check S is what we expect...
+    expect(s.toString()).toBe('{ t { a b } }');
+
+    // ... but more importantly for this test, that s1/s2 were not modified.
+    expect(s1.toString()).toBe('{ t { a } }');
+    expect(s2.toString()).toBe('{ t { b } }');
+  });
+
+  it('it automaticaly clones frozen fragment selections when merging to another one', () => {
+    // Note: needlessly complex queries, but we're just ensuring the cloning story works when fragments are involved
+    const s1 = parseOperation(schema, `{ ... on Query { t { ... on T { a } } } }`).selectionSet.freeze();
+    const s2 = parseOperation(schema, `{ ... on Query { t { ... on T { b } } } }`).selectionSet.freeze();
+    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
+
+    s.mergeIn(s1);
+    s.mergeIn(s2);
+
+    expect(s.toString()).toBe('{ ... on Query { t { ... on T { a b } } } }');
+
+    expect(s1.toString()).toBe('{ ... on Query { t { ... on T { a } } } }');
+    expect(s2.toString()).toBe('{ ... on Query { t { ... on T { b } } } }');
+  });
+
+  it('it automaticaly clones frozen field selections when adding to another one', () => {
+    const s1 = parseOperation(schema, `{ t { a } }`).selectionSet.freeze();
+    const s2 = parseOperation(schema, `{ t { b } }`).selectionSet.freeze();
+    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
+    const tSelection = new FieldSelection(new Field(tField));
+    s.add(tSelection);
+
+    // Note that this test both checks the auto-cloning for the `add` method, but
+    // also shows that freezing dose apply deeply (since we freeze the whole `s1`/`s2`
+    // but only add some sub-selection of it).
+    tSelection.selectionSet!.add(s1.selections()[0].selectionSet!.selections()[0]);
+    tSelection.selectionSet!.add(s2.selections()[0].selectionSet!.selections()[0]);
 
     // We check S is what we expect...
     expect(s.toString()).toBe('{ t { a b } }');

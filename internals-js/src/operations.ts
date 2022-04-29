@@ -747,7 +747,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * (see `freeze` for details).
    */
   add(selection: Selection): Selection {
-    // It's a but to try to add to a frozen selection set
+    // It's a bug to try to add to a frozen selection set
     assert(!this.isFrozen(), () => `Cannot add to frozen selection: ${this}`);
 
     const toAdd = selection.updateForAddingTo(this);
