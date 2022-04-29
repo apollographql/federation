@@ -3,7 +3,7 @@ import {
   GraphQLRequestContext,
   VariableValues,
 } from 'apollo-server-types';
-import { Headers } from 'apollo-server-env';
+import { Headers } from 'node-fetch';
 import {
   execute,
   GraphQLError,
@@ -411,6 +411,10 @@ async function executeFetch<TContext>(
   ): Promise<ResultMap | void | null> {
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
+    // (This is admittedly kinda weird, since we currently do pass url and
+    // method to `process` from the SDL fetching call site, but presumably
+    // existing implementation of the interface don't try to look for these
+    // fields. RemoteGraphQLDataSource just overwrites them.)
     let http: any;
 
     // If we're capturing a trace for Studio, then save the operation text to

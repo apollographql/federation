@@ -1,19 +1,21 @@
-import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
+import nock from 'nock';
 import gql from 'graphql-tag';
 import { ApolloGateway } from '../../';
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import { accounts, fixtures } from 'apollo-federation-integration-testsuite';
 import type { Logger } from '@apollo/utils.logger';
+import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 
 let logger: {
-  warn: jest.MockedFunction<Logger['warn']>,
-  debug: jest.MockedFunction<Logger['debug']>,
-  error: jest.MockedFunction<Logger['error']>,
-  info: jest.MockedFunction<Logger['info']>,
-}
+  warn: jest.MockedFunction<Logger['warn']>;
+  debug: jest.MockedFunction<Logger['debug']>;
+  error: jest.MockedFunction<Logger['error']>;
+  info: jest.MockedFunction<Logger['info']>;
+};
+
+beforeEach(nockBeforeEach);
+afterEach(nockAfterEach);
 
 beforeEach(() => {
-  fetch.mockReset();
-
   logger = {
     warn: jest.fn(),
     debug: jest.fn(),
@@ -38,7 +40,7 @@ describe('ApolloGateway executor', () => {
       }
     `;
 
-     // @ts-ignore
+    // @ts-ignore
     const { errors } = await executor({
       source,
       document: gql(source),
@@ -57,8 +59,10 @@ describe('ApolloGateway executor', () => {
   });
 
   it('should not crash if variables are not provided', async () => {
-    const me = { birthDate: '1988-10-21'};
-    fetch.mockJSONResponseOnce({ data: { me } });
+    const me = { birthDate: '1988-10-21' };
+
+    nock(accounts.url).post('/').reply(200, { data: { me } });
+
     const gateway = new ApolloGateway({
       localServiceList: fixtures,
     });
@@ -73,12 +77,11 @@ describe('ApolloGateway executor', () => {
       }
     `;
 
-     // @ts-ignore
+    // @ts-ignore
     const { errors, data } = await executor({
       source,
       document: gql(source),
-      request: {
-      },
+      request: {},
       queryHash: 'hashed',
       context: null,
       cache: {} as any,
