@@ -99,7 +99,6 @@ export class UplinkFetcher implements SupergraphManager {
 
   private async updateSupergraphSdl(): Promise<{supergraphSdl: string, minDelaySeconds?: number} | null> {
     let supergraphSdl;
-    let compositionId;
     let minDelaySeconds: number | undefined = this.config.fallbackPollIntervalInMs / 1000;
 
     try {
@@ -119,7 +118,9 @@ export class UplinkFetcher implements SupergraphManager {
         return null;
       }
 
-      ({id: compositionId, supergraphSdl, minDelaySeconds} = result);
+      this.compositionId = result.id;
+
+      ({supergraphSdl, minDelaySeconds} = result);
     } catch (e) {
       if (!this.config.updateSupergraphSdlFailureCallback) {
         throw e;
@@ -132,7 +133,6 @@ export class UplinkFetcher implements SupergraphManager {
       }
     }
 
-    this.compositionId = compositionId ?? this.compositionId;
     // the healthCheck fn is only assigned if it's enabled in the config
     await this.healthCheck?.(supergraphSdl);
     return { supergraphSdl, minDelaySeconds };
