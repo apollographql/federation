@@ -58,6 +58,7 @@ import {
   UplinkFetcher,
   LegacyFetcher,
   LocalCompose,
+  getUplinkEndpoints,
 } from './supergraphManagers';
 import {
   buildSupergraphSchema,
@@ -423,18 +424,10 @@ export class ApolloGateway implements GraphQLService {
      * 3. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
      * 4. default (GCP and AWS)
      */
-    const rawEndpointsString =
-      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-    const envEndpoints = rawEndpointsString?.split(',') ?? null;
     return (
       config.uplinkEndpoints ??
-      (config.schemaConfigDeliveryEndpoint
-        ? [config.schemaConfigDeliveryEndpoint]
-        : null) ??
-      envEndpoints ?? [
-        'https://uplink.api.apollographql.com/',
-        'https://aws.uplink.api.apollographql.com/',
-      ]
+      (config.schemaConfigDeliveryEndpoint ? [config.schemaConfigDeliveryEndpoint] : null) ??
+      getUplinkEndpoints()
     );
   }
 
@@ -1105,6 +1098,8 @@ export {
   CompositionInfo,
   IntrospectAndCompose,
   LocalCompose,
+  UplinkFetcher,
+  getUplinkEndpoints,
 };
 
 export * from './datasources';
