@@ -221,6 +221,27 @@ test('removal of all directives of a schema', () => {
     union U = A | B`);
 });
 
+test('removal of an enum type should remove enum values', () => {
+  const schema = buildSchema(`
+    type Query {
+      someField: String!
+    }
+
+    enum Enum {
+      SOME_VALUE
+      OTHER_VALUE
+    }
+  `);
+
+  const enumType = schema.type("Enum");
+  expectEnumType(enumType)
+  const enumValues = Array.from(enumType.values);
+  enumType.remove()
+  for (const value of enumValues) {
+    expect(value.isAttached()).toBe(false)
+  }
+});
+
 test('removal of all inaccessible elements of a schema', () => {
   const subgraph = buildSubgraph('foo', '', `
     schema @foo {
