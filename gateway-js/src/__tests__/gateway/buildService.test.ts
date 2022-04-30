@@ -1,19 +1,30 @@
-import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
+import nock from 'nock';
+
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';
 import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { GraphQLDataSourceRequestKind } from '../../datasources/types';
+import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 
-beforeEach(() => {
-  fetch.mockReset();
-});
+beforeEach(nockBeforeEach);
+afterEach(nockAfterEach);
+
+const replyHeaders = {
+  'content-type': 'application/json',
+};
 
 it('calls buildService only once per service', async () => {
-  fetch.mockJSONResponseOnce({
-    data: { _service: { sdl: `extend type Query { thing: String }` } },
-  });
+  nock('https://api.example.com')
+    .post('/foo')
+    .reply(
+      200,
+      {
+        data: { _service: { sdl: `extend type Query { thing: String }` } },
+      },
+      replyHeaders,
+    );
 
   const buildServiceSpy = jest.fn(() => {
     return new RemoteGraphQLDataSource({
@@ -23,7 +34,7 @@ it('calls buildService only once per service', async () => {
 
   const gateway = new ApolloGateway({
     serviceList: [{ name: 'foo', url: 'https://api.example.com/foo' }],
-    buildService: buildServiceSpy
+    buildService: buildServiceSpy,
   });
 
   await gateway.load();
@@ -34,11 +45,13 @@ it('calls buildService only once per service', async () => {
 it('correctly passes the context from ApolloServer to datasources', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: _service => {
+    buildService: (_service) => {
       return new RemoteGraphQLDataSource({
         url: 'https://api.example.com/foo',
         willSendRequest: (options) => {
-          if (options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION) {
+          if (
+            options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
+          ) {
             options.request.http?.headers.set(
               'x-user-id',
               options.context.userId,
@@ -67,7 +80,22 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     }
   `;
 
-  fetch.mockJSONResponseOnce({ data: { me: { username: '@jbaxleyiii' } } });
+  nock('https://api.example.com', {
+    reqheaders: {
+      'x-user-id': '1234',
+    },
+  })
+    .post('/foo', {
+      query: `{me{username}}`,
+      variables: {},
+    })
+    .reply(
+      200,
+      {
+        data: { me: { username: '@jbaxleyiii' } },
+      },
+      replyHeaders,
+    );
 
   const result = await server.executeOperation({
     query,
@@ -77,33 +105,32 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
   expect(result.data).toEqual({
     me: { username: '@jbaxleyiii' },
   });
-
-  expect(fetch).toBeCalledTimes(1);
-  expect(fetch).toHaveFetched('https://api.example.com/foo', {
-    body: {
-      query: `{me{username}}`,
-      variables: {},
-    },
-    headers: {
-      'x-user-id': '1234',
-    },
-  });
 });
 
-function createSdlData(sdl: string): object {
-  return {
-    data: {
-      _service: {
-        sdl: sdl,
+function createSdlData(sdl: string): [number, any, Record<string, string>] {
+  return [
+    200,
+    {
+      data: {
+        _service: {
+          sdl: sdl,
+        },
       },
     },
-  };
+    replyHeaders,
+  ];
 }
 
 it('makes enhanced introspection request using datasource', async () => {
-  fetch.mockJSONResponseOnce(
-    createSdlData('extend type Query { one: String }'),
-  );
+  nock('https://api.example.com', {
+    reqheaders: {
+      'custom-header': 'some-custom-value',
+    },
+  })
+    .post('/override', {
+      query: SERVICE_DEFINITION_QUERY,
+    })
+    .reply(...createSdlData('extend type Query { one: String }'));
 
   const gateway = new ApolloGateway({
     serviceList: [
@@ -112,7 +139,7 @@ it('makes enhanced introspection request using datasource', async () => {
         url: 'https://api.example.com/one',
       },
     ],
-    buildService: _service => {
+    buildService: (_service) => {
       return new RemoteGraphQLDataSource({
         url: 'https://api.example.com/override',
         willSendRequest: ({ request }) => {
@@ -123,24 +150,20 @@ it('makes enhanced introspection request using datasource', async () => {
   });
 
   await gateway.load();
-
-  expect(fetch).toBeCalledTimes(1);
-
-  expect(fetch).toHaveFetched('https://api.example.com/override', {
-    body: {
-      query: SERVICE_DEFINITION_QUERY,
-    },
-    headers: {
-      'custom-header': 'some-custom-value',
-    },
-  });
 });
 
 it('customizes request on a per-service basis', async () => {
-  fetch
-    .mockJSONResponseOnce(createSdlData('extend type Query { one: String }'))
-    .mockJSONResponseOnce(createSdlData('extend type Query { two: String }'))
-    .mockJSONResponseOnce(createSdlData('extend type Query { three: String }'));
+  for (const subgraph of ['one', 'two', 'three']) {
+    nock('https://api.example.com', {
+      reqheaders: {
+        'service-name': subgraph,
+      },
+    })
+      .post(`/${subgraph}`, {
+        query: SERVICE_DEFINITION_QUERY,
+      })
+      .reply(...createSdlData(`extend type Query { ${subgraph}: String }`));
+  }
 
   const gateway = new ApolloGateway({
     serviceList: [
@@ -157,7 +180,7 @@ it('customizes request on a per-service basis', async () => {
         url: 'https://api.example.com/three',
       },
     ],
-    buildService: service => {
+    buildService: (service) => {
       return new RemoteGraphQLDataSource({
         url: service.url,
         willSendRequest: ({ request }) => {
@@ -168,35 +191,6 @@ it('customizes request on a per-service basis', async () => {
   });
 
   await gateway.load();
-
-  expect(fetch).toBeCalledTimes(3);
-
-  expect(fetch).toHaveFetched('https://api.example.com/one', {
-    body: {
-      query: `query __ApolloGetServiceDefinition__ { _service { sdl } }`,
-    },
-    headers: {
-      'service-name': 'one',
-    },
-  });
-
-  expect(fetch).toHaveFetched('https://api.example.com/two', {
-    body: {
-      query: `query __ApolloGetServiceDefinition__ { _service { sdl } }`,
-    },
-    headers: {
-      'service-name': 'two',
-    },
-  });
-
-  expect(fetch).toHaveFetched('https://api.example.com/three', {
-    body: {
-      query: `query __ApolloGetServiceDefinition__ { _service { sdl } }`,
-    },
-    headers: {
-      'service-name': 'three',
-    },
-  });
 });
 
 it('does not share service definition cache between gateways', async () => {
@@ -205,11 +199,17 @@ it('does not share service definition cache between gateways', async () => {
     updates += 1;
   };
 
+  function nockSDLFetchOnce() {
+    nock('https://api.example.com')
+      .post('/repeat', {
+        query: SERVICE_DEFINITION_QUERY,
+      })
+      .reply(...createSdlData('extend type Query { repeat: String }'));
+  }
+
   // Initialize first gateway
   {
-    fetch.mockJSONResponseOnce(
-      createSdlData('extend type Query { repeat: String }'),
-    );
+    nockSDLFetchOnce();
 
     const gateway = new ApolloGateway({
       serviceList: [
@@ -226,9 +226,7 @@ it('does not share service definition cache between gateways', async () => {
 
   // Initialize second gateway
   {
-    fetch.mockJSONResponseOnce(
-      createSdlData('extend type Query { repeat: String }'),
-    );
+    nockSDLFetchOnce();
 
     const gateway = new ApolloGateway({
       serviceList: [

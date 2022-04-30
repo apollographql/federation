@@ -1,9 +1,13 @@
-import { fetch, Response, Request } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
 import retry from 'async-retry';
 import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
+import type {
+  Fetcher,
+  FetcherResponse,
+  FetcherRequestInit,
+} from '@apollo/utils.fetcher';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
@@ -63,7 +67,7 @@ export async function loadSupergraphSdlFromUplinks({
   apiKey: string;
   endpoints: string[];
   errorReportingEndpoint: string | undefined,
-  fetcher: typeof fetch;
+  fetcher: Fetcher;
   compositionId: string | null;
   maxRetries: number,
   roundRobinSeed: number,
@@ -105,20 +109,21 @@ export async function loadSupergraphSdlFromStorage({
   apiKey: string;
   endpoint: string;
   errorReportingEndpoint?: string;
-  fetcher: typeof fetch;
+  fetcher: Fetcher;
   compositionId: string | null;
 }) : Promise<SupergraphSdlUpdate | null> {
-  let result: Response;
-  const requestDetails = {
+  const requestBody = JSON.stringify({
+    query: SUPERGRAPH_SDL_QUERY,
+    variables: {
+      ref: graphRef,
+      apiKey,
+      ifAfterId: compositionId,
+    },
+  })
+
+  const requestDetails: FetcherRequestInit = {
     method: 'POST',
-    body: JSON.stringify({
-      query: SUPERGRAPH_SDL_QUERY,
-      variables: {
-        ref: graphRef,
-        apiKey,
-        ifAfterId: compositionId,
-      },
-    }),
+    body: requestBody,
     headers: {
       'apollographql-client-name': name,
       'apollographql-client-version': version,
@@ -127,9 +132,8 @@ export async function loadSupergraphSdlFromStorage({
     },
   };
 
-  const request: Request = new Request(endpoint, requestDetails);
-
   const startTime = new Date();
+  let result: FetcherResponse;
   try {
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
@@ -137,7 +141,8 @@ export async function loadSupergraphSdlFromStorage({
 
     await submitOutOfBandReportIfConfigured({
       error: e,
-      request,
+      requestEndpoint: endpoint,
+      requestBody,
       endpoint: errorReportingEndpoint,
       startedAt: startTime,
       endedAt: endTime,
@@ -168,7 +173,8 @@ export async function loadSupergraphSdlFromStorage({
   } else {
     await submitOutOfBandReportIfConfigured({
       error: new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText),
-      request,
+      requestEndpoint: endpoint,
+      requestBody,
       endpoint: errorReportingEndpoint,
       response: result,
       startedAt: startTime,

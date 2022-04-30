@@ -1,6 +1,3 @@
-import { fetch as customFetcher } from '../../__mocks__/apollo-server-env';
-import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
-
 import {
   ApolloError,
   AuthenticationError,
@@ -8,13 +5,18 @@ import {
 } from 'apollo-server-errors';
 
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
-import { Headers } from 'apollo-server-env';
+import { Response, Headers } from 'node-fetch';
 import { GraphQLRequestContext } from 'apollo-server-types';
 import { GraphQLDataSourceRequestKind } from '../types';
+import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
+import nock from 'nock';
 
-beforeEach(() => {
-  fetch.mockReset();
-});
+beforeEach(nockBeforeEach);
+afterEach(nockAfterEach);
+
+const replyHeaders = {
+  'content-type': 'application/json',
+};
 
 // Right now, none of these tests care what's on incomingRequestContext, so we
 // pass this fake one in.
@@ -32,7 +34,9 @@ describe('constructing requests', () => {
         apq: false,
       });
 
-      fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+      nock('https://api.example.com')
+        .post('/foo', { query: '{ me { name } }' })
+        .reply(200, { data: { me: 'james' } }, replyHeaders);
 
       const { data } = await DataSource.process({
         ...defaultProcessOptions,
@@ -40,10 +44,6 @@ describe('constructing requests', () => {
       });
 
       expect(data).toEqual({ me: 'james' });
-      expect(fetch).toBeCalledTimes(1);
-      expect(fetch).toHaveFetched('https://api.example.com/foo', {
-        body: { query: '{ me { name } }' },
-      });
     });
 
     it('passes variables', async () => {
@@ -52,7 +52,9 @@ describe('constructing requests', () => {
         apq: false,
       });
 
-      fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+      nock('https://api.example.com')
+        .post('/foo', { query: '{ me { name } }', variables: { id: '1' } })
+        .reply(200, { data: { me: 'james' } }, replyHeaders);
 
       const { data } = await DataSource.process({
         ...defaultProcessOptions,
@@ -63,10 +65,6 @@ describe('constructing requests', () => {
       });
 
       expect(data).toEqual({ me: 'james' });
-      expect(fetch).toBeCalledTimes(1);
-      expect(fetch).toHaveFetched('https://api.example.com/foo', {
-        body: { query: '{ me { name } }', variables: { id: '1' } },
-      });
     });
   });
 
@@ -101,28 +99,18 @@ describe('constructing requests', () => {
           apq: true,
         });
 
-        fetch.mockJSONResponseOnce(apqNotFoundResponse);
-        fetch.mockJSONResponseOnce({ data: { me: 'james' } });
-
-        const { data } = await DataSource.process({
-          ...defaultProcessOptions,
-          request: { query },
-        });
-
-        expect(data).toEqual({ me: 'james' });
-        expect(fetch).toBeCalledTimes(2);
-        expect(fetch).toHaveFetchedNth(1, 'https://api.example.com/foo', {
-          body: {
+        nock('https://api.example.com')
+          .post('/foo', {
             extensions: {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
               },
             },
-          },
-        });
-        expect(fetch).toHaveFetchedNth(2, 'https://api.example.com/foo', {
-          body: {
+          })
+          .reply(200, apqNotFoundResponse, replyHeaders);
+        nock('https://api.example.com')
+          .post('/foo', {
             query,
             extensions: {
               persistedQuery: {
@@ -130,8 +118,15 @@ describe('constructing requests', () => {
                 sha256Hash,
               },
             },
-          },
+          })
+          .reply(200, { data: { me: 'james' } }, replyHeaders);
+
+        const { data } = await DataSource.process({
+          ...defaultProcessOptions,
+          request: { query },
         });
+
+        expect(data).toEqual({ me: 'james' });
       });
 
       it('passes variables', async () => {
@@ -140,8 +135,29 @@ describe('constructing requests', () => {
           apq: true,
         });
 
-        fetch.mockJSONResponseOnce(apqNotFoundResponse);
-        fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+        nock('https://api.example.com')
+          .post('/foo', {
+            variables: { id: '1' },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash,
+              },
+            },
+          })
+          .reply(200, apqNotFoundResponse, replyHeaders);
+        nock('https://api.example.com')
+          .post('/foo', {
+            query,
+            variables: { id: '1' },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash,
+              },
+            },
+          })
+          .reply(200, { data: { me: 'james' } }, replyHeaders);
 
         const { data } = await DataSource.process({
           ...defaultProcessOptions,
@@ -152,30 +168,6 @@ describe('constructing requests', () => {
         });
 
         expect(data).toEqual({ me: 'james' });
-        expect(fetch).toBeCalledTimes(2);
-        expect(fetch).toHaveFetchedNth(1, 'https://api.example.com/foo', {
-          body: {
-            variables: { id: '1' },
-            extensions: {
-              persistedQuery: {
-                version: 1,
-                sha256Hash,
-              },
-            },
-          },
-        });
-        expect(fetch).toHaveFetchedNth(2, 'https://api.example.com/foo', {
-          body: {
-            query,
-            variables: { id: '1' },
-            extensions: {
-              persistedQuery: {
-                version: 1,
-                sha256Hash,
-              },
-            },
-          },
-        });
       });
     });
 
@@ -186,7 +178,16 @@ describe('constructing requests', () => {
           apq: true,
         });
 
-        fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+        nock('https://api.example.com')
+          .post('/foo', {
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash,
+              },
+            },
+          })
+          .reply(200, { data: { me: 'james' } }, replyHeaders);
 
         const { data } = await DataSource.process({
           ...defaultProcessOptions,
@@ -194,17 +195,6 @@ describe('constructing requests', () => {
         });
 
         expect(data).toEqual({ me: 'james' });
-        expect(fetch).toBeCalledTimes(1);
-        expect(fetch).toHaveFetched('https://api.example.com/foo', {
-          body: {
-            extensions: {
-              persistedQuery: {
-                version: 1,
-                sha256Hash,
-              },
-            },
-          },
-        });
       });
 
       it('passes variables', async () => {
@@ -213,7 +203,17 @@ describe('constructing requests', () => {
           apq: true,
         });
 
-        fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+        nock('https://api.example.com')
+          .post('/foo', {
+            variables: { id: '1' },
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash,
+              },
+            },
+          })
+          .reply(200, { data: { me: 'james' } }, replyHeaders);
 
         const { data } = await DataSource.process({
           ...defaultProcessOptions,
@@ -224,31 +224,20 @@ describe('constructing requests', () => {
         });
 
         expect(data).toEqual({ me: 'james' });
-        expect(fetch).toBeCalledTimes(1);
-        expect(fetch).toHaveFetched('https://api.example.com/foo', {
-          body: {
-            variables: { id: '1' },
-            extensions: {
-              persistedQuery: {
-                version: 1,
-                sha256Hash,
-              },
-            },
-          },
-        });
       });
     });
   });
 });
 
 describe('fetcher', () => {
-  it('uses a custom provided `fetcher`', async () => {
-    const injectedFetch = fetch.mockJSONResponseOnce({
-      data: { injected: true },
-    });
+  it('supports a custom fetcher', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
-      fetcher: injectedFetch,
+      fetcher: async () =>
+        new Response(JSON.stringify({ data: { me: 'james' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
     });
 
     const { data } = await DataSource.process({
@@ -259,28 +248,6 @@ describe('fetcher', () => {
       },
     });
 
-    expect(injectedFetch).toHaveBeenCalled();
-    expect(data).toEqual({ injected: true });
-  });
-
-  it('supports a custom fetcher, like `node-fetch`', async () => {
-    const injectedFetch = customFetcher.mockJSONResponseOnce({
-      data: { me: 'james' },
-    });
-    const DataSource = new RemoteGraphQLDataSource({
-      url: 'https://api.example.com/foo',
-      fetcher: injectedFetch,
-    });
-
-    const { data } = await DataSource.process({
-      ...defaultProcessOptions,
-      request: {
-        query: '{ me { name } }',
-        variables: { id: '1' },
-      },
-    });
-
-    expect(injectedFetch).toHaveBeenCalled();
     expect(data).toEqual({ me: 'james' });
   });
 });
@@ -294,7 +261,9 @@ describe('willSendRequest', () => {
       },
     });
 
-    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+    nock('https://api.example.com')
+      .post('/foo', { query: '{ me { name } }', variables: { id: '2' } })
+      .reply(200, { data: { me: 'james' } }, replyHeaders);
 
     const { data } = await DataSource.process({
       ...defaultProcessOptions,
@@ -305,12 +274,6 @@ describe('willSendRequest', () => {
     });
 
     expect(data).toEqual({ me: 'james' });
-    expect(fetch).toHaveFetched('https://api.example.com/foo', {
-      body: {
-        query: '{ me { name } }',
-        variables: { id: '2' },
-      },
-    });
   });
 
   it('accepts context', async () => {
@@ -326,7 +289,11 @@ describe('willSendRequest', () => {
       },
     });
 
-    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+    nock('https://api.example.com', {
+      reqheaders: { 'x-user-id': '1234' },
+    })
+      .post('/foo', { query: '{ me { name } }', variables: { id: '1' } })
+      .reply(200, { data: { me: 'james' } }, replyHeaders);
 
     const { data } = await DataSource.process({
       ...defaultProcessOptions,
@@ -338,15 +305,6 @@ describe('willSendRequest', () => {
     });
 
     expect(data).toEqual({ me: 'james' });
-    expect(fetch).toHaveFetched('https://api.example.com/foo', {
-      body: {
-        query: '{ me { name } }',
-        variables: { id: '1' },
-      },
-      headers: {
-        'x-user-id': '1234',
-      },
-    });
   });
 });
 
@@ -379,7 +337,9 @@ describe('didReceiveResponse', () => {
 
     const DataSource = new MyDataSource();
 
-    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+    nock('https://api.example.com')
+      .post('/foo', { query: '{ me { name } }', variables: { id: '1' } })
+      .reply(200, { data: { me: 'james' } }, replyHeaders);
 
     const context: MyContext = { surrogateKeys: [] };
     await DataSource.process({
@@ -418,7 +378,9 @@ describe('didReceiveResponse', () => {
     const DataSource = new MyDataSource();
     const spyDidReceiveResponse = jest.spyOn(DataSource, 'didReceiveResponse');
 
-    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+    nock('https://api.example.com')
+      .post('/foo', { query: '{ me { name } }', variables: { id: '1' } })
+      .reply(200, { data: { me: 'james' } }, replyHeaders);
 
     await DataSource.process({
       ...defaultProcessOptions,
@@ -452,7 +414,9 @@ describe('didReceiveResponse', () => {
     const DataSource = new MyDataSource();
     const spyDidReceiveResponse = jest.spyOn(DataSource, 'didReceiveResponse');
 
-    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+    nock('https://api.example.com')
+      .post('/foo')
+      .reply(200, { data: { me: 'james' } }, replyHeaders);
 
     await DataSource.process({
       ...defaultProcessOptions,
@@ -483,7 +447,7 @@ describe('didEncounterError', () => {
 
     const DataSource = new MyDataSource();
 
-    fetch.mockResponseOnce('Invalid token', undefined, 401);
+    nock('https://api.example.com').post('/foo').reply(401, 'Invalid token');
 
     const context: MyContext = { timingData: [] };
     const result = DataSource.process({
@@ -510,7 +474,7 @@ describe('error handling', () => {
       url: 'https://api.example.com/foo',
     });
 
-    fetch.mockResponseOnce('Invalid token', undefined, 401);
+    nock('https://api.example.com').post('/foo').reply(401, 'Invalid token');
 
     const result = DataSource.process({
       ...defaultProcessOptions,
@@ -533,7 +497,7 @@ describe('error handling', () => {
       url: 'https://api.example.com/foo',
     });
 
-    fetch.mockResponseOnce('No access', undefined, 403);
+    nock('https://api.example.com').post('/foo').reply(403, 'No access');
 
     const result = DataSource.process({
       ...defaultProcessOptions,
@@ -556,7 +520,7 @@ describe('error handling', () => {
       url: 'https://api.example.com/foo',
     });
 
-    fetch.mockResponseOnce('Oops', undefined, 500);
+    nock('https://api.example.com').post('/foo').reply(500, 'Oops');
 
     const result = DataSource.process({
       ...defaultProcessOptions,
@@ -578,17 +542,19 @@ describe('error handling', () => {
       url: 'https://api.example.com/foo',
     });
 
-    fetch.mockResponseOnce(
-      JSON.stringify({
-        errors: [
-          {
-            message: 'Houston, we have a problem.',
-          },
-        ],
-      }),
-      { 'Content-Type': 'application/json' },
-      500,
-    );
+    nock('https://api.example.com')
+      .post('/foo')
+      .reply(
+        500,
+        {
+          errors: [
+            {
+              message: 'Houston, we have a problem.',
+            },
+          ],
+        },
+        { 'Content-Type': 'application/json' },
+      );
 
     const result = DataSource.process({
       ...defaultProcessOptions,
