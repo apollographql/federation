@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNEXT
+
+- Fix bug removing an enum type [PR #1813](https://github.com/apollographql/federation/pull/1813)
+
 ## 2.0.2-alpha.1
 
 - Fix `Schema.clone` when directive application happens before definition [PR #1785](https://github.com/apollographql/federation/pull/1785)
