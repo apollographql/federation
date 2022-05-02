@@ -2106,7 +2106,11 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   protected removeInnerElements(): void {
-    this._values.splice(0, this._values.length);
+    // Make a copy, since EnumValue.remove() will modify this._values.
+    const values = Array.from(this._values);
+    for (const value of values) {
+      value.remove();
+    }
   }
 
   protected hasNonExtensionInnerElements(): boolean {
