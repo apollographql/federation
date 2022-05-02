@@ -54,7 +54,7 @@ export function buildSupergraphSchema(supergraphSdl: string | DocumentNode): [Sc
  * the schema uses core v0.1, then it doesn't use the 'for' (purpose) argument.
  * Throws if that is not true.
  */
-function checkFeatureSupport(coreFeatures: CoreFeatures) {
+export function checkFeatureSupport(coreFeatures: CoreFeatures) {
   const errors = [];
   if (coreFeatures.coreItself.url.equals(coreVersionZeroDotOneUrl)) {
     const purposefulFeatures = [...coreFeatures.allFeatures()].filter(f => f.purpose)
