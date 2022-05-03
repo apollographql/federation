@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.50.2",
+  "version": "0.51.0",
   "description": "Apollo Gateway",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -29,8 +29,8 @@
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@apollo/utils.createhash": "^1.0.0",
-    "@apollo/utils.logger": "^1.0.0",
     "@apollo/utils.fetcher": "^1.0.0",
+    "@apollo/utils.logger": "^1.0.0",
     "@josephg/resolvable": "^1.0.1",
     "@opentelemetry/api": "^1.0.1",
     "@types/node-fetch": "2.6.1",
