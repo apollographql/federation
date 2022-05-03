@@ -878,6 +878,30 @@ describe('@core/@link handling', () => {
     // Just making sure this don't error out.
     buildAndValidate(doc);
   });
+
+  it('allows defining a repeatable directive as non-repeatable but validates usages', () => {
+    const doc = gql`
+      type T @key(fields: "k1") @key(fields: "k2") {
+        k1: ID!
+        k2: ID!
+      }
+
+      directive @key(fields: String!) on OBJECT
+    `;
+
+
+    // Test for fed2 (with @key being @link-ed)
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_GRAPHQL',
+      '[S] The directive "@key" can only be used once at this location.',
+    ]]);
+
+    // Test for fed1
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'INVALID_GRAPHQL',
+      '[S] The directive "@key" can only be used once at this location.',
+    ]]);
+  });
 });
 
 describe('federation 1 schema', () => {

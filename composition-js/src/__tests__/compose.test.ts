@@ -3014,4 +3014,24 @@ describe('composition', () => {
       expect(printType(result.schema.toAPISchema().type('U')!)).toMatchString('union U = A | B | C');
     });
   });
+
+  it('works with normal graphQL type extension when definition is empty', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          foo: Foo
+        }
+
+        type Foo
+
+        extend type Foo {
+          bar: String
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const result = composeServices([subgraphA]);
+    assertCompositionSuccess(result);
+  });
 });
