@@ -634,6 +634,7 @@ export abstract class NamedSchemaElement<TOwnType extends NamedSchemaElement<TOw
 abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSchemaElement<TOwnType, Schema, TReferencer>> extends NamedSchemaElement<TOwnType, Schema, TReferencer> {
   protected readonly _referencers: Set<TReferencer> = new Set();
   protected readonly _extensions: Set<Extension<TOwnType>> = new Set();
+  public preserveEmptyDefinition: boolean = false;
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
     super(name);
@@ -699,7 +700,9 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   hasNonExtensionElements(): boolean {
-    return this._appliedDirectives.some(d => d.ofExtension() === undefined) || this.hasNonExtensionInnerElements();
+    return this.preserveEmptyDefinition 
+      || this._appliedDirectives.some(d => d.ofExtension() === undefined)
+      || this.hasNonExtensionInnerElements();
   }
 
   protected abstract hasNonExtensionInnerElements(): boolean;
@@ -3271,6 +3274,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
 }
 
 function copyNamedTypeInner(source: NamedType, dest: NamedType) {
+  dest.preserveEmptyDefinition = source.preserveEmptyDefinition;
   const extensionsMap = copyExtensions(source, dest);
   // Same as copyAppliedDirectives, but as the directive applies to the type, we need to remember if the application
   // is for the extension or not.

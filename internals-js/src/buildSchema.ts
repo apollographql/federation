@@ -171,17 +171,46 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
+        let type = schema.type(definitionNode.name.value);
+        // Note that the type may already exists due to an extension having been processed first, but we know we
+        // have seen 2 definitions (which is invalid) if the definition has `preserverEmptyDefnition` already set
+        // since it's only set for definitions, not extensions. 
+        // Also note that we allow to redefine built-ins.
+        if (!type || type.isBuiltIn) {
+          type = schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+        } else if (type.preserveEmptyDefinition)  {
+          // Note: we reuse the same error message than graphQL-js would output
+          throw new GraphQLError(`There can be only one type named "${definitionNode.name.value}"`);
+        }
+        // It's possible for the type definition to be empty, because it is valid graphQL to have:
+        //   type Foo
+        //
+        //   extend type Foo {
+        //     bar: Int
+        //   }
+        // and we need a way to distinguish between the case above, and the case where only an extension is provided.
+        // `preserveEmptyDefinition` serves that purpose.
+        // Note that we do this even if the type was already existing because an extension could have been processed
+        // first and have created the definition, but we still want to remember that the definition _does_ exists.
+        type.preserveEmptyDefinition = true;
+        break;
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
       case 'InterfaceTypeExtension':
       case 'UnionTypeExtension':
       case 'EnumTypeExtension':
       case 'InputObjectTypeExtension':
-        // Note that because of extensions, this may be called multiple times for the same type.
-        // But at the same time, we want to allow redefining built-in types, because some users do it.
         const existing = schema.type(definitionNode.name.value);
-        if (!existing || existing.isBuiltIn) {
+        // In theory, graphQL does not let you have an extension without a corresponding definition. However,
+        // 1) this is validated later, so there is no real reason to do it here and
+        // 2) we actually accept it for federation subgraph (due to federation 1 mostly as it's not strictly needed
+        //   for federation 22, but it is still supported to ease migration there too).
+        // So if the type exists, we simply create it. However, we don't set `preserveEmptyDefinition` since it
+        // is _not_ a definition.
+        if (!existing) {
           schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+        } else if (existing.isBuiltIn) {
+          throw new GraphQLError(`Cannot extend built-in type "${definitionNode.name.value}"`);
         }
         break;
       case 'DirectiveDefinition':
