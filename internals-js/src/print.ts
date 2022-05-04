@@ -245,7 +245,7 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
   if (options.fieldFilter) {
     fields = fields.filter(options.fieldFilter);
   }
-  if (!directives.length && !interfaces.length && !fields.length) {
+  if (!directives.length && !interfaces.length && !fields.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
   }
   return printDescription(type, options, extension)
@@ -253,14 +253,14 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
     + kind + ' ' + type
     + printImplementedInterfaces(interfaces)
     + printAppliedDirectives(directives, options, true, fields.length > 0)
-    + (directives.length === 0 ? ' ' : '')
+    + (directives.length === 0 && fields.length > 0 ? ' ' : '')
     + printFields(fields, options);
 }
 
 function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const members = forExtension(type.members(), extension);
-  if (!directives.length && !members.length) {
+  if (!directives.length && !members.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
   }
   const possibleTypes = members.length ? ' = ' + members.map(m => m.type).join(' | ') : '';
@@ -274,7 +274,7 @@ function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions,
 function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const values = forExtension(type.values, extension);
-  if (!directives.length && !values.length) {
+  if (!directives.length && !values.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
   }
   const vals = values.map((v, i) =>
@@ -286,21 +286,21 @@ function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, e
     + printIsExtension(extension)
     + 'enum ' + type
     + printAppliedDirectives(directives, options, true, vals.length > 0)
-    + (directives.length === 0 ? ' ' : '')
+    + (directives.length === 0 && vals.length > 0 ? ' ' : '')
     + printBlock(vals);
 }
 
 function printInputDefinitionOrExtension(type: InputObjectType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const fields = forExtension(type.fields(), extension);
-  if (!directives.length && !fields.length) {
+  if (!directives.length && !fields.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
   }
   return printDescription(type, options, extension)
     + printIsExtension(extension)
     + 'input ' + type
     + printAppliedDirectives(directives, options, true, fields.length > 0)
-    + (directives.length === 0 ? ' ' : '')
+    + (directives.length === 0 && fields.length > 0 ? ' ' : '')
     + printFields(fields, options);
 }
 
