@@ -24,6 +24,7 @@ import {
 export const KeyDirective = new GraphQLDirective({
   name: 'key',
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
+  isRepeatable: true,
   args: {
     fields: {
       type: new GraphQLNonNull(GraphQLString),
