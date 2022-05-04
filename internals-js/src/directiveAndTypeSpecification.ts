@@ -227,7 +227,7 @@ export function createEnumTypeSpecification({
         const actualValueNames = existing.values.map(v => v.name).sort((n1, n2) => n1.localeCompare(n2));
         if (!arrayEquals(expectedValueNames, actualValueNames)) {
           errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-            message: `Invalid definition of type ${name}: expected values [${expectedValueNames}] but found [${actualValueNames}].`,
+            message: `Invalid definition for type "${name}": expected values [${expectedValueNames.join(', ')}] but found [${actualValueNames.join(', ')}].`,
             nodes: existing.sourceAST
           }));
         }
