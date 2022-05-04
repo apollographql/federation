@@ -2,6 +2,10 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## vNext
+
+- Fix bug with type extension of empty type definition [PR #1821](https://github.com/apollographql/federation/pull/1821)
+
 ## 2.0.2-alpha.2
 
 - The `fetch` implementation used by default by `UplinkFetcher` and `RemoteGraphQLDataSource` is now imported from `make-fetch-happen` v10 instead of v8. The fetcher used by `RemoteGraphQLDataSource` no longer limits the number of simultaneous requests per subgraph to 15 by default; instead, there is no limit.  (If you want to restore the previous behavior, install `make-fetch-happen`, import `fetcher` from it, and pass `new RemoteGraphQLDataSource({ fetcher: fetcher.defaults(maxSockets: 15)}))` in your `buildService` option.) [PR #1805](https://github.com/apollographql/federation/pull/1805)
