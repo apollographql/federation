@@ -31,7 +31,7 @@ export class RemoteGraphQLDataSource<
       object &
       ThisType<RemoteGraphQLDataSource<TContext>>,
   ) {
-    this.fetcher = fetcher.defaults({
+    this.fetcher = config?.fetcher ?? fetcher.defaults({
       // Allow an arbitrary number of sockets per subgraph. This is the default
       // behavior of Node's http.Agent as well as the npm package agentkeepalive
       // which wraps it, but is not the default behavior of make-fetch-happen

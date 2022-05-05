@@ -173,7 +173,17 @@ export class ApolloGateway implements GraphQLService {
     this.queryPlanStore = this.initQueryPlanStore(
       config?.experimental_approximateQueryPlanStoreMiB,
     );
-    this.fetcher = config?.fetcher || fetcher;
+    this.fetcher = config?.fetcher ?? fetcher.defaults({
+      // Allow an arbitrary number of sockets per subgraph. This is the default
+      // behavior of Node's http.Agent as well as the npm package agentkeepalive
+      // which wraps it, but is not the default behavior of make-fetch-happen
+      // which wraps agentkeepalive (that package sets this to 15 by default).
+      maxSockets: Infinity,
+      // although this is the default, we want to take extra care and be very
+      // explicity to ensure that mutations cannot be retried. please leave this
+      // intact.
+      retry: false,
+    });
 
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
@@ -761,6 +771,7 @@ export class ApolloGateway implements GraphQLService {
       ? this.config.buildService(serviceDef)
       : new RemoteGraphQLDataSource({
           url: serviceDef.url,
+          fetcher: this.fetcher,
         });
   }
 
@@ -1118,4 +1129,3 @@ export {
 } from './config';
 
 export { UplinkFetcherError } from "./supergraphManagers"
-
