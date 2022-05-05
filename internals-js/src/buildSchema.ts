@@ -199,6 +199,7 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
         continue;
       case 'SchemaDefinition':
         schemaDefinitions.push(definitionNode);
+        schema.schemaDefinition.preserveEmptyDefinition = true;
         break;
       case 'SchemaExtension':
         schemaExtensions.push(definitionNode);

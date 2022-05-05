@@ -5,14 +5,14 @@ import {
   introspectionFromSchema,
   print
 } from "graphql";
-import { graphQLSchemaToAST } from "../graphqlSchemaToAST";
+import { graphQLJSSchemaToAST } from "../graphQLJSSchemaToAST";
 import './matchers';
 
 function validateRoundtrip(schemaStr: string, expectedWithoutASTNodes: string | undefined = schemaStr) {
   const schema = buildSchema(schemaStr);
-  expect(print(graphQLSchemaToAST(schema))).toMatchString(schemaStr);
+  expect(print(graphQLJSSchemaToAST(schema))).toMatchString(schemaStr);
   if (expectedWithoutASTNodes) {
-    expect(print(graphQLSchemaToAST(withoutASTNodes(schema)))).toMatchString(expectedWithoutASTNodes);
+    expect(print(graphQLJSSchemaToAST(withoutASTNodes(schema)))).toMatchString(expectedWithoutASTNodes);
   }
 }
 

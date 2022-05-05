@@ -32,13 +32,13 @@ const allOperationTypeNode = [ OperationTypeNode.QUERY, OperationTypeNode.MUTATI
  * the returned AST will contain directive _applications_ when those can be found in AST nodes linked by
  * the elements of the provided schema.
  */
-export function graphQLSchemaToAST(schema: GraphQLSchema): DocumentNode {
+export function graphQLJSSchemaToAST(schema: GraphQLSchema): DocumentNode {
   const types = Object.values(schema.getTypeMap()).filter((type) => !isIntrospectionType(type) && !isSpecifiedScalarType(type));
   const directives = schema.getDirectives().filter((directive) => !isSpecifiedDirective(directive));
 
-  const schemaASTs = toNodeArray(graphQLSchemaToSchemaDefinitionAST(schema));
-  const typesASTs = types.map((type) => toNodeArray(graphQLNamedTypeToAST(type))).flat();
-  const directivesASTs = directives.map((directive) => graphQLDirectiveToAST(directive));
+  const schemaASTs = toNodeArray(graphQLJSSchemaToSchemaDefinitionAST(schema));
+  const typesASTs = types.map((type) => toNodeArray(graphQLJSNamedTypeToAST(type))).flat();
+  const directivesASTs = directives.map((directive) => graphQLJSDirectiveToAST(directive));
 
   return {
     kind: Kind.DOCUMENT,
@@ -61,7 +61,7 @@ function maybe<T>(v: Maybe<T>): T | undefined {
 }
 
 // Not exposing that one for now because it's a bit weirder API-wise (and take a `GraphqQLSchema` but only handle a specific subpart of it) .
-function graphQLSchemaToSchemaDefinitionAST(schema: GraphQLSchema): { definition?: SchemaDefinitionNode, extensions: readonly SchemaExtensionNode[] } {
+function graphQLJSSchemaToSchemaDefinitionAST(schema: GraphQLSchema): { definition?: SchemaDefinitionNode, extensions: readonly SchemaExtensionNode[] } {
   if (schema.astNode || schema.extensionASTNodes.length > 0) {
     return {
       definition: maybe(schema.astNode),
@@ -105,7 +105,7 @@ function isNonDefaultRootName(type: Maybe<GraphQLObjectType>, operation: Operati
   return !!type && type.name !== defaultRootName(operation);
 }
 
-export function graphQLNamedTypeToAST(type: GraphQLNamedType): { definition?: TypeDefinitionNode, extensions: readonly TypeExtensionNode[] }  {
+export function graphQLJSNamedTypeToAST(type: GraphQLNamedType): { definition?: TypeDefinitionNode, extensions: readonly TypeExtensionNode[] }  {
   if (type.astNode || type.extensionASTNodes.length > 0) {
     return {
       definition: maybe(type.astNode),
@@ -120,7 +120,7 @@ export function graphQLNamedTypeToAST(type: GraphQLNamedType): { definition?: Ty
   }
 }
 
-export function graphQLDirectiveToAST(directive: GraphQLDirective): DirectiveDefinitionNode {
+export function graphQLJSDirectiveToAST(directive: GraphQLDirective): DirectiveDefinitionNode {
   if (directive.astNode) {
     return directive.astNode;
   } else {

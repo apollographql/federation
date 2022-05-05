@@ -2,17 +2,19 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
 import gql from 'graphql-tag';
+import './matchers';
 
 describe('printSubgraphSchema', () => {
   it('prints a subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[0].typeDefs);
-    expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "schema {
+    expect(printSubgraphSchema(schema)).toMatchString(`
+      schema {
         query: RootQuery
         mutation: Mutation
       }
 
-      extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])
 
       directive @stream on FIELD
 
@@ -20,29 +22,37 @@ describe('printSubgraphSchema', () => {
 
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
-      enum CacheControlScope @tag(name: \\"from-reviews\\") {
-        PUBLIC @tag(name: \\"from-reviews\\")
+      enum CacheControlScope
+        @tag(name: "from-reviews")
+      {
+        PUBLIC @tag(name: "from-reviews")
         PRIVATE
       }
 
-      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\") @tag(name: \\"from-reviews\\")
+      scalar JSON
+        @tag(name: "from-reviews")
+        @specifiedBy(url: "https://json-spec.dev")
 
       type RootQuery {
         user(id: ID!): User
-        me: User
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
+        me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
       }
 
-      type PasswordAccount @key(fields: \\"email\\") {
+      type PasswordAccount
+        @key(fields: "email")
+      {
         email: String!
       }
 
-      type SMSAccount @key(fields: \\"number\\") {
+      type SMSAccount
+        @key(fields: "number")
+      {
         number: String
       }
 
-      union AccountType @tag(name: \\"from-accounts\\") = PasswordAccount | SMSAccount
+      union AccountType
+        @tag(name: "from-accounts")
+       = PasswordAccount | SMSAccount
 
       type UserMetadata {
         name: String
@@ -50,11 +60,15 @@ describe('printSubgraphSchema', () => {
         description: String
       }
 
-      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") {
-        id: ID! @tag(name: \\"accounts\\")
-        name: Name
+      type User
+        @key(fields: "id")
+        @key(fields: "username name { first last }")
+        @tag(name: "from-accounts")
+      {
+        id: ID! @tag(name: "accounts")
+        name: Name @cacheControl(inheritMaxAge: true)
         username: String @shareable
-        birthDate(locale: String @tag(name: \\"admin\\")): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
+        birthDate(locale: String @tag(name: "admin")): String @tag(name: "admin") @tag(name: "dev")
         account: AccountType
         metadata: [UserMetadata]
         ssn: String
@@ -66,30 +80,17 @@ describe('printSubgraphSchema', () => {
       }
 
       type Mutation {
-        login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
+        login(username: String!, password: String!, userId: String @deprecated(reason: "Use username instead")): User
       }
 
-      type Library @key(fields: \\"id\\") {
+      type Library
+        @key(fields: "id")
+      {
         id: ID!
         name: String @external
-        userAccount(id: ID! = 1): User @requires(fields: \\"name\\")
-        description: String @override(from: \\"books\\")
+        userAccount(id: ID! = 1): User @requires(fields: "name")
+        description: String @override(from: "books")
       }
-
-      enum link__Purpose {
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
-
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary for operation execution.
-        \\"\\"\\"
-        EXECUTION
-      }
-
-      scalar federation__FieldSet
-      "
     `);
   });
 
@@ -99,22 +100,16 @@ describe('printSubgraphSchema', () => {
     `;
     const subgraphSchema = buildSubgraphSchema(schema);
 
-    expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
-      "scalar JSON
-
-      scalar _FieldSet
-
-      type Query {
-        _service: _Service!
-      }
-      "
+    expect(printSubgraphSchema(subgraphSchema)).toMatchString(`
+      scalar JSON
     `);
   });
 
   it('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
-    expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "extend schema @link(url: \\"https://specs.apollo.dev/link/v1.0\\") @link(url: \\"https://specs.apollo.dev/federation/v2.0\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\"])
+    expect(printSubgraphSchema(schema)).toMatchString(`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])
 
       directive @stream on FIELD
 
@@ -122,106 +117,132 @@ describe('printSubgraphSchema', () => {
 
       type Query {
         topReviews(first: Int = 5): [Review]
-        _entities(representations: [_Any!]!): [_Entity]!
-        _service: _Service!
       }
 
-      type Review @key(fields: \\"id\\") {
+      type Review
+        @key(fields: "id")
+      {
         id: ID!
         body(format: Boolean = false): String
-        author: User @provides(fields: \\"username\\")
+        author: User @provides(fields: "username")
         product: Product
         metadata: [MetadataOrError]
       }
 
-      input UpdateReviewInput @tag(name: \\"from-reviews\\") {
+      input UpdateReviewInput
+        @tag(name: "from-reviews")
+      {
         id: ID!
-        body: String @tag(name: \\"from-reviews\\")
+        body: String @tag(name: "from-reviews")
       }
 
       type UserMetadata {
         address: String @external
       }
 
-      type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
+      type User
+        @key(fields: "id")
+        @tag(name: "from-reviews")
+      {
         id: ID!
         username: String @external
         reviews: [Review]
         numberOfReviews: Int!
         metadata: [UserMetadata] @external
-        goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
+        goodAddress: Boolean @requires(fields: "metadata { address }")
       }
 
-      interface Product @tag(name: \\"from-reviews\\") {
-        reviews: [Review] @tag(name: \\"from-reviews\\")
+      interface Product
+        @tag(name: "from-reviews")
+      {
+        reviews: [Review] @tag(name: "from-reviews")
       }
 
-      type Furniture implements Product @key(fields: \\"upc\\") {
+      type Furniture implements Product
+        @key(fields: "upc")
+      {
         upc: String!
         reviews: [Review]
       }
 
-      type Book implements Product @key(fields: \\"isbn\\") {
+      type Book implements Product
+        @key(fields: "isbn")
+      {
         isbn: String!
         reviews: [Review]
         similarBooks: [Book]! @external
-        relatedReviews: [Review!]! @requires(fields: \\"similarBooks { isbn }\\")
+        relatedReviews: [Review!]! @requires(fields: "similarBooks { isbn }")
       }
 
       interface Vehicle {
         retailPrice: String
       }
 
-      type Car implements Vehicle @key(fields: \\"id\\") {
+      type Car implements Vehicle
+        @key(fields: "id")
+      {
         id: String!
         price: String @external
-        retailPrice: String @requires(fields: \\"price\\")
+        retailPrice: String @requires(fields: "price")
       }
 
-      type Van implements Vehicle @key(fields: \\"id\\") {
+      type Van implements Vehicle
+        @key(fields: "id")
+      {
         id: String!
         price: String @external
-        retailPrice: String @requires(fields: \\"price\\")
+        retailPrice: String @requires(fields: "price")
       }
 
       input ReviewProduct {
         upc: String!
         body: String!
-        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
+        stars: Int @deprecated(reason: "Stars are no longer in use")
       }
 
       type Mutation {
         reviewProduct(input: ReviewProduct!): Product
-        updateReview(review: UpdateReviewInput! @tag(name: \\"from-reviews\\")): Review
+        updateReview(review: UpdateReviewInput! @tag(name: "from-reviews")): Review
         deleteReview(id: ID!): Boolean
       }
 
-      type KeyValue @shareable @tag(name: \\"from-reviews\\") {
-        key: String! @tag(name: \\"from-reviews\\")
+      type KeyValue
+        @shareable
+        @tag(name: "from-reviews")
+      {
+        key: String! @tag(name: "from-reviews")
         value: String!
       }
 
-      type Error @shareable {
+      type Error
+        @shareable
+      {
         code: Int
         message: String
       }
 
       union MetadataOrError = KeyValue | Error
+    `);
+  });
 
-      enum link__Purpose {
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
+  it('outputs can be read by buildSchema', () => {
+    const schema = `
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
 
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary for operation execution.
-        \\"\\"\\"
-        EXECUTION
+      type Query {
+        t: T
       }
 
-      scalar federation__FieldSet
-      "
-    `);
+      type T
+        @key(fields: "id")
+      {
+        id: ID!
+        x: Int @shareable
+      }
+    `;
+
+    const printed = printSubgraphSchema(buildSubgraphSchema(gql(schema)));
+    expect(printed).toMatchString(schema);
   });
 });
