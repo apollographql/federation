@@ -41,6 +41,7 @@ import {
   CompositeType,
   typenameFieldName,
   NamedType,
+  sameDirectiveApplications,
 } from "./definitions";
 import { sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
@@ -53,16 +54,7 @@ function validate(condition: any, message: () => string, sourceAST?: ASTNode): a
 }
 
 function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op2: TElement): boolean {
-  if (op1.appliedDirectives.length != op2.appliedDirectives.length) {
-    return false;
-  }
-
-  for (const thisDirective of op1.appliedDirectives) {
-    if (!op2.appliedDirectives.some(thatDirective => thisDirective.name === thatDirective.name && argumentsEquals(thisDirective.arguments(), thatDirective.arguments()))) {
-      return false;
-    }
-  }
-  return true;
+  return sameDirectiveApplications(op1.appliedDirectives, op2.appliedDirectives);
 }
 
 abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {

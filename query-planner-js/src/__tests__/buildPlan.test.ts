@@ -2069,6 +2069,77 @@ describe('@requires', () => {
         }
       `);
     });
+
+    it('handles a @requires triggered conditionally', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            a: Int
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            a: Int @external
+            b: Int @requires(fields: "a")
+          }
+        `
+      }
+
+      const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+      const operation = operationFromDocument(api, gql`
+        query foo($test: Boolean!){
+          t {
+            b @include(if: $test)
+          }
+        }
+      `);
+
+      const plan = queryPlanner.buildQueryPlan(operation);
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T @include(if: $test) {
+                    a
+                  }
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                    a
+                  }
+                } =>
+                {
+                  ... on T {
+                    b @include(if: $test)
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+    });
   });
 });
 

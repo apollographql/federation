@@ -39,6 +39,8 @@ import {
   federationMetadata,
   entitiesFieldName,
   concatOperationPaths,
+  Directive,
+  isDirectiveApplicationsSubset,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -791,13 +793,27 @@ class FetchGroup {
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
     // But when we merge-in, if the point we're merging in is already the entity, then the cast can be skipped.
+    let mergePathDirectives: Directive<any, any>[] | undefined = undefined; // lazily computed in the loop if necessary
     const selectionSet = selectionSetOfPath(mergePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
       for (const typeCastSel of toMerge.selection.selections()) {
         assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
-        const entityType = typeCastSel.element().typeCondition;
+        const fragment = typeCastSel.element();
+        const entityType = fragment.typeCondition;
         assert(entityType, () => `Unexpected fragment _without_ condition at start of ${toMerge}`);
-        if (sameType(endOfPathSet.parentType, entityType)) {
+        // We can skip the type-cast if it's type-casting to the type we're already at, but we also need to ensure that
+        // we don't ignore some necessary `@include` or `@ksip` doing so. If the type-cast has not directives, then we're
+        // safe. Otherwise, we could always keep the type-cast, and that woud be "safe", but it may be inefficient
+        // if the `@include` and `@skip` are already "active" at the point of merging. So in that later case, we
+        // collect the directives on `mergePath`, and checks if the ones of the type-cast are included.
+        let hasNeededDirectives = false;
+        if (fragment.appliedDirectives.length > 0) {
+          if (!mergePathDirectives) {
+            mergePathDirectives = mergePath.map((e) => e.appliedDirectives).flat();
+          }
+          hasNeededDirectives = !isDirectiveApplicationsSubset(mergePathDirectives, fragment.appliedDirectives);
+        }
+        if (sameType(endOfPathSet.parentType, entityType) && !hasNeededDirectives) {
           endOfPathSet.mergeIn(typeCastSel.selectionSet);
         } else {
           endOfPathSet.add(typeCastSel);

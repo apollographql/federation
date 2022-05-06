@@ -30,7 +30,7 @@ import {
   removeAllCoreFeatures,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode } from "./values";
+import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema } from './print';
 import { sameType } from './types';
@@ -3057,6 +3057,32 @@ export class Directive<
     const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.argumentType(n))}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
+}
+
+export function sameDirectiveApplications(applications1: Directive<any, any>[], applications2: Directive<any, any>[]): boolean {
+  if (applications1.length !== applications2.length) {
+    return false;
+  }
+
+  for (const directive1 of applications1) {
+    if (!applications2.some(directive2 => directive1.name === directive2.name && argumentsEquals(directive1.arguments(), directive2.arguments()))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function isDirectiveApplicationsSubset(applications: Directive<any, any>[], maybeSubset: Directive<any, any>[]): boolean {
+  if (maybeSubset.length > applications.length) {
+    return false;
+  }
+
+  for (const directive1 of maybeSubset) {
+    if (!applications.some(directive2 => directive1.name === directive2.name && argumentsEquals(directive1.arguments(), directive2.arguments()))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export class Variable {
