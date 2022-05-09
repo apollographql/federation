@@ -682,6 +682,19 @@ describe('@core/@link handling', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
       `,
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+        type T {
+          k: ID!
+        }
+
+        enum link__Purpose {
+          EXECUTION
+          SECURITY
+        }
+      `,
     ];
 
     // Note that we cannot use `validateFullSchema` as-is for those examples because the order or directive is going
@@ -859,6 +872,27 @@ describe('@core/@link handling', () => {
     expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
       'DIRECTIVE_DEFINITION_INVALID',
       '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "federation__FieldSet"',
+    ]]);
+  });
+
+  it('errors on invalid definition for @link Purpose', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+      type T {
+        k: ID!
+      }
+
+      enum link__Purpose {
+        EXECUTION
+        RANDOM
+      }
+    `;
+
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'TYPE_DEFINITION_INVALID',
+      '[S] Invalid definition for type "Purpose": expected values [EXECUTION, SECURITY] but found [EXECUTION, RANDOM].',
     ]]);
   });
 

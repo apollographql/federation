@@ -61,7 +61,7 @@ export function buildSubgraphSchema(
 
   const sdl = printSchema(subgraph.schema);
 
-  const schema = subgraph.schema.toGraphQLJSSchema(true);
+  const schema = subgraph.schema.toGraphQLJSSchema();
 
   const queryRootName = subgraph.schema.schemaDefinition.rootType('query')?.name;
   assert(queryRootName, 'A Query root type should have been added by `buildSubgraph`');
