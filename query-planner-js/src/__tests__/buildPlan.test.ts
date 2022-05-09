@@ -2140,6 +2140,114 @@ describe('@requires', () => {
         }
       `);
     });
+
+    it('handles a @requires where multiple conditional are involved', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @key(fields: "idA") {
+            idA: ID!
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        typeDefs: gql`
+          type A @key(fields: "idA") {
+            idA: ID!
+            b: [B]
+          }
+
+          type B @key(fields: "idB") {
+            idB: ID!
+            required: Int
+          }
+        `
+      }
+
+      const subgraph3 = {
+        name: 'Subgraph3',
+        typeDefs: gql`
+          type B @key(fields: "idB") {
+            idB: ID!
+            c: Int @requires(fields: "required")
+            required: Int @external
+          }
+        `
+      }
+
+      const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+      const operation = operationFromDocument(api, gql`
+        query foo($test1: Boolean!, $test2: Boolean!){
+          a @include(if: $test1) {
+            b @include(if: $test2) {
+              c
+            }
+          }
+        }
+      `);
+
+      global.console = require('console');
+      const plan = queryPlanner.buildQueryPlan(operation);
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                a @include(if: $test1) {
+                  __typename
+                  idA
+                }
+              }
+            },
+            Flatten(path: "a") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on A {
+                    __typename
+                    idA
+                  }
+                } =>
+                {
+                  ... on A @include(if: $test1) {
+                    b @include(if: $test2) {
+                      __typename
+                      idB
+                      required
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "a.b.@") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on B {
+                    ... on B {
+                      __typename
+                      idB
+                      required
+                    }
+                  }
+                } =>
+                {
+                  ... on B @include(if: $test1) {
+                    ... on B @include(if: $test2) {
+                      c
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+    });
   });
 });
 

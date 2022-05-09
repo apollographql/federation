@@ -33,14 +33,14 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
-  FragmentSelection,
   sameType,
   FederationMetadata,
   federationMetadata,
   entitiesFieldName,
   concatOperationPaths,
   Directive,
-  isDirectiveApplicationsSubset,
+  directiveApplicationsSubstraction,
+  conditionalDirectivesInOperationPath,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -793,31 +793,12 @@ class FetchGroup {
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
     // But when we merge-in, if the point we're merging in is already the entity, then the cast can be skipped.
-    let mergePathDirectives: Directive<any, any>[] | undefined = undefined; // lazily computed in the loop if necessary
+    const mergePathConditionalDirectives = conditionalDirectivesInOperationPath(mergePath);
     const selectionSet = selectionSetOfPath(mergePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
-      for (const typeCastSel of toMerge.selection.selections()) {
-        assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
-        const fragment = typeCastSel.element();
-        const entityType = fragment.typeCondition;
-        assert(entityType, () => `Unexpected fragment _without_ condition at start of ${toMerge}`);
-        // We can skip the type-cast if it's type-casting to the type we're already at, but we also need to ensure that
-        // we don't ignore some necessary `@include` or `@ksip` doing so. If the type-cast has not directives, then we're
-        // safe. Otherwise, we could always keep the type-cast, and that woud be "safe", but it may be inefficient
-        // if the `@include` and `@skip` are already "active" at the point of merging. So in that later case, we
-        // collect the directives on `mergePath`, and checks if the ones of the type-cast are included.
-        let hasNeededDirectives = false;
-        if (fragment.appliedDirectives.length > 0) {
-          if (!mergePathDirectives) {
-            mergePathDirectives = mergePath.map((e) => e.appliedDirectives).flat();
-          }
-          hasNeededDirectives = !isDirectiveApplicationsSubset(mergePathDirectives, fragment.appliedDirectives);
-        }
-        if (sameType(endOfPathSet.parentType, entityType) && !hasNeededDirectives) {
-          endOfPathSet.mergeIn(typeCastSel.selectionSet);
-        } else {
-          endOfPathSet.add(typeCastSel);
-        }
+      for (const selection of toMerge.selection.selections()) {
+        const withoutUneededFragments = removeRedundantFragments(selection, endOfPathSet.parentType, mergePathConditionalDirectives);
+        addSelectionOrSelectionSet(endOfPathSet, withoutUneededFragments);
       }
     });
 
@@ -875,6 +856,81 @@ class FetchGroup {
     return this.isTopLevel
       ? `[${this.index}]${this.subgraphName}[${this._selection}]`
       : `[${this.index}]${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function addSelectionOrSelectionSet(selectionSet: SelectionSet, toAdd: Selection | SelectionSet) {
+  if (toAdd instanceof SelectionSet) {
+    selectionSet.mergeIn(toAdd);
+  } else {
+    selectionSet.add(toAdd);
+  }
+}
+
+/**
+ * Given a selection select (`selectionSet`) starting on a given type (`type`) and given a set of directive applications
+ * that can be eliminated (`unneededDirectives`; in practice those are conditionals (@skip and @include) already accounted
+ * for), returns an equivalent selection set but with unecessary "starting" fragments removed (if any can).
+ * Note that this very similar to the optimisation done in `operation.ts#concatOperationPaths`, but applied to the "concatenation"
+ * of selection sets.
+ */
+function removeRedundantFragmentsOfSet(
+  selectionSet: SelectionSet,
+  type: CompositeType,
+  unneededDirectives: Directive<any, any>[],
+): SelectionSet {
+  let newSet: SelectionSet | undefined = undefined;
+  const selections = selectionSet.selections();
+  for (let i = 0; i < selections.length; i++) {
+    const selection = selections[i];
+    const updated = removeRedundantFragments(selection, type, unneededDirectives);
+    if (newSet) {
+      addSelectionOrSelectionSet(newSet, updated);
+    } else if (selection !== updated) {
+      // We've found the firs selection that is changed. Create `newSet`
+      // and add any previous selection (which we now is unchanged).
+      newSet = new SelectionSet(type);
+      for (let j = 0; j < i; j++) {
+        newSet.add(selections[j]);
+      }
+      // and add the new one.
+      addSelectionOrSelectionSet(newSet, updated);
+    } // else, we just move on
+  }
+  return newSet ? newSet : selectionSet;
+}
+
+function removeRedundantFragments(
+  selection: Selection,
+  type: CompositeType,
+  unneededDirectives: Directive<any, any>[],
+): Selection | SelectionSet {
+  if (selection.kind !== 'FragmentSelection') {
+    return selection;
+  }
+
+  const fragment = selection.element();
+  const fragmentType = fragment.typeCondition;
+  if (!fragmentType) {
+    return selection;
+  }
+
+  let neededDirectives: Directive[] = [];
+  if (fragment.appliedDirectives.length > 0) {
+    neededDirectives = directiveApplicationsSubstraction(fragment.appliedDirectives, unneededDirectives);
+  }
+
+  if (sameType(type, fragmentType) && neededDirectives.length === 0) {
+    // we can completely skip this fragment and recurse.
+    return removeRedundantFragmentsOfSet(selection.selectionSet, type, unneededDirectives);
+  } else if (neededDirectives.length === fragment.appliedDirectives.length) {
+    // This means we need all of the directives of the fragment, and so just return it.
+    return selection;
+  } else {
+    // We need the fragment, but we can skip some of its directive.
+    const updatedFragement = new FragmentElement(type, fragment.typeCondition);
+    neededDirectives.forEach((d) => updatedFragement.applyDirective(d.definition!, d.arguments()));
+    return selectionSetOfElement(updatedFragement, selection.selectionSet);
   }
 }
 
@@ -1648,6 +1704,10 @@ function withoutTypename(selectionSet: SelectionSet): SelectionSet {
   return selectionSet.filter((selection) => selection.kind !== 'FieldSelection' || selection.element().name === '__typename');
 }
 
+function pathHasOnlyFragments(path: OperationPath): boolean {
+  return path.every((element) => element.kind === 'FragmentElement');
+}
+
 function handleRequires(
   dependencyGraph: FetchDependencyGraph,
   edge: Edge,
@@ -1669,12 +1729,12 @@ function handleRequires(
   // that depends on the createdGroups and have the created groups depend on the current one.
   // However, we can be more efficient in general (and this is expected by the user) because
   // required fields will usually come just after a key edge (at the top of a fetch group).
-  // In that case (when the path is exactly 1 typeCast), we can put the created groups directly
+  // In that case (when the path is only typeCasts), we can put the created groups directly
   // as dependency of the current group, avoiding to create a new one. Additionally, if the
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
-  if (!group.isTopLevel && path.length == 1 && path[0].kind === 'FragmentElement') {
+  if (!group.isTopLevel && pathHasOnlyFragments(path)) {
     // We start by computing the groups for the conditions. We do this using a copy of the current
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
     const originalInputs = group.clonedInputs()!;
