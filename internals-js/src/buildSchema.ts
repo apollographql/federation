@@ -19,6 +19,10 @@ import {
   SchemaExtensionNode,
   parseType,
   Kind,
+  TypeDefinitionNode,
+  TypeExtensionNode,
+  EnumTypeExtensionNode,
+  EnumTypeDefinitionNode,
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 import { valueFromASTUntyped } from "./values";
@@ -49,6 +53,7 @@ import {
   Extension,
   ErrGraphQLValidationFailed,
   errorCauses,
+  NamedSchemaElement,
 } from "./definitions";
 
 function buildValue(value?: ValueNode): any {
@@ -70,9 +75,52 @@ export function buildSchemaFromAST(
 ): Schema {
   const errors: GraphQLError[] = [];
   const schema = new Schema(options?.blueprint);
+
+  // Building schema has to proceed in a particular order due to 2 main constraints:
+  // 1. some elements can refer other elements even if the definition of those referenced elements appear later in the AST.
+  //   And in fact, definitions can be cyclic (a type having field whose type is themselves for instance). Which we
+  //   deal with by first adding empty definition for every type and directive name, because handling any of their content.
+  // 2. we accept "incomplete" schema due to `@link` (incomplete in the sense of the graphQL spec). Indeed, `@link` is all
+  //   about importing definitions, but that mean that some element may be _reference_ in the AST without their _definition_
+  //   being in the AST. So we need to ensure we "import" those definitions before we try to "build" references to them.
+
+
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
-  const { directiveDefinitions, schemaDefinitions, schemaExtensions } = buildNamedTypeAndDirectivesShallow(documentNode, schema);
+  const {
+    directiveDefinitions,
+    typeDefinitions,
+    typeExtensions,
+    schemaDefinitions,
+    schemaExtensions,
+  } = buildNamedTypeAndDirectivesShallow(documentNode, schema, errors);
+
+  // We then build the content of enum types, but excluding their directive _applications. The reason we do this
+  // is that:
+  // 1. we can (enum values are self-contained and cannot reference anything that may need to be imported first; this
+  //   is also why we skip directive applications at that point, as those _may_ reference something that hasn't been imported yet)
+  // 2. this allows the code to handle better the case where the `link__Purpose` enum is provided in the AST despite the `@link` 
+  //   _definition_ not being provided. And the reason that is true is that as we later _add_ the `@link` definition, we
+  //   will need to check if `link_Purpose` needs to be added or not, but when it is already present, we check it's definition
+  //   is the expected, but that check will unexpected fail if we haven't finished "building" said type definition.
+  // Do note that we can only do that "early building" for scalar and enum types (and it happens that there is nothing to do
+  // for scalar because they are the only types whose "content" don't reference other types (and again, for definitions
+  // referencing other types, we need to import `@link`-ed definition first). Thankfully, the `@link` directive definition
+  // only rely on a scalar (`Import`) and an enum (`Purpose`) type (if that ever changes, we may have to something more here
+  // to be resilient to weirdly incomplete schema).
+  for (const typeNode of typeDefinitions) {
+    if (typeNode.kind === Kind.ENUM_TYPE_DEFINITION) {
+      buildEnumTypeValuesWithoutDirectiveApplications(typeNode, schema.type(typeNode.name.value) as EnumType);
+    }
+  }
+  for (const typeExtensionNode of typeExtensions) {
+    if (typeExtensionNode.kind === Kind.ENUM_TYPE_EXTENSION) {
+      const toExtend = schema.type(typeExtensionNode.name.value)!;
+      const extension = toExtend.newExtension();
+      extension.sourceAST = typeExtensionNode;
+      buildEnumTypeValuesWithoutDirectiveApplications(typeExtensionNode, schema.type(typeExtensionNode.name.value) as EnumType, extension);
+    }
+  }
 
   // We then deal with directive definition first. This is mainly for the sake of core schemas: the core schema
   // handling in `Schema` detects that the schema is a core one when it see the application of `@core(feature: ".../core/...")`
@@ -105,32 +153,14 @@ export function buildSchemaFromAST(
     buildDirectiveApplicationsInDirectiveDefinition(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!, errors);
   }
 
-  for (const definitionNode of documentNode.definitions) {
-    switch (definitionNode.kind) {
-      case 'OperationDefinition':
-      case 'FragmentDefinition':
-        errors.push(new GraphQLError("Invalid executable definition found while building schema", definitionNode));
-        continue;
-      case 'ScalarTypeDefinition':
-      case 'ObjectTypeDefinition':
-      case 'InterfaceTypeDefinition':
-      case 'UnionTypeDefinition':
-      case 'EnumTypeDefinition':
-      case 'InputObjectTypeDefinition':
-        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, schema.blueprint, errors);
-        break;
-      case 'ScalarTypeExtension':
-      case 'ObjectTypeExtension':
-      case 'InterfaceTypeExtension':
-      case 'UnionTypeExtension':
-      case 'EnumTypeExtension':
-      case 'InputObjectTypeExtension':
-        const toExtend = schema.type(definitionNode.name.value)!;
-        const extension = toExtend.newExtension();
-        extension.sourceAST = definitionNode;
-        buildNamedTypeInner(definitionNode, toExtend, schema.blueprint, errors, extension);
-        break;
-    }
+  for (const typeNode of typeDefinitions) {
+    buildNamedTypeInner(typeNode, schema.type(typeNode.name.value)!, schema.blueprint, errors);
+  }
+  for (const typeExtensionNode of typeExtensions) {
+    const toExtend = schema.type(typeExtensionNode.name.value)!;
+    const extension = toExtend.newExtension();
+    extension.sourceAST = typeExtensionNode;
+    buildNamedTypeInner(typeExtensionNode, toExtend, schema.blueprint, errors, extension);
   }
 
   // Note: we could try calling `schema.validate()` regardless of errors building the schema and merge the resulting
@@ -149,18 +179,27 @@ export function buildSchemaFromAST(
   return schema;
 }
 
-function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema): {
+function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema, errors: GraphQLError[]): {
   directiveDefinitions: DirectiveDefinitionNode[],
+  typeDefinitions: TypeDefinitionNode[],
+  typeExtensions: TypeExtensionNode[],
   schemaDefinitions: SchemaDefinitionNode[],
   schemaExtensions: SchemaExtensionNode[],
 }  {
   const directiveDefinitions = [];
+  const typeDefinitions = [];
+  const typeExtensions = [];
   const schemaDefinitions = [];
   const schemaExtensions = [];
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
+      case 'OperationDefinition':
+      case 'FragmentDefinition':
+        errors.push(new GraphQLError("Invalid executable definition found while building schema", definitionNode));
+        continue;
       case 'SchemaDefinition':
         schemaDefinitions.push(definitionNode);
+        schema.schemaDefinition.preserveEmptyDefinition = true;
         break;
       case 'SchemaExtension':
         schemaExtensions.push(definitionNode);
@@ -171,17 +210,48 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
+        typeDefinitions.push(definitionNode);
+        let type = schema.type(definitionNode.name.value);
+        // Note that the type may already exists due to an extension having been processed first, but we know we
+        // have seen 2 definitions (which is invalid) if the definition has `preserverEmptyDefnition` already set
+        // since it's only set for definitions, not extensions. 
+        // Also note that we allow to redefine built-ins.
+        if (!type || type.isBuiltIn) {
+          type = schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+        } else if (type.preserveEmptyDefinition)  {
+          // Note: we reuse the same error message than graphQL-js would output
+          throw new GraphQLError(`There can be only one type named "${definitionNode.name.value}"`);
+        }
+        // It's possible for the type definition to be empty, because it is valid graphQL to have:
+        //   type Foo
+        //
+        //   extend type Foo {
+        //     bar: Int
+        //   }
+        // and we need a way to distinguish between the case above, and the case where only an extension is provided.
+        // `preserveEmptyDefinition` serves that purpose.
+        // Note that we do this even if the type was already existing because an extension could have been processed
+        // first and have created the definition, but we still want to remember that the definition _does_ exists.
+        type.preserveEmptyDefinition = true;
+        break;
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
       case 'InterfaceTypeExtension':
       case 'UnionTypeExtension':
       case 'EnumTypeExtension':
       case 'InputObjectTypeExtension':
-        // Note that because of extensions, this may be called multiple times for the same type.
-        // But at the same time, we want to allow redefining built-in types, because some users do it.
+        typeExtensions.push(definitionNode);
         const existing = schema.type(definitionNode.name.value);
-        if (!existing || existing.isBuiltIn) {
+        // In theory, graphQL does not let you have an extension without a corresponding definition. However,
+        // 1) this is validated later, so there is no real reason to do it here and
+        // 2) we actually accept it for federation subgraph (due to federation 1 mostly as it's not strictly needed
+        //   for federation 22, but it is still supported to ease migration there too).
+        // So if the type exists, we simply create it. However, we don't set `preserveEmptyDefinition` since it
+        // is _not_ a definition.
+        if (!existing) {
           schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+        } else if (existing.isBuiltIn) {
+          throw new GraphQLError(`Cannot extend built-in type "${definitionNode.name.value}"`);
         }
         break;
       case 'DirectiveDefinition':
@@ -192,6 +262,8 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
   }
   return {
     directiveDefinitions,
+    typeDefinitions,
+    typeExtensions,
     schemaDefinitions,
     schemaExtensions,
   }
@@ -293,6 +365,15 @@ function buildNamedTypeInner(
   extension?: Extension<any>,
 ) {
   switch (definitionNode.kind) {
+    case 'EnumTypeDefinition':
+    case 'EnumTypeExtension':
+      // We built enum values earlier in the `buildEnumTypeValuesWithoutDirectiveApplications`, but as the name
+      // of that method implies, we just need to finish building directive applications.
+      const enumType = type as EnumType;
+      for (const enumVal of definitionNode.values ?? []) {
+        buildAppliedDirectives(enumVal, enumType.value(enumVal.name.value)!, errors);
+      }
+      break;
     case 'ObjectTypeDefinition':
     case 'ObjectTypeExtension':
     case 'InterfaceTypeDefinition':
@@ -337,18 +418,6 @@ function buildNamedTypeInner(
         );
       }
       break;
-    case 'EnumTypeDefinition':
-    case 'EnumTypeExtension':
-      const enumType = type as EnumType;
-      for (const enumVal of definitionNode.values ?? []) {
-        const v = enumType.addValue(enumVal.name.value);
-        if (enumVal.description) {
-          v.description = enumVal.description.value;
-        }
-        v.setOfExtension(extension);
-        buildAppliedDirectives(enumVal, v, errors);
-      }
-      break;
     case 'InputObjectTypeDefinition':
     case 'InputObjectTypeExtension':
       const inputObjectType = type as InputObjectType;
@@ -360,10 +429,33 @@ function buildNamedTypeInner(
       break;
   }
   buildAppliedDirectives(definitionNode, type, errors, extension);
-  if (definitionNode.description) {
-    type.description = definitionNode.description.value;
+  buildDescriptionAndSourceAST(definitionNode, type);
+}
+
+function buildEnumTypeValuesWithoutDirectiveApplications(
+  definitionNode: EnumTypeDefinitionNode | EnumTypeExtensionNode,
+  type: EnumType,
+  extension?: Extension<any>,
+) {
+  const enumType = type as EnumType;
+  for (const enumVal of definitionNode.values ?? []) {
+    const v = enumType.addValue(enumVal.name.value);
+    if (enumVal.description) {
+      v.description = enumVal.description.value;
+    }
+    v.setOfExtension(extension);
   }
-  type.sourceAST = definitionNode;
+  buildDescriptionAndSourceAST(definitionNode, type);
+}
+
+function buildDescriptionAndSourceAST<T extends NamedSchemaElement<T, Schema, unknown>>(
+  definitionNode: DefinitionNode & NodeWithDescription,
+  dest: T,
+) {
+  if (definitionNode.description) {
+    dest.description = definitionNode.description.value;
+  }
+  dest.sourceAST = definitionNode;
 }
 
 function buildFieldDefinitionInner(
@@ -458,8 +550,7 @@ function buildDirectiveDefinitionInnerWithoutDirectiveApplications(
   directive.repeatable = directiveNode.repeatable;
   const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocation);
   directive.addLocations(...locations);
-  directive.description = directiveNode.description?.value;
-  directive.sourceAST = directiveNode;
+  buildDescriptionAndSourceAST(directiveNode, directive);
 }
 
 function buildDirectiveApplicationsInDirectiveDefinition(

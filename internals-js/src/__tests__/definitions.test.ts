@@ -10,7 +10,7 @@ import {
   InputObjectType,
 } from '../../dist/definitions';
 import {
-  printSchema as printGraphQLjsSchema
+  printSchema as printGraphQLjsSchema,
 } from 'graphql';
 import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
@@ -219,6 +219,27 @@ test('removal of all directives of a schema', () => {
     }
 
     union U = A | B`);
+});
+
+test('removal of an enum type should remove enum values', () => {
+  const schema = buildSchema(`
+    type Query {
+      someField: String!
+    }
+
+    enum Enum {
+      SOME_VALUE
+      OTHER_VALUE
+    }
+  `);
+
+  const enumType = schema.type("Enum");
+  expectEnumType(enumType)
+  const enumValues = Array.from(enumType.values);
+  enumType.remove()
+  for (const value of enumValues) {
+    expect(value.isAttached()).toBe(false)
+  }
 });
 
 test('removal of all inaccessible elements of a schema', () => {
@@ -548,6 +569,122 @@ test('handling of extensions', () => {
 
     union AUnion = AType | AType2 | AType3
   `);
+});
+
+describe('type extension where definition is empty', () => {
+  it('works for object types', () => {
+    const sdl = `
+      type Query {
+        foo: Foo
+      }
+
+      type Foo
+
+      extend type Foo {
+        baz: String
+      }
+    `;
+
+    const schema = buildSchema(sdl);
+    expect(printSchema(schema)).toMatchString(sdl);
+    expect(schema.type('Foo')?.hasNonExtensionElements()).toBeTruthy();
+    expect(schema.type('Foo')?.hasExtensionElements()).toBeTruthy();
+  });
+
+  it('works for union', () => {
+    const sdl = `
+      type Query {
+        foo: Foo
+      }
+
+      union Foo
+
+      extend union Foo = Bar
+
+      type Bar {
+        x: Int
+      }
+    `;
+
+    const schema = buildSchema(sdl);
+    expect(printSchema(schema)).toMatchString(sdl);
+    expect(schema.type('Foo')?.hasNonExtensionElements()).toBeTruthy();
+    expect(schema.type('Foo')?.hasExtensionElements()).toBeTruthy();
+  });
+
+  it('works for enum', () => {
+    const sdl = `
+      type Query {
+        foo: Foo
+      }
+
+      enum Foo
+
+      extend enum Foo {
+        Bar
+      }
+    `;
+
+    const schema = buildSchema(sdl);
+    expect(printSchema(schema)).toMatchString(sdl);
+    expect(schema.type('Foo')?.hasNonExtensionElements()).toBeTruthy();
+    expect(schema.type('Foo')?.hasExtensionElements()).toBeTruthy();
+  });
+
+  it('works for input object types', () => {
+    const sdl = `
+      type Query {
+        foo: Int
+      }
+
+      input Foo
+
+      extend input Foo {
+        bar: Int
+      }
+    `;
+
+    const schema = buildSchema(sdl);
+    expect(printSchema(schema)).toMatchString(sdl);
+    expect(schema.type('Foo')?.hasNonExtensionElements()).toBeTruthy();
+    expect(schema.type('Foo')?.hasExtensionElements()).toBeTruthy();
+  });
+
+  it('works for scalar type', () => {
+    const sdl = `
+      type Query {
+        foo: Int
+      }
+
+      scalar Foo
+
+      extend scalar Foo
+        @specifiedBy(url: "something")
+    `;
+
+    const schema = buildSchema(sdl);
+    expect(printSchema(schema)).toMatchString(sdl);
+    expect(schema.type('Foo')?.hasNonExtensionElements()).toBeTruthy();
+    expect(schema.type('Foo')?.hasExtensionElements()).toBeTruthy();
+  });
+})
+
+test('reject type defined multiple times', () => {
+  const sdl = `
+    type Query {
+      foo: Foo
+    }
+
+    type Foo {
+      bar: String
+    }
+
+    type Foo {
+      baz: String
+    }
+  `;
+
+  expect(() => buildSchema(sdl).validate()).toThrow('There can be only one type named "Foo"');
 });
 
 test('default arguments for directives', () => {

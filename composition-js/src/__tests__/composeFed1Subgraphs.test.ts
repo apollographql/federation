@@ -66,7 +66,6 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -89,7 +88,6 @@ describe('basic type extensions', () => {
     // an extension.
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -150,7 +148,6 @@ describe('basic type extensions', () => {
     // Same remark than in prevoius test
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -166,7 +163,6 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -239,7 +235,6 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -255,7 +250,6 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -273,7 +267,6 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphC')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query

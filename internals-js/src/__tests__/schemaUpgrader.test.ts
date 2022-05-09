@@ -92,7 +92,6 @@ test('upgrade complex schema', () => {
 
   expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
     schema
-      @link(url: "https://specs.apollo.dev/link/v1.0")
       ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
     {
       query: Query
@@ -149,7 +148,6 @@ test('update federation directive non-string arguments', () => {
 
   expect(res.subgraphs?.get('s')?.toString()).toMatchString(`
     schema
-      @link(url: "https://specs.apollo.dev/link/v1.0")
       ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
     {
       query: Query

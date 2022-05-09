@@ -17,3 +17,4 @@ export * from './extractSubgraphsFromSupergraph';
 export * from './error';
 export * from './schemaUpgrader';
 export * from './suggestions';
+export * from './graphQLJSSchemaToAST';
