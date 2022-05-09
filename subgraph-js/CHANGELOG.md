@@ -5,6 +5,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## vNext
 
 - Fix output of `printSubgraphSchema` method, ensuring it can be read back by composition and `buildSubgraphSchema` [PR #1831](https://github.com/apollographql/federation/pull/1831).
+- Fix definition of `@key` to be repeatable [PR #1826](https://github.com/apollographql/federation/pull/1826).
 
 ## 2.0.2-alpha.1
 
