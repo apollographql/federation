@@ -269,7 +269,6 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -287,7 +286,6 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -343,7 +341,6 @@ describe('composition', () => {
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -363,7 +360,6 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query

@@ -61,6 +61,7 @@ import {
   LinkDirectiveArgs,
   linkDirectiveDefaultName,
   linkIdentity,
+  FeatureUrl,
 } from "./coreSpec";
 import {
   FEDERATION_VERSIONS,
@@ -1406,10 +1407,48 @@ export class Subgraph {
       return false;
     }
 
+    // If the query type only have our federation specific fields, then that (almost surely) means the original subgraph
+    // had no Query type and so we save printing it.
+    if (isObjectType(t) && t.isQueryRootType() && t.fields().filter((f) => !isFederationField(f)).length === 0) {
+      return false;
+    }
+
     const core = this.schema.coreFeatures;
     return !core || core.sourceFeature(t)?.url.identity !== linkIdentity;
   }
 
+  private isPrintedDirectiveApplication(d: Directive): boolean {
+    // We print almost all directive application, but the one we skip is the `@link` to the link spec itself.
+    // The reason is that it is one of the things that usually not provided by users but is instead auto-added
+    // and so this keep the output a tad "cleaner".
+    // Do note that it is only auto-added if it uses the `@link` name. If it is renamed, we need to include
+    // the application (and more generally, if there is more argument set than just the url, we print
+    // the directive to make sure we're not hidding something relevant).
+    if (!this.schema.coreFeatures || d.name !== linkSpec.url.name) {
+      return true;
+    }
+    const args = d.arguments();
+    let urlArg: FeatureUrl | undefined = undefined;
+    if ('url' in args) {
+      try {
+        urlArg = FeatureUrl.parse(args['url']);
+      } catch (e) {
+        // ignored on purpose: if the 'url' arg don't parse properly as a Feature url, then `urlArg` will
+        // be `undefined` which we want.
+      }
+    }
+    const isDefaultLinkToLink = urlArg?.identity === linkIdentity && Object.keys(args).length === 1;
+    return !isDefaultLinkToLink;
+  }
+
+  /**
+   * Returns a representation of the subgraph without any auto-imported directive definitions or "federation private"
+   * types and fiels (`_service` et al.).
+   *
+   * In other words, this will correspond to what a user would usually write.
+   *
+   * Note that if one just want a representation of the full schema, then it can simply call `printSchema(this.schema)`.
+   */
   toString(basePrintOptions: PrintOptions = defaultPrintOptions) {
     return printSchema(
       this.schema,
@@ -1418,6 +1457,7 @@ export class Subgraph {
         directiveDefinitionFilter: (d) => this.isPrintedDirective(d),
         typeFilter: (t) => this.isPrintedType(t),
         fieldFilter: (f) => !isFederationField(f),
+        directiveApplicationFilter: (d) => this.isPrintedDirectiveApplication(d),
       }
     );
   }

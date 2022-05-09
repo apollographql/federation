@@ -35,6 +35,7 @@ export type PrintOptions = {
   directiveDefinitionFilter?: (d: DirectiveDefinition) => boolean,
   typeFilter: (t: NamedType) => boolean,
   fieldFilter: (f: FieldDefinition<any>) => boolean,
+  directiveApplicationFilter: (d: Directive) => boolean,
 }
 
 export const defaultPrintOptions: PrintOptions = {
@@ -46,6 +47,7 @@ export const defaultPrintOptions: PrintOptions = {
   noDescriptions: false,
   typeFilter: () => true,
   fieldFilter: () => true,
+  directiveApplicationFilter: () => true,
 }
 
 export function orderPrintedDefinitions(options: PrintOptions): PrintOptions {
@@ -125,13 +127,26 @@ function orderRoots(roots: readonly RootType[], options: PrintOptions): RootType
   return roots.concat().sort((r1, r2) => options.rootTypesOrder.indexOf(r1.rootKind) - options.rootTypesOrder.indexOf(r2.rootKind));
 }
 
+function appliedDirectives(
+  element: SchemaElement<any, any>,
+  options: PrintOptions,
+  extension?: Extension<any> | null,
+): readonly Directive[] {
+  let directives = forExtension(element.appliedDirectives, extension);
+  if (options.directiveApplicationFilter) {
+    directives = directives.filter(options.directiveApplicationFilter);
+  }
+  return directives;
+}
+
 function printSchemaDefinitionOrExtension(
   schemaDefinition: SchemaDefinition,
   options: PrintOptions,
   extension?: Extension<SchemaDefinition> | null
 ): string | undefined {
   const roots = forExtension(schemaDefinition.roots(),  extension);
-  const directives = forExtension(schemaDefinition.appliedDirectives, extension);
+  const directives = appliedDirectives(schemaDefinition, options, extension);
+
   if (!roots.length && !directives.length) {
     return undefined;
   }
@@ -225,7 +240,7 @@ function printDescription(
 }
 
 function printScalarDefinitionOrExtension(type: ScalarType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
-  const directives = forExtension(type.appliedDirectives, extension);
+  const directives = appliedDirectives(type, options, extension);
   if (extension && !directives.length) {
     return undefined;
   }
@@ -239,7 +254,7 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
 }
 
 function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
-  const directives = forExtension<Directive<ObjectType | InterfaceType>>(type.appliedDirectives, extension);
+  const directives = appliedDirectives(type, options, extension);
   const interfaces = forExtension<InterfaceImplementation<any>>(type.interfaceImplementations(), extension);
   let fields = forExtension<FieldDefinition<any>>(type.fields(), extension);
   if (options.fieldFilter) {
@@ -258,7 +273,7 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
 }
 
 function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
-  const directives = forExtension(type.appliedDirectives, extension);
+  const directives = appliedDirectives(type, options, extension);
   const members = forExtension(type.members(), extension);
   if (!directives.length && !members.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
@@ -272,7 +287,7 @@ function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions,
 }
 
 function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
-  const directives = forExtension(type.appliedDirectives, extension);
+  const directives = appliedDirectives(type, options, extension);
   const values = forExtension(type.values, extension);
   if (!directives.length && !values.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
@@ -291,7 +306,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, e
 }
 
 function printInputDefinitionOrExtension(type: InputObjectType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
-  const directives = forExtension(type.appliedDirectives, extension);
+  const directives = appliedDirectives(type, options, extension);
   const fields = forExtension(type.fields(), extension);
   if (!directives.length && !fields.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
@@ -309,7 +324,7 @@ function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefiniti
     printDescription(f, options, undefined, options.indentString, !i)
     + options.indentString
     + printField(f, options)
-    + printAppliedDirectives(f.appliedDirectives, options)));
+    + printAppliedDirectives(appliedDirectives(f, options), options)));
 }
 
 function printField(field: FieldDefinition<any> | InputFieldDefinition, options: PrintOptions): string {
@@ -340,7 +355,7 @@ function printArgs(args: readonly ArgumentDefinition<any>[], options: PrintOptio
 }
 
 function printArg(arg: ArgumentDefinition<any>, options: PrintOptions) {
-  return `${arg}${printAppliedDirectives(arg.appliedDirectives, options)}`;
+  return `${arg}${printAppliedDirectives(appliedDirectives(arg, options), options)}`;
 }
 
 function printBlock(items: string[]): string {
