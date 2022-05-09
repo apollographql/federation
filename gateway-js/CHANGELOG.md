@@ -7,22 +7,16 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Fix bug with type extension of empty type definition [PR #1821](https://github.com/apollographql/federation/pull/1821)
 - Fix output of `printSubgraphSchema` method, ensuring it can be read back by composition and `buildSubgraphSchema` [PR #1831](https://github.com/apollographql/federation/pull/1831).
 
-## 2.0.2-alpha.2
+## 2.0.2
 
 - The `fetch` implementation used by default by `UplinkFetcher` and `RemoteGraphQLDataSource` is now imported from `make-fetch-happen` v10 instead of v8. The fetcher used by `RemoteGraphQLDataSource` no longer limits the number of simultaneous requests per subgraph (or specifically, per host/port pair) to 15 by default; instead, there is no limit.  (If you want to restore the previous behavior, install `make-fetch-happen`, import `fetcher` from it, and pass `new RemoteGraphQLDataSource({ fetcher: fetcher.defaults(maxSockets: 15)}))` in your `buildService` option.) [PR #1805](https://github.com/apollographql/federation/pull/1805)
 - The ability to specify your own `fetcher` to `ApolloGateway` and `RemoteGraphQLDataSource` has been improved. An issue that meant that some implementations (such as `make-fetch-happen` v10) could not be used has been resolved. The TypeScript types for the `fetcher` options to those two constructors (as well as some arguments to the `didEncounterError`, `parseBody`, and `errorFromResponse` overridable `RemoteGraphQLDataSource` methods) have been slightly adjusted; we don't believe this should cause any compatibility issues but please file an issue if this created any unintentional problems for you. [PR #1805](https://github.com/apollographql/federation/pull/1805)
 - We no longer export a `getDefaultFetcher` function. This function returned the default `fetch` implementation used to talk to Uplink (which is distinct from the default `fetch` implementation used by `RemoteGraphQLDataSource` to talk to subgraphs). It was the fetcher from `make-fetch-happen` v8 with some preset configuration relating to caching and request headers. However, the caching configuration was not actually being used when talking to Uplink (as we talk to Uplink over POST requests, and the Uplink protocol has an application-level mechanism for avoiding unnecessary large responses), and the request headers were already being provided explicitly by the Uplink client code. Since this release is also upgrading `make-fetch-happen`, it is impossible to promise that there would be no behavior change at all to the fetcher returned from `make-fetch-happen`, and as none of the preset configuration is actually relevant to the internal use of `getDefaultFetcher` (which now just uses `make-fetch-happens` without extra configuration), we have removed the function. If you were using this function, you can replace `const fetcher = getDefaultFetcher()` with `import fetcher from 'make-fetch-happen'`. [PR #1805](https://github.com/apollographql/federation/pull/1805)
-
-## 2.0.2-alpha.1
-
 - Fix `Schema.clone` when directive application happens before definition [PR #1785](https://github.com/apollographql/federation/pull/1785)
 - More helpful error message for errors encountered while reading supergraphs generated pre-federation 2 [PR #1796](https://github.com/apollographql/federation/pull/1796)
 - Fix handling of @require "chains" (a @require whose fields have @require themselves) [PR #1790](https://github.com/apollographql/federation/pull/1790)
 - Fix bug applying an imported federation directive on another directive definition [PR #1797](https://github.com/apollographql/federation/pull/1797).
 - Fix bug where planning a query with `@require` impacts the plans of followup queries [PR #1783](https://github.com/apollographql/federation/pull/1783).
-
-## v2.0.2-alpha.0
-
 - Improve fed1 schema support during composition [PR #1735](https://github.com/apollographql/federation/pull/1735)
 - Add missing @apollo/federation-internals dependency to gateway [PR #1721](https://github.com/apollographql/federation/pull/1721)
 - Improve merging of groups during `@require` handling in query planning [PR #1732](https://github.com/apollographql/federation/pull/1732)
@@ -85,10 +79,6 @@ NOTE: Be sure to update to this version of gateway _before_ upgrading compositio
 ## v2.0.0-preview.7
 
 - Automatically add the `@tag` directive definition in `buildSubgraphSchema` (but still support it if the definition is present in the input document) [PR #1600](https://github.com/apollographql/federation/pull/1600).
-
-## v2.0.0-preview.6
-
-- Released in sync with other federation packages but no changes to this package.
 
 ## v2.0.0-preview.5
 
