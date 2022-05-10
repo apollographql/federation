@@ -256,7 +256,7 @@ During composition, two strategies are used under the hood to merge different sc
 * The **union strategy** incorporates _all_ of a type's fields, from each subgraph, into the supergraph schema. 
 * The **intersection strategy** incorporates only the fields (or field arguments) that _every_ subgraph has _in common_ into the supergraph schema. 
 
-The resulting supergraph schema will change depending on which merging strategy composition uses. 
+The resulting supergraph schema changes depending on which merging strategy composition uses. 
 
 ### Merging objects, unions, and interfaces
 
@@ -299,7 +299,7 @@ interface BookInput {
 
 </CodeColumns>
 
-When the above subgraphs are composed, the composition process will merge corresponding types using the union strategy resulting in the following supergraph schema:
+When the above subgraphs are composed, the composition process merges the corresponding types using the union strategy resulting in the following supergraph schema:
 
 ```graphql title="Supergraph schema"
 type User {
@@ -320,7 +320,7 @@ interface BookInput {
 
 The union strategy enables the gateway to avoid worrying about which subgraph contains a field's information until runtime. At runtime, the gateway can use its resolvers to pick and choose the information it needs from its subgraphs before returning that data to the client. 
 
-### Merging input types and field arguments
+### Merging inputs and field arguments
 
 Composition uses the intersection strategy to merge both input types and field arguments. The intersection strategy incorporates only the fields or arguments that _every_ subgraph has _in common_ into the supergraph schema. 
 
@@ -397,7 +397,7 @@ enum Color {
 
 </CodeColumns>
 
-Composition will use the [union merging strategy](#merging-types-during-composition) to incorporate all of your enum's fields, resulting in the following supergraph schema:
+Composition uses the [union merging strategy](#merging-types-during-composition) to incorporate all of your enum's fields, resulting in the following supergraph schema:
 
 ```graphql title="Supergraph schema"
 enum Color {
@@ -412,7 +412,7 @@ enum Color {
 
 However, if you use your enum as either a field argument or as an input field's return type, the composition process uses the [intersection merging strategy](#merging-types-during-composition) for that enum.
 
-Let's say we'd like to use our previous `enum` as an argument for a new field, like so:
+Let's say we want to use our previous `enum` as an argument for a new field, like so:
 
 <CodeColumns>
 
@@ -439,7 +439,7 @@ enum Color {
 
 </CodeColumns>
 
-The composition process will only incorporate the _shared_ values between our two `enum` type definitions in the newly composed supergraph schema:
+The composition process only incorporates the _shared_ values between our two `enum` type definitions in the newly composed supergraph schema:
 
 ```graphql title="Supergraph schema"
 enum Color {
@@ -451,7 +451,7 @@ type ColorQuery {
 }
 ```
 
-If we'd like all of our enum's possible values to be present in the supergraph schema, we can ensure our `enum` has the same values in every subgraph:
+If we want all of our enum's possible values to be present in the supergraph schema, we can ensure our `enum` has the same values in every subgraph:
 
 <CodeColumns>
 
@@ -483,7 +483,7 @@ enum Color {
 
 </CodeColumns>
 
-Now, even though composition is merging via intersection, the resulting supergraph schema will have all of our `enum`'s values:
+Now, even though composition is merging via intersection, the resulting supergraph schema has all of our `enum`'s values:
 
 ```graphql title="Supergraph schema"
 enum Color {
@@ -527,7 +527,7 @@ enum AvailableAnimal {
 
 </CodeColumns>
 
-By ensuring all of our subgraphs define an enum the same way, the composition process will include all of our enum's values:
+By ensuring all of our subgraphs define an enum the same way, the composition process includes all of our enum's values:
 
 ```graphql title="Supergraph schema"
 enum AvailableAnimal {
