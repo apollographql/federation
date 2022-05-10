@@ -2,12 +2,9 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/query-planner-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## 2.0.2-alpha.1
+## 2.0.2
 
 - Fix handling of @require "chains" (a @require whose fields have @require themselves) [PR #1790](https://github.com/apollographql/federation/pull/1790)
-
-## v2.0.2-alpha.0
-
 - Improve merging of groups during `@require` handling in query planning [PR #1732](https://github.com/apollographql/federation/pull/1732)
 
 ## v2.0.1
@@ -18,54 +15,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Previous preview release promoted to general availability! Please see previous changelog entries for full info.
 
-## v2.0.0-preview.14
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.13
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.12
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.11
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.10
-
-- Released in sync with other federation packages but no changes to this package.
-
 ## v2.0.0-preview.9
 
 - Adds Support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
 - Adds support for the `@override` directive on fields to indicate that a field should be moved from one subgraph to another. [PR #1484](https://github.com/apollographql/federation/pull/1484)
-
-## v2.0.0-preview.8
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.7
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.6
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.5
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.4
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.3
-
-- Released in sync with other federation packages but no changes to this package.
 
 ## v2.0.0-preview.2
 
