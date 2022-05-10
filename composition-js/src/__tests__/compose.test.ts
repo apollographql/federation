@@ -1632,34 +1632,6 @@ describe('composition', () => {
       `);
     });
 
-    it('errors on incompatible non-repeatable (built-in) directives', () => {
-      const subgraphA = {
-        name: 'subgraphA',
-        typeDefs: gql`
-          type Query {
-            a: String @shareable @deprecated(reason: "bad")
-          }
-        `,
-      };
-
-      const subgraphB = {
-        name: 'subgraphB',
-        typeDefs: gql`
-          type Query {
-            a: String @shareable @deprecated
-          }
-        `,
-      };
-
-      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-
-      expect(result.errors).toBeDefined();
-      expect(errors(result)).toStrictEqual([
-        ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
-          'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments: it uses arguments {reason: "bad"} in subgraph "subgraphA" but no arguments in subgraph "subgraphB"'],
-      ]);
-    });
-
     it('propagates graphQL built-in directives even if redefined in the subgarph', () => {
       const subgraphA = {
         name: 'subgraphA',

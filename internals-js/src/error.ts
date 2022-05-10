@@ -313,11 +313,6 @@ const ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.',
 );
 
-const NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH = makeCodeDefinition(
-  'NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
-  'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
-);
-
 const EXTENSION_WITH_NO_BASE = makeCodeDefinition(
   'EXTENSION_WITH_NO_BASE',
   'A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph.',
@@ -505,7 +500,6 @@ export const ERRORS = {
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
   ARGUMENT_DEFAULT_MISMATCH,
-  NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH,
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
@@ -565,4 +559,6 @@ export const REMOVED_ERRORS = [
   ['VALUE_TYPE_UNION_TYPES_MISMATCH', 'Subgraph definitions for an union are now merged by composition'],
   ['PROVIDES_FIELDS_SELECT_INVALID_TYPE', '@provides can now be used on field of interface, union and list types'],
   ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case'],
+
+  ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH', 'Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error'],
 ];
