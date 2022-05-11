@@ -22,7 +22,7 @@
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
-      "3️⃣ Local schema composition": "/quickstart/local-composition",
+      "3️⃣ Local composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
     "Implementing a Supergraph": {
