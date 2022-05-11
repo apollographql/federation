@@ -27,6 +27,7 @@
     },
     "Implementing a Supergraph": {
       "Subgraphs": "/subgraphs",
+      "Subgraph-compatible libraries": "/other-servers",
       "The gateway": "/gateway"
     },
     "Federated Schemas": {
@@ -58,13 +59,10 @@
       "Federated trace data": "/metrics",
       "OpenTelemetry": "/opentelemetry"
     },
-    "Third-Party Support": {
-      "Subgraph-compatible libraries": "/other-servers",
-      "Subgraph specification": "/federation-spec"
-    },
     "API Reference": {
       "@apollo/subgraph": "/api/apollo-subgraph",
-      "@apollo/gateway": "/api/apollo-gateway"
+      "@apollo/gateway": "/api/apollo-gateway",
+      "Subgraph specification": "/federation-spec"
     }
   }
 }
