@@ -2511,3 +2511,152 @@ test('Correctly handle case where there is too many plans to consider', () => {
   expect(queriedFields).toStrictEqual(fields);
 });
 
+describe('Field covariance and type-explosion', () => {
+  // This tests the issue from https://github.com/apollographql/federation/issues/1858.
+  // That issue, which was a bug in the handling of selection sets, was concretely triggered with
+  // a mix of an interface field implemented with some covariance and the query plan using
+  // type-explosion.
+  // We include a test using a federation 1 supergraph as this is how the issue was discovered
+  // and it is the simplest way to reproduce since type-explosion is always triggered when we
+  // have federation 1 supergraph (due to those lacking information on interfaces). The 2nd
+  // test shows that error can be reproduced on a pure fed2 example, it's just a bit more
+  // complex as we need to involve a @provide just to force the query planner to type explode
+  // (more precisely, this force the query planner to _consider_ type explosion; the generated
+  // query plan still ends up not type-exploding in practice since as it's not necessary).
+  test('with federation 1 supergraphs', () => {
+    const supergraphSdl = `
+      schema @core(feature: "https://specs.apollo.dev/core/v0.1") @core(feature: "https://specs.apollo.dev/join/v0.1") {
+        query: Query
+      }
+
+      directive @core(feature: String!) repeatable on SCHEMA
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
+      directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      interface Interface {
+        field: Interface
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPH @join__graph(name: "subgraph", url: "http://localhost:4001/")
+      }
+
+      type Object implements Interface {
+        field: Object
+      }
+
+      type Query {
+        dummy: Interface @join__field(graph: SUBGRAPH)
+      }
+    `;
+
+    const supergraph = buildSchema(supergraphSdl);
+    const api = supergraph.toAPISchema();
+    const queryPlanner = new QueryPlanner(supergraph);
+
+    const operation = operationFromDocument(api, gql`
+      {
+        dummy {
+          field {
+            ... on Object {
+              field {
+                __typename
+              }
+            }
+          }
+        }
+      }
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "subgraph") {
+          {
+            dummy {
+              __typename
+              ... on Object {
+                field {
+                  field {
+                    __typename
+                  }
+                }
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('with federation 2 subgraphs', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          dummy: Interface
+        }
+
+        interface Interface {
+          field: Interface
+        }
+
+        type Object implements Interface @key(fields: "id") {
+          id: ID!
+          field: Object @provides(fields: "x")
+          x: Int @external
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Object @key(fields: "id") {
+          id: ID!
+          x: Int @shareable
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        dummy {
+          field {
+            ... on Object {
+              field {
+                __typename
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            dummy {
+              __typename
+              field {
+                __typename
+                ... on Object {
+                  field {
+                    __typename
+                  }
+                }
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+})
+
