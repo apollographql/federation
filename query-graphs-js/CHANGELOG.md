@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+- Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900)
+
 ## 2.1.0-alpha.0
 
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
