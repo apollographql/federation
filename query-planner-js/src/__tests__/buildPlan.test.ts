@@ -1995,6 +1995,260 @@ describe('@requires', () => {
     const plan3 = queryPlanner.buildQueryPlan(op2);
     expect(plan3).toMatchInlineSnapshot(expectedPlan);
   });
+
+  describe('@include and @skip', () => {
+    it('handles a simple @requires triggered within a conditional', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            a: Int
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            a: Int @external
+            b: Int @requires(fields: "a")
+          }
+        `
+      }
+
+      const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+      const operation = operationFromDocument(api, gql`
+        query foo($test: Boolean!){
+          t @include(if: $test) {
+            b
+          }
+        }
+      `);
+
+      const plan = queryPlanner.buildQueryPlan(operation);
+      // Note that during query planning, the inputs for the 2nd fetch also have the `@include(if: $test)` condition
+      // on them, but the final query plan format does not support that at the momment, which is why they don't
+      // appear below (it is a bit of a shame because that means the gateway/router can't use it, and so this
+      // should (imo) be fixed but...).
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                t @include(if: $test) {
+                  __typename
+                  id
+                  a
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                    a
+                  }
+                } =>
+                {
+                  ... on T @include(if: $test) {
+                    b
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+    });
+
+    it('handles a @requires triggered conditionally', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            a: Int
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            a: Int @external
+            b: Int @requires(fields: "a")
+          }
+        `
+      }
+
+      const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+      const operation = operationFromDocument(api, gql`
+        query foo($test: Boolean!){
+          t {
+            b @include(if: $test)
+          }
+        }
+      `);
+
+      const plan = queryPlanner.buildQueryPlan(operation);
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T @include(if: $test) {
+                    a
+                  }
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                    a
+                  }
+                } =>
+                {
+                  ... on T {
+                    b @include(if: $test)
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+    });
+
+    it('handles a @requires where multiple conditional are involved', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @key(fields: "idA") {
+            idA: ID!
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        typeDefs: gql`
+          type A @key(fields: "idA") {
+            idA: ID!
+            b: [B]
+          }
+
+          type B @key(fields: "idB") {
+            idB: ID!
+            required: Int
+          }
+        `
+      }
+
+      const subgraph3 = {
+        name: 'Subgraph3',
+        typeDefs: gql`
+          type B @key(fields: "idB") {
+            idB: ID!
+            c: Int @requires(fields: "required")
+            required: Int @external
+          }
+        `
+      }
+
+      const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+      const operation = operationFromDocument(api, gql`
+        query foo($test1: Boolean!, $test2: Boolean!){
+          a @include(if: $test1) {
+            b @include(if: $test2) {
+              c
+            }
+          }
+        }
+      `);
+
+      global.console = require('console');
+      const plan = queryPlanner.buildQueryPlan(operation);
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                a @include(if: $test1) {
+                  __typename
+                  idA
+                }
+              }
+            },
+            Flatten(path: "a") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on A {
+                    __typename
+                    idA
+                  }
+                } =>
+                {
+                  ... on A @include(if: $test1) {
+                    b @include(if: $test2) {
+                      __typename
+                      idB
+                      required
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "a.b.@") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on B {
+                    ... on B {
+                      __typename
+                      idB
+                      required
+                    }
+                  }
+                } =>
+                {
+                  ... on B @include(if: $test1) {
+                    ... on B @include(if: $test2) {
+                      c
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+    });
+  });
 });
 
 describe('fetch operation names', () => {
