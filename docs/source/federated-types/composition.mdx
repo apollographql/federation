@@ -249,20 +249,20 @@ If you make a shared type an [entity](../entities/), different subgraphs can def
 
 This is a useful solution when a type corresponds closely to an entry in a data store that one or more of your subgraphs has access to (e.g., a `Users` database).
 
-## Merging types during composition
+## Merging types from multiple subgraphs
 
 During composition, two strategies are used under the hood to merge different schema types: union and intersection. 
 
-* The **union strategy** incorporates _all_ of a type's fields, from each subgraph, into the supergraph schema. 
-* The **intersection strategy** incorporates only the fields (or field arguments) that _every_ subgraph has _in common_ into the supergraph schema. 
+* **Union**: The supergraph schema includes _all_ parts of _all_ subgraph definitions for the type. 
+* **Intersection:** The supergraph schema includes _only_ the parts of the type that are present in _every_ subgraph that defines the type.
 
-The resulting supergraph schema changes depending on which merging strategy composition uses. 
+The merging strategy that composition uses for a particular type depends on the type, as described below.
 
-### Merging objects, unions, and interfaces
+### Object, union, and interface types
 
-Composition uses the union strategy to merge object, union, and interface types. The union strategy incorporates _all_ of a type's fields, from each subgraph, into the supergraph schema. 
+Composition _always_ uses the union strategy to merge object, union, and interface types.
 
-Consider the following subgraph schemas:
+Consider the following subgraph schema excerpts:
 
 <CodeColumns>
 
@@ -275,7 +275,7 @@ type User @key(fields: "id") {
 
 union Media = Book | Movie
 
-interface BookInput {
+interface BookDetails {
   title: String!
   author: String!
 }
@@ -289,7 +289,7 @@ type User @key(fields: "id") {
 
 union Media = Book | Podcast
 
-interface BookInput {
+interface BookDetails {
   title: String!
   numPages: Int
 }
@@ -299,7 +299,7 @@ interface BookInput {
 
 </CodeColumns>
 
-When the above subgraphs are composed, the composition process merges the corresponding types using the union strategy resulting in the following supergraph schema:
+When these subgraph schemas are composed, the composition process merges the three corresponding types using the union strategy. This results in the following type definitions in the supergraph schema:
 
 ```graphql title="Supergraph schema"
 type User {
@@ -311,18 +311,20 @@ type User {
 
 union Media = Book | Movie | Podcast
 
-interface BookInput {
+interface BookDetails {
   title: String!
   author: String!
   numPages: Int
 }
 ```
 
-The union strategy enables the gateway to avoid worrying about which subgraph contains a field's information until runtime. At runtime, the gateway can use its resolvers to pick and choose the information it needs from its subgraphs before returning that data to the client. 
+Because composition uses the union strategy for these types, subgraphs can contribute distinct parts and guarantee that those parts will appear in the composed supergraph schema.
 
-### Merging inputs and field arguments
+> Note that if different subgraphs contribute different fields to an interface type, any object types that _implement_ that interface must define _all_ contributed fields from _all_ subgraphs. Otherwise, composition fails.
 
-Composition uses the intersection strategy to merge both input types and field arguments. The intersection strategy incorporates only the fields or arguments that _every_ subgraph has _in common_ into the supergraph schema. 
+### Input types and field arguments
+
+Composition _always_ uses the intersection strategy to merge input types and field arguments. This makes sure that the gateway never passes an argument to a subgraph that doesn't define that argument.
 
 Consider the following subgraph schemas:
 
@@ -335,7 +337,7 @@ input UserInput {
 }
 
 type Library @shareable {
-  findBook(title: String, author: String): Book
+  book(title: String, author: String): Book
 }
 ```
 
@@ -346,7 +348,7 @@ input UserInput {
 }
 
 type Library @shareable {
-  findBook(title: String, section: String): Book
+  book(title: String, section: String): Book
 }
 
 ```
@@ -366,15 +368,18 @@ type Library {
 }
 ```
 
-> When defining input types and field arguments in multiple subgraphs, ensure that every non-nullable field (and field argument) is consistent in _every subgraph_. Otherwise, if any subgraphs are missing a non-nullable input field (or field argument) your supergraph schema won't contain that field! See [Arguments](sharing-types#arguments) for examples.  
+As you can see, the supergraph schema includes only the input fields and arguments that _both_ subgraphs define.
 
-The intersection strategy ensures your gateway knows that all of your subgraphs can process the field arguments in an incoming GraphQL operation. 
+> ⚠️ **Important:** If the intersection strategy would omit an input field or argument that is _non-nullable_, **composition fails**. This is because at least one subgraph _requires_ that field or argument, and the gateway can't provide it if it's omitted from the supergraph schema.
+>
+> When defining input types and field arguments in multiple subgraphs, make sure that every non-nullable field and argument is consistent in _every subgraph_. For examples, see [Arguments](sharing-types#arguments).
 
-### Merging enums
 
-Enums are the only type that composition can merge using either union or intersection. Composition's merging strategy for an enum is dictated by how your subgraphs use that enum. 
+### Enums
 
-For example, if you define an `enum` type in multiple subgraphs, like so:
+Composition might use the union strategy _or_ the intersection strategy when merging enum type definitions, _depending on how the enum is used_.
+
+Consider the following subgraph schemas:
 
 <CodeColumns>
 
