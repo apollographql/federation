@@ -30,7 +30,7 @@ import {
   removeAllCoreFeatures,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode } from "./values";
+import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema } from './print';
 import { sameType } from './types';
@@ -274,6 +274,10 @@ export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): bo
     }
   }
   return false;
+}
+
+export function isConditionalDirective(directive: Directive<any, any> | DirectiveDefinition<any>): boolean {
+  return ['include', 'skip'].includes(directive.name);
 }
 
 export const executableDirectiveLocations: DirectiveLocation[] = [
@@ -3057,6 +3061,51 @@ export class Directive<
     const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.argumentType(n))}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
+}
+
+export function sameDirectiveApplication(application1: Directive<any, any>, application2: Directive<any, any>): boolean {
+  return application1.name === application2.name && argumentsEquals(application1.arguments(), application2.arguments());
+}
+
+/**
+ * Checks whether the 2 provided "set" of directive applications are the same (same applications, regardless or order).
+ */
+export function sameDirectiveApplications(applications1: Directive<any, any>[], applications2: Directive<any, any>[]): boolean {
+  if (applications1.length !== applications2.length) {
+    return false;
+  }
+
+  for (const directive1 of applications1) {
+    if (!applications2.some(directive2 => sameDirectiveApplication(directive1, directive2))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Checks whether a given array of directive applications (`maybeSubset`) is a sub-set of another array of directive applications (`applications`).
+ *
+ * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`. 
+ */
+export function isDirectiveApplicationsSubset(applications: Directive<any, any>[], maybeSubset: Directive<any, any>[]): boolean {
+  if (maybeSubset.length > applications.length) {
+    return false;
+  }
+
+  for (const directive1 of maybeSubset) {
+    if (!applications.some(directive2 => sameDirectiveApplication(directive1, directive2))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Computes the difference between the set of directives applications `baseApplications` and the `toRemove` one.
+ */
+export function directiveApplicationsSubstraction(baseApplications: Directive<any, any>[], toRemove: Directive<any, any>[]): Directive<any, any>[] {
+  return baseApplications.filter((application) => !toRemove.some((other) => sameDirectiveApplication(application, other)));
 }
 
 export class Variable {

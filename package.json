@@ -40,7 +40,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@apollo/client": "3.6.2",
+    "@apollo/client": "3.6.4",
     "@apollo/utils.fetcher": "1.0.0",
     "@graphql-codegen/cli": "2.6.2",
     "@graphql-codegen/typescript": "2.4.11",
@@ -51,16 +51,16 @@
     "@types/bunyan": "1.8.8",
     "@types/deep-equal": "1.0.1",
     "@types/deep-freeze": "0.1.2",
-    "@types/jest": "27.5.0",
+    "@types/jest": "27.5.1",
     "@types/js-levenshtein": "1.1.1",
     "@types/lodash.xorby": "4.7.7",
     "@types/loglevel": "1.5.4",
     "@types/make-fetch-happen": "9.0.2",
     "@types/nock": "10.0.3",
-    "@types/node": "12.20.51",
+    "@types/node": "12.20.52",
     "@types/node-fetch": "2.6.1",
     "@types/whatwg-url": "8.2.1",
-    "@typescript-eslint/eslint-plugin": "5.23.0",
+    "@typescript-eslint/eslint-plugin": "5.24.0",
     "apollo-server": "3.7.0",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
@@ -71,7 +71,7 @@
     "jest-cucumber": "3.0.1",
     "jest-junit": "13.2.0",
     "lerna": "4.0.0",
-    "log4js": "6.4.6",
+    "log4js": "6.4.7",
     "mocked-env": "1.3.5",
     "nock": "13.2.4",
     "node-fetch": "2.6.7",
@@ -95,6 +95,6 @@
   },
   "volta": {
     "node": "16.15.0",
-    "npm": "8.9.0"
+    "npm": "8.10.0"
   }
 }
