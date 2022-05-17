@@ -13,7 +13,6 @@ import {
   GraphQLSchema,
   VariableDefinitionNode,
 } from 'graphql';
-import loglevel from 'loglevel';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
@@ -26,7 +25,6 @@ import {
 } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
-import fetcher from 'make-fetch-happen';
 import {
   QueryPlanner,
   QueryPlan,
@@ -46,7 +44,6 @@ import {
   isManagedConfig,
   SupergraphSdlUpdate,
   isManuallyManagedSupergraphSdlGatewayConfig,
-  ManagedGatewayConfig,
   isStaticSupergraphSdlConfig,
   SupergraphManager,
 } from './config';
@@ -58,7 +55,6 @@ import {
   UplinkFetcher,
   LegacyFetcher,
   LocalCompose,
-  getUplinkEndpoints,
 } from './supergraphManagers';
 import {
   buildSupergraphSchema,
@@ -66,7 +62,7 @@ import {
   Schema,
   ServiceDefinition,
 } from '@apollo/federation-internals';
-import { Fetcher } from '@apollo/utils.fetcher';
+import { getDefaultLogger } from './logger';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -146,9 +142,9 @@ export class ApolloGateway implements GraphQLService {
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
-  private fetcher: Fetcher;
   private compositionId?: string;
   private state: GatewayState;
+  private _supergraphManager?: SupergraphManager;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -170,11 +166,10 @@ export class ApolloGateway implements GraphQLService {
       ...config,
     };
 
-    this.logger = this.initLogger();
+    this.logger = this.config.logger ?? getDefaultLogger(this.config.debug);
     this.queryPlanStore = this.initQueryPlanStore(
       config?.experimental_approximateQueryPlanStoreMiB,
     );
-    this.fetcher = config?.fetcher || fetcher;
 
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
@@ -195,23 +190,8 @@ export class ApolloGateway implements GraphQLService {
     this.state = { phase: 'initialized' };
   }
 
-  private initLogger() {
-    // Setup logging facilities
-    if (this.config.logger) {
-      return this.config.logger;
-    }
-
-    // If the user didn't provide their own logger, we'll initialize one.
-    const loglevelLogger = loglevel.getLogger(`apollo-gateway`);
-
-    // And also support the `debug` option, if it's truthy.
-    if (this.config.debug === true) {
-      loglevelLogger.setLevel(loglevelLogger.levels.DEBUG);
-    } else {
-      loglevelLogger.setLevel(loglevelLogger.levels.WARN);
-    }
-
-    return loglevelLogger;
+  public get supergraphManager(): SupergraphManager | undefined {
+    return this._supergraphManager;
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
@@ -296,7 +276,7 @@ export class ApolloGateway implements GraphQLService {
       const { key, keyHash, graphRef, graphId, graphVariant } = options.apollo;
       this.apolloConfig = {
         key,
-        keyHash,
+        keyHash: keyHash ?? key ? createHash('sha256').update(key!).digest('hex') : undefined,
         graphRef:
           graphRef ??
           (graphId ? `${graphId}@${graphVariant ?? 'current'}` : undefined),
@@ -382,20 +362,18 @@ export class ApolloGateway implements GraphQLService {
             '`serviceList`, `supergraphSdl`, and `experimental_updateServiceDefinitions`.',
         );
       }
-      const uplinkEndpoints = this.getUplinkEndpoints(this.config);
 
+      const schemaDeliveryEndpoints: string[] | undefined = this.config.schemaConfigDeliveryEndpoint ? [this.config.schemaConfigDeliveryEndpoint] : undefined;
       await this.initializeSupergraphManager(
         new UplinkFetcher({
           graphRef: this.apolloConfig!.graphRef!,
           apiKey: this.apolloConfig!.key!,
-          uplinkEndpoints,
-          maxRetries:
-            this.config.uplinkMaxRetries ?? uplinkEndpoints.length * 3 - 1, // -1 for the initial request
-          subgraphHealthCheck: this.config.serviceHealthCheck,
-          fetcher: this.fetcher,
+          shouldRunSubgraphHealthcheck: this.config.serviceHealthCheck,
+          uplinkEndpoints: this.config.uplinkEndpoints ?? schemaDeliveryEndpoints,
+          maxRetries: this.config.uplinkMaxRetries,
           logger: this.logger,
-          fallbackPollIntervalInMs: this.pollIntervalInMs ?? 10000,
-        }),
+          pollIntervalInMs: this.pollIntervalInMs,
+        })
       );
     }
 
@@ -414,21 +392,6 @@ export class ApolloGateway implements GraphQLService {
       schema: this.schema!,
       executor: this.executor,
     };
-  }
-
-  private getUplinkEndpoints(config: ManagedGatewayConfig) {
-    /**
-     * Configuration priority order:
-     * 1. `uplinkEndpoints` configuration option
-     * 2. (deprecated) `schemaConfigDeliveryEndpoint` configuration option
-     * 3. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
-     * 4. default (GCP and AWS)
-     */
-    return (
-      config.uplinkEndpoints ??
-      (config.schemaConfigDeliveryEndpoint ? [config.schemaConfigDeliveryEndpoint] : null) ??
-      getUplinkEndpoints()
-    );
   }
 
   private getIdForSupergraphSdl(supergraphSdl: string) {
@@ -466,6 +429,7 @@ export class ApolloGateway implements GraphQLService {
       throw e;
     }
 
+    this._supergraphManager = supergraphManager;
     this.state = { phase: 'loaded' };
   }
 
@@ -1001,6 +965,9 @@ export class ApolloGateway implements GraphQLService {
     switch (this.state.phase) {
       case 'initialized':
       case 'failed to load':
+        // TODO: There's not a good public interface to determine if stop can/should
+        //       be called. We should expose that ability or not be so harsh when
+        //       stopping while in an invalid state.
         throw Error(
           'ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully',
         );
@@ -1099,7 +1066,6 @@ export {
   IntrospectAndCompose,
   LocalCompose,
   UplinkFetcher,
-  getUplinkEndpoints,
 };
 
 export * from './datasources';

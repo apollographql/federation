@@ -8,6 +8,7 @@ import type {
   FetcherResponse,
   FetcherRequestInit,
 } from '@apollo/utils.fetcher';
+import type { Logger } from '@apollo/utils.logger';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
@@ -62,6 +63,7 @@ export async function loadSupergraphSdlFromUplinks({
   maxRetries,
   roundRobinSeed,
   earliestFetchTime,
+  logger,
 }: {
   graphRef: string;
   apiKey: string;
@@ -71,7 +73,8 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId: string | null;
   maxRetries: number,
   roundRobinSeed: number,
-  earliestFetchTime: Date | null
+  earliestFetchTime: Date | null,
+  logger?: Logger | undefined,
 }) : Promise<SupergraphSdlUpdate | null> {
   // This Promise resolves with either an updated supergraph or null if no change.
   // This Promise can reject in the case that none of the retries are successful,
@@ -85,11 +88,13 @@ export async function loadSupergraphSdlFromUplinks({
         errorReportingEndpoint,
         fetcher,
         compositionId,
+        logger,
       }),
     {
       retries: maxRetries,
       onRetry: async () => {
         const delayMS = earliestFetchTime ? earliestFetchTime.getTime() - Date.now(): 0;
+        logger?.debug(`Waiting ${delayMS}ms before retrying (earliest fetch time ${earliestFetchTime})...`);
         if (delayMS > 0) await new Promise(resolve => setTimeout(resolve, delayMS));
       }
     },
@@ -104,6 +109,7 @@ export async function loadSupergraphSdlFromStorage({
   errorReportingEndpoint,
   fetcher,
   compositionId,
+  logger,
 }: {
   graphRef: string;
   apiKey: string;
@@ -111,6 +117,7 @@ export async function loadSupergraphSdlFromStorage({
   errorReportingEndpoint?: string;
   fetcher: Fetcher;
   compositionId: string | null;
+  logger?: Logger | undefined;
 }) : Promise<SupergraphSdlUpdate | null> {
   const requestBody = JSON.stringify({
     query: SUPERGRAPH_SDL_QUERY,
@@ -135,6 +142,7 @@ export async function loadSupergraphSdlFromStorage({
   const startTime = new Date();
   let result: FetcherResponse;
   try {
+    logger?.debug(`🔧 Fetching supergraph schema from ${endpoint}`);
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
