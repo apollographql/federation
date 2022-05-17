@@ -21,9 +21,22 @@ Federated services will need to implement the following additions to the schema 
 ```graphql
 scalar _Any
 scalar _FieldSet
+scalar link__Import
 
 # a union of all types that use the @key directive
 union _Entity
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
 
 type _Service {
   sdl: String
@@ -37,7 +50,10 @@ extend type Query {
 directive @external on FIELD_DEFINITION
 directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
-directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
+directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+directive @shareable on OBJECT | FIELD_DEFINITION
+directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+directive @override(from: String!) on FIELD_DEFINITION
 
 # this is an optional directive discussed below
 directive @extends on OBJECT | INTERFACE
@@ -228,7 +244,7 @@ A new field must be added to the query root called `_entities`. This field must 
 ### `@key`
 
 ```graphql
-directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
+directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 ```
 
 The `@key` directive is used to indicate a combination of fields that can be used to uniquely identify and fetch an object or interface.
