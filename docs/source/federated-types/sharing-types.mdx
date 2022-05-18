@@ -259,7 +259,7 @@ type Building @shareable {
 
 </CodeColumns>
 
-See [Merging input types and field arguments](./composition#merging-input-types-and-field-arguments) to learn more.
+See [Input types and field arguments](./composition#input-types-and-field-arguments) to learn more.
 
 ### Omitting fields
 
@@ -485,7 +485,7 @@ interface User {
 
 </CodeColumns>
 
-[Compositional logic](./composition#merging-types-during-composition) merges these definitions in your supergraph schema:
+[Compositional logic](./composition#merging-types-from-multiple-subgraphs) merges these definitions in your supergraph schema:
 
 ```graphql title="Supergraph schema"
 union Media = Book | Movie | Podcast
@@ -500,7 +500,7 @@ interface User {
 
 This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.
 
->  You can also use the `enum` type across multiple subgraphs, see [Merging enums](composition#merging-enums) to learn more.
+>  You can also use the `enum` type across multiple subgraphs, see [Merging types from multiple subgraphs](composition#enums) to learn more.
 
 Subgraphs can share `input` type definitions, but composition merges them differently. When `input` types are composed across multiple subgraphs, only their _mutual_ fields are carried over into the supergraph schema:
 
@@ -522,7 +522,7 @@ input UserInput {
 
 </CodeColumns>
 
-Compositional logic merges only the fields that all `input` types have in common. To learn more, see [Merging input types and field arguments](./composition#merging-input-types-and-field-arguments).
+Compositional logic merges only the fields that all `input` types have in common. To learn more, see [Merging input types and field arguments](./composition#input-types-and-field-arguments).
 
 ```graphql title="Supergraph schema"
 input UserInput {
@@ -530,4 +530,4 @@ input UserInput {
 }
 ```
 
-To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-during-composition)
+To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-from-multiple-subgraphs)
