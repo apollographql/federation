@@ -262,7 +262,7 @@ The merging strategy that composition uses for a particular type depends on the 
 
 Composition _always_ uses the union strategy to merge object, union, and interface types.
 
-Consider the following subgraph schema excerpts:
+Consider the following subgraph schemas:
 
 <CodeColumns>
 
@@ -363,7 +363,6 @@ input UserInput {
 }
 
 type Library {
-  # field arguments are composed via the intersection merging strategy
   findBook(title: String): Book
 }
 ```
@@ -381,14 +380,14 @@ Composition might use the union strategy _or_ the intersection strategy when mer
 
 ```mermaid
 graph TB;
-    parent("Is the enum used as the type for a field argument or input type field?");
-    parent--No-->null("Union");
-    parent--Yes-->call("Intersection");
+    enum("Is the enum used as the type for at least<br/>one field argument or input type field?");
+    enum--No-->union("Union");
+    enum--Yes-->intersection("Intersection");
 ```
 
 If your enum is **not** used as the type of a field argument or input type field, then composition uses the [union merging strategy](#merging-types-from-multiple-subgraphs).
 
-Consider the following subgraph schema excerpts:
+Consider the following subgraph schemas:
 
 <CodeColumns>
 
@@ -426,7 +425,7 @@ enum Color {
 
 If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition uses the [intersection merging strategy](#merging-types-from-multiple-subgraphs). 
 
-Let's say we add a new field to "Subgraph A" that uses our `Color` enum as a field argument:
+Let's say we add a new field to Subgraph A that uses our `Color` enum as a field argument:
 
 ```graphql title="Subgraph A"
 enum Color {
@@ -440,7 +439,7 @@ type ColorQuery {
 }
 ```
 
-When the "Subgraph A" and "Subgraph B" schemas are composed, composition now uses the _intersection_ strategy to merge the `Color` enum:
+Now when composition runs, it uses the _intersection_ strategy to merge the `Color` enum:
 
 ```graphql title="Supergraph schema"
 enum Color {

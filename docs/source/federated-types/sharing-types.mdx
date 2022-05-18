@@ -259,7 +259,7 @@ type Building @shareable {
 
 </CodeColumns>
 
-See [Input types and field arguments](./composition#input-types-and-field-arguments) to learn more.
+For more information, see [Input types and field arguments](./composition#input-types-and-field-arguments).
 
 ### Omitting fields
 
@@ -500,7 +500,7 @@ interface User {
 
 This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.
 
->  You can also use the `enum` type across multiple subgraphs, see [Merging types from multiple subgraphs](composition#enums) to learn more.
+>  You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
 
 Subgraphs can share `input` type definitions, but composition merges them differently. When `input` types are composed across multiple subgraphs, only their _mutual_ fields are carried over into the supergraph schema:
 
