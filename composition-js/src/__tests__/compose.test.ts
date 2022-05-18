@@ -18,7 +18,7 @@ import {
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
-import { print } from 'graphql';
+import { GraphQLError, print } from 'graphql';
 
 export function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
   if (r.errors) {
@@ -3092,5 +3092,35 @@ describe('composition', () => {
       const apiSchema = schema.toAPISchema({exposeDirectives: ["@tag"]})
       expect(apiSchema.elementByCoordinate("@tag")).toBeDefined();
     });
+  });
+
+  it("link cannot be promoted since it would cause isCoreSchema to be true", () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+        type Query {
+          hi: String! @tag(name: "cool")
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        type Query {
+          bye: String!
+        }
+      `,
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+    const { schema } = result;
+
+    expect(() => schema.toAPISchema({exposeDirectives: ["@link"]}))
+      .toThrowError(new GraphQLError(`Directive '@link' cannot be promoted because it cannot exist in API schema`));
   });
 });

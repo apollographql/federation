@@ -738,18 +738,18 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
       });
 
     // Remove feature types.
-    const featureTypes = schema.types()
-      .filter(t => feature.isFeatureDefinition(t));
-    featureTypes.forEach(type => {
-      const references = type.remove();
-      if (references.length > 0) {
-        typeReferences.push({
-          feature,
-          type,
-          references,
-        });
-      }
-    });
+    schema.types()
+      .filter(t => feature.isFeatureDefinition(t))
+      .forEach(type => {
+        const references = type.remove();
+        if (references.length > 0) {
+          typeReferences.push({
+            feature,
+            type,
+            references,
+          });
+        }
+      });
   }
 
   // Now that we're finished with removals, for any referencers encountered,
@@ -774,6 +774,10 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
   const errors: GraphQLError[] = [];
   for (const { feature, type, references } of typeReferences) {
     const referencesInSchema = references.filter(r => r.isAttached());
+    const referencedFeature = referencesInSchema.find(r => directivesToPromote.includes(`@${r.parent.name}`));
+    if (referencedFeature) {
+      throw new GraphQLError(`Directive '@${referencedFeature.parent.name}' cannot be promoted because it cannot exist in API schema`);
+    }
     if (referencesInSchema.length > 0) {
       errors.push(new GraphQLError(
         `Cannot remove elements of feature ${feature} as feature type ${type}` +
