@@ -377,7 +377,7 @@ type User @key(fields: "email") @shareable {
 directive @override(from: String!) on FIELD_DEFINITION
 ```
 
-The `@override` directive is used to indicate that the current subgraph is taking responsibility for resolving the marked field _away_ from the subgraph specified in the `from` argument. 
+The `@override` directive is used to indicate that the current subgraph is taking responsibility for resolving the marked field _away_ from the subgraph specified in the `from` argument. The directive is meant to only be used once on a field in the supergraph, so usage over multiple subgraphs will throw a composition error.
 
 The following example will result in all query plans made to resolve `User.name` to be directed to SubgraphB.
 
