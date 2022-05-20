@@ -10,7 +10,7 @@ export type Scalars = {
   Boolean: boolean;
   Int: number;
   Float: number;
-  /** ISO 8601, extended format with nanoseconds, Zulu (or '[+-]seconds' for times relative to now) */
+  /** ISO 8601, extended format with nanoseconds, Zulu (or "[+-]seconds" as a string or number relative to now) */
   Timestamp: any;
 };
 
