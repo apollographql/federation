@@ -1,6 +1,6 @@
 # CHANGELOG for `@apollo/federation-internals`
 
-## vNext
+## 2.0.3
 
 - Fix bug with type extension of empty type definition [PR #1821](https://github.com/apollographql/federation/pull/1821)
 
