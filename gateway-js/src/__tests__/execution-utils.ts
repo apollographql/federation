@@ -14,7 +14,7 @@ import {
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { buildComposedSchema, QueryPlanner, QueryPlan, GraphQLSchemaValidationError } from '@apollo/query-planner';
+import { buildComposedSchema, QueryPlanner, QueryPlan, GraphQLSchemaValidationError, toAPISchema } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from '@apollo/client/utilities';
 
@@ -57,7 +57,7 @@ export async function execute(
   const { schema, queryPlanner } = getFederatedTestingSchema(services);
 
   const operationContext = buildOperationContext({
-    schema,
+    schema: toAPISchema(schema),
     operationDocument: gql`${request.query}`,
   });
 
@@ -74,6 +74,7 @@ export async function execute(
       logger
     },
     operationContext,
+    schema,
   );
 
   return { ...result, queryPlan };

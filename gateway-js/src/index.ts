@@ -141,6 +141,7 @@ export class ApolloGateway implements GraphQLService {
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
   private parsedSupergraphSdl?: DocumentNode;
+  private supergraphSchema?: GraphQLSchema;
   private fetcher: Fetcher;
   private compositionId?: string;
   private state: GatewayState;
@@ -568,6 +569,7 @@ export class ApolloGateway implements GraphQLService {
     this.compositionId = id;
     this.supergraphSdl = supergraphSdl;
     this.parsedSupergraphSdl = parsedSupergraphSdl;
+    this.supergraphSchema = this.validateAndBuildSupergraphSchema(supergraphSdl)[0];
 
     const { schema, supergraphSdl: generatedSupergraphSdl } =
       this.createSchemaFromSupergraphSdl(supergraphSdl);
@@ -691,17 +693,20 @@ export class ApolloGateway implements GraphQLService {
     return Array.from(graphMap.values());
   }
 
-  private createSchemaFromSupergraphSdl(supergraphSdl: string) {
+  private validateAndBuildSupergraphSchema(supergraphSdl: string): [GraphQLSchema, DocumentNode] {
     const core = CoreSchema.fromSource(
       new Source(supergraphSdl, 'supergraphSdl'),
     )
       .check() // run basic core schema compliance checks
       .check(featureSupport); // run supported feature check
 
-    // TODO(trevor): #580 redundant parse
-    this.parsedSupergraphSdl = core.document;
+    return [buildComposedSchema(core.document), core.document];
+  }
 
-    const schema = buildComposedSchema(this.parsedSupergraphSdl);
+  private createSchemaFromSupergraphSdl(supergraphSdl: string) {
+    const [ schema, doc ] = this.validateAndBuildSupergraphSchema(supergraphSdl);
+
+    this.parsedSupergraphSdl = doc;
 
     const serviceList = this.serviceListFromComposedSchema(schema);
 
@@ -913,6 +918,7 @@ export class ApolloGateway implements GraphQLService {
             serviceMap,
             requestContext,
             operationContext,
+            this.supergraphSchema!,
           );
 
           const shouldShowQueryPlan =
