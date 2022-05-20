@@ -8,10 +8,12 @@ import {
   SelectionNode,
   SelectionSetNode,
   DirectiveNode,
+  TypeNameMetaFieldDef,
 } from 'graphql';
 import { getResponseName } from './utilities/graphql';
 import { partition, groupBy } from './utilities/array';
 import { Scope } from './Scope';
+import { typenameField } from './QueryPlanningContext';
 
 export interface Field {
   scope: Scope;
@@ -44,6 +46,50 @@ export function printFields(fields?: FieldSet) {
       .join(', ') +
     ']'
   );
+}
+
+function addTypenameToSelectionSetRecursive(selectionSet: SelectionSetNode): SelectionSetNode {
+  let hasTypename = false;
+  let updatedSelections = selectionSet.selections.map((selection) => {
+    if (selection.kind === Kind.FIELD && selection.name.value === TypeNameMetaFieldDef.name) {
+      hasTypename = true;
+    }
+    return addTypenameToSelectionRecursive(selection);
+  });
+  if (!hasTypename) {
+    updatedSelections = [typenameField as SelectionNode].concat(updatedSelections);
+  }
+  return {
+    ...selectionSet,
+    selections: updatedSelections,
+  };
+}
+
+function addTypenameToSelectionRecursive<TNode extends SelectionNode>(selection: TNode): TNode {
+    switch (selection.kind) {
+      case Kind.FIELD:
+      case Kind.INLINE_FRAGMENT:
+        if (!selection.selectionSet) {
+          return selection;
+        }
+        return {
+          ...selection,
+          selectionSet: addTypenameToSelectionSetRecursive(selection.selectionSet),
+        };
+      case Kind.FRAGMENT_SPREAD:
+        // We use this on the `fields` argument of `@require`, and pretty sure having a fragment spread there is not going to work,
+        // but we don't want to fail here, so we just return the selection unchanged.
+        return selection;
+    }
+}
+
+export function addTypenameToFieldSetRecursive(fieldSet: FieldSet): FieldSet {
+  return fieldSet.map((field) => {
+    const fieldNode = addTypenameToSelectionRecursive(field.fieldNode);
+    return fieldNode === field.fieldNode
+      ? field
+      : { ...field, fieldNode };
+  });
 }
 
 /**

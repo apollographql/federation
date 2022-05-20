@@ -31,13 +31,14 @@ import { FieldSet } from "./FieldSet";
 import { Scope } from "./Scope";
 import { getFieldDef } from "./utilities/graphql";
 
-const typenameField: FieldNode = {
+export const typenameField: FieldNode = {
   kind: Kind.FIELD,
   name: {
     kind: Kind.NAME,
     value: TypeNameMetaFieldDef.name,
   },
 };
+
 
 /**
  * Context objects used during query planning.

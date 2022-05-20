@@ -169,8 +169,8 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
                 __typename
                 id
                 organization {
-                  id
                   __typename
+                  id
                 }
               }
             }

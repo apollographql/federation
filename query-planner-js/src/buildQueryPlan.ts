@@ -38,6 +38,7 @@ import {
   debugPrintField,
   debugPrintFields,
   groupByScope,
+  addTypenameToFieldSetRecursive,
 } from './FieldSet';
 import {
   FetchNode,
@@ -1116,7 +1117,7 @@ class FetchGroup {
       } else {
         group.requiredFields = requiredFields;
       }
-      this.fields.push(...requiredFields);
+      this.fields.push(...addTypenameToFieldSetRecursive(requiredFields));
     }
 
     return group;

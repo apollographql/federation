@@ -1799,7 +1799,7 @@ Scenario: supports arrays
           "serviceName": "accounts",
           "variableUsages": [],
           "operationKind": "query",
-          "operation": "query MergeArrays__accounts__0{me{__typename id metadata{description address}}}",
+          "operation": "query MergeArrays__accounts__0{me{__typename id metadata{__typename description address}}}",
           "operationName": "MergeArrays__accounts__0"
         },
         {

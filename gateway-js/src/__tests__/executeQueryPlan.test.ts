@@ -2271,5 +2271,248 @@ describe('executeQueryPlan', () => {
         `);
       expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
     });
+
+    test('handles type conditions within @require', async () => {
+      const s1 = {
+        name: 'data',
+        typeDefs: gql`
+          type Entity @key(fields: "id") {
+            id: ID!
+            dummyBazForRequires: Baz
+            dummyQuxForRequires: Qux
+            data: Foo
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar {
+            foo: String!
+            bar: String!
+          }
+
+          type Baz implements Foo & Bar {
+            foo: String!
+            bar: String!
+            baz: String!
+          }
+
+          type Qux implements Foo & Bar {
+            foo: String!
+            bar: String!
+            qux: String!
+          }
+        `,
+        resolvers: {
+            Query: {
+              dummy() {
+                return {};
+              },
+            },
+            Entity: {
+              __resolveReference() {
+                return {};
+              },
+              id() {
+                return "id";
+              },
+              data() {
+                return {
+                  __typename: "Baz",
+                  foo: "foo",
+                  bar: "bar",
+                  baz: "baz",
+                };
+              },
+            },
+        }
+      }
+
+      let requirerRepresentation: any = undefined;
+
+      const s2 = {
+        name: 'requirer',
+        typeDefs: gql`
+          type Query {
+            dummy: Entity
+          }
+
+          extend type Entity @key(fields: "id") {
+            id: ID! @external
+            dummyBazForRequires: Baz @external
+            dummyQuxForRequires: Qux @external
+            data: Foo @external
+            requirer: String! @requires(fields: "dummyBazForRequires { baz } dummyQuxForRequires { qux } data { foo ... on Bar { bar } ... on Baz { baz } ... on Qux { qux } }")
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar {
+            foo: String!
+            bar: String!
+          }
+
+          extend type Baz implements Foo & Bar {
+            foo: String! @external
+            bar: String! @external
+            baz: String! @external
+          }
+
+          extend type Qux implements Foo & Bar {
+            foo: String! @external
+            bar: String! @external
+            qux: String! @external
+          }
+        `,
+        resolvers: {
+          Query: {
+            dummy() {
+              return {};
+            },
+          },
+          Entity: {
+            __resolveReference(representation: any) {
+              requirerRepresentation = representation;
+              return {};
+            },
+            id() {
+              return "id";
+            },
+            requirer() {
+              return "requirer";
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument: gql`
+        query {
+          dummy {
+            requirer
+          }
+        }
+        `});
+
+      global.console = require('console')
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "requirer") {
+              {
+                dummy {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "data") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                    dummyBazForRequires {
+                      __typename
+                      baz
+                    }
+                    dummyQuxForRequires {
+                      __typename
+                      qux
+                    }
+                    data {
+                      __typename
+                      foo
+                      ... on Bar {
+                        __typename
+                        bar
+                      }
+                      ... on Baz {
+                        __typename
+                        baz
+                      }
+                      ... on Qux {
+                        __typename
+                        qux
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "requirer") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                    dummyBazForRequires {
+                      baz
+                    }
+                    dummyQuxForRequires {
+                      qux
+                    }
+                    data {
+                      foo
+                      ... on Bar {
+                        bar
+                      }
+                      ... on Baz {
+                        baz
+                      }
+                      ... on Qux {
+                        qux
+                      }
+                    }
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    requirer
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "dummy": Object {
+            "requirer": "requirer",
+          },
+        }
+      `);
+      expect(response.errors).toBeUndefined();
+
+      expect(requirerRepresentation).toMatchInlineSnapshot(`
+        Object {
+          "__typename": "Entity",
+          "data": Object {
+            "bar": "bar",
+            "baz": "baz",
+            "foo": "foo",
+          },
+          "dummyBazForRequires": null,
+          "dummyQuxForRequires": null,
+          "id": "id",
+        }
+      `);
+    });
   });
 });
