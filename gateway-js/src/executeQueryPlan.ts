@@ -45,6 +45,7 @@ interface ExecutionContext<TContext> {
   operationContext: OperationContext;
   serviceMap: ServiceMap;
   requestContext: GraphQLRequestContext<TContext>;
+  supergraphSchema: GraphQLSchema;
   errors: GraphQLError[];
 }
 
@@ -53,6 +54,7 @@ export async function executeQueryPlan<TContext>(
   serviceMap: ServiceMap,
   requestContext: GraphQLRequestContext<TContext>,
   operationContext: OperationContext,
+  supergraphSchema: GraphQLSchema,
 ): Promise<GraphQLExecutionResult> {
 
   const logger = requestContext.logger || console;
@@ -66,6 +68,7 @@ export async function executeQueryPlan<TContext>(
         operationContext,
         serviceMap,
         requestContext,
+        supergraphSchema,
         errors,
       };
 
@@ -309,7 +312,10 @@ async function executeFetch<TContext>(
 
         entities.forEach((entity, index) => {
           const representation = executeSelectionSet(
-            context.operationContext,
+            // Note that `requires` may include references to inacessible elements, so we should "execute" it using the supergrah
+            // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
+            // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
+            context.supergraphSchema,
             entity,
             requires,
           );
@@ -476,7 +482,7 @@ async function executeFetch<TContext>(
  * @param selectionSet
  */
 function executeSelectionSet(
-  operationContext: OperationContext,
+  schema: GraphQLSchema,
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
 ): Record<string, any> | null {
@@ -511,12 +517,12 @@ function executeSelectionSet(
         if (Array.isArray(source[responseName])) {
           result[responseName] = source[responseName].map((value: any) =>
             selections
-              ? executeSelectionSet(operationContext, value, selections)
+              ? executeSelectionSet(schema, value, selections)
               : value,
           );
         } else if (selections) {
           result[responseName] = executeSelectionSet(
-            operationContext,
+            schema,
             source[responseName],
             selections,
           );
@@ -530,10 +536,10 @@ function executeSelectionSet(
         const typename = source && source['__typename'];
         if (!typename) continue;
 
-        if (doesTypeConditionMatch(operationContext.schema, selection.typeCondition, typename)) {
+        if (doesTypeConditionMatch(schema, selection.typeCondition, typename)) {
           deepMerge(
             result,
-            executeSelectionSet(operationContext, source, selection.selections),
+            executeSelectionSet(schema, source, selection.selections),
           );
         }
         break;

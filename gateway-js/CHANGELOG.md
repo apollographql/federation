@@ -2,6 +2,11 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+- Fix issue when using a type condition on an inaccessible type in `@require` [#1873](https://github.com/apollographql/federation/pull/1873).
+  - __BREAKING__: this fix required passing a new argument to the `executeQueryPlan` method, which is technically
+    exported by the gateway. Most users of the gateway should _not_ call this method directly (which is exported mainly
+    for testing purposes in the first place) and will thus be unaffected, but if you do call this method directly, you
+    will have to pass the new argument when upgrading. See the method documentation for details.
 - Cleanup error related code, adding missing error code to a few errors [PR #1914](https://github.com/apollographql/federation/pull/1914).
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900).
 
