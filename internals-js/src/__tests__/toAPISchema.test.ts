@@ -21,7 +21,7 @@ describe('toAPISchema', () => {
     );
     const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
 
-    schema = buildSchema(supergraphSdl).toAPISchema();
+    schema = buildSchema(supergraphSdl).toAPISchema({ exposeDirectives: ['@transform', '@stream']});
   });
 
   it(`doesn't include core directives`, () => {
@@ -49,5 +49,35 @@ describe('toAPISchema', () => {
     expect(directiveNames(schema)).toEqual(
       expect.arrayContaining([ 'transform', 'stream' ]),
     );
+  });
+});
+
+describe('toAPISchema - returns cached version?', () => {
+  let schema: Schema;
+  let lastApiSchema: Schema;
+  beforeAll(() => {
+    const schemaPath = path.join(
+      __dirname,
+      'supergraphSdl.graphql',
+    );
+    const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
+
+    schema = buildSchema(supergraphSdl); // .toAPISchema({ exposeDirectives: ['@transform', '@stream']});
+    lastApiSchema = schema.toAPISchema();
+  });
+
+  it.each([
+    { sameAsCached: true, options: undefined},
+    { sameAsCached: true, options: { exposeDirectives: undefined }},
+    { sameAsCached: false, options: { exposeDirectives: ['@transform', '@stream'] }},
+    { sameAsCached: true, options: { exposeDirectives: ['@stream', '@transform'] }},
+    { sameAsCached: false, options: { exposeDirectives: ['@transform', '@stream', '@foo'] }},
+    { sameAsCached: false, options: { exposeDirectives: ['@transform', '@stream'] }},
+  ])(
+  'checking each iteration to see if it generates a new schema',
+  ({ sameAsCached, options }) => {
+    const tempSchema = schema.toAPISchema(options);
+    expect(tempSchema === lastApiSchema).toBe(sameAsCached);
+    lastApiSchema = tempSchema;
   });
 });

@@ -28,6 +28,7 @@ import {
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
+  removeNonCoreDirectives,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
@@ -711,7 +712,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some(d => d.ofExtension() === undefined)
       || this.hasNonExtensionInnerElements();
   }
@@ -1096,6 +1097,7 @@ export class Schema {
 
   private cachedDocument?: DocumentNode;
   private apiSchema?: Schema;
+  private toApiSchemaLastOptions?: ToAPISchemaOptions; // since we cache the API schema,
 
   constructor(readonly blueprint: SchemaBlueprint = defaultSchemaBlueprint) {
     this._schemaDefinition = new SchemaDefinition();
@@ -1167,20 +1169,41 @@ export class Schema {
     return this.cachedDocument!;
   }
 
+  // if the options we are generating with this time are not the same as
+  // were used to generate the cached version, we need to discard the cached version
+  // and regenerate
+  optionsDifferentFromCached(options?: ToAPISchemaOptions): boolean {
+    const oldDirectives = options?.exposeDirectives;
+    const newDirectives = this.toApiSchemaLastOptions?.exposeDirectives;
+    if (oldDirectives === undefined && newDirectives === undefined) {
+      return false;
+    }
+    if (oldDirectives === undefined || newDirectives === undefined) {
+      return true;
+    }
+    if (oldDirectives.length !== newDirectives.length) {
+      return true;
+    }
+    return !oldDirectives.every(directive => newDirectives.includes(directive));
+  }
+
   toAPISchema(options?: ToAPISchemaOptions): Schema {
     let apiSchema = this?.apiSchema;
-    if (!apiSchema || options?.exposeDirectives) {
+
+    if (!apiSchema || this.optionsDifferentFromCached(options)) {
+      const exposedDirectives = options?.exposeDirectives;
       this.validate();
 
       apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
-      removeAllCoreFeatures(apiSchema, options?.exposeDirectives);
+      removeAllCoreFeatures(apiSchema, exposedDirectives);
+      removeNonCoreDirectives(apiSchema, exposedDirectives);
+
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
       apiSchema.validate();
 
-      if (!options?.exposeDirectives) {
-        this.apiSchema = apiSchema;
-      }
+      this.apiSchema = apiSchema;
+      this.toApiSchemaLastOptions = options;
     }
     return apiSchema;
   }
@@ -1692,7 +1715,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some((d) => d.ofExtension() === undefined)
       || this.roots().some((r) => r.ofExtension() === undefined);
   }
@@ -3094,7 +3117,7 @@ export function sameDirectiveApplications(applications1: Directive<any, any>[], 
 /**
  * Checks whether a given array of directive applications (`maybeSubset`) is a sub-set of another array of directive applications (`applications`).
  *
- * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`. 
+ * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`.
  */
 export function isDirectiveApplicationsSubset(applications: Directive<any, any>[], maybeSubset: Directive<any, any>[]): boolean {
   if (maybeSubset.length > applications.length) {

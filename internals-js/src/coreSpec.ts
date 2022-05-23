@@ -710,12 +710,23 @@ export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIden
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);
 
+export function removeNonCoreDirectives(schema: Schema, exposeDirectives?: string[]) {
+  const directivesToExpose = exposeDirectives ?? [];
+  const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
+  schema.directives()
+    .filter(d => coreFeatures.every(feature => !feature.isFeatureDefinition(d)))
+    .filter(d => !directivesToExpose.includes(`@${d.name}`))
+    .forEach(def => {
+      def.remove().forEach(application => application.remove());
+    });
+}
+
 export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[]) {
   // Gather a list of core features up front, since we can't fetch them during
   // removal. (Also note that core being a feature itself, this will remove core
   // itself and mark the schema as 'not core').
-  const directivesToPromote = exposeDirectives || [];
-  if (!directivesToPromote.every(d => d[0] === '@')) {
+  const directivesToExpose = exposeDirectives || [];
+  if (!directivesToExpose.every(d => d[0] === '@')) {
     throw new GraphQLError('Directive names must start with "@"');
   }
   const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
@@ -732,7 +743,7 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
     // Remove feature directive definitions and their applications.
     schema.directives()
       .filter(d => feature.isFeatureDefinition(d))
-      .filter(d => !directivesToPromote.includes(`@${d.name}`))
+      .filter(d => !directivesToExpose.includes(`@${d.name}`))
       .forEach(def => {
         def.remove().forEach(application => application.remove());
       });
@@ -774,7 +785,7 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
   const errors: GraphQLError[] = [];
   for (const { feature, type, references } of typeReferences) {
     const referencesInSchema = references.filter(r => r.isAttached());
-    const referencedFeature = referencesInSchema.find(r => directivesToPromote.includes(`@${r.parent.name}`));
+    const referencedFeature = referencesInSchema.find(r => directivesToExpose.includes(`@${r.parent.name}`));
     if (referencedFeature) {
       throw new GraphQLError(`Directive '@${referencedFeature.parent.name}' cannot be promoted because it cannot exist in API schema`);
     }
