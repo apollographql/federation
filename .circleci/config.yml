@@ -64,9 +64,9 @@ jobs:
     steps:
       - common_test_steps
 
-  NodeJS 17:
+  NodeJS 18:
     docker:
-      - image: cimg/node:17.0.0
+      - image: cimg/node:18.0.0
     steps:
       - common_test_steps
 
@@ -138,8 +138,8 @@ workflows:
       - NodeJS 16:
           name: "JS: Node 16"
           <<: *common_non_publish_filters
-      - NodeJS 17:
-          name: "JS: Node 17"
+      - NodeJS 18:
+          name: "JS: Node 18"
           <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
@@ -157,7 +157,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
-            - "JS: Node 17"
+            - "JS: Node 18"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/dry_run:
@@ -167,7 +167,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
-            - "JS: Node 17"
+            - "JS: Node 18"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/confirmation:
