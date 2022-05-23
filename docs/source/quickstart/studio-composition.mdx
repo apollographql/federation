@@ -12,7 +12,7 @@ By composing our supergraph schema with Studio, we use a feature called  **manag
 ```mermaid
 flowchart BT;
   subgraph " "
-  serviceA[Products subgraph];
+  serviceA[Locations subgraph];
   serviceB[Reviews subgraph];
   end
   registry{{Apollo Schema Registry}};
@@ -21,7 +21,7 @@ flowchart BT;
   class registry secondary;
 ```
 
-Whenever composition succeeds, Apollo pushes an updated supergraph schema to the **uplink**, a special endpoint that gateways use to fetch their configuration:
+Whenever composition succeeds, Apollo pushes an updated supergraph schema to **Apollo Uplink**, a special endpoint that gateways use to fetch their configuration:
 
 ```mermaid
 flowchart LR;
@@ -31,7 +31,7 @@ flowchart LR;
   class registry,uplink secondary;
 ```
 
-Meanwhile, our gateway regularly polls the uplink for changes to its supergraph schema:
+Meanwhile, our gateway regularly polls Uplink for changes to its supergraph schema:
 
 ```mermaid
 flowchart BT;
@@ -55,11 +55,10 @@ Let's return to our gateway project. We can now use Rover's `subgraph publish` c
 Run the following from your project directory, substituting your Studio graph's **graph ref** where indicated:
 
 ```shell {1}
-rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
-  --routing-url https://rover.apollo.dev/quickstart/products/graphql \
-  --schema ./products.graphql \
-  --name products \
-  --convert
+rover subgraph publish YOUR_GRAPH_REF \
+  --routing-url https://flyby-locations-sub.herokuapp.com/ \
+  --schema ./locations.graphql \
+  --name locations
 ```
 
 <ExpansionPanel title="What's a graph ref?">
@@ -76,55 +75,37 @@ Every Studio graph is initially created with a single variant named `current`.
 
 </ExpansionPanel>
 
-> The `--convert` option converts your Studio graph into a federated graph. You only need to provide this option once for a given Studio graph.
-
 If the command is successful, you'll see output like the following:
 
 ```
-A new subgraph called 'products' for the 'docs-example-graph' graph was created
-The gateway for the 'docs-example-graph' graph was updated with a new schema, composed from the updated 'products' subgraph
+A new subgraph called 'locations' for the 'docs-example-graph@current' graph was created
+The gateway for the 'docs-example-graph' graph was updated with a new schema, composed from the updated 'locations' subgraph
 ```
 
-Nice! If you open your graph's details in Studio now, you'll see types and fields from our `products` subgraph listed in the Schema tab:
+Nice! If you open your graph's details in Studio now, you'll see types and fields from our `locations` subgraph listed in the Schema tab:
 
-<img class="screenshot" alt="Products subgraph schema in Studio" src="../images/qs-studio-schema.jpg" width="200"/>
+<img class="screenshot" alt="Locations subgraph schema in Studio" src="../images/qs-studio-schema.jpg" width="300"/>
 
 Now, let's do the same thing for our `reviews` subgraph, **again substituting your graph ref where indicated**:
 
 ```shell {1}
-rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
-  --routing-url https://rover.apollo.dev/quickstart/reviews/graphql \
+rover subgraph publish YOUR_GRAPH_REF \
+  --routing-url https://flyby-reviews-sub.herokuapp.com/ \
   --schema ./reviews.graphql \
   --name reviews
 ```
 
 If you refresh the Schema tab in Studio, you'll now see types and fields from our `reviews` service as well.
 
-Now that we've published our subgraph schemas, Apollo Studio automatically composes them into a supergraph schema! However, our gateway doesn't know how to _fetch_ that schema from Apollo. We'll tackle that soon.
+Now that we've published our subgraph schemas, Apollo Studio automatically composes them into a supergraph schema! However, our gateway doesn't know how to _fetch_ that schema from Apollo. We'll tackle that next.
 
-## 2. Enable Federation 2 support
+## 2. Authenticate the gateway with Apollo Studio
 
-To try out managed federation with the Federation 2 preview, you set your graph's federation version in Apollo Studio.
+It's time to enable our gateway to fetch its supergraph schema from Apollo. To do that, we'll need a **graph API key** that we set as the value of an **environment variable**.
 
-Open your graph's Settings page and find the Manage Variants section:
+> ⚠️ **API keys are secret credentials.** Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
 
-<img class="screenshot" alt="Edit supported directives in Studio" src="../images/edit-build-configuration.jpg" width="600"/>
-
-Click **Edit Build Configuration** for the variant you want to move to Federation 2. The following dialog appears:
-
-<img class="screenshot" alt="Edit supported directives in Studio" src="../images/set-federation-version.jpg" width="600"/>
-
-In the Federation Version dropdown, select **Federation 2** and click **Save**.
-
-Studio automatically begins composing your supergraph schema using Federation 2 composition logic. You can switch this back at any time.
-
-## 3. Authenticate the gateway with Apollo Studio
-
-It's time to enable our gateway to fetch its supergraph schema from Apollo! To do that, we'll need a **graph API key** that we set as the value of an **environment variable**.
-
-> **API keys are secret credentials.** Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
-
-1. Obtain a graph API key for your Studio graph by <a href="https://www.apollographql.com/docs/studio/api-keys/#graph-api-keys" target="_blank">following these steps</a>.  Copy its value.
+1. Obtain a graph API key for your Studio graph by <a href="/studio/api-keys/#graph-api-keys" target="_blank">following these steps</a>. Make sure to copy its value (for security, API keys are not visible in Studio after creation).
 
     _If you have an Enterprise plan, set the API key's role to `Contributor`._
 
@@ -175,6 +156,6 @@ While we're here, you can even execute some test queries against the supergraph.
 
 Nice work! We've registered two **subgraph schemas** with Apollo, and we have a **federated gateway** that then fetches the composed **supergraph schema**.
 
-If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema.
+If we now register changes to one of our subgraph schemas, our running gateway automatically fetches the corresponding changes to the supergraph schema (assuming composition succeeds).
 
 Next, let's look at how to use the Rover CLI to compose a supergraph schema locally or in a CI environment. [Go to part 3.](./local-composition/)
