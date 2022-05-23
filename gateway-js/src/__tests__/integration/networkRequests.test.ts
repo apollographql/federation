@@ -213,7 +213,7 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+      'UplinkSupergraphManager failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
     );
   });
 
@@ -245,7 +245,7 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      `UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: \nCannot query field "fail" on type "Query".`,
+      `UplinkSupergraphManager failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: \nCannot query field "fail" on type "Query".`,
     );
   });
 
@@ -279,7 +279,7 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'UplinkFetcher failed to update supergraph with the following error: Syntax Error: Unexpected Name "Syntax".',
+      'UplinkSupergraphManager failed to update supergraph with the following error: Syntax Error: Unexpected Name "Syntax".',
     );
     expect(gateway.schema).toBeTruthy();
   });
@@ -568,7 +568,7 @@ describe('Downstream service health checks', () => {
 
       await errorLoggedPromise;
       expect(logger.error).toHaveBeenCalledWith(
-        `UplinkFetcher failed to update supergraph with the following error: The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:\n[accounts]: 500: Internal Server Error`,
+        `UplinkSupergraphManager failed to update supergraph with the following error: The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:\n[accounts]: 500: Internal Server Error`,
       );
 
       // At this point, the mock update should have been called but the schema
