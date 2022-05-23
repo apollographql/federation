@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+- Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
+
 ## 2.0.2
 
 - Fix bug where planning a query with `@require` impacts the plans of followup queries [PR #1783](https://github.com/apollographql/federation/pull/1783).
