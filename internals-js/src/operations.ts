@@ -774,7 +774,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
     this._selections.add(key, toAdd);
     ++this._selectionCount;
     this._cachedSelections = undefined;
-    return selection;
+    return toAdd;
   }
 
   addPath(path: OperationPath) {
@@ -1136,9 +1136,27 @@ export class FieldSelection extends Freezable<FieldSelection> {
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const updatedField = this.field.updateForAddingTo(selectionSet);
-    return this.field === updatedField
-      ? this.cloneIfFrozen()
-      : new FieldSelection(updatedField, this.selectionSet?.cloneIfFrozen());
+    if (this.field === updatedField) {
+      return this.cloneIfFrozen();
+    }
+
+    // We create a new selection that not only uses the updated field, but also ensures
+    // the underlying selection set uses the updated field type as parent type.
+    const updatedBaseType = baseType(updatedField.definition.type!);
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet && this.selectionSet.parentType !== updatedBaseType) {
+      assert(isCompositeType(updatedBaseType), `Expected ${updatedBaseType.coordinate} to be composite but ${updatedBaseType.kind}`);
+      updatedSelectionSet = new SelectionSet(updatedBaseType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new FieldSelection(updatedField, updatedSelectionSet);
   }
 
   toSelectionNode(): FieldNode {

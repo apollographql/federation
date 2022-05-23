@@ -4,10 +4,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Add callback when fetching a supergraph from Apollo Uplink fails [PR #1812](https://github.com/apollographql/federation/pull/1812).
+
+## 2.0.3
+
 - Fix bug with type extension of empty type definition [PR #1821](https://github.com/apollographql/federation/pull/1821)
 - Fix output of `printSubgraphSchema` method, ensuring it can be read back by composition and `buildSubgraphSchema` [PR #1831](https://github.com/apollographql/federation/pull/1831).
 - Fix issue with `@requires` and conditional queries (`@include`/`@skip`) [1835](https://github.com/apollographql/federation/pull/1835).
-- Add `updateSupergraphSdlFailureCallback` that's called when we fail to poll Uplink for a supergraph [PR #1812](https://github.com/apollographql/federation/pull/1812).
+- Fix bug with field covariance when the underlying plan use type-explosion [1859](https://github.com/apollographql/federation/pull/1859).
 
 ## 2.0.2
 
