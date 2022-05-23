@@ -68,7 +68,18 @@ jobs:
     docker:
       - image: cimg/node:18.0.0
     steps:
-      - common_test_steps
+      - oss/install_specific_npm_version:
+          version: '8'
+      - checkout
+      - oss/npm_clean_install_with_caching
+      - run:
+          command: npm run test:ci
+          environment:
+            JEST_JUNIT_OUTPUT_DIR: "reports/junit/"
+      - store_test_results:
+          path: reports/junit
+      - store_artifacts:
+          path: reports/junit
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
