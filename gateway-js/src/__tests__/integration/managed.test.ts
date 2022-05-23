@@ -1,6 +1,6 @@
 import mockedEnv from 'mocked-env';
 
-import { ApolloGateway, UplinkFetcher } from '@apollo/gateway';
+import { ApolloGateway, UplinkSupergraphManager } from '@apollo/gateway';
 import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReportingDisabled } from 'apollo-server-core';
 
@@ -54,6 +54,6 @@ describe('minimal gateway', () => {
     gateway = new ApolloGateway({ logger });
     server = new ApolloServer({ gateway, plugins: [ApolloServerPluginUsageReportingDisabled()] });
     await server.listen({ port: 0 });
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkFetcher);
+    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
   });
 });

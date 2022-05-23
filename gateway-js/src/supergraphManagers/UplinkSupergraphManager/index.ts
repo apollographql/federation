@@ -2,7 +2,10 @@ import * as makeFetchHappen from 'make-fetch-happen';
 import type { Logger } from '@apollo/utils.logger';
 import resolvable from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
-import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '../..';
+import {
+  SubgraphHealthCheckFunction,
+  SupergraphSdlUpdateFunction,
+} from '../..';
 import { getDefaultLogger } from '../../logger';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 import { Fetcher } from '@apollo/utils.fetcher';
@@ -18,7 +21,8 @@ function getUplinkEndpoints(): string[] {
    * 1. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
    * 2. default (GCP and AWS)
    */
-  const envEndpoints = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT?.split(',');
+  const envEndpoints =
+    process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT?.split(',');
   return envEndpoints ?? DEFAULT_UPLINK_ENDPOINTS;
 }
 
@@ -26,30 +30,17 @@ export interface UpdateSupergraphSdlFailureInputs {
   error: Error;
 }
 
-export type UpdateSupergraphSdlFailureFunction = (this: UplinkFetcher, options: UpdateSupergraphSdlFailureInputs) => Promise<string>;
-//   this: UplinkFetcher,
-//   { error }: { error: Error }
-// ) => Promise<string>;
-
-export interface UplinkFetcherOptions {
-  apiKey: string,
-  graphRef: string,
-  debug?: boolean;
-  logger?: Logger;
-  fetcher?: Fetcher;
-  uplinkEndpoints?: string[];
-  pollIntervalInMs?: number;
-  maxRetries?: number;
-  shouldRunSubgraphHealthcheck?: boolean;
-  onFailureToUpdateSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
-}
+export type UpdateSupergraphSdlFailureFunction = (
+  this: UplinkSupergraphManager,
+  { error }: { error: Error },
+) => Promise<string>;
 
 type State =
   | { phase: 'initialized' }
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class UplinkFetcher implements SupergraphManager {
+export class UplinkSupergraphManager implements SupergraphManager {
   protected apiKey: string;
   protected graphRef: string;
   protected _uplinkEndpoints: string[] = getUplinkEndpoints();
@@ -70,21 +61,43 @@ export class UplinkFetcher implements SupergraphManager {
   private minDelayMs: number | null = null;
   private earliestFetchTime: Date | null = null;
 
-  // TODO: Make this backwards compatible
-  constructor(options: UplinkFetcherOptions) {
-    this.apiKey = options.apiKey;
-    this.graphRef = options.graphRef;
-    if (options.uplinkEndpoints) {
-      this._uplinkEndpoints = options.uplinkEndpoints;
+  constructor({
+    apiKey,
+    graphRef,
+    debug,
+    logger,
+    fetcher,
+    uplinkEndpoints,
+    pollIntervalInMs,
+    maxRetries,
+    shouldRunSubgraphHealthcheck,
+    onFailureToUpdateSupergraphSdl,
+  }: {
+    apiKey: string;
+    graphRef: string;
+    debug?: boolean;
+    logger?: Logger;
+    fetcher?: Fetcher;
+    uplinkEndpoints?: string[];
+    pollIntervalInMs?: number;
+    maxRetries?: number;
+    shouldRunSubgraphHealthcheck?: boolean;
+    onFailureToUpdateSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
+  }) {
+    this.apiKey = apiKey;
+    this.graphRef = graphRef;
+    if (uplinkEndpoints) {
+      this._uplinkEndpoints = uplinkEndpoints;
     }
 
-    this.maxRetries = options.maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
+    this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
 
-    this.logger = options.logger ?? getDefaultLogger(options.debug);
-    this.fetcher = options.fetcher ?? this.fetcher;
-    this.pollIntervalMs = options.pollIntervalInMs ?? this.pollIntervalMs;
-    this.shouldRunSubgraphHealthcheck = options.shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
-    this.onFailureToUpdateSupergraphSdl = options.onFailureToUpdateSupergraphSdl;
+    this.logger = logger ?? getDefaultLogger(debug);
+    this.fetcher = fetcher ?? this.fetcher;
+    this.pollIntervalMs = pollIntervalInMs ?? this.pollIntervalMs;
+    this.shouldRunSubgraphHealthcheck =
+      shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
+    this.onFailureToUpdateSupergraphSdl = onFailureToUpdateSupergraphSdl;
 
     this.state = { phase: 'initialized' };
   }
@@ -134,7 +147,10 @@ export class UplinkFetcher implements SupergraphManager {
     return this._uplinkEndpoints;
   }
 
-  private async updateSupergraphSdl(): Promise<{supergraphSdl: string, minDelaySeconds?: number} | null> {
+  private async updateSupergraphSdl(): Promise<{
+    supergraphSdl: string;
+    minDelaySeconds?: number;
+  } | null> {
     let supergraphSdl;
     let minDelaySeconds: number | undefined = this.pollIntervalMs / 1000;
 
@@ -149,7 +165,7 @@ export class UplinkFetcher implements SupergraphManager {
         maxRetries: this.maxRetries,
         roundRobinSeed: this.fetchCount++,
         earliestFetchTime: this.earliestFetchTime,
-        logger: this.logger
+        logger: this.logger,
       });
 
       if (!result) {
@@ -158,18 +174,21 @@ export class UplinkFetcher implements SupergraphManager {
 
       this.compositionId = result.id;
 
-      ({supergraphSdl, minDelaySeconds} = result);
+      ({ supergraphSdl, minDelaySeconds } = result);
     } catch (e) {
       if (!this.onFailureToUpdateSupergraphSdl) {
         throw e;
       }
 
-      this.logger.debug('Error fetching supergraphSdl from Uplink, calling updateSupergraphSdlFailureCallback');
-      supergraphSdl = await this.onFailureToUpdateSupergraphSdl.call(this, { error: e });
-      // if (!supergraphSdl) {
-      //   throw new UplinkFetcherError('updateSupergraphSdlFailureCallback returned invalid supergraphSdl');
-      // }
-      this.logger.debug(`Received new schema from callback (${supergraphSdl.length} chars)`);
+      this.logger.debug(
+        'Error fetching supergraphSdl from Uplink, calling updateSupergraphSdlFailureCallback',
+      );
+      supergraphSdl = await this.onFailureToUpdateSupergraphSdl.call(this, {
+        error: e,
+      });
+      this.logger.debug(
+        `Received new schema from callback (${supergraphSdl.length} chars)`,
+      );
     }
 
     // the healthCheck fn is only assigned if it's enabled in the config
@@ -209,13 +228,14 @@ export class UplinkFetcher implements SupergraphManager {
       },
       this.minDelayMs
         ? Math.max(this.minDelayMs, this.pollIntervalMs)
-        : this.pollIntervalMs
+        : this.pollIntervalMs,
     );
   }
 
   private logUpdateFailure(e: any) {
     this.logger.error(
-      'UplinkFetcher failed to update supergraph with the following error: ' + (e.message ?? e)
+      'UplinkSupergraphManager failed to update supergraph with the following error: ' +
+        (e.message ?? e),
     );
   }
 }

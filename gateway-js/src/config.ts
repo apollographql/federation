@@ -8,7 +8,7 @@ import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
 import { ServiceDefinition } from "@apollo/federation-internals";
 import { Fetcher } from '@apollo/utils.fetcher';
-import { UplinkFetcher } from './supergraphManagers';
+import { UplinkSupergraphManager } from './supergraphManagers';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -326,7 +326,7 @@ export function isManagedConfig(
     'schemaConfigDeliveryEndpoint' in config ||
     'uplinkEndpoints' in config ||
     'fallbackPollIntervalInMs' in config ||
-    (isSupergraphManagerConfig(config) && config.supergraphSdl instanceof UplinkFetcher) ||
+    (isSupergraphManagerConfig(config) && config.supergraphSdl instanceof UplinkSupergraphManager) ||
     (!isLocalConfig(config) &&
       !isStaticSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))

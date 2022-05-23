@@ -1,6 +1,6 @@
 import nock from 'nock';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
-import { SUPERGRAPH_SDL_QUERY } from '../../supergraphManagers/UplinkFetcher/loadSupergraphSdlFromStorage';
+import { SUPERGRAPH_SDL_QUERY } from '../../supergraphManagers/UplinkSupergraphManager/loadSupergraphSdlFromStorage';
 import { getTestingSupergraphSdl } from '../../__tests__/execution-utils';
 import { print } from 'graphql';
 import { Fixture, fixtures as testingFixtures } from 'apollo-federation-integration-testsuite';

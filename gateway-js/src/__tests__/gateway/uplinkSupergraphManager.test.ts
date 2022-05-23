@@ -1,6 +1,6 @@
 import mockedEnv from 'mocked-env';
 
-import { ApolloGateway, UplinkFetcher } from '@apollo/gateway';
+import { ApolloGateway, UplinkSupergraphManager } from '@apollo/gateway';
 
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import { getTestingSupergraphSdl } from '../execution-utils';
@@ -16,7 +16,7 @@ import {
 import {
   DEFAULT_UPLINK_ENDPOINTS,
   UpdateSupergraphSdlFailureInputs,
-} from '../../supergraphManagers/UplinkFetcher/index';
+} from '../../supergraphManagers/UplinkSupergraphManager/index';
 
 let gateway: ApolloGateway | undefined;
 const logger = {
@@ -39,13 +39,13 @@ afterEach(async () => {
   nockAfterEach();
 });
 
-describe('Managed gateway with explicit UplinkFetcher', () => {
+describe('Managed gateway with explicit UplinkSupergraphManager', () => {
   it('waits for supergraph schema to load', async () => {
     mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
 
     gateway = new ApolloGateway({
       logger,
-      supergraphSdl: new UplinkFetcher({
+      supergraphSdl: new UplinkSupergraphManager({
         apiKey,
         graphRef,
         logger,
@@ -62,14 +62,14 @@ describe('Managed gateway with explicit UplinkFetcher', () => {
     const supergraphSchema = getTestingSupergraphSdl();
     gateway = new ApolloGateway({
       logger,
-      supergraphSdl: new UplinkFetcher({
+      supergraphSdl: new UplinkSupergraphManager({
         apiKey,
         graphRef,
         logger,
         maxRetries: 0,
         pollIntervalInMs: 0,
         async onFailureToUpdateSupergraphSdl(
-          this: UplinkFetcher,
+          this: UplinkSupergraphManager,
           { error }: UpdateSupergraphSdlFailureInputs
         ) {
           this.logger.info(error);
@@ -89,14 +89,14 @@ describe('Managed gateway with explicit UplinkFetcher', () => {
 
       gateway = new ApolloGateway({
         logger,
-        supergraphSdl: new UplinkFetcher({
+        supergraphSdl: new UplinkSupergraphManager({
           apiKey,
           graphRef,
           logger,
           maxRetries: 0,
           pollIntervalInMs: 0,
           async onFailureToUpdateSupergraphSdl(
-            this: UplinkFetcher,
+            this: UplinkSupergraphManager,
             { error: _error }: UpdateSupergraphSdlFailureInputs
           ) {
             return schemaText;
@@ -125,8 +125,8 @@ describe('Managed gateway', () => {
     gateway = new ApolloGateway({ logger });
     await gateway.load({ apollo: { graphRef, key: apiKey } });
 
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkFetcher);
-    const uplinkSupergraphManager: UplinkFetcher = gateway.supergraphManager as UplinkFetcher;
+    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+    const uplinkSupergraphManager: UplinkSupergraphManager = gateway.supergraphManager as UplinkSupergraphManager;
     expect(uplinkSupergraphManager.uplinkEndpoints).toEqual(DEFAULT_UPLINK_ENDPOINTS);
   });
 
@@ -140,8 +140,8 @@ describe('Managed gateway', () => {
     gateway = new ApolloGateway({ uplinkEndpoints, logger });
     await gateway.load({ apollo: { graphRef, key: apiKey } });
 
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkFetcher);
-    const uplinkSupergraphManager: UplinkFetcher = gateway.supergraphManager as UplinkFetcher;
+    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+    const uplinkSupergraphManager: UplinkSupergraphManager = gateway.supergraphManager as UplinkSupergraphManager;
     expect(uplinkSupergraphManager.uplinkEndpoints).toEqual(uplinkEndpoints);
   });
 
@@ -155,7 +155,7 @@ describe('Managed gateway', () => {
     gateway = new ApolloGateway({ logger });
     await gateway.load({ apollo: { graphRef, key: apiKey } });
 
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkFetcher);
-    expect((gateway.supergraphManager as UplinkFetcher).uplinkEndpoints).toEqual([uplinkUrl]);
+    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+    expect((gateway.supergraphManager as UplinkSupergraphManager).uplinkEndpoints).toEqual([uplinkUrl]);
   });
 });

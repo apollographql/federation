@@ -52,7 +52,7 @@ import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
-  UplinkFetcher,
+  UplinkSupergraphManager,
   LegacyFetcher,
   LocalCompose,
 } from './supergraphManagers';
@@ -365,7 +365,7 @@ export class ApolloGateway implements GraphQLService {
 
       const schemaDeliveryEndpoints: string[] | undefined = this.config.schemaConfigDeliveryEndpoint ? [this.config.schemaConfigDeliveryEndpoint] : undefined;
       await this.initializeSupergraphManager(
-        new UplinkFetcher({
+        new UplinkSupergraphManager({
           graphRef: this.apolloConfig!.graphRef!,
           apiKey: this.apolloConfig!.key!,
           shouldRunSubgraphHealthcheck: this.config.serviceHealthCheck,
@@ -1065,7 +1065,7 @@ export {
   CompositionInfo,
   IntrospectAndCompose,
   LocalCompose,
-  UplinkFetcher,
+  UplinkSupergraphManager,
 };
 
 export * from './datasources';
