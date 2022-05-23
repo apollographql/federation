@@ -16,13 +16,7 @@ commands:
   # something different.  Probably best to avoid that, out of principle, though.
   common_test_steps:
     description: "Commands run on each Node.js job"
-    parameters:
-      npm_version:
-        default: '7'
-        type: string
     steps:
-      - oss/install_specific_npm_version:
-          version: '<<parameters.npm_version>>'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -72,8 +66,7 @@ jobs:
     docker:
       - image: cimg/node:18.2.0
     steps:
-      - common_test_steps:
-          npm_version: '8'
+      - common_test_steps
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
