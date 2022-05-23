@@ -37,7 +37,7 @@ jobs:
 
   NodeJS 12:
     docker:
-      - image: cimg/node:12.22.1
+      - image: cimg/node:12.22
     steps:
       - common_test_steps
       # We will save the results of this one particular invocation to use in
@@ -52,13 +52,13 @@ jobs:
 
   NodeJS 14:
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:14.19
     steps:
       - common_test_steps
 
   NodeJS 16:
     docker:
-      - image: cimg/node:16.0.0
+      - image: cimg/node:16.15
     steps:
       - common_test_steps
 
@@ -71,10 +71,8 @@ jobs:
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:16.15
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -83,10 +81,8 @@ jobs:
   Error code Doc:
     description: "Ensure the error code documentation is up to date"
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:16.15
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -95,10 +91,8 @@ jobs:
   Hints code Doc:
     description: "Ensure the hints code documentation is up to date"
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:16.15
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
