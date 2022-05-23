@@ -70,7 +70,7 @@ jobs:
 
   NodeJS 18:
     docker:
-      - image: cimg/node:18.0.0
+      - image: cimg/node:18.2.0
     steps:
       - common_test_steps:
           npm_version: '8'
