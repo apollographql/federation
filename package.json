@@ -40,7 +40,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@apollo/client": "3.6.4",
+    "@apollo/client": "3.6.5",
     "@apollo/utils.fetcher": "1.0.0",
     "@graphql-codegen/cli": "2.6.2",
     "@graphql-codegen/typescript": "2.4.11",
@@ -61,7 +61,7 @@
     "@types/node-fetch": "2.6.1",
     "@types/whatwg-url": "8.2.1",
     "@typescript-eslint/eslint-plugin": "5.26.0",
-    "apollo-server": "3.7.0",
+    "apollo-server": "3.8.1",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
     "graphql": "16.5.0",
