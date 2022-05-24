@@ -135,7 +135,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         logger,
         maxRetries: 0,
         pollIntervalInMs: 0,
-        async onFailureToUpdateSupergraphSdl(
+        async onFailureToFetchSupergraphSdl(
           this: UplinkSupergraphManager,
           { error }: { error: Error },
         ) {
@@ -161,7 +161,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           logger,
           maxRetries: 0,
           pollIntervalInMs: 0,
-          async onFailureToUpdateSupergraphSdl(
+          async onFailureToFetchSupergraphSdl(
             this: UplinkSupergraphManager,
             { error: _error }: { error: Error },
           ) {

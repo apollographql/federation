@@ -47,7 +47,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
   private update?: SupergraphSdlUpdateFunction;
   private shouldRunSubgraphHealthcheck: boolean = false;
   private healthCheck?: SubgraphHealthCheckFunction;
-  private onFailureToUpdateSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
+  private onFailureToFetchSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
   private timerRef: NodeJS.Timeout | null = null;
   private state: State;
   private errorReportingEndpoint: string | undefined =
@@ -67,7 +67,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     pollIntervalInMs,
     maxRetries,
     shouldRunSubgraphHealthcheck,
-    onFailureToUpdateSupergraphSdl,
+    onFailureToFetchSupergraphSdl,
   }: {
     apiKey: string;
     graphRef: string;
@@ -78,7 +78,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     pollIntervalInMs?: number;
     maxRetries?: number;
     shouldRunSubgraphHealthcheck?: boolean;
-    onFailureToUpdateSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
+    onFailureToFetchSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
   }) {
     this.apiKey = apiKey;
     this.graphRef = graphRef;
@@ -93,7 +93,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.pollIntervalMs = pollIntervalInMs ?? this.pollIntervalMs;
     this.shouldRunSubgraphHealthcheck =
       shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
-    this.onFailureToUpdateSupergraphSdl = onFailureToUpdateSupergraphSdl;
+    this.onFailureToFetchSupergraphSdl = onFailureToFetchSupergraphSdl;
 
     this.state = { phase: 'initialized' };
   }
@@ -172,14 +172,14 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
       ({ supergraphSdl, minDelaySeconds } = result);
     } catch (e) {
-      if (!this.onFailureToUpdateSupergraphSdl) {
+      if (!this.onFailureToFetchSupergraphSdl) {
         throw e;
       }
 
       this.logger.debug(
         'Error fetching supergraphSdl from Uplink, calling updateSupergraphSdlFailureCallback',
       );
-      supergraphSdl = await this.onFailureToUpdateSupergraphSdl.call(this, {
+      supergraphSdl = await this.onFailureToFetchSupergraphSdl.call(this, {
         error: e,
       });
     }
