@@ -182,9 +182,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
       supergraphSdl = await this.onFailureToUpdateSupergraphSdl.call(this, {
         error: e,
       });
-      this.logger.debug(
-        `Received new schema from callback (${supergraphSdl.length} chars)`,
-      );
     }
 
     // the healthCheck fn is only assigned if it's enabled in the config
