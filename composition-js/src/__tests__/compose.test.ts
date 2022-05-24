@@ -3060,6 +3060,7 @@ describe('composition', () => {
 
       const apiSchema = schema.toAPISchema({exposeDirectives: ["@tag"]})
       expect(apiSchema.elementByCoordinate("@tag")).toBeDefined();
+      expect(apiSchema.elementByCoordinate('Query.hi')?.appliedDirectives.find(d => d.name === 'tag' && d.arguments().name === 'cool')).toBeDefined();
     });
 
     it("composed subgraphs should allow filtering of custom tags in toAPISchema", () => {
@@ -3091,6 +3092,7 @@ describe('composition', () => {
 
       const apiSchema = schema.toAPISchema({exposeDirectives: ["@tag"]})
       expect(apiSchema.elementByCoordinate("@tag")).toBeDefined();
+      expect(apiSchema.elementByCoordinate('Query.hi')?.appliedDirectives.find(d => d.name === 'tag' && d.arguments().name === 'cool')).toBeDefined();
     });
   });
 

@@ -13,6 +13,7 @@ function typeNames(schema: Schema): string[] {
 
 describe('toAPISchema', () => {
   let schema: Schema;
+  let apiSchema: Schema;
 
   beforeAll(() => {
     const schemaPath = path.join(
@@ -20,16 +21,16 @@ describe('toAPISchema', () => {
       'supergraphSdl.graphql',
     );
     const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
-
-    schema = buildSchema(supergraphSdl).toAPISchema({ exposeDirectives: ['@transform', '@stream']});
+    schema = buildSchema(supergraphSdl);
+    apiSchema = schema.toAPISchema({ exposeDirectives: ['@transform', '@stream']});
   });
 
   it(`doesn't include core directives`, () => {
-    expect(directiveNames(schema)).toEqual(expect.not.arrayContaining(['core']));
+    expect(directiveNames(apiSchema)).toEqual(expect.not.arrayContaining(['core']));
   });
 
   it(`doesn't include join directives`, () => {
-    expect(directiveNames(schema)).toEqual(
+    expect(directiveNames(apiSchema)).toEqual(
       expect.not.arrayContaining([
         'join__graph',
         'join__type',
@@ -40,14 +41,21 @@ describe('toAPISchema', () => {
   });
 
   it(`doesn't include join types`, () => {
-    expect(typeNames(schema)).toEqual(
+    expect(typeNames(apiSchema)).toEqual(
       expect.not.arrayContaining(['join__FieldSet', 'join__Graph']),
     );
   });
 
-  it(`does pass through other custom directives`, () => {
-    expect(directiveNames(schema)).toEqual(
+  it(`does pass through other custom directives if exposed`, () => {
+    expect(directiveNames(apiSchema)).toEqual(
       expect.arrayContaining([ 'transform', 'stream' ]),
+    );
+  });
+
+  it(`does not pass through other custom directives if not exposed`, () => {
+    const myApiSchema = schema.toAPISchema();
+    expect(directiveNames(myApiSchema)).toEqual(
+      expect.not.arrayContaining([ 'transform', 'stream' ]),
     );
   });
 });
