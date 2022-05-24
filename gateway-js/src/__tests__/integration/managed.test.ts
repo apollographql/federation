@@ -5,7 +5,13 @@ import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReportingDisabled } from 'apollo-server-core';
 
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
-import { mockSupergraphSdlRequestSuccess, graphRef, apiKey } from '../integration/nockMocks';
+import { mockSupergraphSdlRequestSuccess, graphRef, apiKey, mockSupergraphSdlRequest } from '../integration/nockMocks';
+import { GraphQLError } from 'graphql';
+import { getTestingSupergraphSdl } from '../execution-utils';
+
+let gateway: ApolloGateway | undefined;
+let server: ApolloServer | undefined;
+let cleanUp: (() => void) | undefined;
 
 beforeEach(() => {
   nockBeforeEach();
@@ -13,6 +19,21 @@ beforeEach(() => {
 
 afterEach(async () => {
   nockAfterEach();
+
+  if (server) {
+    await server.stop();
+    server = undefined;
+  }
+
+  if (gateway) {
+    await gateway.stop();
+    gateway = undefined;
+  }
+
+  if (cleanUp) {
+    cleanUp();
+    cleanUp = undefined;
+  }
 });
 
 const logger = {
@@ -23,27 +44,6 @@ const logger = {
 };
 
 describe('minimal gateway', () => {
-  let gateway: ApolloGateway | undefined;
-  let server: ApolloServer | undefined;
-  let cleanUp: (() => void) | undefined;
-
-  afterEach(async () => {
-    if (server) {
-      await server.stop();
-      server = undefined;
-    }
-
-    if (gateway) {
-      await gateway.stop();
-      gateway = undefined;
-    }
-
-    if (cleanUp) {
-      cleanUp();
-      cleanUp = undefined;
-    }
-  });
-
   it('uses managed federation', async () => {
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
@@ -56,4 +56,73 @@ describe('minimal gateway', () => {
     await server.listen({ port: 0 });
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
   });
+});
+
+describe('Managed gateway with explicit UplinkSupergraphManager', () => {
+  it('waits for supergraph schema to load', async () => {
+    mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
+
+    gateway = new ApolloGateway({
+      logger,
+      supergraphSdl: new UplinkSupergraphManager({
+        apiKey,
+        graphRef,
+        logger,
+        maxRetries: 0,
+        pollIntervalInMs: 10,
+      }),
+    });
+    await gateway.load();
+  });
+
+  it('invokes callback if uplink throws an error', async () => {
+    mockSupergraphSdlRequest(null, /.*?apollographql.com/).reply(500);
+
+    const supergraphSchema = getTestingSupergraphSdl();
+    gateway = new ApolloGateway({
+      logger,
+      supergraphSdl: new UplinkSupergraphManager({
+        apiKey,
+        graphRef,
+        logger,
+        maxRetries: 0,
+        pollIntervalInMs: 0,
+        async onFailureToUpdateSupergraphSdl(
+          this: UplinkSupergraphManager,
+          { error }: { error: Error },
+        ) {
+          this.logger.info(error);
+          return supergraphSchema;
+        },
+      }),
+    });
+
+    await gateway.load();
+  });
+
+  it.each(['x', '', ' ', 'type Query {hi: String}'])(
+    'throws if invalid supergraph schema returned from callback: %p',
+    async (schemaText) => {
+      mockSupergraphSdlRequest(null, /.*?apollographql.com/).reply(500);
+
+      gateway = new ApolloGateway({
+        logger,
+        supergraphSdl: new UplinkSupergraphManager({
+          apiKey,
+          graphRef,
+          logger,
+          maxRetries: 0,
+          pollIntervalInMs: 0,
+          async onFailureToUpdateSupergraphSdl(
+            this: UplinkSupergraphManager,
+            { error: _error }: { error: Error },
+          ) {
+            return schemaText;
+          },
+        }),
+      });
+
+      await expect(gateway.load()).rejects.toThrowError(GraphQLError);
+    },
+  );
 });
