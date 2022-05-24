@@ -5,7 +5,12 @@ import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReportingDisabled } from 'apollo-server-core';
 
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
-import { mockSupergraphSdlRequestSuccess, graphRef, apiKey, mockSupergraphSdlRequest } from '../integration/nockMocks';
+import {
+  mockSupergraphSdlRequestSuccess,
+  graphRef,
+  apiKey,
+  mockSupergraphSdlRequest,
+} from '../integration/nockMocks';
 import { GraphQLError } from 'graphql';
 import { getTestingSupergraphSdl } from '../execution-utils';
 
@@ -52,9 +57,52 @@ describe('minimal gateway', () => {
     mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
 
     gateway = new ApolloGateway({ logger });
-    server = new ApolloServer({ gateway, plugins: [ApolloServerPluginUsageReportingDisabled()] });
+    server = new ApolloServer({
+      gateway,
+      plugins: [ApolloServerPluginUsageReportingDisabled()],
+    });
     await server.listen({ port: 0 });
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+  });
+
+  it('can set uplink URLs', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
+
+    const uplinkEndpoint = 'https://example.com';
+    mockSupergraphSdlRequestSuccess({ url: uplinkEndpoint });
+
+    gateway = new ApolloGateway({ logger, uplinkEndpoints: [uplinkEndpoint] });
+    server = new ApolloServer({
+      gateway,
+      plugins: [ApolloServerPluginUsageReportingDisabled()],
+    });
+    await server.listen({ port: 0 });
+    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+    const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
+    expect(uplinkManager.uplinkEndpoints).toEqual([uplinkEndpoint]);
+  });
+
+  it('can set uplink URLs via deprecated schemaConfigDeliveryEndpoint', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
+
+    const schemaConfigDeliveryEndpoint = 'https://example.com';
+    mockSupergraphSdlRequestSuccess({ url: schemaConfigDeliveryEndpoint });
+
+    gateway = new ApolloGateway({ logger, schemaConfigDeliveryEndpoint });
+    server = new ApolloServer({
+      gateway,
+      plugins: [ApolloServerPluginUsageReportingDisabled()],
+    });
+    await server.listen({ port: 0 });
+    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+    const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
+    expect(uplinkManager.uplinkEndpoints).toEqual([schemaConfigDeliveryEndpoint]);
   });
 });
 
