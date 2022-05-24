@@ -184,9 +184,6 @@ describe('Supergraph SDL update failures', () => {
       `"An error occurred while fetching your schema from Apollo: 401 Unauthorized"`,
     );
 
-    await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
-    );
     // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
     // which triggers a different error that we're not testing for here.
     gateway = null;
@@ -407,10 +404,6 @@ describe('Downstream service health checks', () => {
         [accounts]: 500: Internal Server Error"
       `);
 
-      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
-      );
-
       // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
       // which triggers a different error that we're not testing for here.
       gateway = null;
@@ -471,10 +464,6 @@ describe('Downstream service health checks', () => {
         "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
-
-      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
-      );
 
       // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
       // which triggers a different error that we're not testing for here.

@@ -13,10 +13,8 @@ import {
   apiKey,
   mockSupergraphSdlRequest,
 } from '../integration/nockMocks';
-import {
-  DEFAULT_UPLINK_ENDPOINTS,
-  UpdateSupergraphSdlFailureInputs,
-} from '../../supergraphManagers/UplinkSupergraphManager/index';
+import { DEFAULT_UPLINK_ENDPOINTS } from '../../supergraphManagers/UplinkSupergraphManager/index';
+import { GraphQLError } from 'graphql';
 
 let gateway: ApolloGateway | undefined;
 const logger = {
@@ -70,7 +68,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         pollIntervalInMs: 0,
         async onFailureToUpdateSupergraphSdl(
           this: UplinkSupergraphManager,
-          { error }: UpdateSupergraphSdlFailureInputs
+          { error }: { error: Error },
         ) {
           this.logger.info(error);
           return supergraphSchema;
@@ -81,8 +79,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
     await gateway.load();
   });
 
-  // TODO: unskip when there are good error messages
-  it.skip.each(['', ' '])(
+  it.each(['x', '', ' ', 'type Query {hi: String}'])(
     'throws if invalid supergraph schema returned from callback: %p',
     async (schemaText) => {
       mockSupergraphSdlRequest(null, /.*?apollographql.com/).reply(500);
@@ -97,15 +94,15 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           pollIntervalInMs: 0,
           async onFailureToUpdateSupergraphSdl(
             this: UplinkSupergraphManager,
-            { error: _error }: UpdateSupergraphSdlFailureInputs
+            { error: _error }: { error: Error },
           ) {
             return schemaText;
           },
         }),
       });
 
-      await expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot("Invalid supergraph schema");
-    }
+      await expect(gateway.load()).rejects.toThrowError(GraphQLError);
+    },
   );
 });
 
@@ -126,8 +123,11 @@ describe('Managed gateway', () => {
     await gateway.load({ apollo: { graphRef, key: apiKey } });
 
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
-    const uplinkSupergraphManager: UplinkSupergraphManager = gateway.supergraphManager as UplinkSupergraphManager;
-    expect(uplinkSupergraphManager.uplinkEndpoints).toEqual(DEFAULT_UPLINK_ENDPOINTS);
+    const uplinkSupergraphManager: UplinkSupergraphManager =
+      gateway.supergraphManager as UplinkSupergraphManager;
+    expect(uplinkSupergraphManager.uplinkEndpoints).toEqual(
+      DEFAULT_UPLINK_ENDPOINTS,
+    );
   });
 
   it('can set uplink URLs via config', async () => {
@@ -135,13 +135,18 @@ describe('Managed gateway', () => {
       APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'https://env-delivery.com',
     });
     mockSupergraphSdlRequestSuccess();
-    const uplinkEndpoints = [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3];
+    const uplinkEndpoints = [
+      mockCloudConfigUrl1,
+      mockCloudConfigUrl2,
+      mockCloudConfigUrl3,
+    ];
 
     gateway = new ApolloGateway({ uplinkEndpoints, logger });
     await gateway.load({ apollo: { graphRef, key: apiKey } });
 
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
-    const uplinkSupergraphManager: UplinkSupergraphManager = gateway.supergraphManager as UplinkSupergraphManager;
+    const uplinkSupergraphManager: UplinkSupergraphManager =
+      gateway.supergraphManager as UplinkSupergraphManager;
     expect(uplinkSupergraphManager.uplinkEndpoints).toEqual(uplinkEndpoints);
   });
 
@@ -156,6 +161,8 @@ describe('Managed gateway', () => {
     await gateway.load({ apollo: { graphRef, key: apiKey } });
 
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
-    expect((gateway.supergraphManager as UplinkSupergraphManager).uplinkEndpoints).toEqual([uplinkUrl]);
+    expect(
+      (gateway.supergraphManager as UplinkSupergraphManager).uplinkEndpoints,
+    ).toEqual([uplinkUrl]);
   });
 });

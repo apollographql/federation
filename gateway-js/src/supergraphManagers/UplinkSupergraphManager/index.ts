@@ -26,10 +26,6 @@ function getUplinkEndpoints(): string[] {
   return envEndpoints ?? DEFAULT_UPLINK_ENDPOINTS;
 }
 
-export interface UpdateSupergraphSdlFailureInputs {
-  error: Error;
-}
-
 export type UpdateSupergraphSdlFailureFunction = (
   this: UplinkSupergraphManager,
   { error }: { error: Error },

@@ -12,6 +12,7 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
+  GraphQLError,
 } from 'graphql';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
@@ -276,7 +277,10 @@ export class ApolloGateway implements GraphQLService {
       const { key, keyHash, graphRef, graphId, graphVariant } = options.apollo;
       this.apolloConfig = {
         key,
-        keyHash: keyHash ?? key ? createHash('sha256').update(key!).digest('hex') : undefined,
+        keyHash:
+          keyHash ?? key
+            ? createHash('sha256').update(key!).digest('hex')
+            : undefined,
         graphRef:
           graphRef ??
           (graphId ? `${graphId}@${graphVariant ?? 'current'}` : undefined),
@@ -363,17 +367,21 @@ export class ApolloGateway implements GraphQLService {
         );
       }
 
-      const schemaDeliveryEndpoints: string[] | undefined = this.config.schemaConfigDeliveryEndpoint ? [this.config.schemaConfigDeliveryEndpoint] : undefined;
+      const schemaDeliveryEndpoints: string[] | undefined = this.config
+        .schemaConfigDeliveryEndpoint
+        ? [this.config.schemaConfigDeliveryEndpoint]
+        : undefined;
       await this.initializeSupergraphManager(
         new UplinkSupergraphManager({
           graphRef: this.apolloConfig!.graphRef!,
           apiKey: this.apolloConfig!.key!,
           shouldRunSubgraphHealthcheck: this.config.serviceHealthCheck,
-          uplinkEndpoints: this.config.uplinkEndpoints ?? schemaDeliveryEndpoints,
+          uplinkEndpoints:
+            this.config.uplinkEndpoints ?? schemaDeliveryEndpoints,
           maxRetries: this.config.uplinkMaxRetries,
           logger: this.logger,
           pollIntervalInMs: this.pollIntervalInMs,
-        })
+        }),
       );
     }
 
@@ -407,11 +415,6 @@ export class ApolloGateway implements GraphQLService {
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
         getDataSource: this.externalGetDataSourceCallback.bind(this),
       });
-      if (!result?.supergraphSdl) {
-        throw new Error(
-          'Provided `supergraphSdl` function did not return an object containing a `supergraphSdl` property',
-        );
-      }
       if (result?.cleanup) {
         if (typeof result.cleanup === 'function') {
           this.toDispose.push(result.cleanup);
@@ -440,7 +443,11 @@ export class ApolloGateway implements GraphQLService {
    * @throws Error
    * when the provided supergraphSdl is invalid
    */
-  private externalSupergraphUpdateCallback(supergraphSdl: string) {
+  private externalSupergraphUpdateCallback(supergraphSdl?: string) {
+    if (!supergraphSdl) {
+      throw new GraphQLError('Invalid supergraph schema');
+    }
+
     switch (this.state.phase) {
       case 'failed to load':
         throw new Error(
@@ -965,12 +972,6 @@ export class ApolloGateway implements GraphQLService {
     switch (this.state.phase) {
       case 'initialized':
       case 'failed to load':
-        // TODO: There's not a good public interface to determine if stop can/should
-        //       be called. We should expose that ability or not be so harsh when
-        //       stopping while in an invalid state.
-        throw Error(
-          'ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully',
-        );
       case 'stopped':
         // Calls to stop() are idempotent.
         return;
@@ -1075,8 +1076,7 @@ export {
   SubgraphHealthCheckFunction,
   GetDataSourceFunction,
   SupergraphSdlHook,
-  SupergraphManager
+  SupergraphManager,
 } from './config';
 
-export { UplinkFetcherError } from "./supergraphManagers"
-
+export { UplinkFetcherError } from './supergraphManagers';
