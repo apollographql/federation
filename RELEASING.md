@@ -8,7 +8,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 1. `git fetch origin main` to fetch the latest `main` branch
 1. `git checkout -b "release-$FEDERATION_RELEASE_VERSION" main`
 1. `git log release-<the version of the last release>..` to see the changes since the last release
-1. Update `CHANGELOG.md` in each repo ([more info](#changelogs))
+1. Update `CHANGELOG.md` in each repo ([more info](#changelogs)) and consolidate them into the root `CHANGELOG.md`
 1. For actual releases (not alpha/beta/preview), consolidate any non-release CHANGELOG entries into a single version
 1. `git add ':/*CHANGELOG.md'` to add changelogs to the commit
 
