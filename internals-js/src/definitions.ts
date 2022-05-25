@@ -707,7 +707,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some(d => d.ofExtension() === undefined)
       || this.hasNonExtensionInnerElements();
   }
@@ -1094,6 +1094,7 @@ export class Schema {
   private apiSchema?: Schema;
 
   constructor(readonly blueprint: SchemaBlueprint = defaultSchemaBlueprint) {
+    console.log("Creating a schema")
     this._schemaDefinition = new SchemaDefinition();
     Element.prototype['setParent'].call(this._schemaDefinition, this);
     graphQLBuiltInTypesSpecifications.forEach((spec) => spec.checkOrAdd(this, undefined, true));
@@ -1483,6 +1484,7 @@ export class Schema {
   }
 
   clone(builtIns?: SchemaBlueprint): Schema {
+    console.log("Cloning a schema")
     const cloned = new Schema(builtIns ?? this.blueprint);
     copy(this, cloned);
     if (this.isValidated) {
@@ -1684,7 +1686,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some((d) => d.ofExtension() === undefined)
       || this.roots().some((r) => r.ofExtension() === undefined);
   }
@@ -3086,7 +3088,7 @@ export function sameDirectiveApplications(applications1: Directive<any, any>[], 
 /**
  * Checks whether a given array of directive applications (`maybeSubset`) is a sub-set of another array of directive applications (`applications`).
  *
- * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`. 
+ * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`.
  */
 export function isDirectiveApplicationsSubset(applications: Directive<any, any>[], maybeSubset: Directive<any, any>[]): boolean {
   if (maybeSubset.length > applications.length) {
