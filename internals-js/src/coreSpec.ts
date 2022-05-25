@@ -715,6 +715,7 @@ export function removeNonCoreDirectives(schema: Schema, exposeDirectives?: strin
   const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
   schema.directives()
     .filter(d => coreFeatures.every(feature => !feature.isFeatureDefinition(d)))
+    .filter(d => !d.isBuiltIn) // probably overkill since we don't expect builtins to be in directives()
     .filter(d => !directivesToExpose.includes(`@${d.name}`))
     .forEach(def => {
       def.remove().forEach(application => application.remove());
