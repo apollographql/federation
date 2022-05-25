@@ -727,9 +727,6 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
   // removal. (Also note that core being a feature itself, this will remove core
   // itself and mark the schema as 'not core').
   const directivesToExpose = exposeDirectives || [];
-  if (!directivesToExpose.every(d => d[0] === '@')) {
-    throw new GraphQLError('Directive names must start with "@"');
-  }
   const coreFeatures = [...(schema.coreFeatures?.allFeatures() ?? [])];
 
   // Remove all feature elements, keeping track of any type references found

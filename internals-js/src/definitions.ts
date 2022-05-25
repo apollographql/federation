@@ -44,7 +44,7 @@ import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { validateSchema } from "./validate";
 import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { withModifiedErrorMessage } from "./error";
+import { withModifiedErrorMessage, ERRORS } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
@@ -1194,6 +1194,16 @@ export class Schema {
       const exposedDirectives = options?.exposeDirectives;
       this.validate();
 
+      // validate that all directives that we request to be exposed
+      exposedDirectives?.forEach(directiveName => {
+        if (directiveName[0] !== '@') {
+          throw ERRORS.DIRECTIVE_NAMES_START_WITH_AT.err({ message: `Requested exposed directive name '${directiveName}' does not start with "@"`});
+        }
+        if(!this.directives().find(def => def.name === directiveName.slice(1))) {
+          throw ERRORS.EXPOSED_DIRECTIVE_NAMES_MUST_EXIST.err({ message: `Requested exposed directive '${directiveName}' does not exist in Schema`});
+        }
+
+      });
       apiSchema = this.clone();
       removeInaccessibleElements(apiSchema);
       removeAllCoreFeatures(apiSchema, exposedDirectives);

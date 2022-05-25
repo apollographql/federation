@@ -424,6 +424,16 @@ const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
+const DIRECTIVE_NAMES_START_WITH_AT = makeCodeDefinition(
+  'DIRECTIVE_NAMES_START_WITH_AT',
+  'Directive names specified in "exposeDirectives" argument must start with a "@"',
+);
+
+const EXPOSED_DIRECTIVE_NAMES_MUST_EXIST = makeCodeDefinition(
+  'EXPOSED_DIRECTIVE_NAMES_MUST_EXIST',
+  'Directive names specified in "exposeDirectives" argument must exist in the Schema',
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -496,6 +506,8 @@ export const ERRORS = {
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
+  DIRECTIVE_NAMES_START_WITH_AT,
+  EXPOSED_DIRECTIVE_NAMES_MUST_EXIST,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});
