@@ -222,6 +222,9 @@ export class ApolloGateway implements GraphQLService {
       // providing a caching document store for most operations.
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
       sizeCalculator: approximateObjectSize,
+      onDispose: (key, value) => {
+        this.logger.info(`Disposing ${key}`)
+      }
     });
   }
 
@@ -1059,7 +1062,9 @@ ApolloGateway.prototype.onSchemaChange = deprecate(
 );
 
 function approximateObjectSize<T>(obj: T): number {
-  return Buffer.byteLength(JSON.stringify(obj), 'utf8');
+  const size = Buffer.byteLength(JSON.stringify(obj), 'utf8')
+  console.log(`Getting size of obj ${size}`)
+  return size;
 }
 
 // We can't use transformSchema here because the extension data for query
