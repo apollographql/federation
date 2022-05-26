@@ -222,8 +222,8 @@ export class ApolloGateway implements GraphQLService {
       // providing a caching document store for most operations.
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
       sizeCalculator: approximateObjectSize,
-      onDispose: (key, value) => {
-        this.logger.info(`Disposing ${key}`)
+      onDispose: (key, plan) => {
+        this.logger.info(`Disposing ${key} ${plan.kind}`)
       }
     });
   }
