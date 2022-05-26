@@ -223,7 +223,7 @@ export class ApolloGateway implements GraphQLService {
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
       sizeCalculator: approximateObjectSize,
       onDispose: (key, plan) => {
-        this.logger.info(`Disposing ${key} ${plan.kind}`)
+        console.log(`Disposing ${key} ${plan.kind}`)
       }
     });
   }
