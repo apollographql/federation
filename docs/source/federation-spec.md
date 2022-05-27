@@ -384,13 +384,13 @@ The `@override` directive is used to indicate that the current subgraph is takin
 The following example will result in all query plans made to resolve `User.name` to be directed to SubgraphB.
 
 ```graphql
-# in SubgraphA
+# In SubgraphA
 type User @key(fields: "id") {
   id: ID!
   name: String
 }
 
-# in SubgraphB
+# In SubgraphB
 type User @key(fields: "id") {
   id: ID!
   name: String @override(from: "SubgraphA")
