@@ -26,7 +26,7 @@ function getUplinkEndpoints(): string[] {
   return envEndpoints ?? DEFAULT_UPLINK_ENDPOINTS;
 }
 
-export type UpdateSupergraphSdlFailureFunction = (
+export type FailureToFetchSupergraphSdlFunction = (
   this: UplinkSupergraphManager,
   { error }: { error: Error },
 ) => Promise<string>;
@@ -47,7 +47,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
   private update?: SupergraphSdlUpdateFunction;
   private shouldRunSubgraphHealthcheck: boolean = false;
   private healthCheck?: SubgraphHealthCheckFunction;
-  private onFailureToFetchSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
+  private onFailureToFetchSupergraphSdl?: FailureToFetchSupergraphSdlFunction;
   private timerRef: NodeJS.Timeout | null = null;
   private state: State;
   private errorReportingEndpoint: string | undefined =
@@ -78,7 +78,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     pollIntervalInMs?: number;
     maxRetries?: number;
     shouldRunSubgraphHealthcheck?: boolean;
-    onFailureToFetchSupergraphSdl?: UpdateSupergraphSdlFailureFunction;
+    onFailureToFetchSupergraphSdl?: FailureToFetchSupergraphSdlFunction;
   }) {
     this.apiKey = apiKey;
     this.graphRef = graphRef;
@@ -179,9 +179,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
       this.logger.debug(
         'Error fetching supergraphSdl from Uplink, calling updateSupergraphSdlFailureCallback',
       );
-      supergraphSdl = await this.onFailureToFetchSupergraphSdl.call(this, {
-        error: e,
-      });
+      supergraphSdl = await this.onFailureToFetchSupergraphSdl({ error: e });
     }
 
     // the healthCheck fn is only assigned if it's enabled in the config
