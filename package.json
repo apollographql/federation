@@ -71,7 +71,7 @@
     "jest-cucumber": "3.0.1",
     "jest-junit": "13.2.0",
     "lerna": "4.0.0",
-    "log4js": "6.5.1",
+    "log4js": "6.5.2",
     "mocked-env": "1.3.5",
     "nock": "13.2.4",
     "node-fetch": "2.6.7",
@@ -79,7 +79,7 @@
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.5",
     "ts-node": "10.8.0",
-    "typescript": "4.6.4",
+    "typescript": "4.7.2",
     "winston": "3.7.2",
     "winston-transport": "4.5.0"
   },
@@ -95,6 +95,6 @@
   },
   "volta": {
     "node": "16.15.0",
-    "npm": "8.10.0"
+    "npm": "8.11.0"
   }
 }
