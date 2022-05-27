@@ -65,7 +65,7 @@ describe('minimal gateway', () => {
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
   });
 
-  it('can set uplink URLs', async () => {
+  it('fetches from provided `uplinkEndpoints`', async () => {
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
       APOLLO_GRAPH_REF: graphRef,
@@ -85,7 +85,7 @@ describe('minimal gateway', () => {
     expect(uplinkManager.uplinkEndpoints).toEqual([uplinkEndpoint]);
   });
 
-  it('can set uplink URLs via deprecated schemaConfigDeliveryEndpoint', async () => {
+  it('fetches from (deprecated) provided `schemaConfigDeliveryEndpoint`', async () => {
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
       APOLLO_GRAPH_REF: graphRef,

@@ -2,7 +2,7 @@ import mockedEnv from 'mocked-env';
 
 import { UplinkSupergraphManager } from '@apollo/gateway';
 
-import { DEFAULT_UPLINK_ENDPOINTS } from '../index';
+import { DEFAULT_UPLINK_ENDPOINTS } from '..';
 
 let cleanUp: (() => void) | undefined;
 
