@@ -276,10 +276,7 @@ export class ApolloGateway implements GraphQLService {
       const { key, keyHash, graphRef, graphId, graphVariant } = options.apollo;
       this.apolloConfig = {
         key,
-        keyHash:
-          keyHash ?? key
-            ? createHash('sha256').update(key!).digest('hex')
-            : undefined,
+        keyHash,
         graphRef:
           graphRef ??
           (graphId ? `${graphId}@${graphVariant ?? 'current'}` : undefined),
