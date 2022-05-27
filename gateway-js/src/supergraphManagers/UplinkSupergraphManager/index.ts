@@ -37,9 +37,9 @@ type State =
   | { phase: 'stopped' };
 
 export class UplinkSupergraphManager implements SupergraphManager {
+  public readonly uplinkEndpoints: string[] = getUplinkEndpoints();
   protected apiKey: string;
   protected graphRef: string;
-  protected _uplinkEndpoints: string[] = getUplinkEndpoints();
   protected fetcher: Fetcher = makeFetchHappen.defaults();
   protected maxRetries: number;
   protected pollIntervalMs: number = 10_000;
@@ -82,13 +82,11 @@ export class UplinkSupergraphManager implements SupergraphManager {
   }) {
     this.apiKey = apiKey;
     this.graphRef = graphRef;
-    if (uplinkEndpoints) {
-      this._uplinkEndpoints = uplinkEndpoints;
-    }
+    this.logger = logger ?? getDefaultLogger(debug);
 
+    this.uplinkEndpoints = uplinkEndpoints ?? this.uplinkEndpoints;
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
 
-    this.logger = logger ?? getDefaultLogger(debug);
     this.fetcher = fetcher ?? this.fetcher;
     this.pollIntervalMs = pollIntervalInMs ?? this.pollIntervalMs;
     this.shouldRunSubgraphHealthcheck =
@@ -137,10 +135,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
         }
       },
     };
-  }
-
-  public get uplinkEndpoints(): string[] {
-    return this._uplinkEndpoints;
   }
 
   private async updateSupergraphSdl(): Promise<{
