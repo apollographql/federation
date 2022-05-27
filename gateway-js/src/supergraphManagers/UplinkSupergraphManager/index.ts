@@ -42,7 +42,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
   protected graphRef: string;
   protected fetcher: Fetcher = makeFetchHappen.defaults();
   protected maxRetries: number;
-  protected pollIntervalMs: number = 10_000;
+  protected fallbackPollIntervalMs: number = 10_000;
   protected logger: Logger;
   private update?: SupergraphSdlUpdateFunction;
   private shouldRunSubgraphHealthcheck: boolean = false;
@@ -64,7 +64,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     logger,
     fetcher,
     uplinkEndpoints,
-    pollIntervalInMs,
+    fallbackPollIntervalInMs,
     maxRetries,
     shouldRunSubgraphHealthcheck,
     onFailureToFetchSupergraphSdl,
@@ -75,7 +75,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     logger?: Logger;
     fetcher?: Fetcher;
     uplinkEndpoints?: string[];
-    pollIntervalInMs?: number;
+    fallbackPollIntervalInMs?: number;
     maxRetries?: number;
     shouldRunSubgraphHealthcheck?: boolean;
     onFailureToFetchSupergraphSdl?: FailureToFetchSupergraphSdlFunction;
@@ -88,7 +88,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
 
     this.fetcher = fetcher ?? this.fetcher;
-    this.pollIntervalMs = pollIntervalInMs ?? this.pollIntervalMs;
+    this.fallbackPollIntervalMs = fallbackPollIntervalInMs ?? this.fallbackPollIntervalMs;
     this.shouldRunSubgraphHealthcheck =
       shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
     this.onFailureToFetchSupergraphSdl = onFailureToFetchSupergraphSdl;
@@ -142,7 +142,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     minDelaySeconds?: number;
   } | null> {
     let supergraphSdl;
-    let minDelaySeconds: number | undefined = this.pollIntervalMs / 1000;
+    let minDelaySeconds: number | undefined = this.fallbackPollIntervalMs / 1000;
 
     try {
       const result = await loadSupergraphSdlFromUplinks({
@@ -212,8 +212,8 @@ export class UplinkSupergraphManager implements SupergraphManager {
         this.poll();
       },
       this.minDelayMs
-        ? Math.max(this.minDelayMs, this.pollIntervalMs)
-        : this.pollIntervalMs,
+        ? Math.max(this.minDelayMs, this.fallbackPollIntervalMs)
+        : this.fallbackPollIntervalMs,
     );
   }
 

@@ -117,7 +117,6 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         graphRef,
         logger,
         maxRetries: 0,
-        pollIntervalInMs: 10,
       }),
     });
     await expect(gateway.load()).resolves.not.toThrow();
@@ -134,7 +133,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         graphRef,
         logger,
         maxRetries: 0,
-        pollIntervalInMs: 0,
+        fallbackPollIntervalInMs: 0,
         async onFailureToFetchSupergraphSdl(this: UplinkSupergraphManager, { error }) {
           this.logger.info(error);
           return supergraphSchema;
@@ -158,7 +157,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           graphRef,
           logger,
           maxRetries: 0,
-          pollIntervalInMs: 0,
+          fallbackPollIntervalInMs: 0,
           async onFailureToFetchSupergraphSdl(this: UplinkSupergraphManager, { error: _error }) {
             return schemaText;
           },
