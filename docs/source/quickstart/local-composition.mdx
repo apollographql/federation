@@ -1,6 +1,6 @@
 ---
 title: Federation quickstart
-description: Part 3 - Local schema composition
+description: Part 3 - Local composition
 ---
 
 [Back in Part 2](./studio-composition/), we used managed federation with Apollo Studio to compose our gateway's supergraph schema. Next, let's try out composing _locally_ with the Rover CLI.
@@ -17,16 +17,16 @@ To provide these details to Rover, we define a YAML configuration file.
 In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
 ```yaml title="supergraph-config.yaml"
-federation_version: 2 # Without this line, Rover uses Federation 1
+federation_version: 2
 subgraphs:
-  products:
-    routing_url: https://rover.apollo.dev/quickstart/products/graphql
+  locations:
+    routing_url: https://flyby-locations-sub.herokuapp.com/
     schema:
-      subgraph_url: https://rover.apollo.dev/quickstart/products/graphql
+      subgraph_url: https://flyby-locations-sub.herokuapp.com/
   reviews:
-    routing_url: https://rover.apollo.dev/quickstart/reviews/graphql
+    routing_url: https://flyby-reviews-sub.herokuapp.com/
     schema:
-      subgraph_url: https://rover.apollo.dev/quickstart/reviews/graphql
+      subgraph_url: https://flyby-reviews-sub.herokuapp.com/
 ```
 
 As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
@@ -60,23 +60,33 @@ Rover outputs the following schema:
 
 ```graphql
 schema
-  @core(feature: "https://specs.apollo.dev/core/v0.2")
-  @core(feature: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
 {
   query: Query
+  mutation: Mutation
 }
 
-directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
-
-directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
 directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
 directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-enum core__Purpose {
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+scalar join__FieldSet
+
+enum join__Graph {
+  LOCATIONS @join__graph(name: "locations", url: "https://flyby-locations-sub.herokuapp.com/")
+  REVIEWS @join__graph(name: "reviews", url: "https://flyby-reviews-sub.herokuapp.com/")
+}
+
+scalar link__Import
+
+enum link__Purpose {
   """
   `SECURITY` features provide metadata necessary to securely resolve fields.
   """
@@ -88,97 +98,92 @@ enum core__Purpose {
   EXECUTION
 }
 
-enum CURRENCY_CODE
-  @join__type(graph: PRODUCTS)
-{
-  USD
-  EUR
-}
-
-type Department
-  @join__type(graph: PRODUCTS)
-{
-  category: ProductCategory
-  url: String
-}
-
-scalar join__FieldSet
-
-enum join__Graph {
-  PRODUCTS @join__graph(name: "products", url: "https://rover.apollo.dev/quickstart/products/graphql")
-  REVIEWS @join__graph(name: "reviews", url: "https://rover.apollo.dev/quickstart/reviews/graphql")
-}
-
-type Money
-  @join__type(graph: PRODUCTS)
-{
-  amount: Float
-  currencyCode: CURRENCY_CODE
-}
-
-type Price
-  @join__type(graph: PRODUCTS)
-{
-  cost: Money
-
-  """A number between 0 and 1 signifying the % discount"""
-  deal: Float
-  dealSavings: Money
-}
-
-type Product
-  @join__type(graph: PRODUCTS, key: "id")
-  @join__type(graph: REVIEWS, key: "id", extension: true)
-{
-  id: ID!
-  title: String @join__field(graph: PRODUCTS)
-  url: String @join__field(graph: PRODUCTS)
-  description: String @join__field(graph: PRODUCTS)
-  price: Price @join__field(graph: PRODUCTS)
-  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
-  salesRankOverall: Int @join__field(graph: PRODUCTS)
-  salesRankInCategory: Int @join__field(graph: PRODUCTS)
-  category: ProductCategory @join__field(graph: PRODUCTS)
-  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
-  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
-  reviews: [Review] @join__field(graph: REVIEWS)
-  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
-}
-
-enum ProductCategory
-  @join__type(graph: PRODUCTS)
-{
-  ALL
-  GIFT_CARDS
-  ELECTRONICS
-  CAMERA_N_PHOTO
-  VIDEO_GAMES
-  BOOKS
-  CLOTHING
-}
-
-type Query
-  @join__type(graph: PRODUCTS)
-  @join__type(graph: REVIEWS)
-{
-  bestSellers(category: ProductCategory = ALL): [Product] @join__field(graph: PRODUCTS)
-  categories: [Department] @join__field(graph: PRODUCTS)
-  product(id: ID!): Product @join__field(graph: PRODUCTS)
-}
-
-type Review
+type Location
+  @join__type(graph: LOCATIONS, key: "id")
   @join__type(graph: REVIEWS, key: "id")
 {
   id: ID!
-  rating: Float
-  content: String
+
+  """The name of the location"""
+  name: String! @join__field(graph: LOCATIONS)
+
+  """A short description about the location"""
+  description: String! @join__field(graph: LOCATIONS)
+
+  """The location's main photo as a URL"""
+  photo: String! @join__field(graph: LOCATIONS)
+
+  """The calculated overall rating based on all reviews"""
+  overallRating: Float @join__field(graph: REVIEWS)
+
+  """All submitted reviews about this location"""
+  reviewsForLocation: [Review]! @join__field(graph: REVIEWS)
 }
 
-type ReviewSummary
+input LocationReviewInput
   @join__type(graph: REVIEWS)
 {
-  totalReviews: Int
-  averageRating: Float
+  """Written text"""
+  comment: String!
+
+  """A number from 1 - 5 with 1 being lowest and 5 being highest"""
+  rating: Int!
+
+  """Location Id"""
+  locationId: String!
+}
+
+type Mutation
+  @join__type(graph: REVIEWS)
+{
+  submitReview(locationReview: LocationReviewInput): SubmitReviewResponse
+}
+
+type Query
+  @join__type(graph: LOCATIONS)
+  @join__type(graph: REVIEWS)
+{
+  """
+  The full list of locations presented by the Interplanetary Space Tourism department
+  """
+  locations: [Location!]! @join__field(graph: LOCATIONS)
+
+  """The details of a specific location"""
+  location(id: ID!): Location @join__field(graph: LOCATIONS)
+
+  """The three latest reviews submitted for FlyBy's locations"""
+  latestReviews: [Review!]! @join__field(graph: REVIEWS)
+}
+
+type Review
+  @join__type(graph: REVIEWS)
+{
+  id: ID!
+
+  """Written text"""
+  comment: String
+
+  """A number from 1 - 5 with 1 being lowest and 5 being highest"""
+  rating: Int
+
+  """The location the review is about"""
+  location: Location
+}
+
+type SubmitReviewResponse
+  @join__type(graph: REVIEWS)
+{
+  """Similar to HTTP status code, represents the status of the mutation"""
+  code: Int!
+
+  """Indicates whether the mutation was successful"""
+  success: Boolean!
+
+  """Human-readable message for the UI"""
+  message: String!
+
+  """Newly created review"""
+  locationReview: Review
 }
 ```
 

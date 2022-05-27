@@ -41,27 +41,37 @@ And that's it! You can now perform all of the same subgraph setup on your _own_ 
 
 In a federated graph, each subgraph's schema can define or reference types and fields that are present in _another_ subgraph's schema.
 
-Consider the `Product` type in our composed supergraph schema from [Part 3](./local-composition/#2-perform-composition). This type includes the following fields:
+Consider the `Location` type in our composed supergraph schema from [Part 3](./local-composition/#2-perform-composition). This type includes the following fields:
 
 ```graphql
-type Product
-  @join__type(graph: PRODUCTS, key: "id")
-  @join__type(graph: REVIEWS, key: "id", extension: true)
+type Location
+  @join__type(graph: LOCATIONS, key: "id")
+  @join__type(graph: REVIEWS, key: "id")
 {
   id: ID!
-  title: String @join__field(graph: PRODUCTS)
-  url: String @join__field(graph: PRODUCTS)
-  # ...additional fields...
-  reviews: [Review] @join__field(graph: REVIEWS)
-  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
+
+  """The name of the location"""
+  name: String! @join__field(graph: LOCATIONS)
+
+  """A short description about the location"""
+  description: String! @join__field(graph: LOCATIONS)
+
+  """The location's main photo as a URL"""
+  photo: String! @join__field(graph: LOCATIONS)
+
+  """The calculated overall rating based on all reviews"""
+  overallRating: Float @join__field(graph: REVIEWS)
+
+  """All submitted reviews about this location"""
+  reviewsForLocation: [Review]! @join__field(graph: REVIEWS)
 }
 ```
 
-As the federation-specific `@join__field` directive suggests, these four fields of the same object type are defined across two _different_ subgraphs!
+As the federation-specific `@join__field` directive suggests, these fields of the same object type are defined across two _different_ subgraphs!
 
-This is possible because our `products` subgraph schema defines the `Product` object type as an **entity**. Entities are object types that multiple subgraphs can contribute fields to.
+This is possible because our Locations subgraph schema defines the `Location` object type as an **entity**. Entities are object types that multiple subgraphs can contribute fields to.
 
-It makes logical sense that the `reviews` field of a `Product` should be resolved by the `reviews` subgraph instead of the `products` subgraph. This reflects the design principle of [separation of concerns](../#separation-of-concerns).
+It makes logical sense that the `reviews` field of a `Location` should be resolved by the Reviews subgraph instead of the Locations subgraph. This reflects the design principle of [separation of concerns](../#separation-of-concerns).
 
 [Learn how to work with entities.](../entities/)
 
