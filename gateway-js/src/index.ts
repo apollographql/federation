@@ -12,7 +12,6 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
-  GraphQLError,
 } from 'graphql';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
@@ -443,11 +442,7 @@ export class ApolloGateway implements GraphQLService {
    * @throws Error
    * when the provided supergraphSdl is invalid
    */
-  private externalSupergraphUpdateCallback(supergraphSdl?: string) {
-    if (!supergraphSdl) {
-      throw new GraphQLError('Invalid supergraph schema');
-    }
-
+  private externalSupergraphUpdateCallback(supergraphSdl: string) {
     switch (this.state.phase) {
       case 'failed to load':
         throw new Error(

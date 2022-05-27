@@ -103,10 +103,10 @@ export class UplinkSupergraphManager implements SupergraphManager {
       this.healthCheck = healthCheck;
     }
 
-    let initialSupergraphSdl: string | null = null;
+    let initialSupergraphSdl: string | undefined = undefined;
     try {
       const result = await this.updateSupergraphSdl();
-      initialSupergraphSdl = result?.supergraphSdl || null;
+      initialSupergraphSdl = result?.supergraphSdl;
       if (result?.minDelaySeconds) {
         this.minDelayMs = 1000 * result?.minDelaySeconds;
         this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
@@ -120,10 +120,10 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.beginPolling();
 
     return {
-      // on init, this supergraphSdl should never actually be `null`.
+      // on init, this supergraphSdl should never actually be `undefined`.
       // `this.updateSupergraphSdl()` will only return null if the schema hasn't
       // changed over the course of an _update_.
-      supergraphSdl: initialSupergraphSdl!,
+      supergraphSdl: initialSupergraphSdl ?? '',
       cleanup: async () => {
         if (this.state.phase === 'polling') {
           await this.state.pollingPromise;
@@ -195,13 +195,12 @@ export class UplinkSupergraphManager implements SupergraphManager {
           this.state.pollingPromise = pollingPromise;
           try {
             const result = await this.updateSupergraphSdl();
-            const maybeNewSupergraphSdl = result?.supergraphSdl || null;
             if (result?.minDelaySeconds) {
               this.minDelayMs = 1000 * result?.minDelaySeconds;
               this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
             }
-            if (maybeNewSupergraphSdl) {
-              this.update?.(maybeNewSupergraphSdl);
+            if (result?.supergraphSdl) {
+              this.update?.(result.supergraphSdl);
             }
           } catch (e) {
             this.logUpdateFailure(e);

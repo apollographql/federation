@@ -11,7 +11,6 @@ import {
   apiKey,
   mockSupergraphSdlRequest,
 } from '../integration/nockMocks';
-import { GraphQLError } from 'graphql';
 import { getTestingSupergraphSdl } from '../execution-utils';
 
 let gateway: ApolloGateway | undefined;
@@ -102,7 +101,9 @@ describe('minimal gateway', () => {
     await server.listen({ port: 0 });
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
     const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
-    expect(uplinkManager.uplinkEndpoints).toEqual([schemaConfigDeliveryEndpoint]);
+    expect(uplinkManager.uplinkEndpoints).toEqual([
+      schemaConfigDeliveryEndpoint,
+    ]);
   });
 });
 
@@ -134,7 +135,10 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         logger,
         maxRetries: 0,
         fallbackPollIntervalInMs: 0,
-        async onFailureToFetchSupergraphSdl(this: UplinkSupergraphManager, { error }) {
+        async onFailureToFetchSupergraphSdl(
+          this: UplinkSupergraphManager,
+          { error },
+        ) {
           this.logger.info(error);
           return supergraphSchema;
         },
@@ -145,9 +149,14 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
     expect(gateway.__testing().supergraphSdl).toBe(supergraphSchema);
   });
 
-  it.each(['x', '', ' ', 'type Query {hi: String}'])(
+  it.each([
+    ['x', 'Syntax Error: Unexpected Name "x".'],
+    ['', 'Syntax Error: Unexpected <EOF>.'],
+    [' ', 'Syntax Error: Unexpected <EOF>.'],
+    ['type Query {hi: String}', 'Invalid supergraph: must be a core schema'],
+  ])(
     'throws if invalid supergraph schema returned from callback: %p',
-    async (schemaText) => {
+    async (schemaText, expectedMessage) => {
       mockSupergraphSdlRequest(null, /.*?apollographql.com/).reply(500);
 
       gateway = new ApolloGateway({
@@ -158,13 +167,16 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           logger,
           maxRetries: 0,
           fallbackPollIntervalInMs: 0,
-          async onFailureToFetchSupergraphSdl(this: UplinkSupergraphManager, { error: _error }) {
+          async onFailureToFetchSupergraphSdl(
+            this: UplinkSupergraphManager,
+            { error: _error },
+          ) {
             return schemaText;
           },
         }),
       });
 
-      await expect(gateway.load()).rejects.toThrowError(GraphQLError);
+      await expect(gateway.load()).rejects.toThrowError(expectedMessage);
     },
   );
 });
