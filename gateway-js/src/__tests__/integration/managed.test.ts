@@ -120,7 +120,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         pollIntervalInMs: 10,
       }),
     });
-    await gateway.load();
+    await expect(gateway.load()).resolves.not.toThrow();
   });
 
   it('invokes callback if uplink throws an error', async () => {
@@ -142,7 +142,8 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
       }),
     });
 
-    await gateway.load();
+    await expect(gateway.load()).resolves.not.toThrow();
+    expect(gateway.__testing().supergraphSdl).toBe(supergraphSchema);
   });
 
   it.each(['x', '', ' ', 'type Query {hi: String}'])(
