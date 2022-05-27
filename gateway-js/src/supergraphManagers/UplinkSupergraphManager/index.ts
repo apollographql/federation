@@ -91,7 +91,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.fallbackPollIntervalMs = fallbackPollIntervalInMs ?? this.fallbackPollIntervalMs;
     this.shouldRunSubgraphHealthcheck =
       shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
-    this.onFailureToFetchSupergraphSdl = onFailureToFetchSupergraphSdl;
+    this.onFailureToFetchSupergraphSdl = onFailureToFetchSupergraphSdl?.bind(this);
 
     this.state = { phase: 'initialized' };
   }
