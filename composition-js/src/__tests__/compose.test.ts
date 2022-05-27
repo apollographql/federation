@@ -18,7 +18,7 @@ import {
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
-import { GraphQLError, print } from 'graphql';
+import { print } from 'graphql';
 
 export function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
   if (r.errors) {
@@ -3122,7 +3122,13 @@ describe('composition', () => {
     assertCompositionSuccess(result);
     const { schema } = result;
 
-    expect(() => schema.toAPISchema({exposeDirectives: ["@link"]}))
-      .toThrowError(new GraphQLError(`Directive '@link' cannot be promoted because it cannot exist in API schema`));
+    try {
+      schema.toAPISchema({exposeDirectives: ["@link"]});
+      assert(false, 'toAPISchema failed to throw error');
+    } catch (err) {
+      expect(err.message).toBe('The supergraph schema failed to produce a valid API schema');
+      expect(err.causes.length).toBe(2);
+      expect(err.causes[0].message).toBe('Exposing @link in the API schema is currently not supported');
+    }
   });
 });

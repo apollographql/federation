@@ -94,6 +94,10 @@ describe('toAPISchema', () => {
       .toThrowError(new GraphQLError(`Requested exposed directive '@fakeDirective' does not exist in Schema`));
   });
 
+  it('improperly formatted directive name should fail', () => {
+    expect(() => schema.toAPISchema({ exposeDirectives: ['@fake-directive'] }))
+      .toThrowError(new GraphQLError(`Names must only contain [_a-zA-Z0-9] but "fake-directive" does not.`));
+  });
 
   it('removal of directive should fail if it doesn\'t begin with @', () => {
     expect(() => schema.toAPISchema({ exposeDirectives: ['stream'] }))

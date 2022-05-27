@@ -17,7 +17,8 @@ import {
   VariableNode,
   TypeSystemDefinitionNode,
   SchemaDefinitionNode,
-  TypeDefinitionNode
+  TypeDefinitionNode,
+  assertName
 } from "graphql";
 import {
   CoreImport,
@@ -1199,6 +1200,7 @@ export class Schema {
         if (directiveName[0] !== '@') {
           throw ERRORS.DIRECTIVE_NAMES_START_WITH_AT.err({ message: `Requested exposed directive name '${directiveName}' does not start with "@"`});
         }
+        assertName(directiveName.slice(1)); // may throw
         if(!this.directives().find(def => def.name === directiveName.slice(1))) {
           throw ERRORS.EXPOSED_DIRECTIVE_NAMES_MUST_EXIST.err({ message: `Requested exposed directive '${directiveName}' does not exist in Schema`});
         }

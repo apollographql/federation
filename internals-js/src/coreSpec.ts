@@ -784,10 +784,13 @@ export function removeAllCoreFeatures(schema: Schema, exposeDirectives?: string[
   for (const { feature, type, references } of typeReferences) {
     const referencesInSchema = references.filter(r => r.isAttached());
     const referencedFeature = referencesInSchema.find(r => directivesToExpose.includes(`@${r.parent.name}`));
+
     if (referencedFeature) {
-      throw new GraphQLError(`Directive '@${referencedFeature.parent.name}' cannot be promoted because it cannot exist in API schema`);
+      errors.push(ERRORS.EXPOSE_UNSUPPORTED_DIRECTIVES.err({
+        message: `Exposing @${referencedFeature.parent.name} in the API schema is currently not supported`,
+      }));
     }
-    if (referencesInSchema.length > 0) {
+    else if (referencesInSchema.length > 0) {
       errors.push(new GraphQLError(
         `Cannot remove elements of feature ${feature} as feature type ${type}` +
         ` is referenced by elements: ${referencesInSchema.join(', ')}`,

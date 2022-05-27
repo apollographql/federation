@@ -434,6 +434,11 @@ const EXPOSED_DIRECTIVE_NAMES_MUST_EXIST = makeCodeDefinition(
   'Directive names specified in "exposeDirectives" argument must exist in the Schema',
 );
 
+const EXPOSE_UNSUPPORTED_DIRECTIVES = makeCodeDefinition(
+  'EXPOSE_UNSUPPORTED_DIRECTIVES',
+  'Exposing this directive in the API schema is currently unsupported',
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -508,6 +513,7 @@ export const ERRORS = {
   OVERRIDE_SOURCE_HAS_OVERRIDE,
   DIRECTIVE_NAMES_START_WITH_AT,
   EXPOSED_DIRECTIVE_NAMES_MUST_EXIST,
+  EXPOSE_UNSUPPORTED_DIRECTIVES,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

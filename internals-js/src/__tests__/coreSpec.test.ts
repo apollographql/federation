@@ -277,24 +277,4 @@ describe('removeAllCoreFeatures', () => {
     expect(schema.elementByCoordinate("@tag")).toBeDefined();
     expect(schema.elementByCoordinate("@fedtag")).toBeUndefined();
   });
-
-  it('exposeDirectives should be in the right format', () => {
-    const subgraph = buildSubgraph('S', '', gql`
-      extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
-        @link(url: "https://specs.apollo.dev/link/v1.0")
-
-      type Query {
-        q: Int
-      }
-
-      type User {
-        k: ID
-        a: Int @tag(name: "foo")
-      }
-    `);
-    const { schema } = subgraph;
-    expect(() => removeAllCoreFeatures(schema, ["tag"]))
-      .toThrowError(new GraphQLError('Directive names must start with "@"'));
-    });
 });
