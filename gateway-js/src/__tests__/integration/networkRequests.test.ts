@@ -183,10 +183,6 @@ describe('Supergraph SDL update failures', () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: 401 Unauthorized"`,
     );
-
-    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-    // which triggers a different error that we're not testing for here.
-    gateway = null;
   });
 
   it('Handles arbitrary fetch failures (non 200 response)', async () => {
@@ -309,10 +305,6 @@ describe('Supergraph SDL update failures', () => {
     );
 
     expect(gateway['state'].phase).toEqual('failed to load');
-
-    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-    // which triggers a different error that we're not testing for here.
-    gateway = null;
   });
 });
 
@@ -403,10 +395,6 @@ describe('Downstream service health checks', () => {
         "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
-
-      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-      // which triggers a different error that we're not testing for here.
-      gateway = null;
     });
   });
 
@@ -464,10 +452,6 @@ describe('Downstream service health checks', () => {
         "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
-
-      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-      // which triggers a different error that we're not testing for here.
-      gateway = null;
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
