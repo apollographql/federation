@@ -17,7 +17,6 @@ import {
   UnionType,
   sameType,
   isStrictSubtype,
-  SubtypingRule,
   ListType,
   NonNullType,
   Type,
@@ -75,6 +74,7 @@ import {
   HintCodeDefinition,
   HINTS,
 } from "../hints";
+import { type CompositionOptions } from '../types';
 
 const linkSpec = LINK_VERSIONS.latest();
 type FieldOrUndefinedArray = (FieldDefinition<any> | undefined)[];
@@ -83,11 +83,6 @@ const joinSpec = JOIN_VERSIONS.latest();
 const inaccessibleSpec = INACCESSIBLE_VERSIONS.latest();
 
 export type MergeResult = MergeSuccess | MergeFailure;
-
-// TODO: move somewhere else.
-export type CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
-}
 
 // for each source, specify additional properties that validate functions can set
 class FieldMergeContext {
@@ -248,6 +243,24 @@ function locationString(locations: DirectiveLocation[]): string {
   return (locations.length === 1 ? 'location ' : 'locations ') + '"' + locations.join(', ') + '"';
 }
 
+const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined)[]) => {
+  let consistentLocations = true;
+  const locationSet = new Set<DirectiveLocation>();
+  sources
+    .filter((src): src is DirectiveDefinition => src !== undefined)
+    .forEach((src, idx) => {
+      const prevLength = locationSet.size;
+      src.locations.forEach(locationSet.add, locationSet);
+      if (idx > 0 && prevLength !== locationSet.size) {
+        consistentLocations = false;
+      }
+    });
+  return {
+    consistentLocations,
+    locations: Array.from(locationSet),
+  };
+}
+
 type EnumTypeUsagePosition = 'Input' | 'Output' | 'Both';
 type EnumTypeUsage = {
   position: EnumTypeUsagePosition,
@@ -353,6 +366,7 @@ class Merger {
     // supergraph. This allow to be able to reference those from that point on.
     this.addTypesShallow();
     this.addDirectivesShallow();
+    this.addCustomTypeSystemDirectives();
 
     const typesToMerge = this.merged.types()
       .filter((type) => !linkSpec.isSpecType(type) && !joinSpec.isSpecType(type));
@@ -481,6 +495,40 @@ class Merger {
         }
       }
     }
+  }
+
+  private addCustomTypeSystemDirectives() {
+    const directiveNameMap = this.exposedDirectives().reduce((acc, name: string) => {
+      acc[name] = [];
+      return acc;
+    }, {} as { [name: string]: DirectiveDefinition[] });
+    for (const subgraph of this.subgraphsSchema) {
+      for (const directive of subgraph.allDirectives()) {
+        if (directive.name in directiveNameMap) {
+          directiveNameMap[directive.name].push(directive);
+        }
+      }
+    }
+    Object.entries(directiveNameMap).forEach(([name, definitions]) => {
+      // only add if the custom directive is not "executable"
+      // TODO: Should we generate a hint if definition.length === 0?
+      if (definitions.length > 0) {
+        let def: DirectiveDefinition | undefined;
+        // if it's an executable directive, we probably have already created it
+        if (definitions.some(d => d.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
+          def = this.merged.directive(name);
+          assert(def, `could not find directive '@${name}'`);
+          const { locations } = getLocationsFromDirectiveDefs(definitions);
+          def.addLocations(...locations);
+        } else {
+          def = new DirectiveDefinition(name);
+          this.merged.addDirectiveDefinition(def);
+          this.mergeTypeSystemDirectiveDefinition(definitions, def);
+        }
+      }
+    });
+
+    // TODO: Check to make sure that these really are custom directives
   }
 
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
@@ -1810,21 +1858,22 @@ class Merger {
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
     this.mergeDescription(sources, dest);
+
     if (sources.some((s) => s && this.isMergedDirective(s))) {
       this.mergeExecutableDirectiveDefinition(sources, dest);
     }
   }
 
   // Note: as far as directive definition goes, we currently only merge directive having execution location, and only for
-  // thos locations. Any type system directive definition that propagates to the supergraph (graphQL built-ins and `@tag`)
+  // those locations. Any type system directive definition that propagates to the supergraph (graphQL built-ins and `@tag`)
   // is currently handled in an hard-coded way. This will change very soon however so keeping this code around to be
   // re-enabled by a future commit.
-  //private mergeTypeSystemDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
-  //  this.addArgumentsShallow(sources, dest);
-  //  for (const destArg of dest.arguments()) {
-  //    const subgraphArgs = sources.map(f => f?.argument(destArg.name));
-  //    this.mergeArgument(subgraphArgs, destArg);
-  //  }
+  private mergeTypeSystemDirectiveDefinition(sources: DirectiveDefinition[], dest: DirectiveDefinition) {
+    this.addArgumentsShallow(sources, dest);
+    for (const destArg of dest.arguments()) {
+      const subgraphArgs = sources.map(f => f?.argument(destArg.name));
+      this.mergeArgument(subgraphArgs, destArg);
+    }
 
   //  let repeatable: boolean | undefined = undefined;
   //  let inconsistentRepeatable = false;
@@ -1855,34 +1904,39 @@ class Merger {
   //      });
   //    }
   //  }
-  //  dest.repeatable = repeatable!;
-  //  dest.addLocations(...locations!);
+    const repeatable = sources[0].repeatable;
+    const inconsistentRepeatable = sources.some(src => src.repeatable !== repeatable);
+    const { consistentLocations, locations } = getLocationsFromDirectiveDefs(sources);
 
-  //  if (inconsistentRepeatable) {
-  //    this.reportMismatchHint(
-  //      HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
-  //      `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
-  //      dest,
-  //      sources,
-  //      directive => directive.repeatable ? 'yes' : 'no',
-  //      // Note that the first callback is for element that are "like the supergraph". And the supergraph will be repeatable on inconsistencies.
-  //      (_, subgraphs) => `it is repeatable in ${subgraphs}`,
-  //      (_, subgraphs) => ` but not in ${subgraphs}`,
-  //    );
-  //  }
-  //  if (inconsistentLocations) {
-  //    this.reportMismatchHint(
-  //      HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
-  //      `Type system directive "${dest}" has inconsistent locations across subgraphs `,
-  //      dest,
-  //      sources,
-  //      directive => locationString(this.extractLocations(directive)),
-  //      // Note that the first callback is for element that are "like the supergraph".
-  //      (locs, subgraphs) => `and will use ${locs} (union of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
-  //      (locs, subgraphs) => `${locs} in ${subgraphs}`,
-  //    );
-  //  }
-  //}
+    dest.repeatable = repeatable;
+    dest.addLocations(...locations);
+
+   if (inconsistentRepeatable) {
+     this.reportMismatchHint(
+       HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
+       `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
+       dest,
+       sources,
+       directive => directive.repeatable ? 'yes' : 'no',
+       // Note that the first callback is for element that are "like the supergraph". And the supergraph will be repeatable on inconsistencies.
+       (_, subgraphs) => `it is repeatable in ${subgraphs}`,
+       (_, subgraphs) => ` but not in ${subgraphs}`,
+     );
+   }
+   if (!consistentLocations) {
+     console.log('mismatch hint');
+     this.reportMismatchHint(
+       HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
+       `Type system directive "${dest}" has inconsistent locations across subgraphs `,
+       dest,
+       sources,
+       directive => locationString(directive.locations as any),
+       // Note that the first callback is for element that are "like the supergraph".
+       (locs, subgraphs) => `and will use ${locs} (union of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
+       (locs, subgraphs) => `${locs} in ${subgraphs}`,
+     );
+   }
+  }
 
   private mergeExecutableDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     let repeatable: boolean | undefined = undefined;
@@ -2003,7 +2057,7 @@ class Merger {
     for (const source of sources) {
       if (source) {
         for (const directive of source.appliedDirectives) {
-          if (this.isMergedDirective(directive)) {
+          if (this.isMergedDirective(directive) || this.exposedDirectives().includes(directive.name)) {
             names.add(directive.name);
           }
         }
@@ -2285,5 +2339,9 @@ class Merger {
         ? withModifiedErrorNodes(err, errorNodes)
         : err;
     });
+  }
+
+  private exposedDirectives() {
+    return (this.options.exposeDirectives ?? []).map(directive => directive.slice(1));
   }
 }

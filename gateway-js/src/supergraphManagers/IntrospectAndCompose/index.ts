@@ -24,6 +24,7 @@ export interface IntrospectAndComposeOptions {
   pollIntervalInMs?: number;
   logger?: Logger;
   subgraphHealthCheck?: boolean;
+  exposeDirectives?: string[];
 }
 
 type State =
@@ -111,7 +112,7 @@ export class IntrospectAndCompose implements SupergraphManager {
   }
 
   private createSupergraphFromSubgraphList(subgraphs: ServiceDefinition[]) {
-    const compositionResult = composeServices(subgraphs);
+    const compositionResult = composeServices(subgraphs, { exposeDirectives: this.config.exposeDirectives });
 
     if (compositionResult.errors) {
       const { errors } = compositionResult;

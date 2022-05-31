@@ -14,6 +14,7 @@ import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/
 import { mergeSubgraphs } from "./merging";
 import { validateGraphComposition } from "./validate";
 import { CompositionHint } from "./hints";
+import { type CompositionOptions } from './types';
 
 export type CompositionResult = CompositionFailure | CompositionSuccess;
 
@@ -31,7 +32,7 @@ export interface CompositionSuccess {
   errors?: undefined;
 }
 
-export function compose(subgraphs: Subgraphs): CompositionResult {
+export function compose(subgraphs: Subgraphs, options?: CompositionOptions): CompositionResult {
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
@@ -43,7 +44,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
     return { errors: validationErrors };
   }
 
-  const mergeResult = mergeSubgraphs(toMerge);
+  const mergeResult = mergeSubgraphs(toMerge, options);
   if (mergeResult.errors) {
     return { errors: mergeResult.errors };
   }
@@ -74,7 +75,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   };
 }
 
-export function composeServices(services: ServiceDefinition[]): CompositionResult  {
+export function composeServices(services: ServiceDefinition[], options?: CompositionOptions): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
@@ -82,5 +83,5 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     // include the subgraph name in their message.
     return { errors: subgraphs };
   }
-  return compose(subgraphs);
+  return compose(subgraphs, options);
 }

@@ -3,7 +3,7 @@
  */
 
 import {
-    AbstractType,
+  AbstractType,
   InterfaceType,
   isInterfaceType,
   isListType,
