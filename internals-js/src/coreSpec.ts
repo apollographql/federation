@@ -361,8 +361,8 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
   // TODO: we may want to allow some `import` as argument to this method. When we do, we need to watch for imports of
   // `Purpose` and `Import` and add the types under their imported name.
-  addToSchema(schema: Schema, as?: string): GraphQLError[] {
-    const errors = this.addDefinitionsToSchema(schema, as);
+  addToSchema(schema: Schema, alias?: string): GraphQLError[] {
+    const errors = this.addDefinitionsToSchema(schema, alias);
     if (errors.length > 0) {
       return errors;
     }
@@ -370,8 +370,8 @@ export class CoreSpecDefinition extends FeatureDefinition {
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
     // until the next line.
     const args = { [this.urlArgName()]: this.toString() } as unknown as CoreOrLinkDirectiveArgs;
-    if (as) {
-      args.as = as;
+    if (alias) {
+      args.as = alias;
     }
 
     // This adds `@link(url: "https://specs.apollo.dev/link/v1.0")` to the "schema" definition. And we have
@@ -403,7 +403,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     // Side-note: this test must be done _before_ we call `applyDirective`, otherwise it would take it into
     // account.
     const hasDefinition = schemaDef.hasNonExtensionElements();
-    const directive = schemaDef.applyDirective(as ?? this.url.name, args, true);
+    const directive = schemaDef.applyDirective(alias ?? this.url.name, args, true);
     if (!hasDefinition && schemaDef.hasExtensionElements()) {
       const extension = firstOf(schemaDef.extensions());
       assert(extension, '`hasExtensionElements` should not have been `true`');

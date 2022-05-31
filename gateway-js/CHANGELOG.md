@@ -2,6 +2,8 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+- Fix issue when all root operations were defined in an `extend schema` [PR #1875](https://github.com/apollographql/federation/issues/1875).
+
 ## 2.0.3
 
 - Fix bug with type extension of empty type definition [PR #1821](https://github.com/apollographql/federation/pull/1821)
