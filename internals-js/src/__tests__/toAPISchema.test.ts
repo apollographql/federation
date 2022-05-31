@@ -89,6 +89,28 @@ describe('toAPISchema', () => {
     ).toBeDefined();
   });
 
+  it('tag exported even if we rename it', () => {
+    const subgraph = buildSubgraph('S', '', gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: [{name: "@tag", as: "@fedtag"}])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+
+      type Query {
+        q: Int
+      }
+
+      type User {
+        k: ID
+        a: Int @fedtag(name: "foo")
+      }
+    `);
+    const { schema } = subgraph;
+    const apiSchema = schema.toAPISchema({ exposeDirectives: ['@fedtag'] });
+    expect(apiSchema.elementByCoordinate('User.a')?.appliedDirectives
+      .find(d => d.name === 'fedtag')
+    ).toBeDefined();
+  });
+
   it('removal of non existent directive should fail', () => {
     expect(() => schema.toAPISchema({ exposeDirectives: ['@fakeDirective'] }))
       .toThrowError(new GraphQLError(`Requested exposed directive '@fakeDirective' does not exist in Schema`));
