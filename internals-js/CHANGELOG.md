@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+- Fix issue when all root operations were defined in an `extend schema` [PR #1875](https://github.com/apollographql/federation/issues/1875).
+
 ## 2.0.3
 
 - Fix bug with type extension of empty type definition [PR #1821](https://github.com/apollographql/federation/pull/1821)
