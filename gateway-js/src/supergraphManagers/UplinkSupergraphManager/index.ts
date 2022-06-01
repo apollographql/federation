@@ -1,6 +1,6 @@
 import * as makeFetchHappen from 'make-fetch-happen';
 import type { Logger } from '@apollo/utils.logger';
-import resolvable from '@josephg/resolvable';
+import resolvable, { Resolvable } from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
 import {
   SubgraphHealthCheckFunction,
@@ -26,28 +26,50 @@ function getUplinkEndpoints(): string[] {
   return envEndpoints ?? DEFAULT_UPLINK_ENDPOINTS;
 }
 
-export type FailureToFetchSupergraphSdlFunction = (
-  this: UplinkSupergraphManager,
-  { error }: { error: Error },
-) => Promise<string>;
+export type FailureToFetchSupergraphSdlFunctionParams = {
+  error: Error;
+  graphRef: string;
+  logger: Logger;
+  fetchCount: number;
+};
+
+export type FailureToFetchSupergraphSdlDuringInit = ({
+  error,
+  graphRef,
+  logger,
+  fetchCount,
+}: FailureToFetchSupergraphSdlFunctionParams) => Promise<string>;
+
+export type FailureToFetchSupergraphSdlAfterInit = ({
+  error,
+  graphRef,
+  logger,
+  fetchCount,
+}: FailureToFetchSupergraphSdlFunctionParams) => Promise<string | null>;
 
 type State =
+  | { phase: 'constructed' }
   | { phase: 'initialized' }
-  | { phase: 'polling'; pollingPromise?: Promise<void> }
+  | {
+      phase: 'polling';
+      pollingPromise?: Promise<void>;
+      nextFetchPromise?: Resolvable<void>;
+    }
   | { phase: 'stopped' };
 
 export class UplinkSupergraphManager implements SupergraphManager {
   public readonly uplinkEndpoints: string[] = getUplinkEndpoints();
-  protected apiKey: string;
-  protected graphRef: string;
-  protected fetcher: Fetcher = makeFetchHappen.defaults();
-  protected maxRetries: number;
-  protected fallbackPollIntervalMs: number = 10_000;
-  protected logger: Logger;
+  private apiKey: string;
+  private graphRef: string;
+  private fetcher: Fetcher = makeFetchHappen.defaults();
+  private maxRetries: number;
+  private fallbackPollIntervalMs: number = 10_000;
+  private logger: Logger;
   private update?: SupergraphSdlUpdateFunction;
   private shouldRunSubgraphHealthcheck: boolean = false;
   private healthCheck?: SubgraphHealthCheckFunction;
-  private onFailureToFetchSupergraphSdl?: FailureToFetchSupergraphSdlFunction;
+  private onFailureToFetchSupergraphSdlDuringInit?: FailureToFetchSupergraphSdlDuringInit;
+  private onFailureToFetchSupergraphSdlAfterInit?: FailureToFetchSupergraphSdlAfterInit;
   private timerRef: NodeJS.Timeout | null = null;
   private state: State;
   private errorReportingEndpoint: string | undefined =
@@ -67,7 +89,8 @@ export class UplinkSupergraphManager implements SupergraphManager {
     fallbackPollIntervalInMs,
     maxRetries,
     shouldRunSubgraphHealthcheck,
-    onFailureToFetchSupergraphSdl,
+    onFailureToFetchSupergraphSdlDuringInit,
+    onFailureToFetchSupergraphSdlAfterInit,
   }: {
     apiKey: string;
     graphRef: string;
@@ -78,7 +101,8 @@ export class UplinkSupergraphManager implements SupergraphManager {
     fallbackPollIntervalInMs?: number;
     maxRetries?: number;
     shouldRunSubgraphHealthcheck?: boolean;
-    onFailureToFetchSupergraphSdl?: FailureToFetchSupergraphSdlFunction;
+    onFailureToFetchSupergraphSdlDuringInit?: FailureToFetchSupergraphSdlDuringInit;
+    onFailureToFetchSupergraphSdlAfterInit?: FailureToFetchSupergraphSdlAfterInit;
   }) {
     this.apiKey = apiKey;
     this.graphRef = graphRef;
@@ -88,12 +112,16 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
 
     this.fetcher = fetcher ?? this.fetcher;
-    this.fallbackPollIntervalMs = fallbackPollIntervalInMs ?? this.fallbackPollIntervalMs;
+    this.fallbackPollIntervalMs =
+      fallbackPollIntervalInMs ?? this.fallbackPollIntervalMs;
     this.shouldRunSubgraphHealthcheck =
       shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
-    this.onFailureToFetchSupergraphSdl = onFailureToFetchSupergraphSdl?.bind(this);
+    this.onFailureToFetchSupergraphSdlDuringInit =
+      onFailureToFetchSupergraphSdlDuringInit;
+    this.onFailureToFetchSupergraphSdlAfterInit =
+      onFailureToFetchSupergraphSdlAfterInit;
 
-    this.state = { phase: 'initialized' };
+    this.state = { phase: 'constructed' };
   }
 
   public async initialize({ update, healthCheck }: SupergraphSdlHookOptions) {
@@ -106,7 +134,12 @@ export class UplinkSupergraphManager implements SupergraphManager {
     let initialSupergraphSdl: string | undefined = undefined;
     try {
       const result = await this.updateSupergraphSdl();
-      initialSupergraphSdl = result?.supergraphSdl;
+      if (!result) {
+        throw new Error(
+          'Invalid supergraph schema supplied during initialization.',
+        );
+      }
+      initialSupergraphSdl = result.supergraphSdl;
       if (result?.minDelaySeconds) {
         this.minDelayMs = 1000 * result?.minDelaySeconds;
         this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
@@ -116,14 +149,13 @@ export class UplinkSupergraphManager implements SupergraphManager {
       throw e;
     }
 
+    this.state = { phase: 'initialized' };
+
     // Start polling after we resolve the first supergraph
     this.beginPolling();
 
     return {
-      // on init, this supergraphSdl should never actually be `undefined`.
-      // `this.updateSupergraphSdl()` will only return null if the schema hasn't
-      // changed over the course of an _update_.
-      supergraphSdl: initialSupergraphSdl ?? '',
+      supergraphSdl: initialSupergraphSdl,
       cleanup: async () => {
         if (this.state.phase === 'polling') {
           await this.state.pollingPromise;
@@ -137,12 +169,20 @@ export class UplinkSupergraphManager implements SupergraphManager {
     };
   }
 
+  public async nextFetch(): Promise<void | null> {
+    if (this.state.phase !== 'polling') {
+      return;
+    }
+    return this.state.nextFetchPromise;
+  }
+
   private async updateSupergraphSdl(): Promise<{
     supergraphSdl: string;
     minDelaySeconds?: number;
   } | null> {
     let supergraphSdl;
-    let minDelaySeconds: number | undefined = this.fallbackPollIntervalMs / 1000;
+    let minDelaySeconds: number | undefined =
+      this.fallbackPollIntervalMs / 1000;
 
     try {
       const result = await loadSupergraphSdlFromUplinks({
@@ -166,14 +206,38 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
       ({ supergraphSdl, minDelaySeconds } = result);
     } catch (e) {
-      if (!this.onFailureToFetchSupergraphSdl) {
+      this.logger.debug(
+        `Error fetching supergraphSdl from Uplink during ${this.state.phase}`,
+      );
+
+      if (
+        this.state.phase === 'constructed' &&
+        this.onFailureToFetchSupergraphSdlDuringInit
+      ) {
+        supergraphSdl = await this.onFailureToFetchSupergraphSdlDuringInit({
+          error: e,
+          graphRef: this.graphRef,
+          logger: this.logger,
+          fetchCount: this.fetchCount,
+        });
+      } else if (
+        this.state.phase === 'polling' &&
+        this.onFailureToFetchSupergraphSdlAfterInit
+      ) {
+        supergraphSdl = await this.onFailureToFetchSupergraphSdlAfterInit({
+          error: e,
+          graphRef: this.graphRef,
+          logger: this.logger,
+          fetchCount: this.fetchCount,
+        });
+
+        // This is really an error, but we'll let the caller decide what to do with it
+        if (!supergraphSdl) {
+          return null;
+        }
+      } else {
         throw e;
       }
-
-      this.logger.debug(
-        'Error fetching supergraphSdl from Uplink, calling updateSupergraphSdlFailureCallback',
-      );
-      supergraphSdl = await this.onFailureToFetchSupergraphSdl({ error: e });
     }
 
     // the healthCheck fn is only assigned if it's enabled in the config
@@ -187,33 +251,38 @@ export class UplinkSupergraphManager implements SupergraphManager {
   }
 
   private poll() {
-    this.timerRef = setTimeout(
-      async () => {
-        if (this.state.phase === 'polling') {
-          const pollingPromise = resolvable();
+    const delay = this.minDelayMs
+      ? Math.max(this.minDelayMs, this.fallbackPollIntervalMs)
+      : this.fallbackPollIntervalMs;
 
-          this.state.pollingPromise = pollingPromise;
-          try {
-            const result = await this.updateSupergraphSdl();
-            if (result?.minDelaySeconds) {
-              this.minDelayMs = 1000 * result?.minDelaySeconds;
-              this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
-            }
-            if (result?.supergraphSdl) {
-              this.update?.(result.supergraphSdl);
-            }
-          } catch (e) {
-            this.logUpdateFailure(e);
+    if (this.state.phase !== 'polling') {
+      return;
+    }
+
+    this.state.nextFetchPromise = resolvable();
+
+    this.timerRef = setTimeout(async () => {
+      if (this.state.phase === 'polling') {
+        let pollingPromise = resolvable();
+        this.state.pollingPromise = pollingPromise;
+        try {
+          const result = await this.updateSupergraphSdl();
+          if (result?.minDelaySeconds) {
+            this.minDelayMs = 1000 * result?.minDelaySeconds;
+            this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
           }
-          pollingPromise.resolve();
+          if (result?.supergraphSdl) {
+            this.update?.(result.supergraphSdl);
+          }
+        } catch (e) {
+          this.logUpdateFailure(e);
         }
+        pollingPromise.resolve();
+        this.state.nextFetchPromise?.resolve();
+      }
 
-        this.poll();
-      },
-      this.minDelayMs
-        ? Math.max(this.minDelayMs, this.fallbackPollIntervalMs)
-        : this.fallbackPollIntervalMs,
-    );
+      this.poll();
+    }, delay);
   }
 
   private logUpdateFailure(e: any) {

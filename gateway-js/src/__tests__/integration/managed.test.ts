@@ -117,16 +117,16 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         apiKey,
         graphRef,
         logger,
-        maxRetries: 0,
       }),
     });
     await expect(gateway.load()).resolves.not.toThrow();
   });
 
-  it('invokes callback if uplink throws an error', async () => {
+  it('invokes callback if uplink throws an error during init', async () => {
     mockSupergraphSdlRequest(null, /.*?apollographql.com/).reply(500);
 
     const supergraphSchema = getTestingSupergraphSdl();
+    let hasFired;
     gateway = new ApolloGateway({
       logger,
       supergraphSdl: new UplinkSupergraphManager({
@@ -135,11 +135,8 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         logger,
         maxRetries: 0,
         fallbackPollIntervalInMs: 0,
-        async onFailureToFetchSupergraphSdl(
-          this: UplinkSupergraphManager,
-          { error },
-        ) {
-          this.logger.info(error);
+        async onFailureToFetchSupergraphSdlDuringInit() {
+          hasFired = true;
           return supergraphSchema;
         },
       }),
@@ -147,6 +144,39 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
 
     await expect(gateway.load()).resolves.not.toThrow();
     expect(gateway.__testing().supergraphSdl).toBe(supergraphSchema);
+    expect(hasFired).toBeTruthy();
+  });
+
+  it('invokes callback if uplink throws an error after init', async () => {
+    // This is kinda wonky to read: we're responding the first time with success, then the next fetch should fail
+    mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ })
+      .post('/')
+      .reply(500);
+
+    const supergraphSchema = getTestingSupergraphSdl();
+    let hasFired;
+    gateway = new ApolloGateway({
+      logger,
+      supergraphSdl: new UplinkSupergraphManager({
+        apiKey,
+        graphRef,
+        logger,
+        maxRetries: 0,
+        fallbackPollIntervalInMs: 0,
+        async onFailureToFetchSupergraphSdlAfterInit() {
+          hasFired = true;
+          return supergraphSchema;
+        },
+      }),
+    });
+
+    await expect(gateway.load()).resolves.not.toThrow();
+    expect(hasFired).toBeFalsy();
+
+    const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
+    await uplinkManager.nextFetch();
+
+    expect(hasFired).toBeTruthy();
   });
 
   it.each([
@@ -155,7 +185,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
     [' ', 'Syntax Error: Unexpected <EOF>.'],
     ['type Query {hi: String}', 'Invalid supergraph: must be a core schema'],
   ])(
-    'throws if invalid supergraph schema returned from callback: %p',
+    'throws if invalid supergraph schema returned from callback during init: %p',
     async (schemaText, expectedMessage) => {
       mockSupergraphSdlRequest(null, /.*?apollographql.com/).reply(500);
 
@@ -167,16 +197,93 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           logger,
           maxRetries: 0,
           fallbackPollIntervalInMs: 0,
-          async onFailureToFetchSupergraphSdl(
-            this: UplinkSupergraphManager,
-            { error: _error },
-          ) {
+          async onFailureToFetchSupergraphSdlDuringInit() {
             return schemaText;
           },
         }),
       });
 
       await expect(gateway.load()).rejects.toThrowError(expectedMessage);
+    },
+  );
+
+  it.each([
+    ['x', 'Syntax Error: Unexpected Name "x".'],
+    [' ', 'Syntax Error: Unexpected <EOF>.'],
+    ['type Query {hi: String}', 'Invalid supergraph: must be a core schema'],
+  ])(
+    'throws if invalid supergraph schema returned from callback after init: %p',
+    async (schemaText, expectedMessage) => {
+      // This is kinda wonky to read: we're responding the first time with success, then the next fetch should fail
+      mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ })
+        .post('/')
+        .reply(500);
+
+      let hasFired;
+      gateway = new ApolloGateway({
+        logger,
+        supergraphSdl: new UplinkSupergraphManager({
+          apiKey,
+          graphRef,
+          logger,
+          maxRetries: 0,
+          fallbackPollIntervalInMs: 0,
+          async onFailureToFetchSupergraphSdlAfterInit() {
+            hasFired = true;
+            return schemaText;
+          },
+        }),
+      });
+
+      await expect(gateway.load()).resolves.not.toThrow();
+      expect(hasFired).toBeFalsy();
+
+      const uplinkManager =
+        gateway.supergraphManager as UplinkSupergraphManager;
+      await uplinkManager.nextFetch();
+
+      expect(hasFired).toBeTruthy();
+      expect(logger.error).toBeCalledWith(
+        `UplinkSupergraphManager failed to update supergraph with the following error: ${expectedMessage}`,
+      );
+    },
+  );
+
+  it.each([null, ''])(
+    'uses existing supergraph schema is false-y value returned from callback after init: %p',
+    async (schemaText) => {
+      // This is kinda wonky to read: we're responding the first time with success, then the next fetch should fail
+      mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ })
+        .post('/')
+        .reply(500);
+
+      let hasFired;
+      gateway = new ApolloGateway({
+        logger,
+        supergraphSdl: new UplinkSupergraphManager({
+          apiKey,
+          graphRef,
+          logger,
+          maxRetries: 0,
+          fallbackPollIntervalInMs: 0,
+          async onFailureToFetchSupergraphSdlAfterInit() {
+            hasFired = true;
+            return schemaText;
+          },
+        }),
+      });
+
+      await expect(gateway.load()).resolves.not.toThrow();
+      expect(hasFired).toBeFalsy();
+
+      const uplinkManager =
+        gateway.supergraphManager as UplinkSupergraphManager;
+      await uplinkManager.nextFetch();
+
+      expect(hasFired).toBeTruthy();
+
+      const supergraphSchema = getTestingSupergraphSdl();
+      expect(gateway.__testing().supergraphSdl).toBe(supergraphSchema);
     },
   );
 });

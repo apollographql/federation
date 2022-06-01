@@ -27,39 +27,41 @@ describe('UplinkSupergraphManager', () => {
     new UplinkSupergraphManager({ apiKey, graphRef });
   });
 
-  it('uses default uplink URLs', async () => {
-    const manager = new UplinkSupergraphManager({ apiKey, graphRef, logger });
+  describe('setting uplink URLs', () => {
+    it('uses default uplink URLs', async () => {
+      const manager = new UplinkSupergraphManager({ apiKey, graphRef, logger });
 
-    expect(manager.uplinkEndpoints).toEqual(DEFAULT_UPLINK_ENDPOINTS);
-  });
-
-  it('can set uplink URLs via config', async () => {
-    cleanUp = mockedEnv({
-      APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'https://env-delivery.com',
-    });
-    const uplinkEndpoints = [
-      'https://config-delivery1.com',
-      'https://config-delivery2.com',
-    ];
-
-    const manager = new UplinkSupergraphManager({
-      apiKey,
-      graphRef,
-      uplinkEndpoints,
-      logger,
+      expect(manager.uplinkEndpoints).toEqual(DEFAULT_UPLINK_ENDPOINTS);
     });
 
-    expect(manager.uplinkEndpoints).toEqual(uplinkEndpoints);
-  });
+    it('can set uplink URLs via config', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'https://env-delivery.com',
+      });
+      const uplinkEndpoints = [
+        'https://config-delivery1.com',
+        'https://config-delivery2.com',
+      ];
 
-  it('can set uplink URLs via environment variable', async () => {
-    const uplinkUrl = 'https://env-delivery.com';
-    cleanUp = mockedEnv({
-      APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: uplinkUrl,
+      const manager = new UplinkSupergraphManager({
+        apiKey,
+        graphRef,
+        uplinkEndpoints,
+        logger,
+      });
+
+      expect(manager.uplinkEndpoints).toEqual(uplinkEndpoints);
     });
 
-    const manager = new UplinkSupergraphManager({ apiKey, graphRef, logger });
+    it('can set uplink URLs via environment variable', async () => {
+      const uplinkUrl = 'https://env-delivery.com';
+      cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: uplinkUrl,
+      });
 
-    expect(manager.uplinkEndpoints).toEqual([uplinkUrl]);
+      const manager = new UplinkSupergraphManager({ apiKey, graphRef, logger });
+
+      expect(manager.uplinkEndpoints).toEqual([uplinkUrl]);
+    });
   });
 });
