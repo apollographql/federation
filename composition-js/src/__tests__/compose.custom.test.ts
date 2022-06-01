@@ -4,6 +4,7 @@ import {
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import './matchers';
+import { GraphQLError } from 'graphql';
 
 const expectDirectiveOnElement = (schema: Schema, location: string, directiveName: string, props?: { [key: string]: any }) => {
   const elem = schema.elementByCoordinate(location);
@@ -183,6 +184,70 @@ describe('composing custom directives', () => {
       expect(schema.directive('foo')?.name).toBe('foo');
       expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION', 'OBJECT']);
     }
+  });
+
+  it('executable directive, incompatible definitions explicit', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        directive @foo(name: String!, desc: String!) on QUERY | FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+
+        type User @key(fields: "id") {
+          id: Int
+          name: String @foo(name: "graphA", desc: "descA")
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        directive @foo(name: String!) on QUERY | FIELD_DEFINITION | OBJECT
+        type User @key(fields: "id") @foo(name: "objectB") {
+          id: Int
+          description: String @foo(name: "graphB")
+        }
+      `,
+    };
+    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    expect(result.errors).toBeDefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
+  });
+
+  it('type system directive, incompatible definitions explicit', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        directive @foo(name: String!, desc: String!) on FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+
+        type User @key(fields: "id") {
+          id: Int
+          name: String @foo(name: "graphA", desc: "descA")
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        directive @foo(name: String!) on FIELD_DEFINITION | OBJECT
+        type User @key(fields: "id") @foo(name: "objectB") {
+          id: Int
+          description: String @foo(name: "graphB")
+        }
+      `,
+    };
+    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    expect(result.errors).toBeDefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
   });
 
   it('type-system directive, not exposed', () => {
