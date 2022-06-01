@@ -299,7 +299,7 @@ interface BookDetails {
 
 </CodeColumns>
 
-When these subgraph schemas are composed, the composition process merges the three corresponding types using the union strategy. This results in the following type definitions in the supergraph schema:
+When these subgraph schemas are composed, the composition process merges the three corresponding types by union. This results in the following type definitions in the supergraph schema:
 
 ```graphql title="Supergraph schema"
 type User {
@@ -324,7 +324,7 @@ Because composition uses the union strategy for these types, subgraphs can contr
 
 ### Input types and field arguments
 
-Composition _always_ uses the intersection strategy to merge input types and field arguments. This makes sure that the gateway never passes an argument to a subgraph that doesn't define that argument.
+Composition _always_ uses the intersection strategy to merge input types and field arguments. This ensures that the gateway _never_ passes an argument to a subgraph that doesn't define that argument.
 
 Consider the following subgraph schemas:
 
@@ -350,12 +350,11 @@ input UserInput {
 type Library @shareable {
   book(title: String, section: String): Book
 }
-
 ```
 
 </CodeColumns>
 
-These subgraphs define different fields for the `UserInput` input type, and they define different arguments for the `Library.book` field. After composition uses the intersection strategy, the supergraph schema definitions look like this:
+These subgraphs define different fields for the `UserInput` input type, and they define different arguments for the `Library.book` field. After composition merges using intersection, the supergraph schema definitions look like this:
 
 ```graphql title="Supergraph schema"
 input UserInput {
@@ -385,7 +384,7 @@ graph TB;
     enum--Yes-->intersection("Intersection");
 ```
 
-If your enum is **not** used as the type of a field argument or input type field, then composition uses the [union merging strategy](#merging-types-from-multiple-subgraphs).
+If your enum is **not** used as the type of a field argument or input type field, then composition merges using the [union strategy](#merging-types-from-multiple-subgraphs).
 
 Consider the following subgraph schemas:
 
@@ -410,7 +409,7 @@ enum Color {
 
 </CodeColumns>
 
-When these subgraph schemas are composed, composition merges the `Color` enum using the union strategy. This results in the following type definition in the supergraph schema:
+When these subgraph schemas are composed, composition merges the `Color` enum by union. This results in the following type definition in the supergraph schema:
 
 ```graphql title="Supergraph schema"
 enum Color {
@@ -423,7 +422,7 @@ enum Color {
 }
 ```
 
-If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition uses the [intersection merging strategy](#merging-types-from-multiple-subgraphs). 
+If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition merges using the [intersection strategy](#merging-types-from-multiple-subgraphs). 
 
 Let's say we add a new field to Subgraph A that uses our `Color` enum as a field argument:
 
@@ -439,7 +438,7 @@ type ColorQuery {
 }
 ```
 
-Now when composition runs, it uses the _intersection_ strategy to merge the `Color` enum:
+Now when composition runs, the `Color` enum is merged by _intersection_:
 
 ```graphql title="Supergraph schema"
 enum Color {
