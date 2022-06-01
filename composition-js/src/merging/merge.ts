@@ -243,6 +243,9 @@ function locationString(locations: DirectiveLocation[]): string {
   return (locations.length === 1 ? 'location ' : 'locations ') + '"' + locations.join(', ') + '"';
 }
 
+/**
+ * Given a list of directive sources, get the set of locations, removing duplicates
+ */
 const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined)[]) => {
   let consistentLocations = true;
   const locationSet = new Set<DirectiveLocation>();
@@ -497,6 +500,11 @@ class Merger {
     }
   }
 
+  /**
+   * Go through the list of custom directives. If any of them are type system directives
+   * or have a type system component, go ahead and add the full union of locations to the existing directive
+   * (if the directive has an executable portion) or create a new directive if not.
+   */
   private addCustomTypeSystemDirectives() {
     const directiveNameMap = this.exposedDirectives().reduce((acc, name: string) => {
       acc[name] = [];
@@ -1858,7 +1866,6 @@ class Merger {
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
     this.mergeDescription(sources, dest);
-
     if (sources.some((s) => s && this.isMergedDirective(s))) {
       this.mergeExecutableDirectiveDefinition(sources, dest);
     }
@@ -1875,35 +1882,6 @@ class Merger {
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-  //  let repeatable: boolean | undefined = undefined;
-  //  let inconsistentRepeatable = false;
-  //  let locations: DirectiveLocation[] | undefined = undefined;
-  //  let inconsistentLocations = false;
-  //  for (const source of sources) {
-  //    if (!source) {
-  //      continue;
-  //    }
-  //    if (repeatable === undefined) {
-  //      repeatable = source.repeatable;
-  //    } else if (repeatable !== source.repeatable) {
-  //      inconsistentRepeatable = true;
-  //    }
-
-  //    const sourceLocations = this.extractLocations(source);
-  //    if (!locations) {
-  //      locations = sourceLocations;
-  //    } else {
-  //      if (!arrayEquals(locations, sourceLocations)) {
-  //        inconsistentLocations = true;
-  //      }
-  //      // This create duplicates, but `addLocations` below eliminate them.
-  //      sourceLocations.forEach(loc => {
-  //        if (!locations!.includes(loc)) {
-  //          locations!.push(loc);
-  //        }
-  //      });
-  //    }
-  //  }
     const repeatable = sources[0].repeatable;
     const inconsistentRepeatable = sources.some(src => src.repeatable !== repeatable);
     const { consistentLocations, locations } = getLocationsFromDirectiveDefs(sources);
@@ -2341,7 +2319,10 @@ class Merger {
     });
   }
 
+  /**
+   * Get rid of leading '@' if present and return the list of directives passed to the Merger object
+   */
   private exposedDirectives() {
-    return (this.options.exposeDirectives ?? []).map(directive => directive.slice(1));
+    return (this.options.exposeDirectives ?? []).map(directive => directive[0] === '@' ? directive.slice(1) : directive);
   }
 }
