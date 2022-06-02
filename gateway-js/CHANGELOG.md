@@ -5,6 +5,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## vNext
 
 - Add callback when fetching a supergraph from Apollo Uplink fails [PR #1812](https://github.com/apollographql/federation/pull/1812).
+
+## 2.0.4
+
 - Fix issue when all root operations were defined in an `extend schema` [PR #1875](https://github.com/apollographql/federation/issues/1875).
 
 ## 2.0.3
