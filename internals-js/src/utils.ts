@@ -186,8 +186,6 @@ export class MapWithCachedArrays<K, V> {
   private clearCaches() {
     this.cachedKeys = undefined;
     this.cachedValues = undefined;
-    this.cachedKeys;
-    this.cachedValues;
   }
 
   get size(): number {
@@ -222,19 +220,17 @@ export class MapWithCachedArrays<K, V> {
   }
 
   keys(): readonly K[] {
-    return [...this.map.keys()];
-    // if (!this.cachedKeys) {
-    //   this.cachedKeys = mapKeys(this.map);
-    // }
-    // return this.cachedKeys;
+    if (!this.cachedKeys) {
+      this.cachedKeys = mapKeys(this.map);
+    }
+    return this.cachedKeys;
   }
 
   values(): readonly V[] {
-    return [...this.map.values()];
-    // if (!this.cachedValues) {
-    //   this.cachedValues = mapValues(this.map);
-    // }
-    // return this.cachedValues;
+    if (!this.cachedValues) {
+      this.cachedValues = mapValues(this.map);
+    }
+    return this.cachedValues;
   }
 }
 
