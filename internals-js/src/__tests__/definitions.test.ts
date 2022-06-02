@@ -890,3 +890,20 @@ test('retrieving elements by coordinate', () => {
   // Note that because 'Date' is a scalar, it cannot have fields
   expect(() => schema.elementByCoordinate('Date.bar')).toThrow();
 })
+
+test('parse error', () => {
+  const schema = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+    {
+      query: Query
+    }
+
+    type Query {
+      hello: String
+    }
+  `;
+  const subgraph = buildSubgraph('test', '', schema);
+
+  expect(subgraph.toString()).toMatchString(schema);
+});
