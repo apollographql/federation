@@ -1071,4 +1071,10 @@ export {
   SupergraphManager,
 } from './config';
 
-export { UplinkFetcherError } from './supergraphManagers';
+export {
+  UplinkFetcherError,
+  FailureToFetchSupergraphSdlAfterInit,
+  FailureToFetchSupergraphSdlDuringInit,
+  FailureToFetchSupergraphSdlFunctionParams,
+  DEFAULT_UPLINK_ENDPOINTS,
+} from './supergraphManagers';
