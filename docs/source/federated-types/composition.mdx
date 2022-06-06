@@ -248,3 +248,251 @@ type User @key(fields: "id") {
 If you make a shared type an [entity](../entities/), different subgraphs can define any number of different fields for that type, as long as they all define **key fields** for it.
 
 This is a useful solution when a type corresponds closely to an entry in a data store that one or more of your subgraphs has access to (e.g., a `Users` database).
+
+## Merging types from multiple subgraphs
+
+If a particular GraphQL type is defined _differently_ by different subgraphs, composition uses one of two strategies to merge those definitions: **union** or **intersection**.
+
+* **Union**: The supergraph schema includes _all_ parts of _all_ subgraph definitions for the type. 
+* **Intersection:** The supergraph schema includes _only_ the parts of the type that are present in _every_ subgraph that defines the type.
+
+The merging strategy that composition uses for a particular type depends on the type, as described below.
+
+### Object, union, and interface types
+
+Composition _always_ uses the union strategy to merge object, union, and interface types.
+
+Consider the following subgraph schemas:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+type User @key(fields: "id") {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+union Media = Book | Movie
+
+interface BookDetails {
+  title: String!
+  author: String!
+}
+```
+
+```graphql title="Subgraph B"
+type User @key(fields: "id") {
+  id: ID!
+  age: Int!
+}
+
+union Media = Book | Podcast
+
+interface BookDetails {
+  title: String!
+  numPages: Int
+}
+```
+
+</CodeColumns>
+
+When these subgraph schemas are composed, the composition process merges the three corresponding types by union. This results in the following type definitions in the supergraph schema:
+
+```graphql title="Supergraph schema"
+type User {
+  id: ID!
+  age: Int!
+  name: String!
+  email: String!
+}
+
+union Media = Book | Movie | Podcast
+
+interface BookDetails {
+  title: String!
+  author: String!
+  numPages: Int
+}
+```
+
+Because composition uses the union strategy for these types, subgraphs can contribute distinct parts and guarantee that those parts will appear in the composed supergraph schema.
+
+> Note that if different subgraphs contribute different fields to an interface type, any object types that _implement_ that interface must define _all_ contributed fields from _all_ subgraphs. Otherwise, composition fails.
+
+### Input types and field arguments
+
+Composition _always_ uses the intersection strategy to merge input types and field arguments. This ensures that the gateway _never_ passes an argument to a subgraph that doesn't define that argument.
+
+Consider the following subgraph schemas:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+input UserInput {
+  name: String!
+  age: Int
+}
+
+type Library @shareable {
+  book(title: String, author: String): Book
+}
+```
+
+```graphql title="Subgraph B"
+input UserInput {
+  name: String!
+  email: String
+}
+
+type Library @shareable {
+  book(title: String, section: String): Book
+}
+```
+
+</CodeColumns>
+
+These subgraphs define different fields for the `UserInput` input type, and they define different arguments for the `Library.book` field. After composition merges using intersection, the supergraph schema definitions look like this:
+
+```graphql title="Supergraph schema"
+input UserInput {
+  name: String!
+}
+
+type Library {
+  findBook(title: String): Book
+}
+```
+
+As you can see, the supergraph schema includes only the input fields and arguments that _both_ subgraphs define.
+
+> ⚠️ **Important:** If the intersection strategy would omit an input field or argument that is _non-nullable_, **composition fails**. This is because at least one subgraph _requires_ that field or argument, and the gateway can't provide it if it's omitted from the supergraph schema.
+>
+> When defining input types and field arguments in multiple subgraphs, make sure that every non-nullable field and argument is consistent in _every subgraph_. For examples, see [Arguments](sharing-types#arguments).
+
+
+### Enums
+
+Composition might use the union strategy _or_ the intersection strategy when merging enum type definitions, _depending on how the enum is used_. 
+
+```mermaid
+graph TB;
+    enum("Is the enum used as the type for at least<br/>one field argument or input type field?");
+    enum--No-->union("Union");
+    enum--Yes-->intersection("Intersection");
+```
+
+If your enum is **not** used as the type of a field argument or input type field, then composition merges using the [union strategy](#merging-types-from-multiple-subgraphs).
+
+Consider the following subgraph schemas:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+</CodeColumns>
+
+When these subgraph schemas are composed, composition merges the `Color` enum by union. This results in the following type definition in the supergraph schema:
+
+```graphql title="Supergraph schema"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition merges using the [intersection strategy](#merging-types-from-multiple-subgraphs). 
+
+Let's say we add a new field to Subgraph A that uses our `Color` enum as a field argument:
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+type ColorQuery {
+  avatar(borderColor: Color): String
+}
+```
+
+Now when composition runs, the `Color` enum is merged by _intersection_:
+
+```graphql title="Supergraph schema"
+enum Color {
+  RED
+}
+
+type ColorQuery {
+  avatar(borderColor: Color): String
+}
+```
+
+If you are using an enum as either a field argument or an input field return type and you want to include _all_ of its values in the supergraph schema, ensure _every_ subgraph's type definition for that enum is identical:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  CYAN
+  MAGENTA
+  YELLOW
+}
+
+type ColorQuery {
+  avatar(borderColor: Color): String
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+</CodeColumns>
+
+This results in the following type definition in the supergraph schema:
+
+```js title="Supergraph Schema"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  CYAN
+  MAGENTA
+  YELLOW
+}
+
+type ColorQuery {
+  avatar(borderColor: Color): String
+}
+```
