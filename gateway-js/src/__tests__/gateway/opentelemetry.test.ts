@@ -1,7 +1,6 @@
 import gql from 'graphql-tag';
 import {ApolloGateway, LocalGraphQLDataSource} from '../../';
 import {fixtures, spanSerializer} from 'apollo-federation-integration-testsuite';
-import {fetch} from '../../__mocks__/apollo-server-env';
 import {InMemorySpanExporter, SimpleSpanProcessor} from '@opentelemetry/tracing'
 import {NodeTracerProvider} from '@opentelemetry/node';
 import { buildSubgraphSchema } from '@apollo/subgraph';
@@ -14,7 +13,6 @@ tracerProvider.addSpanProcessor(new SimpleSpanProcessor(inMemorySpans));
 tracerProvider.register();
 
 beforeEach(() => {
-  fetch.mockReset();
   inMemorySpans.reset();
 });
 
@@ -102,13 +100,11 @@ describe('opentelemetry', () => {
 
 
   it('receives spans on fetch failure', async () => {
-
-    fetch.mockImplementationOnce(async () => {
-      throw Error("Nooo");
-    });
-
     const gateway = new ApolloGateway({
       localServiceList: fixtures,
+      fetcher: () => {
+        throw Error('Nooo');
+      },
     });
 
     const { executor } = await gateway.load();

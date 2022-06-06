@@ -41,6 +41,9 @@ import {
   CompositeType,
   typenameFieldName,
   NamedType,
+  sameDirectiveApplications,
+  isConditionalDirective,
+  isDirectiveApplicationsSubset,
 } from "./definitions";
 import { sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
@@ -53,16 +56,7 @@ function validate(condition: any, message: () => string, sourceAST?: ASTNode): a
 }
 
 function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op2: TElement): boolean {
-  if (op1.appliedDirectives.length != op2.appliedDirectives.length) {
-    return false;
-  }
-
-  for (const thisDirective of op1.appliedDirectives) {
-    if (!op2.appliedDirectives.some(thatDirective => thisDirective.name === thatDirective.name && argumentsEquals(thisDirective.arguments(), thatDirective.arguments()))) {
-      return false;
-    }
-  }
-  return true;
+  return sameDirectiveApplications(op1.appliedDirectives, op2.appliedDirectives);
 }
 
 abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
@@ -306,6 +300,13 @@ export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolea
   return true;
 }
 
+/**
+ * Returns all the "conditional" directive applications (`@skip` and `@include`) in the provided path.
+ */
+export function conditionalDirectivesInOperationPath(path: OperationPath): Directive<any, any>[] {
+  return path.map((e) => e.appliedDirectives).flat().filter((d) => isConditionalDirective(d));
+}
+
 export function concatOperationPaths(head: OperationPath, tail: OperationPath): OperationPath {
   // While this is mainly a simple array concatenation, we optimize slightly by recognizing if the
   // tail path starts by a fragment selection that is useless given the end of the head path.
@@ -316,14 +317,21 @@ export function concatOperationPaths(head: OperationPath, tail: OperationPath): 
     return head;
   }
   const lastOfHead = head[head.length - 1];
-  const firstOfTail = tail[0];
-  if (isUselessFollowupElement(lastOfHead, firstOfTail)) {
+  const conditionals = conditionalDirectivesInOperationPath(head);
+  let firstOfTail = tail[0];
+  // Note that in practice, we may be able to eliminate a few elements at the beginning of the path
+  // due do conditionals ('@skip' and '@include'). Indeed, a (tail) path crossing multiple conditions
+  // may start with: [ ... on X @include(if: $c1), ... on X @ksip(if: $c2), (...)], but if `head`
+  // already ends on type `X` _and_ both the conditions on `$c1` and `$c2` are alredy found on `head`,
+  // then we can remove both fragments in `tail`.
+  while (firstOfTail && isUselessFollowupElement(lastOfHead, firstOfTail, conditionals)) {
     tail = tail.slice(1);
+    firstOfTail = tail[0];
   }
   return head.concat(tail);
 }
 
-function isUselessFollowupElement(first: OperationElement, followup: OperationElement): boolean {
+function isUselessFollowupElement(first: OperationElement, followup: OperationElement, conditionals: Directive<any, any>[]): boolean {
   const typeOfFirst = first.kind === 'Field'
     ? baseType(first.definition.type!)
     : first.typeCondition;
@@ -333,7 +341,7 @@ function isUselessFollowupElement(first: OperationElement, followup: OperationEl
   return !!typeOfFirst
     && followup.kind === 'FragmentElement'
     && !!followup.typeCondition
-    && followup.appliedDirectives.length === 0
+    && (followup.appliedDirectives.length === 0 || isDirectiveApplicationsSubset(conditionals, followup.appliedDirectives))
     && sameType(typeOfFirst, followup.typeCondition);
 }
 
@@ -766,7 +774,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
     this._selections.add(key, toAdd);
     ++this._selectionCount;
     this._cachedSelections = undefined;
-    return selection;
+    return toAdd;
   }
 
   addPath(path: OperationPath) {
@@ -1128,9 +1136,27 @@ export class FieldSelection extends Freezable<FieldSelection> {
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const updatedField = this.field.updateForAddingTo(selectionSet);
-    return this.field === updatedField
-      ? this.cloneIfFrozen()
-      : new FieldSelection(updatedField, this.selectionSet?.cloneIfFrozen());
+    if (this.field === updatedField) {
+      return this.cloneIfFrozen();
+    }
+
+    // We create a new selection that not only uses the updated field, but also ensures
+    // the underlying selection set uses the updated field type as parent type.
+    const updatedBaseType = baseType(updatedField.definition.type!);
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet && this.selectionSet.parentType !== updatedBaseType) {
+      assert(isCompositeType(updatedBaseType), `Expected ${updatedBaseType.coordinate} to be composite but ${updatedBaseType.kind}`);
+      updatedSelectionSet = new SelectionSet(updatedBaseType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new FieldSelection(updatedField, updatedSelectionSet);
   }
 
   toSelectionNode(): FieldNode {

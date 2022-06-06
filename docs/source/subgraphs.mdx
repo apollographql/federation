@@ -4,7 +4,9 @@ title: Implementing subgraphs
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
 
-This article describes how to create a **subgraph** for a federated graph using Apollo Server.
+This article demonstrates how to create a **subgraph** for a federated supergraph using Node.js and Apollo Server.
+
+> To create a subgraph using a different language and/or framework, see the list of [subgraph-compatible libraries](./other-servers/). Note that not all libraries provide full support for Federation features.
 
 ## Defining a subgraph
 
@@ -83,13 +85,13 @@ extend schema
 `;
 ```
 
-This definition designates a schema as a "true" Federation 2 schema. Without it, Federation 2 composition assumes a subgraph is using Federation 1, and it sets certain defaults for backward compatibility.
+This definition enables the schema to use Federation 2 features. Without it, Federation 2 composition assumes a subgraph is using Federation 1, and it sets certain defaults for backward compatibility.
 
 > As you begin using more [federation-specific directives](./federated-types/federated-directives) beyond `@key` and `@shareable`, you'll need to add those directives to the `import` array shown above.
 
 ### 3. Define an entity
 
-> Entities aren't _required_ in a subgraph, but they're a core building block of a federated graph, so it's good to get some practice defining them.
+> Entities aren't _required_ in a subgraph, but they're a core building block of a federated supergraph, so it's good to get some practice defining them.
 
 As part of our federated architecture, we want _other_ subgraphs to be able to contribute fields to the `User` type. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
 
@@ -200,9 +202,7 @@ Because of the power and flexibility of the [`Query._entities` and `Query._servi
 
 <FederationArchitecture />
 
-Make sure to implement any necessary firewall rules, access control
-lists, or other measures to ensure that individual subgraphs can
-be accessed _only_ via the gateway.
+Make sure to implement any necessary firewall rules, access control lists, or other measures to ensure that individual subgraphs can be accessed _only_ via the gateway. We also recommend that subgraphs do not enable CORS (or at least do not use the wildcard `access-control-allow-origin: *` header) so that attackers cannot use a victim's browser to access the subgraph directly. With Apollo Server, this means disabling the default "wildcard" CORS policy which is appropriate for most publicly-exposed servers but not for inaccessible servers. See [the Apollo Server CORS documentation](/apollo-server/security/cors/#choosing-cors-options-for-your-project) for more details.
 
 ## Subgraph-specific fields
 

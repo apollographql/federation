@@ -22,11 +22,12 @@
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
-      "3️⃣ Local schema composition": "/quickstart/local-composition",
+      "3️⃣ Local composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
-    "Implementing": {
+    "Implementing a Supergraph": {
       "Subgraphs": "/subgraphs",
+      "Subgraph-compatible libraries": "/other-servers",
       "The gateway": "/gateway"
     },
     "Federated Schemas": {
@@ -58,13 +59,10 @@
       "Federated trace data": "/metrics",
       "OpenTelemetry": "/opentelemetry"
     },
-    "Third-Party Support": {
-      "Subgraph-compatible libraries": "/other-servers",
-      "Subgraph specification": "/federation-spec"
-    },
     "API Reference": {
       "@apollo/subgraph": "/api/apollo-subgraph",
-      "@apollo/gateway": "/api/apollo-gateway"
+      "@apollo/gateway": "/api/apollo-gateway",
+      "Subgraph specification": "/federation-spec"
     }
   }
 }

@@ -1,72 +1,66 @@
 ---
 title: Moving to Apollo Federation 2
+description: Upgrade your supergraph incrementally at any pace
 ---
 
-This article describes how to move an existing Federation 1 graph to Apollo Federation 2. If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
+> 📣 If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
-There are two high-level phases for moving to Federation 2:
+You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even if some of your subgraphs continue using Federation 1 schemas.
 
-1. Use Federation 2 composition logic with your _unmodified_ Federation 1  subgraph schemas.
-2. Modify your Federation 1 subgraph schemas to convert them to true Federation 2 subgraph schemas.
+Each individual step of moving your supergraph has its own benefits, so it's useful to complete as many steps as you're ready to complete. You can always complete the rest later.
 
-Phase 1 requires very few changes, and it's straightforward to move _back_ to Federation 1 after making them. However, Phase 2 requires schema changes that _remove_ backward compatibility with Federation 1. Because of this, we strongly recommend moving a test instance of your graph to Federation 2 first.
+Here are the three steps for moving to Federation 2:
 
-## Phase 1: Use new composition logic
+```mermaid
+graph LR;
+  gateway(Update your gateway)
+  gateway --> composition(Use Federation 2 composition);
+  composition --> subgrahs(Update individual subgraphs);
+```
 
-### Update `@apollo/gateway`
+1. Update your gateway to a version that supports Federation 2 (or swap out your gateway for the [Apollo Router](/router/)).
+2. Begin composing your supergraph schema with Federation 2 composition logic.
+3. Update your individual subgraphs to use Federation 2 features and directives.
 
-Update your gateway's `@apollo/gateway` library to version `2.0.0` or later. This enables your gateway to interact with supergraph schemas composed with Federation 2 logic.
+Steps 1 and 2 are quick, and it's straightforward to reverse them if you need to for any reason. Step 3 requires schema changes that _remove_ backward compatibility with Federation 1. Because of this, we recommend first completing it with a test instance of your graph.
 
-You can install the latest gateway with the following command:
+> If you encounter an issue while moving your supergraph to Federation 2, please describe the issue in the [community forums](https://community.apollographql.com/).
+
+## Step 1: Update `@apollo/gateway`
+
+The `@apollo/gateway` library supports Federation 2 supergraph schemas in version `2.0.0` and later. You can install the latest version in your gateway project with the following command:
 
 ```bash
 npm install @apollo/gateway
 ```
 
-These updated versions of `@apollo/gateway` continue to support Federation 1, so you can deploy this update without breaking your existing graph.
+Alternatively, you can _swap out_ your supergraph's gateway for the **Apollo Router**, a high-performance graph router implemented in Rust. [See the docs.](/router/migrating-from-gateway/)
 
-### Configure your composition method
+> Both `@apollo/gateway` v2.x _and_ the Apollo Router support Federation 1! You can update to either without making any other changes, and your Federation 1 supergraph will work as expected.
 
-Federation 2 uses [more flexible rules](./new-in-federation-2/#more-flexible-composition) for schema composition. Follow the instructions for your current composition method:
+## Step 2: Configure your composition method
 
-<ExpansionPanel title="Using the Rover CLI">
+Federation 2 uses a completely new method to compose supergraph schemas. This method is backward compatible with Federation 1 subgraph schemas, and it provides the following benefits even for Federation 1 subgraphs:
 
-If you perform composition with the Rover CLI, do the following:
+* Helpful [composition hints](../hints/) when schema definitions are inconsistent between your subgraphs
+* Support for interfaces implementing _other_ interfaces (which Federation 1 composition doesn't support)
 
-1. Install the latest version of Rover (must be `0.5.0` or later) using the appropriate command for your system:
+Follow the instructions below to configure whichever composition method(s) you currently use:
 
-    ```bash title="MacOS / Unix-like"
-    curl -sSL https://rover.apollo.dev/nix/latest | sh
-    ```
-
-    ```bash title="Windows"
-    iwr 'https://rover.apollo.dev/win/latest' | iex
-    ```
-
-2. Open the YAML `--config` file you provide to `rover supergraph compose` and add the following line to the top:
-
-    ```yaml title="supergraph-config.yaml"
-    federation_version: 2
-    ```
-
-That's it! You can now perform Federation 2 composition with the same command you've used for Federation 1:
-
-```bash
-rover supergraph compose --config ./supergraph.yaml
-```
-
-</ExpansionPanel>
-
-
-<ExpansionPanel title="Using managed federation">
+<ExpansionPanel title="Managed federation with Apollo Studio">
 
 If you're using [managed federation](../managed-federation/overview/), you move individual variants of your graph to Federation 2 in the Apollo Studio UI.
 
-Go to your graph's Settings page and open the Variants section:
+Open the Settings page for the variant you want to move to Federation 2, then select the **This Variant** tab:
 
-<img class="screenshot" alt="Edit supported directives in Studio" src="../images/edit-build-configuration.jpg" width="600"/>
+<img
+  class="screenshot"
+  alt="Edit variant settings in Studio"
+  src="../images/variant-settings.jpg"
+  width="600"
+/>
 
-Click **Edit Build Configuration** for the variant you want to move to Federation 2. The following dialog appears:
+Click **Edit Configuration**. The following dialog appears:
 
 <img class="screenshot" alt="Edit supported directives in Studio" src="../images/set-federation-version.jpg" width="600"/>
 
@@ -94,19 +88,68 @@ graph LR;
 
 </ExpansionPanel>
 
-## Phase 2: Modify subgraph schemas
+<ExpansionPanel title="The Rover CLI">
 
-Your unmodified Federation 1 graph is now using Federation 2 composition! The natural next question is, "What does this change about my graph's behavior?" And right now, the answer is: nothing!
+If you perform composition with the Rover CLI, do the following:
 
-> If your graph is _not_ successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+1. Install the latest version of Rover (must be `0.5.0` or later) using the appropriate command for your system:
 
-If you want to take full advantage of Federation 2 features like improved control for type sharing, you now need to make some changes to your subgraph schemas.
+    ```bash title="MacOS / Unix-like"
+    curl -sSL https://rover.apollo.dev/nix/latest | sh
+    ```
 
-**You can update your subgraph schemas one at a time!** The steps below describe how to modify a single subgraph schema for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
+    ```bash title="Windows"
+    iwr 'https://rover.apollo.dev/win/latest' | iex
+    ```
+
+2. Open the YAML `--config` file you provide to `rover supergraph compose` and add the following line to the top:
+
+    ```yaml title="supergraph-config.yaml"
+    federation_version: 2
+    ```
+
+That's it! You can now perform Federation 2 composition with the same command you've used for Federation 1:
+
+```bash
+rover supergraph compose --config ./supergraph.yaml
+```
+
+</ExpansionPanel>
+
+After you configure these changes, make sure your gateway is using your newly created Federation 2 supergraph schema. (If you're using managed federation, your gateway will fetch the new schema from Apollo automatically.)
+
+Your Federation 1 subgraphs are now composed using Federation 2 composition! The natural next question is, "What does this change about the behavior of those subgraphs?" And until the next step, the answer is: nothing!
+
+> If your supergraph is _not_ successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+
+## Step 3: Update individual subgraphs
+
+> **You can update your subgraphs one at a time!** The steps below describe how to modify a single subgraph for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
+
+Federation 2 provides powerful new features that require making some changes to your subgraphs. These features include:
+
+* Selectively sharing types and fields across subgraphs with [`@shareable`](../federated-types/federated-directives#shareable)
+* Safely migrating fields from one subgraph to another with [`@override`](../federated-types/federated-directives#override)
+* Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-types/federated-directives#inaccessible)
+
+The schema changes you make are **backward incompatible** with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
+
+### Update your subgraph library
+
+To use new Federation 2 features and their associated directives, it's helpful to update your subgraph library to a version that automatically supports those directives.
+
+* If your subgraph uses Apollo Server and the `@apollo/subgraph` library, update `@apollo/subgraph` to version `2.0.0` or later like so:
+
+    ```bash
+    npm install @apollo/subgraph
+    ```
+
+* If your subgraph uses another server library, check the [compatibility table](../other-servers/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
+    * If your library _doesn't_ support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
 
 ### Opt in to Federation 2
 
-First, add the following definition to your subgraph schema:
+Add the following definition to your subgraph schema:
 
 ```graphql
 extend schema
@@ -114,44 +157,36 @@ extend schema
         import: ["@key", "@shareable"])
 ```
 
-This definition identifies a schema as a true Federation 2 schema, and it `import`s any federation-specific directives that the schema uses.
+This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. _Without_ this `@link` definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
 
-> **Important:** Most subgraph schemas use the `@key` and `@shareable` directives, so we've included them in the snippet above. Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
+> ⚠️ **Important:** Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
 >
 > [See all Federation-specific directives.](../federated-types/federated-directives/)
 
-_Without_ the above definition, the composition process assumes a subgraph schema is a Federation 1 schema, and it applies intelligent defaults to support backward compatibility.
+### Add directive definitions if needed
 
-#### Update `@apollo/subgraph`
-
-If your subgraphs use Apollo Server and the `@apollo/subgraph` library, also update `@apollo/subgraph` to version `2.0.0` or later:
-
-```bash
-npm install @apollo/subgraph
-```
-
-This adds built-in support for new federation directives, such as `@shareable`.
-
-### Add schema definitions to non-Apollo subgraphs
-
-Currently, only Apollo Server using `@apollo/subgraph` adds some required definitions to your subgraph schemas automatically. If you're using any other [supported subgraph libraries](../other-servers/), you need to add the following definitions to those subgraph schemas:
+Currently, not all [subgraph libraries](../other-servers/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
 
 <ExpansionPanel title="Click to expand">
 
 ```graphql
-directive @shareable on FIELD_DEFINITION | OBJECT
-
+# Required for all subgraph schemas
 scalar link__Import
 
 directive @link(
   url: String!,
   import: [link__Import],
 ) repeatable on SCHEMA
+
+# Required if the corresponding directive is used
+directive @shareable on FIELD_DEFINITION | OBJECT
 ```
 
 </ExpansionPanel>
 
-We'll be working with library maintainers to help automatically add these schema definitions in libraries besides `@apollo/subgraph`.
+> Some subgraph libraries are "code-first" (they dynamically generate their schema from code) instead of "schema-first" (they use a static schema file). For code-first libraries, manually adding these directive definitions is less straightforward. If you encounter this with your library, please let us know by [submitting an issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues).
+
+We'll be working with library maintainers to help automatically add these schema definitions in more subgraph libraries.
 
 ### Mark all value types as `@shareable`
 
@@ -356,3 +391,7 @@ type Review {
 </CodeColumns>
 
 Setting `resolvable: false` tells the gateway that a subgraph doesn't define a reference resolver for a particular entity. This is most common when [referencing an entity without contributing fields to it](../entities/#referencing-an-entity-without-contributing-fields).
+
+---
+
+You're done! You should now have a Federation 2 supergraph that composes successfully and takes full advantage of new federation features. If you encounter an issue, please let us know in the [community forums](https://community.apollographql.com/).

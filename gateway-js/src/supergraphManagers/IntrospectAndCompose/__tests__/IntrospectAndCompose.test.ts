@@ -119,11 +119,6 @@ describe('IntrospectAndCompose', () => {
 
   // TODO: useFakeTimers (though I'm struggling to get this to work as expected)
   it("doesn't call `update` when there's no change to the supergraph", async () => {
-    const fetcher =
-      jest.requireActual<typeof import('apollo-server-env')>(
-        'apollo-server-env',
-      ).fetch;
-
     // mock for initial load and a few polls against an unchanging schema
     mockAllServicesSdlQuerySuccess();
     mockAllServicesSdlQuerySuccess();
@@ -144,7 +139,6 @@ describe('IntrospectAndCompose', () => {
       getDataSource({ url }) {
         return new RemoteGraphQLDataSource({
           url,
-          fetcher,
         });
       },
     });

@@ -1,4 +1,4 @@
-import { fetch, Response, Request } from 'apollo-server-env';
+import { Fetcher, FetcherResponse } from '@apollo/utils.fetcher';
 import { GraphQLError } from 'graphql';
 import {
   ErrorCode,
@@ -30,7 +30,8 @@ interface OobReportMutationFailure {
 
 export async function submitOutOfBandReportIfConfigured({
   error,
-  request,
+  requestEndpoint,
+  requestBody,
   endpoint,
   response,
   startedAt,
@@ -39,13 +40,14 @@ export async function submitOutOfBandReportIfConfigured({
   fetcher,
 }: {
   error: Error;
-  request: Request;
+  requestEndpoint: string;
+  requestBody: string;
   endpoint: string | undefined;
-  response?: Response;
+  response?: FetcherResponse;
   startedAt: Date;
   endedAt: Date;
   tags?: string[];
-  fetcher: typeof fetch;
+  fetcher: Fetcher;
 }) {
   // don't send report if the endpoint url is not configured
   if (!endpoint) {
@@ -85,8 +87,8 @@ export async function submitOutOfBandReportIfConfigured({
         message: error.message,
       },
       request: {
-        url: request.url,
-        body: await request.text(),
+        url: requestEndpoint,
+        body: requestBody,
       },
       response: response
         ? {

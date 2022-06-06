@@ -744,7 +744,6 @@ type Query {
 
     const validateTag = async (
       header: string,
-      additionalHeader: string,
       directiveDefinitions: string,
       typeDefinitions: string,
     ) => {
@@ -762,7 +761,7 @@ type Query {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toEqual(`${additionalHeader}${header}${directiveDefinitions}
+      expect((data?._service as any).sdl).toEqual(`${header}${directiveDefinitions}
 
 type User
   @key(fields: "email")
@@ -786,7 +785,6 @@ union UserButAUnion
       {
         name: 'fed1',
         header: '',
-        additionalHeader: '',
         directiveDefinitions: `directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
 directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
@@ -817,8 +815,7 @@ type Query {
       },
       {
         name: 'fed2',
-        header: 'extend schema\n  @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])\n\n',
-        additionalHeader: 'schema\n  @link(url: "https://specs.apollo.dev/link/v1.0")\n{\n  query: Query\n}\n\n',
+        header: 'extend schema\n  @link(url: "https://specs.apollo.dev/link/v1.0")\n  @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])\n\n',
         directiveDefinitions: `directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
 directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
@@ -869,8 +866,8 @@ type Query {
   _service: _Service!
 }`,
       }
-    ])('adds it for $name schema', async ({header, additionalHeader, directiveDefinitions, typesDefinitions}) => {
-      await validateTag(header, additionalHeader, directiveDefinitions, typesDefinitions);
+    ])('adds it for $name schema', async ({header, directiveDefinitions, typesDefinitions}) => {
+      await validateTag(header, directiveDefinitions, typesDefinitions);
     });
   });
 

@@ -33,12 +33,14 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
-  FragmentSelection,
   sameType,
   FederationMetadata,
   federationMetadata,
   entitiesFieldName,
   concatOperationPaths,
+  Directive,
+  directiveApplicationsSubstraction,
+  conditionalDirectivesInOperationPath,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -791,17 +793,12 @@ class FetchGroup {
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
     // But when we merge-in, if the point we're merging in is already the entity, then the cast can be skipped.
+    const mergePathConditionalDirectives = conditionalDirectivesInOperationPath(mergePath);
     const selectionSet = selectionSetOfPath(mergePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
-      for (const typeCastSel of toMerge.selection.selections()) {
-        assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
-        const entityType = typeCastSel.element().typeCondition;
-        assert(entityType, () => `Unexpected fragment _without_ condition at start of ${toMerge}`);
-        if (sameType(endOfPathSet.parentType, entityType)) {
-          endOfPathSet.mergeIn(typeCastSel.selectionSet);
-        } else {
-          endOfPathSet.add(typeCastSel);
-        }
+      for (const selection of toMerge.selection.selections()) {
+        const withoutUneededFragments = removeRedundantFragments(selection, endOfPathSet.parentType, mergePathConditionalDirectives);
+        addSelectionOrSelectionSet(endOfPathSet, withoutUneededFragments);
       }
     });
 
@@ -859,6 +856,81 @@ class FetchGroup {
     return this.isTopLevel
       ? `[${this.index}]${this.subgraphName}[${this._selection}]`
       : `[${this.index}]${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function addSelectionOrSelectionSet(selectionSet: SelectionSet, toAdd: Selection | SelectionSet) {
+  if (toAdd instanceof SelectionSet) {
+    selectionSet.mergeIn(toAdd);
+  } else {
+    selectionSet.add(toAdd);
+  }
+}
+
+/**
+ * Given a selection select (`selectionSet`) starting on a given type (`type`) and given a set of directive applications
+ * that can be eliminated (`unneededDirectives`; in practice those are conditionals (@skip and @include) already accounted
+ * for), returns an equivalent selection set but with unecessary "starting" fragments removed (if any can).
+ * Note that this very similar to the optimisation done in `operation.ts#concatOperationPaths`, but applied to the "concatenation"
+ * of selection sets.
+ */
+function removeRedundantFragmentsOfSet(
+  selectionSet: SelectionSet,
+  type: CompositeType,
+  unneededDirectives: Directive<any, any>[],
+): SelectionSet {
+  let newSet: SelectionSet | undefined = undefined;
+  const selections = selectionSet.selections();
+  for (let i = 0; i < selections.length; i++) {
+    const selection = selections[i];
+    const updated = removeRedundantFragments(selection, type, unneededDirectives);
+    if (newSet) {
+      addSelectionOrSelectionSet(newSet, updated);
+    } else if (selection !== updated) {
+      // We've found the firs selection that is changed. Create `newSet`
+      // and add any previous selection (which we now is unchanged).
+      newSet = new SelectionSet(type);
+      for (let j = 0; j < i; j++) {
+        newSet.add(selections[j]);
+      }
+      // and add the new one.
+      addSelectionOrSelectionSet(newSet, updated);
+    } // else, we just move on
+  }
+  return newSet ? newSet : selectionSet;
+}
+
+function removeRedundantFragments(
+  selection: Selection,
+  type: CompositeType,
+  unneededDirectives: Directive<any, any>[],
+): Selection | SelectionSet {
+  if (selection.kind !== 'FragmentSelection') {
+    return selection;
+  }
+
+  const fragment = selection.element();
+  const fragmentType = fragment.typeCondition;
+  if (!fragmentType) {
+    return selection;
+  }
+
+  let neededDirectives: Directive[] = [];
+  if (fragment.appliedDirectives.length > 0) {
+    neededDirectives = directiveApplicationsSubstraction(fragment.appliedDirectives, unneededDirectives);
+  }
+
+  if (sameType(type, fragmentType) && neededDirectives.length === 0) {
+    // we can completely skip this fragment and recurse.
+    return removeRedundantFragmentsOfSet(selection.selectionSet, type, unneededDirectives);
+  } else if (neededDirectives.length === fragment.appliedDirectives.length) {
+    // This means we need all of the directives of the fragment, and so just return it.
+    return selection;
+  } else {
+    // We need the fragment, but we can skip some of its directive.
+    const updatedFragement = new FragmentElement(type, fragment.typeCondition);
+    neededDirectives.forEach((d) => updatedFragement.applyDirective(d.definition!, d.arguments()));
+    return selectionSetOfElement(updatedFragement, selection.selectionSet);
   }
 }
 
@@ -1503,16 +1575,18 @@ function computeGroupsForTree(
   startGroup: FetchGroup,
   initialMergeAt: ResponsePath = [],
   initialPath: OperationPath = [],
+  initialContext: PathContext = emptyContext,
 ): FetchGroup[] {
   const stack: {
     tree: OpPathTree,
     group: FetchGroup,
     mergeAt: ResponsePath,
     path: OperationPath,
-  }[] = [{ tree: pathTree, group: startGroup, mergeAt: initialMergeAt, path: initialPath }];
+    context: PathContext,
+  }[] = [{ tree: pathTree, group: startGroup, mergeAt: initialMergeAt, path: initialPath, context: initialContext }];
   const createdGroups = [ ];
   while (stack.length > 0) {
-    const {tree, group, mergeAt, path} = stack.pop()!;
+    const {tree, group, mergeAt, path, context} = stack.pop()!;
     if (tree.isLeaf()) {
       group.addSelection(path);
     } else {
@@ -1520,6 +1594,7 @@ function computeGroupsForTree(
       // in reverse order to counter-balance it.
       for (const [edge, operation, conditions, child] of tree.childElements(true)) {
         if (isPathContext(operation)) {
+          const newContext = operation;
           // The only 3 cases where we can take edge not "driven" by an operation is either when we resolve a key, resolve
           // a query (switch subgraphs because the query root type is the type of a field), or at the root of subgraph graph.
           // The latter case has already be handled the beginning of `computeFetchGroups` so only the 2 former remains.
@@ -1541,13 +1616,13 @@ function computeGroupsForTree(
             inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
             inputSelections.mergeIn(edge.conditions!);
 
-            const [inputs, newPath] = createNewFetchSelectionContext(type, inputSelections, operation);
+            const [inputs, newPath] = createNewFetchSelectionContext(type, inputSelections, newContext);
             newGroup.addInputs(inputs);
 
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
 
-            stack.push({tree: child, group: newGroup, mergeAt, path: newPath});
+            stack.push({tree: child, group: newGroup, mergeAt, path: newPath, context: newContext});
           } else {
             assert(edge.transition.kind === 'RootTypeResolution', () => `Unexpected non-collecting edge ${edge}`);
             const rootKind = edge.transition.rootKind;
@@ -1567,8 +1642,8 @@ function computeGroupsForTree(
             // correspond to jumping subgraph after a field returned the query root type, and we want to
             // preserve this ordering somewhat (debatable, possibly).
             const newGroup = dependencyGraph.newRootTypeFetchGroup(edge.tail.source, rootKind, type, mergeAt, group, path);
-            const newPath = createNewFetchSelectionContext(type, undefined, operation)[1];
-            stack.push({tree: child, group: newGroup, mergeAt, path: newPath });
+            const newPath = createNewFetchSelectionContext(type, undefined, newContext)[1];
+            stack.push({tree: child, group: newGroup, mergeAt, path: newPath, context: newContext });
           }
         } else if (edge === null) {
           // A null edge means that the operation does nothing but may contain directives to preserve.
@@ -1576,10 +1651,10 @@ function computeGroupsForTree(
           // as a minor optimization (it makes the query slighly smaller, but on complex queries, it
           // might also deduplicate similar selections).
           const newPath = operation.appliedDirectives.length === 0 ? path : path.concat(operation);
-          stack.push({ tree: child, group, mergeAt, path: newPath });
+          stack.push({ tree: child, group, mergeAt, path: newPath, context });
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
-          const updated = { tree: child, group, mergeAt, path };
+          const updated = { tree: child, group, mergeAt, path, context };
           if (conditions) {
             // We have some @requires.
             const requireResult =  handleRequires(
@@ -1588,7 +1663,8 @@ function computeGroupsForTree(
               conditions,
               group,
               mergeAt,
-              path
+              path,
+              context,
             );
             updated.group = requireResult.group;
             updated.mergeAt = requireResult.mergeAt;
@@ -1628,13 +1704,18 @@ function withoutTypename(selectionSet: SelectionSet): SelectionSet {
   return selectionSet.filter((selection) => selection.kind !== 'FieldSelection' || selection.element().name === '__typename');
 }
 
+function pathHasOnlyFragments(path: OperationPath): boolean {
+  return path.every((element) => element.kind === 'FragmentElement');
+}
+
 function handleRequires(
   dependencyGraph: FetchDependencyGraph,
   edge: Edge,
   requiresConditions: OpPathTree,
   group: FetchGroup,
   mergeAt: ResponsePath,
-  path: OperationPath
+  path: OperationPath,
+  context: PathContext,
 ): {
   group: FetchGroup,
   mergeAt: ResponsePath,
@@ -1648,12 +1729,12 @@ function handleRequires(
   // that depends on the createdGroups and have the created groups depend on the current one.
   // However, we can be more efficient in general (and this is expected by the user) because
   // required fields will usually come just after a key edge (at the top of a fetch group).
-  // In that case (when the path is exactly 1 typeCast), we can put the created groups directly
+  // In that case (when the path is only typeCasts), we can put the created groups directly
   // as dependency of the current group, avoiding to create a new one. Additionally, if the
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
-  if (!group.isTopLevel && path.length == 1 && path[0].kind === 'FragmentElement') {
+  if (!group.isTopLevel && pathHasOnlyFragments(path)) {
     // We start by computing the groups for the conditions. We do this using a copy of the current
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
     const originalInputs = group.clonedInputs()!;
@@ -1764,7 +1845,7 @@ function handleRequires(
     if (unmergedGroups.length == 0) {
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, false)[0]);
+      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context, false)[0]);
       return { group, mergeAt, path, createdGroups: [] };
     }
 
@@ -1773,7 +1854,7 @@ function handleRequires(
     // depends on all the created groups and return that.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
     postRequireGroup.addDependencyOn(unmergedGroups);
-    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
+    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context);
     // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
     postRequireGroup.addInputs(inputs);
     return {
@@ -1794,14 +1875,19 @@ function handleRequires(
     // Note that we know the conditions will include a key for our group so we can resume properly.
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
-    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
+    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context);
     newGroup.addInputs(inputs);
     return { group: newGroup, mergeAt, path: newPath, createdGroups };
   }
 }
 
-function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge, includeKeyInputs: boolean = true): [Selection, OperationPath] {
-  const typeCast = new FragmentElement(entityType, entityType.name);
+function inputsForRequire(
+  graph: QueryGraph,
+  entityType: ObjectType,
+  edge: Edge,
+  context: PathContext,
+  includeKeyInputs: boolean = true
+): [Selection, OperationPath] {
   const fullSelectionSet = new SelectionSet(entityType);
   fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
   fullSelectionSet.mergeIn(edge.conditions!);
@@ -1810,7 +1896,7 @@ function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge,
     assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
     fullSelectionSet.mergeIn(keyCondition);
   }
-  return [selectionOfElement(typeCast, fullSelectionSet), [typeCast]];
+  return createNewFetchSelectionContext(entityType, fullSelectionSet, context);
 }
 
 const representationsVariable = new Variable('representations');
