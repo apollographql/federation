@@ -16,6 +16,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Update `@override` docs with multiple usage note [PR #1871](https://github.com/apollographql/federation/pull/1871).
 - Update AWS subgraph compatibility test results [PR #1901](https://github.com/apollographql/federation/pull/1901).
 
+# [2.0.4] - 2022-06-01
+
+## 🐛 Fixes
+
+- Fix issue when all root operations were defined in an `extend schema` [PR #1875](https://github.com/apollographql/federation/issues/1875).
+
 # [2.0.3] - 2022-05-20
 
 ## 🐛 Fixes
