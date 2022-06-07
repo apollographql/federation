@@ -2660,3 +2660,149 @@ describe('Field covariance and type-explosion', () => {
   });
 })
 
+describe('handles non-intersecting fragment conditionds', () => {
+  test('with federation 1 supergraphs', () => {
+    const supergraphSdl = `
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2"),
+        @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+      type Apple implements Fruit {
+        edible: Boolean!
+        hasStem: Boolean!
+      }
+
+      type Banana implements Fruit {
+        edible: Boolean!
+        inBunch: Boolean!
+      }
+
+      interface Fruit {
+        edible: Boolean!
+      }
+
+      type Query {
+        fruit: Fruit! @join__field(graph: S1)
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        S1 @join__graph(name: "S1" url: "")
+      }
+    `
+
+    const supergraph = buildSchema(supergraphSdl);
+    const api = supergraph.toAPISchema();
+    const queryPlanner = new QueryPlanner(supergraph);
+
+    const operation = operationFromDocument(api, gql`
+      fragment OrangeYouGladIDidntSayBanana on Fruit {
+        ... on Banana {
+          inBunch
+        }
+        ... on Apple {
+          hasStem
+        }
+      }
+
+      query Fruitiness {
+        fruit {
+          ... on Apple {
+            ...OrangeYouGladIDidntSayBanana
+          }
+        }
+      }
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            fruit {
+              __typename
+              ... on Apple {
+                hasStem
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  test('with federation 2 subgraphs', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        interface Fruit {
+          edible: Boolean!
+        }
+
+        type Banana implements Fruit {
+          edible: Boolean!
+          inBunch: Boolean!
+        }
+
+        type Apple implements Fruit {
+          edible: Boolean!
+          hasStem: Boolean!
+        }
+
+        type Query {
+          fruit: Fruit!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      fragment OrangeYouGladIDidntSayBanana on Fruit {
+        ... on Banana {
+          inBunch
+        }
+        ... on Apple {
+          hasStem
+        }
+      }
+
+      query Fruitiness {
+        fruit {
+          ... on Apple {
+            ...OrangeYouGladIDidntSayBanana
+          }
+        }
+      }
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            fruit {
+              __typename
+              ... on Apple {
+                hasStem
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+});
+
