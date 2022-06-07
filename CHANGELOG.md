@@ -4,6 +4,18 @@ All notable changes to Federation will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [2.0.5] - 2022-06-07
+
+## 🐛 Fixes
+
+- Fix bug with unsatisfiable query branch when handling federation 1 supergraph [PR #1908](https://github.com/apollographql/federation/pull/1908).
+
+## 📚 Documentation
+
+- Update docs to explain how composition merges types under the hood (union and intersection) [PR #1839](https://github.com/apollographql/federation/pull/1839).
+- Update `@override` docs with multiple usage note [PR #1871](https://github.com/apollographql/federation/pull/1871).
+- Update AWS subgraph compatibility test results [PR #1901](https://github.com/apollographql/federation/pull/1901).
+
 # [2.0.3] - 2022-05-20
 
 ## 🐛 Fixes
