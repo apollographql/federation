@@ -187,7 +187,7 @@ Some defensive code around gateway shutdown has been removed which was only rele
 
 ## ⚠️ 0.x Changelog Entries
 
-Changelog entries for maintenance releases after version 0.42.4 are published on the [version-0.x branch](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md).
+Changelog entries for gateway 0.x are published on the [version-0.x branch](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md).
 
 ## v0.42.4
 
