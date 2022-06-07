@@ -981,8 +981,14 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can
       // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exploding in practice).
-      if (this.isFederatedSubgraph && !this.forceTypeExplosion) {
-        this.maybeAddInterfaceFieldsEdges(namedType, vertex);
+      if (this.isFederatedSubgraph) {
+        if (!this.forceTypeExplosion) {
+          this.maybeAddInterfaceFieldsEdges(namedType, vertex);
+        } else {
+          // While we don't want to add edges for all the "user" fields, we should still have add one for `__typename`
+          // as that can always be asked from the interface and may be necessary in a few corner cases.
+          this.addEdgeForField(namedType.typenameField()!, vertex);
+        }
       }
       this.addAbstractTypeEdges(namedType, vertex);
     } else if (isUnionType(namedType)) {
