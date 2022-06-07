@@ -185,6 +185,10 @@ Some defensive code around gateway shutdown has been removed which was only rele
 
 - :tada: Initial alpha release of Federation 2.0.  For more information, see our [documentation](https://www.apollographql.com/docs/federation/v2/).  We look forward to your feedback!
 
+## ⚠️ 0.x Changelog Entries
+
+Changelog entries for maintenance releases after version 0.42.4 are published on the [version-0.x branch](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md).
+
 ## v0.42.4
 
 - Updates to transitive dependencies.  No other substantial changes.
