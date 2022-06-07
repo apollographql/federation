@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.0.5
+
+- Fix bug with unsatisfiable query branch when handling federation 1 supergraph [PR #1908](https://github.com/apollographql/federation/pull/1908).
+
 ## 2.0.2
 
 - Fix bug where planning a query with `@require` impacts the plans of followup queries [PR #1783](https://github.com/apollographql/federation/pull/1783).

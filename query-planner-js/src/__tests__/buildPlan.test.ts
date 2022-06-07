@@ -2660,7 +2660,7 @@ describe('Field covariance and type-explosion', () => {
   });
 })
 
-describe('handles non-intersecting fragment conditionds', () => {
+describe('handles non-intersecting fragment conditions', () => {
   test('with federation 1 supergraphs', () => {
     const supergraphSdl = `
       schema
