@@ -39,13 +39,13 @@ import {
   variableDefinitionsFromAST,
   CompositeType,
   typenameFieldName,
-  NamedType,
   sameDirectiveApplications,
   isConditionalDirective,
   isDirectiveApplicationsSubset,
+  isAbstractType,
 } from "./definitions";
 import { ERRORS } from "./error";
-import { sameType } from "./types";
+import { isDirectSubtype, sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
@@ -360,30 +360,37 @@ export class Operation {
   }
 
   optimize(fragments?: NamedFragments, minUsagesToOptimize: number = 2): Operation {
-    if (!fragments) {
+    assert(minUsagesToOptimize >= 1, `Expected 'minUsagesToOptimize' to be at least 1, but got ${minUsagesToOptimize}`)
+    if (!fragments || fragments.isEmpty()) {
       return this;
     }
+
     let optimizedSelection = this.selectionSet.optimize(fragments);
     if (optimizedSelection === this.selectionSet) {
       return this;
     }
 
-    // Optimizing fragments away, and then de-optimizing if it's used less than we want, feels a bit wasteful,
-    // but it's simple and probably don't matter too much in practice (we only call this optimization on the
-    // final compted query plan, so not a very hot path; plus in most case we won't even reach that point
-    // either because there is no fragment, or none will have been optimized away and we'll exit above). We
-    // can optimize later if this show up in profiling though.
-    if (minUsagesToOptimize > 1) {
-      const usages = new Map<string, number>();
-      optimizedSelection.collectUsedFragmentNames(usages);
-      for (const fragment of fragments.names()) {
-        if (!usages.has(fragment)) {
-          usages.set(fragment, 0);
-        }
+    const usages = new Map<string, number>();
+    optimizedSelection.collectUsedFragmentNames(usages);
+    for (const fragment of fragments.names()) {
+      if (!usages.has(fragment)) {
+        usages.set(fragment, 0);
       }
-      const toDeoptimize = mapEntries(usages).filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
-      optimizedSelection = optimizedSelection.expandFragments(toDeoptimize);
     }
+
+    // We re-expand any fragments that is used less than our minimum. Optimizing all fragments to potentially
+    // re-expand some is not entirely optimal, but it's simple and probably don't matter too much in practice
+    // (we only call this optimization on the final computed query plan, so not a very hot path; plus in most
+    // cases we won't even reach that point either because there is no fragment, or none will have been
+    // optimized away so we'll exit above). We can optimize later if this show up in profiling though.
+    //
+    // Also note `toDeoptimize` will always contains the unused fragments, which will allow `expandFragments`
+    // to remove them from the listed fragments in `optimizedSelection` (here again, this could make use call
+    // `expandFragments` on _only_ unused fragments and that case could be dealt with more efficiently, but
+    // probably not noticeable in practice so ...).
+    const toDeoptimize = mapEntries(usages).filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
+    optimizedSelection = optimizedSelection.expandFragments(toDeoptimize);
+
     return new Operation(this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
   }
 
@@ -434,6 +441,10 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     super(schema);
   }
 
+  withUpdatedSelectionSet(newSelectionSet: SelectionSet): NamedFragmentDefinition {
+    return new NamedFragmentDefinition(this.schema(), this.name, this.typeCondition, newSelectionSet);
+  }
+
   variables(): Variables {
     return mergeVariables(this.variablesInAppliedDirectives(), this.selectionSet.usedVariables());
   }
@@ -458,6 +469,19 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
       },
       selectionSet: this.selectionSet.toSelectionSetNode()
     };
+  }
+
+  /**
+   * Whether this fragment may apply at the provided type, that is if its type condition matches the type
+   * or is a supertype of it.
+   *
+   * @param type - the type at which we're looking at applying the fragment
+   */
+  canApplyAtType(type: CompositeType): boolean {
+    return (
+      sameType(this.typeCondition, type)
+      || (isAbstractType(this.typeCondition) && !isUnionType(type) && isDirectSubtype(this.typeCondition, type))
+    );
   }
 
   toString(indent?: string): string {
@@ -497,8 +521,8 @@ export class NamedFragments {
     }
   }
 
-  onType(type: NamedType): NamedFragmentDefinition[] {
-    return this.fragments.values().filter(f => f.typeCondition.name === type.name);
+  maybeApplyingAtType(type: CompositeType): NamedFragmentDefinition[] {
+    return this.fragments.values().filter(f => f.canApplyAtType(type));
   }
 
   without(names: string[]): NamedFragments {
@@ -523,6 +547,10 @@ export class NamedFragments {
 
   get(name: string): NamedFragmentDefinition | undefined {
     return this.fragments.get(name);
+  }
+
+  has(name: string): boolean {
+    return this.fragments.has(name);
   }
 
   definitions(): readonly NamedFragmentDefinition[] {
@@ -648,10 +676,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
   }
 
   collectUsedFragmentNames(collector: Map<string, number>) {
-    if (!this.fragments) {
-      return;
-    }
-
     for (const byResponseName of this._selections.values()) {
       for (const selection of byResponseName) {
         selection.collectUsedFragmentNames(collector);
@@ -680,10 +704,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
   }
 
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): SelectionSet {
-    if (!this.fragments) {
-      return this;
-    }
-
     if (names && names.length === 0) {
       return this;
     }
@@ -693,7 +713,12 @@ export class SelectionSet extends Freezable<SelectionSet> {
       : this.fragments;
     const withExpanded = new SelectionSet(this.parentType, newFragments);
     for (const selection of this.selections()) {
-      withExpanded.add(selection.expandFragments(names, updateSelectionSetFragments));
+      const expanded = selection.expandFragments(names, updateSelectionSetFragments);
+      if (Array.isArray(expanded)) {
+        withExpanded.addAll(expanded);
+      } else {
+        withExpanded.add(expanded as Selection);
+      }
     }
     return withExpanded;
   }
@@ -1080,8 +1105,44 @@ export class FieldSelection extends Freezable<FieldSelection> {
     }
   }
 
-  optimize(fragments: NamedFragments): FieldSelection {
+  optimize(fragments: NamedFragments): Selection {
     const optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments) : undefined;
+    const fieldBaseType = baseType(this.field.definition.type!);
+    if (isCompositeType(fieldBaseType) && optimizedSelection) {
+      for (const candidate of fragments.maybeApplyingAtType(fieldBaseType)) {
+        // TODO: Checking `equals` here is very simple, but somewhat restrictive in theory. That is, if a query
+        // is:
+        //   {
+        //     t {
+        //       a
+        //       b
+        //       c
+        //     }
+        //   }
+        // and we have:
+        //   fragment X on T {
+        //     t {
+        //       a
+        //       b
+        //     }
+        //   }
+        // then the current code will not use the fragment because `c` is not in the fragment, but in relatity,
+        // we could use it and make the result be:
+        //   {
+        //     ...X
+        //     t {
+        //       c
+        //     }
+        //   }
+        // To do that, we can change that `equals` to `contains`, but then we should also "extract" the remainder
+        // of `optimizedSelection` that isn't covered by the fragment, and that is the part slighly more involved.
+        if (optimizedSelection.equals(candidate.selectionSet)) {
+          const fragmentSelection = new FragmentSpreadSelection(fieldBaseType, fragments, candidate.name);
+          return new FieldSelection(this.field, selectionSetOf(fieldBaseType, fragmentSelection));
+        }
+      }
+    }
+
     return this.selectionSet === optimizedSelection
       ? this
       : new FieldSelection(this.field, optimizedSelection);
@@ -1230,7 +1291,7 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   abstract optimize(fragments: NamedFragments): FragmentSelection;
 
-  abstract expandFragments(names?: string[]): FragmentSelection;
+  abstract expandFragments(names?: string[]): Selection | readonly Selection[];
 
   abstract toSelectionNode(): SelectionNode;
 
@@ -1311,7 +1372,6 @@ class InlineFragmentSelection extends FragmentSelection {
     this.selectionSet.validate();
   }
 
-
   get selectionSet(): SelectionSet {
     return this._selectionSet;
   }
@@ -1343,13 +1403,21 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 
   optimize(fragments: NamedFragments): FragmentSelection {
-    const optimizedSelection = this.selectionSet.optimize(fragments);
+    let optimizedSelection = this.selectionSet.optimize(fragments);
     const typeCondition = this.element().typeCondition;
     if (typeCondition) {
-      for (const candidate of fragments.onType(typeCondition)) {
-        if (candidate.selectionSet.equals(optimizedSelection)) {
-          fragments.addIfNotExist(candidate);
-          return new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
+      for (const candidate of fragments.maybeApplyingAtType(typeCondition)) {
+        // See comment in `FieldSelection.optimize` about the `equals`: this fully apply here too.
+        if (optimizedSelection.equals(candidate.selectionSet)) {
+          const spread = new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
+          // We use the fragment when the fragments condition is either the same, or a supertype of our current condition.
+          // If it's the same type, then we don't really want to preserve the current condition, it is included in the
+          // spread and we can return it directive. But if the fragment condition is a superset, then we should preserve
+          // our current condition since it restricts the selection more than the fragment actual does.
+          if (sameType(typeCondition, candidate.typeCondition)) {
+            return spread;
+          }
+          optimizedSelection = selectionSetOf(spread.element().parentType, spread);
         }
       }
     }
@@ -1440,11 +1508,15 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this;
   }
 
-  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection {
+  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection | readonly Selection[] {
     if (names && !names.includes(this.namedFragment.name)) {
       return this;
     }
-    return new InlineFragmentSelection(this._element, this.selectionSet.expandFragments(names, updateSelectionSetFragments));
+
+    const expandedSubSelections = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
+    return sameType(this._element.parentType, this.namedFragment.typeCondition)
+      ? expandedSubSelections.selections()
+      : new InlineFragmentSelection(this._element, expandedSubSelections);
   }
 
   collectUsedFragmentNames(collector: Map<string, number>): void {

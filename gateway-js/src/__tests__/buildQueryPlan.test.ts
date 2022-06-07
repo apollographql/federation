@@ -771,12 +771,16 @@ describe('buildQueryPlan', () => {
                       topProducts {
                         __typename
                         ... on Book {
-                          price
+                          ...Price
                         }
                         ... on Furniture {
-                          price
+                          ...Price
                         }
                       }
+                    }
+                    
+                    fragment Price on Product {
+                      price
                     }
                   },
                 }

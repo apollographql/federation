@@ -1626,14 +1626,16 @@ it('when exploding types through multiple levels', async () => {
             } =>
             {
               ... on Book {
-                reviews {
-                  body
-                }
+                ...ProductReviews
               }
               ... on Furniture {
-                reviews {
-                  body
-                }
+                ...ProductReviews
+              }
+            }
+            
+            fragment ProductReviews on Product {
+              reviews {
+                body
               }
             }
           },
