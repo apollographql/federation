@@ -1902,7 +1902,6 @@ class Merger {
      );
    }
    if (!consistentLocations) {
-     console.log('mismatch hint');
      this.reportMismatchHint(
        HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
        `Type system directive "${dest}" has inconsistent locations across subgraphs `,
