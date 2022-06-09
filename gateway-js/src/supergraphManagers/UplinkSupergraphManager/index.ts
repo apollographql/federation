@@ -140,7 +140,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
         );
       }
       initialSupergraphSdl = result.supergraphSdl;
-      if (result?.minDelaySeconds) {
+      if (result.minDelaySeconds) {
         this.minDelayMs = 1000 * result?.minDelaySeconds;
         this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
       }
@@ -263,7 +263,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
     this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
-        let pollingPromise = resolvable();
+        const pollingPromise = resolvable();
         this.state.pollingPromise = pollingPromise;
         try {
           const result = await this.updateSupergraphSdl();
