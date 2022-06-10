@@ -1882,7 +1882,7 @@ class Merger {
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-    const repeatable = sources[0].repeatable;
+    const repeatable = sources[0]?.repeatable ?? false;
     const inconsistentRepeatable = sources.some(src => src.repeatable !== repeatable);
     const { consistentLocations, locations } = getLocationsFromDirectiveDefs(sources);
 
