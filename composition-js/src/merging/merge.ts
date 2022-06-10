@@ -355,13 +355,16 @@ class Merger {
       // the applications.
       // Note that this is a temporary solution: a more principled way to have directive propagated
       // is coming and will remove the hard-coding.
-      return this.mergedFederationDirectiveNames.has(definition.name) || isGraphQLBuiltInDirective(definition.definition!);
+      return this.mergedFederationDirectiveNames.has(definition.name)
+        || isGraphQLBuiltInDirective(definition.definition!)
+        || this.exposedDirectives().includes(definition.name);
     } else if (isGraphQLBuiltInDirective(definition)) {
       // We never "merge" graphQL built-in definitions, since they are built-in and
       // don't need to be defined.
       return false;
     }
-    return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
+    return definition.locations.some(loc => executableDirectiveLocations.includes(loc))
+      || this.exposedDirectives().includes(definition.name);
   }
 
   merge(): MergeResult {
@@ -369,7 +372,6 @@ class Merger {
     // supergraph. This allow to be able to reference those from that point on.
     this.addTypesShallow();
     this.addDirectivesShallow();
-    this.addCustomTypeSystemDirectives();
 
     const typesToMerge = this.merged.types()
       .filter((type) => !linkSpec.isSpecType(type) && !joinSpec.isSpecType(type));
@@ -488,55 +490,35 @@ class Merger {
     // However, in practice and for "execution" directives, we will only keep the the ones
     // that are in _all_ subgraphs. But we're do the remove later, and while this is all a
     // bit round-about, it's a tad simpler code-wise to do this way.
+    const customDirectiveMap = new Map<string, DirectiveDefinition>();
     for (const subgraph of this.subgraphsSchema) {
       for (const directive of subgraph.allDirectives()) {
         if (!this.isMergedDirective(directive)) {
           continue;
         }
         if (!this.merged.directive(directive.name)) {
-          this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
+          const def = this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
+          if (this.exposedDirectives().includes(directive.name)) {
+            customDirectiveMap.set(directive.name, def);
+          }
         }
       }
     }
-  }
 
-  /**
-   * Go through the list of custom directives. If any of them are type system directives
-   * or have a type system component, go ahead and add the full union of locations to the existing directive
-   * (if the directive has an executable portion) or create a new directive if not.
-   */
-  private addCustomTypeSystemDirectives() {
-    const directiveNameMap = this.exposedDirectives().reduce((acc, name: string) => {
-      acc[name] = [];
-      return acc;
-    }, {} as { [name: string]: DirectiveDefinition[] });
-    for (const subgraph of this.subgraphsSchema) {
-      for (const directive of subgraph.allDirectives()) {
-        if (directive.name in directiveNameMap) {
-          directiveNameMap[directive.name].push(directive);
-        }
-      }
-    }
-    Object.entries(directiveNameMap).forEach(([name, definitions]) => {
-      // only add if the custom directive is not "executable"
-      // TODO: Should we generate a hint if definition.length === 0?
-      if (definitions.length > 0) {
-        let def: DirectiveDefinition | undefined;
-        // if it's an executable directive, we probably have already created it
-        if (definitions.some(d => d.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
-          def = this.merged.directive(name);
-          assert(def, `could not find directive '@${name}'`);
-          const { locations } = getLocationsFromDirectiveDefs(definitions);
-          def.addLocations(...locations);
-        } else {
-          def = new DirectiveDefinition(name);
-          this.merged.addDirectiveDefinition(def);
-          this.mergeTypeSystemDirectiveDefinition(definitions, def);
-        }
+    // now for all custom directives, make sure locations are properly added
+    customDirectiveMap.forEach((def, directiveName) => {
+      const definitions: DirectiveDefinition[] = this.subgraphsSchema
+        .map(schema => schema.directive(directiveName))
+        .filter((def): def is DirectiveDefinition => def !== undefined);
+      // if any directive definition has a executable location, we'll just add all locations
+      // but if it's a type-system only directive, we can attempt to merge the directives together
+      if (definitions.some(d => d.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
+        const { locations } = getLocationsFromDirectiveDefs(definitions);
+        def.addLocations(...locations);
+      } else {
+        this.mergeTypeSystemDirectiveDefinition(definitions, def);
       }
     });
-
-    // TODO: Check to make sure that these really are custom directives
   }
 
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
@@ -1866,7 +1848,7 @@ class Merger {
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
     this.mergeDescription(sources, dest);
-    if (sources.some((s) => s && this.isMergedDirective(s))) {
+    if (sources.some((s) => s && s.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
       this.mergeExecutableDirectiveDefinition(sources, dest);
     }
   }
@@ -2034,7 +2016,7 @@ class Merger {
     for (const source of sources) {
       if (source) {
         for (const directive of source.appliedDirectives) {
-          if (this.isMergedDirective(directive) || this.exposedDirectives().includes(directive.name)) {
+          if (this.isMergedDirective(directive)) {
             names.add(directive.name);
           }
         }
