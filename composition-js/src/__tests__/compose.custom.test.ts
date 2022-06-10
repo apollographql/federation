@@ -1,5 +1,6 @@
-import { composeServices } from '../compose';
+import { composeServices, CompositionResult } from '../compose';
 import {
+  assert,
   Schema,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
@@ -28,12 +29,25 @@ const expectDirectiveOnElement = (schema: Schema, location: string, directiveNam
 const expectNoDirectiveOnElement = (schema: Schema, location: string, directiveName: string) => {
   const elem = schema.elementByCoordinate(location);
   expect(elem).toBeDefined();
-  const directive = elem?.appliedDirectives.find(d => d.name === directiveName);
-  expect(directive).toBeUndefined();
+  expect(elem?.hasAppliedDirective(directiveName)).toBe(false);
 };
 
+const expectNoErrorsOrHints = (result: CompositionResult): Schema => {
+  expect(result.errors).toBeUndefined();
+  expect(result.hints?.length).toBe(0);
+  const { schema } = result;
+  expect(schema).toBeDefined();
+  assert(schema, 'schema does not exist');
+  return schema;
+}
+
+const expectNoDirectiveInSchema = (schema: Schema, directiveName: string) => {
+  expect(schema.directive(directiveName)).toBeUndefined();
+};
+
+
 describe('composing custom directives', () => {
-  it('executable directive successful merge, not explicitly exposed', () => {
+  it('executable directive successful merge, custom directive not exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -60,18 +74,14 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB]);
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectNoDirectiveOnElement(schema, 'User.name', 'foo');
-      expect(schema.directive('foo')?.name).toBe('foo');
-      expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectNoDirectiveOnElement(schema, 'User.name', 'foo');
+    expectNoDirectiveOnElement(schema, 'User.description', 'foo');
+    expect(schema.directive('foo')?.name).toBe('foo');
+    expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
   });
 
-  it('executable directive successful merge, explicitly exposed', () => {
+  it('executable directive successful merge, custom directive exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -98,18 +108,14 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
-      expect(schema.directive('foo')?.name).toBe('foo');
-      expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION']);
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
+    expectDirectiveOnElement(schema, 'User.description', 'foo', { name: 'graphB'});
+    expect(schema.directive('foo')?.name).toBe('foo');
+    expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION']);
   });
 
-  it('executable directive, conflicting definitions non-explicit', () => {
+  it('executable directive, conflicting definitions not exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -136,18 +142,13 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB]);
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectNoDirectiveOnElement(schema, 'User.name', 'foo');
-      expect(schema.directive('foo')?.name).toBe('foo');
-      expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectNoDirectiveOnElement(schema, 'User.description', 'foo');
+    expect(schema.directive('foo')?.name).toBe('foo');
+    expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
   });
 
-  it('executable directive, conflicting definitions explicit', () => {
+  it('executable directive, conflicting definitions, exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -174,19 +175,14 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectDirectiveOnElement(schema, 'User.description', 'foo', { name: 'graphB'});
-      expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectB'});
-      expect(schema.directive('foo')?.name).toBe('foo');
-      expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION', 'OBJECT']);
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.description', 'foo', { name: 'graphB'});
+    expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectB'});
+    expect(schema.directive('foo')?.name).toBe('foo');
+    expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION', 'OBJECT']);
   });
 
-  it('executable directive, incompatible definitions explicit', () => {
+  it('executable directive, incompatible definitions, exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -218,7 +214,7 @@ describe('composing custom directives', () => {
     expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
   });
 
-  it('type system directive, incompatible definitions explicit', () => {
+  it('type system directive, incompatible definitions, exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -277,16 +273,12 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB]);
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectNoDirectiveOnElement(schema, 'User.name', 'foo');
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectNoDirectiveInSchema(schema, 'foo');
+    expectNoDirectiveOnElement(schema, 'User.name', 'foo');
   });
 
-  it('type-system directive, explicitly exposed', () => {
+  it('type-system directive, exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -313,13 +305,8 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
   });
 
   it('type-system directive, repeatable sometimes', () => {
@@ -386,14 +373,9 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
-      expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectA'});
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
+    expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectA'});
   });
 
   it('type-system directive, core feature, not exposed', () => {
@@ -435,16 +417,12 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB]);
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectNoDirectiveOnElement(schema, 'User.name', 'foo');
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectNoDirectiveInSchema(schema, 'foo');
+    expectNoDirectiveOnElement(schema, 'User.name', 'foo');
   });
 
-  it('type-system directive, core feature, explicitly exposed', () => {
+  it('type-system directive, core feature, directive exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -483,13 +461,8 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(0);
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
-    }
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
   });
 
   it.todo('expose builtin directive');
