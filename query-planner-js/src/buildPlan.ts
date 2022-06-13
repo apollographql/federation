@@ -1533,7 +1533,17 @@ interface FetchGroupProcessor<TProcessedGroup, TFinalResult = TProcessedGroup> {
   finalize(roots: TProcessedGroup[], isParallel: boolean): TFinalResult
 }
 
-export function computeQueryPlan(queryPlannerConfig: QueryPlannerConfig, supergraphSchema: Schema, federatedQueryGraph: QueryGraph, operation: Operation): QueryPlan {
+export function computeQueryPlan({
+  config,
+  supergraphSchema,
+  federatedQueryGraph,
+  operation,
+}: {
+  config: QueryPlannerConfig,
+  supergraphSchema: Schema,
+  federatedQueryGraph: QueryGraph,
+  operation: Operation,
+}): QueryPlan {
   if (operation.rootKind === 'subscription') {
     throw ERRORS.UNSUPPORTED_FEATURE.err(
       'Query planning does not currently support subscriptions.',
@@ -1553,7 +1563,7 @@ export function computeQueryPlan(queryPlannerConfig: QueryPlannerConfig, supergr
 
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
-  const processor = fetchGroupToPlanProcessor(queryPlannerConfig, operation.variableDefinitions, operation.selectionSet.fragments, operation.name);
+  const processor = fetchGroupToPlanProcessor(config, operation.variableDefinitions, operation.selectionSet.fragments, operation.name);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);

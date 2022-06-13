@@ -579,7 +579,7 @@ export class ApolloGateway implements GraphQLService {
     this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
     );
-    this.queryPlanner = new QueryPlanner(coreSchema);
+    this.queryPlanner = new QueryPlanner(coreSchema, this.config.queryPlannerOptions);
 
     // Notify onSchemaChange listeners of the updated schema
     if (!legacyDontNotifyOnSchemaChangeListeners) {

@@ -4,28 +4,39 @@ export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
 export * from './QueryPlan';
 import { QueryPlan } from './QueryPlan';
 
-import { Schema, Operation } from '@apollo/federation-internals';
+import { Schema, Operation, Concrete } from '@apollo/federation-internals';
 import { buildFederatedQueryGraph, QueryGraph } from "@apollo/query-graphs";
 import { computeQueryPlan } from './buildPlan';
-import { QueryPlannerConfig } from './config';
+import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from './config';
 
-// There isn't much in this class yet, and I didn't want to make too many
-// changes at once, but since we were already storing a pointer to a
-// Rust query planner instance in the gateway, I think it makes sense to retain
-// that structure. I suspect having a class instead of a stand-alone function
-// will come in handy to encapsulate schema-derived data that is used during
-// planning but isn't operation specific. The next step is likely to be to
-// convert `buildQueryPlan` into a method.
+
+export type QPOptions = {
+  // Side-note: implemented as an object instead of single boolean because we expect to add more to this soon
+  // enough. In particular, once defer-passthrough to subgraphs is implemented, the idea would be to add a
+  // new `passthroughSubgraphs` option that is the list of subgraph to which we can pass-through some @defer
+  // (and it would be empty by default). Similarly, once we support @stream, grouping the options here will
+  // make sense too.
+  deferStreamSupport?: {
+    /**
+     * Enables @defer support by the query planner.
+     *
+     * If set, then the query plan for queries having some @defer will contains some `DeferNode` (see `QueryPlan.ts`).
+     *
+     * Defaults to false (meaning that the @defer are ignored).
+     */
+    enableDefer?: boolean,
+  }
+}
+
 export class QueryPlanner {
-  private readonly config: QueryPlannerConfig;
+  private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
 
-  constructor(public readonly supergraphSchema: Schema,
-    config?: QueryPlannerConfig) {
-      this.config = {
-        exposeDocumentNodeInFetchNode: true,
-        ...config
-      }
+  constructor(
+    public readonly supergraphSchema: Schema,
+    config?: QueryPlannerConfig
+  ) {
+      this.config = enforceQueryPlannerConfigDefaults(config);
       this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
   }
 
@@ -34,6 +45,11 @@ export class QueryPlanner {
       return { kind: 'QueryPlan' };
     }
 
-    return computeQueryPlan(this.config, this.supergraphSchema, this.federatedQueryGraph, operation);
+    return computeQueryPlan({
+      config: this.config,
+      supergraphSchema: this.supergraphSchema,
+      federatedQueryGraph: this.federatedQueryGraph,
+      operation,
+    });
   }
 }
