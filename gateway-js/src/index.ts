@@ -12,6 +12,7 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
+  DocumentNode,
 } from 'graphql';
 import loglevel from 'loglevel';
 import { buildOperationContext, OperationContext } from './operationContext';
@@ -142,6 +143,36 @@ export class ApolloGateway implements GraphQLService {
       coreSupergraphSdl: string;
     }) => void
   >();
+
+  public onCreateQueryPlanner: ({
+    apiSchema,
+    schema,
+    schemaText,
+  }: {
+    apiSchema: GraphQLSchema;
+    schema: Schema;
+    schemaText: string;
+  }) => QueryPlanner = ({ schema }) => {
+    this.logger.info('Using default query planner creator');
+    return new QueryPlanner(schema);
+  };
+
+  public onBuildQueryPlan: ({
+    planner,
+    schema,
+    document,
+    operationName,
+  }: {
+    planner: QueryPlanner;
+    schema: Schema;
+    document: DocumentNode;
+    operationName?: string;
+  }) => QueryPlan = ({ planner, schema, document, operationName }) => {
+    console.log("Using default query plan builder");
+    const operation = operationFromDocument(schema, document, operationName);
+    return planner.buildQueryPlan(operation);
+  };
+
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
@@ -225,8 +256,8 @@ export class ApolloGateway implements GraphQLService {
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
       sizeCalculator: approximateObjectSize,
       onDispose: (key, plan) => {
-        console.log(`Disposing ${key} ${plan.kind}`)
-      }
+        console.log(`Disposing ${key} ${plan.kind}`);
+      },
     });
   }
 
@@ -279,8 +310,8 @@ export class ApolloGateway implements GraphQLService {
     if (isManagedConfig(this.config) && 'pollIntervalInMs' in this.config) {
       this.logger.warn(
         'The `pollIntervalInMs` option is deprecated and will be removed in a future version of `@apollo/gateway`. ' +
-        'Please migrate to the equivalent `fallbackPollIntervalInMs` configuration option. ' +
-        'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
+          'Please migrate to the equivalent `fallbackPollIntervalInMs` configuration option. ' +
+          'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
       );
     }
   }
@@ -622,14 +653,18 @@ export class ApolloGateway implements GraphQLService {
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     if (this.queryPlanStore) {
-      console.log("Flushing query plan cache");
+      console.log('Flushing query plan cache');
       this.queryPlanStore.flush();
     }
     this.apiSchema = coreSchema.toAPISchema();
     this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
     );
-    this.queryPlanner = new QueryPlanner(coreSchema);
+    this.queryPlanner = this.onCreateQueryPlanner({
+      apiSchema: this.schema,
+      schema: coreSchema,
+      schemaText: coreSupergraphSdl,
+    });
 
     // Notify onSchemaChange listeners of the updated schema
     if (!legacyDontNotifyOnSchemaChangeListeners) {
@@ -850,13 +885,19 @@ export class ApolloGateway implements GraphQLService {
               OpenTelemetrySpanNames.PLAN,
               (span) => {
                 try {
-                  const operation = operationFromDocument(
-                    this.apiSchema!,
+                  return this.onBuildQueryPlan({
+                    planner: this.queryPlanner!,
+                    schema: this.apiSchema!,
                     document,
-                    request.operationName,
-                  );
-                  // TODO(#631): Can we be sure the query planner has been initialized here?
-                  return this.queryPlanner!.buildQueryPlan(operation);
+                    operationName: request.operationName,
+                  });
+                  // const operation = operationFromDocument(
+                  //   this.apiSchema!,
+                  //   document,
+                  //   request.operationName,
+                  // );
+                  // // TODO(#631): Can we be sure the query planner has been initialized here?
+                  // return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {
                   span.setStatus({ code: SpanStatusCode.ERROR });
                   throw err;
