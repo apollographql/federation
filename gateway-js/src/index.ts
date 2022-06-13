@@ -133,7 +133,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
-  private queryPlanStore: InMemoryLRUCache<QueryPlan>;
+  private queryPlanStore?: InMemoryLRUCache<QueryPlan>;
   private apolloConfig?: ApolloConfigFromAS3;
   private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
   private onSchemaLoadOrUpdateListeners = new Set<
@@ -170,9 +170,11 @@ export class ApolloGateway implements GraphQLService {
     };
 
     this.logger = this.initLogger();
-    this.queryPlanStore = this.initQueryPlanStore(
-      config?.experimental_approximateQueryPlanStoreMiB,
-    );
+    if (!process.env.DISABLE_QUERY_PLAN_CACHE) {
+      this.queryPlanStore = this.initQueryPlanStore(
+        config?.experimental_approximateQueryPlanStoreMiB,
+      );
+    }
     this.fetcher = config?.fetcher || fetcher;
 
     // set up experimental observability callbacks and config settings
@@ -619,7 +621,10 @@ export class ApolloGateway implements GraphQLService {
     // Once we remove the deprecated onSchemaChange() method, we can remove this.
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
-    if (this.queryPlanStore) this.queryPlanStore.flush();
+    if (this.queryPlanStore) {
+      console.log("Flushing query plan cache");
+      this.queryPlanStore.flush();
+    }
     this.apiSchema = coreSchema.toAPISchema();
     this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
