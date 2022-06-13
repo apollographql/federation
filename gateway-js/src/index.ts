@@ -160,14 +160,16 @@ export class ApolloGateway implements GraphQLService {
   public onBuildQueryPlan: ({
     planner,
     schema,
+    apiSchema,
     document,
     operationName,
   }: {
     planner: QueryPlanner;
     schema: Schema;
+    apiSchema: GraphQLSchema;
     document: DocumentNode;
     operationName?: string;
-  }) => QueryPlan = ({ planner, schema, document, operationName }) => {
+  }) => QueryPlan = ({ planner, schema, apiSchema: _apiSchema, document, operationName }) => {
     console.log("Using default query plan builder");
     const operation = operationFromDocument(schema, document, operationName);
     return planner.buildQueryPlan(operation);
@@ -888,6 +890,7 @@ export class ApolloGateway implements GraphQLService {
                   return this.onBuildQueryPlan({
                     planner: this.queryPlanner!,
                     schema: this.apiSchema!,
+                    apiSchema: this.schema!,
                     document,
                     operationName: request.operationName,
                   });
