@@ -199,21 +199,7 @@ function validateFieldSet(
       if (!(e instanceof GraphQLError)) {
         throw e;
       }
-      const nodes = sourceASTs(directive);
-      if (e.nodes) {
-        nodes.push(...e.nodes);
-      }
-      let codeDef = errorCodeDef(e);
-      if (!codeDef || codeDef === ERRORS.INVALID_GRAPHQL) {
-        codeDef = ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
-      }
-      return codeDef.err(
-        `${fieldSetErrorDescriptor(directive)}: ${e.message.trim()}`,
-        {
-          nodes,
-          originalError: e,
-        }
-      );
+      return handleFieldSetValidationError(directive, e);
     }
   } catch (e) {
     if (e instanceof GraphQLError) {
@@ -222,6 +208,34 @@ function validateFieldSet(
       throw e;
     }
   }
+}
+
+function handleFieldSetValidationError(
+  directive: Directive<any, {fields: any}>,
+  originalError: GraphQLError,
+  messageUpdater?: (msg: string) => string,
+): GraphQLError {
+  const nodes = sourceASTs(directive);
+  if (originalError.nodes) {
+    nodes.push(...originalError.nodes);
+  }
+  let codeDef = errorCodeDef(originalError);
+  // "INVALID_GRAPHQL" errors happening during validation means that the selection set is invalid, and
+  // that's where we want to use a more precise code.
+  if (!codeDef || codeDef === ERRORS.INVALID_GRAPHQL) {
+    codeDef = ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+  }
+  let msg = originalError.message.trim();
+  if (messageUpdater) {
+    msg = messageUpdater(msg);
+  }
+  return codeDef.err(
+    `${fieldSetErrorDescriptor(directive)}: ${msg}`,
+    {
+      nodes,
+      originalError,
+    }
+  );
 }
 
 function fieldSetErrorDescriptor(directive: Directive<any, {fields: any}>): string {
@@ -1126,38 +1140,22 @@ export function parseFieldSetArgument({
       throw e;
     }
 
-    const nodes = sourceASTs(directive);
-    if (e.nodes) {
-      nodes.push(...e.nodes);
-    }
-    let msg = e.message.trim();
-    // The rule for validating @requires in fed 1 was not properly recursive, so people upgrading
-    // may have a @require that selects some fields but without declaring those fields on the
-    // subgraph. As we fixed the validation, this will now fail, but we try here to provide some
-    // hint for those users for how to fix the problem.
-    // Note that this is a tad fragile to rely on the error message like that, but worth case, a
-    // future change make us not show the hint and that's not the end of the world.
-    if (msg.startsWith('Cannot query field')) {
-      if (msg.endsWith('.')) {
-        msg = msg.slice(0, msg.length - 1);
-      }
-      if (directive.name === keyDirectiveSpec.name) {
-        msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
-      } else {
-        msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
-      }
-    }
-
-    let codeDef = errorCodeDef(e);
-    if (!codeDef || codeDef === ERRORS.INVALID_GRAPHQL) {
-      codeDef = ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
-    }
-    throw codeDef.err(
-      `${fieldSetErrorDescriptor(directive)}: ${msg}`,
-      {
-        nodes,
-        originalError: e,
-      }
+    throw handleFieldSetValidationError(
+      directive,
+      e,
+      (msg: string) => {
+        if (msg.startsWith('Cannot query field')) {
+          if (msg.endsWith('.')) {
+            msg = msg.slice(0, msg.length - 1);
+          }
+          if (directive.name === keyDirectiveSpec.name) {
+            msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
+          } else {
+            msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
+          }
+        }
+        return msg;
+      },
     );
   }
 }
