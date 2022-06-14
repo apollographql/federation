@@ -149,6 +149,12 @@ const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
   'The version of federation in a @link directive on the schema is unknown.',
 );
 
+const UNKNOWN_LINK_VERSION = makeCodeDefinition(
+  'UNKNOWN_LINK_VERSION',
+  'The version of @link set on the schema is unknown.',
+  { addedIn: '2.1.0' },
+);
+
 const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
   'FIELDS_HAS_ARGS',
   (directive) => `The \`fields\` argument of a \`@${directive}\` directive includes a field defined with arguments (which is not currently supported).`
@@ -462,6 +468,7 @@ export const ERRORS = {
   DIRECTIVE_DEFINITION_INVALID,
   TYPE_DEFINITION_INVALID,
   UNKNOWN_FEDERATION_LINK_VERSION,
+  UNKNOWN_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
   REQUIRES_FIELDS_HAS_ARGS,

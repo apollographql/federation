@@ -203,7 +203,10 @@ function validateFieldSet(
       if (e.nodes) {
         nodes.push(...e.nodes);
       }
-      const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+      let codeDef = errorCodeDef(e);
+      if (!codeDef || codeDef === ERRORS.INVALID_GRAPHQL) {
+        codeDef = ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+      }
       return codeDef.err(
         `${fieldSetErrorDescriptor(directive)}: ${e.message.trim()}`,
         {
@@ -1145,7 +1148,10 @@ export function parseFieldSetArgument({
       }
     }
 
-    const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+    let codeDef = errorCodeDef(e);
+    if (!codeDef || codeDef === ERRORS.INVALID_GRAPHQL) {
+      codeDef = ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+    }
     throw codeDef.err(
       `${fieldSetErrorDescriptor(directive)}: ${msg}`,
       {
