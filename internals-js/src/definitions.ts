@@ -43,7 +43,7 @@ import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { validateSchema } from "./validate";
 import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { withModifiedErrorMessage } from "./error";
+import { ERRORS, withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
@@ -325,7 +325,7 @@ export function typeFromAST(schema: Schema, node: TypeNode): Type {
     default:
       const type = schema.type(node.name.value);
       if (!type) {
-        throw new GraphQLError(`Unknown type "${node.name.value}"`, node);
+        throw ERRORS.INVALID_GRAPHQL.err(`Unknown type "${node.name.value}"`, { nodes: node });
       }
       return type;
   }
@@ -534,7 +534,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       if (!def) {
         throw this.schema().blueprint.onGraphQLJSValidationError(
           this.schema(),
-          new GraphQLError(`Unknown directive "@${nameOrDef}".`)
+           ERRORS.INVALID_GRAPHQL.err(`Unknown directive "@${nameOrDef}".`)
         );
       }
       if (Array.isArray(def)) {
@@ -1636,9 +1636,9 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
       this.checkUpdate();
       const obj = this.schema().type(nameOrType);
       if (!obj) {
-        throw new GraphQLError(`Cannot set schema ${rootKind} root to unknown type ${nameOrType}`);
+        throw ERRORS.INVALID_GRAPHQL.err(`Cannot set schema ${rootKind} root to unknown type ${nameOrType}`);
       } else if (obj.kind != 'ObjectType') {
-        throw new GraphQLError(`${defaultRootName(rootKind)} root type must be an Object type${rootKind === 'query' ? '' : ' if provided'}, it cannot be set to ${nameOrType} (an ${obj.kind}).`);
+        throw ERRORS.INVALID_GRAPHQL.err(`${defaultRootName(rootKind)} root type must be an Object type${rootKind === 'query' ? '' : ' if provided'}, it cannot be set to ${nameOrType} (an ${obj.kind}).`);
       }
       toSet = new RootType(rootKind, obj);
     } else {
@@ -1804,9 +1804,9 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
         this.checkUpdate();
         const maybeItf = this.schema().type(nameOrItfOrItfImpl);
         if (!maybeItf) {
-          throw new GraphQLError(`Cannot implement unknown type ${nameOrItfOrItfImpl}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot implement unknown type ${nameOrItfOrItfImpl}`);
         } else if (maybeItf.kind != 'InterfaceType') {
-          throw new GraphQLError(`Cannot implement non-interface type ${nameOrItfOrItfImpl} (of type ${maybeItf.kind})`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot implement non-interface type ${nameOrItfOrItfImpl} (of type ${maybeItf.kind})`);
         }
         itf = maybeItf;
       } else {
@@ -2053,9 +2053,9 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
         this.checkUpdate();
         const maybeObj = this.schema().type(nameOrTypeOrMember);
         if (!maybeObj) {
-          throw new GraphQLError(`Cannot add unknown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot add unknown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
         } else if (maybeObj.kind != 'ObjectType') {
-          throw new GraphQLError(`Cannot add non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind}) as member of union type ${this.name}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot add non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind}) as member of union type ${this.name}`);
         }
         obj = maybeObj;
       } else {
@@ -3252,7 +3252,7 @@ export function variableDefinitionsFromAST(schema: Schema, definitionNodes: read
   for (const definitionNode of definitionNodes) {
     if (!definitions.add(variableDefinitionFromAST(schema, definitionNode))) {
       const name = definitionNode.variable.name.value;
-      throw new GraphQLError(`Duplicate definition for variable ${name}`, definitionNodes.filter(n => n.variable.name.value === name));
+      throw ERRORS.INVALID_GRAPHQL.err(`Duplicate definition for variable ${name}`, { nodes: definitionNodes.filter(n => n.variable.name.value === name) });
     }
   }
   return definitions;
@@ -3262,7 +3262,7 @@ export function variableDefinitionFromAST(schema: Schema, definitionNode: Variab
   const variable = new Variable(definitionNode.variable.name.value);
   const type = typeFromAST(schema, definitionNode.type);
   if (!isInputType(type)) {
-    throw new GraphQLError(`Invalid type "${type}" for variable $${variable}: not an input type`, definitionNode.type);
+    throw ERRORS.INVALID_GRAPHQL.err(`Invalid type "${type}" for variable $${variable}: not an input type`, { nodes: definitionNode.type });
   }
   const def = new VariableDefinition(
     schema,

@@ -42,6 +42,7 @@ import {
   directiveApplicationsSubstraction,
   conditionalDirectivesInOperationPath,
   MultiMap,
+  ERRORS,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -74,7 +75,7 @@ import {
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
 } from "@apollo/query-graphs";
-import { stripIgnoredCharacters, print, GraphQLError, parse, OperationTypeNode } from "graphql";
+import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -1470,9 +1471,9 @@ interface FetchGroupProcessor<TProcessedGroup, TParallelReduction, TFinalResult>
 
 export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: QueryGraph, operation: Operation): QueryPlan {
   if (operation.rootKind === 'subscription') {
-    throw new GraphQLError(
-      'Query planning does not support subscriptions for now.',
-      [parse(operation.toString())],
+    throw ERRORS.UNSUPPORTED_FEATURE.err(
+      'Query planning does not currently support subscriptions.',
+      { nodes: [parse(operation.toString())] },
     );
   }
   // We expand all fragments. This might merge a number of common branches and save us

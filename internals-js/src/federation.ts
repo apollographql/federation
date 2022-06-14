@@ -40,6 +40,7 @@ import {
   print as printAST,
   Source,
   SchemaExtensionNode,
+  GraphQLErrorOptions,
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -758,7 +759,10 @@ export class FederationBlueprint extends SchemaBlueprint {
       metadata.providesDirective(),
       field => {
         if (metadata.isFieldExternal(field)) {
-          throw new GraphQLError(`Cannot have both @provides and @external on field "${field.coordinate}"`, field.sourceAST);
+          throw ERRORS.EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
+            `Cannot have both @provides and @external on field "${field.coordinate}"`,
+            { nodes: field.sourceAST },
+          );
         }
         const type = baseType(field.type!);
         if (!isCompositeType(type)) {
@@ -1485,25 +1489,15 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorC
       : undefined;
 
     const code = errorCodeDef(cause) ?? errorCode;
-    if (code) {
-      return code.err(
-        message,
-        {
-          ...extractGraphQLErrorOptions(cause),
-          nodes,
-        }
-      );
-    } else {
-      return new GraphQLError(
-        message,
-        nodes,
-        cause.source,
-        cause.positions,
-        cause.path,
-        cause,
-        cause.extensions
-      );
-    }
+    const options: GraphQLErrorOptions = {
+      ...extractGraphQLErrorOptions(cause),
+      nodes,
+      originalError: cause,
+    };
+
+    return code
+      ? code.err(message, options)
+      : new GraphQLError(message, options);
   });
 
   return updatedCauses.length === 1 ? updatedCauses[0] : ErrGraphQLValidationFailed(updatedCauses);

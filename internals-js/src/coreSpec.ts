@@ -1,6 +1,6 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert, firstOf } from './utils';
@@ -555,7 +555,7 @@ export class FeatureVersion {
   public static parse(input: string): FeatureVersion {
     const match = input.match(this.VERSION_RE)
     if (!match) {
-      throw new GraphQLError(`Expected a version string (of the form v1.2), got ${input}`);
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Expected a version string (of the form v1.2), got ${input}`);
     }
     return new this(+match[1], +match[2])
   }
@@ -663,17 +663,17 @@ export class FeatureUrl {
   public static parse(input: string, node?: ASTNode): FeatureUrl {
     const url = new URL(input)
     if (!url.pathname || url.pathname === '/') {
-      throw new GraphQLError(`Missing path in feature url '${url}'`, node)
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing path in feature url '${url}'`, { nodes: node })
     }
     const path = url.pathname.split('/')
     const verStr = path.pop()
     if (!verStr) {
-      throw new GraphQLError(`Missing version component in feature url '${url}'`, node)
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing version component in feature url '${url}'`, { nodes: node })
     }
     const version = FeatureVersion.parse(verStr)
     const name = path[path.length - 1]
     if (!name) {
-      throw new GraphQLError(`Missing feature name component in feature url '${url}'`, node)
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing feature name component in feature url '${url}'`, { nodes: node })
     }
     const element = url.hash ? url.hash.slice(1): undefined
     url.hash = ''
@@ -804,11 +804,15 @@ export function removeAllCoreFeatures(schema: Schema) {
   for (const { feature, type, references } of typeReferences) {
     const referencesInSchema = references.filter(r => r.isAttached());
     if (referencesInSchema.length > 0) {
-      errors.push(new GraphQLError(
+      // Note: using REFERENCED_INACCESSIBLE is slightly abusive because the reference element is not marked
+      // @inacessible exactly. Instead, it is inacessible due to core elements being removed, but that's very
+      // very close semantically. Overall, adding a publicly documented error code just to minor difference
+      // doesn't feel worth it, especially since that case is super unlikely in the first place (and, as
+      // the prior comment says, may one day be removed too).
+      errors.push(ERRORS.REFERENCED_INACCESSIBLE.err(
         `Cannot remove elements of feature ${feature} as feature type ${type}` +
         ` is referenced by elements: ${referencesInSchema.join(', ')}`,
-        references.map(r => r.sourceAST)
-          .filter(n => n !== undefined) as ASTNode[]
+        { nodes: sourceASTs(...references) },
       ));
     }
   }

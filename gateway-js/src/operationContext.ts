@@ -1,7 +1,7 @@
+import { ERRORS } from '@apollo/federation-internals';
 import {
   DocumentNode,
   FragmentDefinitionNode,
-  GraphQLError,
   GraphQLSchema,
   Kind,
   OperationDefinitionNode,
@@ -37,7 +37,7 @@ export function buildOperationContext({
       case Kind.OPERATION_DEFINITION:
         operationCount++;
         if (!operationName && operationCount > 1) {
-          throw new GraphQLError(
+          throw ERRORS.INVALID_GRAPHQL.err(
             'Must provide operation name if query contains ' +
               'multiple operations.',
           );
@@ -55,11 +55,9 @@ export function buildOperationContext({
     }
   });
   if (!operation) {
-    if (operationName) {
-      throw new GraphQLError(`Unknown operation named "${operationName}".`);
-    } else {
-      throw new GraphQLError('Must provide an operation.');
-    }
+    throw ERRORS.INVALID_GRAPHQL.err(
+      operationName ? `Unknown operation named "${operationName}".` : 'Must provide an operation.'
+    );
   }
 
   return {
