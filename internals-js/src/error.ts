@@ -1,4 +1,4 @@
-import { ASTNode, GraphQLError, Source } from "graphql";
+import { ASTNode, GraphQLError, GraphQLErrorOptions } from "graphql";
 import { SchemaRootKind } from "./definitions";
 import { assert } from "./utils";
 
@@ -13,22 +13,11 @@ export type ErrorCodeMetadata = {
   replaces?: string[],
 }
 
-export type GraphQLErrorArgs = {
-  message: string,
-  nodes?: readonly ASTNode[] | ASTNode,
-  source?: Source,
-  positions?: readonly number[],
-  path?: readonly (string | number)[],
-  originalError?: Error | null,
-  extensions?: { [key: string]: unknown },
-};
-
-
 export type ErrorCodeDefinition = {
   code: string,
   description: string,
   metadata: ErrorCodeMetadata,
-  err: (args: GraphQLErrorArgs) => GraphQLError,
+  err: (message: string, options?: GraphQLErrorOptions) => GraphQLError,
 }
 
 const makeCodeDefinition = (
@@ -39,27 +28,28 @@ const makeCodeDefinition = (
   code,
   description,
   metadata,
-  err: ({
+  err: (message: string, options?: GraphQLErrorOptions) => new GraphQLError(
     message,
-    nodes,
-    source,
-    positions,
-    path,
-    originalError,
-    extensions,
-  }: GraphQLErrorArgs) => new GraphQLError(
-    message,
-    nodes,
-    source,
-    positions,
-    path,
-    originalError,
     {
-      ...extensions,
-      code,
-    },
+      ...options,
+      extensions: {
+        ...options?.extensions,
+        code,
+      }
+    }
   ),
 });
+
+export function extractGraphQLErrorOptions(e: GraphQLError): GraphQLErrorOptions {
+  return {
+    nodes: e.nodes,
+    source: e.source,
+    positions: e.positions,
+    path: e.path,
+    originalError: e.originalError,
+    extensions: e.extensions,
+  };
+}
 
 /*
  * Most codes currently originate from the initial fed 2 release so we use this for convenience.
