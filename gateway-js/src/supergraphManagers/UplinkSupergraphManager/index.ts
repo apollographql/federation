@@ -188,8 +188,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     minDelaySeconds?: number;
   } | null> {
     let supergraphSdl;
-    let minDelaySeconds: number | undefined =
-      this.fallbackPollIntervalMs / 1000;
+    let minDelaySeconds: number = this.fallbackPollIntervalMs / 1000;
 
     try {
       const result = await loadSupergraphSdlFromUplinks({

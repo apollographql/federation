@@ -75,7 +75,7 @@ export async function loadSupergraphSdlFromUplinks({
   roundRobinSeed: number,
   earliestFetchTime: Date | null,
   logger?: Logger | undefined,
-}) : Promise<SupergraphSdlUpdate | null> {
+}) : Promise<Required<SupergraphSdlUpdate> | null> {
   // This Promise resolves with either an updated supergraph or null if no change.
   // This Promise can reject in the case that none of the retries are successful,
   // in which case it will reject with the most frequently encountered error.
@@ -118,7 +118,7 @@ export async function loadSupergraphSdlFromStorage({
   fetcher: Fetcher;
   compositionId: string | null;
   logger?: Logger | undefined;
-}) : Promise<SupergraphSdlUpdate | null> {
+}) : Promise<Required<SupergraphSdlUpdate> | null> {
   const requestBody = JSON.stringify({
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
