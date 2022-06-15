@@ -148,7 +148,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
       }
       initialSupergraphSdl = result.supergraphSdl;
       if (result.minDelaySeconds) {
-        this.minDelayMs = 1000 * result?.minDelaySeconds;
+        this.minDelayMs = 1000 * result.minDelaySeconds;
         this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
       }
     } catch (e) {
@@ -185,10 +185,10 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
   private async updateSupergraphSdl(maxRetries: number): Promise<{
     supergraphSdl: string;
-    minDelaySeconds?: number;
+    minDelaySeconds: number;
   } | null> {
     let supergraphSdl;
-    let minDelaySeconds: number = this.fallbackPollIntervalMs / 1000;
+    let minDelaySeconds = this.fallbackPollIntervalMs / 1000;
 
     try {
       const result = await loadSupergraphSdlFromUplinks({
@@ -274,7 +274,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
         try {
           const result = await this.updateSupergraphSdl(this.maxRetries);
           if (result?.minDelaySeconds) {
-            this.minDelayMs = 1000 * result?.minDelaySeconds;
+            this.minDelayMs = 1000 * result.minDelaySeconds;
             this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
           }
           if (result?.supergraphSdl) {
