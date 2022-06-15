@@ -45,7 +45,10 @@ export type FailureToFetchSupergraphSdlAfterInit = ({
   graphRef,
   logger,
   fetchCount,
-}: FailureToFetchSupergraphSdlFunctionParams) => Promise<string | null>;
+  mostRecentSuccessfulFetchAt,
+}:
+  | FailureToFetchSupergraphSdlFunctionParams
+  & { mostRecentSuccessfulFetchAt?: Date }) => Promise<string | null>;
 
 type State =
   | { phase: 'constructed' }
@@ -79,6 +82,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
   private fetchCount: number = 0;
   private minDelayMs: number | null = null;
   private earliestFetchTime: Date | null = null;
+  private mostRecentSuccessfulFetchAt?: Date;
 
   constructor({
     apiKey,
@@ -211,6 +215,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
       this.compositionId = result.id;
 
       ({ supergraphSdl, minDelaySeconds } = result);
+      this.mostRecentSuccessfulFetchAt = new Date();
     } catch (e) {
       this.logger.debug(
         `Error fetching supergraphSdl from Uplink during phase '${this.state.phase}'`,
@@ -235,6 +240,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
           graphRef: this.graphRef,
           logger: this.logger,
           fetchCount: this.fetchCount,
+          mostRecentSuccessfulFetchAt: this.mostRecentSuccessfulFetchAt,
         });
 
         // This is really an error, but we'll let the caller decide what to do with it
