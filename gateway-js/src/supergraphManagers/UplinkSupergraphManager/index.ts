@@ -63,6 +63,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
   private graphRef: string;
   private fetcher: Fetcher = makeFetchHappen.defaults();
   private maxRetries: number;
+  private initialMaxRetries: number;
   private fallbackPollIntervalMs: number = 10_000;
   private logger: Logger;
   private update?: SupergraphSdlUpdateFunction;
@@ -88,6 +89,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     uplinkEndpoints,
     fallbackPollIntervalInMs,
     maxRetries,
+    initialMaxRetries,
     shouldRunSubgraphHealthcheck,
     onFailureToFetchSupergraphSdlDuringInit,
     onFailureToFetchSupergraphSdlAfterInit,
@@ -100,6 +102,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     uplinkEndpoints?: string[];
     fallbackPollIntervalInMs?: number;
     maxRetries?: number;
+    initialMaxRetries?: number;
     shouldRunSubgraphHealthcheck?: boolean;
     onFailureToFetchSupergraphSdlDuringInit?: FailureToFetchSupergraphSdlDuringInit;
     onFailureToFetchSupergraphSdlAfterInit?: FailureToFetchSupergraphSdlAfterInit;
@@ -110,6 +113,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
     this.uplinkEndpoints = uplinkEndpoints ?? this.uplinkEndpoints;
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
+    this.initialMaxRetries = initialMaxRetries ?? this.maxRetries;
 
     this.fetcher = fetcher ?? this.fetcher;
     this.fallbackPollIntervalMs =
@@ -133,7 +137,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
     let initialSupergraphSdl: string | undefined = undefined;
     try {
-      const result = await this.updateSupergraphSdl();
+      const result = await this.updateSupergraphSdl(this.initialMaxRetries);
       if (!result) {
         throw new Error(
           'Invalid supergraph schema supplied during initialization.',
@@ -176,7 +180,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     return this.state.nextFetchPromise;
   }
 
-  private async updateSupergraphSdl(): Promise<{
+  private async updateSupergraphSdl(maxRetries: number): Promise<{
     supergraphSdl: string;
     minDelaySeconds?: number;
   } | null> {
@@ -192,7 +196,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
         errorReportingEndpoint: this.errorReportingEndpoint,
         fetcher: this.fetcher,
         compositionId: this.compositionId ?? null,
-        maxRetries: this.maxRetries,
+        maxRetries,
         roundRobinSeed: this.fetchCount++,
         earliestFetchTime: this.earliestFetchTime,
         logger: this.logger,
@@ -207,7 +211,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
       ({ supergraphSdl, minDelaySeconds } = result);
     } catch (e) {
       this.logger.debug(
-        `Error fetching supergraphSdl from Uplink during ${this.state.phase}`,
+        `Error fetching supergraphSdl from Uplink during phase '${this.state.phase}'`,
       );
 
       if (
@@ -266,7 +270,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
         const pollingPromise = resolvable();
         this.state.pollingPromise = pollingPromise;
         try {
-          const result = await this.updateSupergraphSdl();
+          const result = await this.updateSupergraphSdl(this.maxRetries);
           if (result?.minDelaySeconds) {
             this.minDelayMs = 1000 * result?.minDelaySeconds;
             this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
