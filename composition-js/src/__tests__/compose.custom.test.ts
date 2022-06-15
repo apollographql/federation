@@ -2,6 +2,7 @@ import { composeServices, CompositionResult } from '../compose';
 import {
   assert,
   Schema,
+  ServiceDefinition,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import './matchers';
@@ -107,7 +108,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
     expectDirectiveOnElement(schema, 'User.description', 'foo', { name: 'graphB'});
@@ -174,7 +175,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.description', 'foo', { name: 'graphB'});
     expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectB'});
@@ -208,7 +209,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeDefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
@@ -240,7 +241,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeDefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
@@ -304,7 +305,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
   });
@@ -335,7 +336,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeUndefined();
     expect(result.hints?.length).toBe(1);
     expect(result.hints?.[0].definition.code).toBe('INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE');
@@ -372,7 +373,7 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
     expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectA'});
@@ -460,10 +461,80 @@ describe('composing custom directives', () => {
         }
       `,
     };
-    const result = composeServices([subgraphA, subgraphB], { exposeDirectives: ['@foo']});
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
   });
+});
 
-  it.todo('expose builtin directive');
+describe('invocation errors', () => {
+  let subgraphA: ServiceDefinition;
+  let subgraphB: ServiceDefinition;
+  beforeAll(() => {
+    subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", { name: "@tag", as: "@customTag"}])
+
+        directive @tag(name: String!) on QUERY | FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+
+        type User @key(fields: "id") {
+          id: Int
+          name: String @tag(name: "graphA")
+        }
+      `,
+    };
+
+    subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", { name: "@tag", as: "@customTag"}])
+
+        directive @tag(name: String!) on QUERY | FIELD_DEFINITION
+        type User @key(fields: "id") {
+          id: Int
+          description: String @tag(name: "graphB")
+        }
+      `,
+    };
+  })
+  it('directive does not exist', () => {
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tagg']});
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe(`Directive "@tagg" in "mergeDirectives" argument does not exist in any subgraph.  Did you mean \"@tag\"?`);
+  });
+
+  it('no leading "@" in directive name', () => {
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['foo']});
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe(`Directive "foo" in "mergeDirectives" argument does not begin with a "@"`);
+  });
+
+  it.each(['@skip', '@include', '@deprecated', '@specifiedBy'])('attempt to expose builtin directive', (directiveName) => {
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: [directiveName]});
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe(`Directive "${directiveName}" cannot be specified in \"mergeDirectives\" argument because it is a built in directive`);
+  });
+
+  it.each(['@key', '@link', '@customTag'])('fed 2 directives are rejected. Even if they are aliased', (directive) => {
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: [directive]});
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe(`Directive "${directive}" cannot be specified in "mergeDirectives" argument because it conflicts with a Federation directive`);
+  });
+
+  it('custom @tag still composes as long as federation version is renamed', () => {
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tag']});
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.name', 'tag', { name: 'graphA'});
+    expectDirectiveOnElement(schema, 'User.description', 'tag', { name: 'graphB'});
+    expect(schema.directive('tag')?.name).toBe('tag');
+    expect(schema.directive('tag')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION']);
+  });
 });

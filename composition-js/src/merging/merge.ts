@@ -74,7 +74,7 @@ import {
   HintCodeDefinition,
   HINTS,
 } from "../hints";
-import { type CompositionOptions } from '../types';
+import { type CompositionOptions } from '../compositionOptions';
 
 const linkSpec = LINK_VERSIONS.latest();
 type FieldOrUndefinedArray = (FieldDefinition<any> | undefined)[];
@@ -2304,6 +2304,6 @@ class Merger {
    * Get rid of leading '@' if present and return the list of directives passed to the Merger object
    */
   private exposedDirectives() {
-    return (this.options.exposeDirectives ?? []).map(directive => directive[0] === '@' ? directive.slice(1) : directive);
+    return (this.options.mergeDirectives ?? []).map(directive => directive[0] === '@' ? directive.slice(1) : directive);
   }
 }

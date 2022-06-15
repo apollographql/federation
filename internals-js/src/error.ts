@@ -424,6 +424,26 @@ const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
+const MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE = makeCodeDefinition(
+  'MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE',
+  'No directive specified in the "mergeDirectives" may be a GraphQL builtin directive',
+);
+
+const MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST = makeCodeDefinition(
+  'MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST',
+  'All directives specified in the "mergeDirectives" argument must exist in at least one subgraph',
+);
+
+const MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT = makeCodeDefinition(
+  'MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT',
+  'No directive specified in the "mergeDirectives" may be used as a federation directive in any subgraph',
+);
+
+const MERGE_DIRECTIVES_NO_LEADING_AT = makeCodeDefinition(
+  'MERGE_DIRECTIVES_NO_LEADING_AT',
+  'All directive names specified in the "mergeDirectives" argument must begin with "@"',
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -496,6 +516,10 @@ export const ERRORS = {
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
+  MERGE_DIRECTIVES_NO_LEADING_AT,
+  MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST,
+  MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE,
+  MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

@@ -52,6 +52,10 @@ The following errors might be raised during composition:
 | `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
 | `LINK_IMPORT_NAME_MISMATCH` | The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs. | 2.0.0 |  |
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
+| `MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE` | No directive specified in the "mergeDirectives" may be a GraphQL builtin directive | 2.1.0 | |
+| `MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST` | All directives specified in the "mergeDirectives" argument must exist in at least one subgraph | 2.1.0 | |
+| `MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT` | No directive specified in the "mergeDirectives" may be used as a federation directive in any subgraph | 2.1.0 | |
+| `MERGE_DIRECTIVES_NO_LEADING_AT` | All directive names specified in the "mergeDirectives" argument must begin with "@" | 2.1.0 | |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
 | `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | 2.0.0 |  |
 | `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
