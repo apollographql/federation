@@ -112,6 +112,9 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.logger = logger ?? getDefaultLogger(debug);
 
     this.uplinkEndpoints = uplinkEndpoints ?? this.uplinkEndpoints;
+    // If the user didn't pass a `maxRetries`, default to trying each endpoint
+    // 3 times (minus 1 for the initial request) since we round-robin through
+    // each URL on failure
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
     this.initialMaxRetries = initialMaxRetries ?? this.maxRetries;
 
