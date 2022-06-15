@@ -582,7 +582,6 @@ export function isRootPath(path: OpGraphPath<any>): path is OpRootPath {
 }
 
 export function terminateWithNonRequestedTypenameField<V extends Vertex>(path: OpGraphPath<V>): OpGraphPath<V> {
-
   // If the last step of the path was a fragment/type-condition, we want to remove it before we get __typename.
   // The reason is that this avoid cases where this method would make us build plans like:
   // {
