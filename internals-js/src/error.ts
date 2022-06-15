@@ -434,9 +434,9 @@ const MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST = makeCodeDefinition(
   'All directives specified in the "mergeDirectives" argument must exist in at least one subgraph',
 );
 
-const MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT = makeCodeDefinition(
-  'MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT',
-  'No directive specified in the "mergeDirectives" may be used as a federation directive in any subgraph',
+const MERGE_DIRECTIVES_NO_CORE_DIRECTIVES = makeCodeDefinition(
+  'MERGE_DIRECTIVES_NO_CORE_DIRECTIVES',
+  'No directive specified in the "mergeDirectives" may be a directive that comes from a core feature',
 );
 
 const MERGE_DIRECTIVES_NO_LEADING_AT = makeCodeDefinition(
@@ -519,7 +519,7 @@ export const ERRORS = {
   MERGE_DIRECTIVES_NO_LEADING_AT,
   MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST,
   MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE,
-  MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT,
+  MERGE_DIRECTIVES_NO_CORE_DIRECTIVES,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

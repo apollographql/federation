@@ -707,7 +707,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some(d => d.ofExtension() === undefined)
       || this.hasNonExtensionInnerElements();
   }
@@ -1039,8 +1039,8 @@ export class CoreFeatures {
       const importName = isDirective ? '@' + element.name : element.name;
       const allFeatures = [this.coreItself, ...this.byIdentity.values()];
       for (const feature of allFeatures) {
-        for (const { as } of feature.imports) {
-          if (as === importName) {
+        for (const { as, name } of feature.imports) {
+          if ((as ?? name) === importName) {
             return feature;
           }
         }
@@ -1684,7 +1684,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some((d) => d.ofExtension() === undefined)
       || this.roots().some((r) => r.ofExtension() === undefined);
   }
@@ -3086,7 +3086,7 @@ export function sameDirectiveApplications(applications1: Directive<any, any>[], 
 /**
  * Checks whether a given array of directive applications (`maybeSubset`) is a sub-set of another array of directive applications (`applications`).
  *
- * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`. 
+ * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`.
  */
 export function isDirectiveApplicationsSubset(applications: Directive<any, any>[], maybeSubset: Directive<any, any>[]): boolean {
   if (maybeSubset.length > applications.length) {

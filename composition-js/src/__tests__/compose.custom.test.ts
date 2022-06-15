@@ -462,8 +462,8 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
-    const schema = expectNoErrorsOrHints(result);
-    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe(`Directive "@foo" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph`);
   });
 });
 
@@ -526,7 +526,7 @@ describe('invocation errors', () => {
   it.each(['@key', '@link', '@customTag'])('fed 2 directives are rejected. Even if they are aliased', (directive) => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: [directive]});
     expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe(`Directive "${directive}" cannot be specified in "mergeDirectives" argument because it conflicts with a Federation directive`);
+    expect(result.errors?.[0].message).toBe(`Directive "${directive}" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph`);
   });
 
   it('custom @tag still composes as long as federation version is renamed', () => {

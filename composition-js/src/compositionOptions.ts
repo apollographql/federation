@@ -1,10 +1,7 @@
 import {
-  CoreFeature,
-  CoreImport,
   didYouMean,
   DirectiveDefinition,
   ERRORS,
-  federationIdentity,
   Subgraphs,
   suggestionList,
   type SubtypingRule,
@@ -33,6 +30,10 @@ export const validateCompositionOptions = (toMerge: Subgraphs, options?: Composi
         .map(sg => sg.schema.directive(directiveNameWithoutAt))
         .filter((directive): directive is DirectiveDefinition => directive !== undefined);
 
+      if (subgraphDirectives.some(sgDirective => sgDirective.schema().coreFeatures && sgDirective.schema().coreFeatures?.sourceFeature(sgDirective) !== undefined)) {
+        errors.push(ERRORS.MERGE_DIRECTIVES_NO_CORE_DIRECTIVES.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph` }));
+      }
+
       if (subgraphDirectives.length === 0) {
         // If the directive does not appear in any subgraph, throw an error. Provide a suggestion if we think it's a typo.
         const allDirectives = new Set<string>();
@@ -46,33 +47,7 @@ export const validateCompositionOptions = (toMerge: Subgraphs, options?: Composi
         errors.push(ERRORS.MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST.err({ message: `Directive "${directiveName}" in "mergeDirectives" argument does not exist in any subgraph. ${didYouMean(suggestions)}` }));
       } else if (subgraphDirectives.some(directive => directive.isBuiltIn)) {
         errors.push(ERRORS.MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it is a built in directive` }));
-      } else {
-        // we want to block composition if they use a fed 2 directive, but allow it if they've renamed it in all subgraphs it's used in
-        // NOTE: @link does not exist as a CoreImport on the CoreFeature defined at `linkIdentity`, so we hardcode it
-        const federationDirectiveNames = new Set<string>(['@link']);
-        subgraphs.forEach(sg => {
-
-          // For the current subgraph, collect all CoreImport objects in a single array
-          const coreImports = [
-            sg.schema.coreFeatures?.getByIdentity(federationIdentity)
-          ]
-          .filter((feature): feature is CoreFeature => feature !== undefined)
-          .reduce((acc: CoreImport[], feature: CoreFeature) => {
-            feature.imports.forEach(imp => {
-              acc.push(imp);
-            });
-            return acc;
-          }, []);
-
-          // Make sure that we use the directive name as it is used in the subgraph rather than the default name
-          coreImports.forEach(({ name, as}) => {
-            federationDirectiveNames.add(as ?? name);
-          });
-        });
-        if (federationDirectiveNames.has(directiveName)) {
-          errors.push(ERRORS.MERGE_DIRECTIVES_FEDERATION_NAME_CONFLICT.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it conflicts with a Federation directive` }));
-        }
-    }
+      }
     }
   });
   return errors;
