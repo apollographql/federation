@@ -2,6 +2,7 @@ import {
   didYouMean,
   DirectiveDefinition,
   ERRORS,
+  executableDirectiveLocations,
   Subgraphs,
   suggestionList,
   type SubtypingRule,
@@ -30,10 +31,6 @@ export const validateCompositionOptions = (toMerge: Subgraphs, options?: Composi
         .map(sg => sg.schema.directive(directiveNameWithoutAt))
         .filter((directive): directive is DirectiveDefinition => directive !== undefined);
 
-      if (subgraphDirectives.some(sgDirective => sgDirective.schema().coreFeatures && sgDirective.schema().coreFeatures?.sourceFeature(sgDirective) !== undefined)) {
-        errors.push(ERRORS.MERGE_DIRECTIVES_NO_CORE_DIRECTIVES.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph` }));
-      }
-
       if (subgraphDirectives.length === 0) {
         // If the directive does not appear in any subgraph, throw an error. Provide a suggestion if we think it's a typo.
         const allDirectives = new Set<string>();
@@ -46,7 +43,14 @@ export const validateCompositionOptions = (toMerge: Subgraphs, options?: Composi
         const suggestions = suggestionList(directiveNameWithoutAt, Array.from(allDirectives));
         errors.push(ERRORS.MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST.err({ message: `Directive "${directiveName}" in "mergeDirectives" argument does not exist in any subgraph. ${didYouMean(suggestions)}` }));
       } else if (subgraphDirectives.some(directive => directive.isBuiltIn)) {
+        // reject builtin directives
         errors.push(ERRORS.MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it is a built in directive` }));
+      } else if (subgraphDirectives.every(directive => directive.locations.every(loc => executableDirectiveLocations.includes(loc)))) {
+        // reject directives that have no type system locations since executable directives are already composed
+        errors.push(ERRORS.MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because all its locations are executable`}));
+      } else if (subgraphDirectives.some(sgDirective => sgDirective.schema().coreFeatures && sgDirective.schema().coreFeatures?.sourceFeature(sgDirective) !== undefined)) {
+        // don't allow directives that originate from a core feature
+        errors.push(ERRORS.MERGE_DIRECTIVES_NO_CORE_DIRECTIVES.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph` }));
       }
     }
   });

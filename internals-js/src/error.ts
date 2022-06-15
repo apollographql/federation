@@ -444,6 +444,11 @@ const MERGE_DIRECTIVES_NO_LEADING_AT = makeCodeDefinition(
   'All directive names specified in the "mergeDirectives" argument must begin with "@"',
 );
 
+const MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES = makeCodeDefinition(
+  'MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES',
+  'All directive names specified in the "mergeDirectives" argument must have a location that is not executable. Executable only directives are already composed',
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -520,6 +525,7 @@ export const ERRORS = {
   MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST,
   MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE,
   MERGE_DIRECTIVES_NO_CORE_DIRECTIVES,
+  MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

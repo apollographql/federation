@@ -54,6 +54,7 @@ The following errors might be raised during composition:
 | `MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE` | No directive specified in the "mergeDirectives" may be a GraphQL builtin directive | 2.1.0 |  |
 | `MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST` | All directives specified in the "mergeDirectives" argument must exist in at least one subgraph | 2.1.0 |  |
 | `MERGE_DIRECTIVES_NO_CORE_DIRECTIVES` | No directive specified in the "mergeDirectives" may be a directive that comes from a core feature | 2.1.0 |  |
+| `MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES` | All directive names specified in the "mergeDirectives" argument must have a location that is not executable. Executable only directives are already composed | 2.1.0 |  |
 | `MERGE_DIRECTIVES_NO_LEADING_AT` | All directive names specified in the "mergeDirectives" argument must begin with "@" | 2.1.0 |  |
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |

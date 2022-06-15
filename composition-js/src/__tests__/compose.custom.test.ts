@@ -48,7 +48,39 @@ const expectNoDirectiveInSchema = (schema: Schema, directiveName: string) => {
 
 
 describe('composing custom directives', () => {
-  it('executable directive successful merge, custom directive not exposed', () => {
+  it('executable only directive should be rejected', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        directive @foo(name: String!) on QUERY
+        type Query {
+          a: User
+        }
+
+        type User @key(fields: "id") {
+          id: Int
+          name: String
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        directive @foo(name: String!) on QUERY
+        type User @key(fields: "id") {
+          id: Int
+          description: String
+        }
+      `,
+    };
+    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
+    expect(result.errors).toBeDefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0]).toEqual(new GraphQLError('Directive "@foo" cannot be specified in "mergeDirectives" argument because all its locations are executable'));
+  });
+
+  it('mixed executable/type system directive, custom directive not exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -82,7 +114,7 @@ describe('composing custom directives', () => {
     expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
   });
 
-  it('executable directive successful merge, custom directive exposed', () => {
+  it('mixed executable/type system directive, custom directive exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -116,7 +148,7 @@ describe('composing custom directives', () => {
     expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION']);
   });
 
-  it('executable directive, conflicting definitions not exposed', () => {
+  it('mixed executable/type system directive, conflicting definitions not exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -149,7 +181,7 @@ describe('composing custom directives', () => {
     expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
   });
 
-  it('executable directive, conflicting definitions, exposed', () => {
+  it('mixed executable/type system directive, conflicting definitions, exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -183,7 +215,7 @@ describe('composing custom directives', () => {
     expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION', 'OBJECT']);
   });
 
-  it('executable directive, incompatible definitions, exposed', () => {
+  it('mixed executable/type system directive, incompatible definitions, exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
