@@ -1,4 +1,4 @@
-import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
+import { astSerializer, queryPlanSerializer, QueryPlanner, QueryPlannerConfig } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
 import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
@@ -9,14 +9,21 @@ import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
-function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+export function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+  return composeAndCreatePlannerWithOptions(services, {});
+}
+
+export function composeAndCreatePlannerWithOptions(
+  services: ServiceDefinition[],
+  plannerOptions: QueryPlannerConfig
+): [Schema, QueryPlanner] {
   const compositionResults = composeServices(
     services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
   );
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
-    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!))
+    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!), plannerOptions)
   ];
 }
 

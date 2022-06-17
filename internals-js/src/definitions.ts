@@ -1059,7 +1059,46 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
     locations: [DirectiveLocation.SCALAR],
     argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
   }),
+  // TODO: currently inconditionally adding @defer as the list of built-in. It's probably fine, but double check if we want to not do so when @defer-support is
+  // not enabled or something (it would probably be hard to handle it at that point anyway but well...).
+  createDirectiveSpecification({
+    name: 'defer',
+    locations: [DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
+    argumentFct: (schema) => ({
+      args: [
+        { name: 'label', type: schema.stringType() },
+        { name: 'if', type: schema.booleanType() },
+      ],
+      errors: [],
+    })
+  }),
+  // Adding @stream too so that it's know and we don't error out if it is queries. It feels like it would be weird to do so for @stream but not
+  // @defer when both are defined in the same spec. That said, that does *not* mean we currently _implement_ @stream, we don't, and so putting
+  // it in a query will be a no-op at the moment (which technically is valid according to the spec so ...).
+  createDirectiveSpecification({
+    name: 'stream',
+    locations: [DirectiveLocation.FIELD],
+    argumentFct: (schema) => ({
+      args: [
+        { name: 'label', type: schema.stringType() },
+        { name: 'initialCount', type: schema.intType(), defaultValue: 0 },
+        { name: 'if', type: schema.booleanType() },
+      ],
+      errors: [],
+    })
+  }),
 ];
+
+export type DeferDirectiveArgs = {
+  label?: string,
+  if?: boolean,
+}
+
+export type StreamDirectiveArgs = {
+  label?: string,
+  initialCount: number,
+  if?: boolean,
+}
 
 
 // A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
@@ -1464,28 +1503,35 @@ export class Schema {
   }
 
   private getBuiltInDirective<TApplicationArgs extends {[key: string]: any}>(
-    schema: Schema,
     name: string
   ): DirectiveDefinition<TApplicationArgs> {
-    const directive = schema.directive(name);
+    const directive = this.directive(name);
     assert(directive, `The provided schema has not be built with the ${name} directive built-in`);
     return directive as DirectiveDefinition<TApplicationArgs>;
   }
 
-  includeDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
-    return this.getBuiltInDirective(schema, 'include');
+  includeDirective(): DirectiveDefinition<{if: boolean}> {
+    return this.getBuiltInDirective('include');
   }
 
-  skipDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
-    return this.getBuiltInDirective(schema, 'skip');
+  skipDirective(): DirectiveDefinition<{if: boolean}> {
+    return this.getBuiltInDirective('skip');
   }
 
-  deprecatedDirective(schema: Schema): DirectiveDefinition<{reason?: string}> {
-    return this.getBuiltInDirective(schema, 'deprecated');
+  deprecatedDirective(): DirectiveDefinition<{reason?: string}> {
+    return this.getBuiltInDirective('deprecated');
   }
 
-  specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
-    return this.getBuiltInDirective(schema, 'specifiedBy');
+  specifiedByDirective(): DirectiveDefinition<{url: string}> {
+    return this.getBuiltInDirective('specifiedBy');
+  }
+
+  deferDirective(): DirectiveDefinition<DeferDirectiveArgs> {
+    return this.getBuiltInDirective('defer');
+  }
+
+  streamDirective(): DirectiveDefinition<StreamDirectiveArgs> {
+    return this.getBuiltInDirective('stream');
   }
 
   /**

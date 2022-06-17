@@ -43,6 +43,7 @@ import {
   sameDirectiveApplications,
   isConditionalDirective,
   isDirectiveApplicationsSubset,
+  DeferDirectiveArgs,
 } from "./definitions";
 import { ERRORS } from "./error";
 import { sameType } from "./types";
@@ -202,6 +203,21 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return this;
   }
 
+  hasDefer(): boolean {
+    // @defer cannot be on field at the moment
+    return false;
+  }
+
+  deferDirectiveArgs(): undefined {
+    // @defer cannot be on field at the moment (but exists so we can call this method on any `OperationElement` conveniently)
+    return undefined;
+  }
+
+  withoutDefer(): Field<TArgs> {
+    // @defer cannot be on field at the moment
+    return this;
+  }
+
   equals(that: OperationElement): boolean {
     if (this === that) {
       return true;
@@ -264,6 +280,57 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       return this.withUpdatedSourceType(selectionParent);
     }
     return this;
+  }
+
+  hasDefer(): boolean {
+    return this.hasAppliedDirective('defer');
+  }
+
+  deferDirectiveArgs(): DeferDirectiveArgs | undefined {
+    // Note: @defer is not repeatable, so the return array below is either empty, or has a single value.
+    return this.appliedDirectivesOf(this.schema().deferDirective())[0]?.arguments();
+  }
+
+  /**
+   * Returns this fragment element but with any @defer directive on it removed.
+   *
+   * This method will return `undefined` if, upon removing @defer, the fragment has no conditions nor
+   * any remaining applied directives (meaning that it carries no information whatsoever and can be
+   * ignored).
+   */
+  withoutDefer(): FragmentElement | undefined {
+    const deferName = this.schema().deferDirective().name;
+    const updatedDirectives = this.appliedDirectives.filter((d) => d.name !== deferName);
+    if (!this.typeCondition && updatedDirectives.length === 0) {
+      return undefined;
+    }
+
+    if (updatedDirectives.length === this.appliedDirectives.length) {
+      return this;
+    }
+
+    const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    updatedDirectives.forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
+    return updated;
+  }
+
+  withLabelledDefer(labeller: DeferLabeller): FragmentElement {
+    const deferArgs = this.deferDirectiveArgs();
+    if (!deferArgs || deferArgs.label) {
+      return this;
+    }
+
+    const newLabel = labeller.newLabel();
+    const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    const deferDirective = this.schema().deferDirective();
+    // Re-apply all the non-defer directives
+    this.appliedDirectives.filter((d) => d.name !== deferDirective.name).forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
+    // And then re-apply the @defer with the new label.
+    updated.applyDirective(this.schema().deferDirective(), {
+      ...deferArgs,
+      label: newLabel,
+    });
+    return updated;
   }
 
   equals(that: OperationElement): boolean {
@@ -399,6 +466,45 @@ export class Operation {
       this.variableDefinitions,
       this.name
     );
+  }
+
+  /**
+   * Returns this operation but potentially modified so all the @defer applications have been removed.
+   */
+  withoutDefer(): Operation {
+    // If we have named fragments, we should be looking inside those and either expand those having @defer or,
+    // probably better, replace them with a verison without @defer. But as we currently only call this method
+    // after `expandAllFragments`, we'll implement this when/if we need it.
+    assert(!this.selectionSet.fragments || this.selectionSet.fragments.isEmpty(), 'Removing @defer currently only work on "expanded" selections (no named fragments)');
+    const updated = this.selectionSet.withoutDefer();
+    return updated == this.selectionSet
+      ? this
+      : new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
+  }
+
+  /**
+   * Returns this operation but potentially modified so all @defer applications are guaranteed to have a (unique) label.
+   */
+  withAllDeferLabelled(): {
+    operation: Operation,
+    assignedDeferLabels: Set<string>,
+    hasDefers: boolean,
+  } {
+    // Similar comment than in `withoutDefer`
+    assert(!this.selectionSet.fragments || this.selectionSet.fragments.isEmpty(), 'Assigning @defer lables currently only work on "expanded" selections (no named fragments)');
+
+    const labeller = new DeferLabeller();
+    const { hasDefers, hasNonLabelledDefers } = labeller.init(this.selectionSet);
+    if (!hasNonLabelledDefers) {
+      return { operation: this, assignedDeferLabels: new Set<string>(), hasDefers };
+    }
+
+    const updated = this.selectionSet.withAllDeferLabelled(labeller);
+    return {
+      operation: new Operation(this.rootKind, updated, this.variableDefinitions, this.name),
+      assignedDeferLabels: labeller.assignedLabels,
+      hasDefers,
+    };
   }
 
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
@@ -593,6 +699,56 @@ abstract class Freezable<T> {
   abstract clone(): T;
 }
 
+class DeferLabeller {
+  private index = 0;
+  readonly assignedLabels = new Set<string>();
+  private readonly usedLabels = new Set<string>();
+
+  /**
+   * Initializes the "labeller" with all the labels used in the provided selections set.
+   *
+   * @return - whether `selectionSet` has any non-labeled @defer.
+   */
+  init(selectionSet: SelectionSet): { hasDefers: boolean, hasNonLabelledDefers: boolean }  {
+    let hasNonLabelledDefers = false;
+    let hasDefers = false;
+    const stack: Selection[] = selectionSet.selections().concat();
+    while (stack.length > 0) {
+      const selection = stack.pop()!;
+      if (selection.kind === 'FragmentSelection') {
+        const deferArgs = selection.element().deferDirectiveArgs();
+        if (deferArgs) {
+          hasDefers = true;
+          if (deferArgs.label) {
+            this.usedLabels.add(deferArgs.label);
+          } else {
+            hasNonLabelledDefers = true;
+          }
+        }
+      }
+      if (selection.selectionSet) {
+        selection.selectionSet.selections().forEach((s) => stack.push(s));
+      }
+    }
+    return { hasDefers, hasNonLabelledDefers };
+  }
+
+  private nextLabel(): string {
+    return `qp__${this.index++}`;
+  }
+
+  newLabel(): string {
+    let candidate = this.nextLabel();
+    // It's unlikely that auto-generated label would conflict an existing one, but
+    // not taking any chances.
+    while (this.usedLabels.has(candidate)) {
+      candidate = this.nextLabel();
+    }
+    this.assignedLabels.add(candidate);
+    return candidate;
+  }
+}
+
 export class SelectionSet extends Freezable<SelectionSet> {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
@@ -696,6 +852,56 @@ export class SelectionSet extends Freezable<SelectionSet> {
       withExpanded.add(selection.expandFragments(names, updateSelectionSetFragments));
     }
     return withExpanded;
+  }
+
+  withoutDefer(): SelectionSet {
+    let updatedSelections: Selection[] | undefined = undefined;
+    const selections = this.selections();
+    for (let i = 0; i < selections.length; i++) {
+      const selection = selections[i];
+      const updated = selection.withoutDefer();
+      if (updated !== selection && !updatedSelections) {
+        updatedSelections = [];
+        for (let j = 0; j < i; j++) {
+          updatedSelections.push(selections[j]);
+        }
+      }
+      if (updatedSelections) {
+        if (updated instanceof SelectionSet) {
+          updated.selections().forEach((s) => updatedSelections!.push(s));
+        } else {
+          updatedSelections.push(updated);
+        }
+      }
+    }
+    if (!updatedSelections) {
+      return this;
+    }
+    assert(!this.fragments, 'Not yet supported; see `Operation.withoutDefer`');
+    return new SelectionSet(this.parentType).addAll(updatedSelections)
+  }
+
+  withAllDeferLabelled(labeller: DeferLabeller): SelectionSet {
+    let updatedSelections: Selection[] | undefined = undefined;
+    const selections = this.selections();
+    for (let i = 0; i < selections.length; i++) {
+      const selection = selections[i];
+      const updated = selection.withAllDeferLabelled(labeller);
+      if (updated !== selection && !updatedSelections) {
+        updatedSelections = [];
+        for (let j = 0; j < i; j++) {
+          updatedSelections.push(selections[j]);
+        }
+      }
+      if (updatedSelections) {
+        updatedSelections.push(updated);
+      }
+    }
+    if (!updatedSelections) {
+      return this;
+    }
+    assert(!this.fragments, 'Not yet supported; see `Operation.withAllDeferLabelled`');
+    return new SelectionSet(this.parentType).addAll(updatedSelections)
   }
 
   /**
@@ -1203,6 +1409,20 @@ export class FieldSelection extends Freezable<FieldSelection> {
     return this.selectionSet?.fragments;
   }
 
+  withoutDefer(): FieldSelection {
+    const updatedSubSelections = this.selectionSet?.withoutDefer();
+    return updatedSubSelections === this.selectionSet
+      ? this
+      : new FieldSelection(this.field, updatedSubSelections);
+  }
+
+  withAllDeferLabelled(labeller: DeferLabeller): FieldSelection {
+    const updatedSubSelections = this.selectionSet?.withAllDeferLabelled(labeller);
+    return updatedSubSelections === this.selectionSet
+      ? this
+      : new FieldSelection(this.field, updatedSubSelections);
+  }
+
   clone(): FieldSelection {
     if (!this.selectionSet) {
       return this;
@@ -1235,6 +1455,10 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
   abstract toSelectionNode(): SelectionNode;
 
   abstract validate(): void;
+
+  abstract withoutDefer(): FragmentSelection | SelectionSet;
+
+  abstract withAllDeferLabelled(labeller: DeferLabeller): FragmentSelection;
 
   protected us(): FragmentSelection {
     return this;
@@ -1369,6 +1593,33 @@ class InlineFragmentSelection extends FragmentSelection {
     this.selectionSet.collectUsedFragmentNames(collector);
   }
 
+  withoutDefer(): FragmentSelection | SelectionSet {
+    const updatedSubSelections = this.selectionSet.withoutDefer();
+    const hasDefer = this.fragmentElement.hasDefer();
+    if (updatedSubSelections === this.selectionSet && !hasDefer) {
+      return this;
+    }
+
+    const newFragment = this.fragmentElement.withoutDefer();
+    if (!newFragment) {
+      return updatedSubSelections;
+    }
+    return new InlineFragmentSelection(newFragment, updatedSubSelections);
+  }
+
+  withAllDeferLabelled(labeller: DeferLabeller): InlineFragmentSelection {
+    let newFragment = this.fragmentElement;
+    const deferArgs = this.fragmentElement.deferDirectiveArgs();
+    if (deferArgs && !deferArgs.label) {
+      newFragment = this.fragmentElement.withLabelledDefer(labeller);
+    }
+
+    const updatedSubSelections = this.selectionSet.withAllDeferLabelled(labeller);
+    return newFragment === this.fragmentElement && updatedSubSelections === this.selectionSet
+      ? this
+      : new InlineFragmentSelection(newFragment, updatedSubSelections);
+  }
+
   toString(expandFragments: boolean = true, indent?: string): string {
     return (indent ?? '') + this.fragmentElement + ' ' + this.selectionSet.toString(expandFragments, true, indent);
   }
@@ -1451,6 +1702,14 @@ class FragmentSpreadSelection extends FragmentSelection {
     this.selectionSet.collectUsedFragmentNames(collector);
     const usageCount = collector.get(this.namedFragment.name);
     collector.set(this.namedFragment.name, usageCount === undefined ? 1 : usageCount + 1);
+  }
+
+  withoutDefer(): FragmentSelection {
+    assert(false, 'Unsupported, see `Operation.withoutDefer`');
+  }
+
+  withAllDeferLabelled(_labeller: DeferLabeller): FragmentSelection {
+    assert(false, 'Unsupported, see `Operation.withAllDeferLabelled`');
   }
 
   private spreadDirectives(): Directive<FragmentElement>[] {

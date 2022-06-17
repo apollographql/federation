@@ -8,7 +8,7 @@ export function isPathContext(v: any): v is PathContext {
   return v instanceof PathContext;
 }
 
-function addExtractedDirective(operation: OperationElement, directiveName: string, addTo: [string, any][]) {
+function addExtractedConditional(operation: OperationElement, directiveName: string, addTo: [string, any][]) {
   const applied = operation.appliedDirectivesOf(directiveName);
   if (applied.length > 0) {
     assert(applied.length === 1, () => `${directiveName} shouldn't be repeated on ${operation}`)
@@ -18,20 +18,18 @@ function addExtractedDirective(operation: OperationElement, directiveName: strin
 }
 
 /**
- * Records, as we walk a graphQL operation path, the @include and @skip directives encountered (with their conditions).
+ * Records, as we walk a graphQL operation path, important directives encountered (@include and @skip with their conditions).
  */
 export class PathContext {
-  // A list of [<directiveName>, <ifCondition>] (say: [['include', true], ['skip', $foo]]) in
-  // the reverse order ot which they were applied (so the first element is the inner-most applied skip/include).
-  constructor(readonly directives: [string, any][]) {
+  constructor(
+    // A list of [<directiveName>, <ifCondition>] (say: [['include', true], ['skip', $foo]]) in
+    // the reverse order in which they were applied (so the first element is the inner-most applied skip/include).
+    readonly conditionals: [string, any][],
+  ) {
   }
 
   isEmpty() {
-    return this.directives.length === 0;
-  }
-
-  size() {
-    return this.directives.length;
+    return this.conditionals.length === 0;
   }
 
   withContextOf(operation: OperationElement): PathContext {
@@ -39,20 +37,23 @@ export class PathContext {
       return this;
     }
 
-    const newDirectives: [string, any][] = [];
-    addExtractedDirective(operation, 'skip', newDirectives);
-    addExtractedDirective(operation, 'include', newDirectives);
-    return newDirectives.length === 0
+    const newConditionals: [string, any][] = [];
+    addExtractedConditional(operation, 'skip', newConditionals);
+    addExtractedConditional(operation, 'include', newConditionals);
+
+    return newConditionals.length === 0
       ? this
-      : new PathContext(newDirectives.concat(this.directives));
+      : new PathContext(newConditionals.concat(this.conditionals));
   }
 
   equals(that: PathContext): boolean {
-    return deepEqual(this.directives, that.directives);
+    return deepEqual(this.conditionals, that.conditionals);
   }
 
   toString(): string {
-      return '[' + this.directives.map(([name, cond]) => `@${name}(if: ${cond})`).join(', ') + ']';
+    return '['
+      + this.conditionals.map(([name, cond]) => `@${name}(if: ${cond})`).join(', ')
+      + ']';
   }
 }
 

@@ -26,6 +26,7 @@ import {
   FieldDefinition,
   printSubgraphNames,
   allFieldDefinitionsInSelectionSet,
+  DeferDirectiveArgs,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
@@ -148,6 +149,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     private readonly runtimeTypesOfTail: readonly ObjectType[],
     /** If the last edge (the one getting to tail) was a DownCast, the runtime types before that edge. */
     private readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
+
+    readonly deferOnTail?: DeferDirectiveArgs,
   ) {
   }
 
@@ -242,9 +245,10 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * @param edge - the edge to add (which may be 'null' if this type of path allows it, but if it isn't should be an out-edge
    *   for `s.tail`).
    * @param conditionsResolution - the result of resolving the conditions for this edge.
+   * @param defer - if the trigger is an operation with a @defer on it, the arguments of this @defer.
    * @returns the newly created path.
    */
-  add(trigger: TTrigger, edge: Edge | TNullEdge, conditionsResolution: ConditionResolution): GraphPath<TTrigger, RV, TNullEdge> {
+  add(trigger: TTrigger, edge: Edge | TNullEdge, conditionsResolution: ConditionResolution, defer?: DeferDirectiveArgs): GraphPath<TTrigger, RV, TNullEdge> {
     assert(!edge || this.tail.index === edge.head.index, () => `Cannot add edge ${edge} to path ending at ${this.tail}`);
     assert(conditionsResolution.satisfied, 'Should add to a path if the conditions cannot be satisfied');
     assert(!edge || edge.conditions || !conditionsResolution.pathTree, () => `Shouldn't have conditions paths (got ${conditionsResolution.pathTree}) for edge without conditions (edge: ${edge})`);
@@ -293,7 +297,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
               this.subgraphEnteringEdgeCost,
               updatedEdge,
               runtimeTypesWithoutPreviousCast,
-              this.runtimeTypesBeforeTailIfLastIsCast // Note that those haven't changed, and last is still a cast
+              this.runtimeTypesBeforeTailIfLastIsCast, // Note that those haven't changed, and last is still a cast
+              defer,
             );
           }
         }
@@ -320,7 +325,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       subgraphEnteringEdgeCost,
       edge,
       updateRuntimeTypes(this.runtimeTypesOfTail, edge),
-      edge?.transition?.kind === 'DownCast' ? this.runtimeTypesOfTail : undefined
+      edge?.transition?.kind === 'DownCast' ? this.runtimeTypesOfTail : undefined,
+      defer,
     );
   }
 
@@ -390,10 +396,18 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * The set of edges that may legally continue this path.
    */
   nextEdges(): readonly Edge[] {
-    const tailEdge = this.edgeToTail;
+    if (this.deferOnTail) {
+      // If we path enters a @defer (meaning that what comes after needs to be deferred), then it's the one special case where we
+      // explicitly need to ask for edges-to-self, as we _will_ force the use of a @key edge (so we can send the non-deferred part
+      // immediately) and we may have to resume the deferred part in the same subgraph than the one in which we were (hence the need
+      // for edges to self).
+      return this.graph.outEdges(this.tail, true);
+    }
+
     // In theory, we could always return `this.graph.outEdges(this.tail)` here. But in practice, `nonTrivialFollowupEdges` may give us a subset
     // of those "out edges" that avoids some of the edges that we know we don't need to check because they are guaranteed to be inefficient
     // after the previous `tailEdge`. Note that is purely an optimization (see https://github.com/apollographql/federation/pull/1653 for more details).
+    const tailEdge = this.edgeToTail;
     return tailEdge
       ? this.graph.nonTrivialFollowupEdges(tailEdge)
       : this.graph.outEdges(this.tail);
@@ -551,7 +565,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       }
       return ` (${this.edgeTriggers[idx]}) `;
     }).join('');
-    return `${isRoot ? '' : this.root}${pathStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
+    const deferStr = this.deferOnTail ? ` <defer='${this.deferOnTail.label}'>` : '';
+    return `${isRoot ? '' : this.root}${pathStr}${deferStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
   }
 }
 
@@ -942,18 +957,18 @@ export function addConditionExclusion(excluded: ExcludedConditions, newExclusion
 }
 
 function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
-  paths: GraphPath<TTrigger, V, TNullEdge>[]
+  stack: GraphPath<TTrigger, V, TNullEdge>[]
 ): GraphPath<TTrigger, V, TNullEdge> {
   let minIdx = 0;
-  let minSize = paths[0].size;
-  for (let i = 1; i < paths.length; i++) {
-    if (paths[i].size < minSize) {
-      minSize = paths[i].size;
+  let minSize = stack[0].size;
+  for (let i = 1; i < stack.length; i++) {
+    if (stack[i].size < minSize) {
+      minSize = stack[i].size;
       minIdx = i;
     }
   }
-  const min = paths[minIdx];
-  paths.splice(minIdx, 1);
+  const min = stack[minIdx];
+  stack.splice(minIdx, 1);
   return min;
 }
 
@@ -979,7 +994,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   // inefficient detour for which a more direct path exists and will be found).
   const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number] | null>();
   const deadEnds: Unadvanceable[] = [];
-  const toTry = [ path ];
+  const toTry: GraphPath<TTrigger, V, TNullEdge>[] = [ path ];
   while (toTry.length > 0) {
     // Note that through `excluded` we avoid taking the same edge from multiple options. But that means it's important we try
     // the smallest paths first. That is, if we could in theory have path A -> B and A -> C -> B, and we can do B -> D,
@@ -998,16 +1013,18 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         continue;
       }
 
-      // We can only take a non-collecting transition that preserves the current type (typically,
-      // jumping subgraphs through a key), with the exception of the federated graph roots, where
-      // the type is fake and jumping to any given subgraph is ok and desirable.
-      // Also, if the edge takes us back to the subgraph in which we started, we're not really interested
-      // (we've already checked for direct transition from that original subgraph).
+      // If the edge takes us back to the subgraph in which we started, we're not really interested
+      // (we've already checked for direct transition from that original subgraph). On exception though
+      // is if we're just after a @defer, in which case re-entering the current subgraph is actually
+      // a thing.
       const target = edge.tail;
-      if (target.source === originalSource) {
+      if (target.source === originalSource && !toAdvance.deferOnTail) {
         debug.groupEnd('Ignored: edge get us back to our original source');
         continue;
       }
+      // We can only take a non-collecting transition that preserves the current type (typically,
+      // jumping subgraphs through a key), with the exception of the federated graph roots, where
+      // the type is fake and jumping to any given subgraph is ok and desirable.
       if (typeName && typeName != target.type.name) {
         debug.groupEnd('Ignored: edge does not get to our target type');
         continue;
@@ -1132,7 +1149,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // It can be necessary to "chain" keys, because different subgraphs may have different keys exposed, and so we when we took
         // a key, we want to check if there is new key we can now take that take us to other subgraphs. For other 'non-collecting'
         // edges ('QueryResolution' and 'SubgraphEnteringTransition') however, chaining never give us additional value.
-        if (edge.transition.kind === 'KeyResolution') {
+        // Note: one exception is the case of self-edges (which stay on the same vertex/subgraph): those will only be
+        // looked at just after a @defer to handle potentially re-entering the same subgraph. When we take this, no point in
+        // looking for chaining since we'll independentely check the other edges already.
+        if (edge.transition.kind === 'KeyResolution' && edge.head.source !== edge.tail.source) {
           toTry.push(updatedPath);
         }
       } else {
@@ -1496,35 +1516,42 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   const updatedContext = subgraphSimultaneousPaths.context.withContextOf(operation);
   const optionsForEachPath: SimultaneousPaths<V>[][] = [];
   for (const [i, path] of subgraphSimultaneousPaths.paths.entries()) {
+    let options: SimultaneousPaths<V>[] | undefined = undefined;
+
     debug.group(() => `Computing options for ${path}`);
-    debug.group(() => `Direct options`);
-    let options = advanceWithOperation(
-      supergraphSchema,
-      path,
-      operation,
-      updatedContext,
-      subgraphSimultaneousPaths.conditionResolver
-    );
-    debug.groupEnd(() => advanceOptionsToString(options));
-    // If we got some options, there is number of cases where there is no point looking for indirect paths:
-    // - if the operation is terminal: this mean we just found a direct edge that is terminal, so no
-    //   indirect options could be better (this is no true for non-terminal where the direct route may
-    //   end up being a dead end later).
-    // - if we get options, but an empty set of them, which signifies the operation correspond to unsatisfiable
-    //   conditions and we can essentially ignore it.
-    // - if the operation is a fragment in general: if we were able to find a direct option, that means the type
-    //   is known in the "current" subgraph, and so we'll still be able to take any indirect edges that we could
-    //   take now later, for the follow-up operation. And pushing the decision will give us more context and may
-    //   avoid a bunch of state explosion in practice.
-    if (options && (options.length === 0 || isTerminalOperation(operation) || operation.kind === 'FragmentElement')) {
-      debug.groupEnd(() => `Final options for ${path}: ${advanceOptionsToString(options)}`);
-      // Note that options is empty, that means this particular "branch" is unsatisfiable, so we should just ignore it.
-      if (options.length > 0) {
-        optionsForEachPath.push(options);
+    // If we're just entering a deferred section, then we will need to re-enter subgraphs, so we should not consider
+    // direct options and instead force and indirect path.
+    if (!path.deferOnTail) {
+      debug.group(() => `Direct options`);
+      options = advanceWithOperation(
+        supergraphSchema,
+        path,
+        operation,
+        updatedContext,
+        subgraphSimultaneousPaths.conditionResolver
+      );
+      debug.groupEnd(() => advanceOptionsToString(options));
+      // If we got some options, there is number of cases where there is no point looking for indirect paths:
+      // - if the operation is terminal: this mean we just found a direct edge that is terminal, so no
+      //   indirect options could be better (this is no true for non-terminal where the direct route may
+      //   end up being a dead end later).
+      // - if we get options, but an empty set of them, which signifies the operation correspond to unsatisfiable
+      //   conditions and we can essentially ignore it.
+      // - if the operation is a fragment in general: if we were able to find a direct option, that means the type
+      //   is known in the "current" subgraph, and so we'll still be able to take any indirect edges that we could
+      //   take now later, for the follow-up operation. And pushing the decision will give us more context and may
+      //   avoid a bunch of state explosion in practice.
+      if (options && (options.length === 0 || isTerminalOperation(operation) || operation.kind === 'FragmentElement')) {
+        debug.groupEnd(() => `Final options for ${path}: ${advanceOptionsToString(options)}`);
+        // Note that options is empty, that means this particular "branch" is unsatisfiable, so we should just ignore it.
+        if (options.length > 0) {
+          optionsForEachPath.push(options);
+        }
+        continue;
       }
-      continue;
     }
-    // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
+
+    // If there was not valid direct path (or we didn't check those because we enter a defer), that's ok, we'll just try with non-collecting edges.
     options = options ?? [];
     debug.group(`Computing indirect paths:`);
     // Then adds whatever options can be obtained by taking some non-collecting edges first.
@@ -1555,6 +1582,23 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
       }
       debug.groupEnd();
     }
+
+    // If we were entering a @defer, we've skipped the potential "direct" options because we need an "indirect" one (a key/root query)
+    // to be able to actualy defer. But in rare cases, it's possible we actually couldn't resolve the key fields needed to take a key
+    // but could still find a direct path. If so, it means it's a corner case where we cannot do query-planner-based-@defer and have
+    // to fall back on not deferring.
+    if (options.length === 0 && path.deferOnTail) {
+      debug.group(() => `Cannot defer (no indirect options); falling back to direct options`);
+      options = advanceWithOperation(
+        supergraphSchema,
+        path,
+        operation,
+        updatedContext,
+        subgraphSimultaneousPaths.conditionResolver
+      ) ?? [];
+      debug.groupEnd(() => advanceOptionsToString(options));
+    }
+
     // At this point, if options is empty, it means we found no ways to advance the operation for this path, so we should return undefined.
     if (options.length === 0) {
       debug.groupEnd(); // end of this input path
@@ -1726,7 +1770,7 @@ function advanceWithOperation<V extends Vertex>(
         // local implementations).
         // TODO: once we add @key on interfaces, this will have to be updated.
         const implementations = path.tailPossibleRuntimeTypes();
-        debug.log(() => itfOptions
+        debug.log(() => !itfOptions
           ? `No direct edge: type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}]`
           : `Type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}] as 2nd option`
         );
@@ -1803,7 +1847,7 @@ function advanceWithOperation<V extends Vertex>(
       // edge but if operation does have directives, we record it.
       debug.groupEnd(() => `No edge to take for condition ${operation} from current type ${currentType}`);
       const updatedPath = operation.appliedDirectives.length > 0
-        ? path.add(operation, null, noConditionsResolution)
+        ? path.add(operation, null, noConditionsResolution, operation.deferDirectiveArgs())
         : path;
       return [[ updatedPath ]];
     }
@@ -1816,7 +1860,7 @@ function advanceWithOperation<V extends Vertex>(
         if (edge) {
           assert(!edge.conditions, "TypeCast collecting edges shouldn't have conditions");
           debug.groupEnd(() => `Using type-casting edge for ${typeName} from current type ${currentType}`);
-          return [[path.add(operation, edge, noConditionsResolution)]];
+          return [[path.add(operation, edge, noConditionsResolution, operation.deferDirectiveArgs())]];
         }
         // Otherwise, checks what is the intersection between the possible runtime types of the current type
         // and the ones of the cast. We need to be able to go into all those types simultaneously.
@@ -1861,7 +1905,7 @@ function advanceWithOperation<V extends Vertex>(
         if (isAbstractType(conditionType) && possibleRuntimeTypes(conditionType).some(t => t.name == currentType.name)) {
           debug.groupEnd(() => `${typeName} is a super-type of current type ${currentType}: no edge to take`);
           const updatedPath = operation.appliedDirectives.length > 0
-            ? path.add(operation, null, noConditionsResolution)
+            ? path.add(operation, null, noConditionsResolution, operation.deferDirectiveArgs())
             : path;
           return [[ updatedPath ]];
         }

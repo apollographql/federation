@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { PlanNode, QueryPlan } from '../';
+import { DeferredNode, PlanNode, QueryPlan } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {
@@ -42,10 +42,21 @@ function printNode(
 
   const indentationNext = indentation + config.indent;
 
+  const printOperation = (operationString: string, indent: string) => 
+    printer(
+      flattenEntitiesField(parse(operationString)),
+      config,
+      indent,
+      depth,
+      refs,
+      printer,
+    );
+
   switch (node.kind) {
     case 'Fetch':
+      const idStr = node.id ? `, id: ${node.id}` : '';
       result +=
-        `Fetch(service: "${node.serviceName}")` +
+        `Fetch(service: "${node.serviceName}"${idStr})` +
         ' {' +
         config.spacingOuter +
         (node.requires
@@ -62,20 +73,26 @@ function printNode(
             ' =>' +
             config.spacingOuter
           : '') +
-        printer(
-          flattenEntitiesField(parse(node.operation)),
-          config,
-          indentationNext,
-          depth,
-          refs,
-          printer,
-        ) +
+        printOperation(node.operation, indentationNext) +
         config.spacingOuter +
         indentation +
         '}';
       break;
     case 'Flatten':
       result += `Flatten(path: "${node.path.join('.')}")`;
+      break;
+    case 'Defer':
+      const primary = node.primary;
+      const indentationInner = indentationNext + config.indent;
+      result +=
+        'Defer {' + config.spacingOuter +
+        indentationNext + `Primary {` + config.spacingOuter +
+        printOperation(primary.subselection, indentationInner) + ':' + config.spacingOuter +
+        indentationInner + printNode(primary.node, config, indentationInner, depth, refs, printer) + config.spacingOuter +
+        indentationNext + '}, [' +
+        printDeferredNodes(node.deferred, config, indentationNext, depth, refs, printer) +
+        ']' + config.spacingOuter +
+        indentation + '}';
       break;
     default:
       result += node.kind;
@@ -124,6 +141,69 @@ function printNodes(
     result += config.spacingOuter + indentation;
   }
 
+  return result;
+}
+
+function printDeferredNodes(
+  nodes: DeferredNode[],
+  config: Config,
+  indentation: string,
+  depth: number,
+  refs: Refs,
+  printer: any,
+): string {
+  let result = config.spacingOuter;
+
+  const indentationNext = indentation + config.indent;
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (!node) continue;
+
+    result +=
+      indentationNext +
+      printDeferredNode(node, config, indentationNext, depth, refs, printer);
+
+    if (i < nodes.length - 1) {
+      result += ',' + config.spacingInner;
+    } else if (!config.min) {
+      result += ',';
+    }
+  }
+  result += config.spacingOuter + indentation;
+
+  return result;
+}
+
+function printDeferredNode(
+  node: DeferredNode,
+  config: Config,
+  indentation: string,
+  depth: number,
+  refs: Refs,
+  printer: any,
+): string {
+  const printOperation = (operationString: string) => 
+    printer(
+      flattenEntitiesField(parse(operationString)),
+      config,
+      indentationNext,
+      depth,
+      refs,
+      printer,
+    );
+
+  const indentationNext = indentation + config.indent;
+  const dependsStr = node.depends.map(({id, deferLabel}) => id + (deferLabel ? (`:"${deferLabel}"`) : '')).join(', ');
+  const pathStr = node.path.join('.');
+  const labelStr = node.label ? `, label: "${node.label}"` : '';
+  let result = `Deferred(depends: [${dependsStr}], path: "${pathStr}"${labelStr}) {`;
+  if (node.subselection) {
+    result += config.spacingOuter + printOperation(node.subselection) + ':';
+  }
+  if (node.node) {
+    result += config.spacingOuter + indentationNext + printNode(node.node, config, indentationNext, depth, refs, printer);
+  }
+  result += config.spacingOuter + indentation + '}';
   return result;
 }
 

@@ -208,6 +208,10 @@ export class Edge {
     this._conditions.freeze();
   }
 
+  isKeyEdgeToSelf(): boolean {
+    return this.transition.kind === 'KeyResolution' && this.head === this.tail;
+  }
+
   toString(): string {
     return `${this.head} -> ${this.tail} (${this.label()})`;
   }
@@ -339,10 +343,27 @@ export class QueryGraph {
    * @param vertex - the vertex for which to return out edges. This method _assumes_ that
    *   the provided vertex is a vertex of this query graph (and its behavior is undefined
    *   if it isn't).
+   * @param includeKeyEdgesToSelf - whether key edges that stay on the same vertex should be
+   *   included. This default to `false` are those are rarely useful. More precisely, the
+   *   only current use of key self-edges is for @defer where they may be needed to re-enter
+   *   the current subgraph in a deferred section.
    * @returns the list of all the edges out of this vertex.
    */
-  outEdges(vertex: Vertex): readonly Edge[] {
-    return this.adjacencies[vertex.index];
+  outEdges(vertex: Vertex, includeKeyEdgesToSelf: boolean = false): readonly Edge[] {
+    const allEdges = this.adjacencies[vertex.index];
+    return includeKeyEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyEdgeToSelf())
+  }
+
+  /**
+   * The number of edges out of the provided vertex.
+   *
+   * This is a shortcut for `this.outEdges(vertex, true).length`, and the reason it considers
+   * edge-to-self by default while `this.outEdges` doesn't is that this method is generally
+   * used to size other arrays indexed by edges index, and so we want to consider all edges
+   * in general.
+   */
+  outEdgesCount(vertex: Vertex): number {
+    return this.adjacencies[vertex.index].length;
   }
 
   /**
@@ -365,7 +386,7 @@ export class QueryGraph {
    * @returns whether the provided vertex is terminal.
    */
   isTerminal(vertex: Vertex): boolean {
-    return this.outEdges(vertex).length == 0;
+    return this.outEdgesCount(vertex) === 0;
   }
 
   /**
@@ -442,7 +463,7 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    */
   setEdgeState(edge: Edge, state: EdgeState) {
     if (!this.adjacenciesStates[edge.head.index]) {
-      this.adjacenciesStates[edge.head.index] = new Array(this.graph.outEdges(edge.head).length);
+      this.adjacenciesStates[edge.head.index] = new Array(this.graph.outEdgesCount(edge.head));
     }
     this.adjacenciesStates[edge.head.index][edge.index] = state;
   }
@@ -622,7 +643,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
             continue;
           }
 
-          // The @key directive creates an edge from every other subgraphs (having that type)
+          // The @key directive creates an edge from every subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
           // that the service of the current subgraph can be queried for the entity (through
           // _entities) as long as "the other side" can provide the proper field values.
@@ -635,10 +656,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
           const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
+          // Note that each subgraph has a key edge to itself (when i === j below). We usually ignore
+          // this edges, but they exists for the special case of @defer, where we technically may have
+          // to take such "edge-to-self" as a mean to "re-enter" a subgraph for a deferred section.
           for (const [j, otherSubgraph] of subgraphs.entries()) {
-            if (i == j) {
-              continue;
-            }
             const otherVertices = otherSubgraph.verticesForType(type.name);
             if (otherVertices.length == 0) {
               continue;

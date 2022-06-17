@@ -3,7 +3,7 @@ import { HeadersInit } from 'node-fetch';
 import { GraphQLRequestContextExecutionDidStart } from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { GraphQLDataSource } from './datasources/types';
-import { QPOptions, QueryPlan } from '@apollo/query-planner';
+import { QueryPlan, QueryPlannerConfig } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
 import { ServiceDefinition } from "@apollo/federation-internals";
@@ -130,7 +130,7 @@ interface GatewayConfigBase {
   fetcher?: Fetcher;
   serviceHealthCheck?: boolean;
 
-  queryPlannerOptions?: QPOptions;
+  queryPlannerOptions?: QueryPlannerConfig;
 }
 
 // TODO(trevor:removeServiceList)

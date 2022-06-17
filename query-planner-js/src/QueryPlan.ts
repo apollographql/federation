@@ -65,34 +65,39 @@ export interface DeferNode {
   kind: 'Defer',
   // The "primary" part of a defer, that is the non-deferred part (though could be deferred itself for a nested defer).
   primary: {
-    // Optional path, set if and only if the defer node is a nested defer. If set, the `subselection` starts at that `path`.
-    path?: ResponsePath[],
     // The part of the original query that "selects" the data to send in that primary response (once the plan in `node` completes).
+    // Note that if this `DeferNode` is nested, then it must come inside the `DeferredNode` in which it is nested, and in that
+    // case this subselection will start that that parent `DeferredNode.path`.
     subselection: string,
     // The plan to get all the data for that primary part
     node: PlanNode,
   },
   // The "deferred" parts of the defer (note that it's an array). Each of those deferred elements will correspond to
   // a different chunk of the response to the client (after the initial non-deferred one that is).
-  deferred: {
-    // References one or more fetch node(s) (by `id`) within `primary.node`. The plan of this deferred part should not be started before all those fetches returns.
-    depends: {
-      id: string,
-      // If `FetchNode` pointed by `id` has `hasDefers=true` and this value is set (to the label of one of the defer of the pointed fetch), then this deferred "block"
-      // .
-      deferLabel?: string,
-    }[],
-    // The optional defer label.
-    label?: string,
-    // Path to the @defer this correspond to. The `subselection` starts at that `path`.
-    path: ResponsePath[],
-    // The part of the original query that "selects" the data to send in that deferred response (once the plan in `node` completes). Will be set _unless_ `node` is a `DeferNode` itself.
-    subselection?: string,
-    // The plan to get all the data for that deferred part. Usually set, but can be undefined for a `@defer` where everything has been fetched in the "primary block", that is when
-    // this deferred only exists to expose what should be send to the upstream client in a deferred response, but without declaring additional fetches (which happens for @defer that
-    // cannot be handled through query planner and where the defer cannot be passed through to the subgraph).
-    node?: PlanNode,
+  deferred: DeferredNode[],
+}
+
+// Note that `DeferredNode` is not a "full" node in the sense that it is not part of the `PlanNode`
+// type union, because it never appears alone, it is a sub-part of `DeferNode`. It is nonetheless
+// useful to extract it as a named type for use in the code generating plans.
+export interface DeferredNode {
+  // References one or more fetch node(s) (by `id`) within `primary.node`. The plan of this deferred part should not be started before all those fetches returns.
+  depends: {
+    id: string,
+    // If `FetchNode` pointed by `id` has `hasDefers=true` and this value is set (to the label of one of the defer of the pointed fetch), then this deferred "block"
+    // .
+    deferLabel?: string,
   }[],
+  // The optional defer label.
+  label?: string,
+  // Path to the @defer this correspond to. The `subselection` starts at that `path`.
+  path: ResponsePath,
+  // The part of the original query that "selects" the data to send in that deferred response (once the plan in `node` completes). Will be set _unless_ `node` is a `DeferNode` itself.
+  subselection?: string,
+  // The plan to get all the data for that deferred part. Usually set, but can be undefined for a `@defer` where everything has been fetched in the "primary block", that is when
+  // this deferred only exists to expose what should be send to the upstream client in a deferred response, but without declaring additional fetches (which happens for @defer that
+  // cannot be handled through query planner and where the defer cannot be passed through to the subgraph).
+  node?: PlanNode,
 }
 
 /**

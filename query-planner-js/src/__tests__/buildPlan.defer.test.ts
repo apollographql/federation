@@ -1,0 +1,1609 @@
+import { operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import gql from 'graphql-tag';
+import { QueryPlanner } from '@apollo/query-planner';
+import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./buildPlan.test";
+
+function composeAndCreatePlannerWithDefer(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+  return composeAndCreatePlannerWithOptions(services, { deferStreamSupport: { enableDefer : true }});
+}
+
+describe('handles simple @defer', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t : T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        v1: Int
+        v2: Int
+      }
+    `
+  }
+
+  test('without defer-support enabled', () => {
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          ... @defer {
+            v2
+          }
+        }
+      }
+    `);
+
+    // Without defer-support enabled, we should get the same plan than if `@defer` wasn't there.
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  v1
+                  v2
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  test('with defer-support enabled', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          ... @defer {
+            v2
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                v1
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1", id: 0) {
+                {
+                  t {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v1
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                v2
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v2
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});
+
+describe('non-router-based-defer', () => {
+  test('@defer on value type', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v: V
+        }
+
+        type V {
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v {
+            a
+            ... @defer {
+              b
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // We cannot handle a @defer on value type at the query planning level, so we expect nothing to be
+    // deferred. However, we still want the `DeferNode` structure with the proper sub-selections so that
+    // the execution can create responses that match the actual @defer.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                v {
+                  a
+                }
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1") {
+                {
+                  t {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v {
+                        a
+                        b
+                      }
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [], path: "t.v") {
+              {
+                b
+              }:
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('@defer on entity but with no @key', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type T @key(fields: "id", resolvable: false) {
+          id: ID!
+          v1: String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v2: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ... @defer {
+            v1
+          }
+          v2
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // While the @defer in the operation is on an entity, the @key in the first subgraph
+    // is explicitely marked as non-resovable, so we cannot use it to actually defer the
+    // fetch to `v1`. Note that example still compose because, defer excluded, `v1` can
+    // still be fetched for all queries (which is only `t` here).
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                v2
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1") {
+                {
+                  t {
+                    __typename
+                    id
+                    v1
+                  }
+                }
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v2
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [], path: "t") {
+              {
+                v1
+              }:
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('@defer on value type but with entity afterwards', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v: V
+        }
+
+        type V {
+          a: Int
+          u: U
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v {
+            a
+            ... @defer {
+              u {
+                x
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // While we cannot defer the initial resolving of `u`, we can defer the fetch of it's `x` field,
+    // and so ensuring we do it, but also that the subselections do respect what is is the @defer and
+    // what isn't.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                v {
+                  a
+                }
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1") {
+                {
+                  t {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2", id: 0) {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v {
+                        a
+                        u {
+                          __typename
+                          id
+                        }
+                      }
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [0], path: "t.v") {
+              {
+                u {
+                  x
+                }
+              }:
+              Flatten(path: "t.v.u") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on U {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      x
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});
+
+test('@defer resuming in same subgraph', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t : T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: String
+        v1: String
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        v0
+        ... @defer {
+          v1
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v0
+            }
+          }:
+          Fetch(service: "Subgraph1", id: 0) {
+            {
+              t {
+                __typename
+                v0
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [0], path: "t") {
+            {
+              v1
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v1
+                  }
+                }
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('@defer multiple fields in different subgraphs', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t : T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: String
+        v1: String
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        v2: String
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        v3: String
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        v0
+        ... @defer {
+          v1
+          v2
+          v3
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v0
+            }
+          }:
+          Fetch(service: "Subgraph1", id: 0) {
+            {
+              t {
+                __typename
+                v0
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [0], path: "t") {
+            {
+              v1
+              v2
+              v3
+            }:
+            Parallel {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph3") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v3
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v1
+                    }
+                  }
+                },
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('multiple (non-nested) @defer + label handling', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t : T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: String
+        v1: String
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        v2: String
+        v3: U
+      }
+
+      type U @key(fields: "id") {
+        id: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type U @key(fields: "id") {
+        id: ID!
+        x: Int
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        v0
+        ... @defer(label: "defer_v1") {
+          v1
+        }
+        ... @defer {
+          v2
+        }
+        v3 {
+          x
+          ... @defer(label: "defer_in_v3") {
+            y
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v0
+              v3 {
+                x
+              }
+            }
+          }:
+          Sequence {
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  id
+                  v0
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2", id: 1) {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v3 {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "t.v3") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on U {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on U {
+                    x
+                  }
+                }
+              },
+            },
+          }
+        }, [
+          Deferred(depends: [0], path: "t") {
+            {
+              v2
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v2
+                  }
+                }
+              },
+            }
+          },
+          Deferred(depends: [0], path: "t", label: "defer_v1") {
+            {
+              v1
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v1
+                  }
+                }
+              },
+            }
+          },
+          Deferred(depends: [1], path: "t.v3", label: "defer_in_v3") {
+            {
+              y
+            }:
+            Flatten(path: "t.v3") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on U {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on U {
+                    y
+                  }
+                }
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('nested @defer', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        me : User
+      }
+
+      type User @key(fields: "id") {
+        id: ID!
+        name: String
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type User @key(fields: "id") {
+        id: ID!
+        messages: [Message]
+      }
+
+      type Message @key(fields: "id") {
+        id: ID!
+        body: String
+        author: User
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      me {
+        name
+        ... on User @defer {
+          messages {
+            body
+            author {
+              name
+              ... @defer {
+                messages {
+                  body
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            me {
+              name
+            }
+          }:
+          Fetch(service: "Subgraph1", id: 0) {
+            {
+              me {
+                __typename
+                name
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [0], path: "me") {
+            Defer {
+              Primary {
+                {
+                  ... on User {
+                    messages {
+                      body
+                      author {
+                        name
+                      }
+                    }
+                  }
+                }:
+                Sequence {
+                  Flatten(path: "me") {
+                    Fetch(service: "Subgraph2", id: 1) {
+                      {
+                        ... on User {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on User {
+                          messages {
+                            body
+                            author {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                      }
+                    },
+                  },
+                  Flatten(path: "me.messages.@.author") {
+                    Fetch(service: "Subgraph1") {
+                      {
+                        ... on User {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on User {
+                          name
+                        }
+                      }
+                    },
+                  },
+                }
+              }, [
+                Deferred(depends: [1], path: "me.messages.@.author") {
+                  {
+                    messages {
+                      body
+                    }
+                  }:
+                  Flatten(path: "me.messages.@.author") {
+                    Fetch(service: "Subgraph2") {
+                      {
+                        ... on User {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on User {
+                          messages {
+                            body
+                          }
+                        }
+                      }
+                    },
+                  }
+                },
+              ]
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+describe('@defer on mutation', () => {
+  test('mutations on same subgraph', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type Mutation {
+          update1: T
+          update2: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v0: String
+          v1: String
+        }
+      `
+
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v2: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      mutation mut {
+        update1 {
+          v0
+          ... @defer {
+            v1
+          }
+        }
+        update2 {
+          v1
+          ... @defer {
+            v0
+            v2
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // What matters here is that the updates (that go to different fields) are correctly done in sequence,
+    // and that defers have proper dependency set.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              update1 {
+                v0
+              }
+              update2 {
+                v1
+              }
+            }:
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                update1 {
+                  __typename
+                  v0
+                  id
+                }
+                update2 {
+                  __typename
+                  v1
+                  id
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "update1") {
+              {
+                v1
+              }:
+              Flatten(path: "update1") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v1
+                    }
+                  }
+                },
+              }
+            },
+            Deferred(depends: [0], path: "update2") {
+              {
+                v0
+                v2
+              }:
+              Parallel {
+                Flatten(path: "update2") {
+                  Fetch(service: "Subgraph2") {
+                    {
+                      ... on T {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on T {
+                        v2
+                      }
+                    }
+                  },
+                },
+                Flatten(path: "update2") {
+                  Fetch(service: "Subgraph1") {
+                    {
+                      ... on T {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on T {
+                        v0
+                      }
+                    }
+                  },
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('mutations on different subgraphs', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type Mutation {
+          update1: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v0: String
+          v1: String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation {
+          update2: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v2: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      mutation mut {
+        update1 {
+          v0
+          ... @defer {
+            v1
+          }
+        }
+        update2 {
+          v1
+          ... @defer {
+            v0
+            v2
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // What matters here is that the updates (that go to different fields) are correctly done in sequence,
+    // and that defers have proper dependency set.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              update1 {
+                v0
+              }
+              update2 {
+                v1
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1", id: 0) {
+                {
+                  update1 {
+                    __typename
+                    v0
+                    id
+                  }
+                }
+              },
+              Fetch(service: "Subgraph2", id: 1) {
+                {
+                  update2 {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "update2") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v1
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [0], path: "update1") {
+              {
+                v1
+              }:
+              Flatten(path: "update1") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v1
+                    }
+                  }
+                },
+              }
+            },
+            Deferred(depends: [1], path: "update2") {
+              {
+                v0
+                v2
+              }:
+              Parallel {
+                Flatten(path: "update2") {
+                  Fetch(service: "Subgraph2") {
+                    {
+                      ... on T {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on T {
+                        v2
+                      }
+                    }
+                  },
+                },
+                Flatten(path: "update2") {
+                  Fetch(service: "Subgraph1") {
+                    {
+                      ... on T {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on T {
+                        v0
+                      }
+                    }
+                  },
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});
+
+test.skip('multi-dependency deferred section', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id0") {
+        id0: ID!
+        x: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id0") @key(fields: "id1") {
+        id0: ID!
+        id1: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id0") @key(fields: "id2") {
+        id0: ID!
+        id2: ID!
+      }
+    `
+  }
+
+  const subgraph4 = {
+    name: 'Subgraph4',
+    typeDefs: gql`
+      type T @key(fields: "id1 id2") {
+        id1: ID!
+        id2: ID!
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3, subgraph4);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        x
+        ... @defer {
+          y
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+  `);
+});
+
+describe('@require', () => {
+  test('requirements of deferred fields are deferred', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v1: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v2: Int @requires(fields: "v3")
+          v3: Int @external
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v3: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          ... @defer {
+            v2
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                v1
+              }
+            }:
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  v1
+                  id
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                v2
+              }:
+              Sequence {
+                Flatten(path: "t") {
+                  Fetch(service: "Subgraph3") {
+                    {
+                      ... on T {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on T {
+                        v3
+                      }
+                    }
+                  },
+                },
+                Flatten(path: "t") {
+                  Fetch(service: "Subgraph2") {
+                    {
+                      ... on T {
+                        __typename
+                        v3
+                        id
+                      }
+                    } =>
+                    {
+                      ... on T {
+                        v2
+                      }
+                    }
+                  },
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});
+
+describe('@require', () => {
+  test('@provides are ignored for deferred fields', () => {
+    // Note: this test tests the currently implemented behaviour, which ignore @provides when it
+    // concerns a deferred field. However, this is the behaviour implemented at the moment more
+    // because it is the simplest option and it's not illogical, but it is not the only possibly
+    // valid option. In particular, one could make the case that if a subgraph has a `@provides`,
+    // then this probably means that the subgraph can provide the field "cheaply" (why have
+    // a `@provides` otherwise?), and so that ignoring the @defer (instead of ignoring the @provides)
+    // is preferable. We can change to this behaviour later if we decide that it is preferable since
+    // the responses sent to the end-user would be the same regardless.
+
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T @provides(fields: "v2")
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v1: Int
+          v2: Int @external
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v2: Int @shareable
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          ... @defer {
+            v2
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                v1
+              }
+            }:
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  v1
+                  id
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                v2
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v2
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});

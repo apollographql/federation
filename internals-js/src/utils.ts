@@ -27,6 +27,15 @@ export class MultiMap<K, V> extends Map<K, V[]> {
     }
     return this;
   }
+
+  addAll(otherMap: MultiMap<K, V>): this {
+    for (const [k, vs] of otherMap.entries()) {
+      for (const v of vs) {
+        this.add(k, v);
+      }
+    }
+    return this;
+  }
 }
 
 /**
