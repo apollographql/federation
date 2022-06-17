@@ -16,7 +16,7 @@ export type CompositionOptions = {
 
 export const validateCompositionOptions = (toMerge: Subgraphs, options?: CompositionOptions): GraphQLError[] => {
   // for mergeDirectives, we want to validate that every directive specified starts with a '@'
-  // and exists on some subgraph. Also ensure that non of the directives are builtin or federation directives
+  // and exists on some subgraph. Also ensure that none of the directives are builtin or federation directives
   const subgraphs = toMerge.values();
   const mergeDirectives = options?.mergeDirectives ?? [];
   const errors: GraphQLError[] = [];

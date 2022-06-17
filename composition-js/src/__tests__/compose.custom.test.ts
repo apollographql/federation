@@ -176,6 +176,7 @@ describe('composing custom directives', () => {
     };
     const result = composeServices([subgraphA, subgraphB]);
     const schema = expectNoErrorsOrHints(result);
+    expectNoDirectiveOnElement(schema, 'User', 'foo');
     expectNoDirectiveOnElement(schema, 'User.description', 'foo');
     expect(schema.directive('foo')?.name).toBe('foo');
     expect(schema.directive('foo')?.locations).toEqual(['QUERY']);
@@ -277,6 +278,39 @@ describe('composing custom directives', () => {
     expect(result.errors).toBeDefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
+  });
+
+  it('type system directive, incompatible definitions, not exposed', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        directive @foo(name: String!, desc: String!) on FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+
+        type User @key(fields: "id") {
+          id: Int
+          name: String @foo(name: "graphA", desc: "descA")
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        directive @foo(name: String!) on FIELD_DEFINITION | OBJECT
+        type User @key(fields: "id") @foo(name: "objectB") {
+          id: Int
+          description: String @foo(name: "graphB")
+        }
+      `,
+    };
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrorsOrHints(result);
+    expectNoDirectiveOnElement(schema, 'User', 'foo');
+    expectNoDirectiveOnElement(schema, 'User.description', 'foo');
+    expect(schema.directive('foo')).toBeUndefined();
   });
 
   it('type-system directive, not exposed', () => {
@@ -409,6 +443,7 @@ describe('composing custom directives', () => {
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
     expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectA'});
+    expect(schema.directive('foo')?.locations).toEqual(['FIELD_DEFINITION', 'OBJECT']);
   });
 
   it('type-system directive, core feature, not exposed', () => {
