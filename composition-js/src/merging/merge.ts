@@ -854,6 +854,17 @@ class Merger {
   private hintOnInconsistentEntity(sources: (ObjectType | undefined)[], dest: ObjectType): boolean {
     const sourceAsEntity: ObjectType[] = [];
     const sourceAsNonEntity: ObjectType[] = [];
+    for (const source of sources) {
+      if (!source) {
+        continue;
+      }
+      const keyDirectiveName = federationMetadata(source.schema())?.keyDirective().name ?? 'key';
+      if (source.hasAppliedDirective(keyDirectiveName)) {
+        sourceAsEntity.push(source);
+      } else {
+        sourceAsNonEntity.push(source);
+      }
+    }
     sources.forEach((source, idx) => {
       if (source) {
         if (source.hasAppliedDirective(this.metadata(idx).keyDirective().name)) {
@@ -871,7 +882,10 @@ class Merger {
         dest,
         sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
-        type => type.hasAppliedDirective('key') ? 'yes' : 'no',
+        type => {
+          const metadata = federationMetadata(type.schema());
+          return metadata && type.hasAppliedDirective(metadata.keyDirective()) ? 'yes' : 'no';
+        },
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
         (_, subgraphs) => `it has no @key in ${subgraphs}`,
         (_, subgraphs) => ` but has some @key in ${subgraphs}`,
