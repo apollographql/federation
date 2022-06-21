@@ -357,14 +357,14 @@ class Merger {
       // is coming and will remove the hard-coding.
       return this.mergedFederationDirectiveNames.has(definition.name)
         || isGraphQLBuiltInDirective(definition.definition!)
-        || this.exposedDirectives().includes(definition.name);
+        || this.mergedDirectives().includes(definition.name);
     } else if (isGraphQLBuiltInDirective(definition)) {
       // We never "merge" graphQL built-in definitions, since they are built-in and
       // don't need to be defined.
       return false;
     }
     return definition.locations.some(loc => executableDirectiveLocations.includes(loc))
-      || this.exposedDirectives().includes(definition.name);
+      || this.mergedDirectives().includes(definition.name);
   }
 
   merge(): MergeResult {
@@ -498,7 +498,7 @@ class Merger {
         }
         if (!this.merged.directive(directive.name)) {
           const def = this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
-          if (this.exposedDirectives().includes(directive.name)) {
+          if (this.mergedDirectives().includes(directive.name)) {
             customDirectiveMap.set(directive.name, def);
           }
         }
@@ -1864,7 +1864,7 @@ class Merger {
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-    const repeatable = sources[0]?.repeatable ?? false;
+    const repeatable = sources[0].repeatable;
     const inconsistentRepeatable = sources.some(src => src.repeatable !== repeatable);
     const { consistentLocations, locations } = getLocationsFromDirectiveDefs(sources);
 
@@ -2303,7 +2303,7 @@ class Merger {
   /**
    * Get rid of leading '@' if present and return the list of directives passed to the Merger object
    */
-  private exposedDirectives() {
+  private mergedDirectives() {
     return (this.options.mergeDirectives ?? []).map(directive => directive[0] === '@' ? directive.slice(1) : directive);
   }
 }
