@@ -244,16 +244,29 @@ function locationString(locations: DirectiveLocation[]): string {
 }
 
 /**
- * Given a list of directive sources, get the set of locations, removing duplicates
+ * Given a list of directive sources, get the set of locations, removing duplicates.
+ * Executable locations are merged by union while non-executable locations are merged by intersection
  */
 const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined)[]) => {
   let consistentLocations = true;
+  const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
   const locationSet = new Set<DirectiveLocation>();
+
+  // first do the executable locations
+  executableDirectiveLocations.forEach(loc => {
+    if (definedSources.every(src => src.locations.includes(loc))) {
+      locationSet.add(loc);
+    }
+  });
+
+  // next do the type system locations (note that executable locations are filtered out)
   sources
     .filter((src): src is DirectiveDefinition => src !== undefined)
     .forEach((src, idx) => {
       const prevLength = locationSet.size;
-      src.locations.forEach(locationSet.add, locationSet);
+      src.locations
+        .filter(loc => !executableDirectiveLocations.includes(loc))
+        .forEach(locationSet.add, locationSet);
       if (idx > 0 && prevLength !== locationSet.size) {
         consistentLocations = false;
       }
@@ -490,35 +503,16 @@ class Merger {
     // However, in practice and for "execution" directives, we will only keep the the ones
     // that are in _all_ subgraphs. But we're do the remove later, and while this is all a
     // bit round-about, it's a tad simpler code-wise to do this way.
-    const customDirectiveMap = new Map<string, DirectiveDefinition>();
     for (const subgraph of this.subgraphsSchema) {
       for (const directive of subgraph.allDirectives()) {
         if (!this.isMergedDirective(directive)) {
           continue;
         }
         if (!this.merged.directive(directive.name)) {
-          const def = this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
-          if (this.mergedDirectives().includes(directive.name)) {
-            customDirectiveMap.set(directive.name, def);
-          }
+          this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
         }
       }
     }
-
-    // now for all custom directives, make sure locations are properly added
-    customDirectiveMap.forEach((def, directiveName) => {
-      const definitions: DirectiveDefinition[] = this.subgraphsSchema
-        .map(schema => schema.directive(directiveName))
-        .filter((def): def is DirectiveDefinition => def !== undefined);
-      // if any directive definition has a executable location, we'll just add all locations
-      // but if it's a type-system only directive, we can attempt to merge the directives together
-      if (definitions.some(d => d.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
-        const { locations } = getLocationsFromDirectiveDefs(definitions);
-        def.addLocations(...locations);
-      } else {
-        this.mergeTypeSystemDirectiveDefinition(definitions, def);
-      }
-    });
   }
 
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
@@ -1848,8 +1842,18 @@ class Merger {
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
     this.mergeDescription(sources, dest);
-    if (sources.some((s) => s && s.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
+
+    const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
+    if (definedSources.some(s => s.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
+      if (this.mergedDirectives().includes(dest.name)) {
+        const { locations } = getLocationsFromDirectiveDefs(definedSources);
+        dest.addLocations(...locations);
+      }
       this.mergeExecutableDirectiveDefinition(sources, dest);
+    } else {
+      if (this.mergedDirectives().includes(dest.name)) {
+        this.mergeTypeSystemDirectiveDefinition(definedSources, dest);
+      }
     }
   }
 
