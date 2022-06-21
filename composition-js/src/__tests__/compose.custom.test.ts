@@ -571,7 +571,8 @@ describe('invocation errors', () => {
         }
       `,
     };
-  })
+  });
+
   it('directive does not exist', () => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tagg']});
     expect(result.errors?.length).toBe(1);
@@ -598,6 +599,49 @@ describe('invocation errors', () => {
 
   it('custom @tag still composes as long as federation version is renamed', () => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tag']});
+    const schema = expectNoErrorsOrHints(result);
+    expectDirectiveOnElement(schema, 'User.name', 'tag', { name: 'graphA'});
+    expectDirectiveOnElement(schema, 'User.description', 'tag', { name: 'graphB'});
+    expect(schema.directive('tag')?.name).toBe('tag');
+    expect(schema.directive('tag')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION']);
+  });
+
+  it('custom @tag still composes with no import', () => {
+    const subgraphC = {
+      name: 'subgraphC',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+        directive @tag(name: String!) on QUERY | FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+
+        type User @federation__key(fields: "id") {
+          id: Int
+          name: String @tag(name: "graphA")
+        }
+      `,
+    };
+
+    const subgraphD = {
+      name: 'subgraphD',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+        directive @tag(name: String!) on QUERY | FIELD_DEFINITION
+        type User @federation__key(fields: "id") {
+          id: Int
+          description: String @tag(name: "graphB")
+        }
+      `,
+    };
+
+    const result = composeServices([subgraphC, subgraphD], { mergeDirectives: ['@tag']});
     const schema = expectNoErrorsOrHints(result);
     expectDirectiveOnElement(schema, 'User.name', 'tag', { name: 'graphA'});
     expectDirectiveOnElement(schema, 'User.description', 'tag', { name: 'graphB'});

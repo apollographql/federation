@@ -854,16 +854,16 @@ class Merger {
   private hintOnInconsistentEntity(sources: (ObjectType | undefined)[], dest: ObjectType): boolean {
     const sourceAsEntity: ObjectType[] = [];
     const sourceAsNonEntity: ObjectType[] = [];
-    for (const source of sources) {
-      if (!source) {
-        continue;
+    sources.forEach((source, idx) => {
+      if (source) {
+        if (source.hasAppliedDirective(this.metadata(idx).keyDirective().name)) {
+          sourceAsEntity.push(source);
+        } else {
+          sourceAsNonEntity.push(source);
+        }
       }
-      if (source.hasAppliedDirective('key')) {
-        sourceAsEntity.push(source);
-      } else {
-        sourceAsNonEntity.push(source);
-      }
-    }
+    });
+
     if (sourceAsEntity.length > 0 && sourceAsNonEntity.length > 0) {
       this.reportMismatchHint(
         HINTS.INCONSISTENT_ENTITY,
