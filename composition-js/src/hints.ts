@@ -97,12 +97,6 @@ const INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM = makeCodeDefinition({
   description: 'Indicates that a value of an enum type definition (that is only used as an Output type, or is unused) has been merged in the supergraph but is defined in only a subset of the subgraphs that declare the enum',
 });
 
-const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE = makeCodeDefinition({
-  code: 'INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE',
-  level: HintLevel.DEBUG,
-  description: 'Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph).',
-});
-
 const INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS = makeCodeDefinition({
   code: 'INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS',
   level: HintLevel.DEBUG,
@@ -180,7 +174,6 @@ export const HINTS = {
   INCONSISTENT_UNION_MEMBER,
   INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
   INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
-  INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
   INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
   INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
   NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,

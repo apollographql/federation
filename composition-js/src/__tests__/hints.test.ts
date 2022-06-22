@@ -402,29 +402,6 @@ test('hints on enum value of output enum type not being in all subgraphs', () =>
 
 // Skipped for now because we don't merge any type system directives and so
 // this cannot be properly tested.
-test.skip('hints on type system directives having inconsistent repeatable', () => {
-  const subgraph1 = gql`
-    type Query {
-      a: Int
-    }
-
-    directive @tag(name: String!) repeatable on FIELD_DEFINITION
-  `;
-
-  const subgraph2 = gql`
-    directive @tag(name: String!) on FIELD_DEFINITION
-  `;
-
-  const result = mergeDocuments(subgraph1, subgraph2);
-  expect(result).toRaiseHint(
-    HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
-    'Type system directive "@tag" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: '
-    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
-  );
-})
-
-// Skipped for now because we don't merge any type system directives and so
-// this cannot be properly tested.
 test.skip('hints on type system directives having inconsistent locations', () => {
   // Same as above, we kind of have to use tag.
   const subgraph1 = gql`

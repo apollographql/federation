@@ -403,14 +403,8 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
-    expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(1);
-    expect(result.hints?.[0].definition.code).toBe('INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE');
-    const { schema } = result;
-    expect(schema).toBeDefined();
-    if (schema) {
-      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
-    }
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe(`Type system directive "@foo" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: (subgraphA:yes, subgraphB:no)`);
   });
 
   it('type-system directive, different locations', () => {
@@ -576,7 +570,7 @@ describe('invocation errors', () => {
   it('directive does not exist', () => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tagg']});
     expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe(`Directive "@tagg" in "mergeDirectives" argument does not exist in any subgraph.  Did you mean \"@tag\"?`);
+    expect(result.errors?.[0].message).toBe(`Directive "@tagg" in "mergeDirectives" argument does not exist in any subgraph. Did you mean \"@tag\"?`);
   });
 
   it('no leading "@" in directive name', () => {
@@ -588,7 +582,7 @@ describe('invocation errors', () => {
   it.each(['@skip', '@include', '@deprecated', '@specifiedBy'])('attempt to expose builtin directive', (directiveName) => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: [directiveName]});
     expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe(`Directive "${directiveName}" cannot be specified in \"mergeDirectives\" argument because it is a built in directive`);
+    expect(result.errors?.[0].message).toBe(`Built-in directive "${directiveName}" cannot be specified in "mergeDirectives" because built-ins are already merged by default`);
   });
 
   it.each(['@key', '@link', '@customTag'])('fed 2 directives are rejected. Even if they are aliased', (directive) => {

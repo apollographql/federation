@@ -60,7 +60,6 @@ The following hints might be generated during composition:
 | `INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD` | Indicates that a field of an interface "value type" (has no `@key` in any subgraph) is not defined in all the subgraphs that declare the type. | `DEBUG` |
 | `INCONSISTENT_UNION_MEMBER` | Indicates that a member of a union type definition is only defined in a subset of the subgraphs that declare the union. | `DEBUG` |
 | `INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM` | Indicates that a value of an enum type definition (that is only used as an Output type, or is unused) has been merged in the supergraph but is defined in only a subset of the subgraphs that declare the enum | `DEBUG` |
-| `INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE` | Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph). | `DEBUG` |
 | `INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS` | Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph). | `DEBUG` |
 | `UNUSED_ENUM_TYPE` | Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it). All the values from subgraphs defining that enum will be included in the supergraph. | `DEBUG` |
 

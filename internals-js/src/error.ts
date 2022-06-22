@@ -424,29 +424,9 @@ const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
-const MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE = makeCodeDefinition(
-  'MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE',
-  'No directive specified in the "mergeDirectives" may be a GraphQL builtin directive',
-);
-
-const MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST = makeCodeDefinition(
-  'MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST',
-  'All directives specified in the "mergeDirectives" argument must exist in at least one subgraph',
-);
-
-const MERGE_DIRECTIVES_NO_CORE_DIRECTIVES = makeCodeDefinition(
-  'MERGE_DIRECTIVES_NO_CORE_DIRECTIVES',
-  'No directive specified in the "mergeDirectives" may be a directive that comes from a core feature',
-);
-
-const MERGE_DIRECTIVES_NO_LEADING_AT = makeCodeDefinition(
-  'MERGE_DIRECTIVES_NO_LEADING_AT',
-  'All directive names specified in the "mergeDirectives" argument must begin with "@"',
-);
-
-const MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES = makeCodeDefinition(
-  'MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES',
-  'All directive names specified in the "mergeDirectives" argument must have a location that is not executable. Executable only directives are already composed',
+const INVALID_MERGE_DIRECTIVES_ARGUMENT = makeCodeDefinition(
+  'INVALID_MERGE_DIRECTIVES_ARGUMENT',
+  'Value specified in "mergeDirectives" argument caused an error.',
 );
 
 export const ERROR_CATEGORIES = {
@@ -521,11 +501,7 @@ export const ERRORS = {
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
-  MERGE_DIRECTIVES_NO_LEADING_AT,
-  MERGE_DIRECTIVES_DIRECTIVE_DOES_NOT_EXIST,
-  MERGE_DIRECTIVES_BUILT_IN_DIRECTIVE,
-  MERGE_DIRECTIVES_NO_CORE_DIRECTIVES,
-  MERGE_DIRECTIVES_NO_EXECUTABLE_DIRECTIVES,
+  INVALID_MERGE_DIRECTIVES_ARGUMENT,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});
