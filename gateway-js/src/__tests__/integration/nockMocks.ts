@@ -1,6 +1,6 @@
 import nock from 'nock';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
-import { SUPERGRAPH_SDL_QUERY } from '../../supergraphManagers/UplinkFetcher/loadSupergraphSdlFromStorage';
+import { SUPERGRAPH_SDL_QUERY } from '../../supergraphManagers/UplinkSupergraphManager/loadSupergraphSdlFromStorage';
 import { getTestingSupergraphSdl } from '../../__tests__/execution-utils';
 import { print } from 'graphql';
 import { Fixture, fixtures as testingFixtures } from 'apollo-federation-integration-testsuite';
@@ -83,7 +83,7 @@ export const mockCloudConfigUrl3 =
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
 
-export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: string = mockCloudConfigUrl1) {
+export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: string | RegExp = mockCloudConfigUrl1) {
   return gatewayNock(url).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
@@ -94,7 +94,7 @@ export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: str
   });
 }
 
-export function mockSupergraphSdlRequest(ifAfter: string | null = null, url: string = mockCloudConfigUrl1) {
+export function mockSupergraphSdlRequest(ifAfter: string | null = null, url: string | RegExp = mockCloudConfigUrl1) {
   return mockSupergraphSdlRequestIfAfter(ifAfter, url);
 }
 
@@ -102,11 +102,12 @@ export function mockSupergraphSdlRequestSuccessIfAfter(
   ifAfter: string | null = null,
   id: string = 'originalId-1234',
   supergraphSdl: string = getTestingSupergraphSdl(),
+  url: string | RegExp = mockCloudConfigUrl1,
 ) {
   if (supergraphSdl == null) {
     supergraphSdl = getTestingSupergraphSdl();
   }
-  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
+  return mockSupergraphSdlRequestIfAfter(ifAfter, url).reply(
     200,
     JSON.stringify({
       data: {
@@ -136,8 +137,8 @@ export function mockSupergraphSdlRequestIfAfterUnchanged(
   );
 }
 
-export function mockSupergraphSdlRequestSuccess() {
-  return mockSupergraphSdlRequestSuccessIfAfter(null);
+export function mockSupergraphSdlRequestSuccess({supergraphSdl = getTestingSupergraphSdl(), url = mockCloudConfigUrl1}: {supergraphSdl?: string, url?: string | RegExp} = {}) {
+  return mockSupergraphSdlRequestSuccessIfAfter(null, undefined, supergraphSdl, url);
 }
 
 export function mockOutOfBandReportRequest() {

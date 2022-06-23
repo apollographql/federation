@@ -183,13 +183,6 @@ describe('Supergraph SDL update failures', () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: 401 Unauthorized"`,
     );
-
-    await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
-    );
-    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-    // which triggers a different error that we're not testing for here.
-    gateway = null;
   });
 
   it('Handles arbitrary fetch failures (non 200 response)', async () => {
@@ -213,7 +206,7 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+      'UplinkSupergraphManager failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
     );
   });
 
@@ -245,7 +238,7 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      `UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: \nCannot query field "fail" on type "Query".`,
+      `UplinkSupergraphManager failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: \nCannot query field "fail" on type "Query".`,
     );
   });
 
@@ -279,7 +272,7 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'UplinkFetcher failed to update supergraph with the following error: Syntax Error: Unexpected Name "Syntax".',
+      'UplinkSupergraphManager failed to update supergraph with the following error: Syntax Error: Unexpected Name "Syntax".',
     );
     expect(gateway.schema).toBeTruthy();
   });
@@ -312,10 +305,6 @@ describe('Supergraph SDL update failures', () => {
     );
 
     expect(gateway['state'].phase).toEqual('failed to load');
-
-    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-    // which triggers a different error that we're not testing for here.
-    gateway = null;
   });
 });
 
@@ -406,14 +395,6 @@ describe('Downstream service health checks', () => {
         "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
-
-      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
-      );
-
-      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-      // which triggers a different error that we're not testing for here.
-      gateway = null;
     });
   });
 
@@ -471,14 +452,6 @@ describe('Downstream service health checks', () => {
         "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
-
-      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
-      );
-
-      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
-      // which triggers a different error that we're not testing for here.
-      gateway = null;
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
@@ -568,7 +541,7 @@ describe('Downstream service health checks', () => {
 
       await errorLoggedPromise;
       expect(logger.error).toHaveBeenCalledWith(
-        `UplinkFetcher failed to update supergraph with the following error: The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:\n[accounts]: 500: Internal Server Error`,
+        `UplinkSupergraphManager failed to update supergraph with the following error: The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:\n[accounts]: 500: Internal Server Error`,
       );
 
       // At this point, the mock update should have been called but the schema
