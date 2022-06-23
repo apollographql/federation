@@ -18,7 +18,7 @@
     "apollo"
   ],
   "engines": {
-    "node": ">=12.13.0 <18.0"
+    "node": ">=12.13.0"
   },
   "license": "SEE LICENSE IN ./LICENSE",
   "publishConfig": {
