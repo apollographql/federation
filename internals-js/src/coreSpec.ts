@@ -3,7 +3,7 @@ import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
-import { assert } from './utils';
+import { assert, firstOf } from './utils';
 import { ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
@@ -361,8 +361,8 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
   // TODO: we may want to allow some `import` as argument to this method. When we do, we need to watch for imports of
   // `Purpose` and `Import` and add the types under their imported name.
-  addToSchema(schema: Schema, as?: string): GraphQLError[] {
-    const errors = this.addDefinitionsToSchema(schema, as);
+  addToSchema(schema: Schema, alias?: string): GraphQLError[] {
+    const errors = this.addDefinitionsToSchema(schema, alias);
     if (errors.length > 0) {
       return errors;
     }
@@ -370,10 +370,45 @@ export class CoreSpecDefinition extends FeatureDefinition {
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
     // until the next line.
     const args = { [this.urlArgName()]: this.toString() } as unknown as CoreOrLinkDirectiveArgs;
-    if (as) {
-      args.as = as;
+    if (alias) {
+      args.as = alias;
     }
-    schema.schemaDefinition.applyDirective(as ?? this.url.name, args, true);
+
+    // This adds `@link(url: "https://specs.apollo.dev/link/v1.0")` to the "schema" definition. And we have
+    // a choice to add it either the main definition, or to an `extend schema`.
+    //
+    // In theory, always adding it to the main definition should be safe since even if some root operations
+    // can be defined in extensions, you shouldn't have an extension without a definition, and so we should
+    // never be in a case where _all_ root operations are defined in extensions (which would be a problem
+    // for printing the definition itsef since it's syntactically invalid to have a schema definition with
+    // no operations).
+    //
+    // In practice however, graphQL-js has historically accepted extensions without definition for schema,
+    // and we even abuse this a bit with federation out of convenience, so we could end up in the situation
+    // where if we put the directive on the definition, it cannot be printed properly due to the user having
+    // defined all its root operations in an extension.
+    //
+    // We could always add the directive to an extension, and that could kind of work but:
+    // 1. the core/link spec says that the link-to-link application should be the first `@link` of the
+    //   schema, but if user put some `@link` on their schema definition but we always put the link-to-link
+    //   on an extension, then we're kind of not respecting our own spec (in practice, our own code can
+    //   actually handle this as it does not strongly rely on that "it should be the first" rule, but that
+    //   would set a bad example).
+    // 2. earlier versions (pre-#1875) were always putting that directive on the definition, and we wanted
+    //   to avoid suprising users by changing that for not reason.
+    //
+    // So instead, we put the directive on the schema definition unless some extensions exists but no
+    // definition does (that is, no non-extension elements are populated).
+    const schemaDef =  schema.schemaDefinition;
+    // Side-note: this test must be done _before_ we call `applyDirective`, otherwise it would take it into
+    // account.
+    const hasDefinition = schemaDef.hasNonExtensionElements();
+    const directive = schemaDef.applyDirective(alias ?? this.url.name, args, true);
+    if (!hasDefinition && schemaDef.hasExtensionElements()) {
+      const extension = firstOf(schemaDef.extensions());
+      assert(extension, '`hasExtensionElements` should not have been `true`');
+      directive.setOfExtension(extension);
+    }
     return [];
   }
 

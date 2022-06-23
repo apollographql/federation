@@ -377,18 +377,20 @@ type User @key(fields: "email") @shareable {
 directive @override(from: String!) on FIELD_DEFINITION
 ```
 
-The `@override` directive is used to indicate that the current subgraph is taking responsibility for resolving the marked field _away_ from the subgraph specified in the `from` argument. 
+The `@override` directive is used to indicate that the current subgraph is taking responsibility for resolving the marked field _away_ from the subgraph specified in the `from` argument.
+
+> Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
 
 The following example will result in all query plans made to resolve `User.name` to be directed to SubgraphB.
 
 ```graphql
-# in SubgraphA
+# In SubgraphA
 type User @key(fields: "id") {
   id: ID!
   name: String
 }
 
-# in SubgraphB
+# In SubgraphB
 type User @key(fields: "id") {
   id: ID!
   name: String @override(from: "SubgraphA")
