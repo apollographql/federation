@@ -1,6 +1,6 @@
 # CHANGELOG for `@apollo/federation-internals`
 
-## vNext
+## 2.1.0-alpha.0
 
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
