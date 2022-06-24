@@ -35,7 +35,7 @@
     "@apollo/utils.logger": "^1.0.0",
     "@josephg/resolvable": "^1.0.1",
     "@opentelemetry/api": "^1.0.1",
-    "@types/node-fetch": "2.6.1",
+    "@types/node-fetch": "2.6.2",
     "apollo-reporting-protobuf": "^0.8.0 || ^3.0.0",
     "apollo-server-caching": "^0.7.0 || ^3.0.0",
     "apollo-server-core": "^2.23.0 || ^3.0.0",
