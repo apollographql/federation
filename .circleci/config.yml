@@ -60,7 +60,7 @@ jobs:
 
   NodeJS 16:
     docker:
-      - image: cimg/node:16.0.0
+      - image: cimg/node:16.10.0
     steps:
       - common_test_steps
   
@@ -72,7 +72,7 @@ jobs:
 
   GraphQL v15 Support:
     docker:
-      - image: cimg/node:16.0.0
+      - image: cimg/node:16.10.0
     steps:
       - oss/install_specific_npm_version:
           version: '7'
