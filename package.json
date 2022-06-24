@@ -33,25 +33,25 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@apollo/client": "3.6.4",
+    "@apollo/client": "3.6.9",
     "@apollo/utils.fetcher": "1.0.0",
     "@graphql-codegen/cli": "2.6.2",
-    "@graphql-codegen/typescript": "2.4.11",
-    "@graphql-codegen/typescript-operations": "2.4.0",
+    "@graphql-codegen/typescript": "2.5.1",
+    "@graphql-codegen/typescript-operations": "2.4.2",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
     "@types/async-retry": "1.4.4",
     "@types/bunyan": "1.8.8",
     "@types/deep-equal": "1.0.1",
-    "@types/jest": "27.5.1",
+    "@types/jest": "27.5.2",
     "@types/lodash.xorby": "4.7.7",
     "@types/loglevel": "1.5.4",
     "@types/make-fetch-happen": "9.0.2",
     "@types/nock": "10.0.3",
-    "@types/node": "12.20.52",
-    "@types/node-fetch": "2.6.1",
-    "@types/whatwg-url": "8.2.1",
-    "apollo-server": "3.7.0",
+    "@types/node": "12.20.55",
+    "@types/node-fetch": "2.6.2",
+    "@types/whatwg-url": "8.2.2",
+    "apollo-server": "3.9.0",
     "bunyan": "1.8.15",
     "graphql": "16.5.0",
     "graphql-tag": "2.12.6",
@@ -60,16 +60,16 @@
     "jest-cucumber": "3.0.1",
     "jest-junit": "13.2.0",
     "lerna": "4.0.0",
-    "log4js": "6.4.7",
+    "log4js": "6.5.2",
     "mocked-env": "1.3.5",
-    "nock": "13.2.4",
+    "nock": "13.2.7",
     "node-fetch": "2.6.7",
-    "prettier": "2.6.2",
+    "prettier": "2.7.1",
     "prompt-confirm": "2.0.4",
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.5",
-    "typescript": "4.6.4",
-    "winston": "3.7.2",
+    "typescript": "4.7.4",
+    "winston": "3.8.0",
     "winston-transport": "4.5.0"
   },
   "jest": {
@@ -82,6 +82,6 @@
     ]
   },
   "volta": {
-    "node": "16.15.0"
+    "node": "16.15.1"
   }
 }
