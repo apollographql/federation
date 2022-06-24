@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNext
+
+- Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
+
 ## 2.0.4
 
 - Fix issue when all root operations were defined in an `extend schema` [PR #1875](https://github.com/apollographql/federation/issues/1875).

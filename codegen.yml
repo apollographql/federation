@@ -4,8 +4,8 @@ schema: [
   "https://outofbandreporter.api.apollographql.com/",
 ]
 documents:
-  - gateway-js/src/supergraphManagers/UplinkFetcher/loadSupergraphSdlFromStorage.ts
-  - gateway-js/src/supergraphManagers/UplinkFetcher/outOfBandReporter.ts
+  - gateway-js/src/supergraphManagers/UplinkSupergraphManager/loadSupergraphSdlFromStorage.ts
+  - gateway-js/src/supergraphManagers/UplinkSupergraphManager/outOfBandReporter.ts
 generates:
   gateway-js/src/__generated__/graphqlTypes.ts:
     plugins:
