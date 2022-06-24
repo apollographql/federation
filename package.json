@@ -94,8 +94,8 @@
     ]
   },
   "volta": {
-    "node": "16.15.0",
-    "npm": "8.10.0"
+    "node": "16.15.1",
+    "npm": "8.13.1"
   },
   "overrides": {
     "cross-undici-fetch": "0.4.8",
