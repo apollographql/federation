@@ -27,7 +27,7 @@
     "hints-doc:check": "npm run hints-doc && git diff --exit-code"
   },
   "engines": {
-    "node": ">=12.13.0 <18.0",
+    "node": ">=12.13.0",
     "npm": ">=7 <9"
   },
   "dependencies": {
@@ -78,8 +78,8 @@
     "prettier": "2.6.2",
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.5",
-    "ts-node": "10.8.0",
-    "typescript": "4.7.2",
+    "ts-node": "10.8.1",
+    "typescript": "4.7.4",
     "winston": "3.7.2",
     "winston-transport": "4.5.0"
   },
