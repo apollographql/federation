@@ -1,7 +1,6 @@
 import {
   ArgumentDefinition,
   assert,
-  arrayEquals,
   DirectiveDefinition,
   EnumType,
   FieldDefinition,
@@ -245,10 +244,11 @@ function locationString(locations: DirectiveLocation[]): string {
 
 /**
  * Given a list of directive sources, get the set of locations, removing duplicates.
- * Executable locations are merged by union while non-executable locations are merged by intersection
+ * Executable locations are merged by intersection while non-executable locations are merged by union
  */
 const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined)[]) => {
   let consistentLocations = true;
+  let consistentExecutableLocations = true;
   const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
   const locationSet = new Set<DirectiveLocation>();
 
@@ -256,26 +256,41 @@ const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined
   executableDirectiveLocations.forEach(loc => {
     if (definedSources.every(src => src.locations.includes(loc))) {
       locationSet.add(loc);
+    } else if (definedSources.some(src => src.locations.includes(loc))) {
+      consistentExecutableLocations = false;
     }
   });
 
   // next do the type system locations (note that executable locations are filtered out)
-  sources
-    .filter((src): src is DirectiveDefinition => src !== undefined)
+  definedSources
     .forEach((src, idx) => {
       const prevLength = locationSet.size;
-      src.locations
-        .filter(loc => !executableDirectiveLocations.includes(loc))
-        .forEach(locationSet.add, locationSet);
-      if (idx > 0 && prevLength !== locationSet.size) {
+      const nonExecutableLocations = src.locations.filter(loc => !executableDirectiveLocations.includes(loc));
+      nonExecutableLocations.forEach(locationSet.add, locationSet);
+      if (idx > 0 && (prevLength !== locationSet.size || prevLength !== nonExecutableLocations.length)) {
         consistentLocations = false;
       }
     });
   return {
     consistentLocations,
+    consistentExecutableLocations,
     locations: Array.from(locationSet),
   };
 }
+
+/**
+ * Given a list of definitions, tell me if the the repeatable part of the definition is consistent, and
+ * what the value is. If any definition is repeatable, repeatable will return true
+ */
+const sourcesRepeatable = (sources: (DirectiveDefinition | undefined)[]) => {
+  const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
+  const repeatable = definedSources[0]?.repeatable ?? false; // if there are no defined sources, let this just be false
+  const consistentRepeatable = definedSources.every(src => src.repeatable === repeatable);
+  return {
+    repeatable: consistentRepeatable ? repeatable : true,
+    consistentRepeatable,
+  };
+};
 
 type EnumTypeUsagePosition = 'Input' | 'Output' | 'Both';
 type EnumTypeUsage = {
@@ -362,7 +377,10 @@ class Merger {
     // If it's a directive application, then we skip it unless it's a graphQL built-in
     // (even if the definition itself allows executable locations, this particular
     // application is an type-system element and we don't want to merge it).
-    const isMergedDirective = this.mergedDirectives().includes(definition.name);
+    if (this.mergedDirectives().includes(definition.name)) {
+      return true;
+    }
+
     if (definition instanceof Directive) {
       // We have special code in `Merger.prepareSupergraph` to include the _definition_ of merged federation
       // directives in the supergraph, so we don't have to merge those _definition_, but we *do* need to merge
@@ -370,15 +388,13 @@ class Merger {
       // Note that this is a temporary solution: a more principled way to have directive propagated
       // is coming and will remove the hard-coding.
       return this.mergedFederationDirectiveNames.has(definition.name)
-        || isGraphQLBuiltInDirective(definition.definition!)
-        || isMergedDirective;
+        || isGraphQLBuiltInDirective(definition.definition!);
     } else if (isGraphQLBuiltInDirective(definition)) {
       // We never "merge" graphQL built-in definitions, since they are built-in and
       // don't need to be defined.
       return false;
     }
-    return definition.locations.some(loc => executableDirectiveLocations.includes(loc))
-      || isMergedDirective;
+    return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
   }
 
   merge(): MergeResult {
@@ -855,17 +871,7 @@ class Merger {
   private hintOnInconsistentEntity(sources: (ObjectType | undefined)[], dest: ObjectType): boolean {
     const sourceAsEntity: ObjectType[] = [];
     const sourceAsNonEntity: ObjectType[] = [];
-    for (const source of sources) {
-      if (!source) {
-        continue;
-      }
-      const keyDirectiveName = federationMetadata(source.schema())?.keyDirective().name ?? 'key';
-      if (source.hasAppliedDirective(keyDirectiveName)) {
-        sourceAsEntity.push(source);
-      } else {
-        sourceAsNonEntity.push(source);
-      }
-    }
+
     sources.forEach((source, idx) => {
       if (source) {
         if (source.hasAppliedDirective(this.metadata(idx).keyDirective().name)) {
@@ -1860,13 +1866,9 @@ class Merger {
 
     const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
     if (definedSources.some(s => s.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
-      if (this.mergedDirectives().includes(dest.name)) {
-        const { locations } = getLocationsFromDirectiveDefs(definedSources);
-        dest.addLocations(...locations);
-      }
       this.mergeExecutableDirectiveDefinition(sources, dest);
     } else {
-      if (this.mergedDirectives().includes(dest.name)) {
+      if (this.isMergedDirective(dest)) {
         this.mergeTypeSystemDirectiveDefinition(sources, dest);
       }
     }
@@ -1877,31 +1879,31 @@ class Merger {
   // is currently handled in an hard-coded way. This will change very soon however so keeping this code around to be
   // re-enabled by a future commit.
   private mergeTypeSystemDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
-    const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
     this.addArgumentsShallow(sources, dest);
     for (const destArg of dest.arguments()) {
       const subgraphArgs = sources.map(f => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-    const repeatable = definedSources[0].repeatable;
-    const inconsistentRepeatable = definedSources.some(src => src.repeatable !== repeatable);
     const { consistentLocations, locations } = getLocationsFromDirectiveDefs(sources);
+    const { repeatable, consistentRepeatable } = sourcesRepeatable(sources);
 
     dest.repeatable = repeatable;
     dest.addLocations(...locations);
 
-    if (inconsistentRepeatable) {
-      const repeatableArr: string[] = [];
-      sources.forEach((src, idx) => {
-        if (src) {
-          repeatableArr.push(`${this.names[idx]}:${src.repeatable ? 'yes' : 'no'}`);
-        }
-      });
-      this.errors.push(ERRORS.INVALID_MERGE_DIRECTIVES_ARGUMENT.err({
-        message: `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: (${repeatableArr.join(', ')})`,
-      }));
+    if (!consistentRepeatable) {
+      this.reportMismatchHint(
+        HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
+        `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
+        dest,
+        sources,
+        directive => directive.repeatable ? 'yes' : 'no',
+        // Note that the first callback is for element that are "like the supergraph". And the supergraph will be repeatable on inconsistencies.
+        (_, subgraphs) => `it is repeatable in ${subgraphs}`,
+        (_, subgraphs) => ` but not in ${subgraphs}`,
+      );
     }
+
     if (!consistentLocations) {
       this.reportMismatchHint(
         HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
@@ -1917,10 +1919,30 @@ class Merger {
   }
 
   private mergeExecutableDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
-    let repeatable: boolean | undefined = undefined;
-    let inconsistentRepeatable = false;
-    let locations: DirectiveLocation[] | undefined = undefined;
-    let inconsistentLocations = false;
+    const { locations, consistentExecutableLocations } = getLocationsFromDirectiveDefs(sources);
+    const { repeatable, consistentRepeatable } = sourcesRepeatable(sources);
+
+    // issue the hint if there are no executable directives, but we only want to short circuit if there are
+    // no locations at all
+    if (locations.filter(loc => executableDirectiveLocations.includes(loc)).length === 0) {
+      const usages = dest.remove();
+      assert(usages.length === 0, () => `Found usages of executable directive ${dest}: ${usages}`);
+      this.reportMismatchHint(
+        HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
+        `Executable directive "${dest}" has no location that is common to all subgraphs: `,
+        dest,
+        sources,
+        directive => locationString(this.extractExecutableLocations(directive)),
+        // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
+        // source that do not have the directive are not included).
+        () => `it will not appear in the supergraph as there no intersection between `,
+        (locs, subgraphs) => `${locs} in ${subgraphs}`,
+      );
+      return;
+    }
+    if (locations.length === 0) {
+      return;
+    }
     for (const source of sources) {
       if (!source) {
         // An executable directive could appear in any place of a query and thus get to any subgraph, so we cannot keep an
@@ -1941,47 +1963,17 @@ class Merger {
         );
         return;
       }
-
-      if (repeatable === undefined) {
-        repeatable = source.repeatable;
-      } else if (repeatable !== source.repeatable) {
-        inconsistentRepeatable = true;
-        // Again, we use an intersection strategy: we can let users repeat the directive on a query only if
-        // all subgraphs know it as repeatable.
-        repeatable = false;
-      }
-
-      const sourceLocations = this.extractExecutableLocations(source);
-      if (!locations) {
-        locations = sourceLocations;
-      } else {
-        if (!arrayEquals(locations, sourceLocations)) {
-          inconsistentLocations = true;
-        }
-        // Still an intersection: we can only allow locations that all subgraphs understand.
-        locations = locations.filter(loc => sourceLocations.includes(loc));
-        if (locations.length === 0) {
-          const usages = dest.remove();
-          assert(usages.length === 0, () => `Found usages of executable directive ${dest}: ${usages}`);
-          this.reportMismatchHint(
-            HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
-            `Executable directive "${dest}" has no location that is common to all subgraphs: `,
-            dest,
-            sources,
-            directive => locationString(this.extractExecutableLocations(directive)),
-            // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
-            // source that do not have the directive are not included).
-            () => `it will not appear in the supergraph as there no intersection between `,
-            (locs, subgraphs) => `${locs} in ${subgraphs}`,
-          );
-          return;
-        }
-      }
     }
-    dest.repeatable = repeatable!;
-    dest.addLocations(...locations!);
+    dest.repeatable = repeatable;
 
-    if (inconsistentRepeatable) {
+    // if we are explicitly merging this field, we want all locations, but if not we only want the executable ones
+    if (this.isMergedDirective(dest)) {
+      dest.addLocations(...locations);
+    } else {
+      dest.addLocations(...locations.filter(loc => executableDirectiveLocations.includes(loc)));
+    }
+
+    if (!consistentRepeatable) {
       this.reportMismatchHint(
         HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
         `Executable directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
@@ -1993,7 +1985,7 @@ class Merger {
         (_, subgraphs) => ` but is repeatable in ${subgraphs}`,
       );
     }
-    if (inconsistentLocations) {
+    if (!consistentExecutableLocations) {
       this.reportMismatchHint(
         HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
         `Executable directive "${dest}" has inconsistent locations across subgraphs `,

@@ -148,6 +148,56 @@ describe('composing custom directives', () => {
     expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'FIELD_DEFINITION']);
   });
 
+  it('mixed executable/type system directive, custom directive exposed. union / intersection', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        directive @foo(name: String!) on QUERY | MUTATION | SUBSCRIPTION | FIELD | FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+
+        type User @key(fields: "id") {
+          id: Int
+          name: String @foo(name: "graphA")
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        directive @foo(name: String!) on QUERY | SUBSCRIPTION | MUTATION | FIELD_DEFINITION | OBJECT
+        type User @key(fields: "id") {
+          id: Int
+          description: String @foo(name: "graphB")
+        }
+      `,
+    };
+
+    const subgraphC = {
+      name: 'subgraphC',
+      typeDefs: gql`
+        directive @foo(name: String!) on QUERY | MUTATION | FIELD_DEFINITION | INTERFACE
+        type User @key(fields: "id") {
+          id: Int
+          anotherField: String @foo(name: "graphC")
+        }
+      `,
+    };
+    const result = composeServices([subgraphA, subgraphB, subgraphC], { mergeDirectives: ['@foo']});
+    expect(result.errors).toBeUndefined();
+    expect(result.hints?.length).toBe(1);
+    const { schema } = result;
+    expect(schema).toBeDefined();
+    assert(schema, 'schema does not exist');
+    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
+    expectDirectiveOnElement(schema, 'User.description', 'foo', { name: 'graphB'});
+    expectDirectiveOnElement(schema, 'User.anotherField', 'foo', { name: 'graphC'});
+    expect(schema.directive('foo')?.name).toBe('foo');
+    expect(schema.directive('foo')?.locations).toEqual(['QUERY', 'MUTATION', 'FIELD_DEFINITION', 'OBJECT', 'INTERFACE']);
+  });
+
   it('mixed executable/type system directive, conflicting definitions not exposed', () => {
     const subgraphA = {
       name: 'subgraphA',
@@ -403,8 +453,14 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
-    expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe(`Type system directive "@foo" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: (subgraphA:yes, subgraphB:no)`);
+    expect(result.errors).toBeUndefined();
+    expect(result.hints?.length).toBe(1);
+    expect(result.hints?.[0].definition.code).toBe('INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE');
+    const { schema } = result;
+    expect(schema).toBeDefined();
+    if (schema) {
+      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
+    }
   });
 
   it('type-system directive, different locations', () => {
@@ -434,10 +490,15 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
-    const schema = expectNoErrorsOrHints(result);
-    expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
-    expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectA'});
-    expect(schema.directive('foo')?.locations).toEqual(['FIELD_DEFINITION', 'OBJECT']);
+    expect(result.hints?.length).toBe(1);
+    expect(result.hints?.[0].message).toBe('Type system directive "@foo" has inconsistent locations across subgraphs and will use locations "FIELD_DEFINITION, OBJECT" (union of all subgraphs) in the supergraph, but has: locations "FIELD_DEFINITION, OBJECT" in subgraph "subgraphA" and location "FIELD_DEFINITION" in subgraph "subgraphB".');
+    const { schema } = result;
+    expect(schema).toBeDefined();
+    if (schema) {
+      expectDirectiveOnElement(schema, 'User.name', 'foo', { name: 'graphA'});
+      expectDirectiveOnElement(schema, 'User', 'foo', { name: 'objectA'});
+      expect(schema.directive('foo')?.locations).toEqual(['FIELD_DEFINITION', 'OBJECT']);
+    }
   });
 
   it('type-system directive, core feature, not exposed', () => {
