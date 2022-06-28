@@ -400,7 +400,7 @@ class Merger {
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
-      this.errors.push(ERRORS.NO_QUERIES.err({ message: "No queries found in any subgraph: a supergraph must have a query root type." }));
+      this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
@@ -508,10 +508,10 @@ class Merger {
       (elt, names) => `${elt} in ${names}`,
       (elt, names) => `${elt} in ${names}`,
       (distribution, nodes) => {
-        this.errors.push(code.err({
-          message: message + joinStrings(distribution, ' and ', ' but '),
-          nodes
-        }));
+        this.errors.push(code.err(
+          message + joinStrings(distribution, ' and ', ' but '),
+          { nodes }
+        ));
       },
       elt => !elt
     );
@@ -547,10 +547,10 @@ class Merger {
       supergraphElementPrinter,
       otherElementsPrinter,
       (distribution, nodes) => {
-        this.errors.push(code.err({
-          message: message + distribution[0] + joinStrings(distribution.slice(1), ' and '),
-          nodes: nodes.concat(extraNodes ?? [])
-        }));
+        this.errors.push(code.err(
+          message + distribution[0] + joinStrings(distribution.slice(1), ' and '),
+          { nodes: nodes.concat(extraNodes ?? []) }
+        ));
       },
       ignorePredicate,
       includeMissingSources
@@ -763,10 +763,10 @@ class Merger {
     }
     if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
       for (const [i, subgraph] of extensionSubgraphs.entries()) {
-        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err({
-          message: `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
-          nodes: extensionASTs[i],
-        }));
+        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err(
+          `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
+          { nodes: extensionASTs[i] },
+        ));
       }
     }
   }
@@ -929,10 +929,10 @@ class Merger {
             // unlikely to span multiple subgraphs. In fact, we could almost have thrown this error during subgraph validation
             // if this wasn't for the fact that it is only thrown for directives being merged and so is more logical to
             // be thrown only when merging.
-            this.errors.push(ERRORS.MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL.err({
-              message: `[${this.names[i]}] Cannot apply merged directive ${directive} to external field "${source.coordinate}"`,
-              nodes: directive.sourceAST
-            }));
+            this.errors.push(ERRORS.MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL.err(
+              `[${this.names[i]}] Cannot apply merged directive ${directive} to external field "${source.coordinate}"`,
+              { nodes: directive.sourceAST },
+            ));
           }
         }
       }
@@ -1042,15 +1042,15 @@ class Merger {
           overridingSubgraphASTNode,
         ));
       } else if (sourceSubgraphName === subgraphName) {
-        this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err({
-          message: `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
-          nodes: overrideDirective?.sourceAST,
-        }));
+        this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err(
+          `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
+          { nodes: overrideDirective?.sourceAST },
+        ));
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
-        this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err({
-          message: `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
-          nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective)
-        }));
+        this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err(
+          `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
+          { nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective) }
+        ));
       } else if (subgraphMap[sourceSubgraphName] === undefined) {
         this.hints.push(new CompositionHint(
           HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
@@ -1070,10 +1070,10 @@ class Merger {
         });
         if (hasIncompatible) {
           assert(conflictingDirective !== undefined, 'conflictingDirective should not be undefined');
-          this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err({
-            message: `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
-            nodes: sourceASTs(overrideDirective, conflictingDirective)
-          }));
+          this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
+            `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
+            { nodes: sourceASTs(overrideDirective, conflictingDirective) }
+          ));
         } else {
           // if we get here, then the @override directive is valid
           // if the field being overridden is used, then we need to add an @external directive
@@ -1113,10 +1113,10 @@ class Merger {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
       const nodes = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
-      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err({
-        message: `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
-        nodes
-      }));
+      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err(
+        `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
+        { nodes }
+      ));
       return;
     }
 
@@ -1161,10 +1161,10 @@ class Merger {
       const nonShareables = shareableSources.length > 0
         ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
         : 'all of them';
-      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err({
-        message: `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
-        nodes: sourceASTs(...allResolving),
-      }));
+      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err(
+        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
+        { nodes: sourceASTs(...allResolving) },
+      ));
     }
   }
 
@@ -1466,10 +1466,10 @@ class Merger {
         if (nonOptionalSources.length > 0) {
           const nonOptionalSubgraphs = printSubgraphNames(nonOptionalSources);
           const missingSources = printSubgraphNames(sources.map((s, i) => s && !s.argument(argName) ? this.names[i] : undefined).filter((s) => !!s) as string[]);
-          this.errors.push(ERRORS.REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH.err({
-            message: `Argument "${arg.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
-            nodes: sourceASTs(...sources.map((s) => s?.argument(argName))),
-          }));
+          this.errors.push(ERRORS.REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH.err(
+            `Argument "${arg.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
+            { nodes: sourceASTs(...sources.map((s) => s?.argument(argName))) },
+          ));
         } else {
           this.reportMismatchHint(
             HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
@@ -1641,10 +1641,10 @@ class Merger {
 
     // We could be left with an enum type with no values, and that's invalid in graphQL
     if (dest.values.length === 0) {
-      this.errors.push(ERRORS.EMPTY_MERGED_ENUM_TYPE.err({
-        message: `None of the values of enum type "${dest}" are defined consistently in all the subgraphs defining that type. As only values common to all subgraphs are merged, this would result in an empty type.`,
-        nodes: sourceASTs(...sources),
-      }));
+      this.errors.push(ERRORS.EMPTY_MERGED_ENUM_TYPE.err(
+        `None of the values of enum type "${dest}" are defined consistently in all the subgraphs defining that type. As only values common to all subgraphs are merged, this would result in an empty type.`,
+        { nodes: sourceASTs(...sources) },
+      ));
     }
   }
 
@@ -1754,10 +1754,10 @@ class Merger {
         if (nonOptionalSources.length > 0) {
           const nonOptionalSubgraphs = printSubgraphNames(nonOptionalSources);
           const missingSources = printSubgraphNames(sources.map((s, i) => s && !s.field(name) ? this.names[i] : undefined).filter((s) => !!s) as string[]);
-          this.errors.push(ERRORS.REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH.err({
-            message: `Input object field "${destField.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
-            nodes: sourceASTs(...sources.map((s) => s?.field(name))),
-          }));
+          this.errors.push(ERRORS.REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH.err(
+            `Input object field "${destField.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
+            { nodes: sourceASTs(...sources.map((s) => s?.field(name))) },
+          ));
         } else {
           this.reportMismatchHint(
             HINTS.INCONSISTENT_INPUT_OBJECT_FIELD,
@@ -1779,10 +1779,10 @@ class Merger {
 
     // We could be left with an input type with no fields, and that's invalid in graphQL
     if (!dest.hasFields()) {
-      this.errors.push(ERRORS.EMPTY_MERGED_INPUT_TYPE.err({
-        message: `None of the fields of input object type "${dest}" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.`,
-        nodes: sourceASTs(...sources),
-      }));
+      this.errors.push(ERRORS.EMPTY_MERGED_INPUT_TYPE.err(
+        `None of the fields of input object type "${dest}" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.`,
+        { nodes: sourceASTs(...sources) },
+      ));
     }
   }
 
@@ -2143,14 +2143,16 @@ class Merger {
               const typeInSubgraph = s.type(type.name);
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
-            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err({
-              message: `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
+            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err(
+              `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
                 + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
-              nodes: sourceASTs(
-                ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
-                ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
-              )
-            }));
+              {
+                nodes: sourceASTs(
+                  ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
+                  ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
+                )
+              }
+            ));
             continue;
           }
 

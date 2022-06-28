@@ -17,8 +17,6 @@ commands:
   common_test_steps:
     description: "Commands run on each Node.js job"
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -39,7 +37,7 @@ jobs:
 
   NodeJS 12:
     docker:
-      - image: cimg/node:12.22.1
+      - image: cimg/node:12.22
     steps:
       - common_test_steps
       # We will save the results of this one particular invocation to use in
@@ -54,29 +52,27 @@ jobs:
 
   NodeJS 14:
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:14.19
     steps:
       - common_test_steps
 
   NodeJS 16:
     docker:
-      - image: cimg/node:16.0.0
+      - image: cimg/node:16.15
     steps:
       - common_test_steps
 
-  NodeJS 17:
+  NodeJS 18:
     docker:
-      - image: cimg/node:17.0.0
+      - image: cimg/node:18.2.0
     steps:
       - common_test_steps
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:16.15
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -85,10 +81,8 @@ jobs:
   Error code Doc:
     description: "Ensure the error code documentation is up to date"
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:16.15
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -97,10 +91,8 @@ jobs:
   Hints code Doc:
     description: "Ensure the hints code documentation is up to date"
     docker:
-      - image: cimg/node:14.18.1
+      - image: cimg/node:16.15
     steps:
-      - oss/install_specific_npm_version:
-          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -138,8 +130,8 @@ workflows:
       - NodeJS 16:
           name: "JS: Node 16"
           <<: *common_non_publish_filters
-      - NodeJS 17:
-          name: "JS: Node 17"
+      - NodeJS 18:
+          name: "JS: Node 18"
           <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
@@ -157,7 +149,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
-            - "JS: Node 17"
+            - "JS: Node 18"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/dry_run:
@@ -167,7 +159,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
-            - "JS: Node 17"
+            - "JS: Node 18"
             - "GraphQL Types (up to date)"
             - "Error code Doc (up to date)"
       - oss/confirmation:

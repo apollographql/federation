@@ -43,7 +43,7 @@ import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { validateSchema } from "./validate";
 import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { withModifiedErrorMessage } from "./error";
+import { ERRORS, withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
@@ -325,7 +325,7 @@ export function typeFromAST(schema: Schema, node: TypeNode): Type {
     default:
       const type = schema.type(node.name.value);
       if (!type) {
-        throw new GraphQLError(`Unknown type "${node.name.value}"`, node);
+        throw ERRORS.INVALID_GRAPHQL.err(`Unknown type "${node.name.value}"`, { nodes: node });
       }
       return type;
   }
@@ -477,9 +477,7 @@ abstract class Element<TParent extends SchemaElement<any, any> | Schema | Direct
     // to a schema could bring a whole hierarchy of types and directives for instance). If they are attached, it only work if
     // it's to the same schema, but you have to check.
     // Overall, it's simpler to force attaching elements before you add other elements to them.
-    if (!this.isAttached()) {
-      throw error(`Cannot modify detached element ${this}`);
-    }
+    assert(this.isAttached(), () => `Cannot modify detached element ${this}`);
   }
 }
 
@@ -534,7 +532,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       if (!def) {
         throw this.schema().blueprint.onGraphQLJSValidationError(
           this.schema(),
-          new GraphQLError(`Unknown directive "@${nameOrDef}".`)
+           ERRORS.INVALID_GRAPHQL.err(`Unknown directive "@${nameOrDef}".`)
         );
       }
       if (Array.isArray(def)) {
@@ -588,9 +586,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
   protected abstract removeTypeReference(type: NamedType): void;
 
   protected checkRemoval() {
-    if (this.isElementBuiltIn() && !Schema.prototype['canModifyBuiltIn'].call(this.schema())) {
-      throw error(`Cannot modify built-in ${this}`);
-    }
+    assert(!this.isElementBuiltIn() || Schema.prototype['canModifyBuiltIn'].call(this.schema()), () => `Cannot modify built-in ${this}`);
     // We allow removals even on detached element because that doesn't particularly create issues (and we happen to do such
     // removals on detached internally; though of course we could refactor the code if we wanted).
   }
@@ -601,17 +597,13 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       // Ensure this element (the modified one), is not a built-in, or part of one.
       let thisElement: SchemaElement<TOwnType, any> | Schema | undefined = this;
       while (thisElement && thisElement instanceof SchemaElement) {
-        if (thisElement.isElementBuiltIn()) {
-          throw error(`Cannot modify built-in (or part of built-in) ${this}`);
-        }
+        assert(!thisElement.isElementBuiltIn(), () => `Cannot modify built-in (or part of built-in) ${this}`);
         thisElement = thisElement.parent;
       }
     }
     if (addedElement && addedElement.isAttached()) {
       const thatSchema = addedElement.schema();
-      if (thatSchema && thatSchema != this.schema()) {
-        throw error(`Cannot add element ${addedElement} to ${this} as it is attached to another schema`);
-      }
+      assert(!thatSchema || thatSchema === this.schema(), () => `Cannot add element ${addedElement} to ${this} as it is attached to another schema`);
     }
   }
 }
@@ -677,9 +669,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     if (this._extensions.has(extension)) {
       return extension;
     }
-    if (extension.extendedElement) {
-      throw error(`Cannot add extension to type ${this}: it is already added to another type`);
-    }
+    assert(!extension.extendedElement, () => `Cannot add extension to type ${this}: it is already added to another type`);
     this._extensions.add(extension);
     Extension.prototype['setExtendedElement'].call(extension, this);
     this.onModification();
@@ -830,10 +820,6 @@ export abstract class NamedSchemaElementWithType<TType extends Type, TOwnType ex
   }
 }
 
-function error(message: string): GraphQLError {
-  return new GraphQLError(message);
-}
-
 abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends Element<TExtended> {
   private _extension?: Extension<TExtended>;
 
@@ -848,9 +834,7 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
   setOfExtension(extension: Extension<TExtended> | undefined) {
     this.checkUpdate();
     // See similar comment on FieldDefinition.setOfExtension for why we have to cast.
-    if (extension && !this._parent?.extensions().has(extension as any)) {
-      throw error(`Cannot set object as part of the provided extension: it is not an extension of parent ${this.parent}`);
-    }
+    assert(!extension || this._parent?.extensions().has(extension as any), () => `Cannot set object as part of the provided extension: it is not an extension of parent ${this.parent}`);
     this._extension = extension;
   }
 
@@ -980,7 +964,7 @@ export class CoreFeatures {
     this.add(coreItself);
     const coreDef = findCoreSpecVersion(coreItself.url);
     if (!coreDef) {
-      throw error(`Schema uses unknown version ${coreItself.url.version} of the ${coreItself.url.name} spec`);
+      throw ERRORS.UNKNOWN_LINK_VERSION.err(`Schema uses unknown version ${coreItself.url.version} of the ${coreItself.url.name} spec`);
     }
     this.coreDefinition = coreDef;
   }
@@ -1010,7 +994,8 @@ export class CoreFeatures {
     const url = this.coreDefinition.extractFeatureUrl(args);
     const existing = this.byIdentity.get(url.identity);
     if (existing) {
-      throw error(`Duplicate inclusion of feature ${url.identity}`);
+      // TODO: we may want to lossen that limitation at some point. Including the same feature for 2 different major versions should be ok.
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(`Duplicate inclusion of feature ${url.identity}`);
     }
     const imports = extractCoreFeatureImports(url, typedDirective);
     const feature = new CoreFeature(url, args.as ?? url.name, directive, imports, args.for);
@@ -1335,24 +1320,16 @@ export class Schema {
     const existing = this.type(type.name);
     if (existing) {
       // Like for directive, we let user shadow built-in types, but the definition must be valid.
-      if (existing.isBuiltIn) {
-      } else {
-        throw error(`Type ${type} already exists in this schema`);
-      }
+      assert(existing.isBuiltIn, () => `Type ${type} already exists in this schema`);
     }
     if (type.isAttached()) {
       // For convenience, let's not error out on adding an already added type.
-      if (type.parent == this) {
-        return type;
-      }
-      throw error(`Cannot add type ${type} to this schema; it is already attached to another schema`);
+      assert(type.parent == this, () => `Cannot add type ${type} to this schema; it is already attached to another schema`);
+      return type;
     }
     if (type.isBuiltIn) {
-      if (!this.isConstructed) {
-        this._builtInTypes.set(type.name, type);
-      } else {
-        throw error(`Cannot add built-in ${type} to this schema (built-ins can only be added at schema construction time)`);
-      }
+      assert(!this.isConstructed, `Cannot add built-in ${type} to this schema (built-ins can only be added at schema construction time)`);
+      this._builtInTypes.set(type.name, type);
     } else {
       this._types.set(type.name, type);
     }
@@ -1424,22 +1401,15 @@ export class Schema {
     const existing = this.directive(definition.name);
     // Note that we allow the schema to define a built-in manually (and the manual definition will shadow the
     // built-in one). It's just that validation will ensure the definition ends up the one expected.
-    if (existing && !existing.isBuiltIn) {
-      throw error(`Directive ${definition} already exists in this schema`);
-    }
+    assert(!existing || existing.isBuiltIn, () => `Directive ${definition} already exists in this schema`);
     if (definition.isAttached()) {
       // For convenience, let's not error out on adding an already added directive.
-      if (definition.parent == this) {
-        return definition;
-      }
-      throw error(`Cannot add directive ${definition} to this schema; it is already attached to another schema`);
+      assert(definition.parent == this, () => `Cannot add directive ${definition} to this schema; it is already attached to another schema`);
+      return definition;
     }
     if (definition.isBuiltIn) {
-      if (!this.isConstructed) {
-        this._builtInDirectives.set(definition.name, definition);
-      } else {
-        throw error(`Cannot add built-in ${definition} to this schema (built-ins can only be added at schema construction time)`);
-      }
+      assert(!this.isConstructed, () => `Cannot add built-in ${definition} to this schema (built-ins can only be added at schema construction time)`);
+      this._builtInDirectives.set(definition.name, definition);
     } else {
       this._directives.set(definition.name, definition);
     }
@@ -1525,7 +1495,8 @@ export class Schema {
    */
   elementByCoordinate(coordinate: string): NamedSchemaElement<any, any, any> | undefined {
     if (!coordinate.match(coordinateRegexp)) {
-      throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+      // To be fair, graphQL coordinate is not yet officially part of the spec but well...
+      throw ERRORS.INVALID_GRAPHQL.err(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
     }
 
     const argStartIdx = coordinate.indexOf('(');
@@ -1538,7 +1509,7 @@ export class Schema {
     const isDirective = typeOrDirectiveName.startsWith('@');
     if (isDirective) {
       if (fieldOrEnumName) {
-        throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+        throw ERRORS.INVALID_GRAPHQL.err(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
       }
       const directive = this.directive(typeOrDirectiveName.slice(1));
       return argName ? directive?.argument(argName) : directive;
@@ -1554,16 +1525,16 @@ export class Schema {
           return argName ? field?.argument(argName) : field;
         case 'InputObjectType':
           if (argName) {
-            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+            throw ERRORS.INVALID_GRAPHQL.err(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
           }
           return type.field(fieldOrEnumName);
         case 'EnumType':
           if (argName) {
-            throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+            throw ERRORS.INVALID_GRAPHQL.err(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
           }
           return type.value(fieldOrEnumName);
         default:
-          throw error(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Invalid argument "${coordinate}: it is not a syntactically valid graphQL coordinate."`);
       }
     }
   }
@@ -1603,7 +1574,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
       if (coreFeatures) {
-        throw error(`Invalid duplicate application of @core/@link`);
+        throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(`Invalid duplicate application of @core/@link`);
       }
       const schemaDirective = applied as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>;
       const args = schemaDirective.arguments();
@@ -1636,9 +1607,9 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
       this.checkUpdate();
       const obj = this.schema().type(nameOrType);
       if (!obj) {
-        throw new GraphQLError(`Cannot set schema ${rootKind} root to unknown type ${nameOrType}`);
+        throw ERRORS.INVALID_GRAPHQL.err(`Cannot set schema ${rootKind} root to unknown type ${nameOrType}`);
       } else if (obj.kind != 'ObjectType') {
-        throw new GraphQLError(`${defaultRootName(rootKind)} root type must be an Object type${rootKind === 'query' ? '' : ' if provided'}, it cannot be set to ${nameOrType} (an ${obj.kind}).`);
+        throw ERRORS.INVALID_GRAPHQL.err(`${defaultRootName(rootKind)} root type must be an Object type${rootKind === 'query' ? '' : ' if provided'}, it cannot be set to ${nameOrType} (an ${obj.kind}).`);
       }
       toSet = new RootType(rootKind, obj);
     } else {
@@ -1670,9 +1641,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
     if (this._extensions.has(extension)) {
       return extension;
     }
-    if (extension.extendedElement) {
-      throw error(`Cannot add extension to this schema: extension is already added to another schema`);
-    }
+    assert(!extension.extendedElement, 'Cannot add extension to this schema: extension is already added to another schema');
     this._extensions.add(extension);
     Extension.prototype['setExtendedElement'].call(extension, this);
     this.onModification();
@@ -1804,9 +1773,9 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
         this.checkUpdate();
         const maybeItf = this.schema().type(nameOrItfOrItfImpl);
         if (!maybeItf) {
-          throw new GraphQLError(`Cannot implement unknown type ${nameOrItfOrItfImpl}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot implement unknown type ${nameOrItfOrItfImpl}`);
         } else if (maybeItf.kind != 'InterfaceType') {
-          throw new GraphQLError(`Cannot implement non-interface type ${nameOrItfOrItfImpl} (of type ${maybeItf.kind})`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot implement non-interface type ${nameOrItfOrItfImpl} (of type ${maybeItf.kind})`);
         }
         itf = maybeItf;
       } else {
@@ -1878,10 +1847,10 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
       toAdd = nameOrField;
     }
     if (this.field(toAdd.name)) {
-      throw error(`Field ${toAdd.name} already exists on ${this}`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Field ${toAdd.name} already exists on ${this}`);
     }
     if (type && !isOutputType(type)) {
-      throw error(`Invalid input type ${type} for field ${toAdd.name}: object and interface field types should be output types.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Invalid input type ${type} for field ${toAdd.name}: object and interface field types should be output types.`);
     }
     this._fields.set(toAdd.name, toAdd);
     this._cachedNonBuiltInFields = undefined;
@@ -2053,9 +2022,9 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
         this.checkUpdate();
         const maybeObj = this.schema().type(nameOrTypeOrMember);
         if (!maybeObj) {
-          throw new GraphQLError(`Cannot add unknown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot add unknown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
         } else if (maybeObj.kind != 'ObjectType') {
-          throw new GraphQLError(`Cannot add non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind}) as member of union type ${this.name}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot add non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind}) as member of union type ${this.name}`);
         }
         obj = maybeObj;
       } else {
@@ -2230,10 +2199,10 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
     const toAdd = typeof nameOrField === 'string' ? new InputFieldDefinition(nameOrField) : nameOrField;
     this.checkUpdate(toAdd);
     if (this.field(toAdd.name)) {
-      throw error(`Field ${toAdd.name} already exists on ${this}`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Field ${toAdd.name} already exists on ${this}`);
     }
     if (type && !isInputType(type)) {
-      throw error(`Invalid output type ${type} for field ${toAdd.name}: input field types should be input types.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Invalid output type ${type} for field ${toAdd.name}: input field types should be input types.`);
     }
     this._fields.set(toAdd.name, toAdd);
     this._cachedFieldsArray = undefined;
@@ -2385,15 +2354,15 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
       // For some reason (bad codegen, maybe?), some users have field where a arg is defined more than one. And this doesn't seem rejected by
       // graphQL (?). So we accept it, but ensure the types/default values are the same.
       if (type && existing.type && !sameType(type, existing.type)) {
-        throw error(`Argument ${toAdd.name} already exists on field ${this.name} with a different type (${existing.type})`);
+        throw ERRORS.INVALID_GRAPHQL.err(`Argument ${toAdd.name} already exists on field ${this.name} with a different type (${existing.type})`);
       }
       if (defaultValue && (!existing.defaultValue || !valueEquals(defaultValue, existing.defaultValue))) {
-        throw error(`Argument ${toAdd.name} already exists on field ${this.name} with a different default value (${valueToString(existing.defaultValue)})`);
+        throw ERRORS.INVALID_GRAPHQL.err(`Argument ${toAdd.name} already exists on field ${this.name} with a different default value (${valueToString(existing.defaultValue)})`);
       }
       return existing;
     }
     if (type && !isInputType(type)) {
-      throw error(`Invalid output type ${type} for argument ${toAdd.name} of ${this}: arguments should be input types.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Invalid output type ${type} for argument ${toAdd.name} of ${this}: arguments should be input types.`);
     }
     this._args.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
@@ -2416,9 +2385,10 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     this.checkUpdate();
     // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
     // the `TParent` in `Extension<TParent>` will always match. Hence the `as any`.
-    if (extension && !this._parent?.extensions().has(extension as any)) {
-      throw error(`Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`);
-    }
+    assert(
+      !extension || this._parent?.extensions().has(extension as any),
+      () => `Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`
+    );
     this._extension = extension;
     this.onModification();
   }
@@ -2527,9 +2497,10 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
     this.checkUpdate();
     // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
     // the `TParent` in `Extension<TParent>` will always match. Hence the `as any`.
-    if (extension && !this._parent?.extensions().has(extension as any)) {
-      throw error(`Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`);
-    }
+    assert(
+      !extension || this._parent?.extensions().has(extension as any),
+      () => `Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`,
+    );
     this._extension = extension;
     this.onModification();
   }
@@ -2676,9 +2647,10 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
 
   setOfExtension(extension: Extension<EnumType> | undefined) {
     this.checkUpdate();
-    if (extension && !this._parent?.extensions().has(extension)) {
-      throw error(`Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`);
-    }
+    assert(
+      !extension || this._parent?.extensions().has(extension as any),
+      () => `Cannot mark field ${this.name} as part of the provided extension: it is not an extension of enum value parent type ${this.parent}`,
+    );
     this._extension = extension;
     this.onModification();
   }
@@ -2767,7 +2739,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
       toAdd = nameOrArg;
     }
     if (this.argument(toAdd.name)) {
-      throw error(`Argument ${toAdd.name} already exists on field ${this.name}`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Argument ${toAdd.name} already exists on field ${this.name}`);
     }
     this._args.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
@@ -2920,9 +2892,7 @@ export class Directive<
       return this._args;
     }
     const definition = this.definition;
-    if (!definition) {
-      throw error(`Cannot include default values for arguments: cannot find directive definition for ${this.name}`);
-    }
+    assert(definition, () => `Cannot include default values for arguments: cannot find directive definition for ${this.name}`);
     const updated = Object.create(null);
     for (const argDef of definition.arguments()) {
       updated[argDef.name] = withDefaultValues(this._args[argDef.name], argDef);
@@ -2978,13 +2948,11 @@ export class Directive<
     this.checkUpdate();
     if (extension) {
       const parent = this.parent;
-      if (parent instanceof SchemaDefinition || parent instanceof BaseNamedType) {
-        if (!parent.extensions().has(extension)) {
-          throw error(`Cannot mark directive ${this.name} as part of the provided extension: it is not an extension of parent ${parent}`);
-        }
-      } else {
-        throw error(`Can only mark directive parts of extensions when directly apply to type or schema definition.`);
-      }
+      assert(
+        parent instanceof SchemaDefinition || parent instanceof BaseNamedType,
+        'Can only mark directive parts of extensions when directly apply to type or schema definition.'
+      );
+      assert(parent.extensions().has(extension), () => `Cannot mark directive ${this.name} as part of the provided extension: it is not an extension of parent ${parent}`);
     }
     this._extension = extension;
     this.onModification();
@@ -3252,7 +3220,7 @@ export function variableDefinitionsFromAST(schema: Schema, definitionNodes: read
   for (const definitionNode of definitionNodes) {
     if (!definitions.add(variableDefinitionFromAST(schema, definitionNode))) {
       const name = definitionNode.variable.name.value;
-      throw new GraphQLError(`Duplicate definition for variable ${name}`, definitionNodes.filter(n => n.variable.name.value === name));
+      throw ERRORS.INVALID_GRAPHQL.err(`Duplicate definition for variable ${name}`, { nodes: definitionNodes.filter(n => n.variable.name.value === name) });
     }
   }
   return definitions;
@@ -3262,7 +3230,7 @@ export function variableDefinitionFromAST(schema: Schema, definitionNode: Variab
   const variable = new Variable(definitionNode.variable.name.value);
   const type = typeFromAST(schema, definitionNode.type);
   if (!isInputType(type)) {
-    throw new GraphQLError(`Invalid type "${type}" for variable $${variable}: not an input type`, definitionNode.type);
+    throw ERRORS.INVALID_GRAPHQL.err(`Invalid type "${type}" for variable $${variable}: not an input type`, { nodes: definitionNode.type });
   }
   const def = new VariableDefinition(
     schema,
