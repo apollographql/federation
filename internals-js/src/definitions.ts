@@ -65,7 +65,7 @@ export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
 /**
  * Given an error that may have been thrown during schema validation, extract the causes of validation failure.
  * If the error is not a graphQL error, undefined is returned.
-t*/
+ */
 export function errorCauses(e: Error): GraphQLError[] | undefined {
   if (e instanceof GraphQLErrorExt) {
     if (e.code === validationErrorCode || e.code === apiSchemaValidationErrorCode) {
