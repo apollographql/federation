@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@2.0.0/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "apollographql/typescript-repo-template"
+    }
+  ],
+  "commit": false,
+  "fixed": [
+    [
+      "@apollo/*",
+      "apollo-*"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [],
+  "repo": "apollographql/federation"
+}
