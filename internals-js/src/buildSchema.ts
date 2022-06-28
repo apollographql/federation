@@ -55,6 +55,7 @@ import {
   errorCauses,
   NamedSchemaElement,
 } from "./definitions";
+import { ERRORS, withModifiedErrorNodes } from "./error";
 
 function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
@@ -195,7 +196,7 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
     switch (definitionNode.kind) {
       case 'OperationDefinition':
       case 'FragmentDefinition':
-        errors.push(new GraphQLError("Invalid executable definition found while building schema", definitionNode));
+        errors.push(ERRORS.INVALID_GRAPHQL.err("Invalid executable definition found while building schema", { nodes: definitionNode }));
         continue;
       case 'SchemaDefinition':
         schemaDefinitions.push(definitionNode);
@@ -220,7 +221,7 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
           type = schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
         } else if (type.preserveEmptyDefinition)  {
           // Note: we reuse the same error message than graphQL-js would output
-          throw new GraphQLError(`There can be only one type named "${definitionNode.name.value}"`);
+          throw ERRORS.INVALID_GRAPHQL.err(`There can be only one type named "${definitionNode.name.value}"`);
         }
         // It's possible for the type definition to be empty, because it is valid graphQL to have:
         //   type Foo
@@ -251,7 +252,7 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
         if (!existing) {
           schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
         } else if (existing.isBuiltIn) {
-          throw new GraphQLError(`Cannot extend built-in type "${definitionNode.name.value}"`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Cannot extend built-in type "${definitionNode.name.value}"`);
         }
         break;
       case 'DirectiveDefinition':
@@ -281,7 +282,7 @@ function withoutTrailingDefinition(str: string): NamedTypeKind {
 function getReferencedType(node: NamedTypeNode, schema: Schema): NamedType {
   const type = schema.type(node.name.value);
   if (!type) {
-    throw new GraphQLError(`Unknown type ${node.name.value}`, node);
+    throw ERRORS.INVALID_GRAPHQL.err(`Unknown type ${node.name.value}`, { nodes: node });
   }
   return type;
 }
@@ -294,15 +295,7 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode, errors: G
     if (causes) {
       for (const cause of causes) {
         const allNodes: ASTNode | ASTNode[] = cause.nodes ? [node, ...cause.nodes] : node;
-        errors.push(new GraphQLError(
-          cause.message,
-          allNodes,
-          cause.source,
-          cause.positions,
-          cause.path,
-          cause,
-          cause.extensions
-        ));
+        errors.push(withModifiedErrorNodes(cause, allNodes));
       }
     } else {
       throw e;
@@ -392,7 +385,7 @@ function buildNamedTypeInner(
           () => {
             const itfName = itfNode.name.value;
             if (fieldBasedType.implementsInterface(itfName)) {
-              throw new GraphQLError(`Type "${type}" can only implement "${itfName}" once.`);
+              throw ERRORS.INVALID_GRAPHQL.err(`Type "${type}" can only implement "${itfName}" once.`);
             }
             fieldBasedType.addImplementedInterface(itfName).setOfExtension(extension);
           },
@@ -409,7 +402,7 @@ function buildNamedTypeInner(
           () => {
             const name = namedType.name.value;
             if (unionType.hasTypeMember(name)) {
-              throw new GraphQLError(`Union type "${unionType}" can only include type "${name}" once.`);
+              throw ERRORS.INVALID_GRAPHQL.err(`Union type "${unionType}" can only include type "${name}" once.`);
             }
             unionType.addType(name).setOfExtension(extension);
           },
@@ -477,7 +470,7 @@ function validateOutputType(type: Type, what: string, node: ASTNode, errors: Gra
   if (isOutputType(type)) {
     return type;
   } else {
-    errors.push(new GraphQLError(`The type of "${what}" must be Output Type but got "${type}", a ${type.kind}.`, node));
+    errors.push(ERRORS.INVALID_GRAPHQL.err(`The type of "${what}" must be Output Type but got "${type}", a ${type.kind}.`, { nodes: node }));
     return undefined;
   }
 }
@@ -486,7 +479,7 @@ function validateInputType(type: Type, what: string, node: ASTNode, errors: Grap
   if (isInputType(type)) {
     return type;
   } else {
-    errors.push(new GraphQLError(`The type of "${what}" must be Input Type but got "${type}", a ${type.kind}.`, node));
+    errors.push(ERRORS.INVALID_GRAPHQL.err(`The type of "${what}" must be Input Type but got "${type}", a ${type.kind}.`, { nodes: node }));
     return undefined;
   }
 }
@@ -502,7 +495,7 @@ function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
     case Kind.NON_NULL_TYPE:
       const wrapped = buildTypeReferenceFromAST(typeNode.type, schema);
       if (wrapped.kind == Kind.NON_NULL_TYPE) {
-        throw new GraphQLError(`Cannot apply the non-null operator (!) twice to the same type`, typeNode);
+        throw ERRORS.INVALID_GRAPHQL.err(`Cannot apply the non-null operator (!) twice to the same type`, { nodes: typeNode });
       }
       return new NonNullType(wrapped);
     default:

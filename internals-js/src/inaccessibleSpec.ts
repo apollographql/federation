@@ -82,9 +82,9 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
     const hasRepeatable = definition.repeatable;
     const hasValidLocations = definition.locations.every(loc => this.inaccessibleLocations.includes(loc));
     if (hasUnknownArguments || hasRepeatable || !hasValidLocations) {
-      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Found invalid @inaccessible directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${this.printedInaccessibleDefinition}`,
-      });
+      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+        `Found invalid @inaccessible directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${this.printedInaccessibleDefinition}`,
+      );
     }
     return undefined;
   }
@@ -303,32 +303,34 @@ function validateInaccessibleElements(
       // @inaccessible, regardless of shadowing.
       const inaccessibleElements = fetchInaccessibleElementsDeep(type);
       if (inaccessibleElements.length > 0) {
-        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
-          message:
-            `Built-in type "${type.coordinate}" cannot use @inaccessible.`,
-          nodes: type.sourceAST,
-          extensions: {
-            inaccessible_elements: inaccessibleElements
+        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err(
+          `Built-in type "${type.coordinate}" cannot use @inaccessible.`,
+          {
+            nodes: type.sourceAST,
+            extensions: {
+              inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
-            inaccessible_referencers: [type.coordinate],
-          }
-        }));
+              inaccessible_referencers: [type.coordinate],
+            }
+          },
+        ));
       }
     } else if (isFeatureDefinition(type)) {
       // Core feature types (and their descendants) aren't allowed to be
       // @inaccessible.
       const inaccessibleElements = fetchInaccessibleElementsDeep(type);
       if (inaccessibleElements.length > 0) {
-        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
-          message:
-            `Core feature type "${type.coordinate}" cannot use @inaccessible.`,
-          nodes: type.sourceAST,
-          extensions: {
-            inaccessible_elements: inaccessibleElements
+        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err(
+          `Core feature type "${type.coordinate}" cannot use @inaccessible.`,
+          {
+            nodes: type.sourceAST,
+            extensions: {
+              inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
-            inaccessible_referencers: [type.coordinate],
-          }
-        }));
+              inaccessible_referencers: [type.coordinate],
+            }
+          },
+        ));
       }
     } else if (isInaccessible(type)) {
       // Types can be referenced by other schema elements in a few ways:
@@ -357,28 +359,30 @@ function validateInaccessibleElements(
           referencer instanceof InputFieldDefinition
         ) {
           if (isInAPISchema(referencer)) {
-            errors.push(ERRORS.REFERENCED_INACCESSIBLE.err({
-              message:
-                `Type "${type.coordinate}" is @inaccessible but is referenced` +
-                ` by "${referencer.coordinate}", which is in the API schema.`,
-              nodes: type.sourceAST,
-              extensions: {
-                inaccessible_elements: [type.coordinate],
-                inaccessible_referencers: [referencer.coordinate],
-              }
-            }));
+            errors.push(ERRORS.REFERENCED_INACCESSIBLE.err(
+              `Type "${type.coordinate}" is @inaccessible but is referenced` +
+              ` by "${referencer.coordinate}", which is in the API schema.`,
+              {
+                nodes: type.sourceAST,
+                extensions: {
+                  inaccessible_elements: [type.coordinate],
+                  inaccessible_referencers: [referencer.coordinate],
+                }
+              },
+            ));
           }
         } else if (referencer instanceof SchemaDefinition) {
           if (type === referencer.rootType('query')) {
-            errors.push(ERRORS.QUERY_ROOT_TYPE_INACCESSIBLE.err({
-              message:
-                `Type "${type.coordinate}" is @inaccessible but is the root` +
-                ` query type, which must be in the API schema.`,
-              nodes: type.sourceAST,
-              extensions: {
-                inaccessible_elements: [type.coordinate],
-              }
-            }));
+            errors.push(ERRORS.QUERY_ROOT_TYPE_INACCESSIBLE.err(
+              `Type "${type.coordinate}" is @inaccessible but is the root` +
+              ` query type, which must be in the API schema.`,
+              {
+                nodes: type.sourceAST,
+                extensions: {
+                  inaccessible_elements: [type.coordinate],
+                }
+              },
+            ));
           }
         }
       }
@@ -396,18 +400,19 @@ function validateInaccessibleElements(
           if (!isInaccessible(field)) isEmpty = false;
         }
         if (isEmpty) {
-          errors.push(ERRORS.ONLY_INACCESSIBLE_CHILDREN.err({
-            message:
-              `Type "${type.coordinate}" is in the API schema but all of its` +
-              ` ${(type instanceof InputObjectType) ? 'input ' : ''}fields` +
-              ` are @inaccessible.`,
-            nodes: type.sourceAST,
-            extensions: {
-              inaccessible_elements: type.fields()
+          errors.push(ERRORS.ONLY_INACCESSIBLE_CHILDREN.err(
+            `Type "${type.coordinate}" is in the API schema but all of its` +
+            ` ${(type instanceof InputObjectType) ? 'input ' : ''}fields` +
+            ` are @inaccessible.`,
+            {
+              nodes: type.sourceAST,
+              extensions: {
+                inaccessible_elements: type.fields()
                 .map((field) => field.coordinate),
-              inaccessible_referencers: [type.coordinate],
-            }
-          }));
+                inaccessible_referencers: [type.coordinate],
+              }
+            },
+          ));
         }
       } else if (type instanceof UnionType) {
         let isEmpty = true;
@@ -415,17 +420,18 @@ function validateInaccessibleElements(
           if (!isInaccessible(member)) isEmpty = false;
         }
         if (isEmpty) {
-          errors.push(ERRORS.ONLY_INACCESSIBLE_CHILDREN.err({
-            message:
-              `Type "${type.coordinate}" is in the API schema but all of its` +
-              ` members are @inaccessible.`,
-            nodes: type.sourceAST,
-            extensions: {
-              inaccessible_elements: type.types()
+          errors.push(ERRORS.ONLY_INACCESSIBLE_CHILDREN.err(
+            `Type "${type.coordinate}" is in the API schema but all of its` +
+            ` members are @inaccessible.`,
+            {
+              nodes: type.sourceAST,
+              extensions: {
+                inaccessible_elements: type.types()
                 .map((type) => type.coordinate),
-              inaccessible_referencers: [type.coordinate],
+                inaccessible_referencers: [type.coordinate],
+              }
             }
-          }));
+          ));
         }
       } else if (type instanceof EnumType) {
         let isEmpty = true;
@@ -433,17 +439,18 @@ function validateInaccessibleElements(
           if (!isInaccessible(enumValue)) isEmpty = false;
         }
         if (isEmpty) {
-          errors.push(ERRORS.ONLY_INACCESSIBLE_CHILDREN.err({
-            message:
-              `Type "${type.coordinate}" is in the API schema but all of its` +
-             ` values are @inaccessible.`,
-            nodes: type.sourceAST,
-            extensions: {
-              inaccessible_elements: type.values
+          errors.push(ERRORS.ONLY_INACCESSIBLE_CHILDREN.err(
+            `Type "${type.coordinate}" is in the API schema but all of its` +
+            ` values are @inaccessible.`,
+            {
+              nodes: type.sourceAST,
+              extensions: {
+                inaccessible_elements: type.values
                 .map((enumValue) => enumValue.coordinate),
-              inaccessible_referencers: [type.coordinate],
+                inaccessible_referencers: [type.coordinate],
+              }
             }
-          }));
+          ));
         }
       }
 
@@ -473,18 +480,19 @@ function validateInaccessibleElements(
             for (const implementedInterface of implementedInterfaces) {
               const implementedField = implementedInterface.field(field.name);
               if (implementedField && isInAPISchema(implementedField)) {
-                errors.push(ERRORS.IMPLEMENTED_BY_INACCESSIBLE.err({
-                  message:
-                    `Field "${field.coordinate}" is @inaccessible but` +
-                    ` implements the interface field` +
-                    ` "${implementedField.coordinate}", which is in the API` +
-                    ` schema.`,
-                  nodes: field.sourceAST,
-                  extensions: {
-                    inaccessible_elements: [field.coordinate],
-                    inaccessible_referencers: [implementedField.coordinate],
+                errors.push(ERRORS.IMPLEMENTED_BY_INACCESSIBLE.err(
+                  `Field "${field.coordinate}" is @inaccessible but` +
+                  ` implements the interface field` +
+                  ` "${implementedField.coordinate}", which is in the API` +
+                  ` schema.`,
+                  {
+                    nodes: field.sourceAST,
+                    extensions: {
+                      inaccessible_elements: [field.coordinate],
+                      inaccessible_referencers: [implementedField.coordinate],
+                    }
                   }
-                }));
+                ));
               }
             }
           } else {
@@ -494,16 +502,17 @@ function validateInaccessibleElements(
                 // When an argument is hidden (but its ancestors aren't), we
                 // check that it isn't a required argument of its field.
                 if (argument.isRequired()) {
-                  errors.push(ERRORS.REQUIRED_INACCESSIBLE.err({
-                    message:
-                      `Argument "${argument.coordinate}" is @inaccessible but` +
-                      ` is a required argument of its field.`,
-                    nodes: argument.sourceAST,
-                    extensions: {
-                      inaccessible_elements: [argument.coordinate],
-                      inaccessible_referencers: [argument.coordinate],
-                    }
-                  }));
+                  errors.push(ERRORS.REQUIRED_INACCESSIBLE.err(
+                    `Argument "${argument.coordinate}" is @inaccessible but` +
+                    ` is a required argument of its field.`,
+                    {
+                      nodes: argument.sourceAST,
+                      extensions: {
+                        inaccessible_elements: [argument.coordinate],
+                        inaccessible_referencers: [argument.coordinate],
+                      }
+                    },
+                  ));
                 }
                 // When an argument is hidden (but its ancestors aren't), we
                 // check that it isn't a required argument of any implementing
@@ -540,20 +549,21 @@ function validateInaccessibleElements(
                     isInAPISchema(implementingArgument) &&
                     implementingArgument.isRequired()
                   ) {
-                    errors.push(ERRORS.REQUIRED_INACCESSIBLE.err({
-                      message:
-                        `Argument "${argument.coordinate}" is @inaccessible` +
-                        ` but is implemented by the required argument` +
-                        ` "${implementingArgument.coordinate}", which is` +
-                        ` in the API schema.`,
-                      nodes: argument.sourceAST,
-                      extensions: {
-                        inaccessible_elements: [argument.coordinate],
-                        inaccessible_referencers: [
-                          implementingArgument.coordinate,
-                        ],
-                      }
-                    }));
+                    errors.push(ERRORS.REQUIRED_INACCESSIBLE.err(
+                      `Argument "${argument.coordinate}" is @inaccessible` +
+                      ` but is implemented by the required argument` +
+                      ` "${implementingArgument.coordinate}", which is` +
+                      ` in the API schema.`,
+                      {
+                        nodes: argument.sourceAST,
+                        extensions: {
+                          inaccessible_elements: [argument.coordinate],
+                          inaccessible_referencers: [
+                            implementingArgument.coordinate,
+                          ],
+                        }
+                      },
+                    ));
                   }
                 }
 
@@ -569,20 +579,21 @@ function validateInaccessibleElements(
                     implementedArgument &&
                     isInAPISchema(implementedArgument)
                   ) {
-                    errors.push(ERRORS.IMPLEMENTED_BY_INACCESSIBLE.err({
-                      message:
-                        `Argument "${argument.coordinate}" is @inaccessible` +
-                        ` but implements the interface argument` +
-                        ` "${implementedArgument.coordinate}", which is in` +
-                        ` the API schema.`,
-                      nodes: argument.sourceAST,
-                      extensions: {
-                        inaccessible_elements: [argument.coordinate],
-                        inaccessible_referencers: [
-                          implementedArgument.coordinate,
-                        ],
-                      }
-                    }));
+                    errors.push(ERRORS.IMPLEMENTED_BY_INACCESSIBLE.err(
+                      `Argument "${argument.coordinate}" is @inaccessible` +
+                      ` but implements the interface argument` +
+                      ` "${implementedArgument.coordinate}", which is in` +
+                      ` the API schema.`,
+                      {
+                        nodes: argument.sourceAST,
+                        extensions: {
+                          inaccessible_elements: [argument.coordinate],
+                          inaccessible_referencers: [
+                            implementedArgument.coordinate,
+                          ],
+                        }
+                      },
+                    ));
                   }
                 }
               }
@@ -595,16 +606,17 @@ function validateInaccessibleElements(
             // When an input field is hidden (but its parent isn't), we check
             // that it isn't a required argument of its field.
             if (inputField.isRequired()) {
-              errors.push(ERRORS.REQUIRED_INACCESSIBLE.err({
-                message:
-                  `Input field "${inputField.coordinate}" is @inaccessible` +
-                  ` but is a required input field of its type.`,
-                nodes: inputField.sourceAST,
-                extensions: {
-                  inaccessible_elements: [inputField.coordinate],
-                  inaccessible_referencers: [inputField.coordinate],
-                }
-              }));
+              errors.push(ERRORS.REQUIRED_INACCESSIBLE.err(
+                `Input field "${inputField.coordinate}" is @inaccessible` +
+                ` but is a required input field of its type.`,
+                {
+                  nodes: inputField.sourceAST,
+                  extensions: {
+                    inaccessible_elements: [inputField.coordinate],
+                    inaccessible_referencers: [inputField.coordinate],
+                  }
+                },
+              ));
             }
 
             // Input fields can be referenced by schema default values. When an
@@ -619,17 +631,18 @@ function validateInaccessibleElements(
             const referencers = defaultValueReferencers.get(inputField) ?? [];
             for (const referencer of referencers) {
               if (isInAPISchema(referencer)) {
-                errors.push(ERRORS.DEFAULT_VALUE_USES_INACCESSIBLE.err({
-                  message:
-                    `Input field "${inputField.coordinate}" is @inaccessible` +
-                    ` but is used in the default value of` +
-                    ` "${referencer.coordinate}", which is in the API schema.`,
-                  nodes: type.sourceAST,
-                  extensions: {
-                    inaccessible_elements: [type.coordinate],
-                    inaccessible_referencers: [referencer.coordinate],
-                  }
-                }));
+                errors.push(ERRORS.DEFAULT_VALUE_USES_INACCESSIBLE.err(
+                  `Input field "${inputField.coordinate}" is @inaccessible` +
+                  ` but is used in the default value of` +
+                  ` "${referencer.coordinate}", which is in the API schema.`,
+                  {
+                    nodes: type.sourceAST,
+                    extensions: {
+                      inaccessible_elements: [type.coordinate],
+                      inaccessible_referencers: [referencer.coordinate],
+                    }
+                  },
+                ));
               }
             }
           }
@@ -649,17 +662,18 @@ function validateInaccessibleElements(
             const referencers = defaultValueReferencers.get(enumValue) ?? [];
             for (const referencer of referencers) {
               if (isInAPISchema(referencer)) {
-                errors.push(ERRORS.DEFAULT_VALUE_USES_INACCESSIBLE.err({
-                  message:
-                    `Enum value "${enumValue.coordinate}" is @inaccessible` +
-                    ` but is used in the default value of` +
-                    ` "${referencer.coordinate}", which is in the API schema.`,
-                  nodes: type.sourceAST,
-                  extensions: {
-                    inaccessible_elements: [type.coordinate],
-                    inaccessible_referencers: [referencer.coordinate],
-                  }
-                }));
+                errors.push(ERRORS.DEFAULT_VALUE_USES_INACCESSIBLE.err(
+                  `Enum value "${enumValue.coordinate}" is @inaccessible` +
+                  ` but is used in the default value of` +
+                  ` "${referencer.coordinate}", which is in the API schema.`,
+                  {
+                    nodes: type.sourceAST,
+                    extensions: {
+                      inaccessible_elements: [type.coordinate],
+                      inaccessible_referencers: [referencer.coordinate],
+                    }
+                  },
+                ));
               }
             }
           }
@@ -679,17 +693,17 @@ function validateInaccessibleElements(
       const inaccessibleElements =
         fetchInaccessibleElementsDeep(directive);
       if (inaccessibleElements.length > 0) {
-        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
-          message:
-            `Built-in directive "${directive.coordinate}" cannot use` +
-            ` @inaccessible.`,
-          nodes: directive.sourceAST,
-          extensions: {
-            inaccessible_elements: inaccessibleElements
+        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err(
+          `Built-in directive "${directive.coordinate}" cannot use @inaccessible.`,
+          {
+            nodes: directive.sourceAST,
+            extensions: {
+              inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
-            inaccessible_referencers: [directive.coordinate],
-          }
-        }));
+              inaccessible_referencers: [directive.coordinate],
+            }
+          },
+        ));
       }
     } else if (isFeatureDefinition(directive)) {
       // Core feature directives (and their descendants) aren't allowed to be
@@ -697,17 +711,17 @@ function validateInaccessibleElements(
       const inaccessibleElements =
         fetchInaccessibleElementsDeep(directive);
       if (inaccessibleElements.length > 0) {
-        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
-          message:
-            `Core feature directive "${directive.coordinate}" cannot use` +
-            ` @inaccessible.`,
-          nodes: directive.sourceAST,
-          extensions: {
-            inaccessible_elements: inaccessibleElements
+        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err(
+          `Core feature directive "${directive.coordinate}" cannot use @inaccessible.`,
+          {
+            nodes: directive.sourceAST,
+            extensions: {
+              inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
-            inaccessible_referencers: [directive.coordinate],
-          }
-        }));
+              inaccessible_referencers: [directive.coordinate],
+            }
+          },
+        ));
       }
     } else if (typeSystemLocations.length > 0) {
       // Directives that can appear on type-system locations (and their
@@ -715,18 +729,19 @@ function validateInaccessibleElements(
       const inaccessibleElements =
         fetchInaccessibleElementsDeep(directive);
       if (inaccessibleElements.length > 0) {
-        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err({
-          message:
-            `Directive "${directive.coordinate}" cannot use @inaccessible` +
-            ` because it may be applied to these type-system locations:` +
-            ` ${typeSystemLocations.join(', ')}.`,
-          nodes: directive.sourceAST,
-          extensions: {
-            inaccessible_elements: inaccessibleElements
+        errors.push(ERRORS.DISALLOWED_INACCESSIBLE.err(
+          `Directive "${directive.coordinate}" cannot use @inaccessible` +
+          ` because it may be applied to these type-system locations:` +
+          ` ${typeSystemLocations.join(', ')}.`,
+          {
+            nodes: directive.sourceAST,
+            extensions: {
+              inaccessible_elements: inaccessibleElements
               .map((element) => element.coordinate),
-            inaccessible_referencers: [directive.coordinate],
-          }
-        }));
+              inaccessible_referencers: [directive.coordinate],
+            }
+          },
+        ));
       }
     } else {
       // At this point, we know the directive must be in the API schema. Descend
@@ -736,16 +751,17 @@ function validateInaccessibleElements(
         // isn't a required argument of its directive.
         if (argument.isRequired()) {
           if (isInaccessible(argument)) {
-            errors.push(ERRORS.REQUIRED_INACCESSIBLE.err({
-              message:
-                `Argument "${argument.coordinate}" is @inaccessible but is a` +
-                ` required argument of its directive.`,
-              nodes: argument.sourceAST,
-              extensions: {
-                inaccessible_elements: [argument.coordinate],
-                inaccessible_referencers: [argument.coordinate],
-              }
-            }));
+            errors.push(ERRORS.REQUIRED_INACCESSIBLE.err(
+              `Argument "${argument.coordinate}" is @inaccessible but is a` +
+              ` required argument of its directive.`,
+              {
+                nodes: argument.sourceAST,
+                extensions: {
+                  inaccessible_elements: [argument.coordinate],
+                  inaccessible_referencers: [argument.coordinate],
+                }
+              },
+            ));
           }
         }
       }
