@@ -88,32 +88,93 @@ const debug = newDebugLogger('plan');
 // Note: exported so we can have a test that explicitly requires more than this number.
 export const MAX_COMPUTED_PLANS = 10000;
 
-type CostFunction = FetchGroupProcessor<number, number[], number>;
+type CostFunction = FetchGroupProcessor<number>;
 
-const fetchCost = 10000;
+/**
+ * Constant used during query plan cost computation to account for the base cost of doing a fetch, that is the
+ * fact any fetch imply some networking cost, request serialization/deserialization, validation, ...
+ *
+ * The number is a little bit arbitrary, but insofar as we roughly assign a cost of 1 to a single field queried
+ * (see `selectionCost` method), this can be though of as saying that resolving a single field is in general
+ * a tiny fraction of the actual cost of doing a subgraph fetch.
+ */
+const fetchCost = 1000;
+
+/**
+ * Constant used during query plan cost computation as a multiplier to the cost of fetches made in sequences.
+ *
+ * This means that if 3 fetches are done in sequence, the cost of 1nd one is multiplied by this number, the
+ * 2nd by twice this number, and the 3rd one by thrice this number. The goal is to heavily favor query plans
+ * with the least amount of sequences, since this affect overall latency directly. The exact number is a tad
+ * arbitrary however.
+ */
 const pipeliningCost = 100;
-const sameLevelFetchCost = 100;
 
+/**
+ * Computes the cost of a Plan.
+ *
+ * A plan is essentially some mix of sequences and parallels of fetches. And the plan cost
+ * is about minimizing both:
+ *  1. The expected total latency of executing the plan. Typically, doing 2 fetches in
+ *    parallel will most likely have much better latency then executing those exact same
+ *    fetches in sequence, and so the cost of the latter must be greater than that of
+ *    the former.
+ *  2. The underlying use of resources. For instance, if we query 2 fields and we have
+ *    the choice between getting those 2 fields from a single subgraph in 1 fetch, or
+ *    get each from a different subgraph with 2 fetches in parallel, then we want to
+ *    favor the former as just doing a fetch in and of itself has a cost in terms of
+ *    resources consumed.
+ *
+ * Do note that at the moment, this cost is solely based on the "shape" of the plan and has
+ * to make some conservative assumption regarding concrete runtime behaviour. In particular,
+ * it assumes that:
+ *  - all fields have the same cost (all resolvers take the same time).
+ *  - that field cost is relative small compare to actually doing a subgraph fetch. That is,
+ *    it assumes that the networking and other query processing costs are much higher than
+ *    the cost of resolving a single field. Or to put it more concretely, it assumes that
+ *    a fetch of 5 fields is probably not too different from than of 2 fields.
+ */
 const defaultCostFunction: CostFunction = {
-  onFetchGroup: (group: FetchGroup) =>  selectionCost(group.selection),
-  reduceParallel: (values: number[]) => values,
-  // That math goes the following way:
-  // - we add the costs in a sequence (the `acc + ...`)
-  // - within a stage of the sequence, the groups are done in parallel, hence the `Math.max(...)` (but still, we prefer querying less services if
-  //   we can help it, hence the `+ (valueArray.length - 1) * sameLevelFetchCost`).
-  // - but each group in a stage require a fetch, so we add a cost proportional to how many we have
-  // - each group within a stage has its own cost plus a flat cost associated to doing that fetch (`fetchCost + s`).
-  // - lastly, we also want to minimize the number of steps in the pipeline, so later stages are more costly (`idx * pipelineCost`)
-  reduceSequence: (values: (number[] | number)[]) =>
-    values.reduceRight(
-      (acc: number, value, idx) => {
-        const valueArray = Array.isArray(value) ? value : [value];
-        return acc + ((idx + 1) * pipeliningCost) * (fetchCost * valueArray.length) * (Math.max(...valueArray) + (valueArray.length - 1) * sameLevelFetchCost)
-      },
-      0
-    ),
-  finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? (Math.max(...roots) + (roots.length - 1) * sameLevelFetchCost) : sum(roots))
+  /**
+   * The cost of a fetch roughly proportional to how many fields it fetches (but see `selectionCost` for more details)
+   * plus some constant "premium" to account for the fact than doing each fetch is costly (and that fetch cost often
+   * dwarfted the actual cost of fields resolution).
+   */
+  onFetchGroup: (group: FetchGroup) => (fetchCost + selectionCost(group.selection)),
+  /**
+   * We sum the cost of fetch groups in parallel. Note that if we were only concerned about expected latency,
+   * we could instead take the `max` of the values, but as we also try to minimize general resource usage, we
+   * want 2 parallel fetches with cost 1000 to be more costly than one with cost 1000 and one with cost 10,
+   * so suming is a simple option.
+   */
+  reduceParallel: (values: number[]) => parallelCost(values),
+
+  /**
+   * For sequences, we want to heavily favor "shorter" pipelines of fetches as this directly impact the
+   * expected latency of the overall plan.
+   *
+   * To do so, each "stage" of a sequence/pipeline gets an additional multiplier on the intrinsic cost
+   * of that stage.
+   */
+  reduceSequence: (values: number[]) => sequenceCost(values),
+
+  /**
+   * For roots, we just switch between with the sequence or parallel computation based on the type of root kind.
+   */
+  finalize: (roots: number[], rootsAreParallel: boolean) => (
+    roots.length === 0
+      ? 0
+      : (rootsAreParallel ? parallelCost(roots) : sequenceCost(roots))
+  )
 };
+
+function parallelCost(values: number[]): number {
+  return sum(values);
+}
+
+function sequenceCost(stages: number[]): number {
+  return stages.reduceRight((acc, stage, idx) => (acc + ((idx + 1) * pipeliningCost * stage)), 0);
+}
 
 class QueryPlanningTaversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
@@ -1318,8 +1379,8 @@ class FetchDependencyGraph {
     }
   }
 
-  private processGroup<TProcessedGroup, TParallelReduction, TFinalResult>(
-    processor: FetchGroupProcessor<TProcessedGroup, TParallelReduction, TFinalResult>,
+  private processGroup<TProcessedGroup, TFinalResult>(
+    processor: FetchGroupProcessor<TProcessedGroup, TFinalResult>,
     group: FetchGroup,
     isRootGroup: boolean
   ): [TProcessedGroup, UnhandledGroups] {
@@ -1331,7 +1392,7 @@ class FetchDependencyGraph {
 
     const allOutGroupsHaveThisAsIn = children.every(g => g.parents().length === 1);
     if (allOutGroupsHaveThisAsIn) {
-      const nodes: (TProcessedGroup | TParallelReduction)[] = [processed];
+      const nodes: TProcessedGroup[] = [processed];
 
       let nextNodes = children;
       let remainingNext: UnhandledGroups = [];
@@ -1350,11 +1411,11 @@ class FetchDependencyGraph {
     }
   }
 
-  private processParallelGroups<TProcessedGroup, TParallelReduction, TFinalResult>(
-    processor: FetchGroupProcessor<TProcessedGroup, TParallelReduction, TFinalResult>,
+  private processParallelGroups<TProcessedGroup, TFinalResult>(
+    processor: FetchGroupProcessor<TProcessedGroup, TFinalResult>,
     groups: readonly FetchGroup[],
     remaining: UnhandledGroups
-  ): [TParallelReduction, FetchGroup[], UnhandledGroups] {
+  ): [TProcessedGroup, FetchGroup[], UnhandledGroups] {
     const parallelNodes: TProcessedGroup[] = [];
     let remainingNext = remaining;
     const toHandleNext: FetchGroup[] = [];
@@ -1399,7 +1460,7 @@ class FetchDependencyGraph {
     }
   }
 
-  process<TProcessedGroup, TParallelReduction>(processor: FetchGroupProcessor<TProcessedGroup, TParallelReduction, any>): TProcessedGroup[] {
+  process<TProcessedGroup>(processor: FetchGroupProcessor<TProcessedGroup, any>): TProcessedGroup[] {
     this.reduceAndOptimize();
 
     const rootNodes: TProcessedGroup[] = this.rootGroups.values().map(rootGroup => {
@@ -1465,10 +1526,10 @@ class FetchDependencyGraph {
  * of groups (the roots needing to be either parallel or sequential depending on whether we represent a `query`
  * or a `mutation`), and the processor will be called on groups in such a way.
  */
-interface FetchGroupProcessor<TProcessedGroup, TParallelReduction, TFinalResult> {
+interface FetchGroupProcessor<TProcessedGroup, TFinalResult = TProcessedGroup> {
   onFetchGroup(group: FetchGroup, isRootGroup: boolean): TProcessedGroup;
-  reduceParallel(values: TProcessedGroup[]): TParallelReduction;
-  reduceSequence(values: (TProcessedGroup | TParallelReduction)[]): TProcessedGroup;
+  reduceParallel(values: TProcessedGroup[]): TProcessedGroup;
+  reduceSequence(values: TProcessedGroup[]): TProcessedGroup;
   finalize(roots: TProcessedGroup[], isParallel: boolean): TFinalResult
 }
 
@@ -1677,7 +1738,7 @@ function fetchGroupToPlanProcessor(
   variableDefinitions: VariableDefinitions,
   fragments?: NamedFragments,
   operationName?: string
-): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
+): FetchGroupProcessor<PlanNode, PlanNode | undefined> {
   let counter = 0;
   return {
     onFetchGroup: (group: FetchGroup) => group.toPlanNode(queryPlannerConfig, variableDefinitions, fragments, operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined),
