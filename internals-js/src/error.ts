@@ -1,6 +1,11 @@
-import { ASTNode, GraphQLError, Source } from "graphql";
-import { SchemaRootKind } from "./definitions";
+import { ASTNode, GraphQLError, GraphQLErrorOptions, GraphQLFormattedError } from "graphql";
 import { assert } from "./utils";
+
+// Redefining `SchemaRootKind` here instead of using the version from `./definition.ts` because we don't want
+// this file to import other ones, so it can be used without worrying about recusive dependency. That
+// "duplication" is very minor in practice though and unlikely to be a maintenance headache (graphQL is unlikely
+// to add new root kind all that often).
+type SchemaRootKind = 'query' | 'mutation' | 'subscription';
 
 /*
  * We didn't track errors addition precisely pre-2.0 and tracking it now has an
@@ -13,22 +18,11 @@ export type ErrorCodeMetadata = {
   replaces?: string[],
 }
 
-export type GraphQLErrorArgs = {
-  message: string,
-  nodes?: readonly ASTNode[] | ASTNode,
-  source?: Source,
-  positions?: readonly number[],
-  path?: readonly (string | number)[],
-  originalError?: Error | null,
-  extensions?: { [key: string]: unknown },
-};
-
-
 export type ErrorCodeDefinition = {
   code: string,
   description: string,
   metadata: ErrorCodeMetadata,
-  err: (args: GraphQLErrorArgs) => GraphQLError,
+  err: (message: string, options?: GraphQLErrorOptions) => GraphQLError,
 }
 
 const makeCodeDefinition = (
@@ -39,27 +33,28 @@ const makeCodeDefinition = (
   code,
   description,
   metadata,
-  err: ({
+  err: (message: string, options?: GraphQLErrorOptions) => new GraphQLError(
     message,
-    nodes,
-    source,
-    positions,
-    path,
-    originalError,
-    extensions,
-  }: GraphQLErrorArgs) => new GraphQLError(
-    message,
-    nodes,
-    source,
-    positions,
-    path,
-    originalError,
     {
-      ...extensions,
-      code,
-    },
+      ...options,
+      extensions: {
+        ...options?.extensions,
+        code,
+      }
+    }
   ),
 });
+
+export function extractGraphQLErrorOptions(e: GraphQLError): GraphQLErrorOptions {
+  return {
+    nodes: e.nodes,
+    source: e.source,
+    positions: e.positions,
+    path: e.path,
+    originalError: e.originalError,
+    extensions: e.extensions,
+  };
+}
 
 /*
  * Most codes currently originate from the initial fed 2 release so we use this for convenience.
@@ -93,14 +88,14 @@ const makeFederationDirectiveErrorCodeCategory = (
 ) => makeErrorCodeCategory((directive) => `${directive.toLocaleUpperCase()}_${codeSuffix}`, makeDescription, metadata);
 
 
-export function errorCode(e: GraphQLError): string | undefined {
-  if (!('code' in e.extensions)) {
+export function errorCode(e: GraphQLError | GraphQLFormattedError): string | undefined {
+  if (!e.extensions || !('code' in e.extensions)) {
     return undefined;
   }
   return e.extensions.code as string;
 }
 
-export function errorCodeDef(e: GraphQLError | string): ErrorCodeDefinition | undefined {
+export function errorCodeDef(e: GraphQLError | GraphQLFormattedError | string): ErrorCodeDefinition | undefined {
   const code = typeof e === 'string' ? e : errorCode(e);
   return code ? codeDefByCode[code] : undefined;
 }
@@ -152,6 +147,12 @@ const TYPE_DEFINITION_INVALID = makeCodeDefinition(
 const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
   'UNKNOWN_FEDERATION_LINK_VERSION',
   'The version of federation in a @link directive on the schema is unknown.',
+);
+
+const UNKNOWN_LINK_VERSION = makeCodeDefinition(
+  'UNKNOWN_LINK_VERSION',
+  'The version of @link set on the schema is unknown.',
+  { addedIn: '2.1.0' },
 );
 
 const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
@@ -260,6 +261,12 @@ const EXTERNAL_TYPE_MISMATCH = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
+  'EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE',
+  'The @external directive collides with other directives in some situations.',
+  { addedIn: '2.1.0' },
+);
+
 const EXTERNAL_ARGUMENT_MISSING = makeCodeDefinition(
   'EXTERNAL_ARGUMENT_MISSING',
   'An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs.',
@@ -301,7 +308,6 @@ const INPUT_FIELD_DEFAULT_MISMATCH = makeCodeDefinition(
   'INPUT_FIELD_DEFAULT_MISMATCH',
   'An input field has a default value that is incompatible with other declarations of that field in other subgraphs.',
 );
-
 const ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'FIELD_ARGUMENT_DEFAULT_MISMATCH',
   'An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.',
@@ -337,6 +343,12 @@ const INVALID_FIELD_SHARING = makeCodeDefinition(
 const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'INVALID_LINK_DIRECTIVE_USAGE',
   'An application of the @link directive is invalid/does not respect the specification.'
+);
+
+const INVALID_LINK_IDENTIFIER = makeCodeDefinition(
+  'INVALID_LINK_IDENTIFIER',
+  'A url/version for a @link feature is invalid/does not respect the specification.',
+  { addedIn: '2.1.0' },
 );
 
 const LINK_IMPORT_NAME_MISMATCH = makeCodeDefinition(
@@ -424,6 +436,24 @@ const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
+const UNSUPPORTED_FEATURE = makeCodeDefinition(
+  'UNSUPPORTED_FEATURE',
+  'Indicates an error due to feature currently unsupported by federation.',
+  { addedIn: '2.1.0' },
+);
+
+const INVALID_FEDERATION_SUPERGRAPH = makeCodeDefinition(
+  'INVALID_FEDERATION_SUPERGRAPH',
+  'Indicates that a schema provided for an Apollo Federation supergraph is not a valid supergraph schema.',
+  { addedIn: '2.1.0' },
+);
+
+const DOWNSTREAM_SERVICE_ERROR = makeCodeDefinition(
+  'DOWNSTREAM_SERVICE_ERROR',
+  'Indicates an error in a subgraph service query during query execution in a federated service.',
+  { addedIn: FED1_CODE },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -438,6 +468,7 @@ export const ERRORS = {
   DIRECTIVE_DEFINITION_INVALID,
   TYPE_DEFINITION_INVALID,
   UNKNOWN_FEDERATION_LINK_VERSION,
+  UNKNOWN_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
   REQUIRES_FIELDS_HAS_ARGS,
@@ -447,6 +478,7 @@ export const ERRORS = {
   PROVIDES_UNSUPPORTED_ON_INTERFACE,
   REQUIRES_UNSUPPORTED_ON_INTERFACE,
   EXTERNAL_UNUSED,
+  EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE,
   TYPE_WITH_ONLY_UNUSED_EXTERNAL,
   PROVIDES_ON_NON_OBJECT_FIELD,
   KEY_INVALID_FIELDS_TYPE,
@@ -479,6 +511,7 @@ export const ERRORS = {
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_LINK_DIRECTIVE_USAGE,
+  INVALID_LINK_IDENTIFIER,
   LINK_IMPORT_NAME_MISMATCH,
   REFERENCED_INACCESSIBLE,
   DEFAULT_VALUE_USES_INACCESSIBLE,
@@ -496,6 +529,9 @@ export const ERRORS = {
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
+  UNSUPPORTED_FEATURE,
+  INVALID_FEDERATION_SUPERGRAPH,
+  DOWNSTREAM_SERVICE_ERROR,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

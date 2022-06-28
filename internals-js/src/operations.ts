@@ -7,7 +7,6 @@ import {
   FieldNode,
   FragmentDefinitionNode,
   FragmentSpreadNode,
-  GraphQLError,
   InlineFragmentNode,
   Kind,
   OperationDefinitionNode,
@@ -45,13 +44,14 @@ import {
   isConditionalDirective,
   isDirectiveApplicationsSubset,
 } from "./definitions";
+import { ERRORS } from "./error";
 import { sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
-    throw new GraphQLError(message(), sourceAST);
+    throw ERRORS.INVALID_GRAPHQL.err(message(), { nodes: sourceAST });
   }
 }
 
@@ -486,7 +486,7 @@ export class NamedFragments {
 
   add(fragment: NamedFragmentDefinition) {
     if (this.fragments.has(fragment.name)) {
-      throw new GraphQLError(`Duplicate fragment name '${fragment}'`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Duplicate fragment name '${fragment}'`);
     }
     this.fragments.set(fragment.name, fragment);
   }
@@ -1490,10 +1490,10 @@ export function operationFromDocument(
         const typeName = definition.typeCondition.name.value;
         const typeCondition = schema.type(typeName);
         if (!typeCondition) {
-          throw new GraphQLError(`Unknown type "${typeName}" for fragment "${name}"`, definition);
+          throw ERRORS.INVALID_GRAPHQL.err(`Unknown type "${typeName}" for fragment "${name}"`, { nodes: definition });
         }
         if (!isCompositeType(typeCondition)) {
-          throw new GraphQLError(`Invalid fragment "${name}" on non-composite type "${typeName}"`, definition);
+          throw ERRORS.INVALID_GRAPHQL.err(`Invalid fragment "${name}" on non-composite type "${typeName}"`, { nodes: definition });
         }
         const fragment = new NamedFragmentDefinition(schema, name, typeCondition, new SelectionSet(typeCondition, fragments));
         addDirectiveNodesToElement(definition.directives, fragment);

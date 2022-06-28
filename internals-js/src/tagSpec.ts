@@ -62,9 +62,8 @@ export class TagSpecDefinition extends FeatureDefinition {
     const hasValidNameArg = nameArg && sameType(nameArg.type!, new NonNullType(definition.schema().stringType()));
     const hasValidLocations = definition.locations.every(loc => this.tagLocations.includes(loc));
     if (hasUnknownArguments || !hasValidNameArg || !hasValidLocations) {
-      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Found invalid @tag directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${this.printedTagDefinition}`,
-      }
+      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+        `Found invalid @tag directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${this.printedTagDefinition}`,
       );
     }
     return undefined;
