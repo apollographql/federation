@@ -11,6 +11,7 @@
     "version": "npm i --package-lock-only && git add package-lock.json",
     "release:start-ci-publish": "node -p '`Publish (dist-tag:${process.env.APOLLO_DIST_TAG || \"latest\"})`' | git tag -F - \"publish/$(date -u '+%Y%m%d%H%M%S')\" && git push origin \"$(git describe --match='publish/*' --tags --exact-match HEAD)\"",
     "pretest": "npm run compile && tsc --build tsconfig.test.json",
+    "postinstall": "npm run compile",
     "test": "jest --verbose",
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",
