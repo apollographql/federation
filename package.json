@@ -99,7 +99,6 @@
   },
   "overrides": {
     "cross-undici-fetch": "0.4.8",
-    "got": "11.8.5",
     "graphql": "16.5.0"
   }
 }
