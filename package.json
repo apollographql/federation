@@ -35,7 +35,7 @@
   "devDependencies": {
     "@apollo/client": "3.6.9",
     "@apollo/utils.fetcher": "1.0.0",
-    "@graphql-codegen/cli": "2.6.2",
+    "@graphql-codegen/cli": "2.6.3",
     "@graphql-codegen/typescript": "2.5.1",
     "@graphql-codegen/typescript-operations": "2.4.2",
     "@josephg/resolvable": "1.0.1",
