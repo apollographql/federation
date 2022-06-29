@@ -142,6 +142,7 @@ export class ApolloGateway implements GraphQLService {
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
+  private supergraphSchema?: GraphQLSchema;
   private compositionId?: string;
   private state: GatewayState;
   private _supergraphManager?: SupergraphManager;
@@ -522,7 +523,7 @@ export class ApolloGateway implements GraphQLService {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
+    const { supergraphSchema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
       result.supergraphSdl,
     );
 
@@ -536,20 +537,21 @@ export class ApolloGateway implements GraphQLService {
 
     this.compositionId = result.id;
     this.supergraphSdl = supergraphSdl;
+    this.supergraphSchema = supergraphSchema.toGraphQLJSSchema();
 
     if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.updateWithSchemaAndNotify(schema, supergraphSdl);
+      this.updateWithSchemaAndNotify(supergraphSchema, supergraphSdl);
 
       if (this.experimental_didUpdateSupergraph) {
         this.experimental_didUpdateSupergraph(
           {
             compositionId: result.id,
             supergraphSdl,
-            schema: schema.toGraphQLJSSchema(),
+            schema: this.schema!,
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
             ? {
@@ -654,7 +656,7 @@ export class ApolloGateway implements GraphQLService {
     this.createServices(serviceList);
 
     return {
-      schema,
+      supergraphSchema: schema,
       supergraphSdl,
     };
   }
@@ -859,6 +861,7 @@ export class ApolloGateway implements GraphQLService {
             serviceMap,
             requestContext,
             operationContext,
+            this.supergraphSchema!,
           );
 
           const shouldShowQueryPlan =

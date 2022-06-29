@@ -3030,4 +3030,108 @@ describe('composition', () => {
     const result = composeServices([subgraphA]);
     assertCompositionSuccess(result);
   });
+
+  it('handles fragments in @requires using @inaccessible types', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query @shareable {
+          dummy: Entity
+        }
+
+        type Entity @key(fields: "id") {
+          id: ID!
+          data: Foo
+        }
+
+        interface Foo {
+          foo: String!
+        }
+
+        interface Bar implements Foo {
+          foo: String!
+          bar: String!
+        }
+
+        type Baz implements Foo & Bar @shareable {
+          foo: String!
+          bar: String!
+          baz: String!
+        }
+
+        type Qux implements Foo & Bar @shareable {
+          foo: String!
+          bar: String!
+          qux: String!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query @shareable {
+          dummy: Entity
+        }
+
+        type Entity @key(fields: "id") {
+          id: ID!
+          data: Foo @external
+          requirer: String! @requires(fields: "data { foo ... on Bar { bar ... on Baz { baz } ... on Qux { qux } } }")
+        }
+
+        interface Foo {
+          foo: String!
+        }
+
+        interface Bar implements Foo {
+          foo: String!
+          bar: String!
+        }
+
+        type Baz implements Foo & Bar @shareable @inaccessible {
+          foo: String!
+          bar: String!
+          baz: String!
+        }
+
+        type Qux implements Foo & Bar @shareable {
+          foo: String!
+          bar: String!
+          qux: String!
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+
+    const [_, api] = schemas(result);
+    expect(printSchema(api)).toMatchString(`
+      interface Bar implements Foo {
+        foo: String!
+        bar: String!
+      }
+
+      type Entity {
+        id: ID!
+        data: Foo
+        requirer: String!
+      }
+
+      interface Foo {
+        foo: String!
+      }
+
+      type Query {
+        dummy: Entity
+      }
+
+      type Qux implements Foo & Bar {
+        foo: String!
+        bar: String!
+        qux: String!
+      }
+    `);
+  });
 });

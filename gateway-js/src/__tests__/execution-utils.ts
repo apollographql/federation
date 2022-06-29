@@ -53,12 +53,13 @@ export async function execute(
 
   const { schema, queryPlanner } = getFederatedTestingSchema(services);
 
+  const apiSchema = schema.toAPISchema();
   const operationDocument = gql`${request.query}`;
-  const operation = operationFromDocument(schema, operationDocument);
+  const operation = operationFromDocument(apiSchema, operationDocument);
   const queryPlan = queryPlanner.buildQueryPlan(operation);
 
   const operationContext = buildOperationContext({
-    schema: schema.toAPISchema().toGraphQLJSSchema(),
+    schema: apiSchema.toGraphQLJSSchema(),
     operationDocument,
   });
 
@@ -74,6 +75,7 @@ export async function execute(
       logger
     },
     operationContext,
+    schema.toGraphQLJSSchema(),
   );
 
   return { ...result, queryPlan };
