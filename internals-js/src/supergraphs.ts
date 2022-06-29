@@ -1,10 +1,11 @@
-import { ASTNode, DocumentNode, GraphQLError } from "graphql";
+import { ASTNode, DocumentNode } from "graphql";
 import { err } from '@apollo/core-schema';
 import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./coreSpec";
 import { CoreFeature, CoreFeatures, Schema } from "./definitions";
 import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph } from "./extractSubgraphsFromSupergraph";
+import { ERRORS } from "./error";
 
 const SUPPORTED_FEATURES = new Set([
   'https://specs.apollo.dev/core/v0.1',
@@ -78,15 +79,15 @@ function checkFeatureSupport(coreFeatures: CoreFeatures) {
 export function validateSupergraph(supergraph: Schema): [CoreFeatures, JoinSpecDefinition] {
   const coreFeatures = supergraph.coreFeatures;
   if (!coreFeatures) {
-    throw new GraphQLError("Invalid supergraph: must be a core schema");
+    throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err("Invalid supergraph: must be a core schema");
   }
   const joinFeature = coreFeatures.getByIdentity(joinIdentity);
   if (!joinFeature) {
-    throw new GraphQLError("Invalid supergraph: must use the join spec");
+    throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err("Invalid supergraph: must use the join spec");
   }
   const joinSpec = JOIN_VERSIONS.find(joinFeature.url.version);
   if (!joinSpec) {
-    throw new GraphQLError(
+    throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err(
       `Invalid supergraph: uses unsupported join spec version ${joinFeature.url.version} (supported versions: ${JOIN_VERSIONS.versions().join(', ')})`);
   }
   return [coreFeatures, joinSpec];

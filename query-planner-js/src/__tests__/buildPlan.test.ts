@@ -1690,6 +1690,40 @@ describe('@requires', () => {
             }
           },
           Parallel {
+            Sequence {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      inner2_required
+                      inner1
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph3") {
+                  {
+                    ... on T {
+                      __typename
+                      inner2_required
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      inner2
+                    }
+                  }
+                },
+              },
+            },
             Flatten(path: "t") {
               Fetch(service: "Subgraph7") {
                 {
@@ -1786,40 +1820,6 @@ describe('@requires', () => {
                   {
                     ... on Inner3Type {
                       inner3_nested
-                    }
-                  }
-                },
-              },
-            },
-            Sequence {
-              Flatten(path: "t") {
-                Fetch(service: "Subgraph2") {
-                  {
-                    ... on T {
-                      __typename
-                      id
-                    }
-                  } =>
-                  {
-                    ... on T {
-                      inner1
-                      inner2_required
-                    }
-                  }
-                },
-              },
-              Flatten(path: "t") {
-                Fetch(service: "Subgraph3") {
-                  {
-                    ... on T {
-                      __typename
-                      inner2_required
-                      id
-                    }
-                  } =>
-                  {
-                    ... on T {
-                      inner2
                     }
                   }
                 },
@@ -1994,6 +1994,146 @@ describe('@requires', () => {
 
     const plan3 = queryPlanner.buildQueryPlan(op2);
     expect(plan3).toMatchInlineSnapshot(expectedPlan);
+  });
+
+  it('handes diamond-shape depedencies', () => {
+    // The idea of this test is that to be able to fulfill the @require in subgraph D, we need
+    // both values from C for the @require and values from B for the key itself, but both
+    // B and C can be queried directly after the initial query to A. This make the optimal query
+    // plan diamond-shaped: after starting in A, we can get everything from B and C in
+    // parallel, and then D needs to wait on both of those to run.
+
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type T @key(fields: "id1") {
+          id1: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type T @key(fields: "id1") @key(fields: "id2") {
+          id1: ID!
+          id2: ID!
+          v1: Int
+          v2: Int
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'C',
+      typeDefs: gql`
+        type T @key(fields: "id1") {
+          id1: ID!
+          v3: Int
+        }
+      `
+    }
+
+    const subgraph4 = {
+      name: 'D',
+      typeDefs: gql`
+        type T @key(fields: "id2") {
+          id2: ID!
+          v3: Int @external
+          v4: Int @requires(fields: "v3")
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          v2
+          v3
+          v4
+        }
+      }
+    `);
+
+    // The optimal plan should:
+    // 1. fetch id1 from A
+    // 2. from that, it can both (in parallel):
+    //   - get id2, v1 and v2 from B
+    //   - get v3 from C
+    // 3. lastly, once both of those return, it can get v4 from D as it has all requirement
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
+            {
+              t {
+                __typename
+                id1
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "t") {
+              Fetch(service: "B") {
+                {
+                  ... on T {
+                    __typename
+                    id1
+                  }
+                } =>
+                {
+                  ... on T {
+                    __typename
+                    id2
+                    v1
+                    v2
+                    id1
+                  }
+                }
+              },
+            },
+            Flatten(path: "t") {
+              Fetch(service: "C") {
+                {
+                  ... on T {
+                    __typename
+                    id1
+                  }
+                } =>
+                {
+                  ... on T {
+                    v3
+                  }
+                }
+              },
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "D") {
+              {
+                ... on T {
+                  __typename
+                  v3
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  v4
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
   });
 
   describe('@include and @skip', () => {
@@ -2192,7 +2332,6 @@ describe('@requires', () => {
         }
       `);
 
-      global.console = require('console');
       const plan = queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2805,4 +2944,3 @@ describe('handles non-intersecting fragment conditions', () => {
     `);
   });
 });
-

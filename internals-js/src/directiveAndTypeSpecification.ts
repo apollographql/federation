@@ -117,10 +117,10 @@ export function createObjectTypeSpecification({
         for (const { name, type, args } of expectedFields) {
           const existingField = existing.field(name);
           if (!existingField) {
-            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-              message: `Invalid definition of type ${name}: missing field ${name}`,
-              nodes: existing.sourceAST
-            }));
+            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+              `Invalid definition of type ${name}: missing field ${name}`,
+              { nodes: existing.sourceAST },
+            ));
             continue;
           }
           // We allow adding non-nullability because we've seen redefinition of the federation _Service type with type String! for the `sdl` field
@@ -130,10 +130,10 @@ export function createObjectTypeSpecification({
             existingType = existingType.ofType;
           }
           if (!sameType(type, existingType)) {
-            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-              message: `Invalid definition for field ${name} of type ${name}: should have type ${type} but found type ${existingField.type}`,
-              nodes: existingField.sourceAST
-            }));
+            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+              `Invalid definition for field ${name} of type ${name}: should have type ${type} but found type ${existingField.type}`,
+              { nodes: existingField.sourceAST },
+            ));
           }
           errors = errors.concat(ensureSameArguments(
             { name, args },
@@ -171,10 +171,10 @@ export function createUnionTypeSpecification({
       const expectedMembers = membersFct(schema).sort((n1, n2) => n1.localeCompare(n2));
       if (expectedMembers.length === 0) {
         if (existing) {
-          return [ERRORS.TYPE_DEFINITION_INVALID.err({
-            message: `Invalid definition of type ${name}: expected the union type to not exist/have no members but it is defined.`,
-            nodes: existing.sourceAST
-          })];
+          return [ERRORS.TYPE_DEFINITION_INVALID.err(
+            `Invalid definition of type ${name}: expected the union type to not exist/have no members but it is defined.`,
+            { nodes: existing.sourceAST },
+          )];
         }
         return [];
       }
@@ -188,10 +188,10 @@ export function createUnionTypeSpecification({
         // This is kind of fragile in a core schema world where members may have been renamed, but we currently
         // only use this one for the _Entity type where that shouldn't be an issue.
         if (!arrayEquals(expectedMembers, actualMembers)) {
-          errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-            message: `Invalid definition of type ${name}: expected members [${expectedMembers}] but found [${actualMembers}].`,
-            nodes: existing.sourceAST
-          }));
+          errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+            `Invalid definition of type ${name}: expected members [${expectedMembers}] but found [${actualMembers}].`,
+            { nodes: existing.sourceAST },
+          ));
         }
         return errors;
       } else {
@@ -226,10 +226,10 @@ export function createEnumTypeSpecification({
         assert(isEnumType(existing), 'Should be an enum type');
         const actualValueNames = existing.values.map(v => v.name).sort((n1, n2) => n1.localeCompare(n2));
         if (!arrayEquals(expectedValueNames, actualValueNames)) {
-          errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err({
-            message: `Invalid definition for type "${name}": expected values [${expectedValueNames.join(', ')}] but found [${actualValueNames.join(', ')}].`,
-            nodes: existing.sourceAST
-          }));
+          errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+            `Invalid definition for type "${name}": expected values [${expectedValueNames.join(', ')}] but found [${actualValueNames.join(', ')}].`,
+            { nodes: existing.sourceAST },
+          ));
         }
         return errors;
       } else {
@@ -246,10 +246,12 @@ export function createEnumTypeSpecification({
 function ensureSameTypeKind(expected: NamedType['kind'], actual: NamedType): GraphQLError[] {
   return expected === actual.kind
     ? []
-    : [ERRORS.TYPE_DEFINITION_INVALID.err({
-      message: `Invalid definition for type ${actual.name}: ${actual.name} should be a ${expected} but is defined as a ${actual.kind}`,
-      nodes: actual.sourceAST
-    })];
+    : [
+      ERRORS.TYPE_DEFINITION_INVALID.err(
+        `Invalid definition for type ${actual.name}: ${actual.name} should be a ${expected} but is defined as a ${actual.kind}`,
+        { nodes: actual.sourceAST },
+      )
+    ];
 }
 
 function ensureSameDirectiveStructure(
@@ -265,17 +267,17 @@ function ensureSameDirectiveStructure(
   let errors = ensureSameArguments(expected, actual, `directive ${directiveName}`);
   // It's ok to say you'll never repeat a repeatable directive. It's not ok to repeat one that isn't.
   if (!expected.repeatable && actual.repeatable) {
-    errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-      message: `Invalid definition for directive ${directiveName}: ${directiveName} should${expected.repeatable ? "" : " not"} be repeatable`,
-      nodes: actual.sourceAST
-    }));
+    errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+      `Invalid definition for directive ${directiveName}: ${directiveName} should${expected.repeatable ? "" : " not"} be repeatable`,
+      { nodes: actual.sourceAST },
+    ));
   }
   // Similarly, it's ok to say that you will never use a directive in some locations, but not that you will use it in places not allowed by what is expected.
   if (!actual.locations.every(loc => expected.locations.includes(loc))) {
-    errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-      message: `Invalid definition for directive ${directiveName}: ${directiveName} should have locations ${expected.locations.join(', ')}, but found (non-subset) ${actual.locations.join(', ')}`,
-      nodes: actual.sourceAST
-    }));
+    errors = errors.concat(ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+      `Invalid definition for directive ${directiveName}: ${directiveName} should have locations ${expected.locations.join(', ')}, but found (non-subset) ${actual.locations.join(', ')}`,
+      { nodes: actual.sourceAST },
+    ));
   }
   return errors;
 }
@@ -297,10 +299,10 @@ function ensureSameArguments(
       // Not declaring an optional argument is ok: that means you won't be able to pass a non-default value in your schema, but we allow you that.
       // But missing a required argument it not ok.
       if (isNonNullType(type) && defaultValue === undefined) {
-        errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-          message: `Invalid definition for ${what}: missing required argument "${name}"`,
-          nodes: containerSourceAST
-        }));
+        errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+          `Invalid definition for ${what}: missing required argument "${name}"`,
+          { nodes: containerSourceAST },
+        ));
       }
       continue;
     }
@@ -313,24 +315,24 @@ function ensureSameArguments(
       actualType = actualType.ofType;
     }
     if (!sameType(type, actualType) && !isValidInputTypeRedefinition(type, actualType)) {
-      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition for ${what}: argument "${name}" should have type "${type}" but found type "${actualArgument.type!}"`,
-        nodes: actualArgument.sourceAST
-      }));
+      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+        `Invalid definition for ${what}: argument "${name}" should have type "${type}" but found type "${actualArgument.type!}"`,
+        { nodes: actualArgument.sourceAST },
+      ));
     } else if (!isNonNullType(actualArgument.type!) && !valueEquals(defaultValue, actualArgument.defaultValue)) {
-      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition for ${what}: argument "${name}" should have default value ${valueToString(defaultValue)} but found default value ${valueToString(actualArgument.defaultValue)}`,
-        nodes: actualArgument.sourceAST
-      }));
+      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+        `Invalid definition for ${what}: argument "${name}" should have default value ${valueToString(defaultValue)} but found default value ${valueToString(actualArgument.defaultValue)}`,
+        { nodes: actualArgument.sourceAST },
+      ));
     }
   }
   for (const actualArgument of actual.arguments()) {
     // If it's an expect argument, we already validated it. But we still need to reject unkown argument.
     if (!expectedArguments.some((arg) => arg.name === actualArgument.name)) {
-      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
-        message: `Invalid definition for ${what}: unknown/unsupported argument "${actualArgument.name}"`,
-        nodes: actualArgument.sourceAST
-      }));
+      errors.push(ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
+        `Invalid definition for ${what}: unknown/unsupported argument "${actualArgument.name}"`,
+        { nodes: actualArgument.sourceAST },
+      ));
     }
   }
   return errors;

@@ -34,6 +34,7 @@ import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
 import { sameType } from './types';
 import { assert, assertUnreachable } from './utils';
+import { ERRORS } from './error';
 
 // Per-GraphQL spec, max and value for an Int type.
 const MAX_INT = 2147483647;
@@ -189,7 +190,7 @@ function applyDefaultValues(value: any, type: InputType): any {
 
   if (value === null) {
     if (isNonNullType(type)) {
-      throw new GraphQLError(`Invalid null value for non-null type ${type} while computing default values`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Invalid null value for non-null type ${type} while computing default values`);
     }
     return null;
   }
@@ -208,7 +209,7 @@ function applyDefaultValues(value: any, type: InputType): any {
 
   if (isInputObjectType(type)) {
     if (typeof value !== 'object') {
-      throw new GraphQLError(`Expected value for type ${type} to be an object, but is ${typeof value}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Expected value for type ${type} to be an object, but is ${typeof value}.`);
     }
 
     const updated = Object.create(null);
@@ -221,7 +222,7 @@ function applyDefaultValues(value: any, type: InputType): any {
         if (field.defaultValue !== undefined) {
           updated[field.name] = applyDefaultValues(field.defaultValue, field.type);
         } else if (isNonNullType(field.type)) {
-          throw new GraphQLError(`Field "${field.name}" of required type ${type} was not provided.`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Field "${field.name}" of required type ${type} was not provided.`);
         }
       } else {
         updated[field.name] = applyDefaultValues(fieldValue, field.type);
@@ -232,7 +233,7 @@ function applyDefaultValues(value: any, type: InputType): any {
     for (const fieldName of Object.keys(value)) {
       if (!type.field(fieldName)) {
         const suggestions = suggestionList(fieldName, type.fields().map(f => f.name));
-        throw new GraphQLError(`Field "${fieldName}" is not defined by type "${type}".` + didYouMean(suggestions));
+        throw ERRORS.INVALID_GRAPHQL.err(`Field "${fieldName}" is not defined by type "${type}".` + didYouMean(suggestions));
       }
     }
     return updated;
@@ -561,7 +562,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
 export function valueFromAST(node: ValueNode, expectedType: InputType): any {
   if (node.kind === Kind.NULL) {
     if (isNonNullType(expectedType)) {
-      throw new GraphQLError(`Invalid null value for non-null type "${expectedType}"`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Invalid null value for non-null type "${expectedType}"`);
     }
     return null;
   }
@@ -584,11 +585,11 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
 
   if (isIntType(expectedType)) {
     if (node.kind !== Kind.INT) {
-      throw new GraphQLError(`Int cannot represent non-integer value ${print(node)}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Int cannot represent non-integer value ${print(node)}.`);
     }
     const i = parseInt(node.value, 10);
     if (i > MAX_INT || i < MIN_INT) {
-      throw new GraphQLError(`Int cannot represent non 32-bit signed integer value ${i}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Int cannot represent non 32-bit signed integer value ${i}.`);
     }
     return i;
   }
@@ -600,31 +601,31 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
     } else if (node.kind === Kind.FLOAT) {
       parsed = parseFloat(node.value);
     } else {
-      throw new GraphQLError(`Float can only represent integer or float value, but got a ${node.kind}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Float can only represent integer or float value, but got a ${node.kind}.`);
     }
     if (!isFinite(parsed)) {
-      throw new GraphQLError( `Float cannot represent non numeric value ${parsed}.`);
+      throw ERRORS.INVALID_GRAPHQL.err( `Float cannot represent non numeric value ${parsed}.`);
     }
     return parsed;
   }
 
   if (isBooleanType(expectedType)) {
     if (node.kind !== Kind.BOOLEAN) {
-      throw new GraphQLError(`Boolean cannot represent a non boolean value ${print(node)}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Boolean cannot represent a non boolean value ${print(node)}.`);
     }
     return node.value;
   }
 
   if (isStringType(expectedType)) {
     if (node.kind !== Kind.STRING) {
-      throw new GraphQLError(`String cannot represent non string value ${print(node)}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`String cannot represent non string value ${print(node)}.`);
     }
     return node.value;
   }
 
   if (isIDType(expectedType)) {
     if (node.kind !== Kind.STRING && node.kind !== Kind.INT) {
-      throw new GraphQLError(`ID cannot represent value ${print(node)}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`ID cannot represent value ${print(node)}.`);
     }
     return node.value;
   }
@@ -635,14 +636,14 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
 
   if (isInputObjectType(expectedType)) {
     if (node.kind !== Kind.OBJECT) {
-      throw new GraphQLError(`Input Object Type ${expectedType} cannot represent non-object value ${print(node)}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Input Object Type ${expectedType} cannot represent non-object value ${print(node)}.`);
     }
     const obj = Object.create(null);
     for (const f of node.fields) {
       const name = f.name.value;
       const field = expectedType.field(name);
       if (!field) {
-        throw new GraphQLError(`Unknown field "${name}" found in value for Input Object Type "${expectedType}".`);
+        throw ERRORS.INVALID_GRAPHQL.err(`Unknown field "${name}" found in value for Input Object Type "${expectedType}".`);
       }
       // TODO: as we recurse in sub-objects, we may get an error on a field value deep in the object
       // and the error will not be precise to where it happens. We could try to build the path to
@@ -654,10 +655,10 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
 
   if (isEnumType(expectedType)) {
     if (node.kind !== Kind.STRING && node.kind !== Kind.ENUM) {
-      throw new GraphQLError(`Enum Type ${expectedType} cannot represent value ${print(node)}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Enum Type ${expectedType} cannot represent value ${print(node)}.`);
     }
     if (!expectedType.value(node.value)) {
-      throw new GraphQLError(`Enum Type ${expectedType} has no value ${node.value}.`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Enum Type ${expectedType} has no value ${node.value}.`);
     }
     return node.value;
   }
@@ -699,7 +700,7 @@ export function argumentsFromAST(
       const name = argNode.name.value;
       const expectedType = argsDefiner.argument(name)?.type;
       if (!expectedType) {
-        throw new GraphQLError(
+        throw ERRORS.INVALID_GRAPHQL.err(
           `Unknown argument "${name}" found in value: ${context} has no argument named "${name}"`
         );
       }
@@ -707,7 +708,7 @@ export function argumentsFromAST(
         values[name] = valueFromAST(argNode.value, expectedType);
       } catch (e) {
         if (e instanceof GraphQLError) {
-          throw new GraphQLError(`Invalid value for argument ${name}: ${e.message}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument ${name}: ${e.message}`);
         }
         throw e;
       }
