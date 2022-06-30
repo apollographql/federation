@@ -30,15 +30,7 @@ The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergrap
 rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-> ⚠️ **Important:** To perform Federation 2 composition with Rover, the YAML `--config` file you provide must include the following line:
->
-> ```yaml title="supergraph-config.yaml"
-> federation_version: 2
-> ```
->
-> Otherwise, Rover uses Federation 1 composition.
-
-To learn how to install Rover and use this command, see the [Quickstart](../quickstart/setup/#1-install-the-rover-cli).
+To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#1-install-the-rover-cli).
 
 ### Automatically with managed federation
 
@@ -62,7 +54,7 @@ graph LR;
   class uplink secondary;
 ```
 
-To learn how to perform composition with managed federation, see the [Quickstart](../quickstart/studio-composition/).
+To learn how to perform composition with managed federation, see the [quickstart](../quickstart/studio-composition/).
 
 ## Breaking composition
 
@@ -253,7 +245,7 @@ This is a useful solution when a type corresponds closely to an entry in a data 
 
 If a particular GraphQL type is defined _differently_ by different subgraphs, composition uses one of two strategies to merge those definitions: **union** or **intersection**.
 
-* **Union**: The supergraph schema includes _all_ parts of _all_ subgraph definitions for the type. 
+* **Union**: The supergraph schema includes _all_ parts of _all_ subgraph definitions for the type.
 * **Intersection:** The supergraph schema includes _only_ the parts of the type that are present in _every_ subgraph that defines the type.
 
 The merging strategy that composition uses for a particular type depends on the type, as described below.
@@ -373,7 +365,7 @@ As you can see, the supergraph schema includes only the input fields and argumen
 
 ### Enums
 
-Composition might use the union strategy _or_ the intersection strategy when merging enum type definitions, _depending on how the enum is used_. 
+Composition might use the union strategy _or_ the intersection strategy when merging enum type definitions, _depending on how the enum is used_.
 
 ```mermaid
 graph TB;
@@ -420,7 +412,7 @@ enum Color {
 }
 ```
 
-If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition merges using the [intersection strategy](#merging-types-from-multiple-subgraphs). 
+If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition merges using the [intersection strategy](#merging-types-from-multiple-subgraphs).
 
 Let's say we add a new field to Subgraph A that uses our `Color` enum as a field argument:
 
