@@ -12,7 +12,7 @@ import FederationArchitecture from '../shared/diagrams/federation-architecture.m
 >
 > Docs for Federation 1 are [available here](/federation/v1/).
 
-**Apollo Federation** is a powerful, open architecture that helps you create a **unified supergraph** that combines multiple GraphQL APIs:
+**Apollo Federation** is a powerful, open architecture for creating a **supergraph** that combines multiple GraphQL APIs:
 
 ```mermaid
 graph BT;
@@ -127,7 +127,7 @@ graph BT;
 
 * The gateway is one of the following:
     * An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
-    * An instance of [the Apollo Router](https://www.apollographql.com/docs/router/), a highly performant Rust-based graph router that is currently in public preview
+    * An instance of [the Apollo Router](https://www.apollographql.com/docs/router/): a high-performance, Rust-based graph router
 * Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs in the same supergraph can even use different server libraries.
 
 
