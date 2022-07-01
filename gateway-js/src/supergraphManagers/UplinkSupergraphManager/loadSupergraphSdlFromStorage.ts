@@ -1,3 +1,4 @@
+import * as makeFetchHappen from 'make-fetch-happen';
 import { GraphQLError } from 'graphql';
 import retry from 'async-retry';
 import { SupergraphSdlUpdate } from '../../config';
@@ -125,7 +126,14 @@ export async function loadSupergraphSdlFromStorage({
     },
   })
 
-  const requestDetails: FetcherRequestInit = {
+  const controller = new AbortController();
+  const signal = setTimeout(() => {
+    logger.debug(`Aborting request due to timeout`);
+    controller.abort();
+  }, 20_000);
+  const fletcher = makeFetchHappen.defaults({timeout: 30_000});
+
+  const requestDetails = {
     method: 'POST',
     body: requestBody,
     headers: {
@@ -134,13 +142,16 @@ export async function loadSupergraphSdlFromStorage({
       'user-agent': `${name}/${version}`,
       'content-type': 'application/json',
     },
+    signal
   };
+
+  logger.debug(`🔧 Fetching ${graphRef} supergraph schema from ${endpoint} ifAfterId ${compositionId}`);
 
   const startTime = new Date();
   let result: FetcherResponse;
   try {
-    logger.debug(`🔧 Fetching ${graphRef} supergraph schema from ${endpoint} ifAfterId ${compositionId}`);
-    result = await fetcher(endpoint, requestDetails);
+    result = await fletcher(endpoint, requestDetails)
+    // result = fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
 
@@ -155,6 +166,8 @@ export async function loadSupergraphSdlFromStorage({
     });
 
     throw new UplinkFetcherError(fetchErrorMsg + (e.message ?? e));
+  } finally {
+    clearTimeout(signal);
   }
 
   const endTime = new Date();
@@ -184,7 +197,7 @@ export async function loadSupergraphSdlFromStorage({
       response: result,
       startedAt: startTime,
       endedAt: endTime,
-      fetcher,
+      fetcher: fletcher,
     });
     throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText);
   }
