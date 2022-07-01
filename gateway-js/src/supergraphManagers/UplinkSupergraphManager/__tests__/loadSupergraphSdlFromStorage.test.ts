@@ -22,6 +22,13 @@ import {
   nockBeforeEach,
 } from '../../../__tests__/nockAssertions';
 
+const logger = {
+  warn: jest.fn(),
+  debug: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+};
+
 describe('loadSupergraphSdlFromStorage', () => {
   beforeEach(nockBeforeEach);
   afterEach(nockAfterEach);
@@ -35,6 +42,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       errorReportingEndpoint: undefined,
       fetcher,
       compositionId: null,
+      logger,
     });
     expect(result).toMatchObject({
       id: 'originalId-1234',
@@ -70,6 +78,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       maxRetries: 1,
       roundRobinSeed: 0,
       earliestFetchTime: null,
+      logger,
     });
 
     expect(result).toMatchObject({
@@ -96,6 +105,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         maxRetries: 1,
         roundRobinSeed: 0,
         earliestFetchTime: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -116,6 +126,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -141,6 +152,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -161,6 +173,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -182,6 +195,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -201,6 +215,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -221,6 +236,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -241,6 +257,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -261,6 +278,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -282,6 +300,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -302,6 +321,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -322,6 +342,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -342,6 +363,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -360,6 +382,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       errorReportingEndpoint: mockOutOfBandReporterUrl,
       fetcher,
       compositionId: 'id-1234',
+      logger,
     });
     expect(result).toBeNull();
   });
@@ -386,6 +409,7 @@ describe('loadSupergraphSdlFromUplinks', () => {
       maxRetries: 5,
       roundRobinSeed: 0,
       earliestFetchTime: null,
+      logger,
     });
 
     expect(result).toBeNull();
@@ -422,6 +446,7 @@ describe('loadSupergraphSdlFromUplinks', () => {
       maxRetries: 1,
       roundRobinSeed: 0,
       earliestFetchTime: new Date(Date.now() + 1000),
+      logger,
     });
 
     // test if setTimeout was called with a value in range to deal with time jitter
