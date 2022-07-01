@@ -393,16 +393,12 @@ describe('loadSupergraphSdlFromUplinks', () => {
   it("doesn't retry in the unchanged / null case", async () => {
     mockSupergraphSdlRequestIfAfterUnchanged('id-1234', mockCloudConfigUrl1);
 
-    let calls = 0;
     const result = await loadSupergraphSdlFromUplinks({
       graphRef,
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: mockOutOfBandReporterUrl,
-      fetcher: (...args) => {
-        calls++;
-        return fetcher(...args);
-      },
+      fetcher,
       compositionId: 'id-1234',
       maxRetries: 5,
       roundRobinSeed: 0,
@@ -410,7 +406,6 @@ describe('loadSupergraphSdlFromUplinks', () => {
     });
 
     expect(result).toBeNull();
-    expect(calls).toBe(1);
   });
 
   it('Retries on error', async () => {
