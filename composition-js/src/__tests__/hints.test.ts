@@ -25,6 +25,7 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toRaiseHint(id: HintCodeDefinition, message: string): R;
+      toNotRaiseHints(): R;
     }
   }
 }
@@ -64,6 +65,28 @@ expect.extend({
       pass: false
     }
   },
+
+  toNotRaiseHints(mergeResult: MergeResult) {
+    if (mergeResult.errors) {
+      return {
+        message: () => `Expected subgraphs to merge but got errors: [${mergeResult.errors.map(e => e.message).join(', ')}]`,
+        pass: false
+      };
+    }
+
+    const hints = mergeResult.hints;
+    if (hints.length > 0) {
+      return {
+        message: () => `Expected subgraphs merging to NOT raise any hints, but got:\n - ${hints.map((h) => h.toString()).join('\n - ')}`,
+        pass: false
+      };
+    }
+
+    return {
+      message: () => "You're negating a negative method? Instead of using `toRaiseHint`? Do you want to talk about it?",
+      pass: true
+    };
+  }
 });
 
 test('hints on merging field with nullable and non-nullable types', () => {
@@ -780,6 +803,137 @@ describe('hint tests related to the @override directive', () => {
     expect(result).toRaiseHint(
       HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
       `Field "T.id" on subgraph "Subgraph1" is not resolved anymore by the from subgraph (it is marked "@external" in "Subgraph2"). The @override directive can be removed.`,
+    );
+  });
+});
+
+describe('on non-repeatable directives used with incompatible arguments', () => {
+  it('does _not_ warn when subgraphs have the same arguments', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "because")
+      }
+    `;
+  
+    const subgraph2 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "because")
+      }
+    `;
+  
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toNotRaiseHints();
+  });
+
+  it('does _not_ warn when subgraphs all use the same arguments defaults', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: String @shareable @deprecated
+      }
+    `;
+  
+    const subgraph2 = gql`
+      type Query {
+        a: String @shareable @deprecated
+      }
+    `;
+  
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toNotRaiseHints();
+  });
+
+  it('does _not_ warn if a subgraph uses the argument default and othe pass an argument, but it is the default', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "No longer supported")
+      }
+    `;
+  
+    const subgraph2 = gql`
+      type Query {
+        a: String @shareable @deprecated
+      }
+    `;
+  
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toNotRaiseHints();
+  });
+
+  it('warns if a subgraph use a default argument but the other use the (different) default ', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "bad")
+      }
+    `;
+  
+    const subgraph2 = gql`
+      type Query {
+        a: String @shareable @deprecated
+      }
+    `;
+  
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
+      'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments. '
+      + 'The supergraph will use arguments {reason: "bad"} (from subgraph "Subgraph1"), but found no arguments in subgraph "Subgraph2".',
+    );
+  });
+
+  it('warns if subgraphs use a different argument', () => {
+    // Note: using @specifiedBy for variety and to illustrate that nothing we test here is specific to @deprecated.
+    const subgraph1 = gql`
+      type Query {
+        f: Foo
+      }
+
+      scalar Foo @specifiedBy(url: "http://FooSpec.com")
+    `;
+  
+    const subgraph2 = gql`
+      scalar Foo @specifiedBy(url: "http://BarSpec.com")
+    `;
+  
+    const result = mergeDocuments(subgraph1, subgraph2);
+    expect(result).toRaiseHint(
+      HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
+      'Non-repeatable directive @specifiedBy is applied to "Foo" in multiple subgraphs but with incompatible arguments. '
+      + 'The supergraph will use arguments {url: "http://FooSpec.com"} (from subgraph "Subgraph1"), but found arguments {url: "http://BarSpec.com"} in subgraph "Subgraph2".',
+    );
+  });
+
+  it('warns when subgraphs use a different arguments but pick the "most popular" option', () => {
+    // Note: using @specifiedBy for variety and to illustrate that nothing we test here is specific to @deprecated.
+    const subgraph1 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "because")
+      }
+    `;
+  
+    const subgraph2 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "Replaced by field 'b'")
+      }
+    `;
+
+    const subgraph3 = gql`
+      type Query {
+        a: String @shareable @deprecated
+      }
+    `;
+  
+    const subgraph4 = gql`
+      type Query {
+        a: String @shareable @deprecated(reason: "Replaced by field 'b'")
+      }
+    `;
+  
+    const result = mergeDocuments(subgraph1, subgraph2, subgraph3, subgraph4);
+    expect(result).toRaiseHint(
+      HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
+      'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments. '
+      + 'The supergraph will use arguments {reason: "Replaced by field \'b\'"} (from subgraphs "Subgraph2" and "Subgraph4"), '
+      + 'but found arguments {reason: "because"} in subgraph "Subgraph1" and no arguments in subgraph "Subgraph3".',
     );
   });
 });
