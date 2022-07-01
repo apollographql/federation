@@ -49,8 +49,9 @@ describe('executeQueryPlan', () => {
     executeSchema?: Schema,
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
   ): Promise<GraphQLExecutionResult> {
+    const supergraphSchema = executeSchema ?? schema;
     const operationContext = buildOperationContext({
-      schema: (executeSchema ?? schema).toAPISchema().toGraphQLJSSchema(),
+      schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
       operationDocument: gql`${operation.toString()}`,
     });
     return executeQueryPlan(
@@ -58,6 +59,7 @@ describe('executeQueryPlan', () => {
       executeServiceMap ?? serviceMap,
       executeRequestContext ?? buildRequestContext(),
       operationContext,
+      supergraphSchema.toGraphQLJSSchema(),
     );
   }
 
@@ -2738,6 +2740,202 @@ describe('executeQueryPlan', () => {
         `);
       expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
     });
+
+    test('ensures type condition on inaccessible type in @require works correctly', async () => {
+      const s1 = {
+        name: 'data',
+        typeDefs: gql`
+          extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+
+          type Entity @key(fields: "id") {
+            id: ID!
+            data: Foo
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar implements Foo {
+            foo: String!
+            bar: String!
+          }
+
+          type Data implements Foo & Bar @shareable {
+            foo: String!
+            bar: String!
+          }
+        `,
+        resolvers: {
+            Query: {
+              dummy() {
+                return {};
+              },
+            },
+            Entity: {
+              __resolveReference() {
+                return {};
+              },
+              id() {
+                return "id";
+              },
+              data() {
+                return {
+                  __typename: "Data",
+                  foo: "foo",
+                  bar: "bar",
+                };
+              },
+            },
+
+        }
+      }
+
+      let requirerRepresentation: any = undefined;
+
+      const s2 = {
+        name: 'requirer',
+        typeDefs: gql`
+          extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0",
+            import: ["@key", "@shareable", "@external", "@requires", "@inaccessible"]
+          )
+
+          type Query {
+            dummy: Entity
+          }
+
+          type Entity @key(fields: "id") {
+            id: ID!
+            data: Foo @external
+            requirer: String! @requires(fields: "data { foo ... on Bar { bar } }")
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar implements Foo @inaccessible {
+            foo: String!
+            bar: String!
+          }
+
+          type Data implements Foo & Bar @shareable {
+            foo: String!
+            bar: String!
+          }
+        `,
+        resolvers: {
+          Query: {
+            dummy() {
+              return {};
+            },
+          },
+          Entity: {
+            __resolveReference(representation: any) {
+              requirerRepresentation = representation;
+              return {};
+            },
+            id() {
+              return "id";
+            },
+            requirer() {
+              return "requirer";
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          dummy {
+            requirer
+          }
+        }
+        `, schema);
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "requirer") {
+              {
+                dummy {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "data") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    data {
+                      __typename
+                      foo
+                      ... on Data {
+                        bar
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "requirer") {
+                {
+                  ... on Entity {
+                    __typename
+                    data {
+                      foo
+                      ... on Bar {
+                        bar
+                      }
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    requirer
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "dummy": Object {
+            "requirer": "requirer",
+          },
+        }
+      `);
+
+      expect(requirerRepresentation).toMatchInlineSnapshot(`
+        Object {
+          "__typename": "Entity",
+          "data": Object {
+            "bar": "bar",
+            "foo": "foo",
+          },
+          "id": "id",
+        }
+      `);
+    });
   });
 
   describe('@key', () => {
@@ -2993,5 +3191,4 @@ describe('executeQueryPlan', () => {
         `);
     });
   });
-
 });

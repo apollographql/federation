@@ -169,6 +169,12 @@ const UNUSED_ENUM_TYPE = makeCodeDefinition({
   description: 'Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it). All the values from subgraphs defining that enum will be included in the supergraph.',
 });
 
+const INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
+  code: 'INCONSISTEN_NON_REPEATABLE_DIRECTIVE_ARGUMENTS',
+  level: HintLevel.WARN,
+  description: 'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -192,6 +198,7 @@ export const HINTS = {
   OVERRIDDEN_FIELD_CAN_BE_REMOVED,
   OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
   UNUSED_ENUM_TYPE,
+  INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
 }
 
 export class CompositionHint {

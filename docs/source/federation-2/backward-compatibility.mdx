@@ -5,14 +5,15 @@ description: FAQ
 
 ## Do I need to modify my subgraph schemas to use Federation 2?
 
-**Eventually.** The process of [moving to Federation 2](./moving-to-federation-2/) has two phases:
+**Eventually.** The process of [moving to Federation 2](./moving-to-federation-2/) has three steps:
 
-1. Use Federation 2 composition with your Federation 1 subgraph schemas.
-2. Convert your Federation 1 subgraph schemas to true Federation 2 subgraph schemas.
+1. Update your gateway to support Federation 2.
+2. Begin composing your supergraph schema with Federation 2 composition logic.
+3. Update your individual subgraphs to use Federation 2 features and directives.
 
-Phase 1 usually requires _no_ changes to your subgraph schemas. Schemas that _do_ require changes are schemas that _should_ cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
+Steps 1 and 2 usually require _no_ changes to your subgraph schemas. Schemas that _do_ require changes are schemas that _should_ cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
 
-Phase 2 _does_ require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#phase-2-modify-subgraph-schemas).
+Step 3 _does_ require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#step-3-update-individual-subgraphs).
 
 
 ### Breaking changes

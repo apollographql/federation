@@ -2,6 +2,17 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/subgraph-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## 2.1.0-alpha.0
+
+- Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
+
+## 2.0.3
+
+- Fix output of `printSubgraphSchema` method, ensuring it can be read back by composition and `buildSubgraphSchema` [PR #1831](https://github.com/apollographql/federation/pull/1831).
+- Fix definition of `@key` to be repeatable [PR #1826](https://github.com/apollographql/federation/pull/1826).
+
+## 2.0.2
+
 - Add __resolveType to _Entity union [PR #1773](https://github.com/apollographql/federation/pull/1773)
 
 ## v2.0.1
@@ -24,42 +35,14 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Generate a core schema in `buildSubgraphSchema`, incorporating the latest changes from `@apollo/core-schema` [PR #1554](https://github.com/apollographql/federation/pull/1554)
 
-## v2.0.0-preview.11
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.10
-
-- Released in sync with other federation packages but no changes to this package.
-
 ## v2.0.0-preview.9
 
 - Adds Support for `@tag/v0.2`, which allows the `@tag` directive to be additionally placed on arguments, scalars, enums, enum values, input objects, and input object fields. [PR #1652](https://github.com/apollographql/federation/pull/1652).
 - Adds support for the `@override` directive on fields to indicate that a field should be moved from one subgraph to another. [PR #1484](https://github.com/apollographql/federation/pull/1484)
 
-## v2.0.0-preview.8
-
-- Released in sync with other federation packages but no changes to this package.
-
 ## v2.0.0-preview.7
 
 - Automatically add the `@tag` directive definition in `buildSubgraphSchema` (but still support it if the definition is present in the input document) [PR #1600](https://github.com/apollographql/federation/pull/1600).
-
-## v2.0.0-preview.6
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.5
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.4
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.3
-
-- Released in sync with other federation packages but no changes to this package.
 
 ## v2.0.0-preview.2
 

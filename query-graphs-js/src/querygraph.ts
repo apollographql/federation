@@ -150,7 +150,15 @@ export class Edge {
      */
     conditions?: SelectionSet,
   ) {
-    this._conditions = conditions;
+    // Edges are meant to be immutable once a query graph is fully built. More precisely,
+    // the whole query graph must be immutable once constructed since the query planner reuses
+    // it for buiding multiple plans.
+    // To ensure it/avoid hard-to-find bugs, we freeze the conditions (and because the caller might
+    // not expect that this method freezes its input, we clone first), which ensure that if we add
+    // them to another selection set during query planning, they will get automatically cloned first
+    // (and thus this instance will not be modified). This fixes #1750 in particular and should
+    // avoid such issue in the future.
+    this._conditions = conditions?.clone()?.freeze();
   }
 
   get conditions(): SelectionSet | undefined {
@@ -189,10 +197,15 @@ export class Edge {
   }
 
   addToConditions(newConditions: SelectionSet) {
-    if (!this._conditions) {
-      this._conditions = new SelectionSet(this.head.type as CompositeType);
-    }
+    // As mentioned in the ctor, we freeze the conditions to avoid unexpected modifications once a query
+    // graph has bee fully built (this method is called _during_ the building, so can still mutate the
+    // edge freely). Which means we need to clone any existing conditions (so we can modify them), and need
+    // to re-freeze the result afterwards.
+    this._conditions = this._conditions
+      ? this._conditions.clone()
+      : new SelectionSet(this.head.type as CompositeType);
     this._conditions.mergeIn(newConditions);
+    this._conditions.freeze();
   }
 
   toString(): string {
@@ -968,8 +981,14 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can
       // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exploding in practice).
-      if (this.isFederatedSubgraph && !this.forceTypeExplosion) {
-        this.maybeAddInterfaceFieldsEdges(namedType, vertex);
+      if (this.isFederatedSubgraph) {
+        if (!this.forceTypeExplosion) {
+          this.maybeAddInterfaceFieldsEdges(namedType, vertex);
+        } else {
+          // While we don't want to add edges for all the "user" fields, we should still have add one for `__typename`
+          // as that can always be asked from the interface and may be necessary in a few corner cases.
+          this.addEdgeForField(namedType.typenameField()!, vertex);
+        }
       }
       this.addAbstractTypeEdges(namedType, vertex);
     } else if (isUnionType(namedType)) {

@@ -400,7 +400,7 @@ class Merger {
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
-      this.errors.push(ERRORS.NO_QUERIES.err({ message: "No queries found in any subgraph: a supergraph must have a query root type." }));
+      this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
@@ -508,10 +508,10 @@ class Merger {
       (elt, names) => `${elt} in ${names}`,
       (elt, names) => `${elt} in ${names}`,
       (distribution, nodes) => {
-        this.errors.push(code.err({
-          message: message + joinStrings(distribution, ' and ', ' but '),
-          nodes
-        }));
+        this.errors.push(code.err(
+          message + joinStrings(distribution, ' and ', ' but '),
+          { nodes }
+        ));
       },
       elt => !elt
     );
@@ -547,37 +547,48 @@ class Merger {
       supergraphElementPrinter,
       otherElementsPrinter,
       (distribution, nodes) => {
-        this.errors.push(code.err({
-          message: message + distribution[0] + joinStrings(distribution.slice(1), ' and '),
-          nodes: nodes.concat(extraNodes ?? [])
-        }));
+        this.errors.push(code.err(
+          message + distribution[0] + joinStrings(distribution.slice(1), ' and '),
+          { nodes: nodes.concat(extraNodes ?? []) }
+        ));
       },
       ignorePredicate,
       includeMissingSources
     );
   }
 
-  private reportMismatchHint<TMismatched extends { sourceAST?: ASTNode }>(
-    hintId: HintCodeDefinition,
+  private reportMismatchHint<TMismatched extends { sourceAST?: ASTNode }>({
+    code,
+    message,
+    supergraphElement,
+    subgraphElements,
+    elementToString,
+    supergraphElementPrinter,
+    otherElementsPrinter,
+    ignorePredicate,
+    includeMissingSources = false,
+    noEndOfMessageDot = false,
+  }: {
+    code: HintCodeDefinition,
     message: string,
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
+    elementToString: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
-    includeMissingSources: boolean = false,
-    noEndOfMessageDot: boolean = false
-  ) {
+    includeMissingSources?: boolean,
+    noEndOfMessageDot?: boolean
+  }) {
     this.reportMismatch(
       supergraphElement,
       subgraphElements,
-      mismatchAccessor,
+      elementToString,
       supergraphElementPrinter,
       otherElementsPrinter,
       (distribution, astNodes) => {
         this.hints.push(new CompositionHint(
-          hintId,
+          code,
           message + distribution[0] + joinStrings(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
           astNodes
         ));
@@ -587,6 +598,7 @@ class Merger {
     );
   }
 
+  // Not meant to be used directly: use `reportMismatchError` or `reportMismatchHint` instead.
   private reportMismatch<TMismatched extends { sourceAST?: ASTNode }>(
     supergraphElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
@@ -693,18 +705,17 @@ class Merger {
         // That said, we should decide if we want to bother here: maybe we can leave it to studio so handle a better experience (as
         // it can more UX wise).
         const name = dest instanceof NamedSchemaElement ? `Element "${dest.coordinate}"` : 'The schema definition';
-        this.reportMismatchHint(
-          HINTS.INCONSISTENT_DESCRIPTION,
-          `${name} has inconsistent descriptions across subgraphs. `,
-          dest,
-          sources,
-          elt => elt.description,
-          (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
-          (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc!, '  ')}`,
-          elt => elt?.description === undefined,
-          false,  // Don't including sources with no description
-          true    // Skip the end-of-message '.' since it would look ugly in that specific case
-        );
+        this.reportMismatchHint({
+          code: HINTS.INCONSISTENT_DESCRIPTION,
+          message: `${name} has inconsistent descriptions across subgraphs. `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: elt => elt.description,
+          supergraphElementPrinter: (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
+          otherElementsPrinter: (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc!, '  ')}`,
+          ignorePredicate: elt => elt?.description === undefined,
+          noEndOfMessageDot: true,  // Skip the end-of-message '.' since it would look ugly in that specific case
+        });
       }
     }
   }
@@ -763,10 +774,10 @@ class Merger {
     }
     if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
       for (const [i, subgraph] of extensionSubgraphs.entries()) {
-        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err({
-          message: `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
-          nodes: extensionASTs[i],
-        }));
+        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err(
+          `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
+          { nodes: extensionASTs[i] },
+        ));
       }
     }
   }
@@ -833,17 +844,17 @@ class Merger {
       }
     }
     if (sourceAsEntity.length > 0 && sourceAsNonEntity.length > 0) {
-      this.reportMismatchHint(
-        HINTS.INCONSISTENT_ENTITY,
-        `Type "${dest}" is declared as an entity (has a @key applied) in some but not all defining subgraphs: `,
-        dest,
-        sources,
+      this.reportMismatchHint({
+        code: HINTS.INCONSISTENT_ENTITY,
+        message: `Type "${dest}" is declared as an entity (has a @key applied) in some but not all defining subgraphs: `,
+        supergraphElement: dest,
+        subgraphElements: sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
-        type => type.hasAppliedDirective('key') ? 'yes' : 'no',
+        elementToString: type => type.hasAppliedDirective('key') ? 'yes' : 'no',
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
-        (_, subgraphs) => `it has no @key in ${subgraphs}`,
-        (_, subgraphs) => ` but has some @key in ${subgraphs}`,
-      );
+        supergraphElementPrinter: (_, subgraphs) => `it has no @key in ${subgraphs}`,
+        otherElementsPrinter: (_, subgraphs) => ` but has some @key in ${subgraphs}`,
+      });
     }
     return sourceAsEntity.length > 0;
   }
@@ -869,15 +880,15 @@ class Merger {
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the field, we hint.
       if (source && !source.field(field.name)) {
-        this.reportMismatchHint(
-          hintId,
-          `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,
-          dest,
-          sources,
-          type => type.field(field.name) ? 'yes' : 'no',
-          (_, subgraphs) => `"${field.coordinate}" is defined in ${subgraphs}`,
-          (_, subgraphs) => ` but not in ${subgraphs}`,
-        );
+        this.reportMismatchHint({
+          code: hintId,
+          message: `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: type => type.field(field.name) ? 'yes' : 'no',
+          supergraphElementPrinter: (_, subgraphs) => `"${field.coordinate}" is defined in ${subgraphs}`,
+          otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+        });
       }
     }
   }
@@ -929,10 +940,10 @@ class Merger {
             // unlikely to span multiple subgraphs. In fact, we could almost have thrown this error during subgraph validation
             // if this wasn't for the fact that it is only thrown for directives being merged and so is more logical to
             // be thrown only when merging.
-            this.errors.push(ERRORS.MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL.err({
-              message: `[${this.names[i]}] Cannot apply merged directive ${directive} to external field "${source.coordinate}"`,
-              nodes: directive.sourceAST
-            }));
+            this.errors.push(ERRORS.MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL.err(
+              `[${this.names[i]}] Cannot apply merged directive ${directive} to external field "${source.coordinate}"`,
+              { nodes: directive.sourceAST },
+            ));
           }
         }
       }
@@ -1042,15 +1053,15 @@ class Merger {
           overridingSubgraphASTNode,
         ));
       } else if (sourceSubgraphName === subgraphName) {
-        this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err({
-          message: `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
-          nodes: overrideDirective?.sourceAST,
-        }));
+        this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err(
+          `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
+          { nodes: overrideDirective?.sourceAST },
+        ));
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
-        this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err({
-          message: `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
-          nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective)
-        }));
+        this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err(
+          `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
+          { nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective) }
+        ));
       } else if (subgraphMap[sourceSubgraphName] === undefined) {
         this.hints.push(new CompositionHint(
           HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
@@ -1070,10 +1081,10 @@ class Merger {
         });
         if (hasIncompatible) {
           assert(conflictingDirective !== undefined, 'conflictingDirective should not be undefined');
-          this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err({
-            message: `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
-            nodes: sourceASTs(overrideDirective, conflictingDirective)
-          }));
+          this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
+            `@override cannot be used on field "${fromField?.coordinate}" on subgraph "${subgraphName}" since "${fromField?.coordinate}" on "${subgraph}" is marked with directive "@${conflictingDirective.name}"`,
+            { nodes: sourceASTs(overrideDirective, conflictingDirective) }
+          ));
         } else {
           // if we get here, then the @override directive is valid
           // if the field being overridden is used, then we need to add an @external directive
@@ -1113,10 +1124,10 @@ class Merger {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
       const nodes = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
-      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err({
-        message: `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
-        nodes
-      }));
+      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err(
+        `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
+        { nodes }
+      ));
       return;
     }
 
@@ -1161,10 +1172,10 @@ class Merger {
       const nonShareables = shareableSources.length > 0
         ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
         : 'all of them';
-      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err({
-        message: `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
-        nodes: sourceASTs(...allResolving),
-      }));
+      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err(
+        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
+        { nodes: sourceASTs(...allResolving) },
+      ));
     }
   }
 
@@ -1412,15 +1423,15 @@ class Merger {
       // Doing so is actually equivalent of checking `sameType` (more precisely, it is equivalent if we ignore the kind
       // of named types, but if 2 subgraphs differs in kind for the same type name (say one has "X" be a scalar and the
       // other an interface) we know we've already registered an error and the hint her won't matter).
-      this.reportMismatchHint(
-        isArgument ? HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE : HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
-        `Type of ${elementKind} "${dest.coordinate}" is inconsistent but compatible across subgraphs: `,
-        dest,
-        sources,
-        field => field.type!.toString(),
-        (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
-        (elt, subgraphs) => `${isInputPosition ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
-      );
+      this.reportMismatchHint({
+        code: isArgument ? HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE : HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
+        message: `Type of ${elementKind} "${dest.coordinate}" is inconsistent but compatible across subgraphs: `,
+        supergraphElement: dest,
+        subgraphElements: sources,
+        elementToString: field => field.type!.toString(),
+        supergraphElementPrinter: (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
+        otherElementsPrinter: (elt, subgraphs) => `${isInputPosition ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
+      });
       return false;
     }
     return true;
@@ -1466,23 +1477,21 @@ class Merger {
         if (nonOptionalSources.length > 0) {
           const nonOptionalSubgraphs = printSubgraphNames(nonOptionalSources);
           const missingSources = printSubgraphNames(sources.map((s, i) => s && !s.argument(argName) ? this.names[i] : undefined).filter((s) => !!s) as string[]);
-          this.errors.push(ERRORS.REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH.err({
-            message: `Argument "${arg.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
-            nodes: sourceASTs(...sources.map((s) => s?.argument(argName))),
-          }));
+          this.errors.push(ERRORS.REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH.err(
+            `Argument "${arg.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
+            { nodes: sourceASTs(...sources.map((s) => s?.argument(argName))) },
+          ));
         } else {
-          this.reportMismatchHint(
-            HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
-            `Optional argument "${arg.coordinate}" will not be included in the supergraph as it does not appear in all subgraphs: `,
-            arg,
-            sources.map((s) => s ? s.argument(argName) : undefined),
-            _ => 'yes',
-            // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
-            (_, subgraphs) => `it is defined in ${subgraphs}`,
-            (_, subgraphs) => ` but not in ${subgraphs}`,
-            undefined,
-            true // Do include undefined sources, that's the point
-          );
+          this.reportMismatchHint({
+            code: HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
+            message: `Optional argument "${arg.coordinate}" will not be included in the supergraph as it does not appear in all subgraphs: `,
+            supergraphElement: arg,
+            subgraphElements: sources.map((s) => s ? s.argument(argName) : undefined),
+            elementToString: _ => 'yes',
+            supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
+            otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+            includeMissingSources: true
+          });
         }
         // Note that we remove the element after the hint/error because we access it in the hint message generation.
         arg.remove();
@@ -1549,15 +1558,15 @@ class Merger {
         arg => arg.defaultValue !== undefined ? `default value ${valueToString(arg.defaultValue, arg.type)}` : 'no default value'
       );
     } else if (isInconsistent) {
-      this.reportMismatchHint(
-        HINTS.INCONSISTENT_DEFAULT_VALUE_PRESENCE,
-        `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
-        dest,
-        sources,
-        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined,
-        (_, subgraphs) => `will not use a default in the supergraph (there is no default in ${subgraphs}) but `,
-        (elt, subgraphs) => `"${dest.coordinate}" has default value ${elt} in ${subgraphs}`
-      );
+      this.reportMismatchHint({
+        code: HINTS.INCONSISTENT_DEFAULT_VALUE_PRESENCE,
+        message: `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
+        supergraphElement: dest,
+        subgraphElements: sources,
+        elementToString: arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined,
+        supergraphElementPrinter: (_, subgraphs) => `will not use a default in the supergraph (there is no default in ${subgraphs}) but `,
+        otherElementsPrinter: (elt, subgraphs) => `"${dest.coordinate}" has default value ${elt} in ${subgraphs}`
+      });
     }
   }
 
@@ -1594,15 +1603,15 @@ class Merger {
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.hasTypeMember(memberName)) {
-        this.reportMismatchHint(
-          HINTS.INCONSISTENT_UNION_MEMBER,
-          `Union type "${dest}" includes member type "${memberName}" in some but not all defining subgraphs: `,
-          dest,
-          sources,
-          type => type.hasTypeMember(memberName) ? 'yes' : 'no',
-          (_, subgraphs) => `"${memberName}" is defined in ${subgraphs}`,
-          (_, subgraphs) => ` but not in ${subgraphs}`,
-        );
+        this.reportMismatchHint({
+          code: HINTS.INCONSISTENT_UNION_MEMBER,
+          message: `Union type "${dest}" includes member type "${memberName}" in some but not all defining subgraphs: `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: type => type.hasTypeMember(memberName) ? 'yes' : 'no',
+          supergraphElementPrinter: (_, subgraphs) => `"${memberName}" is defined in ${subgraphs}`,
+          otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+        });
         return;
       }
     }
@@ -1641,10 +1650,10 @@ class Merger {
 
     // We could be left with an enum type with no values, and that's invalid in graphQL
     if (dest.values.length === 0) {
-      this.errors.push(ERRORS.EMPTY_MERGED_ENUM_TYPE.err({
-        message: `None of the values of enum type "${dest}" are defined consistently in all the subgraphs defining that type. As only values common to all subgraphs are merged, this would result in an empty type.`,
-        nodes: sourceASTs(...sources),
-      }));
+      this.errors.push(ERRORS.EMPTY_MERGED_ENUM_TYPE.err(
+        `None of the values of enum type "${dest}" are defined consistently in all the subgraphs defining that type. As only values common to all subgraphs are merged, this would result in an empty type.`,
+        { nodes: sourceASTs(...sources) },
+      ));
     }
   }
 
@@ -1691,15 +1700,15 @@ class Merger {
         // 1. it's harmless to do so; we have an error so we won't return a supergraph.
         // 2. it avoids generating an additional "enum type is empty" error in `mergeEnum` if all the values are inconsistent.
       } else {
-        this.reportMismatchHint(
-          HINTS.INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
-          `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
-          dest,
-          sources,
-          (type) => type.value(value.name) ? 'yes' : 'no',
-          (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
-          (_, subgraphs) => ` but not in ${subgraphs}`,
-        );
+        this.reportMismatchHint({
+          code: HINTS.INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
+          message: `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: (type) => type.value(value.name) ? 'yes' : 'no',
+          supergraphElementPrinter: (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
+          otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+        });
         // We remove the value after the generation of the hint/errors because `reportMismatchHint` will show the message for the subgraphs that are "like" the supergraph
         // first, and the message flows better if we say which subgraph defines the value first, so we want the value to still be present for the generation of the
         // message.
@@ -1718,15 +1727,15 @@ class Merger {
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.value(valueName)) {
-        this.reportMismatchHint(
-          HINTS.INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
-          `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
-          dest,
-          sources,
-          type => type.value(valueName) ? 'yes' : 'no',
-          (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
-          (_, subgraphs) => ` but not in ${subgraphs}`,
-        );
+        this.reportMismatchHint({
+          code: HINTS.INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
+          message: `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: type => type.value(valueName) ? 'yes' : 'no',
+          supergraphElementPrinter: (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
+          otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+        });
         return;
       }
     }
@@ -1754,23 +1763,22 @@ class Merger {
         if (nonOptionalSources.length > 0) {
           const nonOptionalSubgraphs = printSubgraphNames(nonOptionalSources);
           const missingSources = printSubgraphNames(sources.map((s, i) => s && !s.field(name) ? this.names[i] : undefined).filter((s) => !!s) as string[]);
-          this.errors.push(ERRORS.REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH.err({
-            message: `Input object field "${destField.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
-            nodes: sourceASTs(...sources.map((s) => s?.field(name))),
-          }));
+          this.errors.push(ERRORS.REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH.err(
+            `Input object field "${destField.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
+            { nodes: sourceASTs(...sources.map((s) => s?.field(name))) },
+          ));
         } else {
-          this.reportMismatchHint(
-            HINTS.INCONSISTENT_INPUT_OBJECT_FIELD,
-            `Input object field "${destField.name}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
-            destField,
-            sources.map((s) => s ? s.field(name) : undefined),
-            _ => 'yes',
+          this.reportMismatchHint({
+            code: HINTS.INCONSISTENT_INPUT_OBJECT_FIELD,
+            message: `Input object field "${destField.name}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
+            supergraphElement: destField,
+            subgraphElements: sources.map((s) => s ? s.field(name) : undefined),
+            elementToString: _ => 'yes',
             // Note that the first callback is for element that are "like the supergraph" and we've pass `destField` which we havne't yet removed.
-            (_, subgraphs) => `it is defined in ${subgraphs}`,
-            (_, subgraphs) => ` but not in ${subgraphs}`,
-            undefined,
-            true // Do include undefined sources, that's the point
-          );
+            supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
+            otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+            includeMissingSources: true
+          });
         }
         // Note that we remove the element after the hint/error because we access the parent in the hint message.
         destField.remove();
@@ -1779,10 +1787,10 @@ class Merger {
 
     // We could be left with an input type with no fields, and that's invalid in graphQL
     if (!dest.hasFields()) {
-      this.errors.push(ERRORS.EMPTY_MERGED_INPUT_TYPE.err({
-        message: `None of the fields of input object type "${dest}" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.`,
-        nodes: sourceASTs(...sources),
-      }));
+      this.errors.push(ERRORS.EMPTY_MERGED_INPUT_TYPE.err(
+        `None of the fields of input object type "${dest}" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.`,
+        { nodes: sourceASTs(...sources) },
+      ));
     }
   }
 
@@ -1895,18 +1903,16 @@ class Merger {
         // executable directive unless it is in all subgraphs. We use an 'intersection' strategy.
         const usages = dest.remove();
         assert(usages.length === 0, () => `Found usages of executable directive ${dest}: ${usages}`);
-        this.reportMismatchHint(
-          HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
-          `Executable directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
-          dest,
-          sources,
-          _ => 'yes',
-          // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
-          (_, subgraphs) => `it is defined in ${subgraphs}`,
-          (_, subgraphs) => ` but not in ${subgraphs}`,
-          undefined,
-          true
-        );
+        this.reportMismatchHint({
+          code: HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
+          message: `Executable directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: _ => 'yes',
+          supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
+          otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
+          includeMissingSources: true,
+        });
         return;
       }
 
@@ -1931,17 +1937,17 @@ class Merger {
         if (locations.length === 0) {
           const usages = dest.remove();
           assert(usages.length === 0, () => `Found usages of executable directive ${dest}: ${usages}`);
-          this.reportMismatchHint(
-            HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
-            `Executable directive "${dest}" has no location that is common to all subgraphs: `,
-            dest,
-            sources,
-            directive => locationString(this.extractExecutableLocations(directive)),
+          this.reportMismatchHint({
+            code: HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
+            message: `Executable directive "${dest}" has no location that is common to all subgraphs: `,
+            supergraphElement: dest,
+            subgraphElements: sources,
+            elementToString: directive => locationString(this.extractExecutableLocations(directive)),
             // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
             // source that do not have the directive are not included).
-            () => `it will not appear in the supergraph as there no intersection between `,
-            (locs, subgraphs) => `${locs} in ${subgraphs}`,
-          );
+            supergraphElementPrinter: () => `it will not appear in the supergraph as there no intersection between `,
+            otherElementsPrinter: (locs, subgraphs) => `${locs} in ${subgraphs}`,
+          });
           return;
         }
       }
@@ -1950,28 +1956,26 @@ class Merger {
     dest.addLocations(...locations!);
 
     if (inconsistentRepeatable) {
-      this.reportMismatchHint(
-        HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
-        `Executable directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
-        dest,
-        sources,
-        directive => directive.repeatable ? 'yes' : 'no',
-        // Note that the first callback is for element that are "like the supergraph". And the supergraph will _not_ be repeatable on inconsistencies.
-        (_, subgraphs) => `it is not repeatable in ${subgraphs}`,
-        (_, subgraphs) => ` but is repeatable in ${subgraphs}`,
-      );
+      this.reportMismatchHint({
+        code: HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
+        message: `Executable directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
+        supergraphElement: dest,
+        subgraphElements: sources,
+        elementToString: directive => directive.repeatable ? 'yes' : 'no',
+        supergraphElementPrinter: (_, subgraphs) => `it is not repeatable in ${subgraphs}`,
+        otherElementsPrinter: (_, subgraphs) => ` but is repeatable in ${subgraphs}`,
+      });
     }
     if (inconsistentLocations) {
-      this.reportMismatchHint(
-        HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
-        `Executable directive "${dest}" has inconsistent locations across subgraphs `,
-        dest,
-        sources,
-        directive => locationString(this.extractExecutableLocations(directive)),
-        // Note that the first callback is for element that are "like the supergraph".
-        (locs, subgraphs) => `and will use ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
-        (locs, subgraphs) => `${locs} in ${subgraphs}`,
-      );
+      this.reportMismatchHint({
+        code: HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
+        message: `Executable directive "${dest}" has inconsistent locations across subgraphs `,
+        supergraphElement: dest,
+        subgraphElements: sources,
+        elementToString: directive => locationString(this.extractExecutableLocations(directive)),
+        supergraphElementPrinter: (locs, subgraphs) => `and will use ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
+        otherElementsPrinter: (locs, subgraphs) => `${locs} in ${subgraphs}`,
+      });
     }
 
     // Doing args last, mostly so we don't bother adding if the directive doesn't make it in.
@@ -2013,62 +2017,77 @@ class Merger {
   }
 
   private mergeAppliedDirective(name: string, sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
-    // TODO: we currently only merge together applications that have the exact same arguments.
-    // There is however 2 cases where we could be more subtle:
-    //  1) default values: if a directive has an argument with a default value, and one subgraph pass a value
-    //     but the other don't (relying on the default value), should we "merge" those together, at least
-    //     when the value passed and the default value are the same? Or even when they aren't (say a
-    //     a subgraph mark a field `@deprecated` and the other mark it `@deprecated(reason: "Something something")`;
-    //     Do we really want composition to fail (because `@deprecated` is non-repeatable and the arguments
-    //     are deemed incompatible?).
-    //  2) when an argument is an input type, should we allow some value merging between subgraphs?
-    //     After all, we're going to merge the subgraph input type definitions, so it would be consistent
-    //     to merge values as well. For instance, say some input type has fields 'a, b' in one subgraph
-    //     and field 'a, c' in another, and that type is used for a directive definition argument. The
-    //     result type will have fields 'a, b and c', but currently we wouldn't do any merging of directive
-    //     applications with the same value for 'a', even though it might be intended to merge.
-    // Of course, actually merging the rules above can be a tad tricky in general for repeatable directives.
-    // At the same time, if we don't merge those, this might get annoying, especially for non repeatable
-    // directives.
-
-    // TODO: even if we stick to pure equality checks, we should have special handling for non-repeatable
-    // directive and fail right away if we get incompatible applications. This will give better error
-    // messages than if we wait for post-merging validation.
-
+    // TODO: we currently "only" merge together applications that have the exact same arguments (with defaults expanded however),
+    // but when an argument is an input object type, we should (?) ignore those fields that will not be included in the supergraph
+    // due the intersection merging of input types, otherwise the merged value may be invalid for the supergraph.
     let perSource: Directive[][] = [];
     for (const source of sources) {
       if (!source) {
         continue;
       }
       const directives: Directive[] = source.appliedDirectivesOf(name);
-      if (directives.length) {
+      if (directives.length > 0) {
         perSource.push(directives);
       }
     }
 
-    while (perSource.length > 0) {
-      const directive = this.pickNextDirective(perSource);
-      if (!directive.definition?.repeatable && dest.hasAppliedDirective(directive.name)) {
-        this.reportMismatchError(
-          ERRORS.NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH,
-          `Non-repeatable directive @${directive.name} is applied to "${(dest as any)['coordinate'] ?? dest}" in multiple subgraphs but with incompatible arguments: it uses `,
-          dest,
-          sources,
-          (elt) => {
-            const args = elt.appliedDirectivesOf(directive.name).pop()?.arguments();
+    if (perSource.length === 0) {
+      return;
+    }
+
+    if (dest.schema().directive(name)?.repeatable) {
+      // For repeatable directives, we simply include each application found but with exact duplicates removed
+      while (perSource.length > 0) {
+        const directive = this.pickNextDirective(perSource);
+        dest.applyDirective(directive.name, directive.arguments(false));
+        // We remove every instances of this particular application. That is we remove any other applicaiton with
+        // the same arguments. Note that when doing so, we include default values. This allows "merging" 2 applications
+        // when one rely on the default value while another don't but explicitely uses that exact default value.
+        perSource = perSource
+          .map(ds => ds.filter(d => !this.sameDirectiveApplication(directive, d)))
+          .filter(ds => ds.length);
+      }
+    } else {
+      // When non-repeatable, we use a similar strategy than for descriptions: we count the occurence of each _different_ application (different arguments)
+      // and if there is more than one option (that is, if not all subgraph have the same application), we use in the supergraph whichever application appeared
+      // in the most subgraph and warn that we have had to ignore some other applications (of course, if the directive has no arguments, this is moot and
+      // we'll never warn, but this is handled by the general code below. 
+      const differentApplications: Directive[] = [];
+      const counts: number[] = [];
+      for (const source of perSource) {
+        assert(source.length === 1, () => `Non-repeatable directive shouldn't have multiple application ${source} in a subgraph`)
+        const application = source[0];
+        const idx = differentApplications.findIndex((existing) => this.sameDirectiveApplication(existing, application));
+        if (idx < 0) {
+          differentApplications.push(application);
+          counts.push(1);
+        } else {
+          counts[idx]++;
+        }
+      }
+
+      assert(differentApplications.length > 0, 'We exited early when there was no applications, so we should have found one');
+      if (differentApplications.length === 1) {
+        dest.applyDirective(name, differentApplications[0].arguments(false));
+      } else {
+        const idx = indexOfMax(counts);
+        // We apply the directive to the destination first, we allows `reportMismatchHint` to find which application is used in
+        // the supergraph.
+        dest.applyDirective(name, differentApplications[idx].arguments(false));
+        this.reportMismatchHint({
+          code: HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
+          message: `Non-repeatable directive @${name} is applied to "${(dest as any)['coordinate'] ?? dest}" in multiple subgraphs but with incompatible arguments. `,
+          supergraphElement: dest,
+          subgraphElements: sources,
+          elementToString: (elt) => {
+            const args = elt.appliedDirectivesOf(name).pop()?.arguments();
             return args === undefined
               ? undefined
               : Object.values(args).length === 0 ? 'no arguments' : (`arguments ${valueToString(args)}`);
-          }
-        );
-        // We only want to report the error once, so we remove any remaining instance of
-        // the directive
-        perSource = perSource
-          .map((ds) => ds.filter((d) => d.name !== directive.name))
-          .filter((ds) => ds.length > 0) ;
-      } else {
-        dest.applyDirective(directive.name, directive.arguments(false));
-        perSource = this.removeDirective(directive, perSource);
+          },
+          supergraphElementPrinter: (application, subgraphs) => `The supergraph will use ${application} (from ${subgraphs}), but found `,
+          otherElementsPrinter: (application, subgraphs) => `${application} in ${subgraphs}`,
+        });
       }
     }
   }
@@ -2077,12 +2096,14 @@ class Merger {
     return directives[0][0];
   }
 
-  private removeDirective(toRemove: Directive, directives: Directive[][]): Directive[][] {
+  private sameDirectiveApplication(application1: Directive, application2: Directive): boolean {
+    // Note that when comparing arguments, we include default values. This means that we consider it the same thing (as far as
+    // merging application goes) to rely on a default value or to pass that very exact value explicitely. In theory we
+    // could make the difference between the two, but this feel more surprising/convenient.
     // TODO: we use valueEquals on the whole argument object rather than on individual values. This
     // work just fine given how valueEquals is defined today, but we might want to clean this nonetheless.
-    return directives
-      .map(ds => ds.filter(d => !valueEquals(toRemove.arguments(), d.arguments()))).
-      filter(ds => ds.length);
+    return application1.name === application2.name
+      && valueEquals(application1.arguments(true), application2.arguments(true));
   }
 
   private mergeSchemaDefinition(sources: SchemaDefinition[], dest: SchemaDefinition) {
@@ -2143,14 +2164,16 @@ class Merger {
               const typeInSubgraph = s.type(type.name);
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
-            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err({
-              message: `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
+            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err(
+              `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
                 + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
-              nodes: sourceASTs(
-                ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
-                ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
-              )
-            }));
+              {
+                nodes: sourceASTs(
+                  ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
+                  ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
+                )
+              }
+            ));
             continue;
           }
 

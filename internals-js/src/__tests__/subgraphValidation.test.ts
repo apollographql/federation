@@ -682,6 +682,19 @@ describe('@core/@link handling', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
       `,
+      gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+        type T {
+          k: ID!
+        }
+
+        enum link__Purpose {
+          EXECUTION
+          SECURITY
+        }
+      `,
     ];
 
     // Note that we cannot use `validateFullSchema` as-is for those examples because the order or directive is going
@@ -862,6 +875,27 @@ describe('@core/@link handling', () => {
     ]]);
   });
 
+  it('errors on invalid definition for @link Purpose', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+      type T {
+        k: ID!
+      }
+
+      enum link__Purpose {
+        EXECUTION
+        RANDOM
+      }
+    `;
+
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'TYPE_DEFINITION_INVALID',
+      '[S] Invalid definition for type "Purpose": expected values [EXECUTION, SECURITY] but found [EXECUTION, RANDOM].',
+    ]]);
+  });
+
   it('allows any (non-scalar) type in redefinition when expected type is a scalar', () => {
     const doc = gql`
       extend schema
@@ -877,6 +911,30 @@ describe('@core/@link handling', () => {
 
     // Just making sure this don't error out.
     buildAndValidate(doc);
+  });
+
+  it('allows defining a repeatable directive as non-repeatable but validates usages', () => {
+    const doc = gql`
+      type T @key(fields: "k1") @key(fields: "k2") {
+        k1: ID!
+        k2: ID!
+      }
+
+      directive @key(fields: String!) on OBJECT
+    `;
+
+
+    // Test for fed2 (with @key being @link-ed)
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_GRAPHQL',
+      '[S] The directive "@key" can only be used once at this location.',
+    ]]);
+
+    // Test for fed1
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+      'INVALID_GRAPHQL',
+      '[S] The directive "@key" can only be used once at this location.',
+    ]]);
   });
 });
 

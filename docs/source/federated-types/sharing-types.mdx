@@ -22,7 +22,7 @@ Types like this are called **value types**. This article describes how to share 
 
 ## Sharing object types
 
-By default in [Federation 2 subgraphs](../federation-2/moving-to-federation-2/#phase-2-modify-subgraph-schemas), a single object field _can't_ be defined or resolved by more than one subgraph schema.
+By default in [Federation 2 subgraphs](../federation-2/moving-to-federation-2/#step-3-update-individual-subgraphs), a single object field _can't_ be defined or resolved by more than one subgraph schema.
 
 Consider the following `Position` example:
 
@@ -259,6 +259,8 @@ type Building @shareable {
 
 </CodeColumns>
 
+For more information, see [Input types and field arguments](./composition#input-types-and-field-arguments).
+
 ### Omitting fields
 
 Look at these two definitions of a `Position` object type:
@@ -457,19 +459,13 @@ type Position @shareable {
 
 Composition now successfully includes `Position.z` in the supergraph schema!
 
-## Enums, unions, and interfaces
+## Unions, interfaces, and inputs
 
-In Federation 2, `enum`, `interface`, and `union` type definitions can be shared between subgraphs by default, _and_ those definitions can differ:
+In Federation 2, `interface` and `union` type definitions can be shared between subgraphs by default, _and_ those definitions can differ:
 <CodeColumns>
 
 ```graphql {1, 3, 9} title="Subgraph A"
 union Media = Book | Movie
-
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
 
 interface User {
   name: String!
@@ -479,35 +475,18 @@ interface User {
 ```graphql {1, 3, 9} title="Subgraph B"
 union Media = Book | Podcast
 
-enum Color {
-  CYAN
-  MAGENTA
-  YELLOW
-}
-
 interface User {
   name: String!
   age: Int!
 }
 ```
 
-<></>
-
 </CodeColumns>
 
-Compositional logic merges these definitions in your supergraph schema:
+[Compositional logic](./composition#merging-types-from-multiple-subgraphs) merges these definitions in your supergraph schema:
 
 ```graphql title="Supergraph schema"
 union Media = Book | Movie | Podcast
-
-enum Color {
-  RED
-  GREEN
-  BLUE
-  CYAN
-  MAGENTA
-  YELLOW
-}
 
 # The object types that implement this interface are
 # responsible for resolving these fields.
@@ -518,3 +497,35 @@ interface User {
 ```
 
 This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.
+
+>  You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
+
+Subgraphs can share `input` type definitions, but composition merges them differently. When `input` types are composed across multiple subgraphs, only their _mutual_ fields are carried over into the supergraph schema:
+
+<CodeColumns>
+
+```graphql {1} title="Subgraph A"
+input UserInput {
+  name: String!
+  age: Int
+}
+```
+
+```graphql {1} title="Subgraph B"
+input UserInput {
+  name: String!
+  email: String
+}
+```
+
+</CodeColumns>
+
+Compositional logic merges only the fields that all `input` types have in common. To learn more, see [Merging input types and field arguments](./composition#input-types-and-field-arguments).
+
+```graphql title="Supergraph schema"
+input UserInput {
+  name: String!
+}
+```
+
+To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-from-multiple-subgraphs)

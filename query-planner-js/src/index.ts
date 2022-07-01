@@ -7,6 +7,7 @@ import { QueryPlan } from './QueryPlan';
 import { Schema, Operation } from '@apollo/federation-internals';
 import { buildFederatedQueryGraph, QueryGraph } from "@apollo/query-graphs";
 import { computeQueryPlan } from './buildPlan';
+import { QueryPlannerConfig } from './config';
 
 // There isn't much in this class yet, and I didn't want to make too many
 // changes at once, but since we were already storing a pointer to a
@@ -16,10 +17,16 @@ import { computeQueryPlan } from './buildPlan';
 // planning but isn't operation specific. The next step is likely to be to
 // convert `buildQueryPlan` into a method.
 export class QueryPlanner {
+  private readonly config: QueryPlannerConfig;
   private readonly federatedQueryGraph: QueryGraph;
 
-  constructor(public readonly supergraphSchema: Schema) {
-    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
+  constructor(public readonly supergraphSchema: Schema,
+    config?: QueryPlannerConfig) {
+      this.config = {
+        exposeDocumentNodeInFetchNode: true,
+        ...config
+      }
+      this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
   }
 
   buildQueryPlan(operation: Operation): QueryPlan {
@@ -27,6 +34,6 @@ export class QueryPlanner {
       return { kind: 'QueryPlan' };
     }
 
-    return computeQueryPlan(this.supergraphSchema, this.federatedQueryGraph, operation);
+    return computeQueryPlan(this.config, this.supergraphSchema, this.federatedQueryGraph, operation);
   }
 }

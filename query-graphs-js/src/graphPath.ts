@@ -582,7 +582,6 @@ export function isRootPath(path: OpGraphPath<any>): path is OpRootPath {
 }
 
 export function terminateWithNonRequestedTypenameField<V extends Vertex>(path: OpGraphPath<V>): OpGraphPath<V> {
-
   // If the last step of the path was a fragment/type-condition, we want to remove it before we get __typename.
   // The reason is that this avoid cases where this method would make us build plans like:
   // {
@@ -1364,8 +1363,10 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   if (!conditions) {
     return noConditionsResolution;
   }
+  debug.group(() => `Checking conditions ${conditions} on edge ${edge}`);
   const resolution = conditionResolver(edge, context, excludedEdges, excludedConditions);
   if (!resolution.satisfied) {
+    debug.groupEnd('Conditions are not satisfied');
     return unsatisfiedConditionsResolution;
   }
   const pathTree = resolution.pathTree;
@@ -1375,8 +1376,10 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     && lastEdge?.transition.kind !== 'KeyResolution'
     && (!pathTree || pathTree.isAllInSameSubgraph())) {
 
+    debug.log('@requires conditions are satisfied, but validating post-require key.');
     const postRequireKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
     if (!postRequireKeyCondition) {
+      debug.groupEnd('Post-require conditions cannot be satisfied');
       return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY };
     }
 
@@ -1392,6 +1395,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // clean that up, but it's unclear to me how at the moment and it may not be a small change so this will
     // have to do for now.
   }
+  debug.groupEnd('Conditions satisfied');
   return resolution;
 }
 

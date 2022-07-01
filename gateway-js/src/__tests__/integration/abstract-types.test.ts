@@ -1643,23 +1643,6 @@ it('when exploding types through multiple levels', async () => {
   `);
 });
 
-  // This test case describes a situation that isn't fixed by the deduplication
-  // workaround. It is here to remind us to look into this, but it doesn't
-  // actually test for the failing behavior so the test still succeeds.
-  //
-  // In cases where different possible types live in different
-  // services, you can't just merge the dependent fetches because they don't
-  // have the same parent. What you want here is to have these dependent fetches
-  // execute separately, but only take the objects fetched by its parent as input.
-  // The problem currently is that these fetches act on on the same path, so
-  // depending on the timing either one (or both) will end up fetching the same
-  // data just fetched by the other.
-  //
-  // To make this more concrete, in this case that means we'll fetch all of the
-  // reviews and authors twice.
-  //
-  // Solving this requires us to filter on the types of response objects as
-  // opposed to just collecting all objects in the path.
 it("when including the same nested fields under different type conditions that are split between services", async () => {
     const query = `#graphql
       query {
@@ -1829,61 +1812,44 @@ it("when including the same nested fields under different type conditions that a
                   }
                 },
               },
-              Flatten(path: "topProducts.@.reviews.@.author") {
-                Fetch(service: "accounts") {
-                  {
-                    ... on User {
-                      __typename
+            },
+            Flatten(path: "topProducts.@") {
+              Fetch(service: "reviews") {
+                {
+                  ... on TV {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on TV {
+                    reviews {
+                      author {
+                        __typename
+                        id
+                        username
+                      }
+                      body
                       id
                     }
-                  } =>
-                  {
-                    ... on User {
-                      name
-                    }
                   }
-                },
+                }
               },
             },
-            Sequence {
-              Flatten(path: "topProducts.@") {
-                Fetch(service: "reviews") {
-                  {
-                    ... on TV {
-                      __typename
-                      id
-                    }
-                  } =>
-                  {
-                    ... on TV {
-                      reviews {
-                        author {
-                          __typename
-                          id
-                          username
-                        }
-                        body
-                        id
-                      }
-                    }
-                  }
-                },
-              },
-              Flatten(path: "topProducts.@.reviews.@.author") {
-                Fetch(service: "accounts") {
-                  {
-                    ... on User {
-                      __typename
-                      id
-                    }
-                  } =>
-                  {
-                    ... on User {
-                      name
-                    }
-                  }
-                },
-              },
+          },
+          Flatten(path: "topProducts.@.reviews.@.author") {
+            Fetch(service: "accounts") {
+              {
+                ... on User {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on User {
+                  name
+                }
+              }
             },
           },
         },

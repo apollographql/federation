@@ -4,7 +4,6 @@ import {
   Field,
   FieldDefinition,
   FieldSelection,
-  firstOf,
   FragmentElement,
   InputType,
   isLeafType,
@@ -216,17 +215,40 @@ function generateWitnessValue(type: InputType): any {
   }
 }
 
-export function validateGraphComposition(supergraph: QueryGraph, subgraphs: QueryGraph): {errors? : ValidationError[]} {
-  const errors = new ValidationTraversal(supergraph, subgraphs).validate();
+/**
+ * Validates that all the queries expressable on the API schema resulting of the composition of the provided subgraphs can be executed
+ * on those subgraphs.
+ *
+ * @param supergraphSchema the schema of the supergraph that composing `subgraphs` generated. Note this *must* be the full supergraph, not
+ *   just it's API schema (because it may be used to find the definition of elements that are marked `@inaccessible`). Note that this _not_
+ *   the same schema that the one reference inside `supergraphAPI` in particular.
+ * @param supergraphAPI the `QueryGraph` corresponding to the `supergraphSchema` API schema.
+ * @param subgraphs the (federated) `QueryGraph` corresponding the subgraphs having been composed to obtain `supergraphSchema`.
+ */
+export function validateGraphComposition(
+  supergraphSchema: Schema,
+  supergraphAPI: QueryGraph,
+  subgraphs: QueryGraph
+): {
+  errors? : ValidationError[]
+} {
+  const errors = new ValidationTraversal(supergraphSchema, supergraphAPI, subgraphs).validate();
   return errors.length > 0 ? {errors} : {};
 }
 
-export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, isComplete?: boolean, error?: ValidationError} {
+export function computeSubgraphPaths(
+  supergraphSchema: Schema,
+  supergraphPath: RootPath<Transition>,
+  subgraphs: QueryGraph
+): {
+  traversal?: ValidationState,
+  isComplete?: boolean,
+  error?: ValidationError
+} {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
-    const initialState = ValidationState.initial({supergraph: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
+    const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath) {
@@ -269,18 +291,18 @@ export class ValidationState {
   }
 
   static initial({
-    supergraph,
+    supergraphAPI,
     kind,
     subgraphs,
     conditionResolver,
   }: {
-    supergraph: QueryGraph,
+    supergraphAPI: QueryGraph,
     kind: SchemaRootKind,
     subgraphs: QueryGraph,
     conditionResolver: ConditionValidationResolver,
   }) {
     return new ValidationState(
-      GraphPath.fromGraphRoot(supergraph, kind)!,
+      GraphPath.fromGraphRoot(supergraphAPI, kind)!,
       initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver.resolver)),
     );
   }
@@ -342,7 +364,6 @@ function isSupersetOrEqual(maybeSuperset: string[], other: string[]): boolean {
 }
 
 class ValidationTraversal {
-  private readonly supergraphSchema: Schema;
   private readonly conditionResolver: ConditionValidationResolver;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
@@ -353,16 +374,19 @@ class ValidationTraversal {
 
   private readonly validationErrors: ValidationError[] = [];
 
-  constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
-    this.supergraphSchema = firstOf(supergraph.sources.values())!;
-    this.conditionResolver = new ConditionValidationResolver(this.supergraphSchema, subgraphs);
-    supergraph.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
-      supergraph,
+  constructor(
+    supergraphSchema: Schema,
+    supergraphAPI: QueryGraph,
+    subgraphs: QueryGraph
+  ) {
+    this.conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
+    supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
+      supergraphAPI,
       kind,
       subgraphs,
       conditionResolver: this.conditionResolver
     })));
-    this.previousVisits = new QueryGraphState(supergraph);
+    this.previousVisits = new QueryGraphState(supergraphAPI);
   }
 
   validate(): ValidationError[] {

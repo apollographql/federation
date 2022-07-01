@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+- Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900)
+
+## 2.1.0-alpha.0
+
+- Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
+
+## 2.0.5
+
+- Fix bug with unsatisfiable query branch when handling federation 1 supergraph [PR #1908](https://github.com/apollographql/federation/pull/1908).
+
+## 2.0.2
+
+- Fix bug where planning a query with `@require` impacts the plans of followup queries [PR #1783](https://github.com/apollographql/federation/pull/1783).
+
 ## v2.0.1
 
 - Released in sync with other federation packages but no changes to this package.
@@ -8,53 +22,9 @@
 
 - Previous preview release promoted to general availability! Please see previous changelog entries for full info.
 
-## v2.0.0-preview.14
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.13
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.12
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.11
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.10
-
-- Released in sync with other federation packages but no changes to this package.
-
 ## v2.0.0-preview.9
 
 - Support for Node 17 [PR #1541](https://github.com/apollographql/federation/pull/1541).
-
-## v2.0.0-preview.8
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.7
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.6
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.5
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.4
-
-- Released in sync with other federation packages but no changes to this package.
-
-## v2.0.0-preview.3
-
-- Released in sync with other federation packages but no changes to this package.
 
 ## v2.0.0-preview.2
 

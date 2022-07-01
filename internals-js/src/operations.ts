@@ -7,7 +7,6 @@ import {
   FieldNode,
   FragmentDefinitionNode,
   FragmentSpreadNode,
-  GraphQLError,
   InlineFragmentNode,
   Kind,
   OperationDefinitionNode,
@@ -41,28 +40,23 @@ import {
   CompositeType,
   typenameFieldName,
   NamedType,
+  sameDirectiveApplications,
+  isConditionalDirective,
+  isDirectiveApplicationsSubset,
 } from "./definitions";
+import { ERRORS } from "./error";
 import { sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
-    throw new GraphQLError(message(), sourceAST);
+    throw ERRORS.INVALID_GRAPHQL.err(message(), { nodes: sourceAST });
   }
 }
 
 function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op2: TElement): boolean {
-  if (op1.appliedDirectives.length != op2.appliedDirectives.length) {
-    return false;
-  }
-
-  for (const thisDirective of op1.appliedDirectives) {
-    if (!op2.appliedDirectives.some(thatDirective => thisDirective.name === thatDirective.name && argumentsEquals(thisDirective.arguments(), thatDirective.arguments()))) {
-      return false;
-    }
-  }
-  return true;
+  return sameDirectiveApplications(op1.appliedDirectives, op2.appliedDirectives);
 }
 
 abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
@@ -306,6 +300,13 @@ export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolea
   return true;
 }
 
+/**
+ * Returns all the "conditional" directive applications (`@skip` and `@include`) in the provided path.
+ */
+export function conditionalDirectivesInOperationPath(path: OperationPath): Directive<any, any>[] {
+  return path.map((e) => e.appliedDirectives).flat().filter((d) => isConditionalDirective(d));
+}
+
 export function concatOperationPaths(head: OperationPath, tail: OperationPath): OperationPath {
   // While this is mainly a simple array concatenation, we optimize slightly by recognizing if the
   // tail path starts by a fragment selection that is useless given the end of the head path.
@@ -316,14 +317,21 @@ export function concatOperationPaths(head: OperationPath, tail: OperationPath): 
     return head;
   }
   const lastOfHead = head[head.length - 1];
-  const firstOfTail = tail[0];
-  if (isUselessFollowupElement(lastOfHead, firstOfTail)) {
+  const conditionals = conditionalDirectivesInOperationPath(head);
+  let firstOfTail = tail[0];
+  // Note that in practice, we may be able to eliminate a few elements at the beginning of the path
+  // due do conditionals ('@skip' and '@include'). Indeed, a (tail) path crossing multiple conditions
+  // may start with: [ ... on X @include(if: $c1), ... on X @ksip(if: $c2), (...)], but if `head`
+  // already ends on type `X` _and_ both the conditions on `$c1` and `$c2` are alredy found on `head`,
+  // then we can remove both fragments in `tail`.
+  while (firstOfTail && isUselessFollowupElement(lastOfHead, firstOfTail, conditionals)) {
     tail = tail.slice(1);
+    firstOfTail = tail[0];
   }
   return head.concat(tail);
 }
 
-function isUselessFollowupElement(first: OperationElement, followup: OperationElement): boolean {
+function isUselessFollowupElement(first: OperationElement, followup: OperationElement, conditionals: Directive<any, any>[]): boolean {
   const typeOfFirst = first.kind === 'Field'
     ? baseType(first.definition.type!)
     : first.typeCondition;
@@ -333,7 +341,7 @@ function isUselessFollowupElement(first: OperationElement, followup: OperationEl
   return !!typeOfFirst
     && followup.kind === 'FragmentElement'
     && !!followup.typeCondition
-    && followup.appliedDirectives.length === 0
+    && (followup.appliedDirectives.length === 0 || isDirectiveApplicationsSubset(conditionals, followup.appliedDirectives))
     && sameType(typeOfFirst, followup.typeCondition);
 }
 
@@ -478,7 +486,7 @@ export class NamedFragments {
 
   add(fragment: NamedFragmentDefinition) {
     if (this.fragments.has(fragment.name)) {
-      throw new GraphQLError(`Duplicate fragment name '${fragment}'`);
+      throw ERRORS.INVALID_GRAPHQL.err(`Duplicate fragment name '${fragment}'`);
     }
     this.fragments.set(fragment.name, fragment);
   }
@@ -536,7 +544,56 @@ export class NamedFragments {
   }
 }
 
-export class SelectionSet {
+abstract class Freezable<T> {
+  private _isFrozen: boolean = false;
+
+  protected abstract us(): T;
+
+  /**
+   * Freezes this selection/selection set, making it immutable after that point (that is, attempts to modify it will error out).
+   *
+   * This method should be used when a selection/selection set should not be modified. It ensures both that:
+   *  1. direct attempts to modify the selection afterward fails (at runtime, but the goal is to fetch bugs early and easily).
+   *  2. if this selection/selection set is "added" to another non-frozen selection (say, if this is input to `anotherSet.mergeIn(this)`),
+   *   then it is automatically cloned first (thus ensuring this copy is not modified). Note that this properly is not guaranteed for
+   *   non frozen selections. Meaning that if one does `s1.mergeIn(s2)` and `s2` is not frozen, then `s1` may (or may not) reference
+   *   `s2` directly (without cloning) and thus later modifications to `s1` may (or may not) modify `s2`. This
+   *   do-not-defensively-clone-by-default behaviour is done for performance reasons.
+   *
+   * Note that freezing is a "deep" operation, in that the whole structure of the selection/selection set is frozen by this method
+   * (and so this is not an excessively cheap operation).
+   *
+   * @return this selection/selection set (for convenience, to allow method chaining).
+   */
+  freeze(): T {
+    if (!this.isFrozen()) {
+      this.freezeInternals();
+      this._isFrozen = true;
+    }
+    return this.us();
+  }
+
+  protected abstract freezeInternals(): void;
+
+  /**
+   * Whether this selection/selection set is frozen. See `freeze` for details.
+   */
+  isFrozen(): boolean {
+    return this._isFrozen;
+  }
+
+  /**
+   * A shortcut for returning a mutable version of this selection/selection set by cloning it if it is frozen, but returning this set directly
+   * if it is not frozen.
+   */
+  cloneIfFrozen(): T {
+    return this.isFrozen() ? this.clone() : this.us();
+  }
+
+  abstract clone(): T;
+}
+
+export class SelectionSet extends Freezable<SelectionSet> {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
   private readonly _selections = new MultiMap<string, Selection>();
@@ -547,7 +604,12 @@ export class SelectionSet {
     readonly parentType: CompositeType,
     readonly fragments?: NamedFragments
   ) {
+    super();
     validate(!isLeafType(parentType), () => `Cannot have selection on non-leaf type ${parentType}`);
+  }
+
+  protected us(): SelectionSet {
+    return this;
   }
 
   selections(reversedOrder: boolean = false): readonly Selection[] {
@@ -653,18 +715,49 @@ export class SelectionSet {
     return filtered;
   }
 
+  protected freezeInternals(): void {
+    for (const selection of this.selections()) {
+      selection.freeze();
+    }
+  }
+
+  /**
+   * Adds the selections of the provided selection set to this selection, merging common selection as necessary.
+   *
+   * Please note that by default, the selection from the input may (or may not) be directly referenced by this selection
+   * set after this method return. That is, future modification of this selection set may end up modifying the input
+   * set due to direct aliasing. If direct aliasing should be prevented, the input selection set should be frozen (see
+   * `freeze` for details).
+   */
   mergeIn(selectionSet: SelectionSet) {
     for (const selection of selectionSet.selections()) {
       this.add(selection);
     }
   }
 
+  /**
+   * Adds the provided selections to this selection, merging common selection as necessary.
+   *
+   * This is very similar to `mergeIn` except that it takes a direct array of selection, and the direct aliasing
+   * remarks from `mergeInd` applies here too.
+   */
   addAll(selections: Selection[]): SelectionSet {
     selections.forEach(s => this.add(s));
     return this;
   }
 
+  /**
+   * Adds the provided selection to this selection, merging it to any existing selection of this set as appropriate.
+   *
+   * Please note that by default, the input selection may (or may not) be directly referenced by this selection
+   * set after this method return. That is, future modification of this selection set may end up modifying the input
+   * selection due to direct aliasing. If direct aliasing should be prevented, the input selection should be frozen
+   * (see `freeze` for details).
+   */
   add(selection: Selection): Selection {
+    // It's a bug to try to add to a frozen selection set
+    assert(!this.isFrozen(), () => `Cannot add to frozen selection: ${this}`);
+
     const toAdd = selection.updateForAddingTo(this);
     const key = toAdd.key();
     const existing: Selection[] | undefined = this._selections.get(key);
@@ -681,7 +774,7 @@ export class SelectionSet {
     this._selections.add(key, toAdd);
     ++this._selectionCount;
     this._cachedSelections = undefined;
-    return selection;
+    return toAdd;
   }
 
   addPath(path: OperationPath) {
@@ -951,7 +1044,7 @@ export function selectionSetOfPath(path: OperationPath, onPathEnd?: (finalSelect
 
 export type Selection = FieldSelection | FragmentSelection;
 
-export class FieldSelection {
+export class FieldSelection extends Freezable<FieldSelection> {
   readonly kind = 'FieldSelection' as const;
   readonly selectionSet?: SelectionSet;
 
@@ -959,9 +1052,14 @@ export class FieldSelection {
     readonly field: Field<any>,
     initialSelectionSet? : SelectionSet
   ) {
+    super();
     const type = baseType(field.definition.type!);
     // Field types are output type, and a named typethat is an output one and isn't a leaf is guaranteed to be selectable.
-    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as CompositeType));
+    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet.cloneIfFrozen() : new SelectionSet(type as CompositeType));
+  }
+
+  protected us(): FieldSelection {
+    return this;
   }
 
   key(): string {
@@ -999,6 +1097,10 @@ export class FieldSelection {
     return new FieldSelection(this.field, this.selectionSet.filter(predicate));
   }
 
+  protected freezeInternals(): void {
+    this.selectionSet?.freeze();
+  }
+
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FieldSelection {
     const expandedSelection = this.selectionSet ? this.selectionSet.expandFragments(names, updateSelectionSetFragments) : undefined;
     return this.selectionSet === expandedSelection
@@ -1034,7 +1136,27 @@ export class FieldSelection {
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const updatedField = this.field.updateForAddingTo(selectionSet);
-    return this.field === updatedField ? this : new FieldSelection(updatedField, this.selectionSet);
+    if (this.field === updatedField) {
+      return this.cloneIfFrozen();
+    }
+
+    // We create a new selection that not only uses the updated field, but also ensures
+    // the underlying selection set uses the updated field type as parent type.
+    const updatedBaseType = baseType(updatedField.definition.type!);
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet && this.selectionSet.parentType !== updatedBaseType) {
+      assert(isCompositeType(updatedBaseType), `Expected ${updatedBaseType.coordinate} to be composite but ${updatedBaseType.kind}`);
+      updatedSelectionSet = new SelectionSet(updatedBaseType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new FieldSelection(updatedField, updatedSelectionSet);
   }
 
   toSelectionNode(): FieldNode {
@@ -1093,7 +1215,7 @@ export class FieldSelection {
   }
 }
 
-export abstract class FragmentSelection {
+export abstract class FragmentSelection extends Freezable<FragmentSelection> {
   readonly kind = 'FragmentSelection' as const;
 
   abstract key(): string;
@@ -1114,13 +1236,19 @@ export abstract class FragmentSelection {
 
   abstract validate(): void;
 
+  protected us(): FragmentSelection {
+    return this;
+  }
+
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
   }
 
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
     const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    return this.element() === updatedFragment ? this : new InlineFragmentSelection(updatedFragment, this.selectionSet);
+    return this.element() === updatedFragment
+      ? this.cloneIfFrozen()
+      : new InlineFragmentSelection(updatedFragment, this.selectionSet.cloneIfFrozen());
   }
 
   filter(predicate: (selection: Selection) => boolean): InlineFragmentSelection | undefined {
@@ -1131,6 +1259,9 @@ export abstract class FragmentSelection {
     return new InlineFragmentSelection(this.element(), this.selectionSet.filter(predicate));
   }
 
+  protected freezeInternals() {
+    this.selectionSet.freeze();
+  }
 
   equals(that: Selection): boolean {
     if (this === that) {
@@ -1162,7 +1293,7 @@ class InlineFragmentSelection extends FragmentSelection {
     super();
     // TODO: we should do validate the type of the initial selection set.
     this._selectionSet = initialSelectionSet
-      ? initialSelectionSet
+      ? initialSelectionSet.cloneIfFrozen()
       : new SelectionSet(fragmentElement.typeCondition ? fragmentElement.typeCondition : fragmentElement.parentType);
   }
 
@@ -1359,10 +1490,10 @@ export function operationFromDocument(
         const typeName = definition.typeCondition.name.value;
         const typeCondition = schema.type(typeName);
         if (!typeCondition) {
-          throw new GraphQLError(`Unknown type "${typeName}" for fragment "${name}"`, definition);
+          throw ERRORS.INVALID_GRAPHQL.err(`Unknown type "${typeName}" for fragment "${name}"`, { nodes: definition });
         }
         if (!isCompositeType(typeCondition)) {
-          throw new GraphQLError(`Invalid fragment "${name}" on non-composite type "${typeName}"`, definition);
+          throw ERRORS.INVALID_GRAPHQL.err(`Invalid fragment "${name}" on non-composite type "${typeName}"`, { nodes: definition });
         }
         const fragment = new NamedFragmentDefinition(schema, name, typeCondition, new SelectionSet(typeCondition, fragments));
         addDirectiveNodesToElement(definition.directives, fragment);

@@ -1,6 +1,5 @@
 import { GraphQLError, GraphQLSchema } from 'graphql';
 import { HeadersInit } from 'node-fetch';
-import { fetch } from 'apollo-server-env';
 import { GraphQLRequestContextExecutionDidStart } from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { GraphQLDataSource } from './datasources/types';
@@ -8,6 +7,8 @@ import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
 import { ServiceDefinition } from "@apollo/federation-internals";
+import { Fetcher } from '@apollo/utils.fetcher';
+import { UplinkSupergraphManager } from './supergraphManagers';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -126,7 +127,7 @@ interface GatewayConfigBase {
   experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
   experimental_approximateQueryPlanStoreMiB?: number;
   experimental_autoFragmentization?: boolean;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
   serviceHealthCheck?: boolean;
 }
 
@@ -325,6 +326,7 @@ export function isManagedConfig(
     'schemaConfigDeliveryEndpoint' in config ||
     'uplinkEndpoints' in config ||
     'fallbackPollIntervalInMs' in config ||
+    (isSupergraphManagerConfig(config) && config.supergraphSdl instanceof UplinkSupergraphManager) ||
     (!isLocalConfig(config) &&
       !isStaticSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))

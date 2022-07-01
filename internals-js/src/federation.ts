@@ -40,6 +40,7 @@ import {
   print as printAST,
   Source,
   SchemaExtensionNode,
+  GraphQLErrorOptions,
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -52,6 +53,7 @@ import {
   ERROR_CATEGORIES,
   ERRORS,
   withModifiedErrorMessage,
+  extractGraphQLErrorOptions,
 } from "./error";
 import { computeShareables } from "./precompute";
 import {
@@ -61,6 +63,7 @@ import {
   LinkDirectiveArgs,
   linkDirectiveDefaultName,
   linkIdentity,
+  FeatureUrl,
 } from "./coreSpec";
 import {
   FEDERATION_VERSIONS,
@@ -124,26 +127,26 @@ function validateFieldSetSelections(
       const field = selection.element().definition;
       const isExternal = federationMetadata.isFieldExternal(field);
       if (field.hasArguments()) {
-        throw ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err({
-          message: `field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`,
-          nodes: field.sourceAST
-        });
+        throw ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
+          `field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`,
+          { nodes: field.sourceAST },
+        );
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaf, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
       if (!isExternal && mustBeExternal) {
         const errorCode = ERROR_CATEGORIES.DIRECTIVE_FIELDS_MISSING_EXTERNAL.get(directiveName);
         if (federationMetadata.isFieldFakeExternal(field)) {
-          throw errorCode.err({
-            message: `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
+          throw errorCode.err(
+            `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
               + `(while it is marked @${externalDirectiveSpec.name}, it is a @${keyDirectiveSpec.name} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
-            nodes: field.sourceAST
-          });
+            { nodes: field.sourceAST }
+          );
         } else {
-          throw errorCode.err({
-            message: `field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveSpec.name})`,
-            nodes: field.sourceAST
-          });
+          throw errorCode.err(
+            `field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveSpec.name})`,
+            { nodes: field.sourceAST }
+          );
         }
       }
       if (selection.selectionSet) {
@@ -196,16 +199,7 @@ function validateFieldSet(
       if (!(e instanceof GraphQLError)) {
         throw e;
       }
-      const nodes = sourceASTs(directive);
-      if (e.nodes) {
-        nodes.push(...e.nodes);
-      }
-      const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
-      return codeDef.err({
-        message: `${fieldSetErrorDescriptor(directive)}: ${e.message.trim()}`,
-        nodes,
-        originalError: e,
-      });
+      return handleFieldSetValidationError(directive, e);
     }
   } catch (e) {
     if (e instanceof GraphQLError) {
@@ -214,6 +208,34 @@ function validateFieldSet(
       throw e;
     }
   }
+}
+
+function handleFieldSetValidationError(
+  directive: Directive<any, {fields: any}>,
+  originalError: GraphQLError,
+  messageUpdater?: (msg: string) => string,
+): GraphQLError {
+  const nodes = sourceASTs(directive);
+  if (originalError.nodes) {
+    nodes.push(...originalError.nodes);
+  }
+  let codeDef = errorCodeDef(originalError);
+  // "INVALID_GRAPHQL" errors happening during validation means that the selection set is invalid, and
+  // that's where we want to use a more precise code.
+  if (!codeDef || codeDef === ERRORS.INVALID_GRAPHQL) {
+    codeDef = ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+  }
+  let msg = originalError.message.trim();
+  if (messageUpdater) {
+    msg = messageUpdater(msg);
+  }
+  return codeDef.err(
+    `${fieldSetErrorDescriptor(directive)}: ${msg}`,
+    {
+      nodes,
+      originalError,
+    }
+  );
 }
 
 function fieldSetErrorDescriptor(directive: Directive<any, {fields: any}>): string {
@@ -247,12 +269,12 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
     const parentType = isOnParentType ? type : (elt.parent as NamedType);
     if (isInterfaceType(parentType)) {
       const code = ERROR_CATEGORIES.DIRECTIVE_UNSUPPORTED_ON_INTERFACE.get(definition.name);
-      errorCollector.push(code.err({
-        message: isOnParentType
+      errorCollector.push(code.err(
+        isOnParentType
           ? `Cannot use ${definition.coordinate} on interface "${parentType.coordinate}": ${definition.coordinate} is not yet supported on interfaces`
           : `Cannot use ${definition.coordinate} on ${fieldSetTargetDescription(application)} of parent type "${parentType}": ${definition.coordinate} is not yet supported within interfaces`,
-        nodes: sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)),
-      }));
+        { nodes: sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)) },
+      ));
     }
     const error = validateFieldSet(
       type,
@@ -344,11 +366,11 @@ function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollec
         continue;
       }
 
-      errorCollector.push(ERRORS.EXTERNAL_UNUSED.err({
-        message: `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
+      errorCollector.push(ERRORS.EXTERNAL_UNUSED.err(
+        `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
         + ' the field declaration has no use and should be removed (or the field should not be @external).',
-        nodes: field.sourceAST,
-      }));
+        { nodes: field.sourceAST },
+      ));
     }
   }
 }
@@ -357,10 +379,10 @@ function validateNoExternalOnInterfaceFields(metadata: FederationMetadata, error
   for (const itf of metadata.schema.interfaceTypes()) {
     for (const field of itf.fields()) {
       if (metadata.isFieldExternal(field)) {
-        errorCollector.push(ERRORS.EXTERNAL_ON_INTERFACE.err({
-          message: `Interface type field "${field.coordinate}" is marked @external but @external is not allowed on interface fields (it is nonsensical).`,
-          nodes: field.sourceAST,
-        }));
+        errorCollector.push(ERRORS.EXTERNAL_ON_INTERFACE.err(
+          `Interface type field "${field.coordinate}" is marked @external but @external is not allowed on interface fields (it is nonsensical).`,
+          { nodes: field.sourceAST },
+        ));
       }
     }
   }
@@ -400,10 +422,10 @@ function validateInterfaceRuntimeImplementationFieldsTypes(
     }
     if (withExternalOrRequires.length > 0 && typeToImplems.size > 1) {
       const typeToImplemsArray = [...typeToImplems.entries()];
-      errorCollector.push(ERRORS.INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH.err({
-        message: `Some of the runtime implementations of interface field "${field.coordinate}" are marked @external or have a @require (${withExternalOrRequires.map(printFieldCoordinate)}) so all the implementations should use the same type (a current limitation of federation; see https://github.com/apollographql/federation/issues/1257), but ${formatFieldsToReturnType(typeToImplemsArray[0])} while ${joinStrings(typeToImplemsArray.slice(1).map(formatFieldsToReturnType), ' and ')}.`,
-        nodes
-      }));
+      errorCollector.push(ERRORS.INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH.err(
+        `Some of the runtime implementations of interface field "${field.coordinate}" are marked @external or have a @require (${withExternalOrRequires.map(printFieldCoordinate)}) so all the implementations should use the same type (a current limitation of federation; see https://github.com/apollographql/federation/issues/1257), but ${formatFieldsToReturnType(typeToImplemsArray[0])} while ${joinStrings(typeToImplemsArray.slice(1).map(formatFieldsToReturnType), ' and ')}.`,
+        { nodes },
+      ));
     }
   }
 }
@@ -690,12 +712,12 @@ export class FederationBlueprint extends SchemaBlueprint {
           // composition error.
           const existing = schema.type(defaultName);
           if (existing) {
-            errors.push(ERROR_CATEGORIES.ROOT_TYPE_USED.get(k).err({
-              message: `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
+            errors.push(ERROR_CATEGORIES.ROOT_TYPE_USED.get(k).err(
+              `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
               + 'this is not supported by federation. '
               + 'If a root type does not use its default name, there should be no other type with that default name.',
-              nodes: sourceASTs(type, existing),
-            }));
+              { nodes: sourceASTs(type, existing) },
+            ));
           }
           type.rename(defaultName);
         }
@@ -725,9 +747,9 @@ export class FederationBlueprint extends SchemaBlueprint {
         if (isUnionType(type) || isInterfaceType(type)) {
           let kind: string = type.kind;
           kind = kind.slice(0, kind.length - 'Type'.length);
-          throw ERRORS.KEY_FIELDS_SELECT_INVALID_TYPE.err({
-            message: `field "${field.coordinate}" is a ${kind} type which is not allowed in @key`
-          });
+          throw ERRORS.KEY_FIELDS_SELECT_INVALID_TYPE.err(
+            `field "${field.coordinate}" is a ${kind} type which is not allowed in @key`,
+          );
         }
       }
     );
@@ -754,14 +776,17 @@ export class FederationBlueprint extends SchemaBlueprint {
       metadata.providesDirective(),
       field => {
         if (metadata.isFieldExternal(field)) {
-          throw new GraphQLError(`Cannot have both @provides and @external on field "${field.coordinate}"`, field.sourceAST);
+          throw ERRORS.EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
+            `Cannot have both @provides and @external on field "${field.coordinate}"`,
+            { nodes: field.sourceAST },
+          );
         }
         const type = baseType(field.type!);
         if (!isCompositeType(type)) {
-          throw ERRORS.PROVIDES_ON_NON_OBJECT_FIELD.err({
-            message: `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not a Composite Type`,
-            nodes: field.sourceAST,
-          });
+          throw ERRORS.PROVIDES_ON_NON_OBJECT_FIELD.err(
+            `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not a Composite Type`,
+            { nodes: field.sourceAST },
+          );
         }
         return type;
       },
@@ -1083,10 +1108,10 @@ function completeFed2SubgraphSchema(schema: Schema) {
 
   const spec = FEDERATION_VERSIONS.find(fedFeature.url.version);
   if (!spec) {
-    return [ERRORS.UNKNOWN_FEDERATION_LINK_VERSION.err({
-      message: `Invalid version ${fedFeature.url.version} for the federation feature in @link direction on schema`,
-      nodes: fedFeature.directive.sourceAST
-    })];
+    return [ERRORS.UNKNOWN_FEDERATION_LINK_VERSION.err(
+      `Invalid version ${fedFeature.url.version} for the federation feature in @link direction on schema`,
+      { nodes: fedFeature.directive.sourceAST },
+    )];
   }
 
   return spec.addElementsToSchema(schema);
@@ -1115,34 +1140,23 @@ export function parseFieldSetArgument({
       throw e;
     }
 
-    const nodes = sourceASTs(directive);
-    if (e.nodes) {
-      nodes.push(...e.nodes);
-    }
-    let msg = e.message.trim();
-    // The rule for validating @requires in fed 1 was not properly recursive, so people upgrading
-    // may have a @require that selects some fields but without declaring those fields on the
-    // subgraph. As we fixed the validation, this will now fail, but we try here to provide some
-    // hint for those users for how to fix the problem.
-    // Note that this is a tad fragile to rely on the error message like that, but worth case, a
-    // future change make us not show the hint and that's not the end of the world.
-    if (msg.startsWith('Cannot query field')) {
-      if (msg.endsWith('.')) {
-        msg = msg.slice(0, msg.length - 1);
-      }
-      if (directive.name === keyDirectiveSpec.name) {
-        msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
-      } else {
-        msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
-      }
-    }
-
-    const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
-    throw codeDef.err({
-      message: `${fieldSetErrorDescriptor(directive)}: ${msg}`,
-      nodes,
-      originalError: e,
-    });
+    throw handleFieldSetValidationError(
+      directive,
+      e,
+      (msg: string) => {
+        if (msg.startsWith('Cannot query field')) {
+          if (msg.endsWith('.')) {
+            msg = msg.slice(0, msg.length - 1);
+          }
+          if (directive.name === keyDirectiveSpec.name) {
+            msg = msg + ' (the field should either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
+          } else {
+            msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
+          }
+        }
+        return msg;
+      },
+    );
   }
 }
 
@@ -1194,10 +1208,10 @@ function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<
   const fields = directive.arguments().fields;
   const nodes = directive.sourceAST;
   if (typeof fields !== 'string') {
-    throw ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err({
-      message: `Invalid value for argument "${directive.definition!.argument('fields')!.name}": must be a string.`,
-      nodes,
-    });
+    throw ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
+      `Invalid value for argument "${directive.definition!.argument('fields')!.name}": must be a string.`,
+      { nodes },
+    );
   }
   // While validating if the field is a string will work in most cases, this will not catch the case where the field argument was
   // unquoted but parsed as an enum value (see federation/issues/850 in particular). So if we have the AST (which we will usually
@@ -1206,10 +1220,10 @@ function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<
     for (const argNode of nodes.arguments ?? []) {
       if (argNode.name.value === 'fields') {
         if (argNode.value.kind !== 'StringValue') {
-          throw ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err({
-            message: `Invalid value for argument "${directive.definition!.argument('fields')!.name}": must be a string.`,
-            nodes,
-          });
+          throw ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
+            `Invalid value for argument "${directive.definition!.argument('fields')!.name}": must be a string.`,
+            { nodes },
+          );
         }
         break;
       }
@@ -1328,7 +1342,7 @@ export class Subgraph {
     readonly schema: Schema,
   ) {
     if (name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
-      throw ERRORS.INVALID_SUBGRAPH_NAME.err({ message: `Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved` });
+      throw ERRORS.INVALID_SUBGRAPH_NAME.err(`Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved`);
     }
   }
 
@@ -1406,10 +1420,48 @@ export class Subgraph {
       return false;
     }
 
+    // If the query type only have our federation specific fields, then that (almost surely) means the original subgraph
+    // had no Query type and so we save printing it.
+    if (isObjectType(t) && t.isQueryRootType() && t.fields().filter((f) => !isFederationField(f)).length === 0) {
+      return false;
+    }
+
     const core = this.schema.coreFeatures;
     return !core || core.sourceFeature(t)?.url.identity !== linkIdentity;
   }
 
+  private isPrintedDirectiveApplication(d: Directive): boolean {
+    // We print almost all directive application, but the one we skip is the `@link` to the link spec itself.
+    // The reason is that it is one of the things that usually not provided by users but is instead auto-added
+    // and so this keep the output a tad "cleaner".
+    // Do note that it is only auto-added if it uses the `@link` name. If it is renamed, we need to include
+    // the application (and more generally, if there is more argument set than just the url, we print
+    // the directive to make sure we're not hidding something relevant).
+    if (!this.schema.coreFeatures || d.name !== linkSpec.url.name) {
+      return true;
+    }
+    const args = d.arguments();
+    let urlArg: FeatureUrl | undefined = undefined;
+    if ('url' in args) {
+      try {
+        urlArg = FeatureUrl.parse(args['url']);
+      } catch (e) {
+        // ignored on purpose: if the 'url' arg don't parse properly as a Feature url, then `urlArg` will
+        // be `undefined` which we want.
+      }
+    }
+    const isDefaultLinkToLink = urlArg?.identity === linkIdentity && Object.keys(args).length === 1;
+    return !isDefaultLinkToLink;
+  }
+
+  /**
+   * Returns a representation of the subgraph without any auto-imported directive definitions or "federation private"
+   * types and fiels (`_service` et al.).
+   *
+   * In other words, this will correspond to what a user would usually write.
+   *
+   * Note that if one just want a representation of the full schema, then it can simply call `printSchema(this.schema)`.
+   */
   toString(basePrintOptions: PrintOptions = defaultPrintOptions) {
     return printSchema(
       this.schema,
@@ -1418,6 +1470,7 @@ export class Subgraph {
         directiveDefinitionFilter: (d) => this.isPrintedDirective(d),
         typeFilter: (t) => this.isPrintedType(t),
         fieldFilter: (f) => !isFederationField(f),
+        directiveApplicationFilter: (d) => this.isPrintedDirectiveApplication(d),
       }
     );
   }
@@ -1440,27 +1493,15 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorC
       : undefined;
 
     const code = errorCodeDef(cause) ?? errorCode;
-    if (code) {
-      return code.err({
-        message,
-        nodes,
-        source: cause.source,
-        positions: cause.positions,
-        path: cause.path,
-        originalError: cause,
-        extensions: cause.extensions,
-      });
-    } else {
-      return new GraphQLError(
-        message,
-        nodes,
-        cause.source,
-        cause.positions,
-        cause.path,
-        cause,
-        cause.extensions
-      );
-    }
+    const options: GraphQLErrorOptions = {
+      ...extractGraphQLErrorOptions(cause),
+      nodes,
+      originalError: cause,
+    };
+
+    return code
+      ? code.err(message, options)
+      : new GraphQLError(message, options);
   });
 
   return updatedCauses.length === 1 ? updatedCauses[0] : ErrGraphQLValidationFailed(updatedCauses);

@@ -3,7 +3,7 @@ title: Federated schemas
 description: Overview
 ---
 
-A federated graph uses multiple "types" of GraphQL schemas:
+A federated supergraph uses multiple "types" of GraphQL schemas:
 
 ```mermaid
 graph TB;
@@ -21,9 +21,9 @@ graph TB;
 
 * **Subgraph schemas.** Each **subgraph** has a distinct schema that indicates _which_ types and fields of your composed **supergraph** it can resolve.
     * These are the only schemas that your teams define manually.
-* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some Federation-specific information that tells your gateway which subgraphs can resolve which fields.
+* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific information that tells your gateway which subgraphs can resolve which fields.
     * This schema is the result of performing [composition](./composition/) on your collection of subgraph schemas.
-* **API schema.** This schema is like the supergraph schema, but it _omits_ types, fields, and directives that are considered "machinery" and are not part of your public API (this includes Federation-specific information).
+* **API schema.** This schema is similar to the supergraph schema, but it _omits_ federation-specific types, fields, and directives that are considered "machinery" and are not part of your public API.
     * This is the schema that your gateway exposes to clients, who don't need to know internal implementation details about your graph.
 
 Let's look at an example!

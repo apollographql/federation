@@ -13,7 +13,6 @@ import {
   GraphQLSchema,
   VariableDefinitionNode,
 } from 'graphql';
-import loglevel from 'loglevel';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
@@ -26,8 +25,6 @@ import {
 } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
-import fetcher from 'make-fetch-happen';
-import { fetch } from 'apollo-server-env';
 import {
   QueryPlanner,
   QueryPlan,
@@ -47,7 +44,6 @@ import {
   isManagedConfig,
   SupergraphSdlUpdate,
   isManuallyManagedSupergraphSdlGatewayConfig,
-  ManagedGatewayConfig,
   isStaticSupergraphSdlConfig,
   SupergraphManager,
 } from './config';
@@ -56,7 +52,7 @@ import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
-  UplinkFetcher,
+  UplinkSupergraphManager,
   LegacyFetcher,
   LocalCompose,
 } from './supergraphManagers';
@@ -66,6 +62,7 @@ import {
   Schema,
   ServiceDefinition,
 } from '@apollo/federation-internals';
+import { getDefaultLogger } from './logger';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -79,29 +76,6 @@ type DataSourceMap = {
 type WarnedStates = {
   remoteWithLocalConfig?: boolean;
 };
-
-export function getDefaultFetcher() {
-  const { name, version } = require('../package.json');
-  return fetcher.defaults({
-    // All headers should be lower-cased here, as `make-fetch-happen`
-    // treats differently cased headers as unique (unlike the `Headers` object).
-    // @see: https://git.io/JvRUa
-    headers: {
-      'apollographql-client-name': name,
-      'apollographql-client-version': version,
-      'user-agent': `${name}/${version}`,
-      'content-type': 'application/json',
-    },
-    retry: {
-      retries: 5,
-      // The default factor: expected attempts at 0, 1, 3, 7, 15, and 31 seconds elapsed
-      factor: 2,
-      // 1 second
-      minTimeout: 1000,
-      randomize: true,
-    },
-  });
-}
 
 export const HEALTH_CHECK_QUERY =
   'query __ApolloServiceHealthCheck__ { __typename }';
@@ -168,9 +142,10 @@ export class ApolloGateway implements GraphQLService {
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
-  private fetcher: typeof fetch;
+  private supergraphSchema?: GraphQLSchema;
   private compositionId?: string;
   private state: GatewayState;
+  private _supergraphManager?: SupergraphManager;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -192,11 +167,10 @@ export class ApolloGateway implements GraphQLService {
       ...config,
     };
 
-    this.logger = this.initLogger();
+    this.logger = this.config.logger ?? getDefaultLogger(this.config.debug);
     this.queryPlanStore = this.initQueryPlanStore(
       config?.experimental_approximateQueryPlanStoreMiB,
     );
-    this.fetcher = config?.fetcher || getDefaultFetcher();
 
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
@@ -217,23 +191,8 @@ export class ApolloGateway implements GraphQLService {
     this.state = { phase: 'initialized' };
   }
 
-  private initLogger() {
-    // Setup logging facilities
-    if (this.config.logger) {
-      return this.config.logger;
-    }
-
-    // If the user didn't provide their own logger, we'll initialize one.
-    const loglevelLogger = loglevel.getLogger(`apollo-gateway`);
-
-    // And also support the `debug` option, if it's truthy.
-    if (this.config.debug === true) {
-      loglevelLogger.setLevel(loglevelLogger.levels.DEBUG);
-    } else {
-      loglevelLogger.setLevel(loglevelLogger.levels.WARN);
-    }
-
-    return loglevelLogger;
+  public get supergraphManager(): SupergraphManager | undefined {
+    return this._supergraphManager;
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
@@ -404,19 +363,21 @@ export class ApolloGateway implements GraphQLService {
             '`serviceList`, `supergraphSdl`, and `experimental_updateServiceDefinitions`.',
         );
       }
-      const uplinkEndpoints = this.getUplinkEndpoints(this.config);
 
+      const schemaDeliveryEndpoints: string[] | undefined = this.config
+        .schemaConfigDeliveryEndpoint
+        ? [this.config.schemaConfigDeliveryEndpoint]
+        : undefined;
       await this.initializeSupergraphManager(
-        new UplinkFetcher({
+        new UplinkSupergraphManager({
           graphRef: this.apolloConfig!.graphRef!,
           apiKey: this.apolloConfig!.key!,
-          uplinkEndpoints,
-          maxRetries:
-            this.config.uplinkMaxRetries ?? uplinkEndpoints.length * 3 - 1, // -1 for the initial request
-          subgraphHealthCheck: this.config.serviceHealthCheck,
-          fetcher: this.fetcher,
+          shouldRunSubgraphHealthcheck: this.config.serviceHealthCheck,
+          uplinkEndpoints:
+            this.config.uplinkEndpoints ?? schemaDeliveryEndpoints,
+          maxRetries: this.config.uplinkMaxRetries,
           logger: this.logger,
-          fallbackPollIntervalInMs: this.pollIntervalInMs ?? 10000,
+          fallbackPollIntervalInMs: this.pollIntervalInMs,
         }),
       );
     }
@@ -438,29 +399,6 @@ export class ApolloGateway implements GraphQLService {
     };
   }
 
-  private getUplinkEndpoints(config: ManagedGatewayConfig) {
-    /**
-     * Configuration priority order:
-     * 1. `uplinkEndpoints` configuration option
-     * 2. (deprecated) `schemaConfigDeliveryEndpoint` configuration option
-     * 3. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
-     * 4. default (GCP and AWS)
-     */
-    const rawEndpointsString =
-      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-    const envEndpoints = rawEndpointsString?.split(',') ?? null;
-    return (
-      config.uplinkEndpoints ??
-      (config.schemaConfigDeliveryEndpoint
-        ? [config.schemaConfigDeliveryEndpoint]
-        : null) ??
-      envEndpoints ?? [
-        'https://uplink.api.apollographql.com/',
-        'https://aws.uplink.api.apollographql.com/',
-      ]
-    );
-  }
-
   private getIdForSupergraphSdl(supergraphSdl: string) {
     return createHash('sha256').update(supergraphSdl).digest('hex');
   }
@@ -474,11 +412,6 @@ export class ApolloGateway implements GraphQLService {
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
         getDataSource: this.externalGetDataSourceCallback.bind(this),
       });
-      if (!result?.supergraphSdl) {
-        throw new Error(
-          'Provided `supergraphSdl` function did not return an object containing a `supergraphSdl` property',
-        );
-      }
       if (result?.cleanup) {
         if (typeof result.cleanup === 'function') {
           this.toDispose.push(result.cleanup);
@@ -496,6 +429,7 @@ export class ApolloGateway implements GraphQLService {
       throw e;
     }
 
+    this._supergraphManager = supergraphManager;
     this.state = { phase: 'loaded' };
   }
 
@@ -589,7 +523,7 @@ export class ApolloGateway implements GraphQLService {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
+    const { supergraphSchema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
       result.supergraphSdl,
     );
 
@@ -603,20 +537,21 @@ export class ApolloGateway implements GraphQLService {
 
     this.compositionId = result.id;
     this.supergraphSdl = supergraphSdl;
+    this.supergraphSchema = supergraphSchema.toGraphQLJSSchema();
 
     if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.updateWithSchemaAndNotify(schema, supergraphSdl);
+      this.updateWithSchemaAndNotify(supergraphSchema, supergraphSdl);
 
       if (this.experimental_didUpdateSupergraph) {
         this.experimental_didUpdateSupergraph(
           {
             compositionId: result.id,
             supergraphSdl,
-            schema: schema.toGraphQLJSSchema(),
+            schema: this.schema!,
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
             ? {
@@ -721,7 +656,7 @@ export class ApolloGateway implements GraphQLService {
     this.createServices(serviceList);
 
     return {
-      schema,
+      supergraphSchema: schema,
       supergraphSdl,
     };
   }
@@ -926,6 +861,7 @@ export class ApolloGateway implements GraphQLService {
             serviceMap,
             requestContext,
             operationContext,
+            this.supergraphSchema!,
           );
 
           const shouldShowQueryPlan =
@@ -1031,9 +967,6 @@ export class ApolloGateway implements GraphQLService {
     switch (this.state.phase) {
       case 'initialized':
       case 'failed to load':
-        throw Error(
-          'ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully',
-        );
       case 'stopped':
         // Calls to stop() are idempotent.
         return;
@@ -1128,6 +1061,7 @@ export {
   CompositionInfo,
   IntrospectAndCompose,
   LocalCompose,
+  UplinkSupergraphManager,
 };
 
 export * from './datasources';
@@ -1137,8 +1071,13 @@ export {
   SubgraphHealthCheckFunction,
   GetDataSourceFunction,
   SupergraphSdlHook,
-  SupergraphManager
+  SupergraphManager,
 } from './config';
 
-export { UplinkFetcherError } from "./supergraphManagers"
-
+export {
+  UplinkFetcherError,
+  FailureToFetchSupergraphSdlAfterInit,
+  FailureToFetchSupergraphSdlDuringInit,
+  FailureToFetchSupergraphSdlFunctionParams,
+  DEFAULT_UPLINK_ENDPOINTS,
+} from './supergraphManagers';

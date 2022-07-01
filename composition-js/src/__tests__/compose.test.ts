@@ -269,7 +269,6 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -287,7 +286,6 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -343,7 +341,6 @@ describe('composition', () => {
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -363,7 +360,6 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       {
         query: Query
@@ -1634,34 +1630,6 @@ describe('composition', () => {
           a: String @deprecated(reason: "bad")
         }
       `);
-    });
-
-    it('errors on incompatible non-repeatable (built-in) directives', () => {
-      const subgraphA = {
-        name: 'subgraphA',
-        typeDefs: gql`
-          type Query {
-            a: String @shareable @deprecated(reason: "bad")
-          }
-        `,
-      };
-
-      const subgraphB = {
-        name: 'subgraphB',
-        typeDefs: gql`
-          type Query {
-            a: String @shareable @deprecated
-          }
-        `,
-      };
-
-      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-
-      expect(result.errors).toBeDefined();
-      expect(errors(result)).toStrictEqual([
-        ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
-          'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments: it uses arguments {reason: "bad"} in subgraph "subgraphA" but no arguments in subgraph "subgraphB"'],
-      ]);
     });
 
     it('propagates graphQL built-in directives even if redefined in the subgarph', () => {
@@ -3013,5 +2981,129 @@ describe('composition', () => {
       assertCompositionSuccess(result);
       expect(printType(result.schema.toAPISchema().type('U')!)).toMatchString('union U = A | B | C');
     });
+  });
+
+  it('works with normal graphQL type extension when definition is empty', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          foo: Foo
+        }
+
+        type Foo
+
+        extend type Foo {
+          bar: String
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const result = composeServices([subgraphA]);
+    assertCompositionSuccess(result);
+  });
+
+  it('handles fragments in @requires using @inaccessible types', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query @shareable {
+          dummy: Entity
+        }
+
+        type Entity @key(fields: "id") {
+          id: ID!
+          data: Foo
+        }
+
+        interface Foo {
+          foo: String!
+        }
+
+        interface Bar implements Foo {
+          foo: String!
+          bar: String!
+        }
+
+        type Baz implements Foo & Bar @shareable {
+          foo: String!
+          bar: String!
+          baz: String!
+        }
+
+        type Qux implements Foo & Bar @shareable {
+          foo: String!
+          bar: String!
+          qux: String!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query @shareable {
+          dummy: Entity
+        }
+
+        type Entity @key(fields: "id") {
+          id: ID!
+          data: Foo @external
+          requirer: String! @requires(fields: "data { foo ... on Bar { bar ... on Baz { baz } ... on Qux { qux } } }")
+        }
+
+        interface Foo {
+          foo: String!
+        }
+
+        interface Bar implements Foo {
+          foo: String!
+          bar: String!
+        }
+
+        type Baz implements Foo & Bar @shareable @inaccessible {
+          foo: String!
+          bar: String!
+          baz: String!
+        }
+
+        type Qux implements Foo & Bar @shareable {
+          foo: String!
+          bar: String!
+          qux: String!
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+
+    const [_, api] = schemas(result);
+    expect(printSchema(api)).toMatchString(`
+      interface Bar implements Foo {
+        foo: String!
+        bar: String!
+      }
+
+      type Entity {
+        id: ID!
+        data: Foo
+        requirer: String!
+      }
+
+      interface Foo {
+        foo: String!
+      }
+
+      type Query {
+        dummy: Entity
+      }
+
+      type Qux implements Foo & Bar {
+        foo: String!
+        bar: String!
+        qux: String!
+      }
+    `);
   });
 });

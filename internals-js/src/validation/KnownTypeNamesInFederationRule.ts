@@ -40,7 +40,7 @@ export function KnownTypeNamesInFederationRule(
         context.reportError(
           new GraphQLError(
             `Unknown type "${typeName}".` + didYouMean(suggestedTypes),
-            node,
+            { nodes: node },
           ),
         );
       }

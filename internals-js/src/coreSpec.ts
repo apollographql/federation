@@ -1,9 +1,9 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
-import { assert } from './utils';
+import { assert, firstOf } from './utils';
 import { ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
@@ -185,10 +185,10 @@ export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<
       continue;
     }
     if (typeof elt !== 'object') {
-      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-        message: `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: values should be either strings or input object values of the form { name: "<importedElement>", as: "<alias>" }.`,
-        nodes: directive.sourceAST
-      }));
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: values should be either strings or input object values of the form { name: "<importedElement>", as: "<alias>" }.`,
+        { nodes: directive.sourceAST },
+      ));
       continue;
     }
     let name: string | undefined;
@@ -196,28 +196,28 @@ export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<
       switch (key) {
         case 'name':
           if (typeof value !== 'string') {
-            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-              message: `Invalid value for the "name" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
-              nodes: directive.sourceAST
-            }));
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Invalid value for the "name" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              { nodes: directive.sourceAST },
+            ));
             continue importArgLoop;
           }
           name = value;
           break;
         case 'as':
           if (typeof value !== 'string') {
-            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-              message: `Invalid value for the "as" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
-              nodes: directive.sourceAST
-            }));
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Invalid value for the "as" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              { nodes: directive.sourceAST },
+            ));
             continue importArgLoop;
           }
           break;
         default:
-          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-            message: `Unknown field "${key}" for sub-value ${valueToString(elt)} of @link(import:) argument.`,
-            nodes: directive.sourceAST
-          }));
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+            `Unknown field "${key}" for sub-value ${valueToString(elt)} of @link(import:) argument.`,
+            { nodes: directive.sourceAST },
+          ));
           continue importArgLoop;
       }
     }
@@ -226,24 +226,24 @@ export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<
       imports.push(i);
       if (i.as) {
         if (i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
-          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-            message: `Invalid @link import renaming: directive "${i.name}" imported name should start with a '@' character, but got "${i.as}".`,
-            nodes: directive.sourceAST
-          }));
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+            `Invalid @link import renaming: directive "${i.name}" imported name should start with a '@' character, but got "${i.as}".`,
+            { nodes: directive.sourceAST },
+          ));
         }
         else if (i.name.charAt(0) !== '@' && i.as.charAt(0) === '@') {
-          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-            message: `Invalid @link import renaming: type "${i.name}" imported name should not start with a '@' character, but got "${i.as}" (or, if @${i.name} is a directive, then it should be referred to with a '@').`,
-            nodes: directive.sourceAST
-          }));
+          errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+            `Invalid @link import renaming: type "${i.name}" imported name should not start with a '@' character, but got "${i.as}" (or, if @${i.name} is a directive, then it should be referred to with a '@').`,
+            { nodes: directive.sourceAST },
+          ));
         }
       }
       validateImportedName(name, knownElements, errors, directive);
     } else {
-      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-        message: `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: missing mandatory "name" field.`,
-        nodes: directive.sourceAST
-      }));
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Invalid sub-value ${valueToString(elt)} for @link(import:) argument: missing mandatory "name" field.`,
+        { nodes: directive.sourceAST },
+      ));
     }
   }
 
@@ -264,10 +264,10 @@ function validateImportedName(name: string, knownElements: string[] | undefined,
         details = didYouMean(suggestions);
       }
     }
-    errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-      message: `Cannot import unknown element "${name}".${details}`,
-      nodes: directive.sourceAST
-    }));
+    errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+      `Cannot import unknown element "${name}".${details}`,
+      { nodes: directive.sourceAST },
+    ));
   }
 }
 
@@ -361,8 +361,8 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
   // TODO: we may want to allow some `import` as argument to this method. When we do, we need to watch for imports of
   // `Purpose` and `Import` and add the types under their imported name.
-  addToSchema(schema: Schema, as?: string): GraphQLError[] {
-    const errors = this.addDefinitionsToSchema(schema, as);
+  addToSchema(schema: Schema, alias?: string): GraphQLError[] {
+    const errors = this.addDefinitionsToSchema(schema, alias);
     if (errors.length > 0) {
       return errors;
     }
@@ -370,10 +370,45 @@ export class CoreSpecDefinition extends FeatureDefinition {
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
     // until the next line.
     const args = { [this.urlArgName()]: this.toString() } as unknown as CoreOrLinkDirectiveArgs;
-    if (as) {
-      args.as = as;
+    if (alias) {
+      args.as = alias;
     }
-    schema.schemaDefinition.applyDirective(as ?? this.url.name, args, true);
+
+    // This adds `@link(url: "https://specs.apollo.dev/link/v1.0")` to the "schema" definition. And we have
+    // a choice to add it either the main definition, or to an `extend schema`.
+    //
+    // In theory, always adding it to the main definition should be safe since even if some root operations
+    // can be defined in extensions, you shouldn't have an extension without a definition, and so we should
+    // never be in a case where _all_ root operations are defined in extensions (which would be a problem
+    // for printing the definition itsef since it's syntactically invalid to have a schema definition with
+    // no operations).
+    //
+    // In practice however, graphQL-js has historically accepted extensions without definition for schema,
+    // and we even abuse this a bit with federation out of convenience, so we could end up in the situation
+    // where if we put the directive on the definition, it cannot be printed properly due to the user having
+    // defined all its root operations in an extension.
+    //
+    // We could always add the directive to an extension, and that could kind of work but:
+    // 1. the core/link spec says that the link-to-link application should be the first `@link` of the
+    //   schema, but if user put some `@link` on their schema definition but we always put the link-to-link
+    //   on an extension, then we're kind of not respecting our own spec (in practice, our own code can
+    //   actually handle this as it does not strongly rely on that "it should be the first" rule, but that
+    //   would set a bad example).
+    // 2. earlier versions (pre-#1875) were always putting that directive on the definition, and we wanted
+    //   to avoid suprising users by changing that for not reason.
+    //
+    // So instead, we put the directive on the schema definition unless some extensions exists but no
+    // definition does (that is, no non-extension elements are populated).
+    const schemaDef =  schema.schemaDefinition;
+    // Side-note: this test must be done _before_ we call `applyDirective`, otherwise it would take it into
+    // account.
+    const hasDefinition = schemaDef.hasNonExtensionElements();
+    const directive = schemaDef.applyDirective(alias ?? this.url.name, args, true);
+    if (!hasDefinition && schemaDef.hasExtensionElements()) {
+      const extension = firstOf(schemaDef.extensions());
+      assert(extension, '`hasExtensionElements` should not have been `true`');
+      directive.setOfExtension(extension);
+    }
     return [];
   }
 
@@ -384,9 +419,9 @@ export class CoreSpecDefinition extends FeatureDefinition {
         // Already exists with the same version, let it be.
         return [];
       } else {
-        return [ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
-          message: `Cannot add feature ${this} to the schema, it already uses ${existingCore.coreItself.url}`
-        })];
+        return [ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+          `Cannot add feature ${this} to the schema, it already uses ${existingCore.coreItself.url}`
+        )];
       }
     }
 
@@ -520,7 +555,7 @@ export class FeatureVersion {
   public static parse(input: string): FeatureVersion {
     const match = input.match(this.VERSION_RE)
     if (!match) {
-      throw new GraphQLError(`Expected a version string (of the form v1.2), got ${input}`);
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Expected a version string (of the form v1.2), got ${input}`);
     }
     return new this(+match[1], +match[2])
   }
@@ -628,17 +663,17 @@ export class FeatureUrl {
   public static parse(input: string, node?: ASTNode): FeatureUrl {
     const url = new URL(input)
     if (!url.pathname || url.pathname === '/') {
-      throw new GraphQLError(`Missing path in feature url '${url}'`, node)
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing path in feature url '${url}'`, { nodes: node })
     }
     const path = url.pathname.split('/')
     const verStr = path.pop()
     if (!verStr) {
-      throw new GraphQLError(`Missing version component in feature url '${url}'`, node)
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing version component in feature url '${url}'`, { nodes: node })
     }
     const version = FeatureVersion.parse(verStr)
     const name = path[path.length - 1]
     if (!name) {
-      throw new GraphQLError(`Missing feature name component in feature url '${url}'`, node)
+      throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing feature name component in feature url '${url}'`, { nodes: node })
     }
     const element = url.hash ? url.hash.slice(1): undefined
     url.hash = ''
@@ -769,11 +804,15 @@ export function removeAllCoreFeatures(schema: Schema) {
   for (const { feature, type, references } of typeReferences) {
     const referencesInSchema = references.filter(r => r.isAttached());
     if (referencesInSchema.length > 0) {
-      errors.push(new GraphQLError(
+      // Note: using REFERENCED_INACCESSIBLE is slightly abusive because the reference element is not marked
+      // @inacessible exactly. Instead, it is inacessible due to core elements being removed, but that's very
+      // very close semantically. Overall, adding a publicly documented error code just to minor difference
+      // doesn't feel worth it, especially since that case is super unlikely in the first place (and, as
+      // the prior comment says, may one day be removed too).
+      errors.push(ERRORS.REFERENCED_INACCESSIBLE.err(
         `Cannot remove elements of feature ${feature} as feature type ${type}` +
         ` is referenced by elements: ${referencesInSchema.join(', ')}`,
-        references.map(r => r.sourceAST)
-          .filter(n => n !== undefined) as ASTNode[]
+        { nodes: sourceASTs(...references) },
       ));
     }
   }

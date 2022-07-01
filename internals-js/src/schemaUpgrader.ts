@@ -365,10 +365,10 @@ class SchemaUpgrader {
     }
 
     // We look at all the other subgraphs and didn't found a (non-extension) definition of that type
-    this.addError(ERRORS.EXTENSION_WITH_NO_BASE.err({
-      message: `Type "${type}" is an extension type, but there is no type definition for "${type}" in any subgraph.`,
-      nodes: extensionAST,
-    }));
+    this.addError(ERRORS.EXTENSION_WITH_NO_BASE.err(
+      `Type "${type}" is an extension type, but there is no type definition for "${type}" in any subgraph.`,
+      { nodes: extensionAST },
+    ));
   }
 
   private preUpgradeValidations(): void {
@@ -614,10 +614,10 @@ class SchemaUpgrader {
       }
       if (!type.hasFields()) {
         if (type.isReferenced()) {
-          this.addError(ERRORS.TYPE_WITH_ONLY_UNUSED_EXTERNAL.err({
-            message: `Type ${type} contains only external fields and all those fields are all unused (they do not appear in any @key, @provides or @requires).`,
-            nodes: type.sourceAST
-          }));
+          this.addError(ERRORS.TYPE_WITH_ONLY_UNUSED_EXTERNAL.err(
+            `Type ${type} contains only external fields and all those fields are all unused (they do not appear in any @key, @provides or @requires).`,
+            { nodes: type.sourceAST },
+          ));
         } else {
           // The type only had unused externals, but it is also unreferenced in the subgraph. Unclear why
           // it was there in the first place, but we can remove it and move on.
