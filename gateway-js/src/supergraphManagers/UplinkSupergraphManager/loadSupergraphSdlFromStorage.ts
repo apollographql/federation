@@ -1,4 +1,5 @@
 import * as makeFetchHappen from 'make-fetch-happen';
+import { AbortController, type AbortSignal } from "node-abort-controller";
 import { GraphQLError } from 'graphql';
 import retry from 'async-retry';
 import { SupergraphSdlUpdate } from '../../config';
