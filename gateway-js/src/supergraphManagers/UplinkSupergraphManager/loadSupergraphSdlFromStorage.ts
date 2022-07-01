@@ -91,9 +91,9 @@ export async function loadSupergraphSdlFromUplinks({
     {
       retries: maxRetries,
       maxTimeout: 60_000,
-      onRetry: (err, attempt) => {
-        logger.debug(`Unable to fetch supergraph SDL (attempt ${attempt}), retrying: ${err}`);
-      }
+      onRetry(e, attempt) {
+        logger.debug(`Unable to fetch supergraph SDL (attempt ${attempt}), retrying: ${e}`);
+      },
     },
   );
 
