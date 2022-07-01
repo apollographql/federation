@@ -20,7 +20,7 @@ Federated services will need to implement the following additions to the schema 
 
 ```graphql
 scalar _Any
-scalar _FieldSet
+scalar FieldSet
 scalar link__Import
 
 # a union of all types that use the @key directive
@@ -48,9 +48,9 @@ extend type Query {
 }
 
 directive @external on FIELD_DEFINITION
-directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
-directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
-directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+directive @requires(fields: FieldSet!) on FIELD_DEFINITION
+directive @provides(fields: FieldSet!) on FIELD_DEFINITION
+directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 directive @shareable on OBJECT | FIELD_DEFINITION
 directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
@@ -231,9 +231,9 @@ A new union called `_Entity` must be created. This should be a union of all type
 
 A new scalar called `_Any` must be created. The `_Any` scalar is used to pass representations of entities from external services into the root `_entities` field for execution. Validation of the `_Any` scalar is done by matching the `__typename` and `@external` fields defined in the schema.
 
-### `scalar _FieldSet`
+### `scalar FieldSet`
 
-A new scalar called `_FieldSet` is a custom scalar type that is used to represent a set of fields. Grammatically, a field set is a [selection set](http://spec.graphql.org/draft/#sec-Selection-Sets) minus the braces. This means it can represent a single field `"upc"`, multiple fields `"id countryCode"`, and even nested selection sets `"id organization { id }"`.
+A new scalar called `FieldSet` is a custom scalar type that is used to represent a set of fields. Grammatically, a field set is a [selection set](http://spec.graphql.org/draft/#sec-Selection-Sets) minus the braces. This means it can represent a single field `"upc"`, multiple fields `"id countryCode"`, and even nested selection sets `"id organization { id }"`.
 
 ### `Query._entities`
 
@@ -245,7 +245,7 @@ A new field must be added to the query root called `_entities`. This field must 
 ### `@key`
 
 ```graphql
-directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 ```
 
 The `@key` directive is used to indicate a combination of fields that can be used to uniquely identify and fetch an object or interface.
@@ -310,7 +310,7 @@ In the example above, we import various directives from `federation/v2.0` into o
 ### `@provides`
 
 ```graphql
-directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+directive @provides(fields: FieldSet!) on FIELD_DEFINITION
 ```
 
 The `@provides` directive is used to annotate the expected returned fieldset from a field on a base type that is guaranteed to be selectable by the gateway. Given the following example:
@@ -331,7 +331,7 @@ When fetching `Review.product` from the Reviews service, it is possible to reque
 ### `@requires`
 
 ```graphql
-directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+directive @requires(fields: FieldSet!) on FIELD_DEFINITION
 ```
 
 The `@requires` directive is used to annotate the required input fieldset from a base type for a resolver. It is used to develop a query plan where the required fields may not be needed by the client, but the service may need additional information from other services. For example:
