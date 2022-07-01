@@ -133,7 +133,7 @@ export async function loadSupergraphSdlFromStorage({
   }, 20_000);
   const fletcher = makeFetchHappen.defaults({timeout: 30_000});
 
-  const requestDetails = {
+  const requestDetails: FetcherRequestInit & { signal?: AbortSignal | null | undefined } = {
     method: 'POST',
     body: requestBody,
     headers: {
@@ -142,7 +142,7 @@ export async function loadSupergraphSdlFromStorage({
       'user-agent': `${name}/${version}`,
       'content-type': 'application/json',
     },
-    signal
+    signal: controller.signal,
   };
 
   logger.debug(`🔧 Fetching ${graphRef} supergraph schema from ${endpoint} ifAfterId ${compositionId}`);
