@@ -88,7 +88,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
     graphRef,
     debug,
     logger,
-    fetcher,
     uplinkEndpoints,
     fallbackPollIntervalInMs,
     maxRetries,
@@ -101,7 +100,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
     graphRef: string;
     debug?: boolean;
     logger?: Logger;
-    fetcher?: Fetcher;
     uplinkEndpoints?: string[];
     fallbackPollIntervalInMs?: number;
     maxRetries?: number;
@@ -121,7 +119,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
     this.initialMaxRetries = initialMaxRetries ?? this.maxRetries;
 
-    this.fetcher = fetcher ?? this.fetcher;
     this.fallbackPollIntervalMs =
       fallbackPollIntervalInMs ?? this.fallbackPollIntervalMs;
     this.shouldRunSubgraphHealthcheck =
