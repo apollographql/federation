@@ -81,7 +81,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
   private compositionId?: string;
   private fetchCount: number = 0;
   private minDelayMs: number | null = null;
-  private earliestFetchTime: Date | null = null;
   private mostRecentSuccessfulFetchAt?: Date;
 
   constructor({
@@ -153,7 +152,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
       initialSupergraphSdl = result.supergraphSdl;
       if (result.minDelaySeconds) {
         this.minDelayMs = 1000 * result.minDelaySeconds;
-        this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
       }
     } catch (e) {
       this.logUpdateFailure(e);
@@ -204,9 +202,10 @@ export class UplinkSupergraphManager implements SupergraphManager {
         compositionId: this.compositionId ?? null,
         maxRetries,
         roundRobinSeed: this.fetchCount++,
-        earliestFetchTime: this.earliestFetchTime,
         logger: this.logger,
       });
+
+      this.logger.debug(`Received Uplink response. Has updated SDL? ${!!result?.supergraphSdl}`);
 
       if (!result) {
         return null;
@@ -268,11 +267,13 @@ export class UplinkSupergraphManager implements SupergraphManager {
       : this.fallbackPollIntervalMs;
 
     if (this.state.phase !== 'polling') {
+      this.logger.debug(`Stopped polling Uplink [phase: ${this.state.phase}]`);
       return;
     }
 
     this.state.nextFetchPromise = resolvable();
 
+    this.logger.debug(`Will poll Uplink after ${delay}ms [phase: ${this.state.phase}]`);
     this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
         const pollingPromise = resolvable();
@@ -281,7 +282,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
           const result = await this.updateSupergraphSdl(this.maxRetries);
           if (result?.minDelaySeconds) {
             this.minDelayMs = 1000 * result.minDelaySeconds;
-            this.earliestFetchTime = new Date(Date.now() + this.minDelayMs);
           }
           if (result?.supergraphSdl) {
             this.update?.(result.supergraphSdl);

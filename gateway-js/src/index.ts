@@ -532,7 +532,7 @@ export class ApolloGateway implements GraphQLService {
     const previousCompositionId = this.compositionId;
 
     if (previousSchema) {
-      this.logger.info('Updated Supergraph SDL was found.');
+      this.logger.info(`Updated Supergraph SDL was found [Composition ID ${this.compositionId} => ${result.id}]`);
     }
 
     this.compositionId = result.id;

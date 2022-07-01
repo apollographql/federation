@@ -62,7 +62,6 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId,
   maxRetries,
   roundRobinSeed,
-  earliestFetchTime,
   logger,
 }: {
   graphRef: string;
@@ -73,7 +72,6 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId: string | null;
   maxRetries: number,
   roundRobinSeed: number,
-  earliestFetchTime: Date | null,
   logger: Logger,
 }) : Promise<Required<SupergraphSdlUpdate> | null> {
   // This Promise resolves with either an updated supergraph or null if no change.
@@ -92,10 +90,9 @@ export async function loadSupergraphSdlFromUplinks({
       }),
     {
       retries: maxRetries,
-      onRetry: async () => {
-        const delayMS = earliestFetchTime ? earliestFetchTime.getTime() - Date.now(): 0;
-        logger?.debug(`Waiting ${delayMS}ms before retrying (earliest fetch time ${earliestFetchTime})...`);
-        if (delayMS > 0) await new Promise(resolve => setTimeout(resolve, delayMS));
+      maxTimeout: 60_000,
+      onRetry: (err, attempt) => {
+        logger.debug(`Unable to fetch supergraph SDL (attempt ${attempt}), retrying: ${err}`);
       }
     },
   );
@@ -142,7 +139,7 @@ export async function loadSupergraphSdlFromStorage({
   const startTime = new Date();
   let result: FetcherResponse;
   try {
-    logger.debug(`🔧 Fetching supergraph schema from ${endpoint}`);
+    logger.debug(`🔧 Fetching ${graphRef} supergraph schema from ${endpoint} ifAfterId ${compositionId}`);
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
