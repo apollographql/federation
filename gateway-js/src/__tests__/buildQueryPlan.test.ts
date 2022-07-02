@@ -771,9 +771,11 @@ describe('buildQueryPlan', () => {
                       topProducts {
                         __typename
                         ... on Book {
+                          __typename
                           price
                         }
                         ... on Furniture {
+                          __typename
                           price
                         }
                       }
@@ -811,9 +813,11 @@ describe('buildQueryPlan', () => {
                       topProducts {
                         __typename
                         ... on Book {
+                          __typename
                           price
                         }
                         ... on Furniture {
+                          __typename
                           price
                         }
                       }

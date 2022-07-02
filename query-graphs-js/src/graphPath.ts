@@ -1708,7 +1708,8 @@ function advanceWithOperation<V extends Vertex>(
         // and let the later query-plan "cost" evaluation decide what is best).
         const itfEdge = nextEdgeForField(path, operation);
         let itfOptions: SimultaneousPaths<V>[] | undefined = undefined;
-        if (itfEdge) {
+        // disable optimization for typename fields
+        if (itfEdge && field.name !== typenameFieldName) {
           itfOptions = addFieldEdge(path, operation, itfEdge, conditionResolver, context);
           // TODO: We should re-assess this when we support @requires on interface fields (typically, should we even try to type-explode
           // if the direct edge cannot be satisfied? Probably depends on the exact semantic of @requires on interface fields).
