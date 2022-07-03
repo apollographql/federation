@@ -91,7 +91,7 @@ Let's break this example down:
 * A reference resolver's first parameter is a **representation** of the entity being resolved.
     * An entity representation is an object that contains the entity's `@key` fields, plus its `__typename` field. These values are provided by the gateway.
 * A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
-    * In this example, the hypothetical `fetchProductByID` field fetches a particular `Product`'s field data based on its `id`.
+    * In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
 
 _Every_ subgraph that contributes at least one unique field to an entity must define a reference resolver for that entity.
 
