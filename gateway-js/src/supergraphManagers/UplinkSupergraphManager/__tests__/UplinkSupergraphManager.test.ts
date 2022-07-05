@@ -2,8 +2,6 @@ import mockedEnv from 'mocked-env';
 
 import { UplinkSupergraphManager } from '@apollo/gateway';
 
-import { DEFAULT_UPLINK_ENDPOINTS } from '..';
-
 let cleanUp: (() => void) | undefined;
 
 const logger = {
@@ -31,7 +29,7 @@ describe('UplinkSupergraphManager', () => {
     it('uses default uplink URLs', async () => {
       const manager = new UplinkSupergraphManager({ apiKey, graphRef, logger });
 
-      expect(manager.uplinkEndpoints).toEqual(DEFAULT_UPLINK_ENDPOINTS);
+      expect(manager.uplinkEndpoints).toEqual(UplinkSupergraphManager.DEFAULT_UPLINK_ENDPOINTS);
     });
 
     it('can set uplink URLs via config', async () => {

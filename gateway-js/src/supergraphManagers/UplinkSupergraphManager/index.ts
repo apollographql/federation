@@ -10,22 +10,6 @@ import { getDefaultLogger } from '../../logger';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 import { Fetcher } from '@apollo/utils.fetcher';
 
-export const DEFAULT_UPLINK_ENDPOINTS = [
-  'https://uplink.api.apollographql.com/',
-  'https://aws.uplink.api.apollographql.com/',
-];
-
-function getUplinkEndpoints(): string[] {
-  /**
-   * Configuration priority order:
-   * 1. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
-   * 2. default (GCP and AWS)
-   */
-  const envEndpoints =
-    process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT?.split(',');
-  return envEndpoints ?? DEFAULT_UPLINK_ENDPOINTS;
-}
-
 export type FailureToFetchSupergraphSdlFunctionParams = {
   error: Error;
   graphRef: string;
@@ -47,8 +31,9 @@ export type FailureToFetchSupergraphSdlAfterInit = ({
   fetchCount,
   mostRecentSuccessfulFetchAt,
 }:
-  | FailureToFetchSupergraphSdlFunctionParams
-  & { mostRecentSuccessfulFetchAt?: Date }) => Promise<string | null>;
+  | FailureToFetchSupergraphSdlFunctionParams & {
+      mostRecentSuccessfulFetchAt?: Date;
+    }) => Promise<string | null>;
 
 type State =
   | { phase: 'constructed' }
@@ -61,7 +46,11 @@ type State =
   | { phase: 'stopped' };
 
 export class UplinkSupergraphManager implements SupergraphManager {
-  public readonly uplinkEndpoints: string[] = getUplinkEndpoints();
+  public static readonly DEFAULT_UPLINK_ENDPOINTS = [
+    'https://uplink.api.apollographql.com/',
+    'https://aws.uplink.api.apollographql.com/',
+  ];
+  public readonly uplinkEndpoints: string[] = UplinkSupergraphManager.getUplinkEndpoints();
   private apiKey: string;
   private graphRef: string;
   private fetcher: Fetcher = makeFetchHappen.defaults();
@@ -182,6 +171,17 @@ export class UplinkSupergraphManager implements SupergraphManager {
     return this.state.nextFetchPromise;
   }
 
+  /**
+   * Configuration priority order:
+   * 1. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
+   * 2. default (GCP and AWS)
+   */
+  private static getUplinkEndpoints(): string[] {
+    const envEndpoints =
+      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT?.split(',');
+    return envEndpoints ?? UplinkSupergraphManager.DEFAULT_UPLINK_ENDPOINTS;
+  }
+
   private async updateSupergraphSdl(maxRetries: number): Promise<{
     supergraphSdl: string;
     minDelaySeconds: number;
@@ -202,7 +202,9 @@ export class UplinkSupergraphManager implements SupergraphManager {
         logger: this.logger,
       });
 
-      this.logger.debug(`Received Uplink response. Has updated SDL? ${!!result?.supergraphSdl}`);
+      this.logger.debug(
+        `Received Uplink response. Has updated SDL? ${!!result?.supergraphSdl}`,
+      );
 
       if (!result) {
         return null;
@@ -270,7 +272,9 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
     this.state.nextFetchPromise = resolvable();
 
-    this.logger.debug(`Will poll Uplink after ${delay}ms [phase: ${this.state.phase}]`);
+    this.logger.debug(
+      `Will poll Uplink after ${delay}ms [phase: ${this.state.phase}]`,
+    );
     this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
         const pollingPromise = resolvable();

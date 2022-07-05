@@ -1079,5 +1079,4 @@ export {
   FailureToFetchSupergraphSdlAfterInit,
   FailureToFetchSupergraphSdlDuringInit,
   FailureToFetchSupergraphSdlFunctionParams,
-  DEFAULT_UPLINK_ENDPOINTS,
 } from './supergraphManagers';
