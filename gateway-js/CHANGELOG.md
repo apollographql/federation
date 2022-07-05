@@ -10,6 +10,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
     will have to pass the new argument when upgrading. See the method documentation for details.
 - Cleanup error related code, adding missing error code to a few errors [PR #1914](https://github.com/apollographql/federation/pull/1914).
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900).
+- Fix issue computing query plan costs that can lead to extra unnecessary fetches [PR #1937](https://github.com/apollographql/federation/pull/1937).
 
 ## 2.1.0-alpha.0
 
