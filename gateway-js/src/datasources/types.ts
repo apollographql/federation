@@ -60,10 +60,5 @@ export type GraphQLDataSourceProcessOptions<
        * Mostly provided for historical reasons.
        */
       context: {};
-
-    /**
-     * Mostly provided for backwards compatibility with AS2.
-     */
-      incomingRequestContext?: undefined;
     }
 );
