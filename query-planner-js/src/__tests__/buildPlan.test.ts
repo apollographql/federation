@@ -2944,3 +2944,161 @@ describe('handles non-intersecting fragment conditions', () => {
     `);
   });
 });
+
+test('avoids unnecessary fetches', () => {
+  // This test is a reduced example demonstrating a previous issue with the computation of query plans cost.
+  // The general idea is that "Subgraph 3" has a declaration that is kind of useless (it declares entity A
+  // that only provides it's own key, so there is never a good reason to use it), but the query planner
+  // doesn't know that and will "test" plans including fetch to that subgraphs in its exhaustive search
+  // of all options. In theory, the query plan costing mechanism should eliminate such plans in favor of
+  // plans not having this inefficient, but an issue in the plan cost computation led to such inefficient
+  // to have the same cost as the more efficient one and to be picked (just because it was the first computed).
+  // This test ensures this costing bug is fixed.
+
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "idT") {
+        idT: ID!
+        a: A
+      }
+
+      type A @key(fields: "idA2") {
+        idA2: ID!
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "idT") {
+        idT: ID!
+        u: U
+      }
+
+
+      type U @key(fields: "idU") {
+        idU: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type A @key(fields: "idA1") {
+        idA1: ID!
+      }
+    `
+  }
+
+  const subgraph4 = {
+    name: 'Subgraph4',
+    typeDefs: gql`
+      type A @key(fields: "idA1") @key(fields: "idA2") {
+        idA1: ID!
+        idA2: ID!
+      }
+    `
+  }
+
+  const subgraph5 = {
+    name: 'Subgraph5',
+    typeDefs: gql`
+      type U @key(fields: "idU") {
+        idU: ID!
+        v: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4, subgraph5);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        u {
+          v
+        }
+        a {
+          idA1
+        }
+      }
+    }
+  `);
+  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              idT
+              a {
+                __typename
+                idA2
+              }
+            }
+          }
+        },
+        Parallel {
+          Sequence {
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    idT
+                  }
+                } =>
+                {
+                  ... on T {
+                    u {
+                      __typename
+                      idU
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "t.u") {
+              Fetch(service: "Subgraph5") {
+                {
+                  ... on U {
+                    __typename
+                    idU
+                  }
+                } =>
+                {
+                  ... on U {
+                    v
+                  }
+                }
+              },
+            },
+          },
+          Flatten(path: "t.a") {
+            Fetch(service: "Subgraph4") {
+              {
+                ... on A {
+                  __typename
+                  idA2
+                }
+              } =>
+              {
+                ... on A {
+                  idA1
+                }
+              }
+            },
+          },
+        },
+      },
+    }
+  `);
+});
