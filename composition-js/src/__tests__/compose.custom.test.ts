@@ -35,7 +35,7 @@ const expectNoDirectiveOnElement = (schema: Schema, location: string, directiveN
 
 const expectNoErrorsOrHints = (result: CompositionResult): Schema => {
   expect(result.errors).toBeUndefined();
-  expect(result.hints?.length).toBe(0);
+  expect(result.hints).toHaveLength(0);
   const { schema } = result;
   expect(schema).toBeDefined();
   assert(schema, 'schema does not exist');
@@ -76,7 +76,7 @@ describe('composing custom directives', () => {
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeDefined();
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0]).toEqual(new GraphQLError('Directive "@foo" cannot be specified in "mergeDirectives" argument because all its locations are executable'));
   });
 
@@ -187,7 +187,7 @@ describe('composing custom directives', () => {
     };
     const result = composeServices([subgraphA, subgraphB, subgraphC], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(1);
+    expect(result.hints).toHaveLength(1);
     const { schema } = result;
     expect(schema).toBeDefined();
     assert(schema, 'schema does not exist');
@@ -294,7 +294,7 @@ describe('composing custom directives', () => {
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeDefined();
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
   });
 
@@ -326,7 +326,7 @@ describe('composing custom directives', () => {
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeDefined();
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0]).toEqual(new GraphQLError('Argument "@foo(desc:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"'));
   });
 
@@ -454,7 +454,7 @@ describe('composing custom directives', () => {
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
     expect(result.errors).toBeUndefined();
-    expect(result.hints?.length).toBe(1);
+    expect(result.hints).toHaveLength(1);
     expect(result.hints?.[0].definition.code).toBe('INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE');
     const { schema } = result;
     expect(schema).toBeDefined();
@@ -490,7 +490,7 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
-    expect(result.hints?.length).toBe(1);
+    expect(result.hints).toHaveLength(1);
     expect(result.hints?.[0].message).toBe('Type system directive "@foo" has inconsistent locations across subgraphs and will use locations "FIELD_DEFINITION, OBJECT" (union of all subgraphs) in the supergraph, but has: locations "FIELD_DEFINITION, OBJECT" in subgraph "subgraphA" and location "FIELD_DEFINITION" in subgraph "subgraphB".');
     const { schema } = result;
     expect(schema).toBeDefined();
@@ -584,7 +584,7 @@ describe('composing custom directives', () => {
       `,
     };
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@foo']});
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0].message).toBe(`Directive "@foo" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph`);
   });
 });
@@ -630,25 +630,25 @@ describe('invocation errors', () => {
 
   it('directive does not exist', () => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tagg']});
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0].message).toBe(`Directive "@tagg" in "mergeDirectives" argument does not exist in any subgraph. Did you mean \"@tag\"?`);
   });
 
   it('no leading "@" in directive name', () => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['foo']});
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0].message).toBe(`Directive "foo" in "mergeDirectives" argument does not begin with a "@"`);
   });
 
   it.each(['@skip', '@include', '@deprecated', '@specifiedBy'])('attempt to expose builtin directive', (directiveName) => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: [directiveName]});
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0].message).toBe(`Built-in directive "${directiveName}" cannot be specified in "mergeDirectives" because built-ins are already merged by default`);
   });
 
   it.each(['@key', '@link', '@customTag'])('fed 2 directives are rejected. Even if they are aliased', (directive) => {
     const result = composeServices([subgraphA, subgraphB], { mergeDirectives: [directive]});
-    expect(result.errors?.length).toBe(1);
+    expect(result.errors).toHaveLength(1);
     expect(result.errors?.[0].message).toBe(`Directive "${directive}" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph`);
   });
 

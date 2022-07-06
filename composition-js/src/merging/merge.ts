@@ -1867,10 +1867,8 @@ class Merger {
     const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
     if (definedSources.some(s => s.locations.some(loc => executableDirectiveLocations.includes(loc)))) {
       this.mergeExecutableDirectiveDefinition(sources, dest);
-    } else {
-      if (this.isMergedDirective(dest)) {
-        this.mergeTypeSystemDirectiveDefinition(sources, dest);
-      }
+    } else if (this.isMergedDirective(dest)) {
+      this.mergeTypeSystemDirectiveDefinition(sources, dest);
     }
   }
 
