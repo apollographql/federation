@@ -1,6 +1,7 @@
 import { GraphQLError, GraphQLSchema } from 'graphql';
 import { HeadersInit } from 'node-fetch';
 import { GraphQLRequestContextExecutionDidStart } from 'apollo-server-types';
+import { GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart3 } from 'apollo-server-types-3';
 import type { Logger } from '@apollo/utils.logger';
 import { ServiceDefinition } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
@@ -21,8 +22,10 @@ export type Experimental_DidResolveQueryPlanCallback = ({
   readonly serviceMap: ServiceMap;
   readonly operationContext: OperationContext;
   readonly requestContext: GraphQLRequestContextExecutionDidStart<
-    Record<string, any>
-  >;
+      Record<string, any>
+  > | GraphQLRequestContextExecutionDidStart3<
+      Record<string, any>
+      >;
 }) => void;
 
 interface ImplementingServiceLocation {

@@ -3,6 +3,9 @@ import {
   GraphQLRequestContext,
   VariableValues,
 } from 'apollo-server-types';
+import {
+  GraphQLRequestContext as GraphQLRequestContext3,
+} from 'apollo-server-types-3';
 import { Headers } from 'node-fetch';
 import {
   execute,
@@ -45,14 +48,14 @@ interface ExecutionContext<TContext> {
   queryPlan: QueryPlan;
   operationContext: OperationContext;
   serviceMap: ServiceMap;
-  requestContext: GraphQLRequestContext<TContext>;
+  requestContext: GraphQLRequestContext<TContext> | GraphQLRequestContext3<TContext>;
   errors: GraphQLError[];
 }
 
 export async function executeQueryPlan<TContext>(
   queryPlan: QueryPlan,
   serviceMap: ServiceMap,
-  requestContext: GraphQLRequestContext<TContext>,
+  requestContext: GraphQLRequestContext<TContext> | GraphQLRequestContext3<TContext>,
   operationContext: OperationContext,
 ): Promise<GraphQLExecutionResult> {
 

@@ -6,7 +6,7 @@ import {
 
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Response, Headers } from 'node-fetch';
-import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLRequestContext } from 'apollo-server-types-3';
 import { GraphQLDataSourceRequestKind } from '../types';
 import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import nock from 'nock';
@@ -450,14 +450,14 @@ describe('didEncounterError', () => {
     nock('https://api.example.com').post('/foo').reply(401, 'Invalid token');
 
     const context: MyContext = { timingData: [] };
+    // @ts-ignore
+    const incomingRequestContext: GraphQLRequestContext3<MyContext> = { context };
     const result = DataSource.process({
       ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
       },
-      incomingRequestContext: {
-        context,
-      } as GraphQLRequestContext<MyContext>,
+      incomingRequestContext,
       context,
     });
 

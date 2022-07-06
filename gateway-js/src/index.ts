@@ -4,6 +4,9 @@ import {
   GraphQLExecutionResult,
   GraphQLRequestContextExecutionDidStart,
 } from 'apollo-server-types';
+import {
+  GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart3,
+} from 'apollo-server-types-3';
 import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -812,7 +815,7 @@ export class ApolloGateway implements GraphQLService {
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
   public executor = async <TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+    requestContext: GraphQLRequestContextExecutionDidStart<TContext> | GraphQLRequestContextExecutionDidStart3<TContext>,
   ): Promise<GraphQLExecutionResult> => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
@@ -966,7 +969,7 @@ export class ApolloGateway implements GraphQLService {
   };
 
   private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+    requestContext: GraphQLRequestContextExecutionDidStart<TContext> | GraphQLRequestContextExecutionDidStart3<TContext>,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {

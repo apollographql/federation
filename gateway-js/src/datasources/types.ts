@@ -1,11 +1,16 @@
-import { GraphQLResponse, GraphQLRequestContext } from 'apollo-server-types';
+import {GraphQLResponse, GraphQLRequestContext, GraphQLRequest} from 'apollo-server-types';
+import {
+    GraphQLRequest as GraphQLRequest3,
+    GraphQLResponse as GraphQLResponse3,
+    GraphQLRequestContext as GraphQLRequestContext3
+} from 'apollo-server-types-3';
 
 export interface GraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
 > {
   process(
     options: GraphQLDataSourceProcessOptions<TContext>,
-  ): Promise<GraphQLResponse>;
+  ): Promise<GraphQLResponse | GraphQLResponse3>;
 }
 
 export enum GraphQLDataSourceRequestKind {
@@ -17,12 +22,16 @@ export enum GraphQLDataSourceRequestKind {
 export type GraphQLDataSourceProcessOptions<
   TContext extends Record<string, any> = Record<string, any>,
 > = {
+
   /**
    * The request to send to the subgraph.
+   *
+   * For backwards compatibility with Apollo Server 2, the type of Request can come from
+   * both versions of the apollo-server-types.
    */
-  request: GraphQLRequestContext<TContext>['request'];
+  request: GraphQLRequest | GraphQLRequest3
 } & (
-  | {
+  {
       kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION;
       /**
        * The GraphQLRequestContext for the operation received by the gateway, or
@@ -32,11 +41,7 @@ export type GraphQLDataSourceProcessOptions<
        * For backwards compatibility with Apollo Server 2, `overallCachePolicy` needs
        * to be treated as optional.
        */
-      incomingRequestContext: Omit<
-        GraphQLRequestContext<TContext>,
-        'overallCachePolicy'
-      > &
-        Pick<Partial<GraphQLRequestContext<TContext>>, 'overallCachePolicy'>;
+      incomingRequestContext: GraphQLRequestContext<TContext> | GraphQLRequestContext3<TContext>
       /**
        * Equivalent to incomingRequestContext.context (provided here for
        * backwards compatibility): the object created by the Apollo Server
@@ -45,7 +50,7 @@ export type GraphQLDataSourceProcessOptions<
        * @deprecated Use `incomingRequestContext.context` instead (after
        * checking `kind`).
        */
-      context: GraphQLRequestContext<TContext>['context'];
+      context: GraphQLRequestContext<TContext>['context'] | GraphQLRequestContext3<TContext>['context'];
     }
   | {
       kind:
@@ -55,5 +60,10 @@ export type GraphQLDataSourceProcessOptions<
        * Mostly provided for historical reasons.
        */
       context: {};
+
+    /**
+     * Mostly provided for backwards compatibility with AS2.
+     */
+      incomingRequestContext?: undefined;
     }
 );
