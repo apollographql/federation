@@ -169,6 +169,12 @@ const UNUSED_ENUM_TYPE = makeCodeDefinition({
   description: 'Indicates that an enum type is defined in some subgraphs but is unused (no field/argument references it). All the values from subgraphs defining that enum will be included in the supergraph.',
 });
 
+const MERGE_DIRECTIVE_DOES_NOT_EXIST = makeCodeDefinition({
+  code: 'MERGE_DIRECTIVE_DOES_NOT_EXIST',
+  level: HintLevel.INFO,
+  description: 'A directive specified in "mergeDirectives" does not appear in any subgraph',
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -192,6 +198,7 @@ export const HINTS = {
   OVERRIDDEN_FIELD_CAN_BE_REMOVED,
   OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
   UNUSED_ENUM_TYPE,
+  MERGE_DIRECTIVE_DOES_NOT_EXIST,
 }
 
 export class CompositionHint {

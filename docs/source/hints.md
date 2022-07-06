@@ -47,6 +47,7 @@ The following hints might be generated during composition:
 | `INCONSISTENT_ENTITY` | Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined. | `INFO` |
 | `OVERRIDDEN_FIELD_CAN_BE_REMOVED` | Field has been overridden by another subgraph. Consider removing. | `INFO` |
 | `OVERRIDE_DIRECTIVE_CAN_BE_REMOVED` | Field with @override directive no longer exists in source subgraph, the directive can be safely removed | `INFO` |
+| `MERGE_DIRECTIVE_DOES_NOT_EXIST` | A directive specified in "mergeDirectives" does not appear in any subgraph | `INFO` |
 
 </div>
 

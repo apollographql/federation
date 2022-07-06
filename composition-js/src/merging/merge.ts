@@ -247,7 +247,7 @@ function locationString(locations: DirectiveLocation[]): string {
  * Executable locations are merged by intersection while non-executable locations are merged by union
  */
 const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined)[]) => {
-  let consistentLocations = true;
+  let consistentTypeSystemLocations = true;
   let consistentExecutableLocations = true;
   const definedSources = sources.filter((src): src is DirectiveDefinition => src !== undefined);
   const locationSet = new Set<DirectiveLocation>();
@@ -268,11 +268,11 @@ const getLocationsFromDirectiveDefs = (sources: (DirectiveDefinition | undefined
       const nonExecutableLocations = src.locations.filter(loc => !executableDirectiveLocations.includes(loc));
       nonExecutableLocations.forEach(locationSet.add, locationSet);
       if (idx > 0 && (prevLength !== locationSet.size || prevLength !== nonExecutableLocations.length)) {
-        consistentLocations = false;
+        consistentTypeSystemLocations = false;
       }
     });
   return {
-    consistentLocations,
+    consistentTypeSystemLocations,
     consistentExecutableLocations,
     locations: Array.from(locationSet),
   };
@@ -398,6 +398,12 @@ class Merger {
   }
 
   merge(): MergeResult {
+    this.validateCompositionOptions(this.subgraphs, this.options);
+    if (this.errors.length > 0) {
+      return {
+        errors: this.errors,
+      };
+    }
     // We first create empty objects for all the types and directives definitions that will exists in the
     // supergraph. This allow to be able to reference those from that point on.
     this.addTypesShallow();
@@ -1883,7 +1889,7 @@ class Merger {
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-    const { consistentLocations, locations } = getLocationsFromDirectiveDefs(sources);
+    const { consistentTypeSystemLocations, locations } = getLocationsFromDirectiveDefs(sources);
     const { repeatable, consistentRepeatable } = sourcesRepeatable(sources);
 
     dest.repeatable = repeatable;
@@ -1902,7 +1908,7 @@ class Merger {
       );
     }
 
-    if (!consistentLocations) {
+    if (!consistentTypeSystemLocations) {
       this.reportMismatchHint(
         HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
         `Type system directive "${dest}" has inconsistent locations across subgraphs `,
@@ -2314,5 +2320,48 @@ class Merger {
    */
   private mergedDirectives() {
     return (this.options.mergeDirectives ?? []).map(directive => directive[0] === '@' ? directive.slice(1) : directive);
+  }
+
+  private validateCompositionOptions(toMerge: Subgraphs, options?: CompositionOptions) {
+    // for mergeDirectives, we want to validate that every directive specified starts with a '@'
+    // and exists on some subgraph. Also ensure that none of the directives are builtin or federation directives
+    const subgraphs = toMerge.values();
+    const mergeDirectives = options?.mergeDirectives ?? [];
+    mergeDirectives.forEach(directiveName => {
+      if (directiveName[0] !== '@') {
+        this.errors.push(ERRORS.INVALID_MERGE_DIRECTIVES_ARGUMENT.err({
+          message: `Directive "${directiveName}" in "mergeDirectives" argument does not begin with a "@"`,
+        }));
+      } else {
+        const directiveNameWithoutAt = directiveName.slice(1);
+
+        // for the directive specified, get the DirectiveDefinition for each subgraph it appears in
+        const subgraphDirectives = subgraphs
+          .map(sg => sg.schema.directive(directiveNameWithoutAt))
+          .filter((directive): directive is DirectiveDefinition => directive !== undefined);
+
+        if (subgraphDirectives.length === 0) {
+          // If the directive does not appear in any subgraph, throw an error. Provide a suggestion if we think it's a typo.
+          const allDirectives = new Set<string>();
+          subgraphs.forEach(sg => {
+            sg.schema.allDirectives().forEach(directive => {
+              allDirectives.add(`@${directive.name}`);
+            });
+          });
+
+          const suggestions = suggestionList(directiveNameWithoutAt, Array.from(allDirectives));
+          this.hints.push(new CompositionHint(HINTS.MERGE_DIRECTIVE_DOES_NOT_EXIST, `Directive "${directiveName}" in "mergeDirectives" argument does not exist in any subgraph.${didYouMean(suggestions)}`));
+        } else if (subgraphDirectives.some(directive => directive.isBuiltIn)) {
+          // reject builtin directives
+          this.errors.push(ERRORS.INVALID_MERGE_DIRECTIVES_ARGUMENT.err({ message: `Built-in directive "${directiveName}" cannot be specified in "mergeDirectives" because built-ins are already merged by default` }));
+        } else if (subgraphDirectives.every(directive => directive.locations.every(loc => executableDirectiveLocations.includes(loc)))) {
+          // reject directives that have no type system locations since executable directives are already composed
+          this.errors.push(ERRORS.INVALID_MERGE_DIRECTIVES_ARGUMENT.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because all its locations are executable`}));
+        } else if (subgraphDirectives.some(sgDirective => sgDirective.schema().coreFeatures && sgDirective.schema().coreFeatures?.sourceFeature(sgDirective) !== undefined)) {
+          // don't allow directives that originate from a core feature
+          this.errors.push(ERRORS.INVALID_MERGE_DIRECTIVES_ARGUMENT.err({ message: `Directive "${directiveName}" cannot be specified in "mergeDirectives" argument because it is linked via a core feature in at least one subgraph` }));
+        }
+      }
+    });
   }
 }

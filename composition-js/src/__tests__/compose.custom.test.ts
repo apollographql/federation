@@ -629,9 +629,11 @@ describe('invocation errors', () => {
   });
 
   it('directive does not exist', () => {
-    const result = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tagg']});
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors?.[0].message).toBe(`Directive "@tagg" in "mergeDirectives" argument does not exist in any subgraph. Did you mean \"@tag\"?`);
+    const { schema, errors, hints } = composeServices([subgraphA, subgraphB], { mergeDirectives: ['@tagg']});
+    expect(schema).toBeDefined();
+    expect(errors).toBeUndefined();
+    expect(hints).toHaveLength(1);
+    expect(hints?.[0].message).toBe(`Directive "@tagg" in "mergeDirectives" argument does not exist in any subgraph. Did you mean \"@tag\"?`);
   });
 
   it('no leading "@" in directive name', () => {

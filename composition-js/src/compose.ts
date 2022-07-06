@@ -14,7 +14,7 @@ import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/
 import { mergeSubgraphs } from "./merging";
 import { validateGraphComposition } from "./validate";
 import { CompositionHint } from "./hints";
-import { validateCompositionOptions, type CompositionOptions } from './compositionOptions';
+import { type CompositionOptions } from './compositionOptions';
 
 export type CompositionResult = CompositionFailure | CompositionSuccess;
 
@@ -39,12 +39,6 @@ export function compose(subgraphs: Subgraphs, options?: CompositionOptions): Com
   }
 
   const toMerge = upgradeResult.subgraphs;
-  const invocationErrors = validateCompositionOptions(toMerge, options);
-  if (invocationErrors.length > 0) {
-    return {
-      errors: invocationErrors,
-    }
-  }
   const validationErrors = toMerge.validate();
   if (validationErrors) {
     return { errors: validationErrors };
