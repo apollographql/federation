@@ -208,8 +208,8 @@ export class Edge {
     this._conditions.freeze();
   }
 
-  isKeyEdgeToSelf(): boolean {
-    return this.transition.kind === 'KeyResolution' && this.head === this.tail;
+  isKeyOrRootTypeEdgeToSelf(): boolean {
+    return this.head === this.tail && (this.transition.kind === 'KeyResolution' || this.transition.kind === 'RootTypeResolution');
   }
 
   toString(): string {
@@ -343,15 +343,15 @@ export class QueryGraph {
    * @param vertex - the vertex for which to return out edges. This method _assumes_ that
    *   the provided vertex is a vertex of this query graph (and its behavior is undefined
    *   if it isn't).
-   * @param includeKeyEdgesToSelf - whether key edges that stay on the same vertex should be
-   *   included. This default to `false` are those are rarely useful. More precisely, the
-   *   only current use of key self-edges is for @defer where they may be needed to re-enter
+   * @param includeKeyAndRootTypeEdgesToSelf - whether key/root type edges that stay on the same
+   *  vertex should be included. This default to `false` are those are rarely useful. More
+   *   precisely, the only current use of them is for @defer where they may be needed to re-enter
    *   the current subgraph in a deferred section.
    * @returns the list of all the edges out of this vertex.
    */
-  outEdges(vertex: Vertex, includeKeyEdgesToSelf: boolean = false): readonly Edge[] {
+  outEdges(vertex: Vertex, includeKeyAndRootTypeEdgesToSelf: boolean = false): readonly Edge[] {
     const allEdges = this.adjacencies[vertex.index];
-    return includeKeyEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyEdgeToSelf())
+    return includeKeyAndRootTypeEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyOrRootTypeEdgeToSelf())
   }
 
   /**
@@ -605,7 +605,8 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   }
 
   // We then add the edges from supergraph roots to the subgraph ones.
-  // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs.
+  // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs
+  // (and for @defer, like for @key, we also add self-link looping on the current subgraph).
   // This essentially encode the fact that if a field return a root type, we can always query any subgraph from that point.
   for (const [i, subgraph] of subgraphs.entries()) {
     const copyPointer = copyPointers[i];
@@ -614,9 +615,6 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
       builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
 
       for (const [j, otherSubgraph] of subgraphs.entries()) {
-        if (i === j) {
-          continue;
-        }
         const otherRootVertex = otherSubgraph.root(rootKind);
         if (otherRootVertex) {
           const otherCopyPointer = copyPointers[j];

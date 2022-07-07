@@ -1804,3 +1804,116 @@ describe('@require', () => {
     `);
   });
 });
+
+test('@defer on query root type', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        op1 : Int
+        op2: A
+      }
+
+      type A {
+        x: Int
+        y: Int
+        next: Query
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        op3: Int
+        op4: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      op2 {
+        x
+        y
+        next {
+          op3
+          ... @defer {
+            op1
+            op4
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            op2 {
+              x
+              y
+              next {
+                op3
+              }
+            }
+          }:
+          Sequence {
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                op2 {
+                  x
+                  y
+                  next {
+                    __typename
+                  }
+                }
+              }
+            },
+            Flatten(path: "op2.next") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on Query {
+                    op3
+                  }
+                }
+              },
+            },
+          }
+        }, [
+          Deferred(depends: [0], path: "op2.next") {
+            {
+              op1
+              op4
+            }:
+            Parallel {
+              Flatten(path: "op2.next") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on Query {
+                      op4
+                    }
+                  }
+                },
+              },
+              Flatten(path: "op2.next") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on Query {
+                      op1
+                    }
+                  }
+                },
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
