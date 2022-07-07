@@ -38,6 +38,27 @@ export class MultiMap<K, V> extends Map<K, V[]> {
   }
 }
 
+export class SetMultiMap<K, V> extends Map<K, Set<V>> {
+  add(key: K, value: V): this {
+    let values = this.get(key);
+    if (!values) {
+      values = new Set<V>();
+      this.set(key, values);
+    }
+    values.add(value);
+    return this;
+  }
+
+  addAll(otherMap: SetMultiMap<K, V>): this {
+    for (const [k, vs] of otherMap.entries()) {
+      for (const v of vs) {
+        this.add(k, v);
+      }
+    }
+    return this;
+  }
+}
+
 /**
  * Generic OrderedMap class that can sort keys based on an arbitrary sorting function
  * Insert time is O(log(N))

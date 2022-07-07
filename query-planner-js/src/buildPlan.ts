@@ -41,12 +41,13 @@ import {
   Directive,
   directiveApplicationsSubstraction,
   conditionalDirectivesInOperationPath,
-  MultiMap,
+  SetMultiMap,
   ERRORS,
   OperationElement,
   Concrete,
   DeferDirectiveArgs,
   setValues,
+  MultiMap,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1602,10 +1603,10 @@ class FetchDependencyGraph {
     group: FetchGroup
   ): {
     children: FetchGroup[],
-    deferredGroups: MultiMap<string, FetchGroup>,
+    deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
     const children: FetchGroup[] = [];
-    const deferredGroups = new MultiMap<string, FetchGroup>();
+    const deferredGroups = new SetMultiMap<string, FetchGroup>();
     for (const child of group.children()) {
       if (group.deferRef === child.deferRef) {
         children.push(child);
@@ -1627,7 +1628,7 @@ class FetchDependencyGraph {
   ): {
     main: TProcessedGroup,
     unhandled: UnhandledGroups,
-    deferredGroups: MultiMap<string, FetchGroup>,
+    deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
     const { children, deferredGroups } = this.extractChildrenAndDeferredDependencies(group);
     const processed = processor.onFetchGroup(group);
@@ -1641,7 +1642,7 @@ class FetchDependencyGraph {
 
       let nextGroups = children;
       let remainingNext: UnhandledGroups = [];
-      const allDeferredGroups = new MultiMap<string, FetchGroup>(deferredGroups);
+      const allDeferredGroups = new SetMultiMap<string, FetchGroup>(deferredGroups);
       while (nextGroups.length > 0) {
         const {inParallel, next, unhandled, deferredGroups} = this.processParallelGroups(processor, nextGroups, remainingNext);
         nodes.push(inParallel);
@@ -1674,10 +1675,10 @@ class FetchDependencyGraph {
     inParallel: TProcessedGroup,
     next: FetchGroup[],
     unhandled: UnhandledGroups,
-    deferredGroups: MultiMap<string, FetchGroup>,
+    deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
     const parallelNodes: TProcessedGroup[] = [];
-    const allDeferredGroups = new MultiMap<string, FetchGroup>();
+    const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     let remainingNext = remaining;
     let toHandleNext: FetchGroup[] = [];
     for (const group of groups) {
@@ -1732,7 +1733,7 @@ class FetchDependencyGraph {
     deferred: TDeferred[],
   } {
     const allMain: TProcessedGroup[] = [];
-    const allDeferredGroups = new MultiMap<string, FetchGroup>();
+    const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     for (const rootGroup of rootGroups.values()) {
       const { main, unhandled, deferredGroups } = this.processGroup(processor, rootGroup);
       assert(unhandled.length == 0, () => `Root group ${rootGroup} should have no remaining groups unhandled, but got ${unhandled}`);
@@ -1751,7 +1752,7 @@ class FetchDependencyGraph {
       let processed: TProcessedGroup | undefined = undefined;
       const groups = allDeferredGroups.get(defer.label);
       if (groups) {
-        const { main, deferred } = this.processRootGroups(processor, groups, defer.label);
+        const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label);
         const mainReduced = processor.reduceParallel(main);
         processed = deferred.length === 0
           ? mainReduced

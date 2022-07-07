@@ -1336,7 +1336,7 @@ describe('@defer on mutation', () => {
   });
 });
 
-test.skip('multi-dependency deferred section', () => {
+test('multi-dependency deferred section', () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -1346,7 +1346,7 @@ test.skip('multi-dependency deferred section', () => {
 
       type T @key(fields: "id0") {
         id0: ID!
-        x: Int
+        v1: Int
       }
     `
   }
@@ -1357,6 +1357,7 @@ test.skip('multi-dependency deferred section', () => {
       type T @key(fields: "id0") @key(fields: "id1") {
         id0: ID!
         id1: ID!
+        v2: Int
       }
     `
   }
@@ -1367,6 +1368,7 @@ test.skip('multi-dependency deferred section', () => {
       type T @key(fields: "id0") @key(fields: "id2") {
         id0: ID!
         id2: ID!
+        v3: Int
       }
     `
   }
@@ -1377,25 +1379,220 @@ test.skip('multi-dependency deferred section', () => {
       type T @key(fields: "id1 id2") {
         id1: ID!
         id2: ID!
-        y: Int
+        v4: Int
       }
     `
   }
 
   const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3, subgraph4);
-  const operation = operationFromDocument(api, gql`
+  let operation = operationFromDocument(api, gql`
     {
       t {
-        x
+        v1
+        v2
+        v3
         ... @defer {
-          y
+          v4
         }
       }
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  let plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v1
+              v2
+              v3
+            }
+          }:
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                t {
+                  __typename
+                  id0
+                  v1
+                }
+              }
+            },
+            Parallel {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph3", id: 0) {
+                  {
+                    ... on T {
+                      __typename
+                      id0
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v3
+                      id2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2", id: 1) {
+                  {
+                    ... on T {
+                      __typename
+                      id0
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      v2
+                      id1
+                    }
+                  }
+                },
+              },
+            },
+          }
+        }, [
+          Deferred(depends: [0, 1], path: "t") {
+            {
+              v4
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph4") {
+                {
+                  ... on T {
+                    __typename
+                    id1
+                    id2
+                  }
+                } =>
+                {
+                  ... on T {
+                    v4
+                  }
+                }
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+
+  operation = operationFromDocument(api, gql`
+    {
+      t {
+        v1
+        ... @defer {
+          v4
+        }
+      }
+    }
+  `);
+
+  plan = queryPlanner.buildQueryPlan(operation);
+  // TODO: the following plan is admittedly not as effecient as it could be, as the 2 queries to
+  // subgraph 2 and 3 are done in the "primary" section, but all they do is handle transitive
+  // key dependencies for the deferred block, so it would make more sense to defer those fetches
+  // as well. It is however tricky to both improve this here _and_ maintain the plan generate
+  // just above (which is admittedly optimial). More precisely, what the code currently does is
+  // that when it gets to a defer, then it defers the fetch that gets the deferred fields (the 
+  // fetch to subgraph 4 here), but it puts the "condition" resolution for the key of that fetch
+  // in the non-deferred section. Here, resolving that fetch conditions is what creates the
+  // dependency on the the fetches to subgraph 2 and 3, and so those get non-deferred.
+  // Now, it would be reasonably simple to say that when we resolve the "conditions" for a deferred
+  // fetch, then the first "hop" is non-deferred, but any following ones do get deferred, which
+  // would move the 2 fetches to subgraph 2 and 3 in the deferred section. The problem is that doing
+  // that wholesale means that in the previous example above, we'd keep the 2 non-deferred fetches
+  // to subgraph 2 and 3 for v2 and v3, but we would then have new deferred fetches to those
+  // subgraphs in the deferred section to now get the key id1 and id2, and that is in turn arguably
+  // non-optimal. So ideally, the code would be able to distinguish between those 2 cases and
+  // do the most optimal thing in each cases, but it's not that simple to do with the current
+  // code.
+  // Taking a step back, this "inefficiency" only exists where there is a @key "chain", and while
+  // such chains have their uses, they are likely pretty rare in the first place. And as the
+  // generated plan is not _that_ bad either, optimizing this feels fairly low priority and
+  // we leave it for "later".
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v1
+            }
+          }:
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                t {
+                  __typename
+                  v1
+                  id0
+                }
+              }
+            },
+            Parallel {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph3", id: 0) {
+                  {
+                    ... on T {
+                      __typename
+                      id0
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      id2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2", id: 1) {
+                  {
+                    ... on T {
+                      __typename
+                      id0
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      id1
+                    }
+                  }
+                },
+              },
+            },
+          }
+        }, [
+          Deferred(depends: [0, 1], path: "t") {
+            {
+              v4
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph4") {
+                {
+                  ... on T {
+                    __typename
+                    id1
+                    id2
+                  }
+                } =>
+                {
+                  ... on T {
+                    v4
+                  }
+                }
+              },
+            }
+          },
+        ]
+      },
+    }
   `);
 });
 
