@@ -1,8 +1,6 @@
-import { GraphQLRequest } from 'apollo-server-types';
-import { GraphQLRequest as GraphQLRequest3 } from 'apollo-server-types-3';
 import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind } from '../../datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind, GraphQLRequest } from '../../datasources/types';
 import { SERVICE_DEFINITION_QUERY } from '../..';
 import { ServiceDefinitionUpdate, ServiceEndpointDefinition } from '../../config';
 import { ServiceDefinition } from '@apollo/federation';
@@ -36,7 +34,7 @@ export async function loadServicesFromRemoteEndpoint({
         `Tried to load schema for '${name}' but no 'url' was specified.`);
     }
 
-    const request: GraphQLRequest | GraphQLRequest3 = {
+    const request: GraphQLRequest = {
       query: SERVICE_DEFINITION_QUERY,
       http: {
         url,

@@ -1,14 +1,10 @@
 import {
-  GraphQLResponse,
   ValueOrPromise,
-  GraphQLRequest
 } from 'apollo-server-types';
 import {
   CacheHint,
   CacheScope,
   CachePolicy,
-  GraphQLRequest as GraphQLRequest3,
-  GraphQLResponse as GraphQLResponse3,
 } from 'apollo-server-types-3';
 import {
   ApolloError,
@@ -16,12 +12,24 @@ import {
   ForbiddenError,
 } from 'apollo-server-errors';
 import { isObject } from '../utilities/predicates';
-import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
+import {
+  GraphQLDataSource,
+  GraphQLDataSourceProcessOptions,
+  GraphQLDataSourceRequestKind,
+  GraphQLRequest,
+  GraphQLResponse
+} from './types';
 import { createHash } from '@apollo/utils.createhash';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
 import fetcher from 'make-fetch-happen';
 import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-fetch';
 import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
+
+export type RequiredGraphQLRequestContext<TContext> = {
+  request: GraphQLRequest,
+  response: GraphQLResponse,
+  context: TContext
+};
 
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
@@ -80,7 +88,7 @@ export class RemoteGraphQLDataSource<
 
   async process(
     options: GraphQLDataSourceProcessOptions<TContext>,
-  ): Promise<GraphQLResponse | GraphQLResponse3> {
+  ): Promise<GraphQLResponse> {
     const { request, context: originalContext } = options;
     // Deal with a bit of a hairy situation in typings: when doing health checks
     // and schema checks we always pass in `{}` as the context even though it's
@@ -168,7 +176,7 @@ export class RemoteGraphQLDataSource<
     // If APQ was enabled, we'll run the same request again, but add in the
     // previously omitted `query`.  If APQ was NOT enabled, this is the first
     // request (non-APQ, all the way).
-    const requestWithQuery: GraphQLRequest | GraphQLRequest3 = {
+    const requestWithQuery: GraphQLRequest = {
       query,
       ...requestWithoutQuery,
     };
@@ -182,9 +190,9 @@ export class RemoteGraphQLDataSource<
   }
 
   private async sendRequest(
-    request: GraphQLRequest | GraphQLRequest3,
+    request: GraphQLRequest,
     context: TContext,
-  ): Promise<GraphQLResponse | GraphQLResponse3> {
+  ): Promise<GraphQLResponse> {
     // This would represent an internal programming error since this shouldn't
     // be possible in the way that this method is invoked right now.
     if (!request.http) {
@@ -245,11 +253,11 @@ export class RemoteGraphQLDataSource<
     context,
     overallCachePolicy,
   }: {
-    response: GraphQLResponse | GraphQLResponse3;
-    request: GraphQLRequest | GraphQLRequest3;
+    response: GraphQLResponse;
+    request: GraphQLRequest;
     context: TContext;
     overallCachePolicy: CachePolicy | null;
-  }): Promise<GraphQLResponse | GraphQLResponse3> {
+  }): Promise<GraphQLResponse> {
     const processedResponse =
       typeof this.didReceiveResponse === 'function'
         ? await this.didReceiveResponse({ response, request, context })
@@ -283,7 +291,7 @@ export class RemoteGraphQLDataSource<
 
   public didReceiveResponse?(
     requestContext: RequiredGraphQLRequestContext<TContext>,
-  ): ValueOrPromise<GraphQLResponse | GraphQLResponse3>;
+  ): ValueOrPromise<GraphQLResponse>;
 
   public didEncounterError(
     error: Error,
@@ -333,9 +341,3 @@ export class RemoteGraphQLDataSource<
     return error;
   }
 }
-
-export type RequiredGraphQLRequestContext<TContext> = {
-  request: GraphQLRequest | GraphQLRequest3,
-  response: GraphQLResponse | GraphQLResponse3,
-  context: TContext
-};

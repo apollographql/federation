@@ -1,11 +1,7 @@
 import {
   GraphQLExecutionResult,
-  GraphQLRequestContext,
   VariableValues,
 } from 'apollo-server-types';
-import {
-  GraphQLRequestContext as GraphQLRequestContext3,
-} from 'apollo-server-types-3';
 import { Headers } from 'node-fetch';
 import {
   execute,
@@ -21,7 +17,7 @@ import {
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind, GraphQLRequestContext } from './datasources/types';
 import { OperationContext } from './operationContext';
 import {
   FetchNode,
@@ -48,14 +44,14 @@ interface ExecutionContext<TContext> {
   queryPlan: QueryPlan;
   operationContext: OperationContext;
   serviceMap: ServiceMap;
-  requestContext: GraphQLRequestContext<TContext> | GraphQLRequestContext3<TContext>;
+  requestContext: GraphQLRequestContext<TContext>;
   errors: GraphQLError[];
 }
 
 export async function executeQueryPlan<TContext>(
   queryPlan: QueryPlan,
   serviceMap: ServiceMap,
-  requestContext: GraphQLRequestContext<TContext> | GraphQLRequestContext3<TContext>,
+  requestContext: GraphQLRequestContext<TContext>,
   operationContext: OperationContext,
 ): Promise<GraphQLExecutionResult> {
 

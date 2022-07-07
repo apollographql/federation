@@ -1,16 +1,29 @@
-import {GraphQLResponse, GraphQLRequestContext, GraphQLRequest} from 'apollo-server-types';
+import {
+    GraphQLRequest as GraphQLRequest1,
+    GraphQLResponse as GraphQLResponse1,
+    GraphQLRequestContext as GraphQLRequestContext1,
+    GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart1
+} from 'apollo-server-types';
 import {
     GraphQLRequest as GraphQLRequest3,
     GraphQLResponse as GraphQLResponse3,
-    GraphQLRequestContext as GraphQLRequestContext3
+    GraphQLRequestContext as GraphQLRequestContext3,
+    GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart3
 } from 'apollo-server-types-3';
+
+export type GraphQLRequest = GraphQLRequest1 | GraphQLRequest3;
+export type GraphQLResponse = GraphQLResponse1 | GraphQLResponse3;
+export type GraphQLRequestContext<TContext> = GraphQLRequestContext1<TContext> | GraphQLRequestContext3<TContext>;
+export type GraphQLRequestContextExecutionDidStart<TContext> =
+    GraphQLRequestContextExecutionDidStart1<TContext>
+    | GraphQLRequestContextExecutionDidStart3<TContext>;
 
 export interface GraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
 > {
   process(
     options: GraphQLDataSourceProcessOptions<TContext>,
-  ): Promise<GraphQLResponse | GraphQLResponse3>;
+  ): Promise<GraphQLResponse>;
 }
 
 export enum GraphQLDataSourceRequestKind {
@@ -29,7 +42,7 @@ export type GraphQLDataSourceProcessOptions<
    * For backwards compatibility with Apollo Server 2, the type of Request can come from
    * both versions of the apollo-server-types.
    */
-  request: GraphQLRequest | GraphQLRequest3
+  request: GraphQLRequest
 } & (
   {
       kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION;
@@ -41,7 +54,7 @@ export type GraphQLDataSourceProcessOptions<
        * For backwards compatibility with Apollo Server 2, `overallCachePolicy` needs
        * to be treated as optional.
        */
-      incomingRequestContext: GraphQLRequestContext<TContext> | GraphQLRequestContext3<TContext>
+      incomingRequestContext: GraphQLRequestContext<TContext>
       /**
        * Equivalent to incomingRequestContext.context (provided here for
        * backwards compatibility): the object created by the Apollo Server
@@ -50,7 +63,7 @@ export type GraphQLDataSourceProcessOptions<
        * @deprecated Use `incomingRequestContext.context` instead (after
        * checking `kind`).
        */
-      context: GraphQLRequestContext<TContext>['context'] | GraphQLRequestContext3<TContext>['context'];
+      context: GraphQLRequestContext<TContext>['context'];
     }
   | {
       kind:

@@ -1,12 +1,8 @@
 import { deprecate } from 'util';
 import { GraphQLService, Unsubscriber } from 'apollo-server-core';
 import {
-  GraphQLExecutionResult,
-  GraphQLRequestContextExecutionDidStart,
+  GraphQLExecutionResult
 } from 'apollo-server-types';
-import {
-  GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart3,
-} from 'apollo-server-types-3';
 import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -30,6 +26,7 @@ import {
 import {
   GraphQLDataSource,
   GraphQLDataSourceRequestKind,
+  GraphQLRequestContextExecutionDidStart
 } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
@@ -815,7 +812,7 @@ export class ApolloGateway implements GraphQLService {
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
   public executor = async <TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext> | GraphQLRequestContextExecutionDidStart3<TContext>,
+    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
   ): Promise<GraphQLExecutionResult> => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
@@ -969,7 +966,7 @@ export class ApolloGateway implements GraphQLService {
   };
 
   private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext> | GraphQLRequestContextExecutionDidStart3<TContext>,
+    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {
