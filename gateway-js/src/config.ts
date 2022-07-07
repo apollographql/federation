@@ -2,7 +2,10 @@ import { GraphQLError, GraphQLSchema } from 'graphql';
 import { HeadersInit } from 'node-fetch';
 import type { Logger } from '@apollo/utils.logger';
 import { ServiceDefinition } from '@apollo/federation';
-import { GraphQLDataSource, GraphQLRequestContextExecutionDidStart } from './datasources/types';
+import {
+  GraphQLDataSource,
+  GraphQLRequestContextExecutionDidStart,
+} from './datasources/types';
 import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
@@ -19,7 +22,9 @@ export type Experimental_DidResolveQueryPlanCallback = ({
   readonly queryPlan: QueryPlan;
   readonly serviceMap: ServiceMap;
   readonly operationContext: OperationContext;
-  readonly requestContext: GraphQLRequestContextExecutionDidStart<Record<string, any>>;
+  readonly requestContext: GraphQLRequestContextExecutionDidStart<
+    Record<string, any>
+  >;
 }) => void;
 
 interface ImplementingServiceLocation {
@@ -210,6 +215,7 @@ export interface SupergraphSdlHookOptions {
   healthCheck: SubgraphHealthCheckFunction;
   getDataSource: GetDataSourceFunction;
 }
+
 export interface SupergraphSdlHook {
   (options: SupergraphSdlHookOptions): Promise<{
     supergraphSdl: string;
