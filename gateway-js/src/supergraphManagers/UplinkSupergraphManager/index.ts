@@ -50,13 +50,16 @@ export class UplinkSupergraphManager implements SupergraphManager {
     'https://uplink.api.apollographql.com/',
     'https://aws.uplink.api.apollographql.com/',
   ];
-  public readonly uplinkEndpoints: string[] = UplinkSupergraphManager.getUplinkEndpoints();
+  public static readonly MIN_POLL_INTERVAL_MS = 10_000;
+  public readonly uplinkEndpoints: string[] =
+    UplinkSupergraphManager.getUplinkEndpoints();
+
   private apiKey: string;
   private graphRef: string;
   private fetcher: Fetcher = makeFetchHappen.defaults();
   private maxRetries: number;
   private initialMaxRetries: number;
-  private fallbackPollIntervalMs: number = 10_000;
+  private pollIntervalMs: number = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
   private logger: Logger;
   private update?: SupergraphSdlUpdateFunction;
   private shouldRunSubgraphHealthcheck: boolean = false;
@@ -69,7 +72,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
     process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
   private compositionId?: string;
   private fetchCount: number = 0;
-  private minDelayMs: number | null = null;
   private mostRecentSuccessfulFetchAt?: Date;
 
   constructor({
@@ -108,8 +110,16 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.maxRetries = maxRetries ?? this.uplinkEndpoints.length * 3 - 1;
     this.initialMaxRetries = initialMaxRetries ?? this.maxRetries;
 
-    this.fallbackPollIntervalMs =
-      fallbackPollIntervalInMs ?? this.fallbackPollIntervalMs;
+    this.pollIntervalMs = fallbackPollIntervalInMs ?? this.pollIntervalMs;
+    if (this.pollIntervalMs < UplinkSupergraphManager.MIN_POLL_INTERVAL_MS) {
+      this.logger.warn(
+        'Polling Apollo services at a frequency of less than once per 10 seconds (10000) is disallowed. Instead, the minimum allowed pollInterval of 10000 will be used. Please reconfigure your `fallbackPollIntervalInMs` accordingly. If this is problematic for your team, please contact support.',
+      );
+      if (process.env.NODE_ENV !== 'test') {
+        this.pollIntervalMs = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
+      }
+    }
+
     this.shouldRunSubgraphHealthcheck =
       shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
     this.onFailureToFetchSupergraphSdlDuringInit =
@@ -127,17 +137,15 @@ export class UplinkSupergraphManager implements SupergraphManager {
       this.healthCheck = healthCheck;
     }
 
-    let initialSupergraphSdl: string | undefined = undefined;
+    let initialSupergraphSdl: string | null = null;
     try {
-      const result = await this.updateSupergraphSdl(this.initialMaxRetries);
-      if (!result) {
+      initialSupergraphSdl = await this.updateSupergraphSdl(
+        this.initialMaxRetries,
+      );
+      if (!initialSupergraphSdl) {
         throw new Error(
           'Invalid supergraph schema supplied during initialization.',
         );
-      }
-      initialSupergraphSdl = result.supergraphSdl;
-      if (result.minDelaySeconds) {
-        this.minDelayMs = 1000 * result.minDelaySeconds;
       }
     } catch (e) {
       this.logUpdateFailure(e);
@@ -182,12 +190,10 @@ export class UplinkSupergraphManager implements SupergraphManager {
     return envEndpoints ?? UplinkSupergraphManager.DEFAULT_UPLINK_ENDPOINTS;
   }
 
-  private async updateSupergraphSdl(maxRetries: number): Promise<{
-    supergraphSdl: string;
-    minDelaySeconds: number;
-  } | null> {
+  private async updateSupergraphSdl(
+    maxRetries: number,
+  ): Promise<string | null> {
     let supergraphSdl;
-    let minDelaySeconds = this.fallbackPollIntervalMs / 1000;
 
     try {
       const result = await loadSupergraphSdlFromUplinks({
@@ -201,6 +207,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
         roundRobinSeed: this.fetchCount++,
         logger: this.logger,
       });
+      this.mostRecentSuccessfulFetchAt = new Date();
 
       this.logger.debug(
         `Received Uplink response. Has updated SDL? ${!!result?.supergraphSdl}`,
@@ -212,8 +219,10 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
       this.compositionId = result.id;
 
-      ({ supergraphSdl, minDelaySeconds } = result);
-      this.mostRecentSuccessfulFetchAt = new Date();
+      supergraphSdl = result.supergraphSdl;
+      if (result?.minDelaySeconds) {
+        this.pollIntervalMs = result.minDelaySeconds * 1000;
+      }
     } catch (e) {
       this.logger.debug(
         `Error fetching supergraphSdl from Uplink during phase '${this.state.phase}'`,
@@ -252,7 +261,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
 
     // the healthCheck fn is only assigned if it's enabled in the config
     await this.healthCheck?.(supergraphSdl);
-    return { supergraphSdl, minDelaySeconds };
+    return supergraphSdl;
   }
 
   private beginPolling() {
@@ -261,10 +270,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
   }
 
   private poll() {
-    const delay = this.minDelayMs
-      ? Math.max(this.minDelayMs, this.fallbackPollIntervalMs)
-      : this.fallbackPollIntervalMs;
-
     if (this.state.phase !== 'polling') {
       this.logger.debug(`Stopped polling Uplink [phase: ${this.state.phase}]`);
       return;
@@ -273,19 +278,16 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.state.nextFetchPromise = resolvable();
 
     this.logger.debug(
-      `Will poll Uplink after ${delay}ms [phase: ${this.state.phase}]`,
+      `Will poll Uplink after ${this.pollIntervalMs}ms [phase: ${this.state.phase}]`,
     );
     this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
         const pollingPromise = resolvable();
         this.state.pollingPromise = pollingPromise;
         try {
-          const result = await this.updateSupergraphSdl(this.maxRetries);
-          if (result?.minDelaySeconds) {
-            this.minDelayMs = 1000 * result.minDelaySeconds;
-          }
-          if (result?.supergraphSdl) {
-            this.update?.(result.supergraphSdl);
+          const supergraphSdl = await this.updateSupergraphSdl(this.maxRetries);
+          if (supergraphSdl) {
+            this.update?.(supergraphSdl);
           }
         } catch (e) {
           this.logUpdateFailure(e);
@@ -295,7 +297,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
       }
 
       this.poll();
-    }, delay);
+    }, this.pollIntervalMs);
   }
 
   private logUpdateFailure(e: any) {

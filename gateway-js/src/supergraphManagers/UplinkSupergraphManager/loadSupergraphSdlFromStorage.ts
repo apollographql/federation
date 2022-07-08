@@ -75,7 +75,7 @@ export async function loadSupergraphSdlFromUplinks({
   maxRetries: number,
   roundRobinSeed: number,
   logger: Logger,
-}) : Promise<Required<SupergraphSdlUpdate> | null> {
+}) : Promise<SupergraphSdlUpdate | null> {
   // This Promise resolves with either an updated supergraph or null if no change.
   // This Promise can reject in the case that none of the retries are successful,
   // in which case it will reject with the most frequently encountered error.
@@ -98,7 +98,6 @@ export async function loadSupergraphSdlFromUplinks({
       },
     },
   );
-
 }
 
 export async function loadSupergraphSdlFromStorage({
@@ -117,7 +116,7 @@ export async function loadSupergraphSdlFromStorage({
   fetcher: Fetcher;
   compositionId: string | null;
   logger: Logger;
-}) : Promise<Required<SupergraphSdlUpdate> | null> {
+}) : Promise<SupergraphSdlUpdate | null> {
   const requestBody = JSON.stringify({
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
@@ -211,7 +210,7 @@ export async function loadSupergraphSdlFromStorage({
       minDelaySeconds,
       // messages,
     } = routerConfig;
-    return { id, supergraphSdl: supergraphSdl!, minDelaySeconds };
+    return { id, supergraphSdl, minDelaySeconds };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;

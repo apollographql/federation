@@ -208,22 +208,6 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private issueConfigurationWarningsIfApplicable() {
-    // Warn against a pollInterval of < 10s in managed mode and reset it to 10s
-    if (
-      isManagedConfig(this.config) &&
-      this.pollIntervalInMs &&
-      this.pollIntervalInMs < 10000
-    ) {
-      this.pollIntervalInMs = 10000;
-      this.logger.warn(
-        'Polling Apollo services at a frequency of less than once per 10 ' +
-          'seconds (10000) is disallowed. Instead, the minimum allowed ' +
-          'pollInterval of 10000 will be used. Please reconfigure your ' +
-          '`fallbackPollIntervalInMs` accordingly. If this is problematic for ' +
-          'your team, please contact support.',
-      );
-    }
-
     // Warn against using the pollInterval and a serviceList simultaneously
     // TODO(trevor:removeServiceList)
     if (this.pollIntervalInMs && isServiceListConfig(this.config)) {

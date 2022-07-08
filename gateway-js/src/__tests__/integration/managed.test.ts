@@ -181,7 +181,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
 
   it.each([
     ['x', 'Syntax Error: Unexpected Name "x".'],
-    ['', 'Syntax Error: Unexpected <EOF>.'],
+    ['', 'Invalid supergraph schema supplied during initialization.'],
     [' ', 'Syntax Error: Unexpected <EOF>.'],
     ['type Query {hi: String}', 'Invalid supergraph: must be a core schema'],
   ])(
@@ -250,7 +250,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
   );
 
   it.each([null, ''])(
-    'uses existing supergraph schema is false-y value returned from callback after init: %p',
+    'uses existing supergraph schema if false-y value returned from callback after init: %p',
     async (schemaText) => {
       // This is kinda wonky to read: we're responding the first time with success, then the next fetch should fail
       mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ })
