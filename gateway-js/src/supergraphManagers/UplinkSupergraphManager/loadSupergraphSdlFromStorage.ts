@@ -1,16 +1,15 @@
-import * as makeFetchHappen from 'make-fetch-happen';
-import { AbortController, type AbortSignal } from "node-abort-controller";
 import { GraphQLError } from 'graphql';
 import retry from 'async-retry';
+import { AbortController } from "node-abort-controller";
 import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
-import type {
-  Fetcher,
-  FetcherResponse,
-  FetcherRequestInit,
-} from '@apollo/utils.fetcher';
+import type { FetcherResponse } from '@apollo/utils.fetcher';
 import type { Logger } from '@apollo/utils.logger';
+import type {
+  AbortableFetcher as Fetcher,
+  AbortableFetcherRequestInit as FetcherRequestInit,
+} from './types';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
@@ -63,6 +62,7 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher,
   compositionId,
   maxRetries,
+  requestTimeoutMs,
   roundRobinSeed,
   logger,
 }: {
@@ -73,6 +73,7 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher: Fetcher;
   compositionId: string | null;
   maxRetries: number,
+  requestTimeoutMs: number,
   roundRobinSeed: number,
   logger: Logger,
 }) : Promise<SupergraphSdlUpdate | null> {
@@ -87,6 +88,7 @@ export async function loadSupergraphSdlFromUplinks({
         endpoint: endpoints[roundRobinSeed++ % endpoints.length],
         errorReportingEndpoint,
         fetcher,
+        requestTimeoutMs,
         compositionId,
         logger,
       }),
@@ -106,6 +108,7 @@ export async function loadSupergraphSdlFromStorage({
   endpoint,
   errorReportingEndpoint,
   fetcher,
+  requestTimeoutMs,
   compositionId,
   logger,
 }: {
@@ -114,6 +117,7 @@ export async function loadSupergraphSdlFromStorage({
   endpoint: string;
   errorReportingEndpoint?: string;
   fetcher: Fetcher;
+  requestTimeoutMs: number;
   compositionId: string | null;
   logger: Logger;
 }) : Promise<SupergraphSdlUpdate | null> {
@@ -130,10 +134,9 @@ export async function loadSupergraphSdlFromStorage({
   const signal = setTimeout(() => {
     logger.debug(`Aborting request due to timeout`);
     controller.abort();
-  }, 20_000);
-  const fletcher = makeFetchHappen.defaults({timeout: 30_000});
+  }, requestTimeoutMs);
 
-  const requestDetails: FetcherRequestInit & { signal?: AbortSignal | null | undefined } = {
+  const requestDetails: FetcherRequestInit = {
     method: 'POST',
     body: requestBody,
     headers: {
@@ -150,8 +153,7 @@ export async function loadSupergraphSdlFromStorage({
   const startTime = new Date();
   let result: FetcherResponse;
   try {
-    result = await fletcher(endpoint, requestDetails)
-    // result = fetcher(endpoint, requestDetails);
+    result = await fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
 
@@ -197,7 +199,7 @@ export async function loadSupergraphSdlFromStorage({
       response: result,
       startedAt: startTime,
       endedAt: endTime,
-      fetcher: fletcher,
+      fetcher,
     });
     throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText);
   }

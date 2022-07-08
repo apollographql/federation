@@ -8,7 +8,7 @@ import {
 } from '../..';
 import { getDefaultLogger } from '../../logger';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
-import { Fetcher } from '@apollo/utils.fetcher';
+import type { AbortableFetcher } from './types';
 
 export type FailureToFetchSupergraphSdlFunctionParams = {
   error: Error;
@@ -50,14 +50,17 @@ export class UplinkSupergraphManager implements SupergraphManager {
     'https://uplink.api.apollographql.com/',
     'https://aws.uplink.api.apollographql.com/',
   ];
+  public static readonly DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
   public static readonly MIN_POLL_INTERVAL_MS = 10_000;
   public readonly uplinkEndpoints: string[] =
     UplinkSupergraphManager.getUplinkEndpoints();
 
   private apiKey: string;
   private graphRef: string;
-  private fetcher: Fetcher = makeFetchHappen.defaults();
+  private fetcher: AbortableFetcher = makeFetchHappen.defaults();
   private maxRetries: number;
+  private requestTimeoutMs: number =
+    UplinkSupergraphManager.DEFAULT_REQUEST_TIMEOUT_MS;
   private initialMaxRetries: number;
   private pollIntervalMs: number = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
   private logger: Logger;
@@ -204,6 +207,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
         fetcher: this.fetcher,
         compositionId: this.compositionId ?? null,
         maxRetries,
+        requestTimeoutMs: this.requestTimeoutMs,
         roundRobinSeed: this.fetchCount++,
         logger: this.logger,
       });
