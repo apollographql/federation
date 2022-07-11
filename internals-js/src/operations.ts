@@ -286,6 +286,10 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return this.hasAppliedDirective('defer');
   }
 
+  hasStream(): boolean {
+    return this.hasAppliedDirective('stream');
+  }
+
   deferDirectiveArgs(): DeferDirectiveArgs | undefined {
     // Note: @defer is not repeatable, so the return array below is either empty, or has a single value.
     return this.appliedDirectivesOf(this.schema().deferDirective())[0]?.arguments();
@@ -1484,6 +1488,17 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
     return this;
   }
 
+  protected validateDeferAndStream() {
+    if (this.element().hasDefer() || this.element().hasStream()) {
+      const schemaDef = this.element().schema().schemaDefinition;
+      const parentType = this.element().parentType;
+      validate(
+        schemaDef.rootType('mutation') !== parentType && schemaDef.rootType('subscription') !== parentType,
+        () => `The @defer and @stream directives cannot be used on ${schemaDef.roots().filter((t) => t.type === parentType).pop()?.rootKind} root type "${parentType}"`,
+      );
+    }
+  }
+
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
   }
@@ -1550,6 +1565,7 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 
   validate() {
+    this.validateDeferAndStream();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -1687,7 +1703,9 @@ class FragmentSpreadSelection extends FragmentSelection {
   }
 
   validate(): void {
-    // We don't do anything because fragment definition are validated when created.
+    this.validateDeferAndStream();
+
+    // We don't do anything else because fragment definition are validated when created.
   }
 
   toSelectionNode(): FragmentSpreadNode {
