@@ -87,8 +87,8 @@ function printNode(
       result +=
         'Defer {' + config.spacingOuter +
         indentationNext + `Primary {` + config.spacingOuter +
-        printOperation(primary.subselection, indentationInner) + ':' + config.spacingOuter +
-        indentationInner + printNode(primary.node, config, indentationInner, depth, refs, printer) + config.spacingOuter +
+        (primary.subselection ? printOperation(primary.subselection, indentationInner): indentationInner) + ':' + config.spacingOuter +
+        (primary.node ? (indentationInner + printNode(primary.node, config, indentationInner, depth, refs, printer) + config.spacingOuter) : '') +
         indentationNext + '}, [' +
         printDeferredNodes(node.deferred, config, indentationNext, depth, refs, printer) +
         ']' + config.spacingOuter +

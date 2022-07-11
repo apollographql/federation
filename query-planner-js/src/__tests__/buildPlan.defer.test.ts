@@ -1710,7 +1710,7 @@ describe('@require', () => {
   });
 });
 
-describe('@require', () => {
+describe('@provides', () => {
   test('@provides are ignored for deferred fields', () => {
     // Note: this test tests the currently implemented behaviour, which ignore @provides when it
     // concerns a deferred field. However, this is the behaviour implemented at the moment more
@@ -1906,6 +1906,190 @@ test('@defer on query root type', () => {
                   {
                     ... on Query {
                       op1
+                    }
+                  }
+                },
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('@defer on everything queried', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      ... @defer {
+        t {
+          x
+          y
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          :
+        }, [
+          Deferred(depends: [], path: "") {
+            {
+              t {
+                x
+                y
+              }
+            }:
+            Sequence {
+              Flatten(path: "") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on Query {
+                      t {
+                        __typename
+                        id
+                        x
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      y
+                    }
+                  }
+                },
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('@defer everything within entity', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        ... @defer {
+          x
+          y
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          :
+          Fetch(service: "Subgraph1", id: 0) {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [0], path: "t") {
+            {
+              x
+              y
+            }:
+            Parallel {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      y
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph1") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      x
                     }
                   }
                 },

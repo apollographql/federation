@@ -1031,8 +1031,9 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       }
 
       // We have edges between Query objects so that if a field returns a query object, we can jump to any subgraph
-      // at that point. However, there is no point of using those edges at the beginning of a path.
-      if (isTopLevelPath && edge.transition.kind === 'RootTypeResolution') {
+      // at that point. However, there is no point of using those edges at the beginning of a path, except for when
+      // we have a @defer, in which case we want to allow re-jumping to the same subgraph.
+      if (isTopLevelPath && edge.transition.kind === 'RootTypeResolution' && !(toAdvance.deferOnTail && edge.isKeyOrRootTypeEdgeToSelf())) {
         debug.groupEnd(`Ignored: edge is a top-level "RootTypeResolution"`);
         continue;
       }
@@ -1615,6 +1616,28 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext);
 }
 
+export function createInitialOptions<V extends Vertex>(
+  initialPath: OpGraphPath<V>,
+  initialContext: PathContext,
+  conditionResolver: ConditionResolver,
+  excludedEdges: ExcludedEdges,
+  excludedConditions: ExcludedConditions,
+): SimultaneousPathsWithLazyIndirectPaths<V>[] {
+  const lazyInitialPath = new SimultaneousPathsWithLazyIndirectPaths(
+    [initialPath],
+    initialContext,
+    conditionResolver,
+    excludedEdges,
+    excludedConditions
+  );
+  if (isFederatedGraphRootType(initialPath.tail.type)) {
+    const initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
+    return createLazyOptions(initialOptions.paths.map(p => [p]), lazyInitialPath, initialContext);
+  } else {
+    return [lazyInitialPath];
+  }
+}
+
 function createLazyOptions<V extends Vertex>(
   options: SimultaneousPaths<V>[],
   origin: SimultaneousPathsWithLazyIndirectPaths<V>,
@@ -1705,7 +1728,6 @@ function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): bo
 function isProvidedEdge(edge: Edge): boolean {
   return edge.transition.kind === 'FieldCollection' && edge.transition.isPartOfProvide;
 }
-
 
 // The result has the same meaning than in advanceSimultaneousPathsWithOperation.
 // We also actually need to return a set of options of simultaneous paths. Cause when we type explode, we create simultaneous paths, but

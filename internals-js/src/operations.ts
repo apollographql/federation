@@ -911,14 +911,30 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * call `optimize` on the result if you want to re-apply some fragments.
    */
   filter(predicate: (selection: Selection) => boolean): SelectionSet {
-    const filtered = new SelectionSet(this.parentType, this.fragments);
-    for (const selection of this.selections()) {
-      const filteredSelection = selection.filter(predicate);
-      if (filteredSelection) {
-        filtered.add(filteredSelection);
+    let updatedSelections: Selection[] | undefined = undefined;
+    const selections = this.selections();
+    for (let i = 0; i < selections.length; i++) {
+      const selection = selections[i];
+      const updated = selection.filter(predicate);
+      if (updated !== selection && !updatedSelections) {
+        updatedSelections = [];
+        for (let j = 0; j < i; j++) {
+          updatedSelections.push(selections[j]);
+        }
+      }
+      if (!!updated && updatedSelections) {
+        updatedSelections.push(updated);
       }
     }
-    return filtered;
+    if (!updatedSelections) {
+      return this;
+    }
+    return new SelectionSet(this.parentType, this.fragments).addAll(updatedSelections)
+  }
+
+  withoutEmptyBranches(): SelectionSet | undefined {
+    const updated = this.filter((selection) => selection.selectionSet?.isEmpty() !== true);
+    return updated.isEmpty() ? undefined : updated;
   }
 
   protected freezeInternals(): void {
@@ -1300,7 +1316,11 @@ export class FieldSelection extends Freezable<FieldSelection> {
     if (!this.selectionSet) {
       return this;
     }
-    return new FieldSelection(this.field, this.selectionSet.filter(predicate));
+
+    const updatedSelectionSet = this.selectionSet.filter(predicate);
+    return this.selectionSet === updatedSelectionSet
+      ? this
+      : new FieldSelection(this.field, updatedSelectionSet);
   }
 
   protected freezeInternals(): void {
@@ -1475,12 +1495,16 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
       : new InlineFragmentSelection(updatedFragment, this.selectionSet.cloneIfFrozen());
   }
 
-  filter(predicate: (selection: Selection) => boolean): InlineFragmentSelection | undefined {
+  filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
     if (!predicate(this)) {
       return undefined;
     }
     // Note that we essentially expand all fragments as part of this.
-    return new InlineFragmentSelection(this.element(), this.selectionSet.filter(predicate));
+    const selectionSet = this.selectionSet;
+    const updatedSelectionSet = selectionSet.filter(predicate);
+    return updatedSelectionSet === selectionSet
+      ? this
+      : new InlineFragmentSelection(this.element(), updatedSelectionSet);
   }
 
   protected freezeInternals() {

@@ -68,9 +68,12 @@ export interface DeferNode {
     // The part of the original query that "selects" the data to send in that primary response (once the plan in `node` completes).
     // Note that if this `DeferNode` is nested, then it must come inside the `DeferredNode` in which it is nested, and in that
     // case this subselection will start that that parent `DeferredNode.path`.
-    subselection: string,
-    // The plan to get all the data for that primary part
-    node: PlanNode,
+    // Note: this can be undefined in the rare case where everything in the original query is deferred (which is not very
+    // useful in practice, but not disallowed by the @defer spec at the moment).
+    subselection?: string,
+    // The plan to get all the data for that primary part. Same as for subselection: usually defined, but can be undefined
+    // in some corner cases where nothing is to be done in the primary part.
+    node?: PlanNode,
   },
   // The "deferred" parts of the defer (note that it's an array). Each of those deferred elements will correspond to
   // a different chunk of the response to the client (after the initial non-deferred one that is).
