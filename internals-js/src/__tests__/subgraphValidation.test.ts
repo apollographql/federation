@@ -436,11 +436,28 @@ describe('fieldset-based directives', () => {
       type T @key(fields: "id") {
         id: ID
         a: Int @requires(fields: "... @skip(if: false) { b }")
-        b: Int
+        b: Int @external
       }
     `
     expect(buildForErrors(subgraph)).toStrictEqual([
       ['REQUIRES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "T.a", for @requires(fields: "... @skip(if: false) { b }"): cannot have directive applications in the @requires(fields:) argument but found @skip(if: false).'],
+    ]);
+  });
+
+  it('can collect multiple errors in a single `fields` argument', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T @provides(fields: "f(x: 3)")
+      }
+
+      type T @key(fields: "id") {
+        id: ID
+        f(x: Int): Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['PROVIDES_FIELDS_HAS_ARGS', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)'],
+      ['PROVIDES_FIELDS_MISSING_EXTERNAL', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)'],
     ]);
   });
 });

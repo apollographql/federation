@@ -119,40 +119,41 @@ function validateFieldSetSelections(
   selectionSet: SelectionSet,
   hasExternalInParents: boolean,
   federationMetadata: FederationMetadata,
+  onError: (error: GraphQLError) => void,
   allowOnNonExternalLeafFields: boolean,
 ): void {
   for (const selection of selectionSet.selections()) {
     const appliedDirectives = selection.element().appliedDirectives;
     if (appliedDirectives.length > 0) {
-      throw ERROR_CATEGORIES.DIRECTIVE_IN_FIELDS_ARG.get(directiveName).err(
+      onError(ERROR_CATEGORIES.DIRECTIVE_IN_FIELDS_ARG.get(directiveName).err(
         `cannot have directive applications in the @${directiveName}(fields:) argument but found ${appliedDirectives.join(', ')}.`,
-      );
+      ));
     }
 
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
       const isExternal = federationMetadata.isFieldExternal(field);
       if (field.hasArguments()) {
-        throw ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
+        onError(ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
           `field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`,
           { nodes: field.sourceAST },
-        );
+        ));
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaf, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
       if (!isExternal && mustBeExternal) {
         const errorCode = ERROR_CATEGORIES.DIRECTIVE_FIELDS_MISSING_EXTERNAL.get(directiveName);
         if (federationMetadata.isFieldFakeExternal(field)) {
-          throw errorCode.err(
+          onError(errorCode.err(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
               + `(while it is marked @${externalDirectiveSpec.name}, it is a @${keyDirectiveSpec.name} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
             { nodes: field.sourceAST }
-          );
+          ));
         } else {
-          throw errorCode.err(
+          onError(errorCode.err(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveSpec.name})`,
             { nodes: field.sourceAST }
-          );
+          ));
         }
       }
       if (selection.selectionSet) {
@@ -170,10 +171,10 @@ function validateFieldSetSelections(
             }
           }
         }
-        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, federationMetadata, allowOnNonExternalLeafFields);
+        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, federationMetadata, onError, allowOnNonExternalLeafFields);
       }
     } else {
-      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, federationMetadata, allowOnNonExternalLeafFields);
+      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, federationMetadata, onError, allowOnNonExternalLeafFields);
     }
   }
 }
@@ -182,11 +183,17 @@ function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
   federationMetadata: FederationMetadata,
+  errorCollector: GraphQLError[],
   allowOnNonExternalLeafFields: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
-): GraphQLError | undefined {
+): void {
   try {
     // Note that `parseFieldSetArgument` already properly format the error, hence the separate try-catch.
+    // TODO: `parseFieldSetArgument` throws on the first issue found and never accumulate multiple
+    // errors. We could fix this, but this require changes that reaches beyond this single file, so
+    // we leave this for "later" (the `fields` value are rarely very big, so the benefit of accumulating
+    // multiple errors within one such value is not tremendous, so that this doesn't feel like a pressing
+    // issue).
     const fieldAccessor = onFields
       ? (type: CompositeType, fieldName: string) => {
         const field = type.field(fieldName);
@@ -197,19 +204,17 @@ function validateFieldSet(
       }
       : undefined;
     const selectionSet = parseFieldSetArgument({parentType: type, directive, fieldAccessor});
-
-    try {
-      validateFieldSetSelections(directive.name, selectionSet, false, federationMetadata, allowOnNonExternalLeafFields);
-      return undefined;
-    } catch (e) {
-      if (!(e instanceof GraphQLError)) {
-        throw e;
-      }
-      return handleFieldSetValidationError(directive, e);
-    }
+    validateFieldSetSelections(
+      directive.name,
+      selectionSet,
+      false,
+      federationMetadata,
+      (error) => errorCollector.push(handleFieldSetValidationError(directive, error)),
+      allowOnNonExternalLeafFields,
+    );
   } catch (e) {
     if (e instanceof GraphQLError) {
-      return e;
+      errorCollector.push(e);
     } else {
       throw e;
     }
@@ -282,15 +287,14 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
         { nodes: sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)) },
       ));
     }
-    const error = validateFieldSet(
+    validateFieldSet(
       type,
       application,
       federationMetadata,
+      errorCollector,
       allowOnNonExternalLeafFields,
-      onFields);
-    if (error) {
-      errorCollector.push(error);
-    }
+      onFields,
+    );
   }
 }
 
