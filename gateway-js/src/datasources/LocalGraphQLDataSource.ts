@@ -1,4 +1,4 @@
-import { GraphQLResponse } from 'apollo-server-types';
+import { GraphQLResponse } from '../typings/server-types';
 import {
   GraphQLSchema,
   graphql,

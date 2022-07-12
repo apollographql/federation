@@ -1,22 +1,8 @@
 import {
-    GraphQLRequest as GraphQLRequest1,
-    GraphQLResponse as GraphQLResponse1,
-    GraphQLRequestContext as GraphQLRequestContext1,
-    GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart1
-} from 'apollo-server-types';
-import {
-    GraphQLRequest as GraphQLRequest3,
-    GraphQLResponse as GraphQLResponse3,
-    GraphQLRequestContext as GraphQLRequestContext3,
-    GraphQLRequestContextExecutionDidStart as GraphQLRequestContextExecutionDidStart3
-} from 'apollo-server-types-3';
-
-export type GraphQLRequest = GraphQLRequest1 | GraphQLRequest3;
-export type GraphQLResponse = GraphQLResponse1 | GraphQLResponse3;
-export type GraphQLRequestContext<TContext> = GraphQLRequestContext1<TContext> | GraphQLRequestContext3<TContext>;
-export type GraphQLRequestContextExecutionDidStart<TContext> =
-    GraphQLRequestContextExecutionDidStart1<TContext>
-    | GraphQLRequestContextExecutionDidStart3<TContext>;
+    GraphQLRequest,
+    GraphQLResponse,
+    GraphQLRequestContext,
+} from '../typings/server-types';
 
 export interface GraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,

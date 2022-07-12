@@ -1,6 +1,7 @@
 import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind, GraphQLRequest } from '../../datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from '../../datasources/types';
+import { GraphQLRequest } from '../../typings/server-types';
 import { SERVICE_DEFINITION_QUERY } from '../..';
 import { ServiceDefinitionUpdate, ServiceEndpointDefinition } from '../../config';
 import { ServiceDefinition } from '@apollo/federation';

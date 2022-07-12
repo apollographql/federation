@@ -1,7 +1,3 @@
-import {
-  GraphQLExecutionResult,
-  VariableValues,
-} from 'apollo-server-types';
 import { Headers } from 'node-fetch';
 import {
   execute,
@@ -17,7 +13,8 @@ import {
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind, GraphQLRequestContext } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
+import { GraphQLExecutionResult, GraphQLRequestContext, VariableValues } from './typings/server-types';
 import { OperationContext } from './operationContext';
 import {
   FetchNode,

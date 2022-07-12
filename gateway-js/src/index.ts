@@ -1,8 +1,6 @@
 import { deprecate } from 'util';
-import { GraphQLService, GraphQLServiceConfig, Unsubscriber } from 'apollo-server-core';
-import {
-  GraphQLExecutionResult
-} from 'apollo-server-types';
+import { GraphQLService, Unsubscriber } from 'apollo-server-core';
+import { GraphQLExecutionResult, GraphQLExecutor, GraphQLRequestContextExecutionDidStart } from './typings/server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -25,8 +23,7 @@ import {
 } from './executeQueryPlan';
 import {
   GraphQLDataSource,
-  GraphQLDataSourceRequestKind,
-  GraphQLRequestContextExecutionDidStart
+  GraphQLDataSourceRequestKind
 } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
@@ -276,10 +273,10 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  public async load(options?: {
+  public async load<TContext>(options?: {
     apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
-  }): Promise<GraphQLServiceConfig> {
+  }): Promise<{ schema: GraphQLSchema; executor: (requestContext: GraphQLRequestContextExecutionDidStart<TContext>) => Promise<GraphQLExecutionResult> }> {
     this.logger.debug('Loading gateway...');
 
     if (this.state.phase !== 'initialized') {
@@ -811,9 +808,10 @@ export class ApolloGateway implements GraphQLService {
   // ApolloServerPluginUsageReporting) assumes that. In fact, errors talking to backends
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
-  public executor = async <TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
-  ): Promise<GraphQLExecutionResult> => {
+  public executor: GraphQLExecutor = async <TContext>(
+    // @ts-ignore
+    requestContext,
+  ) => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
       : {};

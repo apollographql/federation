@@ -6,7 +6,7 @@ import {
   print,
 } from 'graphql';
 import gql from 'graphql-tag';
-import { GraphQLRequestContext, VariableValues } from 'apollo-server-types';
+import { GraphQLRequestContext, VariableValues } from '../typings/server-types';
 import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';

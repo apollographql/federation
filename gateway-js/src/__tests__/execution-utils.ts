@@ -2,7 +2,7 @@ import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
-import { GraphQLRequest, GraphQLExecutionResult } from 'apollo-server-types';
+import { GraphQLRequest, GraphQLExecutionResult } from '../typings/server-types';
 import type { Logger } from '@apollo/utils.logger';
 import {
   composeAndValidate,

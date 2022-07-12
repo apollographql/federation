@@ -2,7 +2,7 @@ import { LocalGraphQLDataSource } from '../LocalGraphQLDataSource';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '@apollo/subgraph/src/schema-helper';
-import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLRequestContext } from '../../typings/server-types';
 import { GraphQLDataSourceRequestKind } from '../types';
 
 describe('constructing requests', () => {

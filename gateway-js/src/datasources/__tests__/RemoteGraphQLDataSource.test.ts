@@ -6,7 +6,7 @@ import {
 
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Response, Headers } from 'node-fetch';
-import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLRequestContext } from '../../typings/server-types';
 import { GraphQLDataSourceRequestKind } from '../types';
 import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import nock from 'nock';

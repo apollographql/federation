@@ -4,8 +4,10 @@ import type { Logger } from '@apollo/utils.logger';
 import { ServiceDefinition } from '@apollo/federation';
 import {
   GraphQLDataSource,
-  GraphQLRequestContextExecutionDidStart,
 } from './datasources/types';
+import {
+  GraphQLRequestContextExecutionDidStart
+} from './typings/server-types';
 import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';

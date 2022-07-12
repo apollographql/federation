@@ -1,11 +1,8 @@
 import {
-  ValueOrPromise,
-} from 'apollo-server-types';
-import {
   CacheHint,
   CacheScope,
   CachePolicy,
-} from 'apollo-server-types-3';
+} from 'apollo-server-types-v3';
 import {
   ApolloError,
   AuthenticationError,
@@ -16,9 +13,12 @@ import {
   GraphQLDataSource,
   GraphQLDataSourceProcessOptions,
   GraphQLDataSourceRequestKind,
-  GraphQLRequest,
-  GraphQLResponse
 } from './types';
+import {
+  GraphQLRequest,
+  GraphQLResponse,
+  ValueOrPromise
+} from '../typings/server-types'
 import { createHash } from '@apollo/utils.createhash';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
 import fetcher from 'make-fetch-happen';
