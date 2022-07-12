@@ -279,7 +279,7 @@ export class ApolloGateway implements GraphQLService {
   public async load(options?: {
     apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
-  }) {
+  }): Promise<{ schema: GraphQLSchema; executor: <TContext>(requestContext: GraphQLRequestContextExecutionDidStart<TContext>) => Promise<GraphQLExecutionResult> }> {
     this.logger.debug('Loading gateway...');
 
     if (this.state.phase !== 'initialized') {
