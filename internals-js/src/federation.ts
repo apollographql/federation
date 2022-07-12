@@ -114,7 +114,6 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
 
-// Returns a list of the coordinate of all the fields in the selection that are marked external.
 function validateFieldSetSelections(
   directiveName: string,
   selectionSet: SelectionSet,
@@ -123,6 +122,13 @@ function validateFieldSetSelections(
   allowOnNonExternalLeafFields: boolean,
 ): void {
   for (const selection of selectionSet.selections()) {
+    const appliedDirectives = selection.element().appliedDirectives;
+    if (appliedDirectives.length > 0) {
+      throw ERROR_CATEGORIES.DIRECTIVE_IN_FIELDS_ARG.get(directiveName).err(
+        `cannot have directive applications in the @${directiveName}(fields:) argument but found ${appliedDirectives.join(', ')}.`,
+      );
+    }
+
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
       const isExternal = federationMetadata.isFieldExternal(field);

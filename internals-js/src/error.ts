@@ -182,6 +182,15 @@ const KEY_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCo
 const PROVIDES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCode('provides');
 const REQUIRES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCode('requires');
 
+const DIRECTIVE_IN_FIELDS_ARG = makeFederationDirectiveErrorCodeCategory(
+  'DIRECTIVE_IN_FIELDS_ARG',
+  (directive) => `The \`fields\` argument of a \`@${directive}\` directive includes some directive applications. This is not supported`,
+);
+
+const KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('key');
+const PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('provides');
+const REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('requires');
+
 const EXTERNAL_UNUSED = makeCodeDefinition(
   'EXTERNAL_UNUSED',
   'An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implementation.',
@@ -456,6 +465,7 @@ export const ERROR_CATEGORIES = {
   DIRECTIVE_INVALID_FIELDS,
   FIELDS_HAS_ARGS,
   ROOT_TYPE_USED,
+  DIRECTIVE_IN_FIELDS_ARG,
 }
 
 export const ERRORS = {
@@ -526,6 +536,9 @@ export const ERRORS = {
   UNSUPPORTED_FEATURE,
   INVALID_FEDERATION_SUPERGRAPH,
   DOWNSTREAM_SERVICE_ERROR,
+  KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

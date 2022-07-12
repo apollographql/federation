@@ -385,6 +385,64 @@ describe('fieldset-based directives', () => {
       ['KEY_FIELDS_SELECT_INVALID_TYPE', '[S] On type "T", for @key(fields: "f"): field "T.f" is a Union type which is not allowed in @key'],
     ]);
   });
+
+  it('rejects directive applications in @key', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "v { x ... @include(if: false) { y }}") {
+        v: V
+      }
+
+      type V {
+        x: Int
+        y: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['KEY_DIRECTIVE_IN_FIELDS_ARG', '[S] On type "T", for @key(fields: "v { x ... @include(if: false) { y }}"): cannot have directive applications in the @key(fields:) argument but found @include(if: false).'],
+    ]);
+  });
+
+  it('rejects directive applications in @provides', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T @provides(fields: "v { ... on V @skip(if: true) { x y } }")
+      }
+
+      type T @key(fields: "id") {
+        id: ID
+        v: V @external
+      }
+
+      type V {
+        x: Int
+        y: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['PROVIDES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "Query.t", for @provides(fields: "v { ... on V @skip(if: true) { x y } }"): cannot have directive applications in the @provides(fields:) argument but found @skip(if: true).'],
+    ]);
+  });
+
+  it('rejects directive applications in @requires', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id") {
+        id: ID
+        a: Int @requires(fields: "... @skip(if: false) { b }")
+        b: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['REQUIRES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "T.a", for @requires(fields: "... @skip(if: false) { b }"): cannot have directive applications in the @requires(fields:) argument but found @skip(if: false).'],
+    ]);
+  });
 });
 
 describe('root types', () => {
