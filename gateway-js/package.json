@@ -47,8 +47,5 @@
   },
   "peerDependencies": {
     "graphql": "^15.8.0 || ^16.0.0"
-  },
-  "devDependencies": {
-    "@types/make-fetch-happen": "^9.0.2"
   }
 }
