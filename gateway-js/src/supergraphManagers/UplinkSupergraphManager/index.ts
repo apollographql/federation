@@ -10,6 +10,22 @@ import { getDefaultLogger } from '../../logger';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 import type { AbortableFetcher } from './types';
 
+export const DEFAULT_UPLINK_ENDPOINTS = [
+  'https://uplink.api.apollographql.com/',
+  'https://aws.uplink.api.apollographql.com/',
+];
+
+function getUplinkEndpoints(): string[] {
+  /**
+   * Configuration priority order:
+   * 1. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
+   * 2. default (GCP and AWS)
+   */
+  const envEndpoints =
+    process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT?.split(',');
+  return envEndpoints ?? DEFAULT_UPLINK_ENDPOINTS;
+}
+
 export type FailureToFetchSupergraphSdlFunctionParams = {
   error: Error;
   graphRef: string;
@@ -46,14 +62,9 @@ type State =
   | { phase: 'stopped' };
 
 export class UplinkSupergraphManager implements SupergraphManager {
-  public static readonly DEFAULT_UPLINK_ENDPOINTS = [
-    'https://uplink.api.apollographql.com/',
-    'https://aws.uplink.api.apollographql.com/',
-  ];
   public static readonly DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
   public static readonly MIN_POLL_INTERVAL_MS = 10_000;
-  public readonly uplinkEndpoints: string[] =
-    UplinkSupergraphManager.getUplinkEndpoints();
+  public readonly uplinkEndpoints: string[] = getUplinkEndpoints();
 
   private apiKey: string;
   private graphRef: string;
@@ -180,17 +191,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
       return;
     }
     return this.state.nextFetchPromise;
-  }
-
-  /**
-   * Configuration priority order:
-   * 1. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
-   * 2. default (GCP and AWS)
-   */
-  private static getUplinkEndpoints(): string[] {
-    const envEndpoints =
-      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT?.split(',');
-    return envEndpoints ?? UplinkSupergraphManager.DEFAULT_UPLINK_ENDPOINTS;
   }
 
   private async updateSupergraphSdl(
