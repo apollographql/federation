@@ -1,5 +1,5 @@
 import { deprecate } from 'util';
-import { GraphQLService, Unsubscriber } from 'apollo-server-core';
+import { GraphQLService, GraphQLServiceConfig, Unsubscriber } from 'apollo-server-core';
 import {
   GraphQLExecutionResult
 } from 'apollo-server-types';
@@ -279,7 +279,7 @@ export class ApolloGateway implements GraphQLService {
   public async load(options?: {
     apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
-  }): Promise<{ schema: GraphQLSchema; executor: <TContext>(requestContext: GraphQLRequestContextExecutionDidStart<TContext>) => Promise<GraphQLExecutionResult> }> {
+  }): Promise<GraphQLServiceConfig> {
     this.logger.debug('Loading gateway...');
 
     if (this.state.phase !== 'initialized') {
