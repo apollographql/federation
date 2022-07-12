@@ -18,7 +18,7 @@ export type OperationContext = {
 // Adapted from buildExecutionContext in graphql-js
 interface BuildOperationContextOptions {
   schema: GraphQLSchema;
-  operationDocument: DocumentNode;
+  operationDocument: DocumentNode | undefined;
   operationName?: string;
 };
 
@@ -32,7 +32,8 @@ export function buildOperationContext({
   const fragments: {
     [fragmentName: string]: FragmentDefinitionNode;
   } = Object.create(null);
-  operationDocument.definitions.forEach(definition => {
+  const definitions = operationDocument?.definitions || [];
+  definitions.forEach(definition => {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
         operationCount++;

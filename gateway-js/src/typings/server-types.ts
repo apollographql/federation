@@ -9,9 +9,6 @@ import {
     VariableValues as VariableValues1,
 } from 'apollo-server-types-v0';
 import {
-    CacheHint as CacheHint3,
-    CacheScope as CacheScope3,
-    CachePolicy as CachePolicy3,
     GraphQLExecutionResult as GraphQLExecutionResult3,
     GraphQLExecutor as GraphQLExecutor3,
     GraphQLRequest as GraphQLRequest3,
@@ -29,9 +26,6 @@ import {
  * Any of the types here have changes from the different versions of 'apollo-server-types'
  * and should be imported through here and not directly to keep consistent.
  */
-export type CacheHint = CacheHint3;
-export type CacheScope = CacheScope3;
-export type CachePolicy = CachePolicy3;
 export type GraphQLExecutionResult = GraphQLExecutionResult0 | GraphQLExecutionResult3;
 export type GraphQLExecutor = GraphQLExecutor1 | GraphQLExecutor3;
 export type GraphQLRequest = GraphQLRequest1 | GraphQLRequest3;

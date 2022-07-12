@@ -1,6 +1,6 @@
 import { deprecate } from 'util';
 import { GraphQLService, Unsubscriber } from 'apollo-server-core';
-import { GraphQLExecutionResult, GraphQLExecutor, GraphQLRequestContextExecutionDidStart } from './typings/server-types';
+import { GraphQLExecutionResult, GraphQLRequestContext, GraphQLRequestContextExecutionDidStart } from './typings/server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -808,9 +808,8 @@ export class ApolloGateway implements GraphQLService {
   // ApolloServerPluginUsageReporting) assumes that. In fact, errors talking to backends
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
-  public executor: GraphQLExecutor = async <TContext>(
-    // @ts-ignore
-    requestContext,
+  public executor = async <TContext>(
+    requestContext: GraphQLRequestContext<TContext>,
   ) => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
@@ -964,7 +963,7 @@ export class ApolloGateway implements GraphQLService {
   };
 
   private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+    requestContext: GraphQLRequestContext<TContext>,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {
