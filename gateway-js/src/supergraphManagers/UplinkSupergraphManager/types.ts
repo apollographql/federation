@@ -1,4 +1,4 @@
-import { type AbortSignal } from 'node-abort-controller';
+import type { AbortSignal } from 'node-abort-controller';
 import type { Fetcher, FetcherRequestInit } from '@apollo/utils.fetcher';
 
 export interface AbortableFetcherRequestInit extends FetcherRequestInit {
