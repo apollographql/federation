@@ -42,7 +42,7 @@
   "devDependencies": {
     "@apollo/client": "3.6.9",
     "@apollo/utils.fetcher": "1.0.0",
-    "@graphql-codegen/cli": "2.8.0",
+    "@graphql-codegen/cli": "2.8.1",
     "@graphql-codegen/typescript": "2.7.1",
     "@graphql-codegen/typescript-operations": "2.5.1",
     "@josephg/resolvable": "1.0.1",
@@ -66,8 +66,8 @@
     "deep-freeze": "0.0.1",
     "graphql": "16.5.0",
     "graphql-tag": "2.12.6",
-    "jest": "28.1.2",
-    "jest-config": "28.1.2",
+    "jest": "28.1.3",
+    "jest-config": "28.1.3",
     "jest-cucumber": "3.0.1",
     "jest-junit": "14.0.0",
     "lerna": "4.0.0",
@@ -95,6 +95,6 @@
   },
   "volta": {
     "node": "16.16.0",
-    "npm": "8.13.2"
+    "npm": "8.14.0"
   }
 }
