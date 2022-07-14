@@ -23,7 +23,7 @@ import {
 } from './executeQueryPlan';
 import {
   GraphQLDataSource,
-  GraphQLDataSourceRequestKind
+  GraphQLDataSourceRequestKind,
 } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';

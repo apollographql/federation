@@ -54,11 +54,11 @@ describe('executeQueryPlan', () => {
 
   function buildRequestContext(
     variables: VariableValues = {},
-  ): GraphQLRequestContext<Record<string, any>> {
+  ): GraphQLRequestContext {
     // @ts-ignore
     return {
       cache: undefined as any,
-      context: {} as Record<string, any>,
+      context: {},
       request: {
         variables,
       },

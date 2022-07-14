@@ -21,11 +21,11 @@ import {
 } from '../typings/server-types'
 import { createHash } from '@apollo/utils.createhash';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
-import * as fetcher from 'make-fetch-happen';
+import fetcher from 'make-fetch-happen';
 import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-fetch';
 import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
 
-export type RequiredGraphQLRequestContext<TContext> = {
+export type RequiredGraphQLRequestContext<TContext = Record<string, any>> = {
   request: GraphQLRequest,
   response: GraphQLResponse,
   context: TContext
