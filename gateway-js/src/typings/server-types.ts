@@ -27,10 +27,12 @@ import {
  * and should be imported through here and not directly to keep consistent.
  */
 export type GraphQLExecutionResult = GraphQLExecutionResult0 | GraphQLExecutionResult3;
-export type GraphQLExecutor = GraphQLExecutor1 | GraphQLExecutor3;
+export type GraphQLExecutor<TContext> = GraphQLExecutor1<TContext> | GraphQLExecutor3<TContext>;
 export type GraphQLRequest = GraphQLRequest1 | GraphQLRequest3;
 export type GraphQLResponse = GraphQLResponse1 | GraphQLResponse3;
-export type GraphQLRequestContext<TContext> = GraphQLRequestContext1<TContext> | GraphQLRequestContext3<TContext>;
+export type GraphQLRequestContext<TContext = Record<string, any>> =
+    GraphQLRequestContext1<TContext>
+    | GraphQLRequestContext3<TContext>;
 export type GraphQLRequestContextExecutionDidStart<TContext> =
     GraphQLRequestContextExecutionDidStart1<TContext>
     | GraphQLRequestContextExecutionDidStart3<TContext>;

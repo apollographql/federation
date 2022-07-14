@@ -1,6 +1,6 @@
 import { deprecate } from 'util';
 import { GraphQLService, Unsubscriber } from 'apollo-server-core';
-import { GraphQLExecutionResult, GraphQLRequestContext, GraphQLRequestContextExecutionDidStart } from './typings/server-types';
+import { GraphQLExecutionResult, GraphQLRequestContextExecutionDidStart } from './typings/server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -273,10 +273,10 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  public async load<TContext>(options?: {
+  public async load(options?: {
     apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
-  }): Promise<{ schema: GraphQLSchema; executor: (requestContext: GraphQLRequestContextExecutionDidStart<TContext>) => Promise<GraphQLExecutionResult> }> {
+  }) {
     this.logger.debug('Loading gateway...');
 
     if (this.state.phase !== 'initialized') {
@@ -809,8 +809,8 @@ export class ApolloGateway implements GraphQLService {
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
   public executor = async <TContext>(
-    requestContext: GraphQLRequestContext<TContext>,
-  ) => {
+    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+  ): Promise<GraphQLExecutionResult> => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
       : {};
@@ -963,7 +963,7 @@ export class ApolloGateway implements GraphQLService {
   };
 
   private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContext<TContext>,
+    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {

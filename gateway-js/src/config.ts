@@ -6,7 +6,7 @@ import {
   GraphQLDataSource,
 } from './datasources/types';
 import {
-  GraphQLRequestContext
+  GraphQLRequestContextExecutionDidStart
 } from './typings/server-types';
 import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
@@ -24,7 +24,7 @@ export type Experimental_DidResolveQueryPlanCallback = ({
   readonly queryPlan: QueryPlan;
   readonly serviceMap: ServiceMap;
   readonly operationContext: OperationContext;
-  readonly requestContext: GraphQLRequestContext<Record<string, any>>;
+  readonly requestContext: GraphQLRequestContextExecutionDidStart<Record<string, any>>;
 }) => void;
 
 interface ImplementingServiceLocation {
