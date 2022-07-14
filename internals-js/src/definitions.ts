@@ -1090,8 +1090,11 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
 ];
 
 export type DeferDirectiveArgs = {
+  // TODO: we currently do not support variables for the defer label. Passing a label in a variable
+  // feels like a weird use case in the first place, but we should probably fix this nonetheless (or
+  // if we decide to have it be a known limitations, we should at least reject it cleanly).
   label?: string,
-  if?: boolean,
+  if?: boolean | Variable,
 }
 
 export type StreamDirectiveArgs = {

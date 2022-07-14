@@ -94,6 +94,27 @@ function printNode(
         ']' + config.spacingOuter +
         indentation + '}';
       break;
+    case 'Condition':
+      if (node.ifClause) {
+        if (node.elseClause) {
+          result +=
+            `Condition(if: \$${node.condition}) {` + config.spacingOuter +
+            indentationNext + printNode(node.ifClause, config, indentationNext, depth, refs, printer) + ',' + config.spacingOuter +
+            indentationNext + printNode(node.elseClause, config, indentationNext, depth, refs, printer) + config.spacingOuter +
+            indentation + '}'
+        } else {
+          result +=
+            `Include(if: \$${node.condition}) {` + config.spacingOuter +
+            indentationNext + printNode(node.ifClause, config, indentationNext, depth, refs, printer) + config.spacingOuter +
+            indentation + '}'
+        }
+      } else {
+        result +=
+          `Skip(if: \$${node.condition}) {` + config.spacingOuter +
+          indentationNext + printNode(node.elseClause!, config, indentationNext, depth, refs, printer) + config.spacingOuter +
+          indentation + '}'
+      }
+      break;
     default:
       result += node.kind;
   }

@@ -44,10 +44,11 @@ import {
   isConditionalDirective,
   isDirectiveApplicationsSubset,
   DeferDirectiveArgs,
+  Variable,
 } from "./definitions";
 import { ERRORS } from "./error";
 import { sameType } from "./types";
-import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
+import { assert, mapEntries, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
@@ -318,22 +319,61 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return updated;
   }
 
-  withLabelledDefer(labeller: DeferLabeller): FragmentElement {
+  withNormalizedDefer(normalizer: DeferNormalizer): FragmentElement | undefined {
     const deferArgs = this.deferDirectiveArgs();
-    if (!deferArgs || deferArgs.label) {
+    if (!deferArgs) {
       return this;
     }
 
-    const newLabel = labeller.newLabel();
+    let newDeferArgs: DeferDirectiveArgs | undefined = undefined;
+    let conditionVariable: Variable | undefined = undefined;
+    if (deferArgs.if !== undefined) {
+      if (typeof deferArgs.if === 'boolean') {
+        if (deferArgs.if) {
+          // Harcoded `if: true`, remove the `if`
+          newDeferArgs = {
+            ...deferArgs,
+            if: undefined,
+          }
+        } else {
+          // Harcoded `if: false`, remove the @defer altogether
+          return this.withoutDefer();
+        }
+      } else {
+        // `if` on a variable
+        conditionVariable = deferArgs.if;
+      }
+    }
+
+    let label = deferArgs.label;
+    if (!label) {
+      label = normalizer.newLabel();
+      if (newDeferArgs) {
+        newDeferArgs.label = label;
+      } else {
+        newDeferArgs = {
+          ...deferArgs,
+          label,
+        }
+      }
+    }
+
+    // Now that we are sure to have a label, if we had a (non-trivial) condition,
+    // associate it to that label.
+    if (conditionVariable) {
+      normalizer.registerCondition(label, conditionVariable);
+    }
+
+    if (!newDeferArgs) {
+      return this;
+    }
+
     const updated = new FragmentElement(this.sourceType, this.typeCondition);
     const deferDirective = this.schema().deferDirective();
     // Re-apply all the non-defer directives
     this.appliedDirectives.filter((d) => d.name !== deferDirective.name).forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
     // And then re-apply the @defer with the new label.
-    updated.applyDirective(this.schema().deferDirective(), {
-      ...deferArgs,
-      label: newLabel,
-    });
+    updated.applyDirective(this.schema().deferDirective(), newDeferArgs);
     return updated;
   }
 
@@ -473,41 +513,57 @@ export class Operation {
   }
 
   /**
-   * Returns this operation but potentially modified so all the @defer applications have been removed.
+   * Returns this operation but potentially modified so all/some of the @defer applications have been removed.
+   *
+   * @param labelsToRemove - If provided, then only the `@defer` applications with labels in the provided
+   * set will be remove. Other `@defer` applications will be untouched. If `undefined`, then all `@defer`
+   * applications are removed.
    */
-  withoutDefer(): Operation {
+  withoutDefer(labelsToRemove?: Set<string>): Operation {
     // If we have named fragments, we should be looking inside those and either expand those having @defer or,
     // probably better, replace them with a verison without @defer. But as we currently only call this method
     // after `expandAllFragments`, we'll implement this when/if we need it.
     assert(!this.selectionSet.fragments || this.selectionSet.fragments.isEmpty(), 'Removing @defer currently only work on "expanded" selections (no named fragments)');
-    const updated = this.selectionSet.withoutDefer();
+    const updated = this.selectionSet.withoutDefer(labelsToRemove);
     return updated == this.selectionSet
       ? this
       : new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
   }
 
   /**
-   * Returns this operation but potentially modified so all @defer applications are guaranteed to have a (unique) label.
+   * Returns this operation but modified to "normalize" all the @defer applications.
+   *
+   * "Normalized" in this context means that all the `@defer` application in the
+   * resulting operation will:
+   *  - have a (unique) label. Which imply that this method generates label for
+   *    any `@defer` not having a label.
+   *  - have a non-trivial `if` condition, if any. By non-trivial, we mean that
+   *    the condition will be a variable and not an hard-coded `true` or `false`.
+   *    To do this, this method will remove the condition of any `@defer` that
+   *    has `if: true`, and will completely remove any `@defer` application that
+   *    has `if: false`.
    */
-  withAllDeferLabelled(): {
+  withNormalizedDefer(): {
     operation: Operation,
-    assignedDeferLabels: Set<string>,
     hasDefers: boolean,
+    assignedDeferLabels: Set<string>,
+    deferConditions: SetMultiMap<string, string>,
   } {
     // Similar comment than in `withoutDefer`
     assert(!this.selectionSet.fragments || this.selectionSet.fragments.isEmpty(), 'Assigning @defer lables currently only work on "expanded" selections (no named fragments)');
 
-    const labeller = new DeferLabeller();
-    const { hasDefers, hasNonLabelledDefers } = labeller.init(this.selectionSet);
-    if (!hasNonLabelledDefers) {
-      return { operation: this, assignedDeferLabels: new Set<string>(), hasDefers };
+    const normalizer = new DeferNormalizer();
+    const { hasDefers, hasNonLabelledOrConditionalDefers } = normalizer.init(this.selectionSet);
+    let updatedOperation: Operation = this;
+    if (hasNonLabelledOrConditionalDefers) {
+      const updated = this.selectionSet.withNormalizedDefer(normalizer);
+      updatedOperation = new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
     }
-
-    const updated = this.selectionSet.withAllDeferLabelled(labeller);
     return {
-      operation: new Operation(this.rootKind, updated, this.variableDefinitions, this.name),
-      assignedDeferLabels: labeller.assignedLabels,
+      operation: updatedOperation,
       hasDefers,
+      assignedDeferLabels: normalizer.assignedLabels,
+      deferConditions: normalizer.deferConditions,
     };
   }
 
@@ -703,9 +759,10 @@ abstract class Freezable<T> {
   abstract clone(): T;
 }
 
-class DeferLabeller {
+class DeferNormalizer {
   private index = 0;
   readonly assignedLabels = new Set<string>();
+  readonly deferConditions = new SetMultiMap<string, string>();
   private readonly usedLabels = new Set<string>();
 
   /**
@@ -713,8 +770,8 @@ class DeferLabeller {
    *
    * @return - whether `selectionSet` has any non-labeled @defer.
    */
-  init(selectionSet: SelectionSet): { hasDefers: boolean, hasNonLabelledDefers: boolean }  {
-    let hasNonLabelledDefers = false;
+  init(selectionSet: SelectionSet): { hasDefers: boolean, hasNonLabelledOrConditionalDefers: boolean }  {
+    let hasNonLabelledOrConditionalDefers = false;
     let hasDefers = false;
     const stack: Selection[] = selectionSet.selections().concat();
     while (stack.length > 0) {
@@ -726,7 +783,7 @@ class DeferLabeller {
           if (deferArgs.label) {
             this.usedLabels.add(deferArgs.label);
           } else {
-            hasNonLabelledDefers = true;
+            hasNonLabelledOrConditionalDefers = true;
           }
         }
       }
@@ -734,7 +791,7 @@ class DeferLabeller {
         selection.selectionSet.selections().forEach((s) => stack.push(s));
       }
     }
-    return { hasDefers, hasNonLabelledDefers };
+    return { hasDefers, hasNonLabelledOrConditionalDefers };
   }
 
   private nextLabel(): string {
@@ -750,6 +807,10 @@ class DeferLabeller {
     }
     this.assignedLabels.add(candidate);
     return candidate;
+  }
+
+  registerCondition(label: string, condition: Variable): void {
+    this.deferConditions.add(condition.name, label);
   }
 }
 
@@ -858,12 +919,22 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return withExpanded;
   }
 
-  withoutDefer(): SelectionSet {
+  /**
+   * Returns the result of mapping the provided `mapper` to all the selection of this selection set.
+   *
+   * This method assumes that the `mapper` may often return it's argument directly, meaning that only
+   * a small subset of selection actually need any modifications, and will avoid re-creating new
+   * objects when that is the case. This does mean that the resulting selection set may be `this`
+   * directly, or may alias some of the sub-selection in `this`.
+   */
+  private lazyMap(mapper: (selection: Selection) => Selection | SelectionSet): SelectionSet {
+    assert(!this.fragments, 'Not yet supported');
+
     let updatedSelections: Selection[] | undefined = undefined;
     const selections = this.selections();
     for (let i = 0; i < selections.length; i++) {
       const selection = selections[i];
-      const updated = selection.withoutDefer();
+      const updated = mapper(selection);
       if (updated !== selection && !updatedSelections) {
         updatedSelections = [];
         for (let j = 0; j < i; j++) {
@@ -881,31 +952,15 @@ export class SelectionSet extends Freezable<SelectionSet> {
     if (!updatedSelections) {
       return this;
     }
-    assert(!this.fragments, 'Not yet supported; see `Operation.withoutDefer`');
     return new SelectionSet(this.parentType).addAll(updatedSelections)
   }
 
-  withAllDeferLabelled(labeller: DeferLabeller): SelectionSet {
-    let updatedSelections: Selection[] | undefined = undefined;
-    const selections = this.selections();
-    for (let i = 0; i < selections.length; i++) {
-      const selection = selections[i];
-      const updated = selection.withAllDeferLabelled(labeller);
-      if (updated !== selection && !updatedSelections) {
-        updatedSelections = [];
-        for (let j = 0; j < i; j++) {
-          updatedSelections.push(selections[j]);
-        }
-      }
-      if (updatedSelections) {
-        updatedSelections.push(updated);
-      }
-    }
-    if (!updatedSelections) {
-      return this;
-    }
-    assert(!this.fragments, 'Not yet supported; see `Operation.withAllDeferLabelled`');
-    return new SelectionSet(this.parentType).addAll(updatedSelections)
+  withoutDefer(labelsToRemove?: Set<string>): SelectionSet {
+    return this.lazyMap((selection) => selection.withoutDefer(labelsToRemove));
+  }
+
+  withNormalizedDefer(normalizer: DeferNormalizer): SelectionSet {
+    return this.lazyMap((selection) => selection.withNormalizedDefer(normalizer));
   }
 
   /**
@@ -1433,15 +1488,15 @@ export class FieldSelection extends Freezable<FieldSelection> {
     return this.selectionSet?.fragments;
   }
 
-  withoutDefer(): FieldSelection {
-    const updatedSubSelections = this.selectionSet?.withoutDefer();
+  withoutDefer(labelsToRemove?: Set<string>): FieldSelection {
+    const updatedSubSelections = this.selectionSet?.withoutDefer(labelsToRemove);
     return updatedSubSelections === this.selectionSet
       ? this
       : new FieldSelection(this.field, updatedSubSelections);
   }
 
-  withAllDeferLabelled(labeller: DeferLabeller): FieldSelection {
-    const updatedSubSelections = this.selectionSet?.withAllDeferLabelled(labeller);
+  withNormalizedDefer(normalizer: DeferNormalizer): FieldSelection {
+    const updatedSubSelections = this.selectionSet?.withNormalizedDefer(normalizer);
     return updatedSubSelections === this.selectionSet
       ? this
       : new FieldSelection(this.field, updatedSubSelections);
@@ -1480,9 +1535,9 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   abstract validate(): void;
 
-  abstract withoutDefer(): FragmentSelection | SelectionSet;
+  abstract withoutDefer(labelsToRemove?: Set<string>): FragmentSelection | SelectionSet;
 
-  abstract withAllDeferLabelled(labeller: DeferLabeller): FragmentSelection;
+  abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
 
   protected us(): FragmentSelection {
     return this;
@@ -1633,28 +1688,27 @@ class InlineFragmentSelection extends FragmentSelection {
     this.selectionSet.collectUsedFragmentNames(collector);
   }
 
-  withoutDefer(): FragmentSelection | SelectionSet {
-    const updatedSubSelections = this.selectionSet.withoutDefer();
-    const hasDefer = this.fragmentElement.hasDefer();
-    if (updatedSubSelections === this.selectionSet && !hasDefer) {
+  withoutDefer(labelsToRemove?: Set<string>): FragmentSelection | SelectionSet {
+    const updatedSubSelections = this.selectionSet.withoutDefer(labelsToRemove);
+    const deferArgs = this.fragmentElement.deferDirectiveArgs();
+    const hasDeferToRemove = deferArgs && (!labelsToRemove || (deferArgs.label && labelsToRemove.has(deferArgs.label)));
+    if (updatedSubSelections === this.selectionSet && !hasDeferToRemove) {
       return this;
     }
 
-    const newFragment = this.fragmentElement.withoutDefer();
+    const newFragment = hasDeferToRemove ? this.fragmentElement.withoutDefer() : this.fragmentElement;
     if (!newFragment) {
       return updatedSubSelections;
     }
     return new InlineFragmentSelection(newFragment, updatedSubSelections);
   }
 
-  withAllDeferLabelled(labeller: DeferLabeller): InlineFragmentSelection {
-    let newFragment = this.fragmentElement;
-    const deferArgs = this.fragmentElement.deferDirectiveArgs();
-    if (deferArgs && !deferArgs.label) {
-      newFragment = this.fragmentElement.withLabelledDefer(labeller);
+  withNormalizedDefer(normalizer: DeferNormalizer): InlineFragmentSelection | SelectionSet {
+    const newFragment = this.fragmentElement.withNormalizedDefer(normalizer);
+    const updatedSubSelections = this.selectionSet.withNormalizedDefer(normalizer);
+    if (!newFragment) {
+      return updatedSubSelections;
     }
-
-    const updatedSubSelections = this.selectionSet.withAllDeferLabelled(labeller);
     return newFragment === this.fragmentElement && updatedSubSelections === this.selectionSet
       ? this
       : new InlineFragmentSelection(newFragment, updatedSubSelections);
@@ -1746,11 +1800,11 @@ class FragmentSpreadSelection extends FragmentSelection {
     collector.set(this.namedFragment.name, usageCount === undefined ? 1 : usageCount + 1);
   }
 
-  withoutDefer(): FragmentSelection {
+  withoutDefer(_labelsToRemove?: Set<string>): FragmentSelection {
     assert(false, 'Unsupported, see `Operation.withoutDefer`');
   }
 
-  withAllDeferLabelled(_labeller: DeferLabeller): FragmentSelection {
+  withNormalizedDefer(_normalizezr: DeferNormalizer): FragmentSelection {
     assert(false, 'Unsupported, see `Operation.withAllDeferLabelled`');
   }
 

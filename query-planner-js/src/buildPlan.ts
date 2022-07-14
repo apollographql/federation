@@ -1897,8 +1897,9 @@ export function computeQueryPlan({
 
   let assignedDeferLabels: Set<string> | undefined = undefined;
   let hasDefers: boolean = false;
+  let deferConditions: SetMultiMap<string, string> | undefined = undefined;
   if (config.deferStreamSupport.enableDefer) {
-    ({ operation, assignedDeferLabels, hasDefers } = operation.withAllDeferLabelled());
+    ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
   } else {
     // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
     // having to guard all the code dealing with defer later, and is probably less error prone too (less likely
@@ -1923,7 +1924,49 @@ export function computeQueryPlan({
     operationName: operation.name,
     assignedDeferLabels,
   });
+
+
   let rootNode: PlanNode | undefined;
+  if (deferConditions && deferConditions.size > 0) {
+    assert(hasDefers, 'Should not have defer conditions without @defer');
+    rootNode = computePlanForDeferConditionals({
+      supergraphSchema,
+      federatedQueryGraph,
+      operation,
+      processor,
+      root,
+      deferConditions,
+    })
+  } else {
+    rootNode = computePlanInternal({
+      supergraphSchema,
+      federatedQueryGraph,
+      operation,
+      processor,
+      root,
+      hasDefers,
+    });
+  }
+
+  debug.groupEnd('Query plan computed');
+  return { kind: 'QueryPlan', node: rootNode };
+}
+
+function computePlanInternal({
+  supergraphSchema,
+  federatedQueryGraph,
+  operation,
+  processor,
+  root,
+  hasDefers,
+}: {
+  supergraphSchema: Schema,
+  federatedQueryGraph: QueryGraph,
+  operation: Operation,
+  processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
+  root: RootVertex,
+  hasDefers: boolean,
+}): PlanNode | undefined {
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers);
     let allMain: (PlanNode | undefined)[] = [];
@@ -1942,7 +1985,7 @@ export function computeQueryPlan({
         }
       }
     }
-    rootNode = processRootNodes({
+    return processRootNodes({
       processor,
       rootNodes: allMain,
       rootsAreParallel: false,
@@ -1952,7 +1995,7 @@ export function computeQueryPlan({
   } else {
     const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers);
     const { main, deferred } = dependencyGraph.process(processor);
-    rootNode = processRootNodes({
+    return processRootNodes({
       processor,
       rootNodes: main,
       rootsAreParallel: true,
@@ -1960,9 +2003,63 @@ export function computeQueryPlan({
       deferred,
     });
   }
-  debug.groupEnd('Query plan computed');
-  return { kind: 'QueryPlan', node: rootNode };
 }
+
+function computePlanForDeferConditionals({
+  supergraphSchema,
+  federatedQueryGraph,
+  operation,
+  processor,
+  root,
+  deferConditions,
+}: {
+  supergraphSchema: Schema,
+  federatedQueryGraph: QueryGraph,
+  operation: Operation,
+  processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
+  root: RootVertex,
+  deferConditions: SetMultiMap<string, string>,
+}): PlanNode | undefined {
+  return generateConditionNodes(
+    operation,
+    Array.from(deferConditions.entries()),
+    0,
+    (op) => computePlanInternal({
+      supergraphSchema,
+      federatedQueryGraph,
+      operation: op,
+      processor,
+      root,
+      hasDefers: true,
+    }),
+  );
+}
+
+function generateConditionNodes(
+  operation: Operation,
+  conditions: [string, Set<string>][],
+  idx: number,
+  onFinalOperation: (operation: Operation) => PlanNode | undefined,
+): PlanNode | undefined {
+  if (idx >= conditions.length) {
+    return onFinalOperation(operation);
+  }
+
+  const [variable, labels] = conditions[idx];
+  const ifOperation = operation;
+  const elseOperation = operation.withoutDefer(labels);
+  return {
+    kind: 'Condition',
+    condition: variable,
+    // Note: for the `<variable>: true` case, we don't modify the operation at all. In theory, it would be cleaner to
+    // modify the operation to remove the `if` condition on all the `@defer` from `labels` (or modify it to hard-coded 'true'),
+    // to make it clear those @defer are "enabled" on that branch. In practice though, the rest of the query planning
+    // completely ignores the `if` argument, so leaving it in untouched ends up equivalent and that saves us a few cyclesf.
+    ifClause: generateConditionNodes(ifOperation, conditions, idx+1, onFinalOperation),
+    elseClause: generateConditionNodes(elseOperation, conditions, idx+1, onFinalOperation),
+  };
+}
+
 
 function processRootNodes({
   processor,

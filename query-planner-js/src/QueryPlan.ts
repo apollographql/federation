@@ -14,7 +14,7 @@ export interface QueryPlan {
   node?: PlanNode;
 }
 
-export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode;
+export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode;
 
 export interface SequenceNode {
   kind: 'Sequence';
@@ -101,6 +101,13 @@ export interface DeferredNode {
   // this deferred only exists to expose what should be send to the upstream client in a deferred response, but without declaring additional fetches (which happens for @defer that
   // cannot be handled through query planner and where the defer cannot be passed through to the subgraph).
   node?: PlanNode,
+}
+
+export interface ConditionNode {
+  kind: 'Condition',
+  condition: string,
+  ifClause?: PlanNode,
+  elseClause?: PlanNode,
 }
 
 /**

@@ -254,6 +254,9 @@ async function executeNode<TContext>(
     case 'Defer': {
       assert(false, `@defer support is not available in the gateway`);
     }
+    case 'Condition': {
+      assert(false, `Condition nodes are not available in the gateway`);
+    }
   }
 }
 

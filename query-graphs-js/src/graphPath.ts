@@ -308,11 +308,23 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     let subgraphEnteringEdgeIndex = this.subgraphEnteringEdgeIndex;
     let subgraphEnteringEdge = this.subgraphEnteringEdge;
     let subgraphEnteringEdgeCost = this.subgraphEnteringEdgeCost;
-    if (edge && edge.transition.kind === 'KeyResolution') {
-      subgraphEnteringEdgeIndex = this.size;
-      subgraphEnteringEdge = edge;
-      subgraphEnteringEdgeCost = conditionsResolution.cost;
+    if (edge) {
+      // `subgraphEnteringEdge` is used to be able to eliminate some options when we can detect that going to subgraph
+      // was ineffectient (see `advancePathWithNonCollectingAndTypePreservingTransitions` for details). So first,
+      // we shouldn't change it for a "key to self" due to a @defer since the assumption of `subgraphEnteringEdge` is
+      // that the source is different from the destination. But really, if we use `@defer`, we should never rely on the
+      // optimization that `subgraphEnteringEdge`, so we clear it entirely.
+      if (edge.isKeyOrRootTypeEdgeToSelf()) {
+        subgraphEnteringEdgeIndex = -1;
+        subgraphEnteringEdge = undefined;
+        subgraphEnteringEdgeCost = -1;
+      } else if (edge.transition.kind === 'KeyResolution') {
+        subgraphEnteringEdgeIndex = this.size;
+        subgraphEnteringEdge = edge;
+        subgraphEnteringEdgeCost = conditionsResolution.cost;
+      }
     }
+
     return new GraphPath(
       this.graph,
       this.root,
@@ -1087,7 +1099,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         }
 
         // It's important we minimize the number of options this method returns, because during query planning
-        // with many fields, options here translate to state explosion. Si this why we eliminated above
+        // with many fields, options here translate to state explosion. This is why we eliminated above
         // edges that provably have better options.
         // But we can do a slightly more involved check. Suppose we have a few subgraph A, B and C,
         // and suppose that we're considering an edge from B to C. We can then look at which subgraph we
@@ -1095,7 +1107,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // it is A. In other words, if we use the edge we're considering, we'll be looking at a path doing:
         //   ... -> A -> B -> <some fields in B> -> C
         // and `toAdvance` is currently just before that last step.
-        // Now, we can check fairly easily check if the fields we collected in B (the `<some fields in B>`) can
+        // Now, we can fairly easily check if the fields we collected in B (the `<some fields in B>`) can
         // be also collected *directly* (without keys, nor requires) from A and if after that we could take
         // an edge to C. If we can do all that, then we know that the path we're considering is strictly
         // less efficient than doing:
