@@ -185,6 +185,7 @@ const REQUIRES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.cre
 const DIRECTIVE_IN_FIELDS_ARG = makeFederationDirectiveErrorCodeCategory(
   'DIRECTIVE_IN_FIELDS_ARG',
   (directive) => `The \`fields\` argument of a \`@${directive}\` directive includes some directive applications. This is not supported`,
+  { addedIn: '2.1.0' },
 );
 
 const KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('key');

@@ -11,6 +11,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Cleanup error related code, adding missing error code to a few errors [PR #1914](https://github.com/apollographql/federation/pull/1914).
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900).
 - Fix issue computing query plan costs that can lead to extra unnecessary fetches [PR #1937](https://github.com/apollographql/federation/pull/1937).
+- Reject directive applications within `fields` of `@key`, `@provides` and `@requires`[PR #1975](https://github.com/apollographql/federation/pull/1975).
+  - __BREAKING__: previously, directive applications within a `@key`, `@provides` or `@requires` were parsed but
+    not honored in any way. As this change reject such applications (at composition time), it could theoretically
+    require to remove some existing (ignored) directive applications within a `@key`, `@provides` or `@requires`.
 
 ## 2.1.0-alpha.0
 
