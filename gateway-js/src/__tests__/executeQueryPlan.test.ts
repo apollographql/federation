@@ -52,13 +52,13 @@ describe('executeQueryPlan', () => {
     ).not.toThrow();
   });
 
-  function buildRequestContext(
+  function buildRequestContext<TContext>(
     variables: VariableValues = {},
-  ): GraphQLRequestContext {
+  ): GraphQLRequestContext<TContext> {
     // @ts-ignore
     return {
       cache: undefined as any,
-      context: {},
+      context: {} as TContext,
       request: {
         variables,
       },
