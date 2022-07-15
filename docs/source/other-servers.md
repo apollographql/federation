@@ -66,17 +66,7 @@ The following open-source GraphQL server libraries support acting as a subgraph 
 <tr><td><a href="https://github.com/graphql/express-graphql">express-graphql</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>❌</td></tr></table></td><td><table><tr><th>@link</th><td>✅</td></tr><tr><th>@shareable</th><td>✅</td></tr><tr><th>@tag</th><td>✅</td></tr><tr><th>@override</th><td>✅</td></tr><tr><th>@inaccessible</th><td>✅</td></tr></table></td></tr>
 <tr><td><a href="https://www.graphql-yoga.com/docs/features/apollo-federation">GraphQL Yoga</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>❌</td></tr></table></td><td><table><tr><th>@link</th><td>✅</td></tr><tr><th>@shareable</th><td>✅</td></tr><tr><th>@tag</th><td>✅</td></tr><tr><th>@override</th><td>✅</td></tr><tr><th>@inaccessible</th><td>✅</td></tr></table></td></tr>
 <tr><td><a href="https://mercurius.dev/#/">Mercurius</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>❌</td></tr></table></td><td><table><tr><th>@link</th><td>❌</td></tr><tr><th>@shareable</th><td>❌</td></tr><tr><th>@tag</th><td>❌</td></tr><tr><th>@override</th><td>❌</td></tr><tr><th>@inaccessible</th><td>❌</td></tr></table></td></tr>
-</tbody>
-</table>
-
-## Multi-language
-
-<table>
-<thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
-</thead>
-<tbody>
-<tr><td><a href="https://aws.amazon.com/appsync/">AWS AppSync</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>❌</td></tr></table></td><td><table><tr><th>@link</th><td>❌</td></tr><tr><th>@shareable</th><td>❌</td></tr><tr><th>@tag</th><td>❌</td></tr><tr><th>@override</th><td>❌</td></tr><tr><th>@inaccessible</th><td>❌</td></tr></table></td></tr>
+<tr><td><a href="https://pothos-graphql.dev/docs/plugins/federation">Pothos GraphQL</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>✅</td></tr></table></td><td><table><tr><th>@link</th><td>✅</td></tr><tr><th>@shareable</th><td>✅</td></tr><tr><th>@tag</th><td>✅</td></tr><tr><th>@override</th><td>✅</td></tr><tr><th>@inaccessible</th><td>✅</td></tr></table></td></tr>
 </tbody>
 </table>
 
@@ -135,5 +125,16 @@ The following open-source GraphQL server libraries support acting as a subgraph 
 </thead>
 <tbody>
 <tr><td><a href="https://ghostdogpr.github.io/caliban/docs/federation.html">Caliban</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>✅</td></tr></table></td><td><table><tr><th>@link</th><td>✅</td></tr><tr><th>@shareable</th><td>✅</td></tr><tr><th>@tag</th><td>✅</td></tr><tr><th>@override</th><td>✅</td></tr><tr><th>@inaccessible</th><td>✅</td></tr></table></td></tr>
+</tbody>
+</table>
+
+## Hosted Solutions
+
+<table>
+<thead>
+<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="https://aws.amazon.com/appsync/">AWS AppSync</a></td><td><table><tr><th>_service</th><td>✅</td></tr><tr><th>@key (single)</th><td>✅</td></tr><tr><th>@key (multi)</th><td>✅</td></tr><tr><th>@key (composite)</th><td>✅</td></tr><tr><th>@requires</th><td>✅</td></tr><tr><th>@provides</th><td>✅</td></tr><tr><th>@ftv1</th><td>❌</td></tr></table></td><td><table><tr><th>@link</th><td>✅</td></tr><tr><th>@shareable</th><td>✅</td></tr><tr><th>@tag</th><td>✅</td></tr><tr><th>@override</th><td>✅</td></tr><tr><th>@inaccessible</th><td>✅</td></tr></table></td></tr>
 </tbody>
 </table>
