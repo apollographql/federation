@@ -413,3 +413,28 @@ type User @key(fields: "id") {
   name: String @override(from: "SubgraphA")
 }
 ```
+<<<<<<< Updated upstream
+=======
+### `@inaccessible`
+```graphql
+directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+The `@inaccessible` directive is used to indicate that a location within the schema is inaccessible. Inaccessible types and fields are available internally but are not exposed publically.
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/inaccessible/v0.2")
+
+type Query {  
+  myself: User
+  allUsers: [User] @inaccessible
+}
+
+type User {
+  id: ID!
+  secret: String! @inaccessible
+}
+```
+>>>>>>> Stashed changes
