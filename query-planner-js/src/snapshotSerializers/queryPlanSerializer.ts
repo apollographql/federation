@@ -42,7 +42,7 @@ function printNode(
 
   const indentationNext = indentation + config.indent;
 
-  const printOperation = (operationString: string, indent: string) => 
+  const printOperation = (operationString: string, indent: string) =>
     printer(
       flattenEntitiesField(parse(operationString)),
       config,
@@ -203,7 +203,7 @@ function printDeferredNode(
   refs: Refs,
   printer: any,
 ): string {
-  const printOperation = (operationString: string) => 
+  const printOperation = (operationString: string) =>
     printer(
       flattenEntitiesField(parse(operationString)),
       config,

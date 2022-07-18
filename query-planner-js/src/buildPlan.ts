@@ -2772,7 +2772,7 @@ function extractDeferFromOperation({
 
   return {
     updatedOperation,
-    updatedDeferContext: { 
+    updatedDeferContext: {
       ...deferContext,
       currentDeferRef: updatedDeferRef,
       pathToDeferParent: updatedPathToDeferParent,

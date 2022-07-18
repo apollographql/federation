@@ -319,6 +319,12 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return updated;
   }
 
+  /**
+   * Returns this fragment element, but it is has a @defer directive, the element is returned with
+   * the @defer "normalized".
+   *
+   * See `Operation.withNormalizedDefer` for details on our so-called @defer normalization.
+   */
   withNormalizedDefer(normalizer: DeferNormalizer): FragmentElement | undefined {
     const deferArgs = this.deferDirectiveArgs();
     if (!deferArgs) {
@@ -759,6 +765,12 @@ abstract class Freezable<T> {
   abstract clone(): T;
 }
 
+/**
+ * Utility class used to handle "normalizing" the @defer in an operation.
+ *
+ * See `Operation.withNormalizedDefer` for details on what we mean by normalizing in
+ * this context.
+ */
 class DeferNormalizer {
   private index = 0;
   readonly assignedLabels = new Set<string>();
@@ -927,9 +939,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * objects when that is the case. This does mean that the resulting selection set may be `this`
    * directly, or may alias some of the sub-selection in `this`.
    */
-  private lazyMap(mapper: (selection: Selection) => Selection | SelectionSet): SelectionSet {
-    assert(!this.fragments, 'Not yet supported');
-
+  private lazyMap(mapper: (selection: Selection) => Selection | SelectionSet | undefined): SelectionSet {
     let updatedSelections: Selection[] | undefined = undefined;
     const selections = this.selections();
     for (let i = 0; i < selections.length; i++) {
@@ -941,7 +951,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
           updatedSelections.push(selections[j]);
         }
       }
-      if (updatedSelections) {
+      if (!!updated && updatedSelections) {
         if (updated instanceof SelectionSet) {
           updated.selections().forEach((s) => updatedSelections!.push(s));
         } else {
@@ -952,14 +962,16 @@ export class SelectionSet extends Freezable<SelectionSet> {
     if (!updatedSelections) {
       return this;
     }
-    return new SelectionSet(this.parentType).addAll(updatedSelections)
+    return new SelectionSet(this.parentType, this.fragments).addAll(updatedSelections)
   }
 
   withoutDefer(labelsToRemove?: Set<string>): SelectionSet {
+    assert(!this.fragments, 'Not yet supported');
     return this.lazyMap((selection) => selection.withoutDefer(labelsToRemove));
   }
 
   withNormalizedDefer(normalizer: DeferNormalizer): SelectionSet {
+    assert(!this.fragments, 'Not yet supported');
     return this.lazyMap((selection) => selection.withNormalizedDefer(normalizer));
   }
 
@@ -970,25 +982,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * call `optimize` on the result if you want to re-apply some fragments.
    */
   filter(predicate: (selection: Selection) => boolean): SelectionSet {
-    let updatedSelections: Selection[] | undefined = undefined;
-    const selections = this.selections();
-    for (let i = 0; i < selections.length; i++) {
-      const selection = selections[i];
-      const updated = selection.filter(predicate);
-      if (updated !== selection && !updatedSelections) {
-        updatedSelections = [];
-        for (let j = 0; j < i; j++) {
-          updatedSelections.push(selections[j]);
-        }
-      }
-      if (!!updated && updatedSelections) {
-        updatedSelections.push(updated);
-      }
-    }
-    if (!updatedSelections) {
-      return this;
-    }
-    return new SelectionSet(this.parentType, this.fragments).addAll(updatedSelections)
+    return this.lazyMap((selection) => selection.filter(predicate));
   }
 
   withoutEmptyBranches(): SelectionSet | undefined {

@@ -1,5 +1,5 @@
 import {
-    defaultRootName,
+  defaultRootName,
   Schema,
   SchemaRootKind,
 } from '../../dist/definitions';
