@@ -413,8 +413,6 @@ type User @key(fields: "id") {
   name: String @override(from: "SubgraphA")
 }
 ```
-<<<<<<< Updated upstream
-=======
 ### `@inaccessible`
 ```graphql
 directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
@@ -437,4 +435,3 @@ type User {
   secret: String! @inaccessible
 }
 ```
->>>>>>> Stashed changes
