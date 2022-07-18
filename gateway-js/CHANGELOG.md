@@ -16,6 +16,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
     not honored in any way. As this change reject such applications (at composition time), it could theoretically
     require to remove some existing (ignored) directive applications within a `@key`, `@provides` or `@requires`.
 - Move `DEFAULT_UPLINK_ENDPOINTS` to static member of `UplinkSupergraphManager` [PR #1977](https://github.com/apollographql/federation/pull/1977).
+- Add `node-fetch` as a runtime dependency [PR #1970](https://github.com/apollographql/federation/pull/1970).
 
 ## 2.1.0-alpha.0
 
