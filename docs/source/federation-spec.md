@@ -413,3 +413,41 @@ type User @key(fields: "id") {
   name: String @override(from: "SubgraphA")
 }
 ```
+
+### `@tag`
+
+```graphql
+directive @tag(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+The `@tag` directive is used to provide a mechanism for applying arbitrary string metadata to the fields and types of a schema. This metadata is potentially useful throughout the schema’s lifecycle, including, but not limited to, processing, static analysis, and documentation.
+
+```graphql
+schema
+  @core(feature: "https://specs.apollo.dev/core/v0.2")
+  @core(feature: "https://specs.apollo.dev/tag/v0.1") {
+  query: Query
+}
+
+type Query {
+  customer(id: String!): Customer @tag(name: "team-customers")
+  employee(id: String!): Employee @tag(name: "team-admin")
+}
+
+interface User @tag(name: "team-accounts") {
+  id: String!
+  name: String!
+}
+
+type Customer implements User @tag(name: "team-customers") {
+  id: String!
+  name: String!
+  cart: [Product!] @tag(name: "team-shopping-cart")
+}
+
+type Employee implements User @tag(name: "team-admin") {
+  id: String!
+  name: String!
+  ssn: String!
+}
+```
