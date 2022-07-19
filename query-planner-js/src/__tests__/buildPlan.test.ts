@@ -2717,8 +2717,9 @@ describe('Field covariance and type-explosion', () => {
           {
             dummy {
               __typename
-              ... on Object {
-                field {
+              field {
+                __typename
+                ... on Object {
                   field {
                     __typename
                   }
@@ -3101,4 +3102,81 @@ test('avoids unnecessary fetches', () => {
       },
     }
   `);
+});
+
+describe('Fed1 supergraph handling', () => {
+  test('do not type-explode if interface only implemented by value types', () => {
+    const supergraphSdl = `
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2"),
+        @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+      interface Node {
+        id: ID!
+      }
+
+      type Query {
+        t: T @join__field(graph: S1)
+      }
+
+      type T implements Node {
+        id: ID!
+        nodes: [Node]
+      }
+
+      type V implements Node {
+        id: ID!
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        S1 @join__graph(name: "S1" url: "")
+        S2 @join__graph(name: "S2" url: "")
+      }
+    `;
+
+    const supergraph = buildSchema(supergraphSdl);
+    const api = supergraph.toAPISchema();
+    const queryPlanner = new QueryPlanner(supergraph);
+
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          nodes {
+            id
+          }
+        }
+      }
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            t {
+              nodes {
+                __typename
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
 });
