@@ -38,6 +38,7 @@
     "apollo-reporting-protobuf-v0": "npm:apollo-reporting-protobuf@^0.8.0",
     "apollo-reporting-protobuf-v3": "npm:apollo-reporting-protobuf@^3.0.0",
     "apollo-server-caching": "^0.7.0 || ^3.0.0",
+    "apollo-server-core": "^2.23.0 || ^3.0.0",
     "apollo-server-core-v2": "npm:apollo-server-core@^2.23.0",
     "apollo-server-core-v3": "npm:apollo-server-core@^3.0.0",
     "apollo-server-errors": "^2.5.0 || ^3.0.0",
