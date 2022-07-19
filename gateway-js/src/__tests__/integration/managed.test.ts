@@ -16,13 +16,19 @@ import { getTestingSupergraphSdl } from '../execution-utils';
 let gateway: ApolloGateway | undefined;
 let server: ApolloServer | undefined;
 let cleanUp: (() => void) | undefined;
+let originalMinPollInterval = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
 
 beforeEach(() => {
+  // Set the min poll interval artificially low so we're not waiting during tests
+  // @ts-ignore
+  UplinkSupergraphManager['MIN_POLL_INTERVAL_MS'] = 100;
+
   nockBeforeEach();
 });
 
 afterEach(async () => {
-  nockAfterEach();
+  // @ts-ignore
+  UplinkSupergraphManager['MIN_POLL_INTERVAL_MS'] = originalMinPollInterval;
 
   if (server) {
     await server.stop();
@@ -33,6 +39,8 @@ afterEach(async () => {
     await gateway.stop();
     gateway = undefined;
   }
+
+  nockAfterEach();
 
   if (cleanUp) {
     cleanUp();
@@ -134,7 +142,6 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         graphRef,
         logger,
         maxRetries: 0,
-        fallbackPollIntervalInMs: 0,
         async onFailureToFetchSupergraphSdlDuringInit() {
           hasFired = true;
           return supergraphSchema;
@@ -162,7 +169,6 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         graphRef,
         logger,
         maxRetries: 0,
-        fallbackPollIntervalInMs: 0,
         async onFailureToFetchSupergraphSdlAfterInit() {
           hasFired = true;
           return supergraphSchema;
@@ -196,7 +202,6 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           graphRef,
           logger,
           maxRetries: 0,
-          fallbackPollIntervalInMs: 0,
           async onFailureToFetchSupergraphSdlDuringInit() {
             return schemaText;
           },
@@ -227,7 +232,6 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           graphRef,
           logger,
           maxRetries: 0,
-          fallbackPollIntervalInMs: 0,
           async onFailureToFetchSupergraphSdlAfterInit() {
             hasFired = true;
             return schemaText;
@@ -265,7 +269,6 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
           graphRef,
           logger,
           maxRetries: 0,
-          fallbackPollIntervalInMs: 0,
           async onFailureToFetchSupergraphSdlAfterInit() {
             hasFired = true;
             return schemaText;

@@ -119,9 +119,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
       this.logger.warn(
         'Polling Apollo services at a frequency of less than once per 10 seconds (10000) is disallowed. Instead, the minimum allowed pollInterval of 10000 will be used. Please reconfigure your `fallbackPollIntervalInMs` accordingly. If this is problematic for your team, please contact support.',
       );
-      if (process.env.NODE_ENV !== 'test') {
-        this.pollIntervalMs = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
-      }
+      this.pollIntervalMs = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
     }
 
     this.shouldRunSubgraphHealthcheck =
