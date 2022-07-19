@@ -15,6 +15,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   - __BREAKING__: previously, directive applications within a `@key`, `@provides` or `@requires` were parsed but
     not honored in any way. As this change reject such applications (at composition time), it could theoretically
     require to remove some existing (ignored) directive applications within a `@key`, `@provides` or `@requires`.
+- Avoid type-explosion with fed1 supergraphs using a fed2 query planner [PR #1994](https://github.com/apollographql/federation/pull/1994).
 
 ## 2.1.0-alpha.0
 
