@@ -1,6 +1,6 @@
 import { GraphQLRequest } from 'apollo-server-types';
 import { parse } from 'graphql';
-import { Headers, HeadersInit } from 'node-fetch';
+import { Headers, type HeadersInit } from 'node-fetch';
 import { ServiceDefinition } from '@apollo/federation-internals';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from '../../datasources/types';
 import { SERVICE_DEFINITION_QUERY } from '../..';

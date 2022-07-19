@@ -16,6 +16,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
     not honored in any way. As this change reject such applications (at composition time), it could theoretically
     require to remove some existing (ignored) directive applications within a `@key`, `@provides` or `@requires`.
 - Move `DEFAULT_UPLINK_ENDPOINTS` to static member of `UplinkSupergraphManager` [PR #1977](https://github.com/apollographql/federation/pull/1977).
+- Add `node-fetch` as a runtime dependency [PR #1970](https://github.com/apollographql/federation/pull/1970).
 - Add timeouts when making requests to Apollo Uplink [PR #1950](https://github.com/apollographql/federation/pull/1950).
   - __BREAKING__: In 2.1.0-alpha.0, `UplinkSupergraphManager` was introduced and allowed passing a `fetcher` argument to the constructor. That parameter has been removed, at least until we figure out how to support the `signal` param more generically in [`apollo-utils` types](https://github.com/apollographql/apollo-utils/pull/146).
 
