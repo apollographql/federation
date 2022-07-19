@@ -1,5 +1,5 @@
 import type { Logger } from '@apollo/utils.logger';
-import { HeadersInit } from 'node-fetch';
+import type { HeadersInit } from 'node-fetch';
 import resolvable from '@josephg/resolvable';
 import {
   ServiceEndpointDefinition,
