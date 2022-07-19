@@ -16,20 +16,12 @@ import { getTestingSupergraphSdl } from '../execution-utils';
 let gateway: ApolloGateway | undefined;
 let server: ApolloServer | undefined;
 let cleanUp: (() => void) | undefined;
-let originalMinPollInterval = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
 
 beforeEach(() => {
-  // Set the min poll interval artificially low so we're not waiting during tests
-  // @ts-ignore
-  UplinkSupergraphManager['MIN_POLL_INTERVAL_MS'] = 100;
-
   nockBeforeEach();
 });
 
 afterEach(async () => {
-  // @ts-ignore
-  UplinkSupergraphManager['MIN_POLL_INTERVAL_MS'] = originalMinPollInterval;
-
   if (server) {
     await server.stop();
     server = undefined;
@@ -162,24 +154,27 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
 
     const supergraphSchema = getTestingSupergraphSdl();
     let hasFired;
+    let uplinkManager = new UplinkSupergraphManager({
+      apiKey,
+      graphRef,
+      logger,
+      maxRetries: 0,
+      async onFailureToFetchSupergraphSdlAfterInit() {
+        hasFired = true;
+        return supergraphSchema;
+      },
+    });
+    // Set pollIntervalMs lower than the typically allowed value so we don't wait 10s between polling
+    uplinkManager['pollIntervalMs'] = 0;
+
     gateway = new ApolloGateway({
       logger,
-      supergraphSdl: new UplinkSupergraphManager({
-        apiKey,
-        graphRef,
-        logger,
-        maxRetries: 0,
-        async onFailureToFetchSupergraphSdlAfterInit() {
-          hasFired = true;
-          return supergraphSchema;
-        },
-      }),
+      supergraphSdl: uplinkManager,
     });
 
     await expect(gateway.load()).resolves.not.toThrow();
     expect(hasFired).toBeFalsy();
 
-    const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
     await uplinkManager.nextFetch();
 
     expect(hasFired).toBeTruthy();
@@ -225,25 +220,27 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         .reply(500);
 
       let hasFired;
+      let uplinkManager = new UplinkSupergraphManager({
+        apiKey,
+        graphRef,
+        logger,
+        maxRetries: 0,
+        async onFailureToFetchSupergraphSdlAfterInit() {
+          hasFired = true;
+          return schemaText;
+        },
+      });
+      // Set pollIntervalMs lower than the typically allowed value so we don't wait 10s between polling
+      uplinkManager['pollIntervalMs'] = 0;
+
       gateway = new ApolloGateway({
         logger,
-        supergraphSdl: new UplinkSupergraphManager({
-          apiKey,
-          graphRef,
-          logger,
-          maxRetries: 0,
-          async onFailureToFetchSupergraphSdlAfterInit() {
-            hasFired = true;
-            return schemaText;
-          },
-        }),
+        supergraphSdl: uplinkManager
       });
 
       await expect(gateway.load()).resolves.not.toThrow();
       expect(hasFired).toBeFalsy();
 
-      const uplinkManager =
-        gateway.supergraphManager as UplinkSupergraphManager;
       await uplinkManager.nextFetch();
 
       expect(hasFired).toBeTruthy();
@@ -262,25 +259,28 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         .reply(500);
 
       let hasFired;
+      let uplinkManager = new UplinkSupergraphManager({
+        apiKey,
+        graphRef,
+        logger,
+        maxRetries: 0,
+
+        async onFailureToFetchSupergraphSdlAfterInit() {
+          hasFired = true;
+          return schemaText;
+        },
+      });
+      // Set pollIntervalMs lower than the typically allowed value so we don't wait 10s between polling
+      uplinkManager['pollIntervalMs'] = 0;
+
       gateway = new ApolloGateway({
         logger,
-        supergraphSdl: new UplinkSupergraphManager({
-          apiKey,
-          graphRef,
-          logger,
-          maxRetries: 0,
-          async onFailureToFetchSupergraphSdlAfterInit() {
-            hasFired = true;
-            return schemaText;
-          },
-        }),
+        supergraphSdl: uplinkManager,
       });
 
       await expect(gateway.load()).resolves.not.toThrow();
       expect(hasFired).toBeFalsy();
 
-      const uplinkManager =
-        gateway.supergraphManager as UplinkSupergraphManager;
       await uplinkManager.nextFetch();
 
       expect(hasFired).toBeTruthy();
