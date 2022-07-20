@@ -49,7 +49,10 @@ const logger = {
 
 describe('minimal gateway', () => {
   it('uses managed federation', async () => {
-    cleanUp = mockedEnv({ APOLLO_KEY: apiKey });
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
     mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
 
     gateway = new ApolloGateway({ logger });
@@ -62,7 +65,10 @@ describe('minimal gateway', () => {
   });
 
   it('fetches from provided `uplinkEndpoints`', async () => {
-    cleanUp = mockedEnv({ APOLLO_KEY: apiKey });
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
 
     const uplinkEndpoint = 'https://example.com';
     mockSupergraphSdlRequestSuccess({ url: uplinkEndpoint });
@@ -79,7 +85,10 @@ describe('minimal gateway', () => {
   });
 
   it('fetches from (deprecated) provided `schemaConfigDeliveryEndpoint`', async () => {
-    cleanUp = mockedEnv({ APOLLO_KEY: apiKey });});
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
 
     const schemaConfigDeliveryEndpoint = 'https://example.com';
     mockSupergraphSdlRequestSuccess({ url: schemaConfigDeliveryEndpoint });
@@ -103,7 +112,10 @@ describe('minimal gateway', () => {
     //   return fetcher(...args);
     // },
 
-    cleanUp = mockedEnv({ APOLLO_KEY: apiKey });
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
 
     const schemaConfigDeliveryEndpoint = 'https://example.com';
     mockSupergraphSdlRequestSuccess({ url: schemaConfigDeliveryEndpoint });
@@ -120,6 +132,7 @@ describe('minimal gateway', () => {
       schemaConfigDeliveryEndpoint,
     ]);
   });
+});
 
 describe('Managed gateway with explicit UplinkSupergraphManager', () => {
   it('waits for supergraph schema to load', async () => {
