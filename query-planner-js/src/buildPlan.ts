@@ -1077,13 +1077,18 @@ class DeferTracking {
   clone(): DeferTracking {
     const cloned = new DeferTracking(this.primarySelection?.parentType);
     this.topLevelDeferred.forEach((label) => cloned.topLevelDeferred.add(label));
+    if (this.primarySelection) {
+      cloned.primarySelection?.mergeIn(this.primarySelection.clone());
+    }
     for (const deferredBlock of this.deferred.values()) {
-      cloned.deferred.set(deferredBlock.label, new DeferredInfo(
+      const clonedInfo = new DeferredInfo(
         deferredBlock.label,
         deferredBlock.responsePath,
         deferredBlock.parentType,
         new Set(deferredBlock.deferred),
-      ));
+      );
+      clonedInfo.subselection.mergeIn(deferredBlock.subselection.clone());
+      cloned.deferred.set(deferredBlock.label, clonedInfo);
     }
     return cloned;
   }

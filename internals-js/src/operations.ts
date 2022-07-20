@@ -180,28 +180,32 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
     const selectionParent = selectionSet.parentType;
     const fieldParent = this.definition.parent;
-    if (selectionParent.name !== fieldParent.name) {
-      if (this.name === typenameFieldName) {
-        return this.withUpdatedDefinition(selectionParent.typenameField()!);
-      }
+    if (selectionParent === fieldParent) {
+      return this;
+    }
 
-      // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
-      // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
-      // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
-      // the supergraph interface, even if it does in the subgraph).
-      validate(
+    if (this.name === typenameFieldName) {
+      return this.withUpdatedDefinition(selectionParent.typenameField()!);
+    }
+
+    // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
+    // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
+    // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
+    // the supergraph interface, even if it does in the subgraph).
+    validate(
+      selectionParent.name == fieldParent.name
+      || (
         !isUnionType(selectionParent)
         && (
           (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name))
           || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
-        ),
-        () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
-      );
-      const fieldDef = selectionParent.field(this.name);
-      validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent} (that does not declare that type)"`);
-      return this.withUpdatedDefinition(fieldDef);
-    }
-    return this;
+        )
+      ),
+      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
+    );
+    const fieldDef = selectionParent.field(this.name);
+    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}" (that does not declare that field)`);
+    return this.withUpdatedDefinition(fieldDef);
   }
 
   hasDefer(): boolean {
@@ -260,8 +264,15 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return this.sourceType;
   }
 
+  castedType(): CompositeType {
+    return this.typeCondition ? this.typeCondition : this.sourceType;
+  }
+
   withUpdatedSourceType(newSourceType: CompositeType): FragmentElement {
-    const newFragment = new FragmentElement(newSourceType, this.typeCondition);
+    // Note that we pass the type-condition name instead of the type itself, to ensure that if `newSourceType` was from a different
+    // schema (typically, the supergraph) than `this.sourceType` (typically, a subgraph), then the new condition uses the
+    // definition of the proper schema (the supergraph in such cases, instead of the subgraph).
+    const newFragment = new FragmentElement(newSourceType, this.typeCondition?.name);
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
@@ -1554,9 +1565,26 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
     const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    return this.element() === updatedFragment
-      ? this.cloneIfFrozen()
-      : new InlineFragmentSelection(updatedFragment, this.selectionSet.cloneIfFrozen());
+    if (this.element() === updatedFragment) {
+      return this.cloneIfFrozen();
+    }
+
+    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
+    // the underlying selection set uses the updated type as parent type.
+    const updatedCastedType = updatedFragment.castedType();
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet.parentType !== updatedCastedType) {
+      updatedSelectionSet = new SelectionSet(updatedCastedType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
   }
 
   filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {

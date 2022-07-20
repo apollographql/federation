@@ -291,6 +291,32 @@ export const executableDirectiveLocations: DirectiveLocation[] = [
   DirectiveLocation.VARIABLE_DEFINITION,
 ];
 
+const executableDirectiveLocationsSet = new Set(executableDirectiveLocations);
+
+export function isExecutableDirectiveLocation(loc: DirectiveLocation): boolean {
+  return executableDirectiveLocationsSet.has(loc);
+}
+
+export const typeSystemDirectiveLocations: DirectiveLocation[] = [
+  DirectiveLocation.SCHEMA,
+  DirectiveLocation.SCALAR,
+  DirectiveLocation.OBJECT,
+  DirectiveLocation.FIELD_DEFINITION,
+  DirectiveLocation.ARGUMENT_DEFINITION,
+  DirectiveLocation.INTERFACE,
+  DirectiveLocation.UNION,
+  DirectiveLocation.ENUM,
+  DirectiveLocation.ENUM_VALUE,
+  DirectiveLocation.INPUT_OBJECT,
+  DirectiveLocation.INPUT_FIELD_DEFINITION,
+];
+
+const typeSystemDirectiveLocationsSet = new Set(typeSystemDirectiveLocations);
+
+export function isTypeSystemDirectiveLocation(loc: DirectiveLocation): boolean {
+  return typeSystemDirectiveLocationsSet.has(loc);
+}
+
 /**
  * Converts a type to an AST of a "reference" to that type, one corresponding to the type `toString()` (and thus never a type definition).
  *
@@ -2825,6 +2851,9 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return this.addLocations(...Object.values(DirectiveLocation));
   }
 
+  /**
+  * Adds the subset of type system locations that correspond to type definitions.
+  */
   addAllTypeLocations(): DirectiveDefinition {
     return this.addLocations(
       DirectiveLocation.SCALAR,
@@ -2849,6 +2878,14 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
       this.onModification();
     }
     return this;
+  }
+
+  hasExecutableLocations(): boolean {
+    return this.locations.some((loc) => isExecutableDirectiveLocation(loc));
+  }
+
+  hasTypeSystemLocations(): boolean {
+    return this.locations.some((loc) => isTypeSystemDirectiveLocation(loc));
   }
 
   applications(): readonly Directive<SchemaElement<any, any>, TApplicationArgs>[] {
@@ -3355,6 +3392,34 @@ function *directivesToCopy(source: Schema, dest: Schema): Generator<DirectiveDef
   yield* source.directives();
 }
 
+/**
+ * Creates, in the provided schema, a directive definition equivalent to the provided one.
+ *
+ * Note that this method assumes that:
+ *  - the provided schema does not already have a directive with the name of the definition to copy.
+ *  - if the copied definition has arguments, then the provided schema has existing types with
+ *    names matching any type used in copied definition.
+ */
+export function copyDirectiveDefinitionToSchema({
+  definition,
+  schema,
+  copyDirectiveApplicationsInArguments = true,
+  locationFilter,
+}: {
+  definition: DirectiveDefinition,
+  schema: Schema,
+  copyDirectiveApplicationsInArguments: boolean,
+  locationFilter?: (loc: DirectiveLocation) => boolean,
+}
+) {
+  copyDirectiveDefinitionInner(
+    definition,
+    schema.addDirectiveDefinition(definition.name),
+    copyDirectiveApplicationsInArguments,
+    locationFilter,
+  );
+}
+
 function copy(source: Schema, dest: Schema) {
   // We shallow copy types first so any future reference to any of them can be dereferenced.
   for (const type of typesToCopy(source, dest)) {
@@ -3507,22 +3572,41 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
   }
 }
 
-function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(source: ArgumentDefinition<P>, dest: ArgumentDefinition<P>) {
+function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(
+  source: ArgumentDefinition<P>,
+  dest: ArgumentDefinition<P>,
+  copyDirectiveApplications: boolean = true,
+) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
-  copyAppliedDirectives(source, dest);
+  if (copyDirectiveApplications) {
+    copyAppliedDirectives(source, dest);
+  }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
-function copyDirectiveDefinitionInner(source: DirectiveDefinition, dest: DirectiveDefinition) {
+function copyDirectiveDefinitionInner(
+  source: DirectiveDefinition,
+  dest: DirectiveDefinition,
+  copyDirectiveApplicationsInArguments: boolean = true,
+  locationFilter?: (loc: DirectiveLocation) => boolean,
+) {
+  let locations = source.locations;
+  if (locationFilter) {
+    locations = locations.filter((loc) => locationFilter(loc));
+  }
+  if (locations.length === 0) {
+    return;
+  }
+
   for (const arg of source.arguments()) {
     const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
-    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType));
+    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType), copyDirectiveApplicationsInArguments);
   }
   dest.repeatable = source.repeatable;
-  dest.addLocations(...source.locations);
+  dest.addLocations(...locations);
   dest.sourceAST = source.sourceAST;
   dest.description = source.description;
 }

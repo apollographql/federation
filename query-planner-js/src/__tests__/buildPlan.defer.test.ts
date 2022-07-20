@@ -2662,3 +2662,115 @@ describe('defer with conditions', () => {
     `);
   });
 });
+
+test('defer when some interface has different definitions in different subgraphs', () => {
+  // This test exists to ensure an early bug is fixed: that but was in the code building
+  // the `subselection` of `DeferNode` in the plan, and was such that those subselections
+  // were created with links to subgraph types instead the supergraph ones. As a result,
+  // we were sometimes trying to add a field (`b` in the example here) to version of a
+  // type that didn't had that field (the definition of `I` in Subgraph1 here), hence
+  // running into an assertion error.
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        i: I
+      }
+
+      interface I {
+        a: Int
+        c: Int
+      }
+
+      type T implements I @key(fields: "id") {
+        id: ID!
+        a: Int
+        c: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      interface I {
+        b: Int
+      }
+
+      type T implements I @key(fields: "id") {
+        id: ID!
+        a: Int @external
+        b: Int @requires(fields: "a")
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    query Dimensions {
+      i {
+        a
+        b
+        ... @defer {
+          c
+        }
+      }
+    }
+  `);
+
+  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            i {
+              a
+              ... on T {
+                b
+              }
+            }
+          }:
+          Sequence {
+            Fetch(service: "Subgraph1") {
+              {
+                i {
+                  __typename
+                  a
+                  ... on T {
+                    __typename
+                    id
+                    a
+                  }
+                  c
+                }
+              }
+            },
+            Flatten(path: "i") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                    a
+                  }
+                } =>
+                {
+                  ... on T {
+                    b
+                  }
+                }
+              },
+            },
+          }
+        }, [
+          Deferred(depends: [], path: "i") {
+            {
+              c
+            }:
+          },
+        ]
+      },
+    }
+  `);
+});

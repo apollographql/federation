@@ -1,11 +1,13 @@
 import {
   baseType,
   CompositeType,
+  copyDirectiveDefinitionToSchema,
   Directive,
   FieldDefinition,
   InputFieldDefinition,
   InputObjectType,
   InterfaceType,
+  isExecutableDirectiveLocation,
   isEnumType,
   isInterfaceType,
   isObjectType,
@@ -234,6 +236,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
       }
     }
 
+    const allExecutableDirectives = supergraph.directives().filter((def) => def.hasExecutableLocations());
     for (const subgraph of subgraphs) {
       if (isFed1) {
         // The join spec in fed1 was not including external fields. Let's make sure we had them or we'll get validation
@@ -265,6 +268,23 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
             }
             break;
         }
+      }
+
+      // Lastly, we add all the "executable" directives from the supergraph to each subgraphs, as those may be part
+      // of a query and end up in any subgraph fetches. We do this "last" to make sure that if one of the directive
+      // use a type for an argument, that argument exists.
+      // Note that we don't bother with non-executable directives at the moment since we've don't extract their
+      // applications. It might become something we need later, but we don't so far.
+      for (const definition of allExecutableDirectives) {
+        // Note that we skip any potentially applied directives in the argument of the copied definition, because as said
+        // in the comment above, we haven't copied type-system directives. And so far, we really don't care about those
+        // applications.
+        copyDirectiveDefinitionToSchema({
+          definition,
+          schema: subgraph.schema,
+          copyDirectiveApplicationsInArguments: false,
+          locationFilter: (loc) => isExecutableDirectiveLocation(loc),
+        });
       }
     }
 
