@@ -360,6 +360,7 @@ export class ApolloGateway implements GraphQLService {
           uplinkEndpoints:
             this.config.uplinkEndpoints ?? schemaDeliveryEndpoints,
           maxRetries: this.config.uplinkMaxRetries,
+          fetcher: this.config.fetcher,
           logger: this.logger,
           fallbackPollIntervalInMs: this.pollIntervalInMs,
         }),
