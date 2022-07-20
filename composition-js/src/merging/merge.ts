@@ -75,6 +75,7 @@ import {
   HintCodeDefinition,
   HINTS,
 } from "../hints";
+import { ComposeDirectiveManager } from '../composeDirectiveManager';
 
 const linkSpec = LINK_VERSIONS.latest();
 type FieldOrUndefinedArray = (FieldDefinition<any> | undefined)[];
@@ -267,9 +268,15 @@ class Merger {
   readonly mergedFederationDirectiveNames = new Set<string>();
   readonly mergedFederationDirectiveInSupergraph = new Map<string, DirectiveDefinition>();
   readonly enumUsages = new Map<string, EnumTypeUsage>();
+  private composeDirectiveManager: ComposeDirectiveManager;
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
+    this.composeDirectiveManager = new ComposeDirectiveManager(
+      this.subgraphs,
+      (error: GraphQLError) => { this.errors.push(error) },
+      (hint: CompositionHint) => { this.hints.push(hint) },
+    );
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
   }
@@ -329,7 +336,7 @@ class Merger {
     return this.subgraphs.values()[idx].metadata();
   }
 
-  private isMergedDirective(definition: DirectiveDefinition | Directive): boolean {
+  private isMergedDirective(subgraphName: string, definition: DirectiveDefinition | Directive): boolean {
     // If it's a directive application, then we skip it unless it's a graphQL built-in
     // (even if the definition itself allows executable locations, this particular
     // application is an type-system element and we don't want to merge it).
@@ -345,10 +352,15 @@ class Merger {
       // don't need to be defined.
       return false;
     }
+    if (this.composeDirectiveManager.shouldComposeDirective({ subgraphName, directiveName: definition.name })) {
+      return true;
+    }
     return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
   }
 
   merge(): MergeResult {
+    this.composeDirectiveManager.validate();
+    this.addCoreFeatures();
     // We first create empty objects for all the types and directives definitions that will exists in the
     // supergraph. This allow to be able to reference those from that point on.
     this.addTypesShallow();
@@ -466,21 +478,31 @@ class Merger {
     mismatchedTypes.forEach(t => this.reportMismatchedTypeDefinitions(t));
   }
 
+  private addCoreFeatures() {
+    const features = this.composeDirectiveManager.allComposedCoreFeatures();
+    for (const [feature, directives] of features) {
+      this.merged.schemaDefinition.applyDirective('link', {
+        url: feature.url.toString(),
+        import: directives.map(d => `@${d}`),
+      });
+    }
+  }
+
   private addDirectivesShallow() {
     // Like for types, we initially add all the directives that are defined in any subgraph.
     // However, in practice and for "execution" directives, we will only keep the the ones
     // that are in _all_ subgraphs. But we're do the remove later, and while this is all a
     // bit round-about, it's a tad simpler code-wise to do this way.
-    for (const subgraph of this.subgraphsSchema) {
+    this.subgraphsSchema.forEach((subgraph, idx) => {
       for (const directive of subgraph.allDirectives()) {
-        if (!this.isMergedDirective(directive)) {
+        if (!this.isMergedDirective(this.names[idx], directive)) {
           continue;
         }
         if (!this.merged.directive(directive.name)) {
           this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
         }
       }
-    }
+    });
   }
 
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
@@ -934,7 +956,7 @@ class Merger {
         // Note that if we change our mind on this semantic and wanted directives on external to propagate, then we'll also
         // need to update the merging of fields since external fields are filtered out (by this very method).
         for (const directive of source.appliedDirectives) {
-          if (this.isMergedDirective(directive)) {
+          if (this.isMergedDirective(source.name, directive)) {
             // Contrarily to most of the errors during merging that "merge" errors for related elements, we're logging one
             // error for every application here. But this is because there error is somewhat subgraph specific and is
             // unlikely to span multiple subgraphs. In fact, we could almost have thrown this error during subgraph validation
@@ -1817,8 +1839,9 @@ class Merger {
     //   Which we can only guarantee if all the subgraphs know the directive, and that the directive
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
-    this.mergeDescription(sources, dest);
-    if (sources.some((s) => s && this.isMergedDirective(s))) {
+    if (this.composeDirectiveManager.directiveExistsInSupergraph(dest.name)) {
+      this.mergeCustomCoreDirective(dest);
+    } else if (sources.some((s, idx) => s && this.isMergedDirective(this.names[idx], s))) {
       this.mergeExecutableDirectiveDefinition(sources, dest);
     }
   }
@@ -1891,6 +1914,21 @@ class Merger {
   //    );
   //  }
   //}
+
+  private mergeCustomCoreDirective(dest: DirectiveDefinition) {
+    const def = this.composeDirectiveManager.getLatestDirectiveDefinition(dest.name);
+    if (def) {
+      dest.repeatable = def.repeatable;
+      dest.description = def.description;
+      dest.addLocations(...def.locations);
+      this.addArgumentsShallow([def], dest);
+      for (const arg of def.arguments()) {
+        const destArg = dest.argument(arg.name);
+        assert(destArg, 'argument must exist on destination directive');
+        this.mergeArgument([arg], destArg);
+      }
+    }
+  }
 
   private mergeExecutableDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     let repeatable: boolean | undefined = undefined;
@@ -2004,15 +2042,15 @@ class Merger {
 
   private gatherAppliedDirectiveNames(sources: (SchemaElement<any, any> | undefined)[]): Set<string> {
     const names = new Set<string>();
-    for (const source of sources) {
+    sources.forEach((source, idx) => {
       if (source) {
         for (const directive of source.appliedDirectives) {
-          if (this.isMergedDirective(directive)) {
+          if (this.isMergedDirective(this.names[idx], directive)) {
             names.add(directive.name);
           }
         }
       }
-    }
+    });
     return names;
   }
 
@@ -2051,7 +2089,7 @@ class Merger {
       // When non-repeatable, we use a similar strategy than for descriptions: we count the occurence of each _different_ application (different arguments)
       // and if there is more than one option (that is, if not all subgraph have the same application), we use in the supergraph whichever application appeared
       // in the most subgraph and warn that we have had to ignore some other applications (of course, if the directive has no arguments, this is moot and
-      // we'll never warn, but this is handled by the general code below. 
+      // we'll never warn, but this is handled by the general code below.
       const differentApplications: Directive[] = [];
       const counts: number[] = [];
       for (const source of perSource) {

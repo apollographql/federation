@@ -561,6 +561,8 @@ describe('@core/@link handling', () => {
 
     directive @federation__override(from: String!) on FIELD_DEFINITION
 
+    directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
     type T
       @key(fields: "k")
     {

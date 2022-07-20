@@ -76,6 +76,7 @@ import {
   extendsDirectiveSpec,
   shareableDirectiveSpec,
   overrideDirectiveSpec,
+  composeDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
   ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
   FEDERATION2_ONLY_SPEC_DIRECTIVES,
@@ -589,6 +590,10 @@ export class FederationMetadata {
     return this.getFederationDirective(tagSpec.tagDirectiveSpec.name);
   }
 
+  composeDirective(): DirectiveDefinition<{name: string}> {
+    return this.getFederationDirective(composeDirectiveSpec.name);
+  }
+
   inaccessibleDirective(): DirectiveDefinition<{}> {
     return this.getFederationDirective(
       inaccessibleSpec.inaccessibleDirectiveSpec.name
@@ -605,7 +610,7 @@ export class FederationMetadata {
       this.extendsDirective(),
     ];
     return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective())
+      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective(), this.composeDirective())
       : baseDirectives;
   }
 
@@ -917,7 +922,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])';
+export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {

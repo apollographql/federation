@@ -175,6 +175,12 @@ const INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
   description: 'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
 });
 
+const CORE_DIRECTIVE_MERGE_INFO = makeCodeDefinition({
+  code: 'CORE_DIRECTIVE_MERGE_INFO',
+  level: HintLevel.WARN,
+  description: 'Core directive usage may create an error if it is merged',
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -199,6 +205,7 @@ export const HINTS = {
   OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
   UNUSED_ENUM_TYPE,
   INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
+  CORE_DIRECTIVE_MERGE_INFO,
 }
 
 export class CompositionHint {

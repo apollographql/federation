@@ -449,6 +449,12 @@ const DOWNSTREAM_SERVICE_ERROR = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const CORE_DIRECTIVE_MERGE_ERROR = makeCodeDefinition(
+  'CORE_DIRECTIVE_MERGE_ERROR',
+  'Error when merging core directives',
+  { addedIn: '2.1.0' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -526,6 +532,7 @@ export const ERRORS = {
   UNSUPPORTED_FEATURE,
   INVALID_FEDERATION_SUPERGRAPH,
   DOWNSTREAM_SERVICE_ERROR,
+  CORE_DIRECTIVE_MERGE_ERROR,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});
