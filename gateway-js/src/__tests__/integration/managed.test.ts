@@ -1,4 +1,5 @@
 import mockedEnv from 'mocked-env';
+import fetcher from 'make-fetch-happen';
 
 import { ApolloGateway, UplinkSupergraphManager } from '@apollo/gateway';
 import { ApolloServer } from 'apollo-server';
@@ -104,6 +105,30 @@ describe('minimal gateway', () => {
     expect(uplinkManager.uplinkEndpoints).toEqual([
       schemaConfigDeliveryEndpoint,
     ]);
+  });
+
+  it('supports a custom fetcher', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_KEY: apiKey,
+      APOLLO_GRAPH_REF: graphRef,
+    });
+    mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
+
+    let calls = 0;
+    gateway = new ApolloGateway({
+      logger,
+      fetcher: (...args) => {
+        calls++;
+        return fetcher(...args);
+      },
+    });
+    server = new ApolloServer({
+      gateway,
+      plugins: [ApolloServerPluginUsageReportingDisabled()],
+    });
+    await server.listen({ port: 0 });
+
+    expect(calls).toEqual(1);
   });
 });
 

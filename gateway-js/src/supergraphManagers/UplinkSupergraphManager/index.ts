@@ -87,6 +87,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     fallbackPollIntervalInMs,
     maxRetries,
     initialMaxRetries,
+    fetcher,
     shouldRunSubgraphHealthcheck,
     onFailureToFetchSupergraphSdlDuringInit,
     onFailureToFetchSupergraphSdlAfterInit,
@@ -99,6 +100,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     fallbackPollIntervalInMs?: number;
     maxRetries?: number;
     initialMaxRetries?: number;
+    fetcher?: AbortableFetcher;
     shouldRunSubgraphHealthcheck?: boolean;
     onFailureToFetchSupergraphSdlDuringInit?: FailureToFetchSupergraphSdlDuringInit;
     onFailureToFetchSupergraphSdlAfterInit?: FailureToFetchSupergraphSdlAfterInit;
@@ -121,6 +123,8 @@ export class UplinkSupergraphManager implements SupergraphManager {
       );
       this.pollIntervalMs = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
     }
+
+    this.fetcher = fetcher ?? this.fetcher;
 
     this.shouldRunSubgraphHealthcheck =
       shouldRunSubgraphHealthcheck ?? this.shouldRunSubgraphHealthcheck;
