@@ -43,6 +43,7 @@ import {
   conditionalDirectivesInOperationPath,
   MultiMap,
   ERRORS,
+  NamedFragmentDefinition,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1540,8 +1541,20 @@ export function computeQueryPlan(queryPlannerConfig: QueryPlannerConfig, supergr
       { nodes: [parse(operation.toString())] },
     );
   }
-  // We expand all fragments. This might merge a number of common branches and save us
-  // some work, and we're going to expand everything during the algorithm anyway.
+
+  const reuseQueryFragments = queryPlannerConfig.reuseQueryFragments ?? true;
+  let fragments = operation.selectionSet.fragments
+  if (fragments && reuseQueryFragments) {
+    // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
+    // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
+    fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments)
+  } else {
+    fragments = undefined;
+  }
+
+  // We expand all fragments. This might merge a number of common branches and save us some work, and we're
+  // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
+  // later if possible (which is why we saved them above before expansion).
   operation = operation.expandAllFragments();
   operation = withoutIntrospection(operation);
 
@@ -1553,7 +1566,7 @@ export function computeQueryPlan(queryPlannerConfig: QueryPlannerConfig, supergr
 
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
-  const processor = fetchGroupToPlanProcessor(queryPlannerConfig, operation.variableDefinitions, operation.selectionSet.fragments, operation.name);
+  const processor = fetchGroupToPlanProcessor(queryPlannerConfig, operation.variableDefinitions, fragments, operation.name);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
@@ -1757,6 +1770,100 @@ function addToResponsePath(path: ResponsePath, responseName: string, type: Type)
     type = type.ofType;
   }
   return path;
+}
+
+function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragments): NamedFragments {
+  // This method is a bit tricky due to potentially nested fragments. More precisely, suppose that
+  // we have:
+  //   fragment MyFragment on T {
+  //     a {
+  //       b {
+  //         ...InnerB
+  //       }
+  //     }
+  //   }
+  //
+  //   fragment InnerB on B {
+  //     __typename
+  //     x
+  //     y
+  //   }
+  // then if we were to "naively" add `__typename`, the first fragment would end up being:
+  //   fragment MyFragment on T {
+  //     a {
+  //       __typename
+  //       b {
+  //         __typename
+  //         ...InnerX
+  //       }
+  //     }
+  //   }
+  // but that's not ideal because the inner-most `__typename` is already within `InnerX`. And that 
+  // gets in the way to re-adding fragments (the `SelectionSet.optimize` method) because if we start
+  // with:
+  //   {
+  //     a {
+  //       __typename
+  //       b {
+  //         __typename
+  //         x
+  //         y
+  //       }
+  //     }
+  //   }
+  // and add `InnerB` first, we get:
+  //   {
+  //     a {
+  //       __typename
+  //       b {
+  //         ...InnerB
+  //       }
+  //     }
+  //   }
+  // and it becomes tricky to recognize the "updated-with-typename" version of `MyFragment` now (we "seem"
+  // to miss a `__typename`).
+  //
+  // Anyway, to avoid this issue, what we do is that for every fragment, we:
+  //  1. expand any nested fragments in its selection.
+  //  2. add `__typename` where we should in that expanded selection.
+  //  3. re-optimize all fragments (using the "updated-with-typename" versions).
+  // which ends up getting us what we need. However, doing so requires us to deal with fragments in order
+  // of dependencies (first the ones with no nested fragments, then the one with only nested fragments of
+  // that first group, etc...), and that's why this method is a bit longer that one could have expected.
+  type FragmentInfo = {
+    original: NamedFragmentDefinition,
+    expandedSelectionSet: SelectionSet,
+    dependentsOn: string[],
+  };
+  const fragmentsMap = new Map<string, FragmentInfo>();
+
+  for (const fragment of fragments.definitions()) {
+    const expandedSelectionSet = fragment.selectionSet.expandFragments();
+    addTypenameFieldForAbstractTypes(expandedSelectionSet);
+    const otherFragmentsUsages = new Map<string, number>();
+    fragment.collectUsedFragmentNames(otherFragmentsUsages);
+    fragmentsMap.set(fragment.name, {
+      original: fragment,
+      expandedSelectionSet,
+      dependentsOn: Array.from(otherFragmentsUsages.keys()),
+    });
+  }
+
+  const optimizedFragments = new NamedFragments();
+  while (fragmentsMap.size > 0) {
+    for (const [name, info] of fragmentsMap) {
+      // Note that graphQL specifies that named fragments cannot have cycles (https://spec.graphql.org/draft/#sec-Fragment-spreads-must-not-form-cycles)
+      // and so we guaranteed that on every ieration, at least element of the map is removed and thus that the
+      // overall `while` loops terminate.
+      if (info.dependentsOn.every((n) => optimizedFragments.has(n))) {
+        const reoptimizedSelectionSet = info.expandedSelectionSet.optimize(optimizedFragments);
+        optimizedFragments.add(info.original.withUpdatedSelectionSet(reoptimizedSelectionSet));
+        fragmentsMap.delete(name);
+      }
+    }
+  }
+
+  return optimizedFragments;
 }
 
 function addSelectionOrSelectionSet(selectionSet: SelectionSet, toAdd: Selection | SelectionSet) {
