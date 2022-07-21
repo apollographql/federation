@@ -446,7 +446,7 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
         'CORE_DIRECTIVE_MERGE_ERROR',
-        'Could not find matching directive definition for argument to @composeDirective "@fooz" in subgraph "subgraphA" must have a leading "@". Did you mean "@foo"?',
+        'Could not find matching directive definition for argument to @composeDirective "@fooz" in subgraph "subgraphA". Did you mean "@foo"?',
       ]
     ]);
   });
@@ -467,7 +467,7 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
         'CORE_DIRECTIVE_MERGE_ERROR',
-        'Could not find matching directive definition for argument to @composeDirective "@barz" in subgraph "subgraphA" must have a leading "@". Did you mean "@bar" or "@tag"?',
+        'Could not find matching directive definition for argument to @composeDirective "@barz" in subgraph "subgraphA". Did you mean "@bar" or "@tag"?',
       ]
     ]);
   });

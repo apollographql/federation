@@ -1,14 +1,6 @@
-import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList } from '@apollo/federation-internals';
+import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap } from '@apollo/federation-internals';
 import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
-
-const setItemOnObject = <T>(key: string, t: T, obj: { [key: string]: T[]}) => {
-  if (key in obj) {
-    obj[key].push(t);
-  } else {
-    obj[key] = [t];
-  }
-};
 
 const originalDirectiveName = (directive: DirectiveDefinition, feature: CoreFeature): string => {
   for (const imp of feature.imports) {
@@ -172,16 +164,9 @@ export class ComposeDirectiveManager {
       directiveNameAs: string,
     };
 
-    const itemsBySubgraph: { [name: string]: MergeDirectiveItem[] } = {};
-    const itemsByFeature: { [identity: string]: MergeDirectiveItem[] } = {};
-    const itemsByDirectiveName: { [name: string]: MergeDirectiveItem[] } = {};
-    const itemsByOrigDirectiveName: { [name: string]: MergeDirectiveItem[] } = {};
-
-    // We want all features to be present so that we can hint on major version mismatch
-    // even if they aren't composed
-    for (const identity of this.allCoreFeaturesUsedBySubgraphs()) {
-      itemsByFeature[identity] = [];
-    }
+    const itemsBySubgraph = new MultiMap<string, MergeDirectiveItem>();
+    const itemsByDirectiveName = new MultiMap<string, MergeDirectiveItem>();
+    const itemsByOrigDirectiveName = new MultiMap<string, MergeDirectiveItem>();
 
     // iterate over subgraphs
     for (const sg of this.subgraphs) {
@@ -223,10 +208,9 @@ export class ComposeDirectiveManager {
                 directiveNameAs: name,
               };
 
-              setItemOnObject(identity, item, itemsByFeature);
-              setItemOnObject(sg.name, item, itemsBySubgraph);
-              setItemOnObject(name, item, itemsByDirectiveName);
-              setItemOnObject(item.directiveName, item, itemsByOrigDirectiveName);
+              itemsBySubgraph.add(sg.name, item);
+              itemsByDirectiveName.add(name, item);
+              itemsByOrigDirectiveName.add(item.directiveName, item);
             }
           } else {
             this.pushHint(new CompositionHint(
@@ -241,7 +225,7 @@ export class ComposeDirectiveManager {
         } else {
           const words = suggestionList(`@${name}`, sg.schema.directives().map(d => `@${d.name}`));
           this.pushError(ERRORS.CORE_DIRECTIVE_MERGE_ERROR.err(
-            `Could not find matching directive definition for argument to @composeDirective "@${name}" in subgraph "${sg.name}" must have a leading "@".${didYouMean(words)}`,
+            `Could not find matching directive definition for argument to @composeDirective "@${name}" in subgraph "${sg.name}".${didYouMean(words)}`,
             { nodes: composeInstance.sourceAST },
           ));
         }
@@ -249,11 +233,11 @@ export class ComposeDirectiveManager {
     }
 
     // for each feature, determine if the versions are compatible
-    for (const [identity] of Object.entries(itemsByFeature)) {
+    for (const identity of this.allCoreFeaturesUsedBySubgraphs()) {
       // for the feature, find all subgraphs for which the feature has a directive composed
       const subgraphsUsed = this.subgraphs.values()
         .map(sg => {
-          const items = itemsBySubgraph[sg.name];
+          const items = itemsBySubgraph.get(sg.name);
           if (items && items.find(item => item.feature.url.identity === identity)) {
             return sg.name;
           }
@@ -270,7 +254,7 @@ export class ComposeDirectiveManager {
     }
 
     // ensure that the specified directive is the same in all subgraphs
-    for (const [name, items] of Object.entries(itemsByDirectiveName)) {
+    for (const [name, items] of itemsByDirectiveName.entries()) {
       if (!allEqual(items.map(item => item.directiveName))) {
         wontMergeDirectiveNames.add(name);
         console.log('directive is not named the same in all subgraphs');
@@ -284,7 +268,7 @@ export class ComposeDirectiveManager {
     }
 
     // ensure that directive is exported with the same name in all subgraphs
-    for (const [name, items] of Object.entries(itemsByOrigDirectiveName)) {
+    for (const [name, items] of itemsByOrigDirectiveName.entries()) {
       if (!allEqual(items.map(item => item.directiveNameAs))) {
         for (const item of items) {
           wontMergeDirectiveNames.add(item.directiveNameAs);
@@ -298,7 +282,7 @@ export class ComposeDirectiveManager {
     }
 
     // now for anything that wasn't in the blacklist, add it to the map
-    for (const [subgraph, items] of Object.entries(itemsBySubgraph)) {
+    for (const [subgraph, items] of itemsBySubgraph.entries()) {
       const directivesForSubgraph = new Set<string>();
       for (const item of items) {
         if (!wontMergeFeatures.has(item.feature.url.identity) && !wontMergeDirectiveNames.has(item.directiveNameAs)) {
