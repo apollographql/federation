@@ -418,7 +418,7 @@ type User @key(fields: "id") {
 directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 ```
 
-The `@inaccessible` directive is used to indicate that a location within the schema is inaccessible. Inaccessible types and fields are available internally but are not exposed publically.
+The `@inaccessible` directive is used to indicate that a location within the schema is inaccessible. Inaccessible types and fields are available internally but are not exposed publically. The @inaccessible directive is helpful for adding a new field to a shared value type. Often when you add a value type field in one subgraph, composition fails because that field isn't resolvable in other subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the @inaccessible directive and begin using the field.
 
 ```graphql
 extend schema
