@@ -200,7 +200,7 @@ export function printTypeDefinitionAndExtensions(type: NamedType, options: Print
   }
 }
 
-export function printDirectiveDefinition(directive: DirectiveDefinition, options: PrintOptions): string {
+export function printDirectiveDefinition(directive: DirectiveDefinition, options: PrintOptions = defaultPrintOptions): string {
   const locations = directive.locations.join(' | ');
   return `${printDescription(directive, options, null)}directive ${directive}${printArgs(directive.arguments(), options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
