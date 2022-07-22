@@ -1,3 +1,4 @@
+import { FEDERATION2_LINK_WTH_FULL_IMPORTS } from '@apollo/federation-internals';
 import { DirectiveLocation } from 'graphql';
 import gql from 'graphql-tag';
 import { composeServices, CompositionResult } from '../compose';
@@ -20,7 +21,7 @@ const generateSubgraph = ({
     name: name,
     typeDefs: gql`
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])
+      ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
       @link(url: "https://specs.apollo.dev/link/v1.0")
       ${linkText}
       ${composeText}
@@ -87,7 +88,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([]);
     expect(hints(result)).toStrictEqual([
-      ['CORE_DIRECTIVE_MERGE_INFO', 'Non-composed core feature "https://specs.apollo.dev/foo" has major version mismatch'],
+      ['DIRECTIVE_COMPOSITION_INFO', 'Non-composed core feature "https://specs.apollo.dev/foo" has major version mismatch across subgraphs'],
     ]);
   });
 
@@ -120,7 +121,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB, subgraphC, subgraphD]);
     expect(errors(result)).toStrictEqual([]);
     expect(hints(result)).toStrictEqual([
-      ['CORE_DIRECTIVE_MERGE_INFO', 'Non-composed core feature "https://specs.apollo.dev/foo" has major version mismatch'],
+      ['DIRECTIVE_COMPOSITION_INFO', 'Non-composed core feature "https://specs.apollo.dev/foo" has major version mismatch across subgraphs'],
     ]);
   });
 
@@ -143,7 +144,32 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'CORE_DIRECTIVE_MERGE_ERROR',
+        'DIRECTIVE_COMPOSITION_ERROR',
+        'Core feature "https://specs.apollo.dev/foo" requested to be merged has major version mismatch across subgraphs',
+      ]
+    ]);
+  });
+
+  it('different major versions of core feature results in error if composed. Different directives', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v2.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_ERROR',
         'Core feature "https://specs.apollo.dev/foo" requested to be merged has major version mismatch across subgraphs',
       ]
     ]);
@@ -163,7 +189,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(hints(result)).toStrictEqual([
       [
-        'CORE_DIRECTIVE_MERGE_INFO',
+        'DIRECTIVE_COMPOSITION_INFO',
         `Directive "${directive}" should not be explicitly manually composed since its composition rules are done automatically by federation`,
       ]
     ])
@@ -284,7 +310,7 @@ describe('composing custom core directives', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(hints(result)).toStrictEqual([
-      ['CORE_DIRECTIVE_MERGE_INFO', 'Directive "@foo" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature'],
+      ['DIRECTIVE_COMPOSITION_INFO', 'Directive "@foo" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature'],
     ]);
     expect(result.schema).toBeDefined();
 
@@ -315,32 +341,11 @@ describe('composing custom core directives', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['CORE_DIRECTIVE_MERGE_ERROR', 'Composed directive "@foo" named inconsistently (subgraph, directiveName). ("subgraphA","@foo"),("subgraphB","@bar")'],
+      ['DIRECTIVE_COMPOSITION_ERROR', 'Composed directive "@foo" is imported with inconsistent naming (subgraph, directiveName). ("subgraphA","@foo"),("subgraphB","@bar")'],
     ]);
   });
 
-  it.skip('core directive named differently in different subgraphs results in hint if not composed', () => {
-    const subgraphA = generateSubgraph({
-      name: 'subgraphA',
-      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
-      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
-      usage: '@foo(name: "a")',
-    });
-    const subgraphB = generateSubgraph({
-      name: 'subgraphB',
-      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@foo", as: "@bar" }])',
-      directiveText: 'directive @bar(name: String!) on FIELD_DEFINITION',
-      usage: '@bar(name: "a")',
-    });
-
-    const result = composeServices([subgraphA, subgraphB]);
-    expect(errors(result)).toEqual([]);
-    expect(hints(result)).toStrictEqual([
-      ['CORE_DIRECTIVE_MERGE_INFO', 'Composed directive "@foo" named inconsistently (subgraph, directiveName). ("subgraphA","@foo"),("subgraphB","@bar")'],
-    ]);
-  });
-
-  it.skip('core directive named differently in different subgraphs results in hint if only one composed', () => {
+  it('core directive named differently in different subgraphs results in hint if only one composed', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
       linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
@@ -358,7 +363,53 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toEqual([]);
     expect(hints(result)).toStrictEqual([
-      ['CORE_DIRECTIVE_MERGE_INFO', 'Composed directive "@foo" named inconsistently (subgraph, directiveName). ("subgraphA","@foo"),("subgraphB","@bar")'],
+      ['DIRECTIVE_COMPOSITION_WARN', `Composed directive "@foo" is named differently in a subgraph that doesn't export it. Consistent naming will be required to export it.`],
+    ]);
+  });
+
+  it('composed directive must be linked to the same core feature', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/bar/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(hints(result)).toEqual([]);
+    expect(errors(result)).toStrictEqual([
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composed directive "@foo" is not linked by the same core feature in every subgraph`],
+    ]);
+  });
+
+  it('composed directive must be the same original directive in all subgraphs', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@bar", as: "@foo" }])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(hints(result)).toEqual([]);
+    expect(errors(result)).toStrictEqual([
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composed directive "@foo" does not refer to the same directive in every subgraph`],
     ]);
   });
 
@@ -403,7 +454,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'CORE_DIRECTIVE_MERGE_ERROR',
+        'DIRECTIVE_COMPOSITION_ERROR',
         '',
       ]
     ]);
@@ -424,7 +475,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'CORE_DIRECTIVE_MERGE_ERROR',
+        'DIRECTIVE_COMPOSITION_ERROR',
         'Argument to @composeDirective "foo" in subgraph "subgraphA" must have a leading "@"',
       ]
     ]);
@@ -445,7 +496,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'CORE_DIRECTIVE_MERGE_ERROR',
+        'DIRECTIVE_COMPOSITION_ERROR',
         'Could not find matching directive definition for argument to @composeDirective "@fooz" in subgraph "subgraphA". Did you mean "@foo"?',
       ]
     ]);
@@ -466,7 +517,7 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'CORE_DIRECTIVE_MERGE_ERROR',
+        'DIRECTIVE_COMPOSITION_ERROR',
         'Could not find matching directive definition for argument to @composeDirective "@barz" in subgraph "subgraphA". Did you mean "@bar" or "@tag"?',
       ]
     ]);
