@@ -864,138 +864,238 @@ test('multiple (non-nested) @defer + label handling', () => {
   `);
 });
 
-test('nested @defer', () => {
-  const subgraph1 = {
-    name: 'Subgraph1',
-    typeDefs: gql`
-      type Query {
-        me : User
-      }
 
-      type User @key(fields: "id") {
-        id: ID!
-        name: String
-      }
-    `
-  }
+describe('nested @defer', () => {
+  test('on entities', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          me : User
+        }
 
-  const subgraph2 = {
-    name: 'Subgraph2',
-    typeDefs: gql`
-      type User @key(fields: "id") {
-        id: ID!
-        messages: [Message]
-      }
+        type User @key(fields: "id") {
+          id: ID!
+          name: String
+        }
+      `
+    }
 
-      type Message @key(fields: "id") {
-        id: ID!
-        body: String
-        author: User
-      }
-    `
-  }
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type User @key(fields: "id") {
+          id: ID!
+          messages: [Message]
+        }
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      me {
-        name
-        ... on User @defer {
-          messages {
-            body
-            author {
-              name
-              ... @defer {
-                messages {
-                  body
+        type Message @key(fields: "id") {
+          id: ID!
+          body: String
+          author: User
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        me {
+          name
+          ... on User @defer {
+            messages {
+              body
+              author {
+                name
+                ... @defer {
+                  messages {
+                    body
+                  }
                 }
               }
             }
           }
         }
       }
-    }
-  `);
+    `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
-  expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Defer {
-        Primary {
-          {
-            me {
-              name
-            }
-          }:
-          Fetch(service: "Subgraph1", id: 0) {
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
             {
               me {
-                __typename
                 name
-                id
+              }
+            }:
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                me {
+                  __typename
+                  name
+                  id
+                }
               }
             }
-          }
-        }, [
-          Deferred(depends: [0], path: "me") {
-            Defer {
-              Primary {
-                {
-                  ... on User {
-                    messages {
-                      body
-                      author {
-                        name
-                      }
-                    }
-                  }
-                }:
-                Sequence {
-                  Flatten(path: "me") {
-                    Fetch(service: "Subgraph2", id: 1) {
-                      {
-                        ... on User {
-                          __typename
-                          id
-                        }
-                      } =>
-                      {
-                        ... on User {
-                          messages {
-                            body
-                            author {
-                              __typename
-                              id
-                            }
-                          }
-                        }
-                      }
-                    },
-                  },
-                  Flatten(path: "me.messages.@.author") {
-                    Fetch(service: "Subgraph1") {
-                      {
-                        ... on User {
-                          __typename
-                          id
-                        }
-                      } =>
-                      {
-                        ... on User {
+          }, [
+            Deferred(depends: [0], path: "me") {
+              Defer {
+                Primary {
+                  {
+                    ... on User {
+                      messages {
+                        body
+                        author {
                           name
                         }
                       }
-                    },
-                  },
-                }
-              }, [
-                Deferred(depends: [1], path: "me.messages.@.author") {
-                  {
-                    messages {
-                      body
                     }
                   }:
-                  Flatten(path: "me.messages.@.author") {
+                  Sequence {
+                    Flatten(path: "me") {
+                      Fetch(service: "Subgraph2", id: 1) {
+                        {
+                          ... on User {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on User {
+                            messages {
+                              body
+                              author {
+                                __typename
+                                id
+                              }
+                            }
+                          }
+                        }
+                      },
+                    },
+                    Flatten(path: "me.messages.@.author") {
+                      Fetch(service: "Subgraph1") {
+                        {
+                          ... on User {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on User {
+                            name
+                          }
+                        }
+                      },
+                    },
+                  }
+                }, [
+                  Deferred(depends: [1], path: "me.messages.@.author") {
+                    {
+                      messages {
+                        body
+                      }
+                    }:
+                    Flatten(path: "me.messages.@.author") {
+                      Fetch(service: "Subgraph2") {
+                        {
+                          ... on User {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on User {
+                            messages {
+                              body
+                            }
+                          }
+                        }
+                      },
+                    }
+                  },
+                ]
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('on value types', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          me : User
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          name: String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type User @key(fields: "id") {
+          id: ID!
+          messages: [Message]
+        }
+
+        type Message {
+          id: ID!
+          body: MessageBody
+        }
+
+        type MessageBody {
+          paragraphs: [String]
+          lines: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        me {
+          ... @defer {
+            messages {
+              ... @defer {
+                body {
+                  lines
+                }
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            :
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                me {
+                  __typename
+                  id
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "me") {
+              Defer {
+                Primary {
+                  :
+                  Flatten(path: "me") {
                     Fetch(service: "Subgraph2") {
                       {
                         ... on User {
@@ -1006,20 +1106,30 @@ test('nested @defer', () => {
                       {
                         ... on User {
                           messages {
-                            body
+                            body {
+                              lines
+                            }
                           }
                         }
                       }
                     },
                   }
-                },
-              ]
-            }
-          },
-        ]
-      },
-    }
-  `);
+                }, [
+                  Deferred(depends: [], path: "me.messages.@") {
+                    {
+                      body {
+                        lines
+                      }
+                    }:
+                  },
+                ]
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
 });
 
 describe('@defer on mutation', () => {
@@ -2774,3 +2884,4 @@ test('defer when some interface has different definitions in different subgraphs
     }
   `);
 });
+
