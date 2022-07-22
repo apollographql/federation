@@ -55,7 +55,7 @@
     "@types/js-levenshtein": "1.1.1",
     "@types/lodash.xorby": "4.7.7",
     "@types/loglevel": "1.5.4",
-    "@types/make-fetch-happen": "9.0.2",
+    "@types/make-fetch-happen": "10.0.0",
     "@types/nock": "10.0.3",
     "@types/node": "12.20.55",
     "@types/node-fetch": "2.6.2",
