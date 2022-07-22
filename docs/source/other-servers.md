@@ -7,6 +7,14 @@ The following open-source GraphQL server libraries support acting as a subgraph 
 
 > To add a library to this list, feel free to open an [issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues) or check out the [Apollo Federation Library Maintainers Implementation Guide](https://github.com/apollographql/apollo-federation-subgraph-compatibility/blob/main/CONTRIBUTORS.md) to learn how to submit a PR for your library!
 
+## Table Legend
+
+| Icon | Description |
+| ---- | ----------- |
+| 🟩 | Functionality is supported |
+| 🟥 | Critical functionality is not supported |
+| 🔲 | Additional Federation functionality is not supported |
+
 ## C# / .NET
 
 <table>
