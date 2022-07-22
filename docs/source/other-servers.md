@@ -136,7 +136,7 @@ The following open-source GraphQL server libraries support acting as a subgraph 
 </tbody>
 </table>
 
-## Hosted Solutions
+## Hosted Subgraphs
 
 <table>
 <thead>
