@@ -864,7 +864,6 @@ test('multiple (non-nested) @defer + label handling', () => {
   `);
 });
 
-
 describe('nested @defer', () => {
   test('on entities', () => {
     const subgraph1 = {
@@ -1120,6 +1119,211 @@ describe('nested @defer', () => {
                       body {
                         lines
                       }
+                    }:
+                  },
+                ]
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('direct nesting on entity', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          me : User
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          name: String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type User @key(fields: "id") {
+          id: ID!
+          age: Int
+          address: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        me {
+          name
+          ... @defer {
+            age
+            ... @defer {
+              address
+            }
+          }
+        }
+      }
+    `);
+
+    // TODO(Sylvain): this is correct but inefficient. We should recognize that the
+    // fetch in the middle is useless and can be removed. To be fixed post-vacation.
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              me {
+                name
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1", id: 0) {
+                {
+                  me {
+                    __typename
+                    name
+                    id
+                  }
+                }
+              },
+              Flatten(path: "me") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on User {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on User {
+                      age
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [0], path: "me") {
+              Defer {
+                Primary {
+                  {
+                    age
+                  }:
+                  Flatten(path: "me") {
+                    Fetch(service: "Subgraph1", id: 1) {
+                      {
+                        ... on User {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on User {
+                          __typename
+                          id
+                        }
+                      }
+                    },
+                  }
+                }, [
+                  Deferred(depends: [1], path: "me") {
+                    {
+                      address
+                    }:
+                    Flatten(path: "me") {
+                      Fetch(service: "Subgraph2") {
+                        {
+                          ... on User {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on User {
+                            address
+                          }
+                        }
+                      },
+                    }
+                  },
+                ]
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('direct nesting on value type', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          me : User
+        }
+
+        type User  {
+          id: ID!
+          name: String
+          age: Int
+          address: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      {
+        me {
+          name
+          ... @defer {
+            age
+            ... @defer {
+              address
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              me {
+                name
+              }
+            }:
+            Fetch(service: "Subgraph1") {
+              {
+                me {
+                  name
+                  age
+                  address
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [], path: "me") {
+              Defer {
+                Primary {
+                  {
+                    age
+                  }:
+                }, [
+                  Deferred(depends: [], path: "me") {
+                    {
+                      address
                     }:
                   },
                 ]
@@ -2884,4 +3088,3 @@ test('defer when some interface has different definitions in different subgraphs
     }
   `);
 });
-

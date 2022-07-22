@@ -170,8 +170,8 @@ const defaultCostFunction: CostFunction = {
    * genuinely creating plan nodes. It's irrelevant to cost computation however and we just
    * return the cost of the block unchanged.
    */
-  reduceDeferred(_: DeferredInfo, value?: number): number {
-    return value ?? 0;
+  reduceDeferred(_: DeferredInfo, value: number): number {
+    return value;
   },
 
   /**
@@ -1787,15 +1787,12 @@ class FetchDependencyGraph {
     const defersInCurrent = this.deferTracking.defersInParent(currentDeferRef);
     const allDeferred: TDeferred[] = [];
     for (const defer of defersInCurrent) {
-      let processed: TProcessed | undefined = undefined;
-      const groups = allDeferredGroups.get(defer.label);
-      if (groups) {
-        const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label);
-        const mainReduced = processor.reduceParallel(main);
-        processed = deferred.length === 0
-          ? mainReduced
-          : processor.reduceDefer(mainReduced, defer.subselection, deferred);
-      }
+      const groups = allDeferredGroups.get(defer.label) ?? [];
+      const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label);
+      const mainReduced = processor.reduceParallel(main);
+      const processed = deferred.length === 0
+        ? mainReduced
+        : processor.reduceDefer(mainReduced, defer.subselection, deferred);
       allDeferred.push(processor.reduceDeferred(defer, processed));
     }
     return { main: allMain, deferred: allDeferred };
@@ -1872,7 +1869,7 @@ interface FetchGroupProcessor<TProcessed, TDeferred> {
   onFetchGroup(group: FetchGroup): TProcessed;
   reduceParallel(values: TProcessed[]): TProcessed;
   reduceSequence(values: TProcessed[]): TProcessed;
-  reduceDeferred(deferInfo: DeferredInfo, value?: TProcessed): TDeferred;
+  reduceDeferred(deferInfo: DeferredInfo, value: TProcessed): TDeferred;
   reduceDefer(main: TProcessed, subSelection: SelectionSet, deferredBlocks: TDeferred[]): TProcessed,
   reduceRoots(roots: TProcessed[], isParallel: boolean): TProcessed,
 }
@@ -1911,8 +1908,6 @@ export function computeQueryPlan({
     // to end up passing through a @defer to a subgraph by mistake).
     operation = operation.withoutDefer();
   }
-
-  // TODO: we still need to handle "conditions" (the `if` argument) for the defers.
 
   debug.group(() => `Computing plan for\n${operation}`);
   if (operation.selectionSet.isEmpty()) {
@@ -2293,7 +2288,7 @@ function fetchGroupToPlanProcessor({
     onFetchGroup: (group: FetchGroup) => group.toPlanNode(config, variableDefinitions, fragments, operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined),
     reduceParallel: (values: (PlanNode | undefined)[]) => flatWrapNodes('Parallel', values),
     reduceSequence: (values: (PlanNode | undefined)[]) => flatWrapNodes('Sequence', values),
-    reduceDeferred: (deferInfo: DeferredInfo, value?: PlanNode): DeferredNode => ({
+    reduceDeferred: (deferInfo: DeferredInfo, value: PlanNode | undefined): DeferredNode => ({
       depends: [...deferInfo.dependencies].map((id) => ({ id })),
       label: assignedDeferLabels?.has(deferInfo.label) ? undefined : deferInfo.label,
       path: deferInfo.responsePath,
