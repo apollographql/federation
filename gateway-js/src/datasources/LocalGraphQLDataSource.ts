@@ -6,7 +6,6 @@ import {
   DocumentNode,
   parse,
 } from 'graphql';
-import { enablePluginsForSchemaResolvers } from 'apollo-server-core/dist/utils/schemaInstrumentation';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
 
 export class LocalGraphQLDataSource<
@@ -14,7 +13,6 @@ export class LocalGraphQLDataSource<
 > implements GraphQLDataSource<TContext>
 {
   constructor(public readonly schema: GraphQLSchema) {
-    enablePluginsForSchemaResolvers(schema);
   }
 
   async process({
