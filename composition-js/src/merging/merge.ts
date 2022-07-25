@@ -486,9 +486,19 @@ class Merger {
   private addCoreFeatures() {
     const features = this.composeDirectiveManager.allComposedCoreFeatures();
     for (const [feature, directives] of features) {
+      const imports = directives.map(([asName, origName]) => {
+        if (asName === origName) {
+          return `@${asName}`;
+        } else {
+          return {
+            name: `@{origName}`,
+            as: `@${asName}`,
+          };
+        }
+      });
       this.merged.schemaDefinition.applyDirective('link', {
         url: feature.url.toString(),
-        import: directives.map(d => `@${d}`),
+        import: imports,
       });
     }
   }

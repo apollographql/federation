@@ -66,8 +66,8 @@ export class ComposeDirectiveManager {
   // map of identities to the latest CoreFeature+Subgraph it can be found on
   latestFeatureMap: Map<string, [CoreFeature,string]>;
 
-  // map of directive names to identity
-  directiveIdentityMap: Map<string, string>;
+  // map of directive names to identity,origName
+  directiveIdentityMap: Map<string, [string,string]>;
 
   mismatchReporter: MismatchReporter;
 
@@ -383,7 +383,7 @@ export class ComposeDirectiveManager {
         if (!wontMergeFeatures.has(item.feature.url.identity) && !wontMergeDirectiveNames.has(item.directiveNameAs)) {
           directivesForSubgraph.add(item.directiveNameAs);
         }
-        this.directiveIdentityMap.set(item.directiveNameAs, item.feature.url.identity);
+        this.directiveIdentityMap.set(item.directiveNameAs, [item.feature.url.identity, item.directiveName]);
       }
       this.mergeDirectiveMap.set(subgraph, directivesForSubgraph);
     }
@@ -407,33 +407,52 @@ export class ComposeDirectiveManager {
   }
 
   getLatestDirectiveDefinition(directiveName: string): DirectiveDefinition | undefined {
-    const identity = this.directiveIdentityMap.get(directiveName);
-    if (identity) {
+    const val = this.directiveIdentityMap.get(directiveName);
+    if (val) {
+      const [identity, origName] = val;
       const entry = this.latestFeatureMap.get(identity);
       assert(entry, 'core feature identity must exist in map');
-      const [_, subgraphName] = entry;
+      const [feature, subgraphName] = entry;
       const subgraph = this.subgraphs.get(subgraphName);
       assert(subgraph, `subgraph "${subgraphName}" does not exist`);
-      return subgraph.schema.directive(directiveName);
+
+      // we need to convert from the name that is used in the schemas that export the directive
+      // to the name used in the schema that is the latest version, which may or may not export
+      // See test "exported directive not imported everywhere. imported with different name"
+      const nameInSchema = subgraph.schema.coreFeatures?.getByIdentity(identity)?.directiveNameInSchema(origName);
+      if (nameInSchema) {
+        const directive = subgraph.schema.directive(nameInSchema);
+        if (!directive) {
+          this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+            `Core feature "${identity}" in subgraph "${subgraphName}" does not have a directive definition for "@${directiveName}"`,
+            {
+              nodes: feature.directive.sourceAST,
+            },
+          ));
+        }
+        return directive;
+      }
     }
     return undefined;
   }
 
-  private directivesForFeature(identity: string): string[] {
+  private directivesForFeature(identity: string): [string,string][] {
     // TODO: This is inefficient
-    const directives = new Set<string>();
-    for (const [name, id] of this.directiveIdentityMap) {
+    const directives: { [key: string]: string} = {};
+    for (const [name, val] of this.directiveIdentityMap) {
+      const [id, origName] = val;
       if (id === identity) {
-        directives.add(name);
+        if (!(name in directives)) {
+          directives[name] = origName;
+        }
       }
     }
-    return Array.from(directives);
+    return Object.entries(directives);
   }
   /**
    * Returns all core features, along with the directives referenced from that CoreFeature
    */
-  allComposedCoreFeatures(): [CoreFeature, string[]][] {
-    // TODO: We will have to merge import statements if certain directives are not used in subgraph with latest version
+  allComposedCoreFeatures(): [CoreFeature, [string,string][]][] {
     return Array.from(this.latestFeatureMap.values())
       .map(value => value[0])
       .filter(feature => !IDENTITY_BLACKLIST.includes(feature.url.identity))
