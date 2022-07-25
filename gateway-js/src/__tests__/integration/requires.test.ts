@@ -139,7 +139,9 @@ it('collapses nested requires', async () => {
               __typename
               id
               preferences {
+                __typename
                 favorites {
+                  __typename
                   color
                   animal
                 }
@@ -220,7 +222,9 @@ it('collapses nested requires with user-defined fragments', async () => {
               __typename
               id
               preferences {
+                __typename
                 favorites {
+                  __typename
                   animal
                   color
                 }

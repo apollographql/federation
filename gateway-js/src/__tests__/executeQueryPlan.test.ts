@@ -4,6 +4,7 @@ import {
   GraphQLObjectType,
   GraphQLSchema,
   print,
+  parse,
 } from 'graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext, VariableValues } from 'apollo-server-types';
@@ -16,10 +17,10 @@ import {
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
-import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
+import { buildComposedSchema, QueryPlanner, toAPISchema } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { getFederatedTestingSchema } from './execution-utils';
+import { buildLocalService, getFederatedTestingSchema } from './execution-utils';
 import { addResolversToSchema, GraphQLResolverMap } from '@apollo/subgraph/src/schema-helper';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -92,6 +93,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response).not.toHaveProperty('errors');
@@ -131,6 +133,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response).toHaveProperty('data.me', null);
@@ -190,6 +193,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(accountsEntitiesResolverSpy).not.toHaveBeenCalled();
@@ -267,6 +271,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(accountsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
@@ -368,6 +373,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(reviewsEntitiesResolverSpy).not.toHaveBeenCalled();
@@ -416,6 +422,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(reviewsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
@@ -490,6 +497,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response).toHaveProperty('data.me', null);
@@ -527,6 +535,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response).toHaveProperty('data.me', null);
@@ -563,6 +572,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -659,6 +669,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       requestContext,
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -758,6 +769,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       requestContext,
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -832,6 +844,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toHaveProperty('__schema');
@@ -863,6 +876,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -907,6 +921,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -962,6 +977,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -1004,6 +1020,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -1059,6 +1076,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.errors).toMatchInlineSnapshot(`undefined`);
@@ -1108,6 +1126,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.errors).toBeUndefined();
@@ -1151,6 +1170,7 @@ describe('executeQueryPlan', () => {
       serviceMap,
       buildRequestContext(),
       operationContext,
+      schema,
     );
 
     expect(response.data).toMatchInlineSnapshot(`
@@ -1199,6 +1219,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response.data).toHaveProperty('__schema');
@@ -1242,6 +1263,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response.data).toMatchInlineSnapshot(`
@@ -1368,6 +1390,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response.data?.vehicle).toEqual(null);
@@ -1403,6 +1426,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response.data).toMatchInlineSnapshot(`Object {}`);
@@ -1431,6 +1455,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(variables),
         operationContext,
+        schema,
       );
 
       expect(response.data).toMatchInlineSnapshot(`Object {}`);
@@ -1461,6 +1486,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response.data).toMatchObject({
@@ -1495,6 +1521,7 @@ describe('executeQueryPlan', () => {
         serviceMap,
         buildRequestContext(),
         operationContext,
+        schema,
       );
 
       expect(response.data).toMatchObject({});
@@ -1524,6 +1551,7 @@ describe('executeQueryPlan', () => {
           serviceMap,
           buildRequestContext(variables),
           operationContext,
+        schema,
         );
 
         expect(response.data).toMatchObject({});
@@ -1552,6 +1580,7 @@ describe('executeQueryPlan', () => {
           serviceMap,
           buildRequestContext(variables),
           operationContext,
+          schema,
         );
 
         expect(response.data).toMatchObject({});
@@ -1580,6 +1609,7 @@ describe('executeQueryPlan', () => {
           serviceMap,
           buildRequestContext(variables),
           operationContext,
+          schema,
         );
 
         expect(response.data).toMatchObject({
@@ -1617,6 +1647,7 @@ describe('executeQueryPlan', () => {
           serviceMap,
           buildRequestContext(variables),
           operationContext,
+          schema,
         );
 
         expect(response.data).toMatchObject({});
@@ -1768,7 +1799,7 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext, schema);
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -1928,7 +1959,7 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext, schema);
       // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -2086,7 +2117,7 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext, schema);
       // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -2243,7 +2274,7 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext, schema);
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -2270,6 +2301,570 @@ describe('executeQueryPlan', () => {
         }
         `);
       expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
+    });
+
+    test('handles type conditions within @require', async () => {
+      const s1 = {
+        name: 'data',
+        typeDefs: gql`
+          type Entity @key(fields: "id") {
+            id: ID!
+            dummyBazForRequires: Baz
+            dummyQuxForRequires: Qux
+            data: Foo
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar {
+            foo: String!
+            bar: String!
+          }
+
+          type Baz implements Foo & Bar {
+            foo: String!
+            bar: String!
+            baz: String!
+          }
+
+          type Qux implements Foo & Bar {
+            foo: String!
+            bar: String!
+            qux: String!
+          }
+        `,
+        resolvers: {
+            Query: {
+              dummy() {
+                return {};
+              },
+            },
+            Entity: {
+              __resolveReference() {
+                return {};
+              },
+              id() {
+                return "id";
+              },
+              data() {
+                return {
+                  __typename: "Baz",
+                  foo: "foo",
+                  bar: "bar",
+                  baz: "baz",
+                };
+              },
+            },
+        }
+      }
+
+      let requirerRepresentation: any = undefined;
+
+      const s2 = {
+        name: 'requirer',
+        typeDefs: gql`
+          type Query {
+            dummy: Entity
+          }
+
+          extend type Entity @key(fields: "id") {
+            id: ID! @external
+            dummyBazForRequires: Baz @external
+            dummyQuxForRequires: Qux @external
+            data: Foo @external
+            requirer: String! @requires(fields: "dummyBazForRequires { baz } dummyQuxForRequires { qux } data { foo ... on Bar { bar } ... on Baz { baz } ... on Qux { qux } }")
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar {
+            foo: String!
+            bar: String!
+          }
+
+          extend type Baz implements Foo & Bar {
+            foo: String! @external
+            bar: String! @external
+            baz: String! @external
+          }
+
+          extend type Qux implements Foo & Bar {
+            foo: String! @external
+            bar: String! @external
+            qux: String! @external
+          }
+        `,
+        resolvers: {
+          Query: {
+            dummy() {
+              return {};
+            },
+          },
+          Entity: {
+            __resolveReference(representation: any) {
+              requirerRepresentation = representation;
+              return {};
+            },
+            id() {
+              return "id";
+            },
+            requirer() {
+              return "requirer";
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument: gql`
+        query {
+          dummy {
+            requirer
+          }
+        }
+        `});
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "requirer") {
+              {
+                dummy {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "data") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                    dummyBazForRequires {
+                      __typename
+                      baz
+                    }
+                    dummyQuxForRequires {
+                      __typename
+                      qux
+                    }
+                    data {
+                      __typename
+                      foo
+                      ... on Bar {
+                        __typename
+                        bar
+                      }
+                      ... on Baz {
+                        __typename
+                        baz
+                      }
+                      ... on Qux {
+                        __typename
+                        qux
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "requirer") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                    dummyBazForRequires {
+                      baz
+                    }
+                    dummyQuxForRequires {
+                      qux
+                    }
+                    data {
+                      foo
+                      ... on Bar {
+                        bar
+                      }
+                      ... on Baz {
+                        baz
+                      }
+                      ... on Qux {
+                        qux
+                      }
+                    }
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    requirer
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext, schema);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "dummy": Object {
+            "requirer": "requirer",
+          },
+        }
+      `);
+      expect(response.errors).toBeUndefined();
+
+      expect(requirerRepresentation).toMatchInlineSnapshot(`
+        Object {
+          "__typename": "Entity",
+          "data": Object {
+            "bar": "bar",
+            "baz": "baz",
+            "foo": "foo",
+          },
+          "dummyBazForRequires": null,
+          "dummyQuxForRequires": null,
+          "id": "id",
+        }
+      `);
+    });
+
+    test('handles type conditions within @require when a type is @inaccessible', async () => {
+      const s1 = {
+        name: 'data',
+        typeDefs: gql`
+          type Entity @key(fields: "id") {
+            id: ID!
+            dummyBazForRequires: Baz
+            dummyQuxForRequires: Qux
+            data: Foo
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar {
+            foo: String!
+            bar: String!
+          }
+
+          type Baz implements Foo & Bar {
+            foo: String!
+            bar: String!
+            baz: String!
+          }
+
+          type Qux implements Foo & Bar {
+            foo: String!
+            bar: String!
+            qux: String!
+          }
+        `,
+        resolvers: {
+            Query: {
+              dummy() {
+                return {};
+              },
+            },
+            Entity: {
+              __resolveReference() {
+                return {};
+              },
+              id() {
+                return "id";
+              },
+              data() {
+                return {
+                  __typename: "Baz",
+                  foo: "foo",
+                  bar: "bar",
+                  baz: "baz",
+                };
+              },
+            },
+        }
+      }
+
+      let requirerRepresentation: any = undefined;
+
+      const s2 = {
+        name: 'requirer',
+        typeDefs: gql`
+          type Query {
+            dummy: Entity
+          }
+
+          extend type Entity @key(fields: "id") {
+            id: ID! @external
+            dummyBazForRequires: Baz @external
+            dummyQuxForRequires: Qux @external
+            data: Foo @external
+            requirer: String! @requires(fields: "dummyBazForRequires { baz } dummyQuxForRequires { qux } data { foo ... on Bar { bar } ... on Baz { baz } ... on Qux { qux } }")
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar {
+            foo: String!
+            bar: String!
+          }
+
+          extend type Baz implements Foo & Bar {
+            foo: String! @external
+            bar: String! @external
+            baz: String! @external
+          }
+
+          extend type Qux implements Foo & Bar {
+            foo: String! @external
+            bar: String! @external
+            qux: String! @external
+          }
+        `,
+        resolvers: {
+          Query: {
+            dummy() {
+              return {};
+            },
+          },
+          Entity: {
+            __resolveReference(representation: any) {
+              requirerRepresentation = representation;
+              return {};
+            },
+            id() {
+              return "id";
+            },
+            requirer() {
+              return "requirer";
+            },
+          },
+        }
+      }
+
+      // Note that this test is very similar to the previous one ('handles type conditions within @require') with the only
+      // difference that the Baz type is marked @inaccessible. _However_, fed1 does not recognize/allow @inaccessible
+      // in subgraphs (but it does in the supergraph, which contract uses), so we cannot use `getFederatedTestingSchema` and
+      // instead have to harcode the supergraph in this case (less readable but well...).
+      const supergraphSdl = `
+        schema
+          @core(feature: "https://specs.apollo.dev/core/v0.2"),
+          @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+          @core(feature: "https://specs.apollo.dev/inaccessible/v0.1", for: SECURITY)
+        {
+          query: Query
+        }
+
+        directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+
+        directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+
+        directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+        directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+        directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+        directive @inaccessible on OBJECT | FIELD_DEFINITION
+
+        interface Bar {
+          bar: String!
+          foo: String!
+        }
+
+        type Baz implements Bar & Foo @inaccessible {
+          bar: String!
+          baz: String!
+          foo: String!
+        }
+
+        type Entity
+          @join__owner(graph: DATA)
+          @join__type(graph: DATA, key: "id")
+          @join__type(graph: REQUIRER, key: "id")
+        {
+          data: Foo @join__field(graph: DATA)
+          dummyBazForRequires: Baz @join__field(graph: DATA) @inaccessible
+          dummyQuxForRequires: Qux @join__field(graph: DATA)
+          id: ID! @join__field(graph: DATA)
+          requirer: String! @join__field(graph: REQUIRER, requires: "dummyBazForRequires{baz} dummyQuxForRequires{qux} data{foo ...on Bar{bar}...on Baz{baz}...on Qux{qux}}")
+        }
+
+        interface Foo {
+          foo: String!
+        }
+
+        type Query {
+          dummy: Entity @join__field(graph: REQUIRER)
+        }
+
+        type Qux implements Bar & Foo {
+          bar: String!
+          foo: String!
+          qux: String!
+        }
+
+        enum core__Purpose {
+          EXECUTION
+          SECURITY
+        }
+
+        scalar join__FieldSet
+
+        enum join__Graph {
+          DATA @join__graph(name: "data" url: "http://localhost:4002/")
+          REQUIRER @join__graph(name: "requirer" url: "http://localhost:4003/")
+        }
+      `;
+
+      const serviceMap = Object.fromEntries(
+        [s1, s2].map((service) => [
+          service.name,
+          buildLocalService([service]),
+        ]),
+      );
+      const schema = buildComposedSchema(parse(supergraphSdl))
+      const queryPlanner = new QueryPlanner(schema);
+
+      const operationContext = buildOperationContext({
+        schema: toAPISchema(schema),
+        operationDocument: gql`
+        query {
+          dummy {
+            requirer
+          }
+        }
+        `});
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "requirer") {
+              {
+                dummy {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "data") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                    dummyBazForRequires {
+                      __typename
+                      baz
+                    }
+                    dummyQuxForRequires {
+                      __typename
+                      qux
+                    }
+                    data {
+                      __typename
+                      foo
+                      ... on Bar {
+                        __typename
+                        bar
+                      }
+                      ... on Baz {
+                        __typename
+                        baz
+                      }
+                      ... on Qux {
+                        __typename
+                        qux
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "requirer") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                    dummyBazForRequires {
+                      baz
+                    }
+                    dummyQuxForRequires {
+                      qux
+                    }
+                    data {
+                      foo
+                      ... on Bar {
+                        bar
+                      }
+                      ... on Baz {
+                        baz
+                      }
+                      ... on Qux {
+                        qux
+                      }
+                    }
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    requirer
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext, schema);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "dummy": Object {
+            "requirer": "requirer",
+          },
+        }
+      `);
+      expect(response.errors).toBeUndefined();
+
+      expect(requirerRepresentation).toMatchInlineSnapshot(`
+        Object {
+          "__typename": "Entity",
+          "data": Object {
+            "bar": "bar",
+            "baz": "baz",
+            "foo": "foo",
+          },
+          "dummyBazForRequires": null,
+          "dummyQuxForRequires": null,
+          "id": "id",
+        }
+      `);
     });
   });
 });
