@@ -1,4 +1,4 @@
-import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap, Subgraph, Directive } from '@apollo/federation-internals';
+import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap, Subgraph, Directive, isDefined } from '@apollo/federation-internals';
 import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
 import { MismatchReporter } from './merging/reporter';
@@ -91,7 +91,7 @@ export class ComposeDirectiveManager {
         const ast = sg.schema.coreFeatures?.getByIdentity(coreIdentity)?.directive.sourceAST;
         return ast === undefined ? undefined : { ast, subgraph: sg.name };
       })
-      .filter((result): result is { ast: ASTNode, subgraph: string } => result !== undefined)
+      .filter(isDefined)
       .map(({ ast, subgraph }: { ast: ASTNode, subgraph: string }) => ({
         ...ast,
         subgraph,
@@ -112,7 +112,7 @@ export class ComposeDirectiveManager {
           isComposed: subgraphsUsed.includes(sg.name),
         };
       })
-      .filter((combo): combo is FeatureAndSubgraph => combo !== undefined );
+      .filter(isDefined);
 
     // get the majorVersion iff they are consistent otherwise return undefined
     const latest = pairs.reduce((acc: FeatureAndSubgraph | null | undefined, pair: FeatureAndSubgraph) => {
@@ -170,10 +170,10 @@ export class ComposeDirectiveManager {
       this.pushHint(new CompositionHint(
         HINTS.DIRECTIVE_COMPOSITION_INFO,
         `Directive "@${directive.name}" should not be explicitly manually composed since it is a federation directive composed by default`,
-        {
-          ...composeInstance.sourceAST!, // TODO: Is there an elegant way to get rid of type assertion
+        composeInstance.sourceAST ? {
+          ...composeInstance.sourceAST,
           subgraph: sg.name,
-        },
+        } : undefined,
       ));
     } else {
       this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
@@ -211,6 +211,7 @@ export class ComposeDirectiveManager {
       feature: CoreFeature,
       directiveName: string,
       directiveNameAs: string,
+      composeDirective: Directive, // the directive instance causing the directive to be composed
     };
 
     const itemsBySubgraph = new MultiMap<string, MergeDirectiveItem>();
@@ -223,7 +224,6 @@ export class ComposeDirectiveManager {
         .composeDirective()
         .applications();
 
-      // TODO: Ensure that all directives conform to the right syntax (i.e. start with @)
       for (const composeInstance of composeDirectives) {
         if (composeInstance.arguments().name[0] !== '@') {
           this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
@@ -245,6 +245,7 @@ export class ComposeDirectiveManager {
               this.forFederationDirective(sg, composeInstance, directive);
             } else {
               const item = {
+                composeDirective: composeInstance,
                 sgName: sg.name,
                 feature: featureDetails.feature,
                 directiveName: featureDetails.nameInFeature,
@@ -259,10 +260,10 @@ export class ComposeDirectiveManager {
             this.pushHint(new CompositionHint(
               HINTS.DIRECTIVE_COMPOSITION_INFO,
               `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it is not a member of a core feature`,
-              {
-                ...composeInstance.sourceAST!, // TODO: Is this safe?
+              composeInstance.sourceAST ? {
+                ...composeInstance.sourceAST,
                 subgraph: sg.name,
-              },
+              } : undefined,
             ));
           }
         } else {
@@ -286,7 +287,7 @@ export class ComposeDirectiveManager {
           }
           return undefined;
         })
-        .filter((name): name is string => name !== undefined);
+        .filter(isDefined);
 
       const latest = this.getLatestIfCompatible(identity, subgraphsUsed);
       if (latest) {
@@ -300,16 +301,20 @@ export class ComposeDirectiveManager {
     for (const [name, items] of itemsByDirectiveName.entries()) {
       if (!allEqual(items.map(item => item.directiveName))) {
         wontMergeDirectiveNames.add(name);
-        // TODO: Add source nodes
         this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
           `Composed directive "@${name}" does not refer to the same directive in every subgraph`,
+          {
+            nodes: items.map(item => item.composeDirective.sourceAST).filter(isDefined),
+          }
         ));
       }
       if (!allEqual(items.map(item => item.feature.url.identity))) {
         wontMergeDirectiveNames.add(name);
-        // TODO: Add source nodes
         this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
           `Composed directive "@${name}" is not linked by the same core feature in every subgraph`,
+          {
+            nodes: items.map(item => item.composeDirective.sourceAST).filter(isDefined),
+          }
         ));
       }
     }
@@ -348,16 +353,25 @@ export class ComposeDirectiveManager {
       }
       const nonExportedSubgraphs = this.subgraphs.values()
         .filter(sg => !items.map(item => item.sgName).includes(sg.name));
-      if (nonExportedSubgraphs.some(subgraph => directiveHasDifferentNameInSubgraph({
+      const subgraphsWithDifferentNaming = nonExportedSubgraphs.filter(subgraph => directiveHasDifferentNameInSubgraph({
         subgraph,
         origName: items[0].directiveName,
         expectedName: items[0].directiveNameAs,
         identity: items[0].feature.url.identity,
-      }))) {
-        // TODO: Add nodes to this hint
+      }));
+      if (subgraphsWithDifferentNaming.length > 0) {
         this.pushHint(new CompositionHint(
           HINTS.DIRECTIVE_COMPOSITION_WARN,
           `Composed directive "@${name}" is named differently in a subgraph that doesn't export it. Consistent naming will be required to export it.`,
+          subgraphsWithDifferentNaming
+            .map((subgraph : Subgraph): SubgraphASTNode | undefined => {
+              const ast = subgraph.schema.coreFeatures?.getByIdentity(items[0].feature.url.identity)?.directive.sourceAST;
+              return ast ? {
+                ...ast,
+                subgraph: subgraph.name,
+              } : undefined;
+            })
+            .filter(isDefined),
         ));
       }
     }
