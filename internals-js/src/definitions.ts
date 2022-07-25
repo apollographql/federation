@@ -1009,15 +1009,24 @@ export class CoreFeatures {
     this.byIdentity.set(feature.url.identity, feature);
   }
 
-  sourceFeature(element: DirectiveDefinition | Directive | NamedType): CoreFeature | undefined {
+  sourceFeature(element: DirectiveDefinition | Directive | NamedType): { feature: CoreFeature, nameInFeature: string, isImported: boolean } | undefined {
     const isDirective = element instanceof DirectiveDefinition || element instanceof Directive;
     const splitted = element.name.split('__');
     if (splitted.length > 1) {
-      return this.byAlias.get(splitted[0]);
+      const feature = this.byAlias.get(splitted[0]);
+      return feature ? {
+        feature,
+        nameInFeature: splitted[1],
+        isImported: false,
+      } : undefined;
     } else {
       const directFeature = this.byAlias.get(element.name);
       if (directFeature && isDirective) {
-        return directFeature;
+        return {
+          feature: directFeature,
+          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
+          isImported: true,
+        };
       }
 
       // Let's see if it's an import. If not, it's not associated to a declared feature.
@@ -1026,7 +1035,11 @@ export class CoreFeatures {
       for (const feature of allFeatures) {
         for (const { as, name } of feature.imports) {
           if ((as ?? name) === importName) {
-            return feature;
+            return {
+              feature,
+              nameInFeature: name.slice(1),
+              isImported: true,
+            };
           }
         }
       }

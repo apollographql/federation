@@ -1417,7 +1417,7 @@ export class Subgraph {
     }
 
     const core = this.schema.coreFeatures;
-    return !core || core.sourceFeature(d)?.url.identity !== linkIdentity;
+    return !core || core.sourceFeature(d)?.feature.url.identity !== linkIdentity;
   }
 
   private isPrintedType(t: NamedType): boolean {
@@ -1432,7 +1432,7 @@ export class Subgraph {
     }
 
     const core = this.schema.coreFeatures;
-    return !core || core.sourceFeature(t)?.url.identity !== linkIdentity;
+    return !core || core.sourceFeature(t)?.feature.url.identity !== linkIdentity;
   }
 
   private isPrintedDirectiveApplication(d: Directive): boolean {

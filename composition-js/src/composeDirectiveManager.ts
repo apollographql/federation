@@ -3,15 +3,6 @@ import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
 import { MismatchReporter } from './merging/reporter';
 
-const originalDirectiveName = (directive: DirectiveDefinition, feature: CoreFeature): string => {
-  for (const imp of feature.imports) {
-    if ( imp.as?.[0] === '@' && imp.as?.slice(1) === directive.name) {
-      return imp.name.slice(1);
-    }
-  }
-  return directive.name;
-};
-
 /**
  * Return true if the directive from the same core feature has a different name in the subgraph
  * @param subgraph - the subgraph to compare against
@@ -245,9 +236,9 @@ export class ComposeDirectiveManager {
         const name = composeInstance.arguments().name.slice(1);
         const directive = sg.schema.directive(name);
         if (directive) {
-          const feature = sg.schema.coreFeatures?.sourceFeature(directive);
-          if (feature) {
-            const identity = feature.url.identity;
+          const featureDetails = sg.schema.coreFeatures?.sourceFeature(directive);
+          if (featureDetails) {
+            const identity = featureDetails.feature.url.identity;
 
             // make sure that core feature is not blacklisted
             if (IDENTITY_BLACKLIST.includes(identity)) {
@@ -255,8 +246,8 @@ export class ComposeDirectiveManager {
             } else {
               const item = {
                 sgName: sg.name,
-                feature,
-                directiveName: originalDirectiveName(directive, feature),
+                feature: featureDetails.feature,
+                directiveName: featureDetails.nameInFeature,
                 directiveNameAs: name,
               };
 

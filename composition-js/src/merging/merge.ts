@@ -172,7 +172,7 @@ function isMergedType(type: NamedType): boolean {
   }
 
   const coreFeatures = type.schema().coreFeatures;
-  const typeFeature = coreFeatures?.sourceFeature(type)?.url.identity;
+  const typeFeature = coreFeatures?.sourceFeature(type)?.feature.url.identity;
   return !(typeFeature && NON_MERGED_CORE_FEATURES.includes(typeFeature));
 }
 
