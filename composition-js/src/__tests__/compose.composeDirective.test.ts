@@ -497,7 +497,7 @@ describe('composing custom core directives', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['DIRECTIVE_COMPOSITION_ERROR', 'Composed directive "@foo" is imported with inconsistent naming (subgraph, directiveName). ("subgraphA","@foo"),("subgraphB","@bar")'],
+      ['DIRECTIVE_COMPOSITION_ERROR', 'Composed directive is not named consistently in all subgraphs but "@foo" in subgraph "subgraphA" and "@bar" in subgraph "subgraphB"'],
     ]);
   });
 

@@ -1,7 +1,7 @@
 import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap, Subgraph, Directive } from '@apollo/federation-internals';
 import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
-
+import { MismatchReporter } from './merging/reporter';
 
 const originalDirectiveName = (directive: DirectiveDefinition, feature: CoreFeature): string => {
   for (const imp of feature.imports) {
@@ -78,6 +78,8 @@ export class ComposeDirectiveManager {
   // map of directive names to identity
   directiveIdentityMap: Map<string, string>;
 
+  mismatchReporter: MismatchReporter;
+
   constructor(
     readonly subgraphs: Subgraphs,
     readonly pushError: (error: GraphQLError) => void,
@@ -86,6 +88,7 @@ export class ComposeDirectiveManager {
     this.mergeDirectiveMap = new Map();
     this.latestFeatureMap = new Map();
     this.directiveIdentityMap = new Map();
+    this.mismatchReporter = new MismatchReporter(subgraphs.names(), pushError, pushHint);
   }
 
   /**
@@ -328,11 +331,29 @@ export class ComposeDirectiveManager {
           wontMergeDirectiveNames.add(item.directiveNameAs);
         }
 
-        const itemStr = (item: MergeDirectiveItem) => `("${item.sgName}","@${item.directiveNameAs}")`;
-        // TODO: Add source nodes
-        this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
-          `Composed directive "@${name}" is imported with inconsistent naming (subgraph, directiveName). ${items.map(item => itemStr(item))}`,
-        ));
+        this.mismatchReporter.reportMismatchErrorWithoutSupergraph(
+          ERRORS.DIRECTIVE_COMPOSITION_ERROR,
+          'Composed directive is not named consistently in all subgraphs',
+          this.subgraphs.values()
+            .map(sg => {
+              const item = items.find(item => sg.name === item.sgName);
+              return item ? {
+                item,
+                sg,
+              } : undefined;
+            })
+            .map((val) => {
+              if (!val) {
+                return undefined;
+              }
+              const sourceAST = val.sg.schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/foo')?.directive.sourceAST;
+              return sourceAST ? {
+                sourceAST,
+                item: val.item,
+              } : undefined;
+            }),
+          (elt) => elt ? `"@${elt.item.directiveNameAs}"` : undefined
+        );
       }
       const nonExportedSubgraphs = this.subgraphs.values()
         .filter(sg => !items.map(item => item.sgName).includes(sg.name));

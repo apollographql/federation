@@ -34,6 +34,28 @@ export class MismatchReporter {
     );
   }
 
+  reportMismatchErrorWithoutSupergraph<TMismatched extends { sourceAST?: ASTNode }>(
+    code: ErrorCodeDefinition,
+    message: string,
+    subgraphElements: (TMismatched | undefined)[],
+    mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
+  ) {
+    this.reportMismatch(
+      undefined,
+      subgraphElements,
+      mismatchAccessor,
+      () => '',
+      (elt, names) => `${elt} in ${names}`,
+      (distribution, nodes) => {
+        this.pushError(code.err(
+          message + joinStrings(distribution, ' and ', ' but '),
+          { nodes }
+        ));
+      },
+      elt => !elt
+    );
+  }
+
   reportMismatchErrorWithSpecifics<TMismatched extends { sourceAST?: ASTNode }>({
     code,
     message,
@@ -116,8 +138,8 @@ export class MismatchReporter {
   }
 
   // Not meant to be used directly: use `reportMismatchError` or `reportMismatchHint` instead.
-  reportMismatch<TMismatched extends { sourceAST?: ASTNode }>(
-    supergraphElement:TMismatched,
+  private reportMismatch<TMismatched extends { sourceAST?: ASTNode }>(
+    supergraphElement:TMismatched | undefined,
     subgraphElements: (TMismatched | undefined)[],
     mismatchAccessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
@@ -144,7 +166,7 @@ export class MismatchReporter {
         astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
       }
     }
-    const supergraphMismatch = mismatchAccessor(supergraphElement, true) ?? '';
+    const supergraphMismatch = (supergraphElement && mismatchAccessor(supergraphElement, true)) ?? '';
     assert(distributionMap.size > 1, () => `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
