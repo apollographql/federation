@@ -370,7 +370,7 @@ If an enum definition differs between subgraphs, the [composition strategy](#mer
 | Scenario | Strategy |
 |----------|----------|
 | The enum is used as the return type for at least one object or interface field. | [Union](#union) |
-| The enum is used as the type for at least one field argument or input type field. | Intersection |
+| The enum is used as the type for at least one field argument or input type field. | [Intersection](#intersection) |
 | **Both** of the above are true. | All definitions must match **exactly**. |
 
 Examples of these scenarios are provided below.
