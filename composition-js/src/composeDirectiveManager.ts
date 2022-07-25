@@ -1,4 +1,4 @@
-import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap, Subgraph, CoreImport } from '@apollo/federation-internals';
+import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap, Subgraph, CoreImport, Schema, Directive } from '@apollo/federation-internals';
 import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
 
@@ -167,6 +167,28 @@ export class ComposeDirectiveManager {
     return latest;
   }
 
+  private forFederationDirective(sg: Subgraph, composeInstance: Directive, directive: DirectiveDefinition) {
+    const directivesComposedByDefault = [
+      sg.metadata().tagDirective(),
+      sg.metadata().inaccessibleDirective(),
+    ];
+    if (directivesComposedByDefault.map(d => d.name).includes(directive.name)) {
+      this.pushHint(new CompositionHint(
+        HINTS.DIRECTIVE_COMPOSITION_INFO,
+        `Directive "@${directive.name}" should not be explicitly manually composed since it is a federation directive composed by default`,
+        {
+          ...composeInstance.sourceAST!, // TODO: Is there an elegant way to get rid of type assertion
+          subgraph: sg.name,
+        },
+      ));
+    } else {
+      this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+        `Composing federation directive "${composeInstance.arguments().name}" in subgraph "${sg.name}" is not supported`,
+        { nodes: composeInstance.sourceAST },
+      ));
+    }
+  }
+
   /**
    * In order to ensure that we properly hint or error when there is a major version incompatibility
    * it's important that we collect all used core features, even if the directives within them will not be composed
@@ -223,16 +245,10 @@ export class ComposeDirectiveManager {
           const feature = sg.schema.coreFeatures?.sourceFeature(directive);
           if (feature) {
             const identity = feature.url.identity;
+
             // make sure that core feature is not blacklisted
             if (IDENTITY_BLACKLIST.includes(identity)) {
-              this.pushHint(new CompositionHint(
-                HINTS.DIRECTIVE_COMPOSITION_INFO,
-                `Directive "@${directive.name}" should not be explicitly manually composed since its composition rules are done automatically by federation`,
-                {
-                  ...composeInstance.sourceAST!, // TODO: Is there an elegant way to get rid of type assertion
-                  subgraph: sg.name,
-                },
-              ));
+              this.forFederationDirective(sg, composeInstance, directive);
             } else {
               const item = {
                 sgName: sg.name,

@@ -71,6 +71,47 @@ describe('composing custom core directives', () => {
     expect(feature?.imports).toEqual([{ name: '@foo' }]);
   });
 
+  it('simple success case (composeDirective is renamed)', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", { name: "@composeDirective", as: "@apolloCompose" }])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])
+        @apolloCompose(name: "@foo")
+
+        directive @foo(name: String!) on FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+        type User @key(fields: "id") {
+          id: Int
+          a: String @foo(name: "a")
+        }
+      `,
+    };
+
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(result.errors).toBeUndefined();
+    expect(result.hints).toHaveLength(0);
+    expect(result.schema).toBeDefined();
+
+    // validate the directive looks right
+    const directive = result.schema?.directive('foo');
+    expect(directive?.locations).toEqual([DirectiveLocation.FIELD_DEFINITION]);
+    expect(directive?.arguments().map(arg => arg.name)).toEqual(['name']);
+
+    // validate the @link looks right
+    const feature = result.schema?.coreFeatures?.getByIdentity('https://specs.apollo.dev/foo');
+    expect(feature?.url.toString()).toBe('https://specs.apollo.dev/foo/v1.0');
+    expect(feature?.imports).toEqual([{ name: '@foo' }]);
+  });
+
   it('different major versions of core feature results in hint if not composed', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
@@ -176,8 +217,8 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@key', '@requires', '@provides', '@external', '@tag', '@extends', '@inaccessible', '@shareable', '@override', '@composeDirective',
-  ])('not possible to explicitly compose federation directives', (directive) => {
+    '@tag', '@inaccessible',
+  ])('federation directives that result in a hint', (directive) => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
       composeText: `@composeDirective(name: "${directive}")`,
@@ -187,12 +228,127 @@ describe('composing custom core directives', () => {
     });
 
     const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([]);
     expect(hints(result)).toStrictEqual([
       [
         'DIRECTIVE_COMPOSITION_INFO',
-        `Directive "${directive}" should not be explicitly manually composed since its composition rules are done automatically by federation`,
+        `Directive "${directive}" should not be explicitly manually composed since it is a federation directive composed by default`,
       ]
     ])
+  });
+
+  it.each([
+    '@tag', '@inaccessible',
+  ])('federation directives (with rename) that result in a hint', (directive) => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: [{ name: "@key" }, { name: "@composeDirective" } , { name: "${directive}", as: "@apolloDirective" }])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @composeDirective(name: "@apolloDirective")
+
+        type Query {
+          a: User
+        }
+        type User @key(fields: "id") {
+          id: Int
+          a: String
+        }
+      `,
+    };
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([]);
+    expect(hints(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_INFO',
+        `Directive "@apolloDirective" should not be explicitly manually composed since it is a federation directive composed by default`,
+      ]
+    ])
+  });
+
+  it.each([
+    '@key', '@requires', '@provides', '@external', '@extends', '@shareable', '@override', '@composeDirective',
+  ])('federation directives that result in an error', (directive) => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      composeText: `@composeDirective(name: "${directive}")`,
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composing federation directive "${directive}" in subgraph "subgraphA" is not supported`],
+    ]);
+    expect(hints(result)).toStrictEqual([]);
+  });
+
+  it.each([
+    '@requires', '@provides', '@external', '@extends', '@shareable', '@override',
+  ])('federation directives (with rename) that result in an error', (directive) => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: [{ name: "@key" }, { name: "@composeDirective" } , { name: "${directive}", as: "@apolloDirective" }])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @composeDirective(name: "@apolloDirective")
+
+        type Query {
+          a: User
+        }
+        type User @key(fields: "id") {
+          id: Int
+          a: String
+        }
+      `,
+    };
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composing federation directive "@apolloDirective" in subgraph "subgraphA" is not supported`],
+    ]);
+    expect(hints(result)).toStrictEqual([]);
+  });
+
+  it.each([
+    '@join__field', '@join__graph', '@join__implements', '@join__type',
+  ])('join spec directives should result in an error', (directive) => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: `@link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)`,
+      composeText: `@composeDirective(name: "${directive}")`,
+      directiveText: `
+        directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+        directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+        directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+        scalar join__FieldSet
+
+        enum join__Graph {
+          WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
+        }
+      `
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composing federation directive "${directive}" in subgraph "subgraphA" is not supported`],
+    ]);
+    expect(hints(result)).toStrictEqual([]);
   });
 
   it('composing multiple versions of directive gets latest', () => {
