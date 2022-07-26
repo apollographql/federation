@@ -1,10 +1,11 @@
-import { Fetcher, FetcherResponse } from '@apollo/utils.fetcher';
+import { FetcherResponse } from '@apollo/utils.fetcher';
 import { GraphQLError } from 'graphql';
 import {
   ErrorCode,
   OobReportMutation,
   OobReportMutationVariables,
 } from '../../__generated__/graphqlTypes';
+import { type AbortableFetcher as Fetcher } from './types';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const OUT_OF_BAND_REPORTER_QUERY = /* GraphQL */`#graphql

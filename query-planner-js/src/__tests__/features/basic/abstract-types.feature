@@ -23,7 +23,7 @@ Scenario: handles an abstract type from the base service
           "serviceName": "product",
           "variableUsages": ["upc"],
           "operationKind": "query",
-          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn upc price}...on Furniture{upc name price}}}",
+          "operation": "query GetProduct__product__0($upc:String!){product(upc:$upc){__typename upc ...on Book{__typename isbn}...on Furniture{name}price}}",
           "operationName": "GetProduct__product__0"
         },
         {

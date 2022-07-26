@@ -365,82 +365,21 @@ As you can see, the supergraph schema includes only the input fields and argumen
 
 ### Enums
 
-Composition might use the union strategy _or_ the intersection strategy when merging enum type definitions, _depending on how the enum is used_.
+If an enum definition differs between subgraphs, the [composition strategy](#merging-types-from-multiple-subgraphs) depends on how the enum is used:
 
-```mermaid
-graph TB;
-    enum("Is the enum used as the type for at least<br/>one field argument or input type field?");
-    enum--No-->union("Union");
-    enum--Yes-->intersection("Intersection");
-```
+| Scenario | Strategy |
+|----------|----------|
+| The enum is used as the return type for at least one object or interface field. | [Union](#union) |
+| The enum is used as the type for at least one field argument or input type field. | [Intersection](#intersection) |
+| **Both** of the above are true. | All definitions must [match **exactly**](#exact-match) |
 
-If your enum is **not** used as the type of a field argument or input type field, then composition merges using the [union strategy](#merging-types-from-multiple-subgraphs).
+Examples of these scenarios are provided below.
 
-Consider the following subgraph schemas:
+#### Enum composition examples
 
-<CodeColumns>
+##### Union
 
-```graphql title="Subgraph A"
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-```
-
-```graphql title="Subgraph B"
-enum Color {
-  RED
-  CYAN
-  MAGENTA
-  YELLOW
-}
-```
-
-</CodeColumns>
-
-When these subgraph schemas are composed, composition merges the `Color` enum by union. This results in the following type definition in the supergraph schema:
-
-```graphql title="Supergraph schema"
-enum Color {
-  RED
-  GREEN
-  BLUE
-  CYAN
-  MAGENTA
-  YELLOW
-}
-```
-
-If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition merges using the [intersection strategy](#merging-types-from-multiple-subgraphs).
-
-Let's say we add a new field to Subgraph A that uses our `Color` enum as a field argument:
-
-```graphql title="Subgraph A"
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-
-type ColorQuery {
-  avatar(borderColor: Color): String
-}
-```
-
-Now when composition runs, the `Color` enum is merged by _intersection_:
-
-```graphql title="Supergraph schema"
-enum Color {
-  RED
-}
-
-type ColorQuery {
-  avatar(borderColor: Color): String
-}
-```
-
-If you are using an enum as either a field argument or an input field return type and you want to include _all_ of its values in the supergraph schema, ensure _every_ subgraph's type definition for that enum is identical:
+Consider these subgraph schemas:
 
 <CodeColumns>
 
@@ -449,13 +388,10 @@ enum Color {
   RED
   GREEN
   BLUE
-  CYAN
-  MAGENTA
-  YELLOW
 }
 
-type ColorQuery {
-  avatar(borderColor: Color): String
+type Query {
+  favoriteColor: Color
 }
 ```
 
@@ -463,28 +399,112 @@ type ColorQuery {
 enum Color {
   RED
   GREEN
-  BLUE
-  CYAN
-  MAGENTA
   YELLOW
+}
+
+type Query {
+  currentColor: Color
 }
 ```
 
 </CodeColumns>
+
+In this case, the `Color` enum is used as the return type of at least one object field. Therefore, composition merges the `Color` enum by union, so that all possible subgraph return values are valid.
 
 This results in the following type definition in the supergraph schema:
 
-```js title="Supergraph Schema"
+```graphql title="Supergraph schema"
 enum Color {
   RED
   GREEN
   BLUE
-  CYAN
-  MAGENTA
+  YELLOW
+}
+```
+
+##### Intersection
+
+Consider these subgraph schemas:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+type Query {
+  products(color: Color): [Product]
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  GREEN
   YELLOW
 }
 
-type ColorQuery {
-  avatar(borderColor: Color): String
+type Query {
+  images(color: Color): [Image]
 }
 ```
+
+</CodeColumns>
+
+In this case, the `Color` enum is used as the type of at least one field argument (or input type field). Therefore, composition merges the `Color` enum by intersection, so that subgraphs never receive a client-provided enum value that they don't support.
+
+This results in the following type definition in the supergraph schema:
+
+```graphql title="Supergraph schema"
+# BLUE and YELLOW are removed via intersection
+enum Color {
+  RED
+  GREEN
+}
+```
+
+##### Exact match
+
+Consider these subgraph schemas:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+type Query {
+  favoriteColor: Color
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  GREEN
+  YELLOW
+}
+
+type Query {
+  images(color: Color): [Image]
+}
+```
+
+</CodeColumns>
+
+In this case, the `Color` enum is used as _both_:
+
+* The return type of at least one object field
+* The type of at least one field argument (or input type field)
+
+Therefore, the definition of the `Color` enum **must match exactly** in every subgraph that defines it. An exact match is the only scenario that enables union _and_ intersection to produce the same result.
+
+The subgraph schemas above _do not compose_, because their definitions of the `Color` enum differ.

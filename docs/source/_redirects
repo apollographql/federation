@@ -1,3 +1,5 @@
+/other-servers/ /docs/federation/supported-subgraphs/
+
 /v2/* /docs/federation/:splat
 /workbench/* /docs/federation/v1/workbench/:splat
 /enterprise-guide/* /docs/enterprise-guide/:splat

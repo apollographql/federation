@@ -208,22 +208,6 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private issueConfigurationWarningsIfApplicable() {
-    // Warn against a pollInterval of < 10s in managed mode and reset it to 10s
-    if (
-      isManagedConfig(this.config) &&
-      this.pollIntervalInMs &&
-      this.pollIntervalInMs < 10000
-    ) {
-      this.pollIntervalInMs = 10000;
-      this.logger.warn(
-        'Polling Apollo services at a frequency of less than once per 10 ' +
-          'seconds (10000) is disallowed. Instead, the minimum allowed ' +
-          'pollInterval of 10000 will be used. Please reconfigure your ' +
-          '`fallbackPollIntervalInMs` accordingly. If this is problematic for ' +
-          'your team, please contact support.',
-      );
-    }
-
     // Warn against using the pollInterval and a serviceList simultaneously
     // TODO(trevor:removeServiceList)
     if (this.pollIntervalInMs && isServiceListConfig(this.config)) {
@@ -376,6 +360,7 @@ export class ApolloGateway implements GraphQLService {
           uplinkEndpoints:
             this.config.uplinkEndpoints ?? schemaDeliveryEndpoints,
           maxRetries: this.config.uplinkMaxRetries,
+          fetcher: this.config.fetcher,
           logger: this.logger,
           fallbackPollIntervalInMs: this.pollIntervalInMs,
         }),
@@ -532,7 +517,7 @@ export class ApolloGateway implements GraphQLService {
     const previousCompositionId = this.compositionId;
 
     if (previousSchema) {
-      this.logger.info('Updated Supergraph SDL was found.');
+      this.logger.info(`Updated Supergraph SDL was found [Composition ID ${this.compositionId} => ${result.id}]`);
     }
 
     this.compositionId = result.id;
@@ -579,7 +564,7 @@ export class ApolloGateway implements GraphQLService {
     this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
     );
-    this.queryPlanner = new QueryPlanner(coreSchema);
+    this.queryPlanner = new QueryPlanner(coreSchema, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema
     if (!legacyDontNotifyOnSchemaChangeListeners) {

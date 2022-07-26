@@ -282,7 +282,7 @@ Scenario: String arguments with quotes that need to be escaped.
       "serviceName": "product",
       "variableUsages": [],
       "operationKind": "query",
-      "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename ...on Car{description}...on Van{description}}}"
+      "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename description}}"
     }
   }
   """

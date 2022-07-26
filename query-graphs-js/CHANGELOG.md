@@ -1,6 +1,9 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.1.0-alpha.1
+
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900)
+- Avoid type-explosion with fed1 supergraphs using a fed2 query planner [PR #1994](https://github.com/apollographql/federation/pull/1994).
 
 ## 2.1.0-alpha.0
 

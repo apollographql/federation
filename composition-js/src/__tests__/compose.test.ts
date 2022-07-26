@@ -2764,6 +2764,35 @@ describe('composition', () => {
       ]);
     });
 
+    it('ignores @inaccessible fields when merging enums that are used as both input and output', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            e: E!
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V1
+            V2 @inaccessible
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeUndefined();
+    });
+
     it('succeed merging consistent enum used as both input and output', () => {
       const subgraphA = {
         name: 'subgraphA',
