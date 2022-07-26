@@ -1,5 +1,6 @@
 import * as makeFetchHappen from 'make-fetch-happen';
 import type { Logger } from '@apollo/utils.logger';
+import type { AbortableFetcher } from '@apollo/utils.fetcher';
 import resolvable, { Resolvable } from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
 import {
@@ -8,7 +9,6 @@ import {
 } from '../..';
 import { getDefaultLogger } from '../../logger';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
-import type { AbortableFetcher } from './types';
 
 export type FailureToFetchSupergraphSdlFunctionParams = {
   error: Error;
