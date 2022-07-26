@@ -415,23 +415,22 @@ type User @key(fields: "id") {
 ```
 ### `@inaccessible`
 ```graphql
-directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+directive @inaccessible(from: String!) on FIELD_DEFINITION
 ```
 
-The `@inaccessible` directive is used to indicate that a location within the schema is inaccessible. Inaccessible types and fields are available internally but are not exposed publically. The @inaccessible directive is helpful for adding a new field to a shared value type. Often when you add a value type field in one subgraph, composition fails because that field isn't resolvable in other subgraphs. This directive enables you to preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the @inaccessible directive and begin using the field.
+The `@inaccessible` directive indicates that a location within the schema is inaccessible. Inaccessible elements are available to query at the subgraph level but are not available to query at the supergraph level (through the router or gateway). This directive enables you to preserve composition while adding the field to your remaining subgraphs. You can remove the @inaccessible directive when the rollout is complete and begin using the field.
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/link/v1.0")
-  @link(url: "https://specs.apollo.dev/inaccessible/v0.2")
+    @link(url: "https://specs.apollo.dev/link/v1.0")
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@inaccessible"])
 
-type Query {  
-  myself: User
-  allUsers: [User] @inaccessible
-}
 
-type User {
+interface Product {
   id: ID!
-  secret: String! @inaccessible
+  sku: String
+  package: String
+  createdBy: User
+  hidden: String @inaccessible
 }
 ```
