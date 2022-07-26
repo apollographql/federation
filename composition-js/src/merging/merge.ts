@@ -345,6 +345,9 @@ class Merger {
     // If it's a directive application, then we skip it unless it's a graphQL built-in
     // (even if the definition itself allows executable locations, this particular
     // application is an type-system element and we don't want to merge it).
+    if (this.composeDirectiveManager.shouldComposeDirective({ subgraphName, directiveName: definition.name })) {
+      return true;
+    }
     if (definition instanceof Directive) {
       // We have special code in `Merger.prepareSupergraph` to include the _definition_ of merged federation
       // directives in the supergraph, so we don't have to merge those _definition_, but we *do* need to merge
@@ -356,9 +359,6 @@ class Merger {
       // We never "merge" graphQL built-in definitions, since they are built-in and
       // don't need to be defined.
       return false;
-    }
-    if (this.composeDirectiveManager.shouldComposeDirective({ subgraphName, directiveName: definition.name })) {
-      return true;
     }
     return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
   }
@@ -491,7 +491,7 @@ class Merger {
           return `@${asName}`;
         } else {
           return {
-            name: `@{origName}`,
+            name: `@${origName}`,
             as: `@${asName}`,
           };
         }
