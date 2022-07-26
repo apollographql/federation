@@ -1,4 +1,4 @@
-import { assert, FEDERATION2_LINK_WTH_FULL_IMPORTS, Schema } from '@apollo/federation-internals';
+import { assert, FEDERATION2_LINK_WTH_FULL_IMPORTS, printSchema, Schema } from '@apollo/federation-internals';
 import { DirectiveLocation } from 'graphql';
 import gql from 'graphql-tag';
 import { composeServices, CompositionResult } from '../compose';
@@ -9,19 +9,21 @@ const generateSubgraph = ({
   linkText = '',
   composeText = '',
   directiveText = '',
+  federationText = FEDERATION2_LINK_WTH_FULL_IMPORTS,
   usage = '',
 }: {
   name: string,
   linkText?: string,
   composeText?: string,
   directiveText?: string,
+  federationText?: string,
   usage?: string,
 }) => {
   return {
     name: name,
     typeDefs: gql`
     extend schema
-      ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+      ${federationText}
       @link(url: "https://specs.apollo.dev/link/v1.0")
       ${linkText}
       ${composeText}
@@ -72,6 +74,7 @@ const expectNoErrors = (result: CompositionResult, hintArr: [string,string][] = 
 
 const expectDirectiveDefinition = (schema: Schema, name: string, locations: DirectiveLocation[], args: string[]) => {
   const directive = schema.directive(name);
+  expect(directive).toBeDefined();
   expect(directive?.locations).toEqual(locations);
   expect(directive?.arguments().map(arg => arg.name)).toEqual(args);
 };
@@ -100,6 +103,25 @@ describe('composing custom core directives', () => {
     expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
     expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@foo' }]);
     expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+  });
+
+  it('simple success case, no import', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0")',
+      composeText: '@composeDirective(name: "@foo__bar")',
+      directiveText: 'directive @foo__bar(name: String!) on FIELD_DEFINITION',
+      usage: '@foo__bar(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    expectDirectiveDefinition(schema, 'foo__bar', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@bar', as: '@foo__bar' }]);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo__bar', { name: 'a' });
   });
 
   it('simple success case (composeDirective is renamed)', () => {
@@ -570,17 +592,10 @@ describe('composing custom core directives', () => {
     });
 
     const result = composeServices([subgraphA, subgraphB]);
-    const schema = expectNoErrors(result, [
-      ['DIRECTIVE_COMPOSITION_INFO', 'Directive "@foo" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature'],
+    expect(errors(result)).toStrictEqual([
+      ['DIRECTIVE_COMPOSITION_ERROR', 'Directive "@foo" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature'],
     ]);
-
-    // validate the directive is not composed
-    const directive = schema.directive('foo');
-    expect(directive).toBeUndefined();
-
-    // validate the @link is not present
-    const feature = schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/foo');
-    expect(feature).toBeUndefined();
+    expect(hints(result)).toStrictEqual([]);
   });
 
   it('composing custom directive with different names in different subgraphs results in error', () => {
@@ -673,7 +688,7 @@ describe('composing custom core directives', () => {
     ]);
   });
 
-  it.skip('directive may not be named as to cause a naming conflict with federation directives', () => {
+  it('directive may not be named as to cause a naming conflict with federation directives', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -715,7 +730,30 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
         'DIRECTIVE_COMPOSITION_ERROR',
-        '',
+        'Directive "@inaccessible" in subgraph "subgraphA" cannot be composed because it conflicts with automatically composed federation directive "@inaccessible". Conflict exists in subgraph(s): (subgraphB)',
+      ]
+    ]);
+  });
+
+  it.each([
+    '@join__field', '@join__graph', '@join__implements', '@join__type'
+  ])('naming conflict with join spec directives', (directive) => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: `@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@foo", as: "${directive}" }])`,
+      composeText: `@composeDirective(name: "${directive}")`,
+      directiveText: `directive ${directive}(name: String!) on FIELD_DEFINITION`,
+      usage: `${directive}(name: "a")`,
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_ERROR',
+        `Directive "${directive}" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature`,
       ]
     ]);
   });
@@ -828,20 +866,12 @@ describe('composing custom core directives', () => {
       ], ['name']);
 
     expectDirectiveDefinition(schema, 'mytag', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'prop']);
-
-    // validate the directive looks right
-    const mytag = result.schema?.directive('mytag');
-    expect(mytag?.locations).toEqual([DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT]);
-    expect(mytag?.arguments().map(tag => tag.name)).toEqual(['name', 'prop']);
-
-    // validate that the properties have the right tags
     expectDirectiveOnElement(schema, 'User.a', 'mytag', { name: 'a', prop: 'b' });
     expectDirectiveOnElement(schema, 'User.b', 'tag', { name: 'c' });
-
     expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag', as: '@mytag' }]);
   });
 
-  it.skip('custom tag directive works when federation tag is renamed', () => {
+  it('custom tag directive works when federation tag is renamed', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -865,40 +895,36 @@ describe('composing custom core directives', () => {
 
     const subgraphB = generateSubgraph({
       name: 'subgraphB',
+      federationText: '@link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key"])',
     });
 
     const result = composeServices([subgraphA, subgraphB]);
-    expect(errors(result)).toStrictEqual([]);
-    expect(hints(result)).toStrictEqual([]);
-    expect(result.schema).toBeDefined();
+    const schema = expectNoErrors(result);
+    expectDirectiveDefinition(
+      schema,
+      'mytag',
+      [
+        DirectiveLocation.FIELD_DEFINITION,
+        DirectiveLocation.OBJECT,
+        DirectiveLocation.INTERFACE,
+        DirectiveLocation.UNION,
+        DirectiveLocation.ARGUMENT_DEFINITION,
+        DirectiveLocation.SCALAR,
+        DirectiveLocation.ENUM,
+        DirectiveLocation.ENUM_VALUE,
+        DirectiveLocation.INPUT_OBJECT,
+        DirectiveLocation.INPUT_FIELD_DEFINITION,
+      ], ['name']);
 
-    // validate the directive looks right
-    const mytag = result.schema?.directive('mytag');
-    expect(mytag?.locations).toEqual([
-      DirectiveLocation.FIELD_DEFINITION,
-      DirectiveLocation.OBJECT,
-      DirectiveLocation.INTERFACE,
-      DirectiveLocation.UNION,
-      DirectiveLocation.ARGUMENT_DEFINITION,
-      DirectiveLocation.SCALAR,
-      DirectiveLocation.ENUM,
-      DirectiveLocation.ENUM_VALUE,
-      DirectiveLocation.INPUT_OBJECT,
-      DirectiveLocation.INPUT_FIELD_DEFINITION,
-    ]);
-    expect(mytag?.arguments().map(tag => tag.name)).toEqual(['name']);
+    expectDirectiveDefinition(schema, 'tag', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'prop']);
+    expectDirectiveOnElement(schema, 'User.a', 'tag', { name: 'a', prop: 'b' });
+    expectDirectiveOnElement(schema, 'User.b', 'mytag', { name: 'c' });
 
-    // validate the directive looks right
-    const tag = result.schema?.directive('tag');
-    expect(tag?.locations).toEqual([DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT]);
-    expect(tag?.arguments().map(tag => tag.name)).toEqual(['name', 'prop']);
-
-    // validate that the properties have the right tags
-
-
-    // validate the @link looks right
-    const feature = result.schema?.coreFeatures?.getByIdentity('https://custom.dev/tag');
-    expect(feature?.url.toString()).toBe('https://custom.dev/tag/v1.0');
-    expect(feature?.imports).toEqual([{ name: '@tag' }]);
-  });
+    expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag' }]);
+    const feature = schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/tag');
+    expect(feature?.url.toString()).toBe('https://specs.apollo.dev/tag/v0.2');
+    expect(feature?.imports).toEqual([]);
+    expect(feature?.nameInSchema).toEqual('mytag');
+    expect(printSchema(schema)).toMatchSnapshot();
+    });
 });

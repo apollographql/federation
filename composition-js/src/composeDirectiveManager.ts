@@ -218,7 +218,12 @@ export class ComposeDirectiveManager {
     const itemsByDirectiveName = new MultiMap<string, MergeDirectiveItem>();
     const itemsByOrigDirectiveName = new MultiMap<string, MergeDirectiveItem>();
 
-    // iterate over subgraphs
+    // the following 3 lines are for federation directives
+    const tagNamesInSubgraphs = this.subgraphs.values().map(sg => sg.metadata().federationDirectiveNameInSchema('tag'));
+    const inaccessibleNamesInSubgraphs = this.subgraphs.values().map(sg => sg.metadata().federationDirectiveNameInSchema('inaccessible'));
+
+
+    // iterate over subgraphs to build up the MultiMap's
     for (const sg of this.subgraphs) {
       const composeDirectives = sg.metadata()
         .composeDirective()
@@ -243,6 +248,28 @@ export class ComposeDirectiveManager {
             // make sure that core feature is not blacklisted
             if (IDENTITY_BLACKLIST.includes(identity)) {
               this.forFederationDirective(sg, composeInstance, directive);
+            } else if (tagNamesInSubgraphs.includes(name)) {
+              const subgraphs: string[] = [];
+              this.subgraphs.names().forEach((sg, idx) => {
+                if (tagNamesInSubgraphs[idx] === name) {
+                  subgraphs.push(sg);
+                }
+              });
+              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it conflicts with automatically composed federation directive "@tag". Conflict exists in subgraph(s): (${subgraphs.join(',')})`,
+                { nodes: composeInstance.sourceAST },
+              ));
+            } else if (inaccessibleNamesInSubgraphs.includes(name)) {
+              const subgraphs: string[] = [];
+              this.subgraphs.names().forEach((sg, idx) => {
+                if (inaccessibleNamesInSubgraphs[idx] === name) {
+                  subgraphs.push(sg);
+                }
+              });
+              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it conflicts with automatically composed federation directive "@inaccessible". Conflict exists in subgraph(s): (${subgraphs.join(',')})`,
+                { nodes: composeInstance.sourceAST },
+              ));
             } else {
               const item = {
                 composeDirective: composeInstance,
@@ -257,13 +284,9 @@ export class ComposeDirectiveManager {
               itemsByOrigDirectiveName.add(item.directiveName, item);
             }
           } else {
-            this.pushHint(new CompositionHint(
-              HINTS.DIRECTIVE_COMPOSITION_INFO,
+            this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
               `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it is not a member of a core feature`,
-              composeInstance.sourceAST ? {
-                ...composeInstance.sourceAST,
-                subgraph: sg.name,
-              } : undefined,
+              { nodes: composeInstance.sourceAST },
             ));
           }
         } else {
