@@ -21,6 +21,7 @@ import {
   nockAfterEach,
   nockBeforeEach,
 } from '../../../__tests__/nockAssertions';
+import { AbortableFetcherRequestInit } from '@apollo/utils.fetcher';
 
 const logger = {
   warn: jest.fn(),
@@ -417,9 +418,9 @@ describe('loadSupergraphSdlFromUplinks', () => {
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: mockOutOfBandReporterUrl,
-      fetcher: (...args) => {
+      fetcher: (url: string, init?: AbortableFetcherRequestInit) => {
         calls++;
-        return fetcher(...args);
+        return fetcher(url, init);
       },
       requestTimeoutMs,
       compositionId: 'id-1234',
