@@ -236,6 +236,8 @@ type Position {
 
 > You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to _all_ of that type's fields.
 
+> If one of the subgraphs declaring the shareable value type is still using Fed. 1, the missing @shareable directive will not cause a composition failure. That's because it will be converted under the hood as part of the newer composition algorithms in Fed. 2.
+
 For more details, see [Value types](../federated-types/sharing-types/).
 
 ### Update entity definitions
