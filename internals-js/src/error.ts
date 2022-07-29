@@ -451,7 +451,7 @@ const DOWNSTREAM_SERVICE_ERROR = makeCodeDefinition(
 
 const DIRECTIVE_COMPOSITION_ERROR = makeCodeDefinition(
   'DIRECTIVE_COMPOSITION_ERROR',
-  'Error when composing core directives',
+  'Error when composing custom directives.',
   { addedIn: '2.1.0' },
 );
 

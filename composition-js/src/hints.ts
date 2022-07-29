@@ -178,13 +178,13 @@ const INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
 const DIRECTIVE_COMPOSITION_INFO = makeCodeDefinition({
   code: 'DIRECTIVE_COMPOSITION_INFO',
   level: HintLevel.INFO,
-  description: 'Indicates that an issue was detected when composing directives',
+  description: 'Indicates that an issue was detected when composing custom directives.',
 });
 
 const DIRECTIVE_COMPOSITION_WARN = makeCodeDefinition({
   code: 'DIRECTIVE_COMPOSITION_WARN',
   level: HintLevel.WARN,
-  description: 'Indicates that an issue was detected when composing directives',
+  description: 'Indicates that an issue was detected when composing custom directives.',
 });
 
 export const HINTS = {
