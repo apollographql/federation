@@ -1,5 +1,18 @@
-import { assert, CoreFeature, DirectiveDefinition, Subgraphs, ERRORS, SubgraphASTNode, didYouMean, suggestionList, MultiMap, Subgraph, Directive, isDefined } from '@apollo/federation-internals';
-import { ASTNode, GraphQLError } from 'graphql';
+import {
+  assert,
+  CoreFeature,
+  DirectiveDefinition,
+  Subgraphs,
+  ERRORS,
+  SubgraphASTNode,
+  didYouMean,
+  suggestionList,
+  MultiMap,
+  Subgraph,
+  Directive,
+  isDefined,
+} from '@apollo/federation-internals';
+import { GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
 import { MismatchReporter } from './merging/reporter';
 
@@ -23,16 +36,12 @@ const directiveHasDifferentNameInSubgraph = ({
   expectedName: string,
   identity: string,
 }): boolean => {
-  const modExpectedName = `@${expectedName}`;
-  const modOrigName = `@${origName}`;
-  const imp = subgraph.schema.coreFeatures?.getByIdentity(identity)?.imports?.find(imp => imp.name === modOrigName);
+  const imp = subgraph.schema.coreFeatures?.getByIdentity(identity)?.imports?.find(imp => imp.name === `@${origName}`);
   if (!imp) {
     return false;
   }
-  if (imp.as !== undefined) {
-    return imp.as !== modExpectedName;
-  }
-  return imp.name !== modExpectedName;
+  const importedName = imp.as ?? imp.name;
+  return importedName !== `@${expectedName}`;
 };
 
 const allEqual = <T>(arr: T[]) => arr.every((val: T) => val === arr[0]);
@@ -46,7 +55,7 @@ type FeatureAndSubgraph = {
 /**
  * We don't want to allow for composing any of our own features
  */
-const IDENTITY_BLACKLIST = [
+const DISALLOWED_IDENTITIES = [
   'https://specs.apollo.dev/core',
   'https://specs.apollo.dev/join',
   'https://specs.apollo.dev/link',
@@ -55,10 +64,6 @@ const IDENTITY_BLACKLIST = [
   'https://specs.apollo.dev/federation',
 ];
 
-/**
- * If features are compatible (i.e. they have the same major version), return the latest
- * Otherwise return undefined
- */
 export class ComposeDirectiveManager {
   // map of subgraphs to directives being composed
   mergeDirectiveMap: Map<string, Set<string>>;
@@ -85,19 +90,18 @@ export class ComposeDirectiveManager {
   /**
    * Get from a coreIdentity to a SubgraphASTNode[]
    */
-  private coreFeatureASTs(coreIdentity: string): SubgraphASTNode[] {
+   private coreFeatureASTs(coreIdentity: string): SubgraphASTNode[] {
     return this.subgraphs.values()
-      .map(sg => {
+      .flatMap(sg => {
         const ast = sg.schema.coreFeatures?.getByIdentity(coreIdentity)?.directive.sourceAST;
-        return ast === undefined ? undefined : { ast, subgraph: sg.name };
-      })
-      .filter(isDefined)
-      .map(({ ast, subgraph }: { ast: ASTNode, subgraph: string }) => ({
-        ...ast,
-        subgraph,
-      }) as SubgraphASTNode);
+        return ast === undefined ? [] : [{ ...ast, subgraph: sg.name }];
+      });
   }
 
+  /**
+   * If features are compatible (i.e. they have the same major version), return the latest
+   * Otherwise return undefined
+   */
   private getLatestIfCompatible(coreIdentity: string, subgraphsUsed: string[]): FeatureAndSubgraph | undefined {
     let raisedHint = false;
     const pairs = this.subgraphs.values()
@@ -155,7 +159,7 @@ export class ComposeDirectiveManager {
       return (acc.feature.url.version.minor > pair.feature.url.version.minor) ? acc : pair;
     }, null);
 
-    if (!latest || !latest.isComposed) {
+    if (!latest?.isComposed) {
       return undefined;
     }
     return latest;
@@ -165,8 +169,8 @@ export class ComposeDirectiveManager {
     const directivesComposedByDefault = [
       sg.metadata().tagDirective(),
       sg.metadata().inaccessibleDirective(),
-    ];
-    if (directivesComposedByDefault.map(d => d.name).includes(directive.name)) {
+    ].map(d => d.name);
+    if (directivesComposedByDefault.includes(directive.name)) {
       this.pushHint(new CompositionHint(
         HINTS.DIRECTIVE_COMPOSITION_INFO,
         `Directive "@${directive.name}" should not be explicitly manually composed since it is a federation directive composed by default`,
@@ -218,7 +222,7 @@ export class ComposeDirectiveManager {
     const itemsByDirectiveName = new MultiMap<string, MergeDirectiveItem>();
     const itemsByOrigDirectiveName = new MultiMap<string, MergeDirectiveItem>();
 
-    // the following 3 lines are for federation directives
+    // gather default-composed directive names from subgraphs
     const tagNamesInSubgraphs = this.subgraphs.values().map(sg => sg.metadata().federationDirectiveNameInSchema('tag'));
     const inaccessibleNamesInSubgraphs = this.subgraphs.values().map(sg => sg.metadata().federationDirectiveNameInSchema('inaccessible'));
 
@@ -246,7 +250,7 @@ export class ComposeDirectiveManager {
             const identity = featureDetails.feature.url.identity;
 
             // make sure that core feature is not blacklisted
-            if (IDENTITY_BLACKLIST.includes(identity)) {
+            if (DISALLOWED_IDENTITIES.includes(identity)) {
               this.forFederationDirective(sg, composeInstance, directive);
             } else if (tagNamesInSubgraphs.includes(name)) {
               const subgraphs: string[] = [];
@@ -478,7 +482,7 @@ export class ComposeDirectiveManager {
   allComposedCoreFeatures(): [CoreFeature, [string,string][]][] {
     return Array.from(this.latestFeatureMap.values())
       .map(value => value[0])
-      .filter(feature => !IDENTITY_BLACKLIST.includes(feature.url.identity))
+      .filter(feature => !DISALLOWED_IDENTITIES.includes(feature.url.identity))
       .map(feature => ([
         feature,
         this.directivesForFeature(feature.url.identity),
