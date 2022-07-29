@@ -1,25 +1,46 @@
 ---
-title: Implementing the gateway
-description: In a federated supergraph
+title: The graph router
+description: The entry point to your federated supergraph
 ---
 
-> 📣 **The Apollo Router** is a new high-performance graph router written in Rust. You can use the Apollo Router in place of the Node.js gateway documented here. [See the documentation.](https://www.apollographql.com/docs/router/)
+import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
 
-After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **gateway** to sit in front of your subgraphs. The gateway serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs.
+After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **graph router** (also known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
 
-The [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) package extends Apollo Server's functionality, enabling it to act as the gateway for a supergraph.
+<FederationArchitecture />
 
-> We recommend against running your gateway in a serverless environment (such as AWS Lambda), because schema composition increases Apollo Server's startup time. If you _do_ run your gateway in a serverless environment, set your function's timeout to at least 10 seconds to prevent unexpected errors.
+## Choosing a router library
 
-## Setup
+Apollo actively supports two options for your graph router:
 
-First, let's install the necessary packages:
+* **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
+    * [Go to the Apollo Router docs.](/router/quickstart/)
+    * [See the federation quickstart](./quickstart/setup/) (which uses the Apollo Router).
+* **Apollo Server:** Apollo Server can act as your graph router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
+
+**We recommend starting with the Apollo Router.** It's faster to configure, it's more performant (especially with high request loads), and it rarely requires writing custom code.
+
+<ExpansionPanel title="When should I use Apollo Server?">
+
+You might need to use Apollo Server for your graph router if your subgraphs use a custom authentication method that it's currently difficult to configure with the Apollo Router, especially for teams unfamiliar with Rust.
+
+Regardless of which library you start with, you can swap to the other without making any changes to other parts of your supergraph.
+
+</ExpansionPanel>
+
+**If you'll use the Apollo Router,** get started with the resources linked above. The remainder of this article covers using Apollo Server with `@apollo/gateway`.
+
+## Node.js gateway setup
+
+This section walks through setting up a basic graph router using Apollo Server and the `@apollo/gateway` library. It currently requires [Node.js version 14 or 16](https://nodejs.org/en/download/).
+
+Create a new Node.js project with `npm init`, then install the necessary packages:
 
 ```shell
 npm install @apollo/gateway apollo-server graphql
 ```
 
-The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
+The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a graph router, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
 ```js {7-11,13-16} title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
@@ -150,11 +171,15 @@ In a more complex application, you might want to create a class that handles the
 
 ### Composing subgraphs with `IntrospectAndCompose`
 
-> Looking for `serviceList`? In `@apollo/gateway` version 0.46.0 and later,`IntrospectAndCompose` is the new drop-in replacement for the `serviceList` option. The `serviceList` option will be removed in an upcoming release of `@apollo/gateway`, but `IntrospectAndCompose` will continue to be supported. We recommend using the Rover CLI to manage local composition, but  `IntrospectAndCompose` is still useful for various development and testing workflows.
+<ExpansionPanel title="Looking for serviceList?">
 
-> We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, [see below](#limitations-of-introspectandcompose).
+In `@apollo/gateway` version 0.46.0 and later,`IntrospectAndCompose` is the new drop-in replacement for the `serviceList` option. The `serviceList` option will be removed in an upcoming release of `@apollo/gateway`, but `IntrospectAndCompose` will continue to be supported. We recommend using the Rover CLI to manage local composition, but  `IntrospectAndCompose` is still useful for various development and testing workflows.
 
-Alternatively, you can provide a `subgraph` array to the `IntrospectAndCompose` constructor, like so:
+</ExpansionPanel>
+
+> ⚠️ **We strongly recommend _against_ using `IntrospectAndCompose` in production.** For details, see [Limitations of `IntrospectAndCompose`](#limitations-of-introspectandcompose).
+
+Instead of providing a composed supergraph schema to the gateway, you can instruct the gateway to fetch all of your subgraph schemas and perform composition _itself_. To do so, provide an instance of the `IntrospectAndCompose` class with a `subgraphs` array, like so:
 
 ```js title="index.js"
 const { ApolloGateway, IntrospectAndCompose } = require('@apollo/gateway');
@@ -170,7 +195,7 @@ const gateway = new ApolloGateway({
 });
 ```
 
-Each item in the array is an object that specifies the `name` and `url` of one of your subgraphs. You can specify any string value for `name`, which is used primarily for query planner output, error messages, and logging.
+Each item in the `subgraphs` array is an object that specifies the `name` and `url` of one of your subgraphs. You can specify any string value for `name`, which is used primarily for query planner output, error messages, and logging.
 
 On startup, the gateway fetches each subgraph's schema from its `url` and composes those schemas into a supergraph schema. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
 
@@ -180,7 +205,7 @@ However, `IntrospectAndCompose` has important [limitations](#limitations-of-intr
 
 #### Limitations of `IntrospectAndCompose`
 
-The `IntrospectAndCompose` option can sometimes be helpful for local development, but it is strongly discouraged for any other environment. Here are some reasons why:
+The `IntrospectAndCompose` option can sometimes be helpful for local development, but it's strongly discouraged for any other environment. Here are some reasons why:
 
 * **Composition might fail.** With `IntrospectAndCompose`, your gateway performs composition dynamically on startup, which requires network communication with each subgraph. If composition fails, your gateway [throws errors](./errors/) and experiences unplanned downtime.
     * With the static or dynamic `supergraphSdl` configuration, you instead provide a supergraph schema that has _already_ been composed successfully. This prevents composition errors and enables faster startup.

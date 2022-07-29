@@ -5,11 +5,11 @@ description: Part 4 - Working with subgraphs
 
 In the previous parts of this quickstart, we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
 
-A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the other servers listed in [Subgraph-compatible libraries](../other-servers/).
+A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the other servers listed in [Federation-compatible subgraph implementations](../supported-subgraphs/).
 
 ## 1. Configure Apollo Server
 
-> If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a federated service.
+> If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a subgraph.
 
 If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/tree/main/apollo-server/v3/getting-started) (which is not yet federated).
 
@@ -35,7 +35,7 @@ const server = new ApolloServer({
 
 (As shown, you now pass your `typeDefs` and `resolvers` to `buildSubgraphSchema`.)
 
-And that's it! You can now perform all of the same subgraph setup on your _own_ service (schema registration, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
+And that's it! You can now perform all of the same subgraph setup on your _own_ service (schema publishing, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
 
 ## 2. Learn about federated types
 

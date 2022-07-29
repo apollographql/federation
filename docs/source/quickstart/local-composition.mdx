@@ -14,7 +14,7 @@ Like Apollo Studio, the Rover CLI needs the following information about each of 
 
 To provide these details to Rover, we define a YAML configuration file.
 
-In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
+In your router project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
 ```yaml title="supergraph-config.yaml"
 federation_version: 2
@@ -31,8 +31,8 @@ subgraphs:
 
 As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
 
-* `routing_url` is the URL the _gateway_ will use to send GraphQL operations to the subgraph at runtime.
-* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema during composition.
+* `routing_url` is the URL the _router_ will use to send GraphQL operations to the subgraph at runtime.
+* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema for composition purposes.
 
 These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)).
 
@@ -197,35 +197,19 @@ Now, append ` > supergraph.graphql` to the above command to write the composed s
 rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
 ```
 
-## 3. Update the gateway
+## 3. Provide the composed schema to the router
 
-When we provide a _Rover-composed_ supergraph schema to our gateway, we pass it as an option to the constructor of `ApolloGateway`, instead of providing it as an environment variable.
+To provide a _Rover-composed_ supergraph schema to our router, we pass it as a command-line option. Run the following in your router project directory:
 
-Open your `index.js` file and replace its contents with the following:
-
-```js title="index.js"
-const { ApolloServer } = require('apollo-server');
-const { ApolloGateway } = require('@apollo/gateway');
-const { readFileSync } = require('fs');
-
-const supergraphSdl = readFileSync('./supergraph.graphql').toString();
-
-const gateway = new ApolloGateway({
-  supergraphSdl
-});
-
-const server = new ApolloServer({
-  gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
-});
-
-server.listen().then(({ url }) => {
-  console.log(`🚀 Gateway ready at ${url}`);
-}).catch(err => {console.error(err)});
+```bash
+./router --supergraph=supergraph.graphql
 ```
 
-If you run this code with `node index.js`, the gateway reads your static supergraph schema from a file. This does _not_ communicate with Apollo Studio, which means it's well suited to local development or CI environments that don't want to introduce an external dependency.
+> For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. It isn't _required_ if you provide your schema with `--supergraph`, however you _do_ need to provide it to enable federated trace reporting.
+
+This time, the router reads your static supergraph schema from a file. This does _not_ communicate with Apollo Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
+
+> [Learn more about router configuration options.](/router/configuration/overview/)
 
 ---
 

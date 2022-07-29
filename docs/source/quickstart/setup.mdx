@@ -5,32 +5,32 @@ description: Part 1 - Project setup
 
 > 📣 **Federation 2 demo:** In addition to completing this tutorial, you can [clone our Federation 2 demo on GitHub](https://github.com/apollographql/supergraph-demo-fed2). The demo is distinct from the project you create in this tutorial, and it helps demonstrate many concepts of Federation 2.
 
-Hello! This tutorial gets you up and running with Apollo Federation 2. It currently requires [Node.js version 14 or 16](https://nodejs.org/en/download/).
+Hello! This tutorial gets you up and running with Apollo Federation 2.
 
 ## Federation concepts
 
-Before we start setting up our project, let's quickly cover what Apollo Federation _is_.
+Before we set up our project, let's quickly cover what Apollo Federation _is_.
 
 In a federated architecture, multiple GraphQL APIs are [composed](../federated-types/composition/) into a single federated graph. The individual APIs are called **subgraphs**, and they're composed into a **supergraph**:
 
 ```mermaid
 graph BT;
-  gateway(["Supergraph (A + B + C)"]);
+  router(["Supergraph (A + B + C)"]);
   serviceA[Subgraph A];
   serviceB[Subgraph B];
   serviceC[Subgraph C];
-  gateway --- serviceA & serviceB & serviceC;
+  router --- serviceA & serviceB & serviceC;
 ```
 
-Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
+Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **graph router**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
 
-The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives.
+The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific metadata.
 
-This architecture enables clients to query data from _all_ subgraphs _simultaneously_, just by querying the gateway. It also enables different teams to own independent parts of a unified graph.
+This architecture enables clients to query data from _all_ subgraphs _simultaneously_, just by querying the router. It also enables different teams to own independent parts of a unified graph.
 
 ### Supergraph schema composition
 
-As a best practice, the gateway _does not_ compose its own supergraph schema. Instead, a separate process composes the schema and provides it to the gateway. This helps improve reliability and reduce downtime when you make changes to a subgraph.
+As a best practice, your router _does not_ compose its own supergraph schema. Instead, a separate process composes the schema and provides it to the router. This helps improve reliability and reduce downtime when you make changes to a subgraph.
 
 There are multiple ways to compose a supergraph schema from subgraph schemas:
 
@@ -135,7 +135,7 @@ type SubmitReviewResponse {
 
 ## 1. Install the Rover CLI
 
-**Rover** is Apollo's CLI for managing graphs, including federated ones. We'll use it throughout this quickstart.
+**Rover** is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. We'll use it throughout this quickstart.
 
 > Federation 2 requires Rover v0.5.0 or later.
 
@@ -151,65 +151,70 @@ iwr 'https://rover.apollo.dev/win/latest' | iex
 
 After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully.
 
-## 2. Create a new gateway project
+## 2. Create a router project directory
 
-As mentioned [above](#federation-concepts), your federated supergraph is represented by a **gateway** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up our own gateway in front of them.
+As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a **graph router** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up **the Apollo Router** in front of them.
 
-With the help of the `@apollo/gateway` library, [Apollo Server](https://www.apollographql.com/docs/apollo-server/) will act as our federated gateway.
+> **The Apollo Router** is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
+>
+> Apollo Server can _also_ act as your graph router, as documented in [The graph router](../gateway/). This tutorial uses the Apollo Router because it's recommended for all new supergraphs (for details, see [Choosing a router library](../gateway/#choosing-a-router-library)).
 
-On your development machine, first create a new project directory for your Node.js gateway. Then inside that directory, run the following to create a `package.json` file:
+On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
 
-```shell
-npm init
+```bash
+curl -sSL https://router.apollo.dev/download/nix/latest | sh
 ```
 
-Next, install the following required libraries:
-
-```shell
-npm install apollo-server @apollo/gateway graphql
-```
-
-Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
-
-```js title="index.js"
-const { ApolloServer } = require('apollo-server');
-const { ApolloGateway } = require('@apollo/gateway');
-
-const gateway = new ApolloGateway();
-
-const server = new ApolloServer({
-  gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
-});
-
-server.listen().then(({ url }) => {
-  console.log(`🚀 Gateway ready at ${url}`);
-}).catch(err => {console.error(err)});
-```
-
-This code demonstrates the necessary steps for creating a gateway:
-
-1. We initialize an `ApolloGateway` instance.
-
-2. We initialize an `ApolloServer` instance and pass it our gateway via the `gateway` option.
-
-3. We call `listen` on our server instance to begin listening for incoming requests.
-
-If we run this code as-is with `node index.js`, we get an error:
+This installs the `router` executable in your project directory. You can try running it with the following command:
 
 ```
-Error: When a manual configuration is not provided, gateway requires an Apollo configuration.
+./router
 ```
 
-That's because we aren't currently providing a supergraph schema to our gateway! We'll fix that soon.
+If you do, you'll get a startup error message like the following:
+
+<ExpansionPanel title="Click to expand">
+
+```
+Apollo Router v0.12.0 // (c) Apollo Graph, Inc. // Licensed as ELv2 (https://go.apollo.dev/elv2)
+
+⚠️  The Apollo Router requires a composed supergraph schema at startup. ⚠️
+
+👉 DO ONE:
+
+  * Pass a local schema file with the '--supergraph' option:
+
+      $ ./router --supergraph <file_path>
+
+  * Fetch a registered schema from Apollo Studio by setting
+    these environment variables:
+
+      $ APOLLO_KEY="..." APOLLO_GRAPH_REF="..." ./router
+
+      For details, see the Apollo docs:
+      https://www.apollographql.com/docs/router/managed-federation/setup
+
+🔬 TESTING THINGS OUT?
+
+  1. Download an example supergraph schema with Apollo-hosted subgraphs:
+
+    $ curl -L https://supergraph.demo.starstuff.dev/ > starstuff.graphql
+
+  2. Run the Apollo Router with the supergraph schema:
+
+    $ ./router --supergraph starstuff.graphql
+```
+
+</ExpansionPanel>
+
+That's because we aren't currently providing a supergraph schema to the router! We'll fix that soon.
 
 ## 3. Obtain your subgraph schemas
 
 To compose our supergraph schema, Apollo Studio needs the following information about each of our subgraphs:
 
 * The subgraph's schema
-* The URL of the subgraph's GraphQL endpoint (which must be accessible by the gateway)
+* The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
 
 Fortunately, we have all of this information! Let's collect it in our project.
 
@@ -303,7 +308,7 @@ Do the following in your project's root directory:
 
     </ExpansionPanel>
 
-> 💡 **In most federated graphs,** each subgraph schema lives inside its associated subgraph's codebase. Because we're using remotely hosted example subgraphs in this tutorial, we're saving these subgraph schemas in our gateway project for convenience.
+> 💡 **In most federated graphs,** each subgraph schema lives in the codebase for its associated subgraph. Because we're using remotely hosted example subgraphs in this tutorial, we're saving these subgraph schemas in our router project for convenience.
 
 ## 4. Sign up for Apollo Studio
 
@@ -311,7 +316,8 @@ Before we can compose our supergraph schema with Apollo Studio, we need a Studio
 
 Complete the first two steps of <a href="https://www.apollographql.com/docs/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
 
-> For future steps, you'll need the name of the graph you just created in Apollo Studio. Make sure to have it available.
+> * Make sure the Studio graph you create is a supergraph that uses Federation 2!
+> * For future steps, you'll need the ID of the supergraph you create. Make sure to have it available.
 
 ## 5. Authenticate Rover with Studio
 
@@ -321,4 +327,4 @@ Complete the first two steps of <a href="https://www.apollographql.com/docs/rove
 
 ---
 
-Our gateway project is ready, we've installed Rover, and we have a Studio account! Next, we'll start [composing our supergraph schema in Studio.](./studio-composition/)
+Our router directory is ready, we've installed Rover, and we have a Studio account! Next, we'll start [composing our supergraph schema in Studio.](./studio-composition/)

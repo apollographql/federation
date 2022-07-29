@@ -1,5 +1,5 @@
 ---
-title: Federation Compatible Subgraph Implementations
+title: Federation-compatible subgraph implementations
 description: For use in a federated supergraph
 ---
 
