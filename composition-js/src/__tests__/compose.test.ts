@@ -221,6 +221,44 @@ describe('composition', () => {
     `);
   })
 
+  it('no hint raised when merging empty description', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        schema {
+          query: Query
+        }
+
+        ""
+        type T {
+          a: String @shareable
+        }
+
+        type Query {
+          "Returns tea"
+          t(
+            "An argument that is very important"
+            x: String!
+          ): T
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        "Type T"
+        type T {
+          a: String @shareable
+        }
+      `
+    }
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+    expect(result.hints).toEqual([]);
+  });
+
   it('include types from different subgraphs', () => {
     const subgraphA = {
       typeDefs: gql`
