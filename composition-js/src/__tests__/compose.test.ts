@@ -229,7 +229,7 @@ describe('composition', () => {
           query: Query
         }
 
-        "Type T"
+        ""
         type T {
           a: String @shareable
         }
