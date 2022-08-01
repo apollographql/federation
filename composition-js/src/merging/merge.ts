@@ -575,7 +575,7 @@ class Merger {
     subgraphElements: (TMismatched | undefined)[],
     elementToString: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
-    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources?: boolean,
     noEndOfMessageDot?: boolean
@@ -604,7 +604,7 @@ class Merger {
     subgraphElements: (TMismatched | undefined)[],
     mismatchAccessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
-    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: SubgraphASTNode[]) => void,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources: boolean = false
@@ -637,7 +637,7 @@ class Merger {
       if (v === supergraphMismatch) {
         continue;
       }
-      distribution.push(otherElementsPrinter(v === '' ? undefined : v, printSubgraphNames(names)));
+      distribution.push(otherElementsPrinter(v, printSubgraphNames(names)));
     }
     reporter(distribution, astNodes);
   }
@@ -692,8 +692,12 @@ class Merger {
     }
 
     if (descriptions.length > 0) {
+      // we don't want to raise a hint if a description is ""
+      const nonEmptyDescriptions = descriptions.filter(desc => desc !== '');
       if (descriptions.length === 1) {
         dest.description = descriptions[0];
+      } else if (nonEmptyDescriptions.length === 1) {
+        dest.description = nonEmptyDescriptions[0];
       } else {
         const idx = indexOfMax(counts);
         dest.description = descriptions[idx];
@@ -712,7 +716,7 @@ class Merger {
           subgraphElements: sources,
           elementToString: elt => elt.description,
           supergraphElementPrinter: (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
-          otherElementsPrinter: (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc!, '  ')}`,
+          otherElementsPrinter: (desc: string, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc, '  ')}`,
           ignorePredicate: elt => elt?.description === undefined,
           noEndOfMessageDot: true,  // Skip the end-of-message '.' since it would look ugly in that specific case
         });
@@ -2051,7 +2055,7 @@ class Merger {
       // When non-repeatable, we use a similar strategy than for descriptions: we count the occurence of each _different_ application (different arguments)
       // and if there is more than one option (that is, if not all subgraph have the same application), we use in the supergraph whichever application appeared
       // in the most subgraph and warn that we have had to ignore some other applications (of course, if the directive has no arguments, this is moot and
-      // we'll never warn, but this is handled by the general code below. 
+      // we'll never warn, but this is handled by the general code below.
       const differentApplications: Directive[] = [];
       const counts: number[] = [];
       for (const source of perSource) {
