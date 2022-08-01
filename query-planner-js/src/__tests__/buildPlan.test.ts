@@ -1278,7 +1278,7 @@ describe('@requires', () => {
       }
     `);
 
-    // Ensures that manually asking for the required dependencies doesn't change anything 
+    // Ensures that manually asking for the required dependencies doesn't change anything
     // (note: technically it happens to switch the order of fields in the inputs of "Subgraph2"
     // so the plans are not 100% the same "string", which is why we inline it in both cases,
     // but that's still the same plan and a perfectly valid output).
@@ -3185,6 +3185,60 @@ describe('Fed1 supergraph handling', () => {
       }
     `);
   });
+
+  test('fragment in @provides', () => {
+    const supergraphSdl = `
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2"),
+        @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+      type Apple implements Fruit {
+        id: ID!
+        keepsTheDoctorAway: Boolean!
+      }
+
+      interface Fruit {
+        id: ID!
+      }
+
+      type Payment
+        @join__owner(graph: SUBGRAPH_A)
+        @join__type(graph: SUBGRAPH_A, key: "id")
+        @join__type(graph: SUBGRAPH_B, key: "id")
+      {
+        fruit: Fruit! @join__field(graph: SUBGRAPH_A)
+        id: ID! @join__field(graph: SUBGRAPH_A)
+      }
+
+      type Query {
+        getFruitPayment: Payment! @join__field(graph: SUBGRAPH_B, provides: "fruit{...on Apple{keepsTheDoctorAway}}")
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPH_A @join__graph(name: "subgraph-a" url: "https://subgraph-a/graphql")
+        SUBGRAPH_B @join__graph(name: "subgraph-b" url: "https://subgraph-b/graphql")
+      }
+    `;
+
+    const supergraph = buildSchema(supergraphSdl);
+    new QueryPlanner(supergraph);
+  });
 });
 
 describe('Named fragments preservation', () => {
@@ -3275,7 +3329,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3290,7 +3344,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooSelect on Foo {
             __typename
             foo
@@ -3455,7 +3509,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-              
+
               fragment OnV on V {
                 a
                 b
@@ -3521,7 +3575,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment Selection on A {
             x
             y

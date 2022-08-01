@@ -404,6 +404,57 @@ describe('shareable', () => {
     `);
   });
 
+  it('fragment in @provides', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        interface Fruit {
+          id: ID!
+        }
+
+        type Apple implements Fruit {
+          id: ID!
+          keepsTheDoctorAway: Boolean!
+        }
+
+        type Payment @key(fields: "id") {
+          id: ID!
+          fruit: Fruit!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        interface Fruit {
+          id: ID!
+        }
+
+        type Apple implements Fruit {
+          id: ID!
+          keepsTheDoctorAway: Boolean!
+        }
+
+        extend type Payment @key(fields: "id") {
+          id: ID! @external
+          fruit: Fruit! @external
+        }
+
+        type Query {
+          getFruitPayment: Payment!
+            @provides(fields: "fruit { ... on Apple { keepsTheDoctorAway } }")
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+
+    const [_, api] = schemas(result);
+    expect(printSchema(api)).toMatchString(`FIXME`);
+  });
+
   it('handles provides with mixed fed1/fed2 schema (when the provides is in the fed2 schema)', () => {
     const subgraphA = {
       typeDefs: gql`
