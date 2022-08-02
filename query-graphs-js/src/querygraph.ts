@@ -755,10 +755,29 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // We always should have an edge: otherwise it would mean we list a type condition for a type that isn't in the subgraph, but the
           // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
           // to mark a full type as @external).
-          assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v}`);
-          const copiedTail = builder.makeCopy(existingEdge.tail);
-          builder.updateEdgeTail(existingEdge, copiedTail);
-          stack.push([copiedTail, selection.selectionSet!]);
+
+          // TODO: Copy-pasta'd from the `if (element.kind == 'Field')` above
+          // assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v}`);
+          if (existingEdge) {
+            const copiedTail = builder.makeCopy(existingEdge.tail);
+            builder.updateEdgeTail(existingEdge, copiedTail);
+            stack.push([copiedTail, selection.selectionSet!]);
+          }
+          // } else {
+          //   const fieldType = baseType(typeCondition);
+          //   const existingTail = builder.verticesForType(fieldType.name).find(v => v.source === source);
+          //   const newTail = existingTail ? existingTail : builder.createNewVertex(fieldType, v.source, schema);
+          //   // If the field is a leaf, then just create the new edge and we're done. Othewise, we
+          //   // should copy the vertex (unless we just created it), add the edge and continue.
+          //   if (selection.selectionSet) {
+          //     const copiedTail = existingTail ? builder.makeCopy(existingTail) : newTail;
+          //     copiedTail;
+          //     // builder.addEdge(v, copiedTail, new FieldCollection(fieldType, true));
+          //     // stack.push([copiedTail, selection.selectionSet]);
+          //   } else {
+          //     // builder.addEdge(v, newTail, new FieldCollection(fieldType, true));
+          //   }
+          // }
         } else {
           // Essentially ignore the condition, it's useless
           stack.push([v, selection.selectionSet!]);

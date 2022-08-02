@@ -3329,7 +3329,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3344,7 +3344,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment FooSelect on Foo {
             __typename
             foo
@@ -3509,7 +3509,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-
+              
               fragment OnV on V {
                 a
                 b
@@ -3575,7 +3575,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment Selection on A {
             x
             y

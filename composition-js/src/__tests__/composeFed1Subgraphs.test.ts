@@ -451,8 +451,97 @@ describe('shareable', () => {
     const result = composeServices([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
 
-    const [_, api] = schemas(result);
-    expect(printSchema(api)).toMatchString(`FIXME`);
+    const [supergraph, api] = schemas(result);
+    expect(printSchema(supergraph)).toMatchInlineSnapshot(`
+      "schema
+        @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
+        @link(url: \\"https://specs.apollo.dev/join/v0.2\\", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      type Apple implements Fruit
+        @join__implements(graph: SUBGRAPHA, interface: \\"Fruit\\")
+        @join__implements(graph: SUBGRAPHB, interface: \\"Fruit\\")
+        @join__type(graph: SUBGRAPHA)
+        @join__type(graph: SUBGRAPHB)
+      {
+        id: ID!
+        keepsTheDoctorAway: Boolean!
+      }
+
+      interface Fruit
+        @join__type(graph: SUBGRAPHA)
+        @join__type(graph: SUBGRAPHB)
+      {
+        id: ID!
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPHA @join__graph(name: \\"subgraphA\\", url: \\"\\")
+        SUBGRAPHB @join__graph(name: \\"subgraphB\\", url: \\"\\")
+      }
+
+      scalar link__Import
+
+      enum link__Purpose {
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        \\"\\"\\"
+        EXECUTION
+      }
+
+      type Payment
+        @join__type(graph: SUBGRAPHA, key: \\"id\\")
+        @join__type(graph: SUBGRAPHB, key: \\"id\\")
+      {
+        id: ID!
+        fruit: Fruit! @join__field(graph: SUBGRAPHA) @join__field(graph: SUBGRAPHB, external: true)
+      }
+
+      type Query
+        @join__type(graph: SUBGRAPHA)
+        @join__type(graph: SUBGRAPHB)
+      {
+        getFruitPayment: Payment! @join__field(graph: SUBGRAPHB, provides: \\"fruit { ... on Apple { keepsTheDoctorAway } }\\")
+      }"
+    `);
+    expect(printSchema(api)).toMatchInlineSnapshot(`
+      "type Apple implements Fruit {
+        id: ID!
+        keepsTheDoctorAway: Boolean!
+      }
+
+      interface Fruit {
+        id: ID!
+      }
+
+      type Payment {
+        id: ID!
+        fruit: Fruit!
+      }
+
+      type Query {
+        getFruitPayment: Payment!
+      }"
+    `);
     /*
     Fed1 generated a schema that looked thusly (minus the standard machinery):
 
