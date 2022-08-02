@@ -1,15 +1,10 @@
-import {
-  ApolloError,
-  AuthenticationError,
-  ForbiddenError,
-} from 'apollo-server-errors';
-
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Response, Headers } from 'node-fetch';
 import { GraphQLRequestContext } from 'apollo-server-types';
 import { GraphQLDataSourceRequestKind } from '../types';
 import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import nock from 'nock';
+import { GraphQLError } from 'graphql';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);
@@ -461,7 +456,7 @@ describe('didEncounterError', () => {
       context,
     });
 
-    await expect(result).rejects.toThrow(AuthenticationError);
+    await expect(result).rejects.toThrow(GraphQLError);
     expect(context).toMatchObject({
       timingData: [{ time: 1616446845234 }],
     });
@@ -469,7 +464,7 @@ describe('didEncounterError', () => {
 });
 
 describe('error handling', () => {
-  it('throws an AuthenticationError when the response status is 401', async () => {
+  it('throws error with code UNAUTHENTICATED when the response status is 401', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
     });
@@ -480,7 +475,7 @@ describe('error handling', () => {
       ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
     });
-    await expect(result).rejects.toThrow(AuthenticationError);
+    await expect(result).rejects.toThrow(GraphQLError);
     await expect(result).rejects.toMatchObject({
       extensions: {
         code: 'UNAUTHENTICATED',
@@ -492,7 +487,7 @@ describe('error handling', () => {
     });
   });
 
-  it('throws a ForbiddenError when the response status is 403', async () => {
+  it('throws an error with code FORBIDDEN when the response status is 403', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
     });
@@ -503,7 +498,7 @@ describe('error handling', () => {
       ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
     });
-    await expect(result).rejects.toThrow(ForbiddenError);
+    await expect(result).rejects.toThrow(GraphQLError);
     await expect(result).rejects.toMatchObject({
       extensions: {
         code: 'FORBIDDEN',
@@ -515,7 +510,7 @@ describe('error handling', () => {
     });
   });
 
-  it('throws an ApolloError when the response status is 500', async () => {
+  it('throws a GraphQLError when the response status is 500', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
     });
@@ -526,7 +521,7 @@ describe('error handling', () => {
       ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
     });
-    await expect(result).rejects.toThrow(ApolloError);
+    await expect(result).rejects.toThrow(GraphQLError);
     await expect(result).rejects.toMatchObject({
       extensions: {
         response: {
@@ -560,7 +555,7 @@ describe('error handling', () => {
       ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
     });
-    await expect(result).rejects.toThrow(ApolloError);
+    await expect(result).rejects.toThrow(GraphQLError);
     await expect(result).rejects.toMatchObject({
       extensions: {
         response: {
