@@ -3237,7 +3237,24 @@ describe('Fed1 supergraph handling', () => {
     `;
 
     const supergraph = buildSchema(supergraphSdl);
-    new QueryPlanner(supergraph);
+    const api = supergraph.toAPISchema();
+    const queryPlanner = new QueryPlanner(supergraph);
+
+    const operation = operationFromDocument(api, gql`
+      {
+        getFruitPayment {
+          fruit {
+            id
+            ... on Apple {
+              keepsTheDoctorAway
+            }
+          }
+        }
+      }
+    `);
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(``);
   });
 });
 

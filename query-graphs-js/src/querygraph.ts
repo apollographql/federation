@@ -762,22 +762,20 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
             const copiedTail = builder.makeCopy(existingEdge.tail);
             builder.updateEdgeTail(existingEdge, copiedTail);
             stack.push([copiedTail, selection.selectionSet!]);
+          } else {
+            const fieldType = baseType(typeCondition);
+            const existingTail = builder.verticesForType(fieldType.name).find(v => v.source === source);
+            const newTail = existingTail ? existingTail : builder.createNewVertex(fieldType, v.source, schema);
+            // If the field is a leaf, then just create the new edge and we're done. Othewise, we
+            // should copy the vertex (unless we just created it), add the edge and continue.
+            if (selection.selectionSet) {
+              const copiedTail = existingTail ? builder.makeCopy(existingTail) : newTail;
+              // builder.addEdge(v, copiedTail, new FieldCollection(fieldType, true));
+              stack.push([copiedTail, selection.selectionSet]);
+            } else {
+              // builder.addEdge(v, newTail, new FieldCollection(fieldType, true));
+            }
           }
-          // } else {
-          //   const fieldType = baseType(typeCondition);
-          //   const existingTail = builder.verticesForType(fieldType.name).find(v => v.source === source);
-          //   const newTail = existingTail ? existingTail : builder.createNewVertex(fieldType, v.source, schema);
-          //   // If the field is a leaf, then just create the new edge and we're done. Othewise, we
-          //   // should copy the vertex (unless we just created it), add the edge and continue.
-          //   if (selection.selectionSet) {
-          //     const copiedTail = existingTail ? builder.makeCopy(existingTail) : newTail;
-          //     copiedTail;
-          //     // builder.addEdge(v, copiedTail, new FieldCollection(fieldType, true));
-          //     // stack.push([copiedTail, selection.selectionSet]);
-          //   } else {
-          //     // builder.addEdge(v, newTail, new FieldCollection(fieldType, true));
-          //   }
-          // }
         } else {
           // Essentially ignore the condition, it's useless
           stack.push([v, selection.selectionSet!]);
