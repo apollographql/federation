@@ -6,7 +6,7 @@ import {
 } from 'apollo-server-types';
 import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
-import { InMemoryLRUCache } from 'apollo-server-caching';
+import LRUCache from 'lru-cache';
 import {
   isObjectType,
   isIntrospectionType,
@@ -130,7 +130,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
-  private queryPlanStore: InMemoryLRUCache<QueryPlan>;
+  private queryPlanStore: LRUCache<string, QueryPlan>;
   private apolloConfig?: ApolloConfigFromAS3;
   private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
   private onSchemaLoadOrUpdateListeners = new Set<
@@ -196,14 +196,14 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
-    return new InMemoryLRUCache<QueryPlan>({
+    return new LRUCache<string, QueryPlan>({
       // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
       // since the technique to calculate the size of a DocumentNode is
       // only using JSON.stringify on the DocumentNode (and thus doesn't account
       // for unicode characters, etc.), but it should do a reasonable job at
       // providing a caching document store for most operations.
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
-      sizeCalculator: approximateObjectSize,
+      sizeCalculation: approximateObjectSize,
     });
   }
 
@@ -559,7 +559,7 @@ export class ApolloGateway implements GraphQLService {
     // Once we remove the deprecated onSchemaChange() method, we can remove this.
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
-    if (this.queryPlanStore) this.queryPlanStore.flush();
+    this.queryPlanStore.clear();
     this.apiSchema = coreSchema.toAPISchema();
     this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
@@ -775,10 +775,7 @@ export class ApolloGateway implements GraphQLService {
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
-          let queryPlan: QueryPlan | undefined;
-          if (this.queryPlanStore) {
-            queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
-          }
+          let queryPlan = this.queryPlanStore.get(queryPlanStoreKey);
 
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
@@ -801,25 +798,11 @@ export class ApolloGateway implements GraphQLService {
               },
             );
 
-            if (this.queryPlanStore) {
-              // The underlying cache store behind the `documentStore` returns a
-              // `Promise` which is resolved (or rejected), eventually, based on the
-              // success or failure (respectively) of the cache save attempt.  While
-              // it's certainly possible to `await` this `Promise`, we don't care about
-              // whether or not it's successful at this point.  We'll instead proceed
-              // to serve the rest of the request and just hope that this works out.
-              // If it doesn't work, the next request will have another opportunity to
-              // try again.  Errors will surface as warnings, as appropriate.
-              //
-              // While it shouldn't normally be necessary to wrap this `Promise` in a
-              // `Promise.resolve` invocation, it seems that the underlying cache store
-              // is returning a non-native `Promise` (e.g. Bluebird, etc.).
-              Promise.resolve(
-                this.queryPlanStore.set(queryPlanStoreKey, queryPlan),
-              ).catch((err) =>
-                this.logger.warn(
-                  'Could not store queryPlan' + ((err && err.message) || err),
-                ),
+            try {
+              this.queryPlanStore.set(queryPlanStoreKey, queryPlan);
+            } catch (err) {
+              this.logger.warn(
+                'Could not store queryPlan' + ((err && err.message) || err),
               );
             }
           }
