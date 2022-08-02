@@ -7,11 +7,6 @@ import {
   CacheScope,
   CachePolicy,
 } from 'apollo-server-types';
-import {
-  ApolloError,
-  AuthenticationError,
-  ForbiddenError,
-} from 'apollo-server-errors';
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import { createHash } from '@apollo/utils.createhash';
@@ -19,6 +14,7 @@ import { parseCacheControlHeader } from './parseCacheControlHeader';
 import fetcher from 'make-fetch-happen';
 import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-fetch';
 import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
+import { GraphQLError, GraphQLErrorExtensions } from 'graphql';
 
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
@@ -302,28 +298,25 @@ export class RemoteGraphQLDataSource<
   }
 
   public async errorFromResponse(response: FetcherResponse) {
-    const message = `${response.status}: ${response.statusText}`;
-
-    let error: ApolloError;
-    if (response.status === 401) {
-      error = new AuthenticationError(message);
-    } else if (response.status === 403) {
-      error = new ForbiddenError(message);
-    } else {
-      error = new ApolloError(message);
-    }
-
     const body = await this.parseBody(response);
 
-    Object.assign(error.extensions, {
+    const extensions: GraphQLErrorExtensions = {
       response: {
         url: response.url,
         status: response.status,
         statusText: response.statusText,
         body,
       },
-    });
+    };
 
-    return error;
+    if (response.status === 401) {
+      extensions.code = 'UNAUTHENTICATED';
+    } else if (response.status === 403) {
+      extensions.code = 'FORBIDDEN';
+    }
+
+    return new GraphQLError(`${response.status}: ${response.statusText}`, {
+      extensions,
+    });
   }
 }
