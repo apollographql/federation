@@ -16,7 +16,7 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
     * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2)
     * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes incrementally at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
 
-* Subgraph servers have no additional requirements. Any [subgraph-compatible library](../other-servers/) is automatically compatible with Federation 2.
+* Subgraph servers have no additional requirements. Any [subgraph-compatible library](../supported-subgraphs/) is automatically compatible with Federation 2.
     * Many subgraph-compatible libraries do not yet automatically define certain directives that are new in Federation 2, such as `@shareable`. You can [define these directives manually](./moving-to-federation-2/#add-directive-definitions-if-needed) to use them in your subgraph schemas.
 
 ## More flexible composition
