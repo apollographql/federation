@@ -453,6 +453,37 @@ describe('shareable', () => {
 
     const [_, api] = schemas(result);
     expect(printSchema(api)).toMatchString(`FIXME`);
+    /*
+    Fed1 generated a schema that looked thusly (minus the standard machinery):
+
+    type Apple implements Fruit {
+      id: ID!
+      keepsTheDoctorAway: Boolean!
+    }
+
+    interface Fruit {
+      id: ID!
+    }
+
+    type Payment
+      @join__owner(graph: SUBGRAPH_A)
+      @join__type(graph: SUBGRAPH_A, key: "id")
+      @join__type(graph: SUBGRAPH_B, key: "id")
+    {
+      fruit: Fruit! @join__field(graph: SUBGRAPH_A)
+      id: ID! @join__field(graph: SUBGRAPH_A)
+    }
+
+    type Query {
+      getFruitPayment: Payment! @join__field(graph: SUBGRAPH_B, provides: "fruit{...on Apple{keepsTheDoctorAway}}")
+    }
+
+    enum join__Graph {
+      SUBGRAPH_A @join__graph(name: "subgraph-a" url: "https://subgraph-a/graphql")
+      SUBGRAPH_B @join__graph(name: "subgraph-b" url: "https://subgraph-b/graphql")
+    }
+    */
+
   });
 
   it('handles provides with mixed fed1/fed2 schema (when the provides is in the fed2 schema)', () => {
