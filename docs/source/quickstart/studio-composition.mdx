@@ -7,7 +7,7 @@ Now that our project and tools are set up, we can start composing our supergraph
 
 ## Managed federation concepts
 
-To compose our supergraph schema with Studio, we use a feature called  **managed federation**. With managed federation, each of our subgraphs publishes its schema to Apollo. Whenever a subgraph schema changes, Apollo composes a new supergraph schema.
+To compose our supergraph schema with Studio, we use a feature called  **managed federation**. With managed federation, each of our subgraphs publishes its schema to Apollo. Whenever a subgraph schema changes, Apollo attempts to compose a new supergraph schema.
 
 ```mermaid
 flowchart BT;
@@ -31,7 +31,7 @@ flowchart LR;
   class registry,uplink secondary;
 ```
 
-Meanwhile, our router regularly polls Uplink for changes to its supergraph schema:
+Meanwhile, our running graph router regularly polls Uplink for changes to its supergraph schema:
 
 ```mermaid
 flowchart BT;
@@ -54,18 +54,11 @@ Let's return to our router project. We can now use Rover's `subgraph publish` co
 
 Run the following from your project directory, substituting your Studio graph's **graph ref** where indicated:
 
-```shell {1}
-rover subgraph publish YOUR_GRAPH_REF \
-  --routing-url https://flyby-locations-sub.herokuapp.com/ \
-  --schema ./locations.graphql \
-  --name locations
-```
-
 <ExpansionPanel title="What's a graph ref?">
 
 A **graph ref** uniquely identifies a particular variant of a particular registered graph in Apollo Studio. Every graph ref is a string with the following format:
 
-`graph-id@variant`
+`graph-id@variant-name`
 
 If you open your graph's README page in Apollo Studio, its graph ref is displayed as the top-level header of the page:
 
@@ -74,6 +67,13 @@ If you open your graph's README page in Apollo Studio, its graph ref is displaye
 Every Studio graph is initially created with a single variant named `current`.
 
 </ExpansionPanel>
+
+```shell {1}
+rover subgraph publish YOUR_GRAPH_REF \
+  --routing-url https://flyby-locations-sub.herokuapp.com/ \
+  --schema ./locations.graphql \
+  --name locations
+```
 
 If the command is successful, you'll see output like the following:
 
@@ -120,7 +120,8 @@ It's time to enable our router to fetch its supergraph schema from Apollo. To do
     Then, make the following changes:
 
     * Replace `your-api-key` with your graph API key.
-    * Replace `your-graph-id@your-variant` with your graph's **graph ref**. (For details on graph refs, see [Step 1](#1-register-your-subgraph-schemas).)
+    * Replace `your-graph-id@your-variant` with your graph's **graph ref**.
+        * _For a refresher on graph refs, see [Step 1](#1-register-your-subgraph-schemas)._
 
 3. Paste the edited command into your terminal and run it.
 
@@ -142,7 +143,7 @@ It's time to enable our router to fetch its supergraph schema from Apollo. To do
 
     > By providing an API key to the router, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
 
-4. Optionally, to help you keep track of your router's environment variables, consider setting up a tool like [direnv](https://direnv.net/) so you don't need to set the variables every time you run `./router`.
+4. **Optionally,** to help you keep track of your router's environment variables, consider setting up a tool like [direnv](https://direnv.net/) so you don't need to set the variables every time you run `./router`.
 
     (Most cloud deployment environments provide a helpful way to set environment variables, so this issue is mostly limited to local development.)
 
@@ -150,7 +151,7 @@ Now that our router is running, we can quickly open our browser to [localhost:40
 
 <img src="../images/gateway_sandbox.jpg" class="screenshot" alt="Schema view in Apollo Sandbox" width="600" />
 
-While we're here, you can even execute some test queries against the supergraph.
+While we're here, try executing some test queries against the supergraph!
 
 ## Moving forward
 

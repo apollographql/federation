@@ -3,9 +3,12 @@ title: Federation 2 quickstart
 description: Part 1 - Project setup
 ---
 
-> 📣 **Federation 2 demo:** In addition to completing this tutorial, you can [clone our Federation 2 demo on GitHub](https://github.com/apollographql/supergraph-demo-fed2). The demo is distinct from the project you create in this tutorial, and it helps demonstrate many concepts of Federation 2.
+Hello! This tutorial gets you up and running quickly with an Apollo Federation 2 supergraph.
 
-Hello! This tutorial gets you up and running with Apollo Federation 2.
+> **Related resources:**
+>
+> * Our [in-depth Apollo Federation course](https://www.apollographql.com/tutorials/voyage-part1) goes into greater detail on fundamental federation concepts. It walks through creating a supergraph from scratch, along with federating an existing monolith graph.
+> * Our [Federation 2 demo app on GitHub](https://github.com/apollographql/supergraph-demo-fed2) is distinct from the project you create in this tutorial. It demonstrates many powerful Federation 2 features.
 
 ## Federation concepts
 
@@ -22,7 +25,7 @@ graph BT;
   router --- serviceA & serviceB & serviceC;
 ```
 
-Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **graph router**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
+Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by another service called a **graph router**, which routes each incoming query to the appropriate set of subgraphs and returns the combined result.
 
 The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific metadata.
 
@@ -43,7 +46,7 @@ Now that we have a high-level understanding of federation concepts, let's jump i
 
 ## Example subgraphs
 
-This tutorial uses two Apollo-hosted subgraphs (Locations and Reviews) from an imaginary space tourism application called FlyBy. Here are their schemas for reference:
+This tutorial uses two Apollo-hosted subgraphs (named Locations and Reviews) from an imaginary space tourism application called FlyBy. Here are their URLs and schemas for reference:
 
 <ExpansionPanel title="Locations">
 
@@ -133,13 +136,32 @@ type SubmitReviewResponse {
 
 </ExpansionPanel>
 
-## 1. Install the Rover CLI
+## 1. Set up Apollo tools
+
+This quickstart uses a couple of Apollo tools to get the most out of federation:
+
+* **Apollo Studio**, a cloud platform for monitoring, managing, and collaborating on your supergraph
+    * You **DON'T** need a paid Studio plan to complete this quickstart or use managed federation features!
+* **The Rover CLI**, a command-line interface for interacting with graphs and their schemas
+
+Let's set these up first!
+
+### Sign up for Apollo Studio
+
+Before we can use managed federation with Apollo Studio, we need a Studio account. Let's create one if you don't have one yet.
+
+Complete the first two steps of <a href="/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
+
+> * Make sure the Studio graph you create is a supergraph that uses Federation 2!
+> * For future steps, you'll need the ID of the supergraph you create. Make sure to have it available.
+
+### Install the Rover CLI
 
 **Rover** is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. We'll use it throughout this quickstart.
 
-> Federation 2 requires Rover v0.5.0 or later.
+> Even if you already have Rover installed, you should update your version now by completing this step.
 
-Install the Rover binary with the appropriate command for your system:
+Install the latest Rover release with the appropriate command for your system:
 
 ```bash title="MacOS / Unix-like"
 curl -sSL https://rover.apollo.dev/nix/latest | sh
@@ -149,7 +171,13 @@ curl -sSL https://rover.apollo.dev/nix/latest | sh
 iwr 'https://rover.apollo.dev/win/latest' | iex
 ```
 
-After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully.
+After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases) (if it doesn't, you might need to manually delete a previous outdated installation).
+
+### Authenticate Rover with Studio
+
+We'll use the Rover CLI to publish our subgraph schemas to Studio. To do that, we first need to _authenticate_ Rover with Studio.
+
+Complete the first two steps of <a href="/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
 
 ## 2. Create a router project directory
 
@@ -157,7 +185,7 @@ As mentioned in [Federation concepts](#federation-concepts), your federated supe
 
 > **The Apollo Router** is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
 >
-> Apollo Server can _also_ act as your graph router, as documented in [The graph router](../gateway/). This tutorial uses the Apollo Router because it's recommended for all new supergraphs (for details, see [Choosing a router library](../gateway/#choosing-a-router-library)).
+> Alternatively, _Apollo Server_ can act as your graph router, as documented in [The graph router](../gateway/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../gateway/#choosing-a-router-library)).
 
 On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
 
@@ -310,21 +338,6 @@ Do the following in your project's root directory:
 
 > 💡 **In most federated graphs,** each subgraph schema lives in the codebase for its associated subgraph. Because we're using remotely hosted example subgraphs in this tutorial, we're saving these subgraph schemas in our router project for convenience.
 
-## 4. Sign up for Apollo Studio
-
-Before we can compose our supergraph schema with Apollo Studio, we need a Studio account! Let's create one if you don't have one yet.
-
-Complete the first two steps of <a href="https://www.apollographql.com/docs/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
-
-> * Make sure the Studio graph you create is a supergraph that uses Federation 2!
-> * For future steps, you'll need the ID of the supergraph you create. Make sure to have it available.
-
-## 5. Authenticate Rover with Studio
-
-We're going to use the Rover CLI to publish our subgraph schemas to Studio. In order to do _that_, we first need to authenticate Rover with Studio.
-
-Complete the first two steps of <a href="https://www.apollographql.com/docs/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
-
 ---
 
-Our router directory is ready, we've installed Rover, and we have a Studio account! Next, we'll start [composing our supergraph schema in Studio.](./studio-composition/)
+We have a Studio account, we've installed Rover, and our project directory is ready! Next, we'll start [composing our supergraph schema in Studio.](./studio-composition/)
