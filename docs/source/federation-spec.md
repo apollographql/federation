@@ -435,3 +435,38 @@ interface Product {
   hidden: String @inaccessible
 }
 ```
+
+### `@tag`
+
+```graphql
+directive @tag(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+The `@tag` directive is used to provide a mechanism for applying arbitrary string metadata to the fields and types of a schema. Tags will be propagated up into composed supergraphs. This metadata is potentially useful throughout the schema’s lifecycle, including, but not limited to, processing, static analysis, and documentation.
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: [""@tag"])
+
+type Query {
+  customer(id: String!): Customer @tag(name: "team-customers")
+  employee(id: String!): Employee @tag(name: "team-admin")
+}
+
+interface User @tag(name: "team-accounts") {
+  id: String!
+  name: String!
+}
+
+type Customer implements User @tag(name: "team-customers") {
+  id: String!
+  name: String!
+  cart: [Product!] @tag(name: "team-shopping-cart")
+}
+
+type Employee implements User @tag(name: "team-admin") {
+  id: String!
+  name: String!
+  ssn: String!
+}
+```
