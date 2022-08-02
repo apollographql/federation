@@ -316,8 +316,19 @@ export class RemoteGraphQLDataSource<
       extensions.code = 'FORBIDDEN';
     }
 
-    return new GraphQLError(`${response.status}: ${response.statusText}`, {
+    // Note: gateway 0.x still supports graphql-js v15.8, which does
+    // not have the options-based GraphQLError constructor. Note that
+    // the constructor used here is dropped in graphql-js v17, so this
+    // will have to be adjusted if we try to make gateway 0.x support
+    // graphql-js v17.
+    return new GraphQLError(
+      `${response.status}: ${response.statusText}`,
+      null,
+      null,
+      null,
+      null,
+      null,
       extensions,
-    });
+    );
   }
 }
