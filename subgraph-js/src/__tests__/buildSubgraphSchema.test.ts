@@ -834,7 +834,9 @@ directive @federation__shareable on OBJECT | FIELD_DEFINITION
 
 directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
-directive @federation__override(from: String!) on FIELD_DEFINITION`,
+directive @federation__override(from: String!) on FIELD_DEFINITION
+
+directive @federation__composeDirective(name: String) repeatable on SCHEMA`,
         typesDefinitions: `
 
 enum link__Purpose {
@@ -1074,4 +1076,3 @@ type Product {
     );
   });
 });
-

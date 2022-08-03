@@ -34,6 +34,7 @@ The following hints might be generated during composition:
 | `INCONSISTENT_ARGUMENT_PRESENCE` | Indicates that an optional argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph. | `WARN` |
 | `FROM_SUBGRAPH_DOES_NOT_EXIST` | Source subgraph specified by @override directive does not exist | `WARN` |
 | `INCONSISTEN_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | `WARN` |
+| `DIRECTIVE_COMPOSITION_WARN` | Indicates that an issue was detected when composing custom directives. | `WARN` |
 
 </div>
 
@@ -48,6 +49,7 @@ The following hints might be generated during composition:
 | `INCONSISTENT_ENTITY` | Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined. | `INFO` |
 | `OVERRIDDEN_FIELD_CAN_BE_REMOVED` | Field has been overridden by another subgraph. Consider removing. | `INFO` |
 | `OVERRIDE_DIRECTIVE_CAN_BE_REMOVED` | Field with @override directive no longer exists in source subgraph, the directive can be safely removed | `INFO` |
+| `DIRECTIVE_COMPOSITION_INFO` | Indicates that an issue was detected when composing custom directives. | `INFO` |
 
 </div>
 
