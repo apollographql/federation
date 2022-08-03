@@ -5,18 +5,23 @@ import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
+import { QueryPlannerConfig } from '../config';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+  return composeAndCreatePlannerWithOptions(services, {});
+}
+
+function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
   const compositionResults = composeServices(
     services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
   );
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
-    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!))
+    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!), config)
   ];
 }
 
@@ -2717,8 +2722,9 @@ describe('Field covariance and type-explosion', () => {
           {
             dummy {
               __typename
-              ... on Object {
-                field {
+              field {
+                __typename
+                ... on Object {
                   field {
                     __typename
                   }
@@ -3101,4 +3107,447 @@ test('avoids unnecessary fetches', () => {
       },
     }
   `);
+});
+
+describe('Fed1 supergraph handling', () => {
+  test('do not type-explode if interface only implemented by value types', () => {
+    const supergraphSdl = `
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2"),
+        @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+      interface Node {
+        id: ID!
+      }
+
+      type Query {
+        t: T @join__field(graph: S1)
+      }
+
+      type T implements Node {
+        id: ID!
+        nodes: [Node]
+      }
+
+      type V implements Node {
+        id: ID!
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        S1 @join__graph(name: "S1" url: "")
+        S2 @join__graph(name: "S2" url: "")
+      }
+    `;
+
+    const supergraph = buildSchema(supergraphSdl);
+    const api = supergraph.toAPISchema();
+    const queryPlanner = new QueryPlanner(supergraph);
+
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          nodes {
+            id
+          }
+        }
+      }
+    `);
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            t {
+              nodes {
+                __typename
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+});
+
+describe('Named fragments preservation', () => {
+  it('works with nested fragments', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          a: Anything
+        }
+
+        union Anything = A1 | A2 | A3
+
+        interface Foo {
+          foo: String
+          child: Foo
+        }
+
+        type A1 implements Foo {
+          foo: String
+          child: Foo
+        }
+
+        type A2 implements Foo {
+          foo: String
+          child: Foo
+        }
+
+        type A3 implements Foo {
+          foo: String
+          child: Foo
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      query {
+        a {
+          ...on A1 {
+            ...FooSelect
+          }
+          ...on A2 {
+            ...FooSelect
+          }
+          ...on A3 {
+            ...FooSelect
+          }
+        }
+      }
+
+      fragment FooSelect on Foo {
+        __typename
+        foo
+        child {
+          ...FooChildSelect
+        }
+      }
+
+      fragment FooChildSelect on Foo {
+        __typename
+        foo
+        child {
+          child {
+            child {
+              foo
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            a {
+              __typename
+              ... on A1 {
+                ...FooSelect
+              }
+              ... on A2 {
+                ...FooSelect
+              }
+              ... on A3 {
+                ...FooSelect
+              }
+            }
+          }
+          
+          fragment FooChildSelect on Foo {
+            __typename
+            foo
+            child {
+              __typename
+              child {
+                __typename
+                child {
+                  __typename
+                  foo
+                }
+              }
+            }
+          }
+          
+          fragment FooSelect on Foo {
+            __typename
+            foo
+            child {
+              ...FooChildSelect
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('avoid fragments usable only once', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v1: V
+        }
+
+        type V @shareable {
+          a: Int
+          b: Int
+          c: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v2: V
+          v3: V
+        }
+
+        type V @shareable {
+          a: Int
+          b: Int
+          c: Int
+        }
+      `
+    }
+
+    // We use a fragment which does save some on the original query, but as each
+    // field gets to a different subgraph, the fragment would only be used one
+    // on each sub-fetch and we make sure the fragment is not used in that case.
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    let operation = operationFromDocument(api, gql`
+      query {
+        t {
+          v1 {
+            ...OnV
+          }
+          v2 {
+            ...OnV
+          }
+        }
+      }
+
+      fragment OnV on V {
+        a
+        b
+        c
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                v1 {
+                  a
+                  b
+                  c
+                }
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  v2 {
+                    a
+                    b
+                    c
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    // But double-check that if we query 2 fields from the same subgraph, then
+    // the fragment gets used now.
+    operation = operationFromDocument(api, gql`
+      query {
+        t {
+          v2 {
+            ...OnV
+          }
+          v3 {
+            ...OnV
+          }
+        }
+      }
+
+      fragment OnV on V {
+        a
+        b
+        c
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  v2 {
+                    ...OnV
+                  }
+                  v3 {
+                    ...OnV
+                  }
+                }
+              }
+              
+              fragment OnV on V {
+                a
+                b
+                c
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it.each([ true, false ])('respects query planner option "reuseQueryFragments=%p"', (reuseQueryFragments: boolean) => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T {
+          a1: A
+          a2: A
+        }
+
+        type A {
+          x: Int
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph1], { reuseQueryFragments });
+    const operation = operationFromDocument(api, gql`
+      query {
+        t {
+          a1 {
+            ...Selection
+          }
+          a2 {
+            ...Selection
+          }
+        }
+      }
+
+      fragment Selection on A {
+        x
+        y
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    const withReuse = `
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              a1 {
+                ...Selection
+              }
+              a2 {
+                ...Selection
+              }
+            }
+          }
+          
+          fragment Selection on A {
+            x
+            y
+          }
+        },
+      }
+    `;
+    const withoutReuse = `
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              a1 {
+                x
+                y
+              }
+              a2 {
+                x
+                y
+              }
+            }
+          }
+        },
+      }
+    `
+
+    expect(plan).toMatchInlineSnapshot(reuseQueryFragments ? withReuse : withoutReuse);
+  });
 });

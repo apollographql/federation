@@ -221,6 +221,44 @@ describe('composition', () => {
     `);
   })
 
+  it('no hint raised when merging empty description', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        schema {
+          query: Query
+        }
+
+        ""
+        type T {
+          a: String @shareable
+        }
+
+        type Query {
+          "Returns tea"
+          t(
+            "An argument that is very important"
+            x: String!
+          ): T
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        "Type T"
+        type T {
+          a: String @shareable
+        }
+      `
+    }
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+    expect(result.hints).toEqual([]);
+  });
+
   it('include types from different subgraphs', () => {
     const subgraphA = {
       typeDefs: gql`
@@ -2762,6 +2800,35 @@ describe('composition', () => {
           'Enum type "E" is used as both input type (for example, as type of "Query.f(e:)") and output type (for example, as type of "Query.e"), but value "V2" is not defined in all the subgraphs defining "E": "V2" is defined in subgraph "subgraphB" but not in subgraph "subgraphA"'
         ],
       ]);
+    });
+
+    it('ignores @inaccessible fields when merging enums that are used as both input and output', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            e: E!
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V1
+            V2 @inaccessible
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeUndefined();
     });
 
     it('succeed merging consistent enum used as both input and output', () => {

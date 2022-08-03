@@ -581,8 +581,12 @@ class Merger {
     }
 
     if (descriptions.length > 0) {
+      // we don't want to raise a hint if a description is ""
+      const nonEmptyDescriptions = descriptions.filter(desc => desc !== '');
       if (descriptions.length === 1) {
         dest.description = descriptions[0];
+      } else if (nonEmptyDescriptions.length === 1) {
+        dest.description = nonEmptyDescriptions[0];
       } else {
         const idx = indexOfMax(counts);
         dest.description = descriptions[idx];
@@ -601,7 +605,7 @@ class Merger {
           subgraphElements: sources,
           elementToString: elt => elt.description,
           supergraphElementPrinter: (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
-          otherElementsPrinter: (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc!, '  ')}`,
+          otherElementsPrinter: (desc: string, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc, '  ')}`,
           ignorePredicate: elt => elt?.description === undefined,
           noEndOfMessageDot: true,  // Skip the end-of-message '.' since it would look ugly in that specific case
         });

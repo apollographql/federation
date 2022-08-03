@@ -27,7 +27,7 @@
     },
     "Implementing a Supergraph": {
       "Subgraphs": "/subgraphs",
-      "Subgraph-compatible libraries": "/other-servers",
+      "Supported subgraphs": "/supported-subgraphs",
       "The gateway": "/gateway"
     },
     "Federated Schemas": {

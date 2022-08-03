@@ -413,3 +413,25 @@ type User @key(fields: "id") {
   name: String @override(from: "SubgraphA")
 }
 ```
+
+### `@inaccessible`
+```graphql
+directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+The `@inaccessible` directive indicates that a location within the schema is inaccessible. Inaccessible elements are available to query at the subgraph level but are not available to query at the supergraph level (through the router or gateway). This directive enables you to preserve composition while adding the field to your remaining subgraphs. You can remove the @inaccessible directive when the rollout is complete and begin using the field.
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/link/v1.0")
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@inaccessible"])
+
+
+interface Product {
+  id: ID!
+  sku: String
+  package: String
+  createdBy: User
+  hidden: String @inaccessible
+}
+```
