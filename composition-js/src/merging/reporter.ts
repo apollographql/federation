@@ -74,7 +74,7 @@ export class MismatchReporter {
     subgraphElements: (TMismatched | undefined)[],
     mismatchAccessor: (elt: TMismatched | undefined, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
-    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources?: boolean,
     extraNodes?: SubgraphASTNode[],
@@ -114,7 +114,7 @@ export class MismatchReporter {
     subgraphElements: (TMismatched | undefined)[],
     elementToString: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
-    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources?: boolean,
     noEndOfMessageDot?: boolean
@@ -143,7 +143,7 @@ export class MismatchReporter {
     subgraphElements: (TMismatched | undefined)[],
     mismatchAccessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
-    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: SubgraphASTNode[]) => void,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources: boolean = false
@@ -176,7 +176,7 @@ export class MismatchReporter {
       if (v === supergraphMismatch) {
         continue;
       }
-      distribution.push(otherElementsPrinter(v === '' ? undefined : v, printSubgraphNames(names)));
+      distribution.push(otherElementsPrinter(v, printSubgraphNames(names)));
     }
     reporter(distribution, astNodes);
   }
