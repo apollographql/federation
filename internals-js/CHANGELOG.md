@@ -1,5 +1,8 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.1.0-alpha.2
+- Add `@composeDirective` directive to specify directives that should be merged to the supergraph during composition [PR #1996](https://github.com/apollographql/federation/pull/1996).
+
 ## 2.1.0-alpha.0
 
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)

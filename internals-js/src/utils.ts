@@ -354,3 +354,9 @@ export function printHumanReadableList(
     return actualPrefix + joinStrings(toDisplay, ', ', undefined, ', ') + ', ...';
   }
 }
+
+// for use with Array.filter
+// Example:
+//   const x = [1,2,undefined];
+//   const y: number[] = x.filter(isDefined);
+export const isDefined = <T>(t: T | undefined): t is T => t === undefined ? false : true;

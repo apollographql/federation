@@ -697,7 +697,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some(d => d.ofExtension() === undefined)
       || this.hasNonExtensionInnerElements();
   }
@@ -1009,24 +1009,37 @@ export class CoreFeatures {
     this.byIdentity.set(feature.url.identity, feature);
   }
 
-  sourceFeature(element: DirectiveDefinition | Directive | NamedType): CoreFeature | undefined {
+  sourceFeature(element: DirectiveDefinition | Directive | NamedType): { feature: CoreFeature, nameInFeature: string, isImported: boolean } | undefined {
     const isDirective = element instanceof DirectiveDefinition || element instanceof Directive;
     const splitted = element.name.split('__');
     if (splitted.length > 1) {
-      return this.byAlias.get(splitted[0]);
+      const feature = this.byAlias.get(splitted[0]);
+      return feature ? {
+        feature,
+        nameInFeature: splitted[1],
+        isImported: false,
+      } : undefined;
     } else {
       const directFeature = this.byAlias.get(element.name);
       if (directFeature && isDirective) {
-        return directFeature;
+        return {
+          feature: directFeature,
+          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
+          isImported: true,
+        };
       }
 
       // Let's see if it's an import. If not, it's not associated to a declared feature.
       const importName = isDirective ? '@' + element.name : element.name;
       const allFeatures = [this.coreItself, ...this.byIdentity.values()];
       for (const feature of allFeatures) {
-        for (const { as } of feature.imports) {
-          if (as === importName) {
-            return feature;
+        for (const { as, name } of feature.imports) {
+          if ((as ?? name) === importName) {
+            return {
+              feature,
+              nameInFeature: name.slice(1),
+              isImported: true,
+            };
           }
         }
       }
@@ -1653,7 +1666,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   hasNonExtensionElements(): boolean {
-    return this.preserveEmptyDefinition 
+    return this.preserveEmptyDefinition
       || this._appliedDirectives.some((d) => d.ofExtension() === undefined)
       || this.roots().some((r) => r.ofExtension() === undefined);
   }
@@ -3054,7 +3067,7 @@ export function sameDirectiveApplications(applications1: Directive<any, any>[], 
 /**
  * Checks whether a given array of directive applications (`maybeSubset`) is a sub-set of another array of directive applications (`applications`).
  *
- * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`. 
+ * Sub-set here means that all of the applications in `maybeSubset` appears in `applications`.
  */
 export function isDirectiveApplicationsSubset(applications: Directive<any, any>[], maybeSubset: Directive<any, any>[]): boolean {
   if (maybeSubset.length > applications.length) {

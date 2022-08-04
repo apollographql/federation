@@ -459,6 +459,12 @@ const DOWNSTREAM_SERVICE_ERROR = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const DIRECTIVE_COMPOSITION_ERROR = makeCodeDefinition(
+  'DIRECTIVE_COMPOSITION_ERROR',
+  'Error when composing custom directives.',
+  { addedIn: '2.1.0' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -540,6 +546,7 @@ export const ERRORS = {
   KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS,
   PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
   REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  DIRECTIVE_COMPOSITION_ERROR,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});
