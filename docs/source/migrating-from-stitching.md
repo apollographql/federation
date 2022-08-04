@@ -59,7 +59,7 @@ const server = new ApolloServer({
 
 ### Using a GraphQL server besides Apollo Server
 
-There are [several community-contributed packages](./other-servers/) that add federation support to other GraphQL runtimes.
+There are [several community-contributed packages](./supported-subgraphs/) that add federation support to other GraphQL runtimes.
 
 ## Step 2: Register your schemas with a GraphQL registry
 
