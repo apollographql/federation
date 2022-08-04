@@ -13,7 +13,7 @@ import {
   GraphQLResolveInfo,
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
-import type { CacheHint } from 'apollo-server-types';
+import { maybeCacheControlFromInfo } from '@apollo/cache-control-types';
 
 export type Maybe<T> = null | undefined | T;
 
@@ -80,16 +80,18 @@ export function entitiesResolver({
       );
     }
 
-    // Note that while our TypeScript types (as of apollo-server-types@3.0.2)
-    // tell us that cacheControl and restrict are always defined, we want to
-    // avoid throwing when used with Apollo Server 2 which doesn't have
-    // `restrict`, or if the cache control plugin has been disabled.
-    if (info.cacheControl?.cacheHint?.restrict) {
-      const cacheHint: CacheHint | undefined =
-        info.cacheControl.cacheHintFromType(type);
+    // If you're using `@apollo/subgraph` with Apollo Server v3+ (without
+    // disabling the cache control plugin) and the schema has a `@cacheControl`
+    // directive on the specific type selected by `__typename`, restrict the
+    // request's cache policy based on that directive. (This does not work with
+    // Apollo Server 2 or non-Apollo-Server GraphQL servers;
+    // maybeCacheControlFromInfo will return null in that case.)
+    const cacheControl = maybeCacheControlFromInfo(info);
+    if (cacheControl) {
+      const cacheHint = cacheControl.cacheHintFromType(type);
 
       if (cacheHint) {
-        info.cacheControl.cacheHint.restrict(cacheHint);
+        cacheControl.cacheHint.restrict(cacheHint);
       }
     }
 
