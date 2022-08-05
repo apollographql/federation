@@ -1,29 +1,31 @@
 ---
 title: Apollo Federation subgraph specification
-description: For implementing subgraphs in other languages
+description: For adding subgraph support to GraphQL server libraries
 ---
 
-> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. It is _not_ required if you're already using a [subgraph-compatible library](./supported-subgraphs/) like Apollo Server.
+> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do _not_ need to read this if you're building a supergraph with [subgraph-compatible libraries](./supported-subgraphs/) like Apollo Server.
 >
 > Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
 
-To make a GraphQL service subgraph-capable, it needs the following:
+For a GraphQL service to operate as an Apollo Federation 2 subgraph, it **must**:
 
-* Implementation of the federation schema specification
-* Support for fetching service capabilities
-* Implementation of stub type generation for references
-* Implementation of request resolving for entities.
+- Automatically add to its schema all definitions listed in the [subgraph schema specification](#subgraph-schema-specification)
+- Correctly resolve the `Query._service` [enhanced introspection field](#fetch-service-capabilities)
+- Correctly generate [stubs for externally referenced types](#generating-stub-types)
+- Correctly resolve requests for entity fields via the [`Query._entities` field](#resolving-entity-fields-with-query_entities)
 
-## Federation schema specification
+## Subgraph schema specification
 
-Federated services will need to implement the following additions to the schema to allow the gateway to use the service for execution:
+A subgraph must automatically add all of the following definitions to its GraphQL schema. The purpose of each definition is described in [Schema modifications glossary](#schema-modifications-glossary).
 
 ```graphql
 scalar _Any
 scalar FieldSet
 scalar link__Import
 
-# a union of all types that use the @key directive
+# ⚠️ This definition must be created dynamically! The union
+#   must include every object type in the schema that uses
+#   the @key directive (i.e., all federated entities).
 union _Entity
 
 enum link__Purpose {
@@ -61,18 +63,55 @@ directive @composeDirective(name: String!) repeatable on SCHEMA
 directive @extends on OBJECT | INTERFACE
 ```
 
-For more information on these additions, see the [glossary](#schema-modifications-glossary).
+## Enhanced introspection with `Query._service`
 
-## Fetch service capabilities
-
-Schema composition at the gateway requires having each service's schema, annotated with its federation configuration. This information is fetched from each service using `_service`, an enhanced introspection entry point added to the query root of each federated service.
-
-> Note that the `_service` field is not exposed by the gateway; it is solely for internal use.
-
-The `_service` resolver should return the `_Service` type which has a single field called `sdl`. This SDL (schema definition language) is a printed version of the service's schema **including** the annotations of federation directives. This SDL does **not** include the additions of the federation spec above. Given an input like this:
+A federated graph router (also known as a gateway) can compose its supergraph schema dynamically at runtime. To do so, it first executes the following enhanced introspection query on each of its subgraphs to obtain all subgraph schemas:
 
 ```graphql
-extend type Query {
+query {
+  _service {
+    sdl
+  }
+}
+```
+
+> We strongly recommend _against_ performing composition dynamically within the graph router, because a composition error can cause unexpected downtime. Nevertheless, supporting this use case is still a requirement for subgraph libraries.
+
+### Differences from built-in introspection
+
+The "enhanced" introspection query above differs from [the GraphQL spec's built-in introspection query](https://spec.graphql.org/October2021/#sec-Schema-Introspection) in the following ways:
+
+- The returned schema representation is a string instead of a `__Schema` object.
+- The returned schema string includes all uses of federation-specific directives, such as `@key`.
+    - The built-in introspection query's response does _not_ include the uses of any directives.
+    - The graph router requires these federation-specific directives to perform composition successfully.
+-  If a subgraph server "disables introspection", the enhanced introspection query is still available.
+
+> Note that the `_service` field is _not_ included in the composed supergraph schema. It is intended solely for use by the graph router.
+
+### Required resolvers
+
+Every subgraph service must define resolvers for the following fields:
+
+- `Query._service`
+- `_Service.sdl`
+
+`Query._service` returns a `_Service` object, which in turn has a single field, `sdl` (short for schema definition language). The `sdl` field returns a string representation of the subgraph's schema.
+
+The returned `sdl` string has the following requirements:
+
+* It must **include** all uses of all federation-specific directives, such as `@key`.
+    * For a list of all federation-specific subgraph directives, see the [glossary](#schema-modifications-glossary).
+* It must **omit** all automatically added definitions from the [subgraph schema specification](#subgraph-schema-specification), such as `Query._service` and `_Service.sdl`!
+
+For example, consider this Federation 2 subgraph schema:
+
+```graphql title="schema.graphql"
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key"])
+
+type Query {
   me: User
 }
 
@@ -81,33 +120,36 @@ type User @key(fields: "id") {
 }
 ```
 
-The generated SDL should match that exactly with no additions. It is important to preserve the type extensions and directive locations and to omit the federation types.
+The value returned for the `sdl` field should match this string exactly, with no additions or removals.
 
-Some libraries such as `graphql-java` don't have native support for type extensions in their printer. Apollo Federation supports using an `@extends` directive in place of `extend type` to annotate type references:
-
-```graphql {1}
-type User @key(fields: "id") @extends {
-  id: ID! @external
-  reviews: [Review]
-}
-```
-
-## Create stub types
+## Generating stub types
 
 Individual federated services should be runnable without having the entire graph present. Fields marked with `@external` are declarations of fields that are defined in another service. All fields referred to in `@key`, `@requires`, and `@provides` directives need to have corresponding `@external` fields in the same service. This allows us to be explicit about dependencies on another service, and service composition will verify that an `@external` field matches up with the original field definition, which can catch mistakes or migration issues (when the original field changes its type for example). `@external` fields also give an individual service the type information it needs to validate and decode incoming representations (this is especially important for custom scalars), without requiring the composed graph schema to be available at runtime in each service.
 
 A federated service should take the `@external` fields and types and create them locally so the service can run on its own.
 
-## Resolve requests for entities
+## Resolving entity fields with `Query._entities`
 
-Execution of a federated graph requires being able to "enter" into a service at an entity type. To do this, federated services need to do two things:
+In a federated supergraph, an **entity** is an object type that can define different fields across multiple subgraphs. Entities can be identified by their use of the `@key` directive.
 
-* Make each entity in the schema part of the `_Entity` union
-* Implement the `_entities` field on the query root
+If a subgraph defines any entities, it must also provide the graph router direct access to the fields of those entities. This requires the following:
 
-To implement the `_Entity` union, each type annotated with `@key` should be added to the `_Entity` union. If no types are annotated with the key directive, then the `_Entity` union and `Query._entities` field should be removed from the schema. For example, given the following partial schema:
+- Defining the `_Entity` union type, which must include all of the subgraph's defined entity types
+- Defining the `Query._entities` field and resolving it correctly
 
-```graphql
+Both of these definitions are part of the [subgraph schema specification](#subgraph-schema-specification).
+
+### Defining the `_Entity` union
+
+The `_Entity` union type is the only schema definition from the [subgraph schema specification](#subgraph-schema-specification) that a subgraph must generate _dynamically_ based on the schema it's provided. All other definitions are static and can be added exactly as shown.
+
+The `_Entity` union must include all of the entity types that are defined in the subgraph schema (and no _other_ types).
+
+> If a subgraph doesn't define _any_ entity types, then the `_Entity` union should not be defined at all.
+
+For example, consider this subgraph schema:
+
+```graphql title="schema.graphql"
 type Review @key(fields: "id") {
   id: ID!
   body: String
@@ -115,26 +157,36 @@ type Review @key(fields: "id") {
   product: Product
 }
 
-extend type User @key(fields: "email") {
-  email: String! @external
+type User @key(fields: "email") {
+  email: String!
 }
 
-extend type Product @key(fields: "upc") {
-  upc: String! @external
+type Product @key(fields: "upc") {
+  upc: String!
 }
 ```
 
-The `_Entity` union for that partial schema should be the following:
+All three of the types in this subgraph schema are entities (note their `@key` directives). Therefore, the subgraph service should add the following `_Entity` union definition to the schema:
 
 ```graphql
 union _Entity = Review | User | Product
 ```
 
-The `_Entity` union is critical to support the `_entities` root field:
+The `_Entity` union is used by the `Query._entities` field, which is covered next.
 
-```graphql
-_entities(representations: [_Any!]!): [_Entity]!
+### Resolving the `Query._entities` field
+
+Any subgraph that defines at least one entity must also define and correctly resolve the `Query._entities` field:
+
+```graphql {2}
+type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+}
 ```
+
+> If a subgraph doesn't define any entity types, then the `Query._entities` field should not be defined at all.
+
+This field is what enables the graph router to directly fetch fields of an entity object and combine them with _other_ fields of that object returned by a _different_ subgraph.
 
 Queries across service boundaries will start off from the `_entities` root field. The resolver for this field receives a list of representations. A representation is a blob of data that is supposed to match the combined requirements of the fields requested on an entity.
 
@@ -216,13 +268,21 @@ The real resolver will then be able to access the required properties from the (
 
 ## Schema modifications glossary
 
+This section describes all of the types and field definitions that a valid subgraph service must automatically add to its schema. These definitions are all listed in [Subgraph schema specification](#subgraph-schema-specification).
+
 ### `type _Service`
 
-A new object type called `_Service` must be created. This type must have an `sdl: String!` field which exposes the SDL of the service's schema
+This object type must have an `sdl: String!` field, which returns the SDL of the subgraph schema as a string.
+
+The returned schema string _must_ include all uses of federation-specific directives (`@key`, `@requires`, etc.), and it _must not_ include any definitions from the [subgraph schema specification](#subgraph-schema-specification).
+
+For details, see [Enhanced introspection with `Query._service`](#enhanced-introspection-with-query_service).
 
 ### `Query._service`
 
-A new field must be added to the query root called `_service`. This field must return a non-nullable `_Service` type. The `_service` field on the query root must return SDL which includes all of the service's types (after any non-federation transforms), as well as federation directive annotations on the fields and types. The federation schema modifications (i.e. new types and directive definitions) *should not be* included in this SDL.
+This field of the root `Query` type must return a non-nullable [`_Service` type](#type-_service).
+
+For details, see [Enhanced introspection with `Query._service`](#enhanced-introspection-with-query_service).
 
 ### `union _Entity`
 
@@ -456,4 +516,16 @@ extend schema
     @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
     @composeDirective(name: "@myDirective")
     @composeDirective(name: "@hello")
+```
+TODO
+
+### Handling the `extend` keyword
+
+Some GraphQL server libraries (such as `graphql-java`) don't provide native support for type extensions in their printer. Apollo Federation supports using the `@extends` directive in place of `extend` to annotate type references:
+
+```graphql {1}
+type User @key(fields: "id") @extends {
+  id: ID! @external
+  reviews: [Review]
+}
 ```
