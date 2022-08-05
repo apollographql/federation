@@ -703,7 +703,9 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onDirectiveDefinitionAndSchemaParsed(schema: Schema): GraphQLError[] {
-    return completeSubgraphSchema(schema);
+    const errors = completeSubgraphSchema(schema);
+    schema.schemaDefinition.processUnappliedDirectives();
+    return errors;
   }
 
   onInvalidation(schema: Schema) {
@@ -877,6 +879,10 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     }
     return error;
+  }
+
+  waitOnDirectivesUntilAfterParsed() {
+    return true;
   }
 }
 
