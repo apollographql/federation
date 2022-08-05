@@ -104,14 +104,14 @@ describe('composition', () => {
 
       enum link__Purpose {
         """
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        """
-        SECURITY
-
-        """
         \`EXECUTION\` features provide metadata necessary for operation execution.
         """
         EXECUTION
+
+        """
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        """
+        SECURITY
       }
 
       type Query
@@ -131,9 +131,9 @@ describe('composition', () => {
         @join__type(graph: SUBGRAPH1, key: "k")
         @join__type(graph: SUBGRAPH2, key: "k")
       {
-        k: ID
         a: Int @join__field(graph: SUBGRAPH2)
         b: String @join__field(graph: SUBGRAPH2)
+        k: ID
       }
 
       union U
@@ -159,9 +159,9 @@ describe('composition', () => {
       }
 
       type T {
-        k: ID
         a: Int
         b: String
+        k: ID
       }
 
       union U = S | T
@@ -316,8 +316,8 @@ describe('composition', () => {
     const [_, api, subgraphs] = schemas(result);
     expect(printSchema(api)).toMatchString(`
       type Product {
-        sku: String!
         name: String!
+        sku: String!
       }
 
       type Query {
@@ -325,8 +325,8 @@ describe('composition', () => {
       }
 
       type User {
-        name: String
         email: String!
+        name: String
       }
     `);
 
@@ -338,8 +338,8 @@ describe('composition', () => {
       }
 
       type Product {
-        sku: String!
         name: String!
+        sku: String!
       }
 
       type Query {
@@ -355,8 +355,8 @@ describe('composition', () => {
       }
 
       type User {
-        name: String
         email: String!
+        name: String
       }
     `);
   });
@@ -392,8 +392,8 @@ describe('composition', () => {
     const [_, api, subgraphs] = schemas(result);
     expect(printSchema(api)).toMatchString(`
       type Product {
-        sku: String!
         name: String!
+        sku: String!
       }
 
       type Query {
@@ -414,6 +414,7 @@ describe('composition', () => {
       {
         sku: String! @shareable
         name: String! @external
+        sku: String!
       }
 
       type Query {
@@ -433,6 +434,7 @@ describe('composition', () => {
       {
         sku: String! @shareable
         name: String!
+        sku: String!
       }
     `);
   });
@@ -539,8 +541,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f: String
+            id: ID!
           }
         `);
       });
@@ -614,8 +616,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f: I
+            id: ID!
           }
         `);
 
@@ -687,8 +689,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f: U
+            id: ID!
           }
 
           union U = A | B
@@ -775,8 +777,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f: I
+            id: ID!
           }
         `);
 
@@ -860,8 +862,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f: [I]
+            id: ID!
           }
         `);
 
@@ -945,8 +947,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f: I!
+            id: ID!
           }
         `);
 
@@ -1190,8 +1192,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f(x: String!): String
+            id: ID!
           }
         `);
       });
@@ -1234,8 +1236,8 @@ describe('composition', () => {
           }
 
           type T {
-            id: ID!
             f(x: [Int!]): Int
+            id: ID!
           }
         `);
       });
@@ -2316,10 +2318,10 @@ describe('composition', () => {
         }
 
         type User {
+          age: Int!
+          birthdate: String!
           id: ID!
           name: String!
-          birthdate: String!
-          age: Int!
         }
     `);
 
@@ -2362,14 +2364,14 @@ describe('composition', () => {
 
       enum link__Purpose {
         """
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        """
-        SECURITY
-
-        """
         \`EXECUTION\` features provide metadata necessary for operation execution.
         """
         EXECUTION
+
+        """
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        """
+        SECURITY
       }
 
       type Query
@@ -2383,10 +2385,10 @@ describe('composition', () => {
         @join__type(graph: SUBGRAPHA, key: "id")
         @join__type(graph: SUBGRAPHB, key: "id")
       {
+        age: Int! @join__field(graph: SUBGRAPHA, requires: "birthdate")
+        birthdate: String! @join__field(graph: SUBGRAPHA, external: true) @join__field(graph: SUBGRAPHB)
         id: ID!
         name: String! @join__field(graph: SUBGRAPHA)
-        birthdate: String! @join__field(graph: SUBGRAPHA, external: true) @join__field(graph: SUBGRAPHB)
-        age: Int! @join__field(graph: SUBGRAPHA, requires: "birthdate")
       }
     `);
   })
@@ -3436,13 +3438,13 @@ describe('composition', () => {
     const [_, api] = schemas(result);
     expect(printSchema(api)).toMatchString(`
       interface Bar implements Foo {
-        foo: String!
         bar: String!
+        foo: String!
       }
 
       type Entity {
-        id: ID!
         data: Foo
+        id: ID!
         requirer: String!
       }
 
@@ -3454,9 +3456,9 @@ describe('composition', () => {
         dummy: Entity
       }
 
-      type Qux implements Foo & Bar {
-        foo: String!
+      type Qux implements Bar & Foo {
         bar: String!
+        foo: String!
         qux: String!
       }
     `);

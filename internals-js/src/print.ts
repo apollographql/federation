@@ -61,6 +61,11 @@ export function orderPrintedDefinitions(options: PrintOptions): PrintOptions {
   return {
     ...options,
     typeCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+    implementedInterfaceCompareFn: (t1, t2) => t1.interface.name.localeCompare(t2.interface.name),
+    fieldCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+    unionMemberCompareFn: (t1, t2) => t1.type.name.localeCompare(t2.type.name),
+    enumValueCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+    inputObjectFieldCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
     directiveCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
   };
 }

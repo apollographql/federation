@@ -54,9 +54,9 @@ describe('basic type extensions', () => {
     const [_, api, subgraphs] = schemas(result);
     expect(printSchema(api)).toMatchString(`
       type Product {
-        sku: String!
         name: String!
         price: Int!
+        sku: String!
       }
 
       type Query {
@@ -78,6 +78,7 @@ describe('basic type extensions', () => {
       {
         sku: String! @shareable
         name: String!
+        sku: String!
       }
 
       type Query {
@@ -100,6 +101,7 @@ describe('basic type extensions', () => {
       {
         sku: String! @shareable
         price: Int!
+        sku: String!
       }
     `);
   });
@@ -137,9 +139,9 @@ describe('basic type extensions', () => {
     const [_, api, subgraphs] = schemas(result);
     expect(printSchema(api)).toMatchString(`
       type Product {
-        sku: String!
-        price: Int!
         name: String!
+        price: Int!
+        sku: String!
       }
 
       type Query {
@@ -160,6 +162,7 @@ describe('basic type extensions', () => {
       {
         sku: String! @shareable
         price: Int!
+        sku: String!
       }
     `);
 
@@ -175,6 +178,7 @@ describe('basic type extensions', () => {
       {
         sku: String! @shareable
         name: String!
+        sku: String!
       }
 
       type Query {
@@ -224,10 +228,10 @@ describe('basic type extensions', () => {
     const [_, api, subgraphs] = schemas(result);
     expect(printSchema(api)).toMatchString(`
       type Product {
-        sku: String!
-        price: Int!
-        name: String!
         color: String!
+        name: String!
+        price: Int!
+        sku: String!
       }
 
       type Query {
@@ -247,6 +251,7 @@ describe('basic type extensions', () => {
       {
         sku: String! @shareable
         price: Int!
+        sku: String!
       }
     `);
 
@@ -260,6 +265,7 @@ describe('basic type extensions', () => {
       type Product {
         sku: String! @shareable
         name: String!
+        sku: String!
       }
 
       type Query {
@@ -279,6 +285,7 @@ describe('basic type extensions', () => {
       {
         sku: String! @shareable
         color: String!
+        sku: String!
       }
     `);
   });

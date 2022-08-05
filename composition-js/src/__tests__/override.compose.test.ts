@@ -104,9 +104,9 @@ describe("composition involving @override directive", () => {
       }
 
       type T {
-        k: ID
         a: Int
         b: Int
+        k: ID
       }
     `);
   });
