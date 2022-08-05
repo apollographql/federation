@@ -3,6 +3,7 @@ import {
   Directive,
   DirectiveDefinition,
   EnumType,
+  EnumValue,
   ExtendableElement,
   Extension,
   FieldDefinition,
@@ -18,6 +19,7 @@ import {
   SchemaDefinition,
   SchemaElement,
   SchemaRootKind,
+  UnionMember,
   UnionType
 } from "./definitions";
 import { assert } from "./utils";
@@ -28,6 +30,11 @@ export type PrintOptions = {
   definitionsOrder: ('schema' | 'types' | 'directives')[],
   rootTypesOrder: SchemaRootKind[],
   typeCompareFn?: (t1: NamedType, t2: NamedType) => number;
+  implementedInterfaceCompareFn?: (t1: InterfaceImplementation<any>, t2: InterfaceImplementation<any>) => number;
+  fieldCompareFn?: (t1: FieldDefinition<any>, t2: FieldDefinition<any>) => number;
+  unionMemberCompareFn?: (t1: UnionMember, t2: UnionMember) => number;
+  enumValueCompareFn?: (t1: EnumValue, t2: EnumValue) => number;
+  inputObjectFieldCompareFn?: (t1: InputFieldDefinition, t2: InputFieldDefinition) => number;
   directiveCompareFn?: (d1: DirectiveDefinition, d2: DirectiveDefinition) => number;
   mergeTypesAndExtensions: boolean;
   showAllBuiltIns: boolean;
@@ -255,13 +262,19 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
 
 function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = appliedDirectives(type, options, extension);
-  const interfaces = forExtension<InterfaceImplementation<any>>(type.interfaceImplementations(), extension);
+  let interfaces = forExtension<InterfaceImplementation<any>>(type.interfaceImplementations(), extension);
   let fields = forExtension<FieldDefinition<any>>(type.fields(), extension);
   if (options.fieldFilter) {
     fields = fields.filter(options.fieldFilter);
   }
   if (!directives.length && !interfaces.length && !fields.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
+  }
+  if (options.implementedInterfaceCompareFn) {
+    interfaces = interfaces.concat().sort(options.implementedInterfaceCompareFn);
+  }
+  if (options.fieldCompareFn) {
+    fields = fields.concat().sort(options.fieldCompareFn);
   }
   return printDescription(type, options, extension)
     + printIsExtension(extension)
@@ -274,9 +287,12 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
 
 function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = appliedDirectives(type, options, extension);
-  const members = forExtension(type.members(), extension);
+  let members = forExtension(type.members(), extension);
   if (!directives.length && !members.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
+  }
+  if (options.unionMemberCompareFn) {
+    members = members.concat().sort(options.unionMemberCompareFn);
   }
   const possibleTypes = members.length ? ' = ' + members.map(m => m.type).join(' | ') : '';
   return printDescription(type, options, extension)
@@ -288,9 +304,12 @@ function printUnionDefinitionOrExtension(type: UnionType, options: PrintOptions,
 
 function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = appliedDirectives(type, options, extension);
-  const values = forExtension(type.values, extension);
+  let values = forExtension(type.values, extension);
   if (!directives.length && !values.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
+  }
+  if (options.enumValueCompareFn) {
+    values = values.concat().sort(options.enumValueCompareFn);
   }
   const vals = values.map((v, i) =>
     printDescription(v, options, extension, options.indentString, !i)
@@ -307,9 +326,12 @@ function printEnumDefinitionOrExtension(type: EnumType, options: PrintOptions, e
 
 function printInputDefinitionOrExtension(type: InputObjectType, options: PrintOptions, extension?: Extension<any> | null): string | undefined {
   const directives = appliedDirectives(type, options, extension);
-  const fields = forExtension(type.fields(), extension);
+  let fields = forExtension(type.fields(), extension);
   if (!directives.length && !fields.length && (extension || !type.preserveEmptyDefinition)) {
     return undefined;
+  }
+  if (options.inputObjectFieldCompareFn) {
+    fields = fields.concat().sort(options.inputObjectFieldCompareFn);
   }
   return printDescription(type, options, extension)
     + printIsExtension(extension)
