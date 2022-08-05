@@ -33,7 +33,7 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { defaultRootName, errorCodeDef, ERRORS } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS } from '@apollo/federation-internals';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -250,6 +250,12 @@ async function executeNode<TContext>(
         context.errors.push(error);
       }
       return new Trace.QueryPlanNode({ fetch: traceNode });
+    }
+    case 'Defer': {
+      assert(false, `@defer support is not available in the gateway`);
+    }
+    case 'Condition': {
+      assert(false, `Condition nodes are not available in the gateway`);
     }
   }
 }

@@ -35,7 +35,6 @@ import {
   TAG_VERSIONS,
   INACCESSIBLE_VERSIONS,
   NamedSchemaElement,
-  executableDirectiveLocations,
   errorCauses,
   isObjectType,
   SubgraphASTNode,
@@ -65,6 +64,7 @@ import {
   isEnumType,
   filterTypesOfKind,
   isNonNullType,
+  isExecutableDirectiveLocation,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -360,7 +360,7 @@ class Merger {
       // don't need to be defined.
       return false;
     }
-    return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
+    return definition.hasExecutableLocations();
   }
 
   merge(): MergeResult {
@@ -1901,7 +1901,7 @@ class Merger {
   }
 
   private filterExecutableDirectiveLocations(source: DirectiveDefinition): readonly DirectiveLocation[] {
-    return source.locations.filter(loc => executableDirectiveLocations.includes(loc));
+    return source.locations.filter(loc => isExecutableDirectiveLocation(loc));
   }
 
   private mergeAppliedDirectives(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {

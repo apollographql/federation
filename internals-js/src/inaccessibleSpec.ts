@@ -6,7 +6,6 @@ import {
   EnumType,
   EnumValue,
   ErrGraphQLAPISchemaValidationFailed,
-  executableDirectiveLocations,
   FieldDefinition,
   InputFieldDefinition,
   InputObjectType,
@@ -17,6 +16,7 @@ import {
   isListType,
   isNonNullType,
   isScalarType,
+  isTypeSystemDirectiveLocation,
   isVariable,
   NamedType,
   ObjectType,
@@ -682,11 +682,8 @@ function validateInaccessibleElements(
     }
   }
 
-  const executableDirectiveLocationSet = new Set(executableDirectiveLocations);
   for (const directive of schema.allDirectives()) {
-    const typeSystemLocations = directive.locations.filter((loc) =>
-      !executableDirectiveLocationSet.has(loc)
-    );
+    const typeSystemLocations = directive.locations.filter((loc) => isTypeSystemDirectiveLocation(loc));
     if (hasBuiltInName(directive)) {
       // Built-in directives (and their descendants) aren't allowed to be
       // @inaccessible, regardless of shadowing.
