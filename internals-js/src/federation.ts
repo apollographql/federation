@@ -656,8 +656,18 @@ export class FederationMetadata {
 }
 
 export class FederationBlueprint extends SchemaBlueprint {
+  protected _completed = false;
+
   constructor(private readonly withRootTypeRenaming: boolean) {
     super();
+  }
+
+  setCompleted() {
+    this._completed = true;
+  }
+
+  isCompleted(): boolean {
+    return this._completed;
   }
 
   onAddedCoreFeature(schema: Schema, feature: CoreFeature) {
@@ -703,7 +713,9 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onDirectiveDefinitionAndSchemaParsed(schema: Schema): GraphQLError[] {
-    return completeSubgraphSchema(schema);
+    const errors = completeSubgraphSchema(schema);
+    schema.schemaDefinition.processUnappliedDirectives();
+    return errors;
   }
 
   onInvalidation(schema: Schema) {
@@ -925,6 +937,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
     }
   );
   const errors = completeSubgraphSchema(schema);
+  schema.schemaDefinition.processUnappliedDirectives();
   if (errors.length > 0) {
     throw ErrGraphQLValidationFailed(errors);
   }
@@ -1103,7 +1116,7 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     }
   }
 
-  return [
+  const errors =  [
     fieldSetTypeSpec.checkOrAdd(schema, '_' + fieldSetTypeSpec.name),
     keyDirectiveSpec.checkOrAdd(schema),
     requiresDirectiveSpec.checkOrAdd(schema),
@@ -1112,6 +1125,9 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     externalDirectiveSpec.checkOrAdd(schema),
     tagSpec.tagDirectiveSpec.checkOrAdd(schema),
   ].flat();
+
+  schema.blueprint.setCompleted();
+  return errors;
 }
 
 function completeFed2SubgraphSchema(schema: Schema) {
@@ -1129,7 +1145,9 @@ function completeFed2SubgraphSchema(schema: Schema) {
     )];
   }
 
-  return spec.addElementsToSchema(schema);
+  const errors = spec.addElementsToSchema(schema);
+  schema.blueprint.setCompleted();
+  return errors;
 }
 
 export function parseFieldSetArgument({

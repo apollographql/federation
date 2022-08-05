@@ -688,13 +688,12 @@ describe('composing custom core directives', () => {
     ]);
   });
 
-  it('directive may not be named as to cause a naming conflict with federation directives', () => {
+  it('directive may not be named as to cause a naming conflict with federation directives. Also no @link of link', () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective"])
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         @link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@foo", as: "@inaccessible" }])
         @composeDirective(name: "@inaccessible")
 
