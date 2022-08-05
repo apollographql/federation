@@ -583,6 +583,43 @@ describe('shareable', () => {
       }
     `);
   });
+
+  it('supports fed1 subgraphs that define @shareable', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        type Queryf {
+          friendlyFruit: Fruit!
+        }
+
+        directive @shareable on OBJECT | FIELD_DEFINITION
+
+        type Fruit @shareable {
+          id: ID!
+          name: String!
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        type Query {
+          forbiddenFruit: Fruit!
+        }
+
+        directive @shareable on OBJECT | FIELD_DEFINITION
+
+        type Fruit @shareable {
+          id: ID!
+          name: String!
+        }
+      `
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+  });
 });
 
 describe('override', () => {
