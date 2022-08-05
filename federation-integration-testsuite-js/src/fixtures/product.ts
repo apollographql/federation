@@ -1,5 +1,6 @@
 import { GraphQLResolverMap } from '../resolverMap';
 import { fed2gql as gql } from '../utils/fed2gql';
+import { maybeCacheControlFromInfo } from '@apollo/cache-control-types';
 
 export const name = 'product';
 export const url = `https://${name}.api.com.invalid`;
@@ -198,7 +199,7 @@ export const resolvers: GraphQLResolverMap<any> = {
     __resolveReference(object, _context, info) {
       // For testing dynamic cache control; use `?.` because we don't always run
       // this fixture in a real ApolloServer.
-      info.cacheControl?.cacheHint?.restrict({ maxAge: 30 });
+      maybeCacheControlFromInfo(info)?.cacheHint.restrict({ maxAge: 30 });
       if (object.isbn) {
         const fetchedObject = products.find(
           product => product.isbn === object.isbn,

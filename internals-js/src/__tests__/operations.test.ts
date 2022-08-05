@@ -16,133 +16,215 @@ function parseSchema(schema: string): Schema {
   }
 }
 
-test('fragments optimization of selection sets', () => {
-  const schema = parseSchema(`
-    type Query {
-      t: T1
-    }
+describe('fragments optimization', () => {
+  test('handles fragments using other fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T1
+      }
 
-    interface I {
-      b: Int
-    }
+      interface I {
+        b: Int
+      }
 
-    type T1 {
-      a: Int
-      b: Int
-      u: U
-    }
+      type T1 {
+        a: Int
+        b: Int
+        u: U
+      }
 
-    type T2 {
-      x: String
-      y: String
-      b: Int
-      u: U
-    }
+      type T2 {
+        x: String
+        y: String
+        b: Int
+        u: U
+      }
 
-    union U = T1 | T2
-  `);
+      union U = T1 | T2
+    `);
 
-  const operation = parseOperation(schema, `
-    fragment OnT1 on T1 {
-      a
-      b
-    }
+    const operation = parseOperation(schema, `
+      fragment OnT1 on T1 {
+        a
+        b
+      }
 
-    fragment OnT2 on T2 {
-      x
-      y
-    }
+      fragment OnT2 on T2 {
+        x
+        y
+      }
 
-    fragment OnI on I {
-      b
-    }
+      fragment OnI on I {
+        b
+      }
 
-    fragment OnU on U {
-      ...OnI
-      ...OnT1
-      ...OnT2
-    }
-
-    query {
-      t {
+      fragment OnU on U {
+        ...OnI
         ...OnT1
         ...OnT2
-        ...OnI
-        u {
-          ...OnU
+      }
+
+      query {
+        t {
+          ...OnT1
+          ...OnT2
+          ...OnI
+          u {
+            ...OnU
+          }
         }
       }
-    }
-  `);
+    `);
 
-  const withoutFragments = parseOperation(schema, operation.toString(true, true));
-  expect(withoutFragments.toString()).toMatchString(`
-    {
-      t {
-        ... on T1 {
-          a
-          b
-        }
-        ... on T2 {
-          x
-          y
-        }
-        ... on I {
-          b
-        }
-        u {
-          ... on U {
-            ... on I {
-              b
-            }
-            ... on T1 {
-              a
-              b
-            }
-            ... on T2 {
-              x
-              y
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t {
+          ... on T1 {
+            a
+            b
+          }
+          ... on T2 {
+            x
+            y
+          }
+          ... on I {
+            b
+          }
+          u {
+            ... on U {
+              ... on I {
+                b
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
             }
           }
         }
       }
-    }
-  `);
+    `);
 
-  const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-  // Note that we expect onU to *not* be recreated because, by default, optimize only
-  // add add back a fragment if it is used at least twice (otherwise, the fragment just
-  // make the query bigger).
-  expect(optimized.toString()).toMatchString(`
-    fragment OnT1 on T1 {
-      a
-      b
-    }
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
+    // Note that we expect onU to *not* be recreated because, by default, optimize only
+    // add add back a fragment if it is used at least twice (otherwise, the fragment just
+    // make the query bigger).
+    expect(optimized.toString()).toMatchString(`
+      fragment OnT1 on T1 {
+        a
+        b
+      }
 
-    fragment OnT2 on T2 {
-      x
-      y
-    }
+      fragment OnT2 on T2 {
+        x
+        y
+      }
 
-    fragment OnI on I {
-      b
-    }
+      fragment OnI on I {
+        b
+      }
 
-    {
-      t {
-        ...OnT1
-        ...OnT2
-        ...OnI
-        u {
-          ... on U {
+      {
+        t {
+          ...OnT1
+          ...OnT2
+          ...OnI
+          u {
             ...OnI
             ...OnT1
             ...OnT2
           }
         }
       }
-    }
-  `);
+    `);
+  });
+
+  test('handles fragments with nested selections', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1a: T1
+        t2a: T1
+      }
+
+      type T1 {
+        t2: T2
+      }
+
+      type T2 {
+        x: String
+        y: String
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      fragment OnT1 on T1 {
+        t2 {
+          x
+        }
+      }
+
+      query {
+        t1a {
+          ...OnT1
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ...OnT1
+        }
+      }
+    `);
+
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1a {
+          ... on T1 {
+            t2 {
+              x
+            }
+          }
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ... on T1 {
+            t2 {
+              x
+            }
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
+    expect(optimized.toString()).toMatchString(`
+      fragment OnT1 on T1 {
+        t2 {
+          x
+        }
+      }
+
+      {
+        t1a {
+          ...OnT1
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ...OnT1
+        }
+      }
+    `);
+  });
 });
 
 describe('selection set freezing', () => {

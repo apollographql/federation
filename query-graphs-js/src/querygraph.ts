@@ -947,7 +947,6 @@ class GraphBuilder {
  */
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
-  private readonly forceTypeExplosion: boolean;
 
   constructor(
     private readonly name: string,
@@ -957,9 +956,6 @@ class GraphBuilderFromSchema extends GraphBuilder {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
     assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
-    // The join spec 0.1 used by "fed1" does not preserve the information on where (in which subgraphs)
-    // an interface is defined, so we cannot ever safely avoid type explosion.
-    this.forceTypeExplosion = supergraph !== undefined && supergraph.isFed1;
   }
 
   private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
@@ -1001,13 +997,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can
       // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exploding in practice).
       if (this.isFederatedSubgraph) {
-        if (!this.forceTypeExplosion) {
-          this.maybeAddInterfaceFieldsEdges(namedType, vertex);
-        } else {
-          // While we don't want to add edges for all the "user" fields, we should still have add one for `__typename`
-          // as that can always be asked from the interface and may be necessary in a few corner cases.
-          this.addEdgeForField(namedType.typenameField()!, vertex);
-        }
+        this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
       this.addAbstractTypeEdges(namedType, vertex);
     } else if (isUnionType(namedType)) {
@@ -1041,7 +1031,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
 
   private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {
     const field = type.field(fieldName);
-    // The field is directly provided is:
+    // The field is directly provided if:
     //   1) the type does have it.
     //   2) it is not external.
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface

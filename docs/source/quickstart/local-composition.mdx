@@ -3,18 +3,18 @@ title: Federation quickstart
 description: Part 3 - Local composition
 ---
 
-[Back in Part 2](./studio-composition/), we used managed federation with Apollo Studio to compose our gateway's supergraph schema. Next, let's try out composing _locally_ with the Rover CLI.
+[Back in Part 2](./studio-composition/), we used managed federation with Apollo Studio to compose our router's supergraph schema. Next, let's try out composing _locally_ with the Rover CLI.
 
 ## 1. Provide subgraph details
 
 Like Apollo Studio, the Rover CLI needs the following information about each of our subgraphs to compose them:
 
 * The subgraph's schema
-* The URL of the subgraph's GraphQL endpoint (which must be accessible by the gateway)
+* The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
 
 To provide these details to Rover, we define a YAML configuration file.
 
-In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
+In your router project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
 ```yaml title="supergraph-config.yaml"
 federation_version: 2
@@ -31,16 +31,16 @@ subgraphs:
 
 As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
 
-* `routing_url` is the URL the _gateway_ will use to send GraphQL operations to the subgraph at runtime.
-* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema during composition.
+* `routing_url` is the URL the _router_ will use to send GraphQL operations to the subgraph at runtime.
+* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema for composition purposes.
 
-These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)).
+These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](/rover/supergraphs/#composing-a-supergraph-schema)).
 
 ## 2. Perform composition
 
 Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
 
-> [Haven't installed the latest version of Rover?](./setup/#1-install-the-rover-cli)
+> [Haven't installed the latest version of Rover?](./setup/#install-the-rover-cli)
 
 From your project directory, run the following command in your terminal:
 
@@ -50,11 +50,11 @@ rover supergraph compose --config ./supergraph-config.yaml
 
 > ⚠️ **Important:** The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
 >
-> To automatically accept this prompt (especially important for CI environments), set `APOLLO_ELV2_LICENSE=accept`.
+> To automatically accept this prompt (especially important for CI environments), add `APOLLO_ELV2_LICENSE=accept` to the beginning of the command.
 >
-> [Learn more.](/resources/elastic-license-v2-faq/)
+> [Learn more about ELv2.](/resources/elastic-license-v2-faq/)
 
-Rover outputs the following schema:
+Rover outputs the following supergraph schema:
 
 <ExpansionPanel title="Click to expand">
 
@@ -189,7 +189,7 @@ type SubmitReviewResponse
 
 </ExpansionPanel>
 
-As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the gateway uses to support our federated architecture.
+As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the router uses to route incoming operations.
 
 Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
 
@@ -197,35 +197,19 @@ Now, append ` > supergraph.graphql` to the above command to write the composed s
 rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
 ```
 
-## 3. Update the gateway
+## 3. Provide the composed schema to the router
 
-When we provide a _Rover-composed_ supergraph schema to our gateway, we pass it as an option to the constructor of `ApolloGateway`, instead of providing it as an environment variable.
+To provide a Rover-composed supergraph schema to our router, we pass it as a command-line option. Run the following in your router project directory:
 
-Open your `index.js` file and replace its contents with the following:
-
-```js title="index.js"
-const { ApolloServer } = require('apollo-server');
-const { ApolloGateway } = require('@apollo/gateway');
-const { readFileSync } = require('fs');
-
-const supergraphSdl = readFileSync('./supergraph.graphql').toString();
-
-const gateway = new ApolloGateway({
-  supergraphSdl
-});
-
-const server = new ApolloServer({
-  gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
-});
-
-server.listen().then(({ url }) => {
-  console.log(`🚀 Gateway ready at ${url}`);
-}).catch(err => {console.error(err)});
+```bash
+./router --supergraph=supergraph.graphql
 ```
 
-If you run this code with `node index.js`, the gateway reads your static supergraph schema from a file. This does _not_ communicate with Apollo Studio, which means it's well suited to local development or CI environments that don't want to introduce an external dependency.
+> For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. It isn't _required_ if you provide your schema with `--supergraph`, however you _do_ need to provide it to enable federated trace reporting.
+
+This time, the router reads your static supergraph schema from a file. This does _not_ communicate with Apollo Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
+
+> [Learn more about router configuration options.](/router/configuration/overview/)
 
 ---
 

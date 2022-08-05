@@ -14,7 +14,7 @@ describe('printSubgraphSchema', () => {
       }
 
       extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])
 
       directive @stream on FIELD
 
@@ -109,7 +109,7 @@ describe('printSubgraphSchema', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchString(`
       extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])
 
       directive @stream on FIELD
 

@@ -3,7 +3,7 @@ title: Apollo Federation subgraph specification
 description: For implementing subgraphs in other languages
 ---
 
-> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. It is _not_ required if you're already using a [subgraph-compatible library](./other-servers/) like Apollo Server.
+> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. It is _not_ required if you're already using a [subgraph-compatible library](./supported-subgraphs/) like Apollo Server.
 >
 > Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
 
@@ -273,14 +273,14 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 ```graphql
 directive @link(
-  url: String, 
-  as: String, 
-  for: link__Purpose, 
+  url: String,
+  as: String,
+  for: link__Purpose,
   import: [link__Import]
 ) repeatable on SCHEMA
 ```
 
-The `@link` directive links definitions within the document to external schemas. 
+The `@link` directive links definitions within the document to external schemas.
 
 External schemas are identified by their `url`, which optionally ends with a name and version with the following format: `{NAME}`/v`{MAJOR}`.`{MINOR}`
 
@@ -304,7 +304,7 @@ The `import` argument enables you to import external definitions into your names
       @link(url: "https://specs.apollo.dev/link/v1.0")
       @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", { name: "@tag", as: "@mytag" }, "@extends", "@shareable", "@inaccessible", "@override"])
 ```
- 
+
 In the example above, we import various directives from `federation/v2.0` into our namespace. We also rename one of them, bringing in federation's `@tag` as `@mytag` to distinguish it from a different `@tag` directive already in the schema.
 
 ### `@provides`
@@ -411,5 +411,27 @@ type User @key(fields: "id") {
 type User @key(fields: "id") {
   id: ID!
   name: String @override(from: "SubgraphA")
+}
+```
+
+### `@inaccessible`
+```graphql
+directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+The `@inaccessible` directive indicates that a location within the schema is inaccessible. Inaccessible elements are available to query at the subgraph level but are not available to query at the supergraph level (through the router or gateway). This directive enables you to preserve composition while adding the field to your remaining subgraphs. You can remove the @inaccessible directive when the rollout is complete and begin using the field.
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/link/v1.0")
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@inaccessible"])
+
+
+interface Product {
+  id: ID!
+  sku: String
+  package: String
+  createdBy: User
+  hidden: String @inaccessible
 }
 ```

@@ -1,5 +1,5 @@
 import { GraphQLError, GraphQLSchema } from 'graphql';
-import { HeadersInit } from 'node-fetch';
+import type { HeadersInit } from 'node-fetch';
 import { GraphQLRequestContextExecutionDidStart } from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import { GraphQLDataSource } from './datasources/types';
@@ -130,7 +130,7 @@ interface GatewayConfigBase {
   fetcher?: Fetcher;
   serviceHealthCheck?: boolean;
 
-  queryPlannerOptions?: QueryPlannerConfig;
+  queryPlannerConfig?: QueryPlannerConfig;
 }
 
 // TODO(trevor:removeServiceList)

@@ -1,5 +1,6 @@
 ---
 title: Schema composition
+description: In Apollo Federation
 ---
 
 In Apollo Federation, **composition** is the process of combining a set of [subgraph schemas](./overview/#subgraph-schemas) into a [supergraph schema](./overview/#supergraph-schema):
@@ -16,7 +17,7 @@ graph TB;
   class composition tertiary;
 ```
 
-The supergraph schema includes all of the type and field definitions from your subgraph schemas. It's what enables your gateway to intelligently route incoming GraphQL operations across all of your different subgraphs.
+The supergraph schema includes all of the type and field definitions from your subgraph schemas. It also includes metadata that enables your graph router to intelligently route incoming GraphQL operations across all of your different subgraphs.
 
 ## Supported methods
 
@@ -30,18 +31,18 @@ The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergrap
 rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#1-install-the-rover-cli).
+To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#install-the-rover-cli).
 
 ### Automatically with managed federation
 
-With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its registered schema. This enables your running gateway to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
+With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its registered schema. This enables your running graph router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
 
 ```mermaid
 graph LR;
   subgraph "Your infrastructure"
   serviceA[Products<br/>subgraph];
   serviceB[Reviews<br/>subgraph];
-  gateway([Gateway]);
+  gateway([Router]);
   end
   subgraph "Apollo cloud"
     registry{{Apollo Schema<br/>Registry}};
@@ -83,7 +84,7 @@ One subgraph defines `Event.timestamp` as a `String`, and the other defines it a
 
 > For examples of _valid_ inconsistencies in field return types, see [Differing shared field return types](./sharing-types/#return-types).
 
-Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your gateway, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
+Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your router, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
 ## Rules of composition
 In Federation 2, your subgraph schemas must follow **all** of these rules to successfully compose into a supergraph schema:
@@ -173,7 +174,7 @@ query GetPosition {
 
 **Here's our problem.** Only Subgraph A can resolve `Query.positionA`, because Subgraph B doesn't define the field. But Subgraph A _doesn't_ define `Position.z`!
 
-If the gateway sent this query to Subgraph A, it would return an error. And without extra configuration, Subgraph B can't resolve a `z` value for a `Position` in Subgraph A. Therefore, `Position.z` is **unresolvable** for this query.
+If the router sent this query to Subgraph A, it would return an error. And without extra configuration, Subgraph B can't resolve a `z` value for a `Position` in Subgraph A. Therefore, `Position.z` is **unresolvable** for this query.
 
 Composition recognizes this potential issue, and it fails. The hypothetical supergraph schema above would never actually be generated.
 
@@ -314,7 +315,7 @@ Because composition uses the union strategy for these types, subgraphs can contr
 
 ### Input types and field arguments
 
-Composition _always_ uses the intersection strategy to merge input types and field arguments. This ensures that the gateway _never_ passes an argument to a subgraph that doesn't define that argument.
+Composition _always_ uses the intersection strategy to merge input types and field arguments. This ensures that the router _never_ passes an argument to a subgraph that doesn't define that argument.
 
 Consider the following subgraph schemas:
 
@@ -358,89 +359,28 @@ type Library {
 
 As you can see, the supergraph schema includes only the input fields and arguments that _both_ subgraphs define.
 
-> ⚠️ **Important:** If the intersection strategy would omit an input field or argument that is _non-nullable_, **composition fails**. This is because at least one subgraph _requires_ that field or argument, and the gateway can't provide it if it's omitted from the supergraph schema.
+> ⚠️ **Important:** If the intersection strategy would omit an input field or argument that is _non-nullable_, **composition fails**. This is because at least one subgraph _requires_ that field or argument, and the router can't provide it if it's omitted from the supergraph schema.
 >
 > When defining input types and field arguments in multiple subgraphs, make sure that every non-nullable field and argument is consistent in _every subgraph_. For examples, see [Arguments](sharing-types#arguments).
 
 
 ### Enums
 
-Composition might use the union strategy _or_ the intersection strategy when merging enum type definitions, _depending on how the enum is used_.
+If an enum definition differs between subgraphs, the [composition strategy](#merging-types-from-multiple-subgraphs) depends on how the enum is used:
 
-```mermaid
-graph TB;
-    enum("Is the enum used as the type for at least<br/>one field argument or input type field?");
-    enum--No-->union("Union");
-    enum--Yes-->intersection("Intersection");
-```
+| Scenario | Strategy |
+|----------|----------|
+| The enum is used as the return type for at least one object or interface field. | [Union](#union) |
+| The enum is used as the type for at least one field argument or input type field. | [Intersection](#intersection) |
+| **Both** of the above are true. | All definitions must [match **exactly**](#exact-match) |
 
-If your enum is **not** used as the type of a field argument or input type field, then composition merges using the [union strategy](#merging-types-from-multiple-subgraphs).
+Examples of these scenarios are provided below.
 
-Consider the following subgraph schemas:
+#### Enum composition examples
 
-<CodeColumns>
+##### Union
 
-```graphql title="Subgraph A"
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-```
-
-```graphql title="Subgraph B"
-enum Color {
-  RED
-  CYAN
-  MAGENTA
-  YELLOW
-}
-```
-
-</CodeColumns>
-
-When these subgraph schemas are composed, composition merges the `Color` enum by union. This results in the following type definition in the supergraph schema:
-
-```graphql title="Supergraph schema"
-enum Color {
-  RED
-  GREEN
-  BLUE
-  CYAN
-  MAGENTA
-  YELLOW
-}
-```
-
-If you use an enum as _either_ a field argument or an input field's return type in at least one of your subgraphs, composition merges using the [intersection strategy](#merging-types-from-multiple-subgraphs).
-
-Let's say we add a new field to Subgraph A that uses our `Color` enum as a field argument:
-
-```graphql title="Subgraph A"
-enum Color {
-  RED
-  GREEN
-  BLUE
-}
-
-type ColorQuery {
-  avatar(borderColor: Color): String
-}
-```
-
-Now when composition runs, the `Color` enum is merged by _intersection_:
-
-```graphql title="Supergraph schema"
-enum Color {
-  RED
-}
-
-type ColorQuery {
-  avatar(borderColor: Color): String
-}
-```
-
-If you are using an enum as either a field argument or an input field return type and you want to include _all_ of its values in the supergraph schema, ensure _every_ subgraph's type definition for that enum is identical:
+Consider these subgraph schemas:
 
 <CodeColumns>
 
@@ -449,13 +389,10 @@ enum Color {
   RED
   GREEN
   BLUE
-  CYAN
-  MAGENTA
-  YELLOW
 }
 
-type ColorQuery {
-  avatar(borderColor: Color): String
+type Query {
+  favoriteColor: Color
 }
 ```
 
@@ -463,28 +400,112 @@ type ColorQuery {
 enum Color {
   RED
   GREEN
-  BLUE
-  CYAN
-  MAGENTA
   YELLOW
+}
+
+type Query {
+  currentColor: Color
 }
 ```
 
 </CodeColumns>
+
+In this case, the `Color` enum is used as the return type of at least one object field. Therefore, composition merges the `Color` enum by union, so that all possible subgraph return values are valid.
 
 This results in the following type definition in the supergraph schema:
 
-```js title="Supergraph Schema"
+```graphql title="Supergraph schema"
 enum Color {
   RED
   GREEN
   BLUE
-  CYAN
-  MAGENTA
+  YELLOW
+}
+```
+
+##### Intersection
+
+Consider these subgraph schemas:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+type Query {
+  products(color: Color): [Product]
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  GREEN
   YELLOW
 }
 
-type ColorQuery {
-  avatar(borderColor: Color): String
+type Query {
+  images(color: Color): [Image]
 }
 ```
+
+</CodeColumns>
+
+In this case, the `Color` enum is used as the type of at least one field argument (or input type field). Therefore, composition merges the `Color` enum by intersection, so that subgraphs never receive a client-provided enum value that they don't support.
+
+This results in the following type definition in the supergraph schema:
+
+```graphql title="Supergraph schema"
+# BLUE and YELLOW are removed via intersection
+enum Color {
+  RED
+  GREEN
+}
+```
+
+##### Exact match
+
+Consider these subgraph schemas:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+type Query {
+  favoriteColor: Color
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  GREEN
+  YELLOW
+}
+
+type Query {
+  images(color: Color): [Image]
+}
+```
+
+</CodeColumns>
+
+In this case, the `Color` enum is used as _both_:
+
+* The return type of at least one object field
+* The type of at least one field argument (or input type field)
+
+Therefore, the definition of the `Color` enum **must match exactly** in every subgraph that defines it. An exact match is the only scenario that enables union _and_ intersection to produce the same result.
+
+The subgraph schemas above _do not compose_, because their definitions of the `Color` enum differ.

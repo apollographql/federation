@@ -8,6 +8,7 @@ import {
   ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
+  DirectiveSpecification,
 } from "./directiveAndTypeSpecification";
 import { DirectiveLocation, GraphQLError } from "graphql";
 import { assert } from "./utils";
@@ -79,6 +80,16 @@ export const overrideDirectiveSpec = createDirectiveSpecification({
   }),
 });
 
+export const composeDirectiveSpec = createDirectiveSpecification({
+  name: 'composeDirective',
+  locations: [DirectiveLocation.SCHEMA],
+  repeatable: true,
+  argumentFct: (schema) => ({
+    args: [{ name: 'name', type: schema.stringType() }],
+    errors: [],
+  }),
+})
+
 function fieldsArgument(schema: Schema): ArgumentSpecification {
   return { name: 'fields', type: fieldSetType(schema) };
 }
@@ -95,15 +106,24 @@ export const FEDERATION2_ONLY_SPEC_DIRECTIVES = [
   overrideDirectiveSpec,
 ];
 
-// Note that this is only used for federation 2+ (federation 1 adds the same directive, but not through a core spec).
-export const FEDERATION2_SPEC_DIRECTIVES = [
+export const FEDERATION2_1_ONLY_SPEC_DIRECTIVES = [
+  composeDirectiveSpec,
+];
+
+const PRE_FEDERATION2_SPEC_DIRECTIVES = [
   keyDirectiveSpec,
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
   TAG_VERSIONS.latest().tagDirectiveSpec,
   extendsDirectiveSpec, // TODO: should we stop supporting that?
+];
+
+// Note that this is only used for federation 2+ (federation 1 adds the same directive, but not through a core spec).
+export const FEDERATION2_SPEC_DIRECTIVES = [
+  ...PRE_FEDERATION2_SPEC_DIRECTIVES,
   ...FEDERATION2_ONLY_SPEC_DIRECTIVES,
+  ...FEDERATION2_1_ONLY_SPEC_DIRECTIVES,
 ];
 
 // Note that this is meant to contain _all_ federation directive names ever supported, regardless of which version.
@@ -120,6 +140,12 @@ export class FederationSpecDefinition extends FeatureDefinition {
     super(new FeatureUrl(federationIdentity, 'federation', version));
   }
 
+  private allFedDirectives(): DirectiveSpecification[] {
+    return PRE_FEDERATION2_SPEC_DIRECTIVES
+      .concat(FEDERATION2_ONLY_SPEC_DIRECTIVES)
+      .concat(this.url.version >= (new FeatureVersion(2, 1)) ? FEDERATION2_1_ONLY_SPEC_DIRECTIVES : []);
+  }
+
   addElementsToSchema(schema: Schema): GraphQLError[] {
     const feature = this.featureInSchema(schema);
     assert(feature, 'The federation specification should have been added to the schema before this is called');
@@ -127,20 +153,21 @@ export class FederationSpecDefinition extends FeatureDefinition {
     let errors: GraphQLError[] = [];
     errors = errors.concat(this.addTypeSpec(schema, fieldSetTypeSpec));
 
-    for (const directive of FEDERATION2_SPEC_DIRECTIVES) {
+    for (const directive of this.allFedDirectives()) {
       errors = errors.concat(this.addDirectiveSpec(schema, directive));
     }
     return errors;
   }
 
   allElementNames(): string[] {
-    return FEDERATION2_SPEC_DIRECTIVES.map((spec) => `@${spec.name}`).concat([
+    return this.allFedDirectives().map((spec) => `@${spec.name}`).concat([
       fieldSetTypeSpec.name,
     ])
   }
 }
 
 export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 0)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 1)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
