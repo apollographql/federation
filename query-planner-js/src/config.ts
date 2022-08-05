@@ -16,7 +16,7 @@ export type QueryPlannerConfig = {
    *
    * Defaults to true.
    */
-   reuseQueryFragments?: boolean,
+  reuseQueryFragments?: boolean,
 
   // Side-note: implemented as an object instead of single boolean because we expect to add more to this soon
   // enough. In particular, once defer-passthrough to subgraphs is implemented, the idea would be to add a
