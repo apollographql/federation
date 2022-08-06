@@ -1,13 +1,12 @@
 import {
   buildClientSchema,
   getIntrospectionQuery,
+  GraphQLError,
   GraphQLObjectType,
   GraphQLSchema,
   print,
 } from 'graphql';
 import gql from 'graphql-tag';
-import { GraphQLRequestContext, VariableValues } from 'apollo-server-types';
-import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
@@ -21,6 +20,7 @@ import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
 import { addResolversToSchema, GraphQLResolverMap } from '@apollo/subgraph/src/schema-helper';
+import {GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -53,8 +53,8 @@ describe('executeQueryPlan', () => {
   });
 
   function buildRequestContext(
-    variables: VariableValues = {},
-  ): GraphQLRequestContext {
+    variables: Record<string, any> = {},
+  ): GatewayGraphQLRequestContext {
     // @ts-ignore
     return {
       cache: undefined as any,
@@ -101,7 +101,9 @@ describe('executeQueryPlan', () => {
       overrideResolversInService('accounts', {
         RootQuery: {
           me() {
-            throw new AuthenticationError('Something went wrong');
+            throw new GraphQLError('Something went wrong', {
+              extensions: { code: 'UNAUTHENTICATED' },
+            });
           },
         },
       });
