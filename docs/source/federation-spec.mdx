@@ -14,19 +14,21 @@ For a GraphQL service to operate as an Apollo Federation 2 subgraph, it must do 
 - Correctly generate [stubs for externally referenced types](#generating-stub-types)
 - Correctly resolve requests for entity fields via the [`Query._entities` field](#resolving-entity-fields-with-query_entities)
 
+Each of these requirements is described in the sections below.
+
 ## Subgraph schema specification
 
 A subgraph must automatically add all of the following definitions to its GraphQL schema. The purpose of each definition is described in [Glossary of schema additions](#glossary-of-schema-additions).
 
-```graphql
-scalar _Any
-scalar FieldSet
-scalar link__Import
-
+```graphql {1-4}
 # ⚠️ This definition must be created dynamically! The union
 #   must include every object type in the schema that uses
 #   the @key directive (i.e., all federated entities).
 union _Entity
+
+scalar _Any
+scalar FieldSet
+scalar link__Import
 
 enum link__Purpose {
   """
@@ -58,7 +60,7 @@ directive @shareable on OBJECT | FIELD_DEFINITION
 directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 directive @override(from: String!) on FIELD_DEFINITION
 
-# this is an optional directive discussed below
+# This is an optional directive (see the glossary below)
 directive @extends on OBJECT | INTERFACE
 ```
 
@@ -86,7 +88,7 @@ The "enhanced" introspection query above differs from [the GraphQL spec's built-
     - The graph router requires these federation-specific directives to perform composition successfully.
 -  If a subgraph server "disables introspection", the enhanced introspection query is still available.
 
-> Note that the `_service` field is _not_ included in the composed supergraph schema. It is intended solely for use by the graph router.
+> Note that the `_service` field is _not_ included in the composed supergraph schema. For security reasons, it's intended solely for use by the graph router.
 
 ### Required resolvers
 
@@ -119,7 +121,7 @@ type User @key(fields: "id") {
 }
 ```
 
-The value returned for the `sdl` field should match this string exactly, with no additions or removals.
+The value returned for the `sdl` field should include all of this information, including directives (excessive whitespace can be removed).
 
 ## Generating stub types
 
@@ -317,7 +319,7 @@ Each entry that the router includes in the `$_representations` list variable has
 }
 ```
 
-These are the representation fields that the router automatically added to its Products query.
+These are the representation fields that the router automatically added to its Products query above.
 
 ### Resolving `Query._entities`
 
