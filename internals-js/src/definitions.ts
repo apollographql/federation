@@ -15,10 +15,10 @@ import {
   TypeNode,
   VariableDefinitionNode,
   VariableNode,
-  TypeSystemDefinitionNode,
   SchemaDefinitionNode,
   TypeDefinitionNode,
-  DirectiveNode
+  DefinitionNode,
+  DirectiveDefinitionNode
 } from "graphql";
 import {
   CoreImport,
@@ -33,7 +33,7 @@ import {
 import { assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
-import { printSchema } from './print';
+import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
 import { err } from '@apollo/core-schema';
@@ -291,6 +291,32 @@ export const executableDirectiveLocations: DirectiveLocation[] = [
   DirectiveLocation.INLINE_FRAGMENT,
   DirectiveLocation.VARIABLE_DEFINITION,
 ];
+
+const executableDirectiveLocationsSet = new Set(executableDirectiveLocations);
+
+export function isExecutableDirectiveLocation(loc: DirectiveLocation): boolean {
+  return executableDirectiveLocationsSet.has(loc);
+}
+
+export const typeSystemDirectiveLocations: DirectiveLocation[] = [
+  DirectiveLocation.SCHEMA,
+  DirectiveLocation.SCALAR,
+  DirectiveLocation.OBJECT,
+  DirectiveLocation.FIELD_DEFINITION,
+  DirectiveLocation.ARGUMENT_DEFINITION,
+  DirectiveLocation.INTERFACE,
+  DirectiveLocation.UNION,
+  DirectiveLocation.ENUM,
+  DirectiveLocation.ENUM_VALUE,
+  DirectiveLocation.INPUT_OBJECT,
+  DirectiveLocation.INPUT_FIELD_DEFINITION,
+];
+
+const typeSystemDirectiveLocationsSet = new Set(typeSystemDirectiveLocations);
+
+export function isTypeSystemDirectiveLocation(loc: DirectiveLocation): boolean {
+  return typeSystemDirectiveLocationsSet.has(loc);
+}
 
 /**
  * Converts a type to an AST of a "reference" to that type, one corresponding to the type `toString()` (and thus never a type definition).
@@ -1103,7 +1129,49 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
     locations: [DirectiveLocation.SCALAR],
     argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
   }),
+  // TODO: currently inconditionally adding @defer as the list of built-in. It's probably fine, but double check if we want to not do so when @defer-support is
+  // not enabled or something (it would probably be hard to handle it at that point anyway but well...).
+  createDirectiveSpecification({
+    name: 'defer',
+    locations: [DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
+    argumentFct: (schema) => ({
+      args: [
+        { name: 'label', type: schema.stringType() },
+        { name: 'if', type: schema.booleanType() },
+      ],
+      errors: [],
+    })
+  }),
+  // Adding @stream too so that it's know and we don't error out if it is queries. It feels like it would be weird to do so for @stream but not
+  // @defer when both are defined in the same spec. That said, that does *not* mean we currently _implement_ @stream, we don't, and so putting
+  // it in a query will be a no-op at the moment (which technically is valid according to the spec so ...).
+  createDirectiveSpecification({
+    name: 'stream',
+    locations: [DirectiveLocation.FIELD],
+    argumentFct: (schema) => ({
+      args: [
+        { name: 'label', type: schema.stringType() },
+        { name: 'initialCount', type: schema.intType(), defaultValue: 0 },
+        { name: 'if', type: schema.booleanType() },
+      ],
+      errors: [],
+    })
+  }),
 ];
+
+export type DeferDirectiveArgs = {
+  // TODO: we currently do not support variables for the defer label. Passing a label in a variable
+  // feels like a weird use case in the first place, but we should probably fix this nonetheless (or
+  // if we decide to have it be a known limitations, we should at least reject it cleanly).
+  label?: string,
+  if?: boolean | Variable,
+}
+
+export type StreamDirectiveArgs = {
+  label?: string,
+  initialCount: number,
+  if?: boolean,
+}
 
 
 // A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
@@ -1206,7 +1274,7 @@ export class Schema {
     return this.apiSchema;
   }
 
-  private emptyASTDefinitionsForExtensionsWithoutDefinition(): TypeSystemDefinitionNode[] {
+  private emptyASTDefinitionsForExtensionsWithoutDefinition(): DefinitionNode[] {
     const nodes = [];
     if (this.schemaDefinition.hasExtensionElements() && !this.schemaDefinition.hasNonExtensionElements()) {
       const node: SchemaDefinitionNode = { kind: Kind.SCHEMA_DEFINITION, operationTypes: [] };
@@ -1224,7 +1292,9 @@ export class Schema {
     return nodes;
   }
 
-  toGraphQLJSSchema(): GraphQLSchema {
+  toGraphQLJSSchema(config?: { includeDefer?: boolean }): GraphQLSchema {
+    const includeDefer = config?.includeDefer ?? false;
+
     let ast = this.toAST();
 
     // Note that AST generated by `this.toAST()` may not be fully graphQL valid because, in federation subgraphs, we accept
@@ -1232,6 +1302,9 @@ export class Schema {
     // we need to "fix" that problem. For that, we add empty definitions for every element that has extensions without
     // definitions (which is also what `fed1` was effectively doing).
     const additionalNodes = this.emptyASTDefinitionsForExtensionsWithoutDefinition();
+    if (includeDefer) {
+      additionalNodes.push(this.deferDirective().toAST());
+    }
     if (additionalNodes.length > 0) {
       ast = {
         kind: Kind.DOCUMENT,
@@ -1508,28 +1581,35 @@ export class Schema {
   }
 
   private getBuiltInDirective<TApplicationArgs extends {[key: string]: any}>(
-    schema: Schema,
     name: string
   ): DirectiveDefinition<TApplicationArgs> {
-    const directive = schema.directive(name);
+    const directive = this.directive(name);
     assert(directive, `The provided schema has not be built with the ${name} directive built-in`);
     return directive as DirectiveDefinition<TApplicationArgs>;
   }
 
-  includeDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
-    return this.getBuiltInDirective(schema, 'include');
+  includeDirective(): DirectiveDefinition<{if: boolean}> {
+    return this.getBuiltInDirective('include');
   }
 
-  skipDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
-    return this.getBuiltInDirective(schema, 'skip');
+  skipDirective(): DirectiveDefinition<{if: boolean}> {
+    return this.getBuiltInDirective('skip');
   }
 
-  deprecatedDirective(schema: Schema): DirectiveDefinition<{reason?: string}> {
-    return this.getBuiltInDirective(schema, 'deprecated');
+  deprecatedDirective(): DirectiveDefinition<{reason?: string}> {
+    return this.getBuiltInDirective('deprecated');
   }
 
-  specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
-    return this.getBuiltInDirective(schema, 'specifiedBy');
+  specifiedByDirective(): DirectiveDefinition<{url: string}> {
+    return this.getBuiltInDirective('specifiedBy');
+  }
+
+  deferDirective(): DirectiveDefinition<DeferDirectiveArgs> {
+    return this.getBuiltInDirective('defer');
+  }
+
+  streamDirective(): DirectiveDefinition<StreamDirectiveArgs> {
+    return this.getBuiltInDirective('stream');
   }
 
   /**
@@ -2820,6 +2900,9 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return this.addLocations(...Object.values(DirectiveLocation));
   }
 
+  /**
+  * Adds the subset of type system locations that correspond to type definitions.
+  */
   addAllTypeLocations(): DirectiveDefinition {
     return this.addLocations(
       DirectiveLocation.SCALAR,
@@ -2844,6 +2927,14 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
       this.onModification();
     }
     return this;
+  }
+
+  hasExecutableLocations(): boolean {
+    return this.locations.some((loc) => isExecutableDirectiveLocation(loc));
+  }
+
+  hasTypeSystemLocations(): boolean {
+    return this.locations.some((loc) => isTypeSystemDirectiveLocation(loc));
   }
 
   applications(): readonly Directive<SchemaElement<any, any>, TApplicationArgs>[] {
@@ -2900,6 +2991,11 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
    */
   removeRecursive(): void {
     this.remove().forEach(ref => ref.remove());
+  }
+
+  toAST(): DirectiveDefinitionNode {
+    const doc = parse(printDirectiveDefinition(this));
+    return doc.definitions[0] as DirectiveDefinitionNode;
   }
 
   toString(): string {
@@ -3350,6 +3446,34 @@ function *directivesToCopy(source: Schema, dest: Schema): Generator<DirectiveDef
   yield* source.directives();
 }
 
+/**
+ * Creates, in the provided schema, a directive definition equivalent to the provided one.
+ *
+ * Note that this method assumes that:
+ *  - the provided schema does not already have a directive with the name of the definition to copy.
+ *  - if the copied definition has arguments, then the provided schema has existing types with
+ *    names matching any type used in copied definition.
+ */
+export function copyDirectiveDefinitionToSchema({
+  definition,
+  schema,
+  copyDirectiveApplicationsInArguments = true,
+  locationFilter,
+}: {
+  definition: DirectiveDefinition,
+  schema: Schema,
+  copyDirectiveApplicationsInArguments: boolean,
+  locationFilter?: (loc: DirectiveLocation) => boolean,
+}
+) {
+  copyDirectiveDefinitionInner(
+    definition,
+    schema.addDirectiveDefinition(definition.name),
+    copyDirectiveApplicationsInArguments,
+    locationFilter,
+  );
+}
+
 function copy(source: Schema, dest: Schema) {
   // We shallow copy types first so any future reference to any of them can be dereferenced.
   for (const type of typesToCopy(source, dest)) {
@@ -3502,22 +3626,41 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
   }
 }
 
-function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(source: ArgumentDefinition<P>, dest: ArgumentDefinition<P>) {
+function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(
+  source: ArgumentDefinition<P>,
+  dest: ArgumentDefinition<P>,
+  copyDirectiveApplications: boolean = true,
+) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
-  copyAppliedDirectives(source, dest);
+  if (copyDirectiveApplications) {
+    copyAppliedDirectives(source, dest);
+  }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
-function copyDirectiveDefinitionInner(source: DirectiveDefinition, dest: DirectiveDefinition) {
+function copyDirectiveDefinitionInner(
+  source: DirectiveDefinition,
+  dest: DirectiveDefinition,
+  copyDirectiveApplicationsInArguments: boolean = true,
+  locationFilter?: (loc: DirectiveLocation) => boolean,
+) {
+  let locations = source.locations;
+  if (locationFilter) {
+    locations = locations.filter((loc) => locationFilter(loc));
+  }
+  if (locations.length === 0) {
+    return;
+  }
+
   for (const arg of source.arguments()) {
     const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
-    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType));
+    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType), copyDirectiveApplicationsInArguments);
   }
   dest.repeatable = source.repeatable;
-  dest.addLocations(...source.locations);
+  dest.addLocations(...locations);
   dest.sourceAST = source.sourceAST;
   dest.description = source.description;
 }

@@ -817,6 +817,24 @@ test('correctly convert to a graphQL-js schema', () => {
   expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
 });
 
+test('Conversion to graphQL-js schema can optionally include @defer definition', () => {
+  const sdl = `
+    type Query {
+      x: Int
+    }
+  `;
+  const schema = parseSchema(sdl);
+
+  const graphqQLSchema = schema.toGraphQLJSSchema({ includeDefer: true });
+  expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(`
+    directive @defer(label: String, if: Boolean) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+    type Query {
+      x: Int
+    }
+  `);
+});
+
 test('retrieving elements by coordinate', () => {
   const sdl = `
     directive @foo(bar: Int) on FIELD

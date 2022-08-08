@@ -1,20 +1,19 @@
-import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
+import { astSerializer, queryPlanSerializer, QueryPlanner, QueryPlannerConfig } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
 import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
-import { QueryPlannerConfig } from '../config';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
-function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+export function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
   return composeAndCreatePlannerWithOptions(services, {});
 }
 
-function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
+export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
   const compositionResults = composeServices(
     services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
   );
@@ -1278,7 +1277,7 @@ describe('@requires', () => {
       }
     `);
 
-    // Ensures that manually asking for the required dependencies doesn't change anything 
+    // Ensures that manually asking for the required dependencies doesn't change anything
     // (note: technically it happens to switch the order of fields in the inputs of "Subgraph2"
     // so the plans are not 100% the same "string", which is why we inline it in both cases,
     // but that's still the same plan and a perfectly valid output).
