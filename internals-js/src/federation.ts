@@ -881,7 +881,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     return error;
   }
 
-  waitOnDirectivesUntilAfterParsed() {
+  applyDirectivesAfterParsing() {
     return true;
   }
 }

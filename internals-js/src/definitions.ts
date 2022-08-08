@@ -506,7 +506,7 @@ type UnappliedDirective = {
 // TODO: ideally, we should hide the ctor of this class as we rely in places on the fact the no-one external defines new implementations.
 export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>, TParent extends SchemaElement<any, any> | Schema> extends Element<TParent> {
   protected readonly _appliedDirectives: Directive<TOwnType>[] = [];
-  protected readonly _unappliedDirectives: UnappliedDirective[] = [];
+  protected _unappliedDirectives: UnappliedDirective[] = [];
   description?: string;
 
   addUnappliedDirective({ nameOrDef, args, extension, directive }: UnappliedDirective) {
@@ -524,6 +524,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       d.setOfExtension(extension);
       d.sourceAST = directive;
     }
+    this._unappliedDirectives = [];
   }
 
   get appliedDirectives(): readonly Directive<TOwnType>[] {
@@ -943,7 +944,7 @@ export class SchemaBlueprint {
     return error;
   }
 
-  waitOnDirectivesUntilAfterParsed() {
+  applyDirectivesAfterParsing() {
     return false;
   }
 }

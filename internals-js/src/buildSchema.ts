@@ -332,7 +332,12 @@ function buildAppliedDirectives(
   for (const directive of elementNode.directives ?? []) {
     withNodeAttachedToError(
       () => {
-        if (element !== element.schema().schemaDefinition || directive.name.value === 'link' || !element.schema().blueprint.waitOnDirectivesUntilAfterParsed()) {
+        /**
+         * If we are at the schemaDefinition level of a federation schema, it's possible that some directives
+         * will not be added until after the federation calls completeSchema. In that case, we want to wait
+         * until after completeSchema is called before we try to apply those directives.
+         */
+        if (element !== element.schema().schemaDefinition || directive.name.value === 'link' || !element.schema().blueprint.applyDirectivesAfterParsing()) {
           const d = element.applyDirective(directive.name.value, buildArgs(directive));
           d.setOfExtension(extension);
           d.sourceAST = directive;
