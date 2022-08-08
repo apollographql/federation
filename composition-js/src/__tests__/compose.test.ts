@@ -2467,7 +2467,7 @@ describe('composition', () => {
       expect(userType?.field('name')?.appliedDirectivesOf('inaccessible').pop()).toBeDefined();
     });
 
-    describe('rejects @inaccessible and @external together', () => {
+    it('rejects @inaccessible and @external together', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {

@@ -18,7 +18,8 @@ import {
   SchemaDefinitionNode,
   TypeDefinitionNode,
   DefinitionNode,
-  DirectiveDefinitionNode
+  DirectiveDefinitionNode,
+  DirectiveNode,
 } from "graphql";
 import {
   CoreImport,
@@ -522,10 +523,36 @@ export class Extension<TElement extends ExtendableElement> {
   }
 }
 
+type UnappliedDirective = {
+  nameOrDef: DirectiveDefinition<Record<string, any>> | string,
+  args: Record<string, any>,
+  extension?: Extension<any>,
+  directive: DirectiveNode,
+};
+
 // TODO: ideally, we should hide the ctor of this class as we rely in places on the fact the no-one external defines new implementations.
 export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>, TParent extends SchemaElement<any, any> | Schema> extends Element<TParent> {
   protected readonly _appliedDirectives: Directive<TOwnType>[] = [];
+  protected _unappliedDirectives: UnappliedDirective[] = [];
   description?: string;
+
+  addUnappliedDirective({ nameOrDef, args, extension, directive }: UnappliedDirective) {
+    this._unappliedDirectives.push({
+      nameOrDef,
+      args: args ?? {},
+      extension,
+      directive,
+    });
+  }
+
+  processUnappliedDirectives() {
+    for (const { nameOrDef, args, extension, directive } of this._unappliedDirectives) {
+      const d = this.applyDirective(nameOrDef, args);
+      d.setOfExtension(extension);
+      d.sourceAST = directive;
+    }
+    this._unappliedDirectives = [];
+  }
 
   get appliedDirectives(): readonly Directive<TOwnType>[] {
     return this._appliedDirectives;
@@ -942,6 +969,10 @@ export class SchemaBlueprint {
 
   onUnknownDirectiveValidationError(_schema: Schema, _unknownDirectiveName: string, error: GraphQLError): GraphQLError {
     return error;
+  }
+
+  applyDirectivesAfterParsing() {
+    return false;
   }
 }
 

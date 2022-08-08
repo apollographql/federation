@@ -694,7 +694,6 @@ describe('composing custom core directives', () => {
       typeDefs: gql`
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective"])
-        @link(url: "https://specs.apollo.dev/link/v1.0")
         @link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@foo", as: "@inaccessible" }])
         @composeDirective(name: "@inaccessible")
 
