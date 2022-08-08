@@ -18,7 +18,8 @@ import {
   SchemaDefinitionNode,
   TypeDefinitionNode,
   DefinitionNode,
-  DirectiveDefinitionNode
+  DirectiveDefinitionNode,
+  DirectiveNode,
 } from "graphql";
 import {
   CoreImport,
