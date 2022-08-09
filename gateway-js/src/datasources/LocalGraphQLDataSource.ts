@@ -1,4 +1,4 @@
-import { GraphQLResponse } from 'apollo-server-types';
+import { GatewayGraphQLResponse } from '@apollo/server-gateway-interface';
 import {
   GraphQLSchema,
   graphql,
@@ -18,7 +18,7 @@ export class LocalGraphQLDataSource<
   async process({
     request,
     context,
-  }: GraphQLDataSourceProcessOptions<TContext>): Promise<GraphQLResponse> {
+  }: GraphQLDataSourceProcessOptions<TContext>): Promise<GatewayGraphQLResponse> {
     return graphql({
       schema: this.schema,
       source: request.query!,

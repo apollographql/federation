@@ -1,9 +1,4 @@
 import { deprecate } from 'util';
-import { GraphQLService, Unsubscriber } from 'apollo-server-core';
-import {
-  GraphQLExecutionResult,
-  GraphQLRequestContextExecutionDidStart,
-} from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import LRUCache from 'lru-cache';
 import {
@@ -68,6 +63,7 @@ import {
   LocalCompose,
 } from './supergraphManagers';
 import { Fetcher } from '@apollo/utils.fetcher';
+import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -123,7 +119,7 @@ interface GraphQLServiceEngineConfig {
   graphVariant?: string;
 }
 
-export class ApolloGateway implements GraphQLService {
+export class ApolloGateway implements GatewayInterface {
   public schema?: GraphQLSchema;
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
@@ -718,7 +714,7 @@ export class ApolloGateway implements GraphQLService {
    */
   public onSchemaChange(
     callback: (schema: GraphQLSchema) => void,
-  ): Unsubscriber {
+  ): GatewayUnsubscriber {
     this.onSchemaChangeListeners.add(callback);
 
     return () => {
@@ -731,7 +727,7 @@ export class ApolloGateway implements GraphQLService {
       apiSchema: GraphQLSchema;
       coreSupergraphSdl: string;
     }) => void,
-  ): Unsubscriber {
+  ): GatewayUnsubscriber {
     this.onSchemaLoadOrUpdateListeners.add(callback);
 
     return () => {
@@ -811,9 +807,9 @@ export class ApolloGateway implements GraphQLService {
   // ApolloServerPluginUsageReporting) assumes that. In fact, errors talking to backends
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
-  public executor = async <TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
-  ): Promise<GraphQLExecutionResult> => {
+  public executor = async (
+    requestContext: GatewayGraphQLRequestContext,
+  ): Promise<GatewayExecutionResult> => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
       : {};
@@ -891,7 +887,7 @@ export class ApolloGateway implements GraphQLService {
             });
           }
 
-          const response = await executeQueryPlan<TContext>(
+          const response = await executeQueryPlan(
             queryPlan,
             serviceMap,
             requestContext,
@@ -948,8 +944,8 @@ export class ApolloGateway implements GraphQLService {
     );
   };
 
-  private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+  private validateIncomingRequest(
+    requestContext: GatewayGraphQLRequestContext,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {

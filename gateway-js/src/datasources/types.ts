@@ -1,11 +1,11 @@
-import { GraphQLResponse, GraphQLRequestContext } from 'apollo-server-types';
+import { GatewayGraphQLResponse, GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 
 export interface GraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
 > {
   process(
     options: GraphQLDataSourceProcessOptions<TContext>,
-  ): Promise<GraphQLResponse>;
+  ): Promise<GatewayGraphQLResponse>;
 }
 
 export enum GraphQLDataSourceRequestKind {
@@ -20,7 +20,7 @@ export type GraphQLDataSourceProcessOptions<
   /**
    * The request to send to the subgraph.
    */
-  request: GraphQLRequestContext<TContext>['request'];
+  request: GatewayGraphQLRequestContext<TContext>['request'];
 } & (
   | {
       kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION;
@@ -33,10 +33,10 @@ export type GraphQLDataSourceProcessOptions<
        * to be treated as optional.
        */
       incomingRequestContext: Omit<
-        GraphQLRequestContext<TContext>,
+        GatewayGraphQLRequestContext<TContext>,
         'overallCachePolicy'
       > &
-        Pick<Partial<GraphQLRequestContext<TContext>>, 'overallCachePolicy'>;
+        Pick<Partial<GatewayGraphQLRequestContext<TContext>>, 'overallCachePolicy'>;
       /**
        * Equivalent to incomingRequestContext.context (provided here for
        * backwards compatibility): the object created by the Apollo Server
@@ -45,7 +45,7 @@ export type GraphQLDataSourceProcessOptions<
        * @deprecated Use `incomingRequestContext.context` instead (after
        * checking `kind`).
        */
-      context: GraphQLRequestContext<TContext>['context'];
+      context: GatewayGraphQLRequestContext<TContext>['context'];
     }
   | {
       kind:

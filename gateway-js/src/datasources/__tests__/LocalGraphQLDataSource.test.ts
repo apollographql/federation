@@ -2,8 +2,8 @@ import { LocalGraphQLDataSource } from '../LocalGraphQLDataSource';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '@apollo/subgraph/src/schema-helper';
-import { GraphQLRequestContext } from 'apollo-server-types';
 import { GraphQLDataSourceRequestKind } from '../types';
+import { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 
 describe('constructing requests', () => {
   it('accepts context', async () => {
@@ -42,7 +42,7 @@ describe('constructing requests', () => {
       },
       incomingRequestContext: {
         context: { userId: 2 },
-      } as GraphQLRequestContext<{userId: number}>,
+      } as GatewayGraphQLRequestContext<{userId: number}>,
       context: { userId: 2 },
     });
 
