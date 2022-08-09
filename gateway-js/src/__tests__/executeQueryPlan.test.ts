@@ -101,9 +101,16 @@ describe('executeQueryPlan', () => {
       overrideResolversInService('accounts', {
         RootQuery: {
           me() {
-            throw new GraphQLError('Something went wrong', {
-              extensions: { code: 'UNAUTHENTICATED' },
-            });
+            // Must use old constructor for graphql@15 compat on v0.x branch.
+            throw new GraphQLError(
+              'Something went wrong',
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              { code: 'UNAUTHENTICATED' },
+            );
           },
         },
       });
