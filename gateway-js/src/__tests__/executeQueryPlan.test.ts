@@ -1,12 +1,11 @@
 import {
   buildClientSchema,
   getIntrospectionQuery,
+  GraphQLError,
   GraphQLObjectType,
   print,
 } from 'graphql';
 import gql from 'graphql-tag';
-import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
-import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
@@ -24,6 +23,7 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
+import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -45,10 +45,10 @@ describe('executeQueryPlan', () => {
   async function executePlan(
     queryPlan: QueryPlan,
     operation: Operation,
-    executeRequestContext?: GraphQLRequestContext,
+    executeRequestContext?: GatewayGraphQLRequestContext,
     executeSchema?: Schema,
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
-  ): Promise<GraphQLExecutionResult> {
+  ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
     const operationContext = buildOperationContext({
       schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
@@ -63,7 +63,7 @@ describe('executeQueryPlan', () => {
     );
   }
 
-  async function executeOperation(operationString: string, requestContext?: GraphQLRequestContext): Promise<GraphQLExecutionResult> {
+  async function executeOperation(operationString: string, requestContext?: GatewayGraphQLRequestContext): Promise<GatewayExecutionResult> {
       const operation = parseOp(operationString);
       const queryPlan = buildPlan(operation);
       return executePlan(queryPlan, operation, requestContext);
@@ -92,7 +92,7 @@ describe('executeQueryPlan', () => {
     ).not.toThrow();
   });
 
-  function buildRequestContext(): GraphQLRequestContext {
+  function buildRequestContext(): GatewayGraphQLRequestContext {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return {
@@ -126,7 +126,9 @@ describe('executeQueryPlan', () => {
       overrideResolversInService('accounts', {
         RootQuery: {
           me() {
-            throw new AuthenticationError('Something went wrong');
+            throw new GraphQLError('Something went wrong', {
+              extensions: { code: 'UNAUTHENTICATED' },
+            });
           },
         },
       });
