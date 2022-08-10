@@ -1,6 +1,6 @@
 import * as makeFetchHappen from 'make-fetch-happen';
 import type { Logger } from '@apollo/utils.logger';
-import type { AbortableFetcher } from '@apollo/utils.fetcher';
+import type { Fetcher } from '@apollo/utils.fetcher';
 import resolvable, { Resolvable } from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
 import {
@@ -58,7 +58,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     UplinkSupergraphManager.getUplinkEndpoints();
   private apiKey: string;
   private graphRef: string;
-  private fetcher: AbortableFetcher = makeFetchHappen.defaults();
+  private fetcher: Fetcher = makeFetchHappen.defaults();
   private maxRetries: number;
   private requestTimeoutMs: number =
     UplinkSupergraphManager.DEFAULT_REQUEST_TIMEOUT_MS;
@@ -100,7 +100,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     fallbackPollIntervalInMs?: number;
     maxRetries?: number;
     initialMaxRetries?: number;
-    fetcher?: AbortableFetcher;
+    fetcher?: Fetcher;
     shouldRunSubgraphHealthcheck?: boolean;
     onFailureToFetchSupergraphSdlDuringInit?: FailureToFetchSupergraphSdlDuringInit;
     onFailureToFetchSupergraphSdlAfterInit?: FailureToFetchSupergraphSdlAfterInit;

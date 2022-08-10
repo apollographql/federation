@@ -7,7 +7,7 @@ import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
 import type {
   FetcherResponse,
   Fetcher,
-  AbortableFetcherRequestInit as FetcherRequestInit,
+  FetcherRequestInit,
 } from '@apollo/utils.fetcher';
 import type { Logger } from '@apollo/utils.logger';
 
