@@ -4,6 +4,7 @@ import fetcher from 'make-fetch-happen';
 import { ApolloGateway, UplinkSupergraphManager } from '@apollo/gateway';
 import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReportingDisabled } from 'apollo-server-core';
+import type { FetcherRequestInit } from '@apollo/utils.fetcher';
 
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import {
@@ -117,9 +118,9 @@ describe('minimal gateway', () => {
     let calls = 0;
     gateway = new ApolloGateway({
       logger,
-      fetcher: (...args) => {
+      fetcher: (url: string, init?: FetcherRequestInit) => {
         calls++;
-        return fetcher(...args);
+        return fetcher(url, init);
       },
     });
     server = new ApolloServer({
