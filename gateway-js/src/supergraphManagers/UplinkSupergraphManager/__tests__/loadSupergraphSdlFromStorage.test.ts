@@ -93,7 +93,7 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('Queries alternate Uplink URL if first one times out', async () => {
-    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).delayBody(120_000).reply(500);
+    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).delay(120_000).reply(500);
     mockSupergraphSdlRequestIfAfter(
       'originalId-1234',
       mockCloudConfigUrl2,
