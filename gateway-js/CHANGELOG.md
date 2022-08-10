@@ -2,7 +2,7 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions`
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
 - Upgrade underlying `@apollo/utils.fetcher` to support aborting a request. This is a type-only change, and will not impact the underlying runtime. [PR #2017](https://github.com/apollographql/federation/pull/2017).
 
 ## 2.1.0-alpha.3
