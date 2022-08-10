@@ -1,0 +1,65 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`composing custom core directives custom tag directive works when federation tag is renamed 1`] = `
+"schema
+  @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
+  @link(url: \\"https://specs.apollo.dev/join/v0.2\\", for: EXECUTION)
+  @link(url: \\"https://specs.apollo.dev/tag/v0.2\\", as: \\"mytag\\")
+  @link(url: \\"https://custom.dev/tag/v1.0\\", import: [\\"@tag\\"])
+{
+  query: Query
+}
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @mytag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @tag(name: String!, prop: String!) on FIELD_DEFINITION | OBJECT
+
+enum link__Purpose {
+  \\"\\"\\"
+  \`SECURITY\` features provide metadata necessary to securely resolve fields.
+  \\"\\"\\"
+  SECURITY
+
+  \\"\\"\\"
+  \`EXECUTION\` features provide metadata necessary for operation execution.
+  \\"\\"\\"
+  EXECUTION
+}
+
+scalar link__Import
+
+enum join__Graph {
+  SUBGRAPHA @join__graph(name: \\"subgraphA\\", url: \\"\\")
+  SUBGRAPHB @join__graph(name: \\"subgraphB\\", url: \\"\\")
+}
+
+scalar join__FieldSet
+
+type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHB)
+{
+  a: User @join__field(graph: SUBGRAPHA)
+  subgraphB: User @join__field(graph: SUBGRAPHB)
+}
+
+type User
+  @join__type(graph: SUBGRAPHA, key: \\"id\\")
+  @join__type(graph: SUBGRAPHB, key: \\"id\\")
+{
+  id: Int
+  a: String @tag(name: \\"a\\", prop: \\"b\\") @join__field(graph: SUBGRAPHA)
+  b: String @mytag(name: \\"c\\") @join__field(graph: SUBGRAPHA)
+  subgraphB: String @join__field(graph: SUBGRAPHB)
+}"
+`;

@@ -1,9 +1,12 @@
 import {
+  defaultRootName,
   Schema,
+  SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
 import { Field, FieldSelection, parseOperation, SelectionSet } from '../../dist/operations';
 import './matchers';
+import { GraphQLError } from 'graphql';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -339,5 +342,38 @@ describe('selection set freezing', () => {
     // ... but more importantly for this test, that s1/s2 were not modified.
     expect(s1.toString()).toBe('{ t { a } }');
     expect(s2.toString()).toBe('{ t { b } }');
+  });
+});
+
+describe('validations', () => {
+  test.each([
+    { directive: '@defer', rootKind: 'mutation' },
+    { directive: '@defer', rootKind: 'subscription' },
+    { directive: '@stream', rootKind: 'mutation' },
+    { directive: '@stream', rootKind: 'subscription' },
+  ])('reject $directive on $rootKind type', ({ directive, rootKind }) => {
+    const schema = parseSchema(`
+      type Query {
+        x: String
+      }
+
+      type Mutation {
+        x: String
+      }
+
+      type Subscription {
+        x: String
+      }
+    `);
+
+    expect(() => {
+      parseOperation(schema, `
+        ${rootKind} {
+          ... ${directive} {
+            x
+          }
+        }
+      `)
+    }).toThrowError(new GraphQLError(`The @defer and @stream directives cannot be used on ${rootKind} root type "${defaultRootName(rootKind as SchemaRootKind)}"`));
   });
 });

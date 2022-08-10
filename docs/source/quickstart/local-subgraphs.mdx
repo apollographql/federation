@@ -5,11 +5,11 @@ description: Part 4 - Working with subgraphs
 
 In the previous parts of this quickstart, we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
 
-A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the other servers listed in [Subgraph-compatible libraries](../other-servers/).
+Our subgraphs can use any GraphQL server library that supports Apollo Federation. This includes Apollo Server, along with the other libraries listed in [Federation-compatible subgraph implementations](../supported-subgraphs/).
 
 ## 1. Configure Apollo Server
 
-> If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a federated service.
+> If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a subgraph.
 
 If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/tree/main/apollo-server/v3/getting-started) (which is not yet federated).
 
@@ -35,11 +35,11 @@ const server = new ApolloServer({
 
 (As shown, you now pass your `typeDefs` and `resolvers` to `buildSubgraphSchema`.)
 
-And that's it! You can now perform all of the same subgraph setup on your _own_ service (schema registration, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
+And that's it! You can now perform all of the same subgraph setup on your _own_ service (schema publishing, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
 
 ## 2. Learn about federated types
 
-In a federated graph, each subgraph's schema can define or reference types and fields that are present in _another_ subgraph's schema.
+In a federated graph, each subgraph's schema can define or reference types and fields that are also present in _another_ subgraph's schema.
 
 Consider the `Location` type in our composed supergraph schema from [Part 3](./local-composition/#2-perform-composition). This type includes the following fields:
 
@@ -79,11 +79,11 @@ It makes logical sense that the `reviews` field of a `Location` should be resolv
 
 After you've registered your first subgraph schema, you can try out one of Apollo Studio's most powerful features: **schema checks**.
 
-With schema checks, you can check whether some changes you want to make to your schema will affect any of the clients that use your graph. This feature is at its most powerful in your CI/CD environment, where you can automatically detect breaking schema changes before they're deployed to production.
+With schema checks, you can check whether some changes you want to make to your schema will affect any of the existing clients that use your supergraph. This feature is at its most powerful in your CI/CD environment, where you can automatically detect breaking schema changes before they're deployed to production.
 
-1. [Learn about the basics of schema checks](https://www.apollographql.com/docs/studio/schema-checks/)
+1. [Learn about the basics of schema checks](/studio/schema-checks/)
 2. [Learn about using schema checks with Apollo Federation](../managed-federation/federated-schema-checks/)
-3. [Learn how to use Rover in a CI/CD environment](https://www.apollographql.com/docs/rover/ci-cd/)
+3. [Learn how to use Rover in a CI/CD environment](/rover/ci-cd/)
 
 ---
 

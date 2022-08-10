@@ -1,12 +1,7 @@
 import { deprecate } from 'util';
-import { GraphQLService, Unsubscriber } from 'apollo-server-core';
-import {
-  GraphQLExecutionResult,
-  GraphQLRequestContextExecutionDidStart,
-} from 'apollo-server-types';
 import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
-import { InMemoryLRUCache } from 'apollo-server-caching';
+import LRUCache from 'lru-cache';
 import {
   isObjectType,
   isIntrospectionType,
@@ -63,6 +58,7 @@ import {
   ServiceDefinition,
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
+import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -118,7 +114,7 @@ interface GraphQLServiceEngineConfig {
   graphVariant?: string;
 }
 
-export class ApolloGateway implements GraphQLService {
+export class ApolloGateway implements GatewayInterface {
   public schema?: GraphQLSchema;
   // Same as a `schema` but as a `Schema` to avoid reconverting when we need it.
   // TODO(sylvain): if we add caching in `Schema.toGraphQLJSSchema`, we could maybe only keep `apiSchema`
@@ -130,7 +126,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
-  private queryPlanStore: InMemoryLRUCache<QueryPlan>;
+  private queryPlanStore: LRUCache<string, QueryPlan>;
   private apolloConfig?: ApolloConfigFromAS3;
   private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
   private onSchemaLoadOrUpdateListeners = new Set<
@@ -196,14 +192,14 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
-    return new InMemoryLRUCache<QueryPlan>({
+    return new LRUCache<string, QueryPlan>({
       // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
       // since the technique to calculate the size of a DocumentNode is
       // only using JSON.stringify on the DocumentNode (and thus doesn't account
       // for unicode characters, etc.), but it should do a reasonable job at
       // providing a caching document store for most operations.
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
-      sizeCalculator: approximateObjectSize,
+      sizeCalculation: approximateObjectSize,
     });
   }
 
@@ -559,7 +555,7 @@ export class ApolloGateway implements GraphQLService {
     // Once we remove the deprecated onSchemaChange() method, we can remove this.
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
-    if (this.queryPlanStore) this.queryPlanStore.flush();
+    this.queryPlanStore.clear();
     this.apiSchema = coreSchema.toAPISchema();
     this.schema = addExtensions(
       wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
@@ -651,7 +647,7 @@ export class ApolloGateway implements GraphQLService {
    */
   public onSchemaChange(
     callback: (schema: GraphQLSchema) => void,
-  ): Unsubscriber {
+  ): GatewayUnsubscriber {
     this.onSchemaChangeListeners.add(callback);
 
     return () => {
@@ -664,7 +660,7 @@ export class ApolloGateway implements GraphQLService {
       apiSchema: GraphQLSchema;
       coreSupergraphSdl: string;
     }) => void,
-  ): Unsubscriber {
+  ): GatewayUnsubscriber {
     this.onSchemaLoadOrUpdateListeners.add(callback);
 
     return () => {
@@ -744,9 +740,9 @@ export class ApolloGateway implements GraphQLService {
   // ApolloServerPluginUsageReporting) assumes that. In fact, errors talking to backends
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
-  public executor = async <TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
-  ): Promise<GraphQLExecutionResult> => {
+  public executor = async (
+    requestContext: GatewayGraphQLRequestContext,
+  ): Promise<GatewayExecutionResult> => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
       : {};
@@ -775,10 +771,7 @@ export class ApolloGateway implements GraphQLService {
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
-          let queryPlan: QueryPlan | undefined;
-          if (this.queryPlanStore) {
-            queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
-          }
+          let queryPlan = this.queryPlanStore.get(queryPlanStoreKey);
 
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
@@ -801,25 +794,11 @@ export class ApolloGateway implements GraphQLService {
               },
             );
 
-            if (this.queryPlanStore) {
-              // The underlying cache store behind the `documentStore` returns a
-              // `Promise` which is resolved (or rejected), eventually, based on the
-              // success or failure (respectively) of the cache save attempt.  While
-              // it's certainly possible to `await` this `Promise`, we don't care about
-              // whether or not it's successful at this point.  We'll instead proceed
-              // to serve the rest of the request and just hope that this works out.
-              // If it doesn't work, the next request will have another opportunity to
-              // try again.  Errors will surface as warnings, as appropriate.
-              //
-              // While it shouldn't normally be necessary to wrap this `Promise` in a
-              // `Promise.resolve` invocation, it seems that the underlying cache store
-              // is returning a non-native `Promise` (e.g. Bluebird, etc.).
-              Promise.resolve(
-                this.queryPlanStore.set(queryPlanStoreKey, queryPlan),
-              ).catch((err) =>
-                this.logger.warn(
-                  'Could not store queryPlan' + ((err && err.message) || err),
-                ),
+            try {
+              this.queryPlanStore.set(queryPlanStoreKey, queryPlan);
+            } catch (err) {
+              this.logger.warn(
+                'Could not store queryPlan' + ((err && err.message) || err),
               );
             }
           }
@@ -841,7 +820,7 @@ export class ApolloGateway implements GraphQLService {
             });
           }
 
-          const response = await executeQueryPlan<TContext>(
+          const response = await executeQueryPlan(
             queryPlan,
             serviceMap,
             requestContext,
@@ -899,8 +878,8 @@ export class ApolloGateway implements GraphQLService {
     );
   };
 
-  private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+  private validateIncomingRequest(
+    requestContext: GatewayGraphQLRequestContext,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {
