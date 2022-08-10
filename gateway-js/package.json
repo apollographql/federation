@@ -31,7 +31,7 @@
     "@apollo/query-planner": "file:../query-planner-js",
     "@apollo/server-gateway-interface": "^1.0.1",
     "@apollo/utils.createhash": "^1.1.0",
-    "@apollo/utils.fetcher": "https://pkg.csb.dev/apollographql/apollo-utils/commit/44d6ddfd/@apollo/utils.fetcher",
+    "@apollo/utils.fetcher": "^1.1.0",
     "@apollo/utils.isnodelike": "^1.1.0",
     "@apollo/utils.logger": "^1.0.0",
     "@josephg/resolvable": "^1.0.1",
