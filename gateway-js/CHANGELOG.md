@@ -7,6 +7,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - The method `RemoteGraphQLDataSource.errorFromResponse` now returns a `GraphQLError` (as defined by `graphql`) rather than an `ApolloError` (as defined by `apollo-server-errors`). [PR #2028](https://github.com/apollographql/federation/pull/2028)
   - __BREAKING__: If you call `RemoteGraphQLDataSource.errorFromResponse` manually and expect its return value to be a particular subclass of `GraphQLError`, or if you expect the error received by `didEncounterError` to be a particular subclass of `GraphQLError`, then this change may affect you. We recommend checking `error.extensions.code` instead.
+- The `LocalGraphQLDataSource` class no longer supports the undocumented `__resolveObject` Apollo Server feature. [PR #2007](https://github.com/apollographql/federation/pull/2007)
+  - __BREAKING__: If you relied on the undocumented `__resolveObject` feature with `LocalGraphQLDataSource`, it will no longer work. If this affects you, file an issue and we can help you find a workaround.
+- Some TypeScript types, such as the arguments and return value of `GraphQLDataSource.process`, are defined using types from the `@apollo/server-gateway-interface` package instead of from `apollo-server-types` and `apollo-server-core`. This is intended to be fully backwards-compatible; please file an issue if this leads to TypeScript compilation issues. [PR #2044](https://github.com/apollographql/federation/pull/2044)
 
 ## v0.51.0
 
