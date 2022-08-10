@@ -2,6 +2,9 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions`
+- Upgrade underlying `@apollo/utils.fetcher` to support aborting a request. This is a type-only change, and will not impact the underlying runtime. [PR #2017](https://github.com/apollographql/federation/pull/2017).
+
 ## 2.1.0-alpha.3
 
 - Some TypeScript types, such as the arguments and return value of `GraphQLDataSource.process`, are defined using types from the `@apollo/server-gateway-interface` package instead of from `apollo-server-types` and `apollo-server-core`. This is intended to be fully backwards-compatible; please file an issue if this leads to TypeScript compilation issues. [PR #2044](https://github.com/apollographql/federation/pull/2044)

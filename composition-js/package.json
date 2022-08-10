@@ -31,6 +31,6 @@
     "@apollo/query-graphs": "file:../query-graphs-js"
   },
   "peerDependencies": {
-    "graphql": "^16.0.0"
+    "graphql": "^16.5.0"
   }
 }
