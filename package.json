@@ -42,7 +42,7 @@
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
     "@apollo/client": "3.6.9",
-    "@apollo/utils.fetcher": "1.0.0",
+    "@apollo/utils.fetcher": "1.1.0",
     "@graphql-codegen/cli": "2.11.5",
     "@graphql-codegen/typescript": "2.7.3",
     "@graphql-codegen/typescript-operations": "2.5.3",
@@ -62,7 +62,7 @@
     "@types/node-fetch": "2.6.2",
     "@types/whatwg-url": "8.2.2",
     "@typescript-eslint/eslint-plugin": "5.33.0",
-    "apollo-server": "3.10.0",
+    "apollo-server": "3.10.1",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
     "graphql": "16.5.0",
@@ -96,6 +96,6 @@
   },
   "volta": {
     "node": "16.16.0",
-    "npm": "8.16.0"
+    "npm": "8.17.0"
   }
 }
