@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
+
+## 2.1.0-alpha.3
+
+- Add `@defer` support [PR #1958](https://github.com/apollographql/federation/pull/1958)
+
 ## 2.1.0-alpha.1
 
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900)

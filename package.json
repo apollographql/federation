@@ -42,10 +42,10 @@
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
     "@apollo/client": "3.6.9",
-    "@apollo/utils.fetcher": "1.0.0",
-    "@graphql-codegen/cli": "2.11.3",
-    "@graphql-codegen/typescript": "2.7.2",
-    "@graphql-codegen/typescript-operations": "2.5.2",
+    "@apollo/utils.fetcher": "1.1.0",
+    "@graphql-codegen/cli": "2.11.6",
+    "@graphql-codegen/typescript": "2.7.3",
+    "@graphql-codegen/typescript-operations": "2.5.3",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
     "@types/async-retry": "1.4.4",
@@ -61,8 +61,8 @@
     "@types/node": "12.20.55",
     "@types/node-fetch": "2.6.2",
     "@types/whatwg-url": "8.2.2",
-    "@typescript-eslint/eslint-plugin": "5.32.0",
-    "apollo-server": "3.10.0",
+    "@typescript-eslint/eslint-plugin": "5.33.0",
+    "apollo-server": "3.10.1",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
     "graphql": "16.5.0",
@@ -96,6 +96,6 @@
   },
   "volta": {
     "node": "16.16.0",
-    "npm": "8.16.0"
+    "npm": "8.17.0"
   }
 }

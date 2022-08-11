@@ -1,6 +1,14 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
+
+## 2.1.0-alpha.3
+
+- Don't require `@link` when using `@composeDirective` [PR #2046](https://github.com/apollographql/federation/pull/2046)
+- Add `@defer` support [PR #1958](https://github.com/apollographql/federation/pull/1958)
+
 ## 2.1.0-alpha.2
+
 - Add `@composeDirective` directive to specify directives that should be merged to the supergraph during composition [PR #1996](https://github.com/apollographql/federation/pull/1996).
 
 ## 2.1.0-alpha.0

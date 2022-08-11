@@ -1,7 +1,3 @@
-import {
-  GraphQLExecutionResult,
-  GraphQLRequestContext,
-} from 'apollo-server-types';
 import { Headers } from 'node-fetch';
 import {
   execute,
@@ -34,6 +30,7 @@ import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
 import { assert, defaultRootName, errorCodeDef, ERRORS } from '@apollo/federation-internals';
+import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -41,22 +38,22 @@ export type ServiceMap = {
 
 type ResultMap = Record<string, any>;
 
-interface ExecutionContext<TContext> {
+interface ExecutionContext {
   queryPlan: QueryPlan;
   operationContext: OperationContext;
   serviceMap: ServiceMap;
-  requestContext: GraphQLRequestContext<TContext>;
+  requestContext: GatewayGraphQLRequestContext;
   supergraphSchema: GraphQLSchema;
   errors: GraphQLError[];
 }
 
-export async function executeQueryPlan<TContext>(
+export async function executeQueryPlan(
   queryPlan: QueryPlan,
   serviceMap: ServiceMap,
-  requestContext: GraphQLRequestContext<TContext>,
+  requestContext: GatewayGraphQLRequestContext,
   operationContext: OperationContext,
   supergraphSchema: GraphQLSchema,
-): Promise<GraphQLExecutionResult> {
+): Promise<GatewayExecutionResult> {
 
   const logger = requestContext.logger || console;
 
@@ -64,7 +61,7 @@ export async function executeQueryPlan<TContext>(
     try {
       const errors: GraphQLError[] = [];
 
-      const context: ExecutionContext<TContext> = {
+      const context: ExecutionContext = {
         queryPlan,
         operationContext,
         serviceMap,
@@ -170,8 +167,8 @@ export async function executeQueryPlan<TContext>(
 // we're going to ignore it, because it makes the code much simpler and more
 // typesafe. However, it doesn't actually ask for traces from the backend
 // service unless we are capturing traces for Studio.
-async function executeNode<TContext>(
-  context: ExecutionContext<TContext>,
+async function executeNode(
+  context: ExecutionContext,
   node: PlanNode,
   results: ResultMap | ResultMap[],
   path: ResponsePath,
@@ -260,8 +257,8 @@ async function executeNode<TContext>(
   }
 }
 
-async function executeFetch<TContext>(
-  context: ExecutionContext<TContext>,
+async function executeFetch(
+  context: ExecutionContext,
   fetch: FetchNode,
   results: ResultMap | (ResultMap | null | undefined)[],
   _path: ResponsePath,
@@ -385,7 +382,7 @@ async function executeFetch<TContext>(
     }
   });
   async function sendOperation(
-    context: ExecutionContext<TContext>,
+    context: ExecutionContext,
     source: string,
     variables: Record<string, any>,
     operationName: string | undefined,
