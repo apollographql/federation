@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
+
 ## 2.1.0-alpha.3
 
 - Don't require `@link` when using `@composeDirective` [PR #2046](https://github.com/apollographql/federation/pull/2046)
