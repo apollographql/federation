@@ -676,14 +676,14 @@ class SchemaUpgrader {
             continue;
           }
           const otherResolvingSubgraphs = this.otherSubgraphs.filter((s) => resolvesField(s, field));
-          if (otherResolvingSubgraphs.length > 0) {
+          if (otherResolvingSubgraphs.length > 0 && !field.hasAppliedDirective(shareableDirective)) {
             field.applyDirective(shareableDirective);
             this.addChange(new ShareableFieldAddition(field.coordinate, otherResolvingSubgraphs.map((s) => s.name)));
           }
         }
       } else {
         const otherDeclaringSubgraphs = this.otherSubgraphs.filter((s) => s.schema.type(type.name));
-        if (otherDeclaringSubgraphs.length > 0) {
+        if (otherDeclaringSubgraphs.length > 0 && !type.hasAppliedDirective(shareableDirective)) {
           type.applyDirective(shareableDirective);
           this.addChange(new ShareableTypeAddition(type.coordinate, otherDeclaringSubgraphs.map((s) => s.name)));
         }
