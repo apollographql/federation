@@ -100,7 +100,7 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 Shared fields can differ between subgraphs in specific ways:
 * The return type of a shared field can vary in nullability (`String` / `String!`).
   * A shared field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A shared field can be omitted from a subgraph entirely, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
+* A field can be omitted from a subgraph, _IF_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
 
 For example, take a look at the shared `Food` type below:
 
