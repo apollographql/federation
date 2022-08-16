@@ -7,10 +7,13 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/federation-js.iml" filepath="$PROJECT_DIR$/.idea/modules/federation-js.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/gateway-js.iml" filepath="$PROJECT_DIR$/.idea/modules/gateway-js.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/graphql-parser.iml" filepath="$PROJECT_DIR$/.idea/modules/graphql-parser.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-graphs-js.iml" filepath="$PROJECT_DIR$/.idea/modules/query-graphs-js.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner-js.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner-js.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/stargate.iml" filepath="$PROJECT_DIR$/.idea/modules/stargate.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/stargate-lib.iml" filepath="$PROJECT_DIR$/.idea/modules/stargate-lib.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/subgraph-js.iml" filepath="$PROJECT_DIR$/.idea/modules/subgraph-js.iml" />
     </modules>
   </component>
 </project>
