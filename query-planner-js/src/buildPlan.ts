@@ -1810,7 +1810,6 @@ class FetchDependencyGraph {
     return this.processRootGroups(processor, this.rootGroups.values(), undefined);
   }
 
-
   dumpOnConsole(msg?: string) {
     if (msg) {
       console.log(msg);
@@ -2584,12 +2583,19 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   return dependencyGraph;
 }
 
-function createNewFetchSelectionContext(type: CompositeType, selections: SelectionSet | undefined, context: PathContext): [Selection, OperationPath] {
+function wrapEntitySelection(
+  type: CompositeType,
+  selections: SelectionSet | undefined,
+  context: PathContext
+): {
+  updatedSelection: Selection,
+  updatedPath: OperationPath,
+}{
   const typeCast = new FragmentElement(type, type.name);
-  let inputSelection = selectionOfElement(typeCast, selections);
-  let path = [typeCast];
+  let updatedSelection = selectionOfElement(typeCast, selections);
+  let updatedPath = [typeCast];
   if (context.conditionals.length === 0) {
-    return [inputSelection, path];
+    return { updatedSelection, updatedPath };
   }
 
   const schema = type.schema();
@@ -2604,11 +2610,11 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
     const [name, ifs] = context.conditionals[i];
     const fragment = new FragmentElement(type, type.name);
     fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
-    inputSelection = selectionOfElement(fragment, selectionSetOf(type, inputSelection));
-    path = [fragment].concat(path);
+    updatedSelection = selectionOfElement(fragment, selectionSetOf(type, updatedSelection));
+    updatedPath = [fragment].concat(updatedPath);
   }
 
-  return [inputSelection, path];
+  return {updatedSelection, updatedPath};
 }
 
 function extractPathInParentForKeyFetch(type: CompositeType, path: OperationPath): OperationPath {
@@ -2703,12 +2709,11 @@ function computeGroupsForTree(
               }
               return { group: conditionGroup, path };
             }));
-            const inputSelections = new SelectionSet(type);
-            inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
+            const inputSelections = newCompositeTypeSelectionSet(type);
             inputSelections.mergeIn(edge.conditions!);
 
-            const [inputs, newPath] = createNewFetchSelectionContext(type, inputSelections, newContext);
-            newGroup.addInputs(inputs);
+            const {updatedSelection, updatedPath} = wrapEntitySelection(type, inputSelections, newContext);
+            newGroup.addInputs(updatedSelection);
 
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
@@ -2717,7 +2722,7 @@ function computeGroupsForTree(
               tree: child,
               group: newGroup,
               mergeAt,
-              path: newPath,
+              path: updatedPath,
               context: newContext,
               deferContext: updatedDeferContext,
             });
@@ -2754,7 +2759,7 @@ function computeGroupsForTree(
               deferRef: updatedDeferContext.activeDeferRef,
             });
             newGroup.addParent({ group, path });
-            const newPath = createNewFetchSelectionContext(type, undefined, newContext)[1];
+            const newPath = wrapEntitySelection(type, undefined, newContext).updatedPath;
             stack.push({
               tree: child,
               group: newGroup,
@@ -3066,7 +3071,7 @@ function handleRequires(
     if (unmergedGroups.length == 0) {
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context, false)[0]);
+      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context, false).inputs);
       return { group, mergeAt, path, createdGroups: [] };
     }
 
@@ -3085,9 +3090,21 @@ function handleRequires(
     } else {
       postRequireGroup.addParent({ group, path: []});
     }
-    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context);
-    // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
-    postRequireGroup.addInputs(inputs);
+
+    // Note(Sylvain): I'm not 100% sure about this assert in the sense that while I cannot think of a case where `parent.path` wouldn't
+    // exist, the code paths are complex enough that I'm not able to prove this easily and could easily be missing something. That said,
+    // we need the path here, so this will have to do for now, and if this ever breaks in practice, we'll at least have an example to
+    // guide us toward improving/fixing.
+    assert(parent.path, `Missing path-in-parent for @require on ${edge} with group ${group} and parent ${parent}`);
+    const newPath = addPostRequireInputs(
+      dependencyGraph,
+      entityType,
+      edge,
+      context,
+      parent.group,
+      concatOperationPaths(parent.path, path),
+      postRequireGroup,
+    );
     return {
       group: postRequireGroup,
       mergeAt,
@@ -3095,6 +3112,7 @@ function handleRequires(
       createdGroups: unmergedGroups.concat(postRequireGroup),
     };
   } else {
+
     // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
     // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
     // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
@@ -3110,10 +3128,46 @@ function handleRequires(
     // Note that we know the conditions will include a key for our group so we can resume properly.
     const newGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt });
     newGroup.addParents(createdGroups.map((group) => ({ group })));
-    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context);
-    newGroup.addInputs(inputs);
-    return { group: newGroup, mergeAt, path: newPath, createdGroups };
+    const newPath = addPostRequireInputs(
+      dependencyGraph,
+      entityType,
+      edge,
+      context,
+      group,
+      path,
+      newGroup,
+    );
+    return { group: newGroup, mergeAt, path: newPath, createdGroups: createdGroups.concat(newGroup) };
   }
+}
+
+function addPostRequireInputs(
+  dependencyGraph: FetchDependencyGraph,
+  entityType: ObjectType,
+  edge: Edge,
+  context: PathContext,
+  preRequireGroup: FetchGroup,
+  requirePath: OperationPath,
+  postRequireGroup: FetchGroup,
+): OperationPath {
+  const { inputs, updatedPath, keyInputs } = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context);
+  postRequireGroup.addInputs(inputs);
+  if (keyInputs) {
+    // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
+    // guarantee it, so we add it now (and if it was already selected, this is a no-op).
+    const addedSelection = selectionSetOfPath(requirePath, (endOfPathSet) => {
+      assert(endOfPathSet, () => `Merge path ${requirePath} ends on a non-selectable type`);
+      endOfPathSet.addAll(keyInputs.selections());
+    });
+    preRequireGroup.addSelections(addedSelection);
+  }
+  return updatedPath;
+}
+
+function newCompositeTypeSelectionSet(type: CompositeType): SelectionSet {
+  const selectionSet = new SelectionSet(type);
+  selectionSet.add(new FieldSelection(new Field(type.typenameField()!)));
+  return selectionSet;
 }
 
 function inputsForRequire(
@@ -3122,16 +3176,27 @@ function inputsForRequire(
   edge: Edge,
   context: PathContext,
   includeKeyInputs: boolean = true
-): [Selection, OperationPath] {
-  const fullSelectionSet = new SelectionSet(entityType);
-  fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
+): {
+  inputs: Selection,
+  updatedPath: OperationPath,
+  keyInputs: SelectionSet | undefined,
+}{
+  const fullSelectionSet = newCompositeTypeSelectionSet(entityType);
   fullSelectionSet.mergeIn(edge.conditions!);
+  let keyInputs: SelectionSet | undefined = undefined;
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(graph, edge.head);
     assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
     fullSelectionSet.mergeIn(keyCondition);
+    keyInputs = newCompositeTypeSelectionSet(entityType);
+    keyInputs.mergeIn(keyCondition);
   }
-  return createNewFetchSelectionContext(entityType, fullSelectionSet, context);
+  const { updatedSelection, updatedPath } = wrapEntitySelection(entityType, fullSelectionSet, context);
+  return {
+    inputs: updatedSelection,
+    updatedPath,
+    keyInputs,
+  };
 }
 
 const representationsVariable = new Variable('representations');
