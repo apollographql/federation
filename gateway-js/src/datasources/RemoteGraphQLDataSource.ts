@@ -106,7 +106,9 @@ export class RemoteGraphQLDataSource<
     // there.
     const overallCachePolicy =
       this.honorSubgraphCacheControlHeader &&
-      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
+      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
+      options.incomingRequestContext.overallCachePolicy &&
+      'restrict' in options.incomingRequestContext.overallCachePolicy
         ? options.incomingRequestContext.overallCachePolicy
         : null;
 
