@@ -28,7 +28,7 @@
     "@apollo/core-schema": "^0.2.0",
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
-    "@apollo/server-gateway-interface": "^1.0.1",
+    "@apollo/server-gateway-interface": "^1.0.2",
     "@apollo/utils.createhash": "^1.0.0",
     "@apollo/utils.fetcher": "^1.0.0",
     "@apollo/utils.logger": "^1.0.0",
