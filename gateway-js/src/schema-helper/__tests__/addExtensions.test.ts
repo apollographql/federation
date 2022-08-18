@@ -14,20 +14,17 @@ describe('addExtensions', () => {
     const schema = buildSchema('type Query { hello: String }');
     expect(schema.extensions).toEqual({});
     schema.extensions = {
-      one: 1,
+      foo: 'bar',
       apollo: {
-        two: 2,
         gateway: {
-          three: 3
+          version: 'hello'
         }
       }
     };
     expect(addExtensions(schema).extensions).toEqual({
-      one: 1,
+      foo: 'bar',
       apollo: {
-        two: 2,
         gateway: {
-          three: 3,
           version: version
         }
       }
