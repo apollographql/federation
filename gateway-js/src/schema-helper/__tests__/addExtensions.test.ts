@@ -30,4 +30,36 @@ describe('addExtensions', () => {
       }
     });
   });
+
+  it('works with undefined apollo block', async () => {
+    const schema = buildSchema('type Query { hello: String }');
+    expect(schema.extensions).toEqual({});
+    schema.extensions = {
+      apollo: undefined
+    };
+    expect(addExtensions(schema).extensions).toEqual({
+      apollo: {
+        gateway: {
+          version: version
+        }
+      }
+    });
+  });
+
+  it('works with undefined gateway block', async () => {
+    const schema = buildSchema('type Query { hello: String }');
+    expect(schema.extensions).toEqual({});
+    schema.extensions = {
+      apollo: {
+        gateway: undefined
+      }
+    };
+    expect(addExtensions(schema).extensions).toEqual({
+      apollo: {
+        gateway: {
+          version: version
+        }
+      }
+    });
+  });
 });
