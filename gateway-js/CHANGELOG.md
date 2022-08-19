@@ -7,6 +7,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - Nothing yet! Stay tuned.
 
+## v0.52.1
+- The change released in v0.52.0 which updates the TypeScript types relating to the gateway interface has been improved to be more compatible with Apollo Server 2. [PR #2080](https://github.com/apollographql/apollo-server/pull/2080)
+
 ## v0.52.0
 
 - The method `RemoteGraphQLDataSource.errorFromResponse` now returns a `GraphQLError` (as defined by `graphql`) rather than an `ApolloError` (as defined by `apollo-server-errors`). [PR #2028](https://github.com/apollographql/federation/pull/2028)
