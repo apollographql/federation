@@ -2938,6 +2938,140 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test('correctly include key/typename when top-level required object is non-external', async () => {
+      const entityTwo = {
+        id: 'key2',
+        external: 'v2',
+      };
+      const entityOne = {
+        id: 'key1',
+        two: { id: entityTwo.id },
+      };
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            one: One
+          }
+
+          type One @key(fields: "id") {
+            id: ID!
+            two: Two
+            computed: String @requires(fields: "two { external }")
+          }
+
+          type Two @key(fields: "id") {
+            id: ID!
+            external: String @external
+          }
+        `,
+        resolvers: {
+          Query: {
+            one() {
+              return entityOne;
+            },
+          },
+          One: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === entityOne.id ? { ...entityOne, ...ref } : undefined;
+            },
+            computed(parent: any) {
+              return `computed value: ${parent.two.external}`;
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Two @key(fields: "id") {
+            id: ID!
+            external: String
+          }
+        `,
+        resolvers: {
+          Two: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === entityTwo.id ? entityTwo : undefined;
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        {
+          one {
+            computed
+          }
+        }
+      `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                one {
+                  __typename
+                  two {
+                    __typename
+                    id
+                  }
+                  id
+                }
+              }
+            },
+            Flatten(path: "one.two") {
+              Fetch(service: "S2") {
+                {
+                  ... on Two {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Two {
+                    external
+                  }
+                }
+              },
+            },
+            Flatten(path: "one") {
+              Fetch(service: "S1") {
+                {
+                  ... on One {
+                    __typename
+                    two {
+                      external
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on One {
+                    computed
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "one": Object {
+            "computed": "computed value: v2",
+          },
+        }
+      `);
+    });
   });
 
   describe('@key', () => {

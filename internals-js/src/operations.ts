@@ -1052,7 +1052,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * This is very similar to `mergeIn` except that it takes a direct array of selection, and the direct aliasing
    * remarks from `mergeInd` applies here too.
    */
-  addAll(selections: Selection[]): SelectionSet {
+  addAll(selections: readonly Selection[]): SelectionSet {
     selections.forEach(s => this.add(s));
     return this;
   }
