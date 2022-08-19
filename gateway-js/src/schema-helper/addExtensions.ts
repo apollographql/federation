@@ -5,7 +5,7 @@ const { version } = require('../../package.json');
 
 export function addExtensions(schema: GraphQLSchema): GraphQLSchema {
   const schemaExtension = schema.extensions as GraphQLSchemaExtensions ?? {};
-  const apolloExtension = schemaExtension.apollo ?? {};
+  const apolloExtension = schemaExtension?.apollo ?? {};
   const gatewayExtension = apolloExtension?.gateway ?? {};
 
   schema.extensions = {
