@@ -48,7 +48,7 @@
     "@graphql-codegen/typescript-operations": "2.5.3",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
-    "@types/async-retry": "1.4.4",
+    "@types/async-retry": "1.4.5",
     "@types/bunyan": "1.8.8",
     "@types/deep-equal": "1.0.1",
     "@types/deep-freeze": "0.1.2",
