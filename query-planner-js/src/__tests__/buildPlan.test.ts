@@ -949,6 +949,180 @@ describe('@provides', () => {
       }
       `);
   });
+
+  it('works with type-condition, even for types only reachable by the @provides', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          noProvides: E
+          withProvides: E @provides(fields: "i { a ... on T1 { b } }")
+        }
+
+        type E @key(fields: "id") {
+          id: ID!
+          i: I @external
+        }
+
+        interface I {
+          a: Int
+        }
+
+        type T1 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @external
+          b: Int @external
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @external
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type E @key(fields: "id") {
+          id: ID!
+          i: I @shareable
+        }
+
+        interface I {
+          a: Int
+        }
+
+        type T1 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @shareable
+          b: Int @shareable
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @shareable
+          c: Int
+        }
+      `
+    }
+
+    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    let operation = operationFromDocument(api, gql`
+      {
+        noProvides {
+          i {
+            a
+            ... on T1 {
+              b
+            }
+            ... on T2 {
+              c
+            }
+          }
+        }
+      }
+      `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
+    // go the the second subgraph for everything.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              noProvides {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "noProvides") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on E {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on E {
+                  i {
+                    __typename
+                    a
+                    ... on T1 {
+                      b
+                    }
+                    ... on T2 {
+                      c
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    // But the same operation with the provides allow to get what is provided from the first subgraph.
+    operation = operationFromDocument(api, gql`
+      {
+        withProvides {
+          i {
+            a
+            ... on T1 {
+              b
+            }
+            ... on T2 {
+              c
+            }
+          }
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              withProvides {
+                i {
+                  __typename
+                  a
+                  ... on T1 {
+                    b
+                  }
+                  ... on T2 {
+                    __typename
+                    id
+                  }
+                }
+              }
+            }
+          },
+          Flatten(path: "withProvides.i") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T2 {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T2 {
+                  c
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('@requires', () => {
