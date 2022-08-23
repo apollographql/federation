@@ -276,7 +276,7 @@ export class QueryGraph {
     /** A name to identify the graph. Mostly for pretty-printing/debugging purpose. */
     readonly name: string,
     /** The vertices of the query graph. The index of each vertex in the array will be the value of its `Vertex.index` value. */
-    private readonly vertices: Vertex[],
+    readonly vertices: Vertex[],
     /**
     * For each vertex, the edges that originate from that array. This array has the same length as `vertices` and `adjacencies[i]`
     * is an array of all the edges starting at vertices[i].
@@ -774,7 +774,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // We always should have an edge: otherwise it would mean we list a type condition for a type that isn't in the subgraph, but the
           // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
           // to mark a full type as @external).
-          assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v}`);
+          assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v} (edges are: [${builder.edges(v)}])`);
           const copiedTail = builder.makeCopy(existingEdge.tail);
           builder.updateEdgeTail(existingEdge, copiedTail);
           stack.push([copiedTail, selection.selectionSet!]);
@@ -858,18 +858,20 @@ class GraphBuilder {
 
   copyGraph(graph: QueryGraph): SubgraphCopyPointer {
     const offset = this.nextIndex;
-    simpleTraversal(
-      graph,
-      v => {
-        this.getOrCopyVertex(v, offset, graph);
-      },
-      e => {
-        const newHead = this.getOrCopyVertex(e.head, offset, graph);
-        const newTail = this.getOrCopyVertex(e.tail, offset, graph);
-        this.addEdge(newHead, newTail, e.transition, e.conditions);
-        return true; // Always traverse edges
+    // Note that we don't use a normal traversal to do the copying because it's possible the provided `graph`
+    // has some sub-parts that are not reachable from one of the roots but that we still want to copy those
+    // sub-parts. The reason is that, while we don't care about unreachable parts in general, at the time
+    // this method is called, we haven't added edges for @provides, and adding those edges may "connect" those
+    // currently unreachable parts. And to be connected, they need to exist/have been copied in the first
+    // place (note that this means we may copy some unreachable sub-parts that will _not_ be connected later (a subgraph
+    // can well have genuinely unreachable definitions), but that's harmless).
+    for (const vertex of graph.vertices) {
+      const newHead = this.getOrCopyVertex(vertex, offset, graph);
+      for (const edge of graph.outEdges(vertex, true)) {
+        const newTail = this.getOrCopyVertex(edge.tail, offset, graph);
+        this.addEdge(newHead, newTail, edge.transition, edge.conditions);
       }
-    );
+    }
     this.nextIndex += graph.verticesCount();
     const that = this;
     return {
@@ -908,7 +910,7 @@ class GraphBuilder {
   }
 
   /**
-   * Replaces the provided edge by an exact copy except for the tail that is said to the provide `newTail` vertex.
+   * Replaces the provided edge by a copy but with the provided new tail vertex.
    *
    * @param edge - the edge to replace.
    * @param newTail - the tail to change in `edge`.
@@ -1016,11 +1018,21 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // even if they are not reachable by any other user operations.
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
-      // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (field.isSchemaIntrospectionField() || this.hasDirective(field, (m) => m.externalDirective())) {
+      if (field.isSchemaIntrospectionField()) {
         continue;
       }
-      this.addEdgeForField(field, head);
+
+      // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't create actual edges.
+      // However, even if we don't add an edge, we still want to add the field type. The reason is that while we don't add
+      // a "general" edge for an external field, we may later add path-specific edges for the field due to a `@provides`. When
+      // we do so, we need the vertex corresponding to that field type to exists, and in rare cases a type could be only
+      // mentioned in this external field, so if we don't add the type here, we'll never do and get an issue later as we
+      // add @provides edges.
+      if (this.hasDirective(field, (m) => m.externalDirective())) {
+        this.addTypeRecursively(field.type!)
+      } else {
+        this.addEdgeForField(field, head);
+      }
     }
   }
 

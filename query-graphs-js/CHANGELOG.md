@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+- Fix issue when type is only reachable through a @provides [PR #2083](https://github.com/apollographql/federation/pull/2083).
+
 ## 2.1.0-alpha.4
 
 - Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
