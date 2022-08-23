@@ -394,3 +394,18 @@ export type Concrete<Type> = {
 //   const x = [1,2,undefined];
 //   const y: number[] = x.filter(isDefined);
 export const isDefined = <T>(t: T | undefined): t is T => t === undefined ? false : true;
+
+/**
+ * Removes the first occurrence of the provided element in the provided array, if said array contains said elements.
+ *
+ * @return whether the element was removed.
+ */
+export function removeArrayElement<T>(element: T, array: T[]): boolean {
+  const index = array.indexOf(element);
+  if (index >= 0) {
+    array.splice(index, 1);
+    return true;
+  } else {
+    return false;
+  }
+}
