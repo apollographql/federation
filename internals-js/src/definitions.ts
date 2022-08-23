@@ -37,61 +37,24 @@ import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
-import { err } from '@apollo/core-schema';
-import { GraphQLErrorExt } from "@apollo/core-schema/dist/error";
 import { validateSDL } from "graphql/validation/validate";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { validateSchema } from "./validate";
 import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { ERRORS, withModifiedErrorMessage } from "./error";
+import { aggregateError, ERRORS, withModifiedErrorMessage } from "./error";
 
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
 export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
-  err(validationErrorCode, {
-    message: message + '. Caused by:\n' + causes.map((c) => c.toString()).join('\n\n'),
-    causes
-  });
+  aggregateError(validationErrorCode, message, causes);
 
 const apiSchemaValidationErrorCode = 'GraphQLAPISchemaValidationFailed';
 
 export const ErrGraphQLAPISchemaValidationFailed = (causes: GraphQLError[]) =>
-  err(apiSchemaValidationErrorCode, {
-    message: 'The supergraph schema failed to produce a valid API schema',
-    causes
-  });
-
-/**
- * Given an error that may have been thrown during schema validation, extract the causes of validation failure.
- * If the error is not a graphQL error, undefined is returned.
- */
-export function errorCauses(e: Error): GraphQLError[] | undefined {
-  if (e instanceof GraphQLErrorExt) {
-    if (e.code === validationErrorCode || e.code === apiSchemaValidationErrorCode) {
-      return ((e as any).causes) as GraphQLError[];
-    }
-    return [e];
-  }
-  if (e instanceof GraphQLError) {
-    return [e];
-  }
-  return undefined;
-}
-
-export function printGraphQLErrorsOrRethrow(e: Error): string {
-  const causes = errorCauses(e);
-  if (!causes) {
-    throw e;
-  }
-  return causes.map(e => e.toString()).join('\n\n');
-}
-
-export function printErrors(errors: GraphQLError[]): string {
-  return errors.map(e => e.toString()).join('\n\n');
-}
+  aggregateError(apiSchemaValidationErrorCode, 'The supergraph schema failed to produce a valid API schema', causes);
 
 export const typenameFieldName = '__typename';
 

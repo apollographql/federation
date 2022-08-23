@@ -52,10 +52,9 @@ import {
   EnumType,
   Extension,
   ErrGraphQLValidationFailed,
-  errorCauses,
   NamedSchemaElement,
 } from "./definitions";
-import { ERRORS, withModifiedErrorNodes } from "./error";
+import { ERRORS, errorCauses, withModifiedErrorNodes } from "./error";
 
 function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;

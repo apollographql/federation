@@ -7,7 +7,6 @@ import {
   Directive,
   DirectiveDefinition,
   ErrGraphQLValidationFailed,
-  errorCauses,
   FieldDefinition,
   InputFieldDefinition,
   InterfaceType,
@@ -54,6 +53,7 @@ import {
   ERRORS,
   withModifiedErrorMessage,
   extractGraphQLErrorOptions,
+  errorCauses,
 } from "./error";
 import { computeShareables } from "./precompute";
 import {

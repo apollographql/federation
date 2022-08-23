@@ -4,12 +4,11 @@ import {
   Kind,
   print as printAST,
 } from "graphql";
-import { ERRORS } from "./error";
+import { errorCauses, ERRORS } from "./error";
 import {
   baseType,
   CompositeType,
   Directive,
-  errorCauses,
   Extension,
   FieldDefinition,
   isCompositeType,
