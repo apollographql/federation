@@ -166,6 +166,7 @@ function collectFieldReachableTypesForAllSubgraphs(
       typeInfoInSubgraph,
     );
     reachableTypesBySubgraphs.set(subgraphName, reachableTypes);
+    console.log(`For ${subgraphName}, reachableTypes = [${[...reachableTypes]}]`);
   }
   return reachableTypesBySubgraphs;
 }
@@ -345,7 +346,14 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 const args = application.arguments();
                 const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
                 const subgraphField = addSubgraphField(field, subgraph, args.type);
-                assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
+                if (!subgraphField) {
+                  // It's unlikely but possible that a fed1 supergraph has a `@provides` on a field of a value type,
+                  // and that value type is actually unreachable. Because we trim unreachable types for fed1 supergraph
+                  // (see comment on `includeTypeInSubgraph` above), it would mean we get `undefined` here. It's fine
+                  // however: the type is unreachable in this subgraph, so ignoring that field application is fine too.
+                  assert(!includeTypeInSubgraph(type, subgraph.name), () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
+                  continue;
+                }
                 if (args.requires) {
                   subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': args.requires});
                 }
