@@ -1176,6 +1176,10 @@ export type StreamDirectiveArgs = {
 // A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
 const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
 
+export type SchemaConfig = {
+  cacheAST?: boolean,
+}
+
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
   private readonly _builtInTypes = new MapWithCachedArrays<string, NamedType>();
@@ -1189,7 +1193,10 @@ export class Schema {
   private cachedDocument?: DocumentNode;
   private apiSchema?: Schema;
 
-  constructor(readonly blueprint: SchemaBlueprint = defaultSchemaBlueprint) {
+  constructor(
+    readonly blueprint: SchemaBlueprint = defaultSchemaBlueprint,
+    readonly config: SchemaConfig = {},
+  ) {
     this._schemaDefinition = new SchemaDefinition();
     Element.prototype['setParent'].call(this._schemaDefinition, this);
     graphQLBuiltInTypesSpecifications.forEach((spec) => spec.checkOrAdd(this, undefined, true));
@@ -1239,10 +1246,6 @@ export class Schema {
     }
   }
 
-  private forceSetCachedDocument(document: DocumentNode) {
-    this.cachedDocument = document;
-  }
-
   isCoreSchema(): boolean {
     return this.coreFeatures !== undefined;
   }
@@ -1254,7 +1257,12 @@ export class Schema {
   toAST(): DocumentNode {
     if (!this.cachedDocument) {
       // As we're not building the document from a file, having locations info might be more confusing that not.
-      this.forceSetCachedDocument(parse(printSchema(this), { noLocation: true }));
+      const ast = parse(printSchema(this), { noLocation: true });
+      const shouldCache = this.config.cacheAST ?? false;
+      if (!shouldCache) {
+        return ast;
+      }
+      this.cachedDocument = ast;
     }
     return this.cachedDocument!;
   }

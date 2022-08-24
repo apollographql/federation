@@ -21,6 +21,7 @@ import {
   ScalarType,
   Schema,
   SchemaBlueprint,
+  SchemaConfig,
   SchemaDefinition,
   SchemaElement,
   sourceASTs,
@@ -1024,8 +1025,8 @@ export function buildSubgraph(
   return subgraph.validate();
 }
 
-export function newEmptyFederation2Schema(): Schema {
-  const schema = new Schema(new FederationBlueprint(true));
+export function newEmptyFederation2Schema(config?: SchemaConfig): Schema {
+  const schema = new Schema(new FederationBlueprint(true), config);
   setSchemaAsFed2Subgraph(schema);
   return schema;
 }
