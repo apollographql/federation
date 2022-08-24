@@ -443,7 +443,7 @@ directive @composeDirective(name: String!) repeatable on SCHEMA
 ```
 
 The `@composeDirective` directive is used to indicate to composition that the custom directive specified should be preserved in the supergraph. In order for composition to pass, the following checks must be met:
-  - The directive must be part of a core schema
+  - The directive must be defined within a core feature
   - The argument specified in `name` should be the name of the directive as it exists in the local subgraph. I.e if it is renamed via `as` from the core schema, use the new name, not the original name.
   - The directive does not necessarily need to be composed into the supergraph in all subgraphs, but if other subgraphs also chose to compose the directive, the name must be consistent across all subgraphs, and then major version of the core schema should match for all subgraphs that compose the directive.
 
