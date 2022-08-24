@@ -91,6 +91,7 @@ The following errors might be raised during composition:
 | `UNKNOWN_FEDERATION_LINK_VERSION` | The version of federation in a @link directive on the schema is unknown. | 2.0.0 |  |
 | `UNKNOWN_LINK_VERSION` | The version of @link set on the schema is unknown. | 2.1.0 |  |
 | `UNSUPPORTED_FEATURE` | Indicates an error due to feature currently unsupported by federation. | 2.1.0 |  |
+| `UNSUPPORTED_LINKED_FEATURE` | Indicates that a feature used in a @link is either unsupported and is used with unsupported options. | 2.0.0 |  |
 
 </div>
 
