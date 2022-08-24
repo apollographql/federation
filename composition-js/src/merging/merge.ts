@@ -1867,8 +1867,7 @@ class Merger {
 
     // if there is exactly one subgraph with a description for this directive, or if they all match, set the destination description
     const descriptions = sources
-      .filter(isDefined)
-      .map(src => src.description)
+      .map(src => src?.description)
       .filter(isDefined);
 
     if (descriptions.length > 0 && descriptions.every(d => descriptions[0] === d)) {
