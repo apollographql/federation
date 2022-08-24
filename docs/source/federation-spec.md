@@ -55,6 +55,7 @@ directive @link(url: String, as: String, for: link__Purpose, import: [link__Impo
 directive @shareable on OBJECT | FIELD_DEFINITION
 directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 directive @override(from: String!) on FIELD_DEFINITION
+directive @composeDirective(name: String!) repeatable on SCHEMA
 
 # this is an optional directive discussed below
 directive @extends on OBJECT | INTERFACE
@@ -434,4 +435,25 @@ interface Product {
   createdBy: User
   hidden: String @inaccessible
 }
+```
+
+### `@composeDirective`
+```graphql
+directive @composeDirective(name: String!) repeatable on SCHEMA
+```
+
+The `@composeDirective` directive is used to indicate to composition that the custom directive specified should be preserved in the supergraph. In order for composition to pass, the following checks must be met:
+  - The directive must be defined within a core feature
+  - The argument specified in `name` should be the name of the directive as it exists in the local subgraph. I.e if it is renamed via `as` from the core schema, use the new name, not the original name.
+  - The directive does not necessarily need to be composed into the supergraph in all subgraphs, but if other subgraphs also chose to compose the directive, the name must be consistent across all subgraphs, and then major version of the core schema should match for all subgraphs that compose the directive.
+
+Note that the directive definition in the supergraph will be selected from the subgraph that has the highest version number for the core schema. Also note that no additional checks will be made to ensure that the directive definition is compatible with other versions of itself.
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/link/v1.0")
+    @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@composeDirective"])
+    @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
+    @composeDirective(name: "@myDirective")
+    @composeDirective(name: "@hello")
 ```
