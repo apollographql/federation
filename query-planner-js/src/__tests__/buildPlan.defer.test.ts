@@ -3088,3 +3088,89 @@ test('defer when some interface has different definitions in different subgraphs
     }
   `);
 });
+
+describe('named fragments', () => {
+  test('simple use', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...TestFragment @defer
+        }
+      }
+
+      fragment TestFragment on T {
+        x
+        y
+      }
+    `);
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            :
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                ... on T {
+                  x
+                  y
+                }
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      x
+                      y
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});
