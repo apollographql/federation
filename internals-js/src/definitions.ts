@@ -1128,15 +1128,16 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
     locations: [DirectiveLocation.SCALAR],
     argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
   }),
-  // TODO: currently inconditionally adding @defer as the list of built-in. It's probably fine, but double check if we want to not do so when @defer-support is
-  // not enabled or something (it would probably be hard to handle it at that point anyway but well...).
+  // Note that @defer and @stream a inconditionally added to `Schema` even if they are technically "optional" built-in. _But_,
+  // the `Schema#toGraphQLJSSchema` method has an option to decide if @defer/@stream should be included or not in the resulting
+  // schema, which is how the gateway and router can, at runtime, decide to include or not include them based on actual support.
   createDirectiveSpecification({
     name: 'defer',
     locations: [DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
     argumentFct: (schema) => ({
       args: [
         { name: 'label', type: schema.stringType() },
-        { name: 'if', type: schema.booleanType() },
+        { name: 'if', type: new NonNullType(schema.booleanType()), defaultValue: true },
       ],
       errors: [],
     })
@@ -1151,7 +1152,7 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
       args: [
         { name: 'label', type: schema.stringType() },
         { name: 'initialCount', type: schema.intType(), defaultValue: 0 },
-        { name: 'if', type: schema.booleanType() },
+        { name: 'if', type: new NonNullType(schema.booleanType()), defaultValue: true },
       ],
       errors: [],
     })
@@ -1159,9 +1160,6 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
 ];
 
 export type DeferDirectiveArgs = {
-  // TODO: we currently do not support variables for the defer label. Passing a label in a variable
-  // feels like a weird use case in the first place, but we should probably fix this nonetheless (or
-  // if we decide to have it be a known limitations, we should at least reject it cleanly).
   label?: string,
   if?: boolean | Variable,
 }
@@ -1299,8 +1297,9 @@ export class Schema {
     return nodes;
   }
 
-  toGraphQLJSSchema(config?: { includeDefer?: boolean }): GraphQLSchema {
+  toGraphQLJSSchema(config?: { includeDefer?: boolean, includeStream?: boolean }): GraphQLSchema {
     const includeDefer = config?.includeDefer ?? false;
+    const includeStream = config?.includeStream ?? false;
 
     let ast = this.toAST();
 
@@ -1311,6 +1310,9 @@ export class Schema {
     const additionalNodes = this.emptyASTDefinitionsForExtensionsWithoutDefinition();
     if (includeDefer) {
       additionalNodes.push(this.deferDirective().toAST());
+    }
+    if (includeStream) {
+      additionalNodes.push(this.streamDirective().toAST());
     }
     if (additionalNodes.length > 0) {
       ast = {
