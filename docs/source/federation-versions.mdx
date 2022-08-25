@@ -14,6 +14,16 @@ description: Understand changes between federation versions
 
 ### Directive changes
 
+Subgraph schemas "opt in" to Federation 2 by applying the `@link` directive to the `schema` type, like so:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
+```
+
+The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example above, the schema uses `@key` and `@shareable`.
+
 For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](./federated-types/federated-directives/).
 
 <table>
@@ -123,7 +133,7 @@ directive @link(url: String, as: String, for: link__Purpose, import: [link__Impo
 <tr>
 <td>
 
-##### `@external`, `@requires`, `@provides`, `@extends`
+##### `@extends`, `@external`, `@provides`, `@requires`, `@tag`
 
 </td>
 <td>
