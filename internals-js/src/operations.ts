@@ -951,7 +951,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
     if (names && names.length === 0) {
       return this;
     }
-
     const newFragments = updateSelectionSetFragments
       ? (names ? this.fragments?.without(names) : undefined)
       : this.fragments;
@@ -1605,6 +1604,8 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
 
+  abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
+
   protected us(): FragmentSelection {
     return this;
   }
@@ -1622,30 +1623,6 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
-  }
-
-  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
-    const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    if (this.element() === updatedFragment) {
-      return this.cloneIfFrozen();
-    }
-
-    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
-    // the underlying selection set uses the updated type as parent type.
-    const updatedCastedType = updatedFragment.castedType();
-    let updatedSelectionSet : SelectionSet | undefined;
-    if (this.selectionSet.parentType !== updatedCastedType) {
-      updatedSelectionSet = new SelectionSet(updatedCastedType);
-      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
-      // effect of the type change.
-      for (const selection of this.selectionSet.selections()) {
-        updatedSelectionSet.add(selection);
-      }
-    } else {
-      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
-    }
-
-    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
   }
 
   filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
@@ -1712,6 +1689,31 @@ class InlineFragmentSelection extends FragmentSelection {
     );
     this.selectionSet.validate();
   }
+
+  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
+    const updatedFragment = this.element().updateForAddingTo(selectionSet);
+    if (this.element() === updatedFragment) {
+      return this.cloneIfFrozen();
+    }
+
+    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
+    // the underlying selection set uses the updated type as parent type.
+    const updatedCastedType = updatedFragment.castedType();
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet.parentType !== updatedCastedType) {
+      updatedSelectionSet = new SelectionSet(updatedCastedType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
+  }
+
 
   get selectionSet(): SelectionSet {
     return this._selectionSet;
@@ -1785,7 +1787,6 @@ class InlineFragmentSelection extends FragmentSelection {
     if (updatedSubSelections === this.selectionSet && !hasDeferToRemove) {
       return this;
     }
-
     const newFragment = hasDeferToRemove ? this.fragmentElement.withoutDefer() : this.fragmentElement;
     if (!newFragment) {
       return updatedSubSelections;
@@ -1874,6 +1875,16 @@ class FragmentSpreadSelection extends FragmentSelection {
   }
 
   optimize(_: NamedFragments): FragmentSelection {
+    return this;
+  }
+
+  updateForAddingTo(_selectionSet: SelectionSet): FragmentSelection {
+    // This is a little bit iffy, because the fragment could link to a schema (typically the supergraph API one)
+    // that is different from the one of `_selectionSet` (say, a subgraph fetch selection in which we're trying to
+    // reuse a user fragment). But in practice, we expand all fragments when we do query planning and only re-add
+    // fragments back at the very end, so this should be fine. Importantly, we don't want this method to mistakenly
+    // expand the spread, as that would compromise the code that optimize subgraph fetches to re-use named
+    // fragments.
     return this;
   }
 

@@ -3723,4 +3723,70 @@ describe('Named fragments preservation', () => {
 
     expect(plan).toMatchInlineSnapshot(reuseQueryFragments ? withReuse : withoutReuse);
   });
+
+  it('works with nested fragments when only the nested fragment gets preserved', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields : "id") {
+          id: ID!
+          a: V
+          b: V
+        }
+
+        type V {
+          v: Int
+        }
+
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...OnT
+        }
+      }
+
+      fragment OnT on T {
+        a {
+          ...OnV
+        }
+        b {
+          ...OnV
+        }
+      }
+
+      fragment OnV on V {
+        v
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              a {
+                ...OnV
+              }
+              b {
+                ...OnV
+              }
+            }
+          }
+          
+          fragment OnV on V {
+            v
+          }
+        },
+      }
+    `);
+  });
 });
