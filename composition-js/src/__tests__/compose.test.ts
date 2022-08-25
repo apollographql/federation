@@ -221,6 +221,43 @@ describe('composition', () => {
     `);
   })
 
+  it('preserves descriptions for executable directives', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        "The foo directive description"
+        directive @foo(url: String) on FIELD
+
+        schema {
+          query: Query
+        }
+
+
+        type Query {
+          t(x: String!): String
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        "The foo directive description"
+        directive @foo(url: String) on FIELD
+
+        enum E {
+          A
+          B
+        }
+      `
+    }
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+
+    expect(result.supergraphSdl).toMatchSnapshot();
+  });
+
   it('no hint raised when merging empty description', () => {
     const subgraph1 = {
       name: 'Subgraph1',
