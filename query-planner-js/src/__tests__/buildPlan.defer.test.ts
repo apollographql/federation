@@ -4,7 +4,7 @@ import { QueryPlanner } from '@apollo/query-planner';
 import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./buildPlan.test";
 
 function composeAndCreatePlannerWithDefer(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  return composeAndCreatePlannerWithOptions(services, { deferStreamSupport: { enableDefer : true }});
+  return composeAndCreatePlannerWithOptions(services, { incrementalDelivery: { enableDefer : true }});
 }
 
 describe('handles simple @defer', () => {
