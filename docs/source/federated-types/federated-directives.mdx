@@ -22,7 +22,7 @@ Modify the `import` array to include whichever federated directives your subgrap
 
 ### Renaming directives
 
-If a federated directive's name matches one of your own custom directives, you can rename the federated directive with the following syntax:
+If an imported directive's default name matches one of your own custom directives, you can rename the imported directive with the following syntax:
 
 ```graphql
 extend schema
@@ -31,6 +31,39 @@ extend schema
 ```
 
 This example subgraph schema uses `@primaryKey` for the federated directive usually named [`@key`](#key).
+
+### Namespaced directives
+
+If you _don't_ [import a particular directive](#importing-directives) from a linked spec, you _can_ still use that directive in your subgraph schema. However, that directive is **namespaced** with a prefix:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key"])
+
+type Book @federation__shareable {
+  title: String!
+}
+```
+
+In the example above, `@shareable` is _not_ imported from the federation spec. Therefore, it is available as `@federation__shareable`.
+
+The default namespace prefix for a `@link`ed directive is the name of its associated specification (indicated by the penultimate component of `url`), plus two underscores (`__`). For Apollo Federation directives, this prefix is `federation__`.
+
+You can customize a particular specification's namespace prefix by providing the `as` argument to `@link`:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        as: "fed")
+
+type Book @fed__shareable {
+  title: String!
+}
+```
+
+As shown, custom namespace prefixes _also_ end in two underscores.
+
 
 ### `@link`
 
@@ -75,9 +108,9 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 }
 ```
 
-To check whether your subgraph library supports repeatable directives, see the `@KEY (MULTI)` item in [Federation-compatible subgraph implementations](../supported-subgraphs/).
+To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../supported-subgraphs/).
 
-> Although it's valid to apply `@key` to an interface definition, this currently has no effect in Apollo Federation.
+> ⚠️ **Do not apply `@key` to interface definitions.** The `INTERFACE` location is included in this definition for backward compatibility with Federation 1 subgraphs. Currently, applying `@key` to an interface has no effect in _any_ version of federation, and Federation 2 subgraphs produce a composition error to emphasize this.
 
 #### Arguments
 
@@ -141,11 +174,11 @@ directive @extends on OBJECT | INTERFACE
 
 Indicates that an object or interface definition is an extension of _another_ definition of that same type.
 
-> ⚠️ **If you define your subgraph schema in a static text file, do not use this directive!** Instead, use GraphQL's built-in `extend` keyword.
+> ⚠️ **If your subgraph library supports GraphQL's built-in `extend` keyword, do not use this directive!** Instead, use `extend`.
 
-This directive is for use with GraphQL subgraph libraries that generate their schema programmatically and do _not_ support the `extend` keyword. It provides an alternate mechanism for indicating type extensions.
+This directive is for use with GraphQL subgraph libraries that do _not_ support the `extend` keyword. Most commonly, these are subgraph libraries that generate their schema programmatically instead of using a static `.graphql` file.
 
-> Note that Federation 2 does not require any use of type extensions.
+> Note that Federation 2 does not _require_ any use of type extensions.
 >
 > In Federation 1, every subgraph must extend the `Query` and `Mutation` types (if it defines them), and entities are extended in every subgraph that defines them _except_ their originating subgraph.
 
@@ -439,6 +472,68 @@ Examples:
 * `"name"`
 * `"name address"`
 * `"name organization { id }"`
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## Managing custom directives
+
+### `@composeDirective`
+
+```graphql
+directive @composeDirective(name: String!) repeatable on SCHEMA
+```
+
+Indicates to composition that all uses of a particular custom directive in the subgraph schema should be preserved in the supergraph schema (by default, composition omits most directives from the supergraph schema).
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/link/v1.0")
+    @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@composeDirective"])
+    @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
+    # highlight-start
+    @composeDirective(name: "@myDirective")
+    @composeDirective(name: "@hello")
+    # highlight-end
+```
+
+This directive has the following requirements:
+
+  - The directive to preserve must be defined and imported from a core specification via the `@link` directive.
+  - The specified directive `name` must match the name used for the directive _in this subgraph_.
+      - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the _modified_ name, not the default name.
+  - If multiple subgraphs import and use the directive:
+      - The name used for the directive _must_ be identical in all of those subgraphs.
+      - All of those subgraphs _should_ use the same major version of the spec that defines the directive.
+
+If any of these requirements is not met, composition fails.
+
+> If different subgraphs use different versions of a directive's corresponding spec, the supergraph schema uses whichever version number is _highest_ among all subgraphs. Composition does _not_ verify whether this version of the directive is compatible with subgraphs that use an earlier version.
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `name`
+
+</td>
+<td>
+
+**Required.** The name (including the leading `@`) of the directive to preserve during composition.
 
 </td>
 </tr>
