@@ -2471,11 +2471,11 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   }
 
   arguments(): readonly ArgumentDefinition<FieldDefinition<TParent>>[] {
-    return this._args ? this._args.values() : [];
+    return this._args?.values() ?? [];
   }
 
   argument(name: string): ArgumentDefinition<FieldDefinition<TParent>> | undefined {
-    return this._args ? this._args.get(name) : undefined;
+    return this._args?.get(name);
   }
 
   addArgument(arg: ArgumentDefinition<FieldDefinition<TParent>>): ArgumentDefinition<FieldDefinition<TParent>>;
@@ -2608,9 +2608,9 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   }
 
   toString(): string {
-    const args = !this.hasArguments()
-      ? ""
-      : '(' + this.arguments().map(arg => arg.toString()).join(', ') + ')';
+    const args = this.hasArguments()
+      ? '(' + this.arguments().map(arg => arg.toString()).join(', ') + ')'
+      : "";
     return `${this.name}${args}: ${this.type}`;
   }
 }

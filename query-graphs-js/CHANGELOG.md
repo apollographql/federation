@@ -1,5 +1,6 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+- Fix abnormally high memory usage when extracting subgraphs for some fed1 supergraphs (and small other memory footprint improvements) [PR #2089](https://github.com/apollographql/federation/pull/2089).
 - Fix issue when type is only reachable through a @provides [PR #2083](https://github.com/apollographql/federation/pull/2083).
 
 ## 2.1.0-alpha.4

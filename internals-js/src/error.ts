@@ -202,7 +202,7 @@ const TYPE_DEFINITION_INVALID = makeCodeDefinition(
 
 const UNSUPPORTED_LINKED_FEATURE = makeCodeDefinition(
   'UNSUPPORTED_LINKED_FEATURE',
-  'Indicates that a feature used in a @link is either unsupported and is used with unsupported options.',
+  'Indicates that a feature used in a @link is either unsupported or is used with unsupported options.',
 );
 
 const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(

@@ -166,7 +166,6 @@ function collectFieldReachableTypesForAllSubgraphs(
       typeInfoInSubgraph,
     );
     reachableTypesBySubgraphs.set(subgraphName, reachableTypes);
-    console.log(`For ${subgraphName}, reachableTypes = [${[...reachableTypes]}]`);
   }
   return reachableTypesBySubgraphs;
 }
