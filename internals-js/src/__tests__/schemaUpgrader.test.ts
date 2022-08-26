@@ -167,7 +167,6 @@ test('update federation directive non-string arguments', () => {
   `);
 })
 
-
 test('remove tag on external field if found on definition', () => {
   const s1 = `
     type Query {

@@ -7,7 +7,6 @@ import {
   Directive,
   DirectiveDefinition,
   ErrGraphQLValidationFailed,
-  errorCauses,
   FieldDefinition,
   InputFieldDefinition,
   InterfaceType,
@@ -22,6 +21,7 @@ import {
   ScalarType,
   Schema,
   SchemaBlueprint,
+  SchemaConfig,
   SchemaDefinition,
   SchemaElement,
   sourceASTs,
@@ -54,6 +54,7 @@ import {
   ERRORS,
   withModifiedErrorMessage,
   extractGraphQLErrorOptions,
+  errorCauses,
 } from "./error";
 import { computeShareables } from "./precompute";
 import {
@@ -1024,8 +1025,8 @@ export function buildSubgraph(
   return subgraph.validate();
 }
 
-export function newEmptyFederation2Schema(): Schema {
-  const schema = new Schema(new FederationBlueprint(true));
+export function newEmptyFederation2Schema(config?: SchemaConfig): Schema {
+  const schema = new Schema(new FederationBlueprint(true), config);
   setSchemaAsFed2Subgraph(schema);
   return schema;
 }

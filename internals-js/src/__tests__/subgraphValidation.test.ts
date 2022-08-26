@@ -1,7 +1,6 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import { Subgraph } from '..';
-import { errorCauses } from '../definitions';
+import { Subgraph, errorCauses } from '..';
 import { asFed2SubgraphDocument, buildSubgraph } from "../federation"
 import { defaultPrintOptions, printSchema } from '../print';
 import './matchers';
