@@ -129,6 +129,8 @@ To check whether your subgraph library supports repeatable directives, see the `
 
 ##### `fields`
 
+`FieldSet!`
+
 </td>
 <td>
 
@@ -229,6 +231,10 @@ Common use cases for `@inaccessible` include:
 * Avoiding composition errors while making staggered updates to a definition that's shared across multiple subgraphs (such as a [value type](./sharing-types/#adding-new-shared-fields))
 * Using a private field as part of an entity's [`@key`](#key) without exposing that field to clients
 
+> ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+>
+> Consequently, if you [rename this directive](#renaming-directives), you must use the _same_ name in every subgraph. Otherwise, a composition error occurs due to a naming mismatch.
+
 <CodeColumns>
 
 ```graphql {4} title="Subgraph A"
@@ -308,7 +314,7 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 
 ##### `from`
 
-`String`
+`String!`
 </td>
 <td>
 
@@ -405,6 +411,8 @@ For more information, see [Using `@provides`](/federation/entities-advanced#usin
 
 ##### `fields`
 
+`FieldSet!`
+
 </td>
 <td>
 
@@ -462,6 +470,8 @@ See also [Contributing computed entity fields](../entities-advanced/#contributin
 
 ##### `fields`
 
+`FieldSet!`
+
 </td>
 <td>
 
@@ -472,6 +482,76 @@ Examples:
 * `"name"`
 * `"name address"`
 * `"name organization { id }"`
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## Applying metadata
+
+### `@tag`
+
+```graphql
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/studio/contracts/) uses `@tag` to define inclusion and exclusion filters.
+
+> ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+>
+> Consequently, if you [rename this directive](#renaming-directives), you must use the _same_ name in every subgraph that uses it. Otherwise, a composition error occurs due to a naming mismatch.
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+type Query {
+  customer(id: String!): Customer @tag(name: "team-customers")
+  employee(id: String!): Employee @tag(name: "team-admin")
+}
+
+interface User @tag(name: "team-accounts") {
+  id: String!
+  name: String!
+}
+
+type Customer implements User @tag(name: "team-customers") {
+  id: String!
+  name: String!
+}
+
+type Employee implements User @tag(name: "team-admin") {
+  id: String!
+  name: String!
+  ssn: String!
+}
+```
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `name`
+
+`String!`
+
+</td>
+<td>
+
+**Required.** The tag name to apply.
 
 </td>
 </tr>
@@ -529,6 +609,8 @@ If any of these requirements is not met, composition fails.
 <td>
 
 ##### `name`
+
+`String!`
 
 </td>
 <td>
