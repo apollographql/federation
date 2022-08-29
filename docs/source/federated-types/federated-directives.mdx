@@ -231,6 +231,10 @@ Common use cases for `@inaccessible` include:
 * Avoiding composition errors while making staggered updates to a definition that's shared across multiple subgraphs (such as a [value type](./sharing-types/#adding-new-shared-fields))
 * Using a private field as part of an entity's [`@key`](#key) without exposing that field to clients
 
+> ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+>
+> Consequently, if you [rename this directive](#renaming-directives), you must use the _same_ name in every subgraph. Otherwise, a composition error occurs due to a naming mismatch.
+
 <CodeColumns>
 
 ```graphql {4} title="Subgraph A"
@@ -495,7 +499,9 @@ directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJEC
 
 Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/studio/contracts/) uses `@tag` to define inclusion and exclusion filters.
 
-Unlike with most directives, composition _preserves_ uses of `@tag` in a generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+> ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+>
+> Consequently, if you [rename this directive](#renaming-directives), you must use the _same_ name in every subgraph that uses it. Otherwise, a composition error occurs due to a naming mismatch.
 
 ```graphql
 extend schema
