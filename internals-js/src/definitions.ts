@@ -1128,7 +1128,7 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
     locations: [DirectiveLocation.SCALAR],
     argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
   }),
-  // Note that @defer and @stream a inconditionally added to `Schema` even if they are technically "optional" built-in. _But_,
+  // Note that @defer and @stream are unconditionally added to `Schema` even if they are technically "optional" built-in. _But_,
   // the `Schema#toGraphQLJSSchema` method has an option to decide if @defer/@stream should be included or not in the resulting
   // schema, which is how the gateway and router can, at runtime, decide to include or not include them based on actual support.
   createDirectiveSpecification({
