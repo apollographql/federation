@@ -65,7 +65,6 @@ import {
   filterTypesOfKind,
   isNonNullType,
   isExecutableDirectiveLocation,
-  isDefined,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
