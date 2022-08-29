@@ -701,14 +701,14 @@ export function argumentsFromAST(
       const expectedType = argsDefiner.argument(name)?.type;
       if (!expectedType) {
         throw ERRORS.INVALID_GRAPHQL.err(
-          `Unknown argument "${name}" found in value: ${context} has no argument named "${name}"`
+          `Unknown argument "${name}" found in value: "${context}" has no argument named "${name}"`
         );
       }
       try {
         values[name] = valueFromAST(argNode.value, expectedType);
       } catch (e) {
         if (e instanceof GraphQLError) {
-          throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument ${name}: ${e.message}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument "${name}": ${e.message}`);
         }
         throw e;
       }

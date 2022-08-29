@@ -60,22 +60,6 @@ describe('fieldset-based directives', () => {
     ]);
   });
 
-  it('rejects field defined with arguments in @requires', () => {
-    const subgraph =  gql`
-      type Query {
-        t: T
-      }
-
-      type T {
-        f(x: Int): Int @external
-        g: Int @requires(fields: "f")
-      }
-    `
-    expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_FIELDS_HAS_ARGS', '[S] On field "T.g", for @requires(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @requires)']
-    ]);
-  });
-
   it('rejects @provides on non-external fields', () => {
     const subgraph =  gql`
       type Query {

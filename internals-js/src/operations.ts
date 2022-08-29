@@ -182,7 +182,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       if (appliedValue === undefined) {
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!),
-          () => `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
+          () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
           isValidValue(appliedValue, argDef, this.variableDefinitions),
