@@ -129,6 +129,8 @@ To check whether your subgraph library supports repeatable directives, see the `
 
 ##### `fields`
 
+`FieldSet!`
+
 </td>
 <td>
 
@@ -308,7 +310,7 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 
 ##### `from`
 
-`String`
+`String!`
 </td>
 <td>
 
@@ -405,6 +407,8 @@ For more information, see [Using `@provides`](/federation/entities-advanced#usin
 
 ##### `fields`
 
+`FieldSet!`
+
 </td>
 <td>
 
@@ -462,6 +466,8 @@ See also [Contributing computed entity fields](../entities-advanced/#contributin
 
 ##### `fields`
 
+`FieldSet!`
+
 </td>
 <td>
 
@@ -472,6 +478,74 @@ Examples:
 * `"name"`
 * `"name address"`
 * `"name organization { id }"`
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## Applying metadata
+
+### `@tag`
+
+```graphql
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+```
+
+Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/studio/contracts/) uses `@tag` to define inclusion and exclusion filters.
+
+Unlike with most directives, composition _preserves_ uses of `@tag` in a generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+
+```graphql
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+
+type Query {
+  customer(id: String!): Customer @tag(name: "team-customers")
+  employee(id: String!): Employee @tag(name: "team-admin")
+}
+
+interface User @tag(name: "team-accounts") {
+  id: String!
+  name: String!
+}
+
+type Customer implements User @tag(name: "team-customers") {
+  id: String!
+  name: String!
+}
+
+type Employee implements User @tag(name: "team-admin") {
+  id: String!
+  name: String!
+  ssn: String!
+}
+```
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `name`
+
+`String!`
+
+</td>
+<td>
+
+**Required.** The tag name to apply.
 
 </td>
 </tr>
@@ -529,6 +603,8 @@ If any of these requirements is not met, composition fails.
 <td>
 
 ##### `name`
+
+`String!`
 
 </td>
 <td>
