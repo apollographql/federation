@@ -23,7 +23,7 @@ export type QueryPlannerConfig = {
   // new `passthroughSubgraphs` option that is the list of subgraph to which we can pass-through some @defer
   // (and it would be empty by default). Similarly, once we support @stream, grouping the options here will
   // make sense too.
-  deferStreamSupport?: {
+  incrementalDelivery?: {
     /**
      * Enables @defer support by the query planner.
      *
@@ -41,7 +41,7 @@ export function enforceQueryPlannerConfigDefaults(
   return {
     exposeDocumentNodeInFetchNode: true,
     reuseQueryFragments: true,
-    deferStreamSupport: {
+    incrementalDelivery: {
       enableDefer: false,
     },
     ...config,

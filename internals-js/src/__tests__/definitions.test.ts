@@ -817,7 +817,7 @@ test('correctly convert to a graphQL-js schema', () => {
   expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
 });
 
-test('Conversion to graphQL-js schema can optionally include @defer definition', () => {
+test('Conversion to graphQL-js schema can optionally include @defer and/or @streams definition(s)', () => {
   const sdl = `
     type Query {
       x: Int
@@ -825,9 +825,18 @@ test('Conversion to graphQL-js schema can optionally include @defer definition',
   `;
   const schema = parseSchema(sdl);
 
-  const graphqQLSchema = schema.toGraphQLJSSchema({ includeDefer: true });
-  expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(`
-    directive @defer(label: String, if: Boolean) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+  expect(printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true }))).toMatchString(`
+    directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+    type Query {
+      x: Int
+    }
+  `);
+
+  expect(printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true, includeStream:  true }))).toMatchString(`
+    directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+    directive @stream(label: String, initialCount: Int = 0, if: Boolean! = true) on FIELD
 
     type Query {
       x: Int

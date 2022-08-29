@@ -1894,7 +1894,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     }
 
     const expandedSubSelections = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
-    return sameType(this._element.parentType, this.namedFragment.typeCondition)
+    return sameType(this._element.parentType, this.namedFragment.typeCondition) && this._element.appliedDirectives.length === 0
       ? expandedSubSelections.selections()
       : new InlineFragmentSelection(this._element, expandedSubSelections);
   }

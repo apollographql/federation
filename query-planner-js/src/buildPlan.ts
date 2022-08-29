@@ -1911,7 +1911,7 @@ export function computeQueryPlan({
   let assignedDeferLabels: Set<string> | undefined = undefined;
   let hasDefers: boolean = false;
   let deferConditions: SetMultiMap<string, string> | undefined = undefined;
-  if (config.deferStreamSupport.enableDefer) {
+  if (config.incrementalDelivery.enableDefer) {
     ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
   } else {
     // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
