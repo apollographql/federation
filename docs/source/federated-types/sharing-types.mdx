@@ -92,7 +92,7 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 
 #### ⚠️ Important considerations for `@shareable`
 
-* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
+* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](./federated-directives/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
 * If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
 ## Differing shared fields
