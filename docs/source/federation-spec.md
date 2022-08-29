@@ -417,7 +417,7 @@ type User @key(fields: "id") {
 
 ### `@inaccessible`
 ```graphql
-directive @inaccessible(from: String!) on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 ```
 
 The `@inaccessible` directive indicates that a location within the schema is inaccessible. Inaccessible elements are available to query at the subgraph level but are not available to query at the supergraph level (through the router or gateway). This directive enables you to preserve composition while adding the field to your remaining subgraphs. You can remove the @inaccessible directive when the rollout is complete and begin using the field.
