@@ -1864,6 +1864,8 @@ class Merger {
     dest.repeatable = repeatable!;
     dest.addLocations(...locations!);
 
+    this.mergeDescription(sources, dest);
+
     if (inconsistentRepeatable) {
       this.mismatchReporter.reportMismatchHint({
         code: HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,

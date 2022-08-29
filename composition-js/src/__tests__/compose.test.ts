@@ -156,6 +156,9 @@ describe('composition', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
+        "The foo directive description"
+        directive @foo(url: String) on FIELD
+
         "A cool schema"
         schema {
           query: Query
@@ -178,6 +181,9 @@ describe('composition', () => {
     const subgraph2 = {
       name: 'Subgraph2',
       typeDefs: gql`
+        "The foo directive description"
+        directive @foo(url: String) on FIELD
+
         "An enum"
         enum E {
           "The A value"
@@ -197,6 +203,9 @@ describe('composition', () => {
       schema {
         query: Query
       }
+
+      """The foo directive description"""
+      directive @foo(url: String) on FIELD
 
       """An enum"""
       enum E {
