@@ -3,6 +3,7 @@
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
 ## vNext
+- Fix regression caused by #1970 (removal of @types/node-fetch from runtime dependencies) [PR #2116](https://github.com/apollographql/federation/pull/2116)
 
 ## 2.1.0
 
