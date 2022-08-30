@@ -36,6 +36,11 @@ import { SDLValidationRule } from "graphql/validation/ValidationContext";
 
 import { specifiedSDLRules } from 'graphql/validation/specifiedRules';
 import { GraphQLSchemaValidationError } from './error';
+import {
+  ApolloGraphQLInterfaceTypeExtensions,
+  ApolloGraphQLObjectTypeExtensions,
+  ApolloGraphQLUnionTypeExtensions
+} from "../schemaExtensions";
 
 function isNotNullOrUndefined<T>(
   value: T | null | undefined,
@@ -107,14 +112,15 @@ export function addResolversToSchema(
     const type = schema.getType(typeName);
 
     if (isAbstractType(type)) {
+      const existingExtensions = type.extensions as ApolloGraphQLUnionTypeExtensions | ApolloGraphQLInterfaceTypeExtensions;
       for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
         if (fieldName === '__resolveReference') {
           type.extensions = {
-            ...type.extensions,
+            ...existingExtensions,
             apollo: {
-              ...type.extensions.apollo,
+              ...existingExtensions.apollo,
               subgraph: {
-                ...type.extensions.apollo?.subgraph,
+                ...existingExtensions.apollo?.subgraph,
                 resolveReference: fieldConfig,
               },
             },
@@ -163,14 +169,15 @@ export function addResolversToSchema(
     if (!isObjectType(type)) continue;
 
     const fieldMap = type.getFields();
+    const existingExtensions = type.extensions as ApolloGraphQLObjectTypeExtensions;
     for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
       if (fieldName === '__resolveReference') {
         type.extensions = {
-          ...type.extensions,
+          ...existingExtensions,
           apollo: {
-            ...type.extensions.apollo,
+            ...existingExtensions.apollo,
             subgraph: {
-              ...type.extensions.apollo?.subgraph,
+              ...existingExtensions.apollo?.subgraph,
               resolveReference: fieldConfig,
             },
           },

@@ -14,6 +14,7 @@ import {
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
 import { maybeCacheControlFromInfo } from '@apollo/cache-control-types';
+import {ApolloGraphQLObjectTypeExtensions} from "./schemaExtensions";
 
 export type Maybe<T> = null | undefined | T;
 
@@ -95,8 +96,9 @@ export function entitiesResolver({
       }
     }
 
+    const extensions = type.extensions as ApolloGraphQLObjectTypeExtensions;
     const resolveReference =
-      type.extensions.apollo?.subgraph?.resolveReference ??
+      extensions.apollo?.subgraph?.resolveReference ??
       function defaultResolveReference() {
         return reference;
       };
