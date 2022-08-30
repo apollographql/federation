@@ -4,26 +4,19 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.1.0
+
 - Fix issue where fragment expansion can erase applied directives (most notably `@defer`) [PR #2093](https://github.com/apollographql/federation/pull/2093).
 - Fix abnormally high memory usage when extracting subgraphs for some fed1 supergraphs (and small other memory footprint improvements) [PR #2089](https://github.com/apollographql/federation/pull/2089).
 - Fix issue with fragment reusing code something mistakenly re-expanding fragments [PR #2098](https://github.com/apollographql/federation/pull/2098).
 - Fix issue when type is only reachable through a @provides [PR #2083](https://github.com/apollographql/federation/pull/2083).
 - Fix case where some key field necessary to a `@require` fetch were not previously fetched [PR #2075](https://github.com/apollographql/federation/pull/2075).
 - Add type definitions to schema extensions [PR #2081](https://github.com/apollographql/federation/pull/2081)
-
-## 2.1.0-alpha.4
-
 - Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
 - Upgrade underlying `@apollo/utils.fetcher` to support aborting a request. This is a type-only change, and will not impact the underlying runtime. [PR #2017](https://github.com/apollographql/federation/pull/2017).
-
-## 2.1.0-alpha.3
-
 - Some TypeScript types, such as the arguments and return value of `GraphQLDataSource.process`, are defined using types from the `@apollo/server-gateway-interface` package instead of from `apollo-server-types` and `apollo-server-core`. This is intended to be fully backwards-compatible; please file an issue if this leads to TypeScript compilation issues. [PR #2044](https://github.com/apollographql/federation/pull/2044)
 - Don't require `@link` when using `@composeDirective` [PR #2046](https://github.com/apollographql/federation/pull/2046)
 - Don't do debug logging by default [PR #2048](https://github.com/apollographql/federation/pull/2048)
-
-## 2.1.0-alpha.2
-
 - Add `@composeDirective` directive to specify directives that should be merged to the supergraph during composition [PR #1996](https://github.com/apollographql/federation/pull/1996).
 - Fix fragment reuse in subgraph fetches [PR #1911](https://github.com/apollographql/federation/pull/1911).
 - Allow passing a custom `fetcher` [PR #1997](https://github.com/apollographql/federation/pull/1997).
@@ -32,9 +25,6 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   - __BREAKING__: If you call `RemoteGraphQLDataSource.errorFromResponse` manually and expect its return value to be a particular subclass of `GraphQLError`, or if you expect the error received by `didEncounterError` to be a particular subclass of `GraphQLError`, then this change may affect you. We recommend checking `error.extensions.code` instead.
 - The `LocalGraphQLDataSource` class no longer supports the undocumented `__resolveObject` Apollo Server feature. [PR #2007](https://github.com/apollographql/federation/pull/2007)
   - __BREAKING__: If you relied on the undocumented `__resolveObject` feature with `LocalGraphQLDataSource`, it will no longer work. If this affects you, file an issue and we can help you find a workaround.
-
-## 2.1.0-alpha.1
-
 - Expose document representation of sub-query request within GraphQLDataSourceProcessOptions so that it is available to RemoteGraphQLDataSource.process and RemoteGraphQLDataSource.willSendRequest [PR#1878](https://github.com/apollographql/federation/pull/1878)
 - Fix issue when using a type condition on an inaccessible type in `@require` [#1873](https://github.com/apollographql/federation/pull/1873).
   - __BREAKING__: this fix required passing a new argument to the `executeQueryPlan` method, which is technically
@@ -53,9 +43,6 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Add timeouts when making requests to Apollo Uplink [PR #1950](https://github.com/apollographql/federation/pull/1950).
   - __BREAKING__: In 2.1.0-alpha.0, `UplinkSupergraphManager` was introduced and allowed passing a `fetcher` argument to the constructor. That parameter has been removed, at least until we figure out how to support the `signal` param more generically in [`apollo-utils` types](https://github.com/apollographql/apollo-utils/pull/146).
 - Avoid type-explosion with fed1 supergraphs using a fed2 query planner [PR #1994](https://github.com/apollographql/federation/pull/1994).
-
-## 2.1.0-alpha.0
-
 - Add callback when fetching a supergraph from Apollo Uplink fails [PR #1812](https://github.com/apollographql/federation/pull/1812).
   -__BREAKING__: Previously, if a custom `fetcher` was passed to the gateway instance, that would be passed to the `UplinkSupergraphManager`. That meant that `fetcher` customizations intended for `RemoteGraphQLDataSource` were also added to `UplinkFetcher`/`UplinkSupergraphManager`. Now, the `fetcher` passed to the gateway instance **will not** be passed to `UplinkSupergraphManager`. If your team relies on fetcher customizations being used for polling Apollo Uplink, please file an issue.
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
