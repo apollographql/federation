@@ -1196,12 +1196,21 @@ export function parseFieldSetArgument({
   decorateValidationErrors?: boolean,
 }): SelectionSet {
   try {
-    return parseSelectionSet({
+    const selectionSet = parseSelectionSet({
       parentType,
       source: validateFieldSetValue(directive),
       fieldAccessor,
       validate,
     });
+    if (validate ?? true) {
+      selectionSet.forEachElement((elt) => {
+        if (elt.kind === 'Field' && elt.alias) {
+          // Note that this will be caught by the surrounding catch and "decorated".
+          throw new GraphQLError(`Cannot use alias "${elt.alias}" in "${elt}": aliases are not currently supported in @${directive.name}`);
+        }
+      });
+    }
+    return selectionSet;
   } catch (e) {
     if (!(e instanceof GraphQLError) || !decorateValidationErrors) {
       throw e;

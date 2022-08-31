@@ -443,6 +443,61 @@ describe('fieldset-based directives', () => {
       ['PROVIDES_FIELDS_MISSING_EXTERNAL', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)'],
     ]);
   });
+
+  it('rejects aliases in @key', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "foo: id") {
+        id: ID!
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      [ 'KEY_INVALID_FIELDS', '[S] On type "T", for @key(fields: "foo: id"): Cannot use alias "foo" in "foo: id": aliases are not currently supported in @key' ],
+    ]);
+  });
+
+  it('rejects aliases in @provides', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T @provides(fields: "bar: x")
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        x: Int @external
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      [ 'PROVIDES_INVALID_FIELDS', '[S] On field "Query.t", for @provides(fields: "bar: x"): Cannot use alias "bar" in "bar: x": aliases are not currently supported in @provides' ],
+    ]);
+  });
+
+  it('rejects aliases in @requires', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T {
+        x: X @external
+        y: Int @external
+        g: Int @requires(fields: "foo: y")
+        h: Int @requires(fields: "x { m: a n: b }")
+      }
+
+      type X {
+        a: Int
+        b: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.g", for @requires(fields: "foo: y"): Cannot use alias "foo" in "foo: y": aliases are not currently supported in @requires' ],
+      [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.h", for @requires(fields: "x { m: a n: b }"): Cannot use alias "m" in "m: a": aliases are not currently supported in @requires' ],
+    ]);
+  });
 });
 
 describe('root types', () => {
