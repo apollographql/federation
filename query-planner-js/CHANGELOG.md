@@ -4,6 +4,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.1.1
+- Fix issue where @defer condition gets ignored [PR #2121](https://github.com/apollographql/federation/pull/2121).
+
 ## 2.1.0
 
 - Fix issue where fragment expansion can erase applied directives (most notably `@defer`) [PR #2093](https://github.com/apollographql/federation/pull/2093).
