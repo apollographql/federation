@@ -831,10 +831,11 @@ class DeferNormalizer {
         const deferArgs = selection.element().deferDirectiveArgs();
         if (deferArgs) {
           hasDefers = true;
+          if (!deferArgs.label || deferArgs.if !== undefined) {
+            hasNonLabelledOrConditionalDefers = true;
+          }
           if (deferArgs.label) {
             this.usedLabels.add(deferArgs.label);
-          } else {
-            hasNonLabelledOrConditionalDefers = true;
           }
         }
       }

@@ -2417,7 +2417,13 @@ test('@defer everything within entity', () => {
 });
 
 describe('defer with conditions', () => {
-  test('simple @defer with condition', () => {
+  test.each([{
+    name: 'without explicit label',
+    label: undefined,
+  }, {
+    name: 'with explicit label',
+    label: 'testLabel',
+  }])('simple @defer with condition $name', ({label}) => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2447,14 +2453,14 @@ describe('defer with conditions', () => {
       query($cond: Boolean) {
         t {
           x
-          ... @defer(if: $cond) {
+          ... @defer(${label ? `label: "${label}", ` : ''}if: $cond) {
             y
           }
         }
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {
@@ -2476,7 +2482,7 @@ describe('defer with conditions', () => {
                   }
                 }
               }, [
-                Deferred(depends: [0], path: "t") {
+                Deferred(depends: [0], path: "t"${label ? `, label: "${label}"` : ''}) {
                   {
                     y
                   }:
