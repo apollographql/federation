@@ -2981,7 +2981,7 @@ describe('defer with conditions', () => {
 });
 
 test('defer when some interface has different definitions in different subgraphs', () => {
-  // This test exists to ensure an early bug is fixed: that but was in the code building
+  // This test exists to ensure an early bug is fixed: that bug was in the code building
   // the `subselection` of `DeferNode` in the plan, and was such that those subselections
   // were created with links to subgraph types instead the supergraph ones. As a result,
   // we were sometimes trying to add a field (`b` in the example here) to version of a
