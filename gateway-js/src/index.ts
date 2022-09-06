@@ -781,7 +781,7 @@ export class ApolloGateway implements GatewayInterface {
                   const operation = operationFromDocument(
                     this.apiSchema!,
                     document,
-                    request.operationName,
+                    { operationName: request.operationName },
                   );
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);

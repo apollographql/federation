@@ -1200,9 +1200,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
       selection.validate();
-      const selectionFragments = selection.namedFragments();
-      // We make this an assertion because this is a programming error. But validate is a convenient place for this in practice.
-      assert(!selectionFragments || selectionFragments === this.fragments, () => `Selection fragments (${selectionFragments}) for ${selection} does not match selection set one (${this.fragments})`);
     }
   }
 
@@ -1435,17 +1432,15 @@ export class FieldSelection extends Freezable<FieldSelection> {
   }
 
   filter(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
-    if (!predicate(this)) {
-      return undefined;
-    }
     if (!this.selectionSet) {
-      return this;
+      return predicate(this) ? this : undefined;
     }
 
     const updatedSelectionSet = this.selectionSet.filter(predicate);
-    return this.selectionSet === updatedSelectionSet
+    const thisWithFilteredSelectionSet = this.selectionSet === updatedSelectionSet
       ? this
       : new FieldSelection(this.field, updatedSelectionSet);
+    return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
   protected freezeInternals(): void {
@@ -1627,15 +1622,14 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
   }
 
   filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
-    if (!predicate(this)) {
-      return undefined;
-    }
     // Note that we essentially expand all fragments as part of this.
     const selectionSet = this.selectionSet;
     const updatedSelectionSet = selectionSet.filter(predicate);
-    return updatedSelectionSet === selectionSet
+    const thisWithFilteredSelectionSet = updatedSelectionSet === selectionSet
       ? this
       : new InlineFragmentSelection(this.element(), updatedSelectionSet);
+
+    return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
   protected freezeInternals() {
@@ -1937,9 +1931,13 @@ class FragmentSpreadSelection extends FragmentSelection {
 export function operationFromDocument(
   schema: Schema,
   document: DocumentNode,
-  operationName?: string,
+  options?: {
+    operationName?: string,
+    validate?: boolean,
+  }
 ) : Operation {
   let operation: OperationDefinitionNode | undefined;
+  const operationName = options?.operationName;
   const fragments = new NamedFragments();
   // We do a first pass to collect the operation, and create all named fragment, but without their selection set yet.
   // This allow later to be able to access any fragment regardless of the order in which the fragments are defined.
@@ -1984,14 +1982,20 @@ export function operationFromDocument(
     }
   });
   fragments.validate();
-  return operationFromAST(schema, operation, fragments);
+  return operationFromAST({schema, operation, fragments, validateInput: options?.validate});
 }
 
-function operationFromAST(
+function operationFromAST({
+  schema,
+  operation,
+  fragments,
+  validateInput,
+}:{
   schema: Schema,
   operation: OperationDefinitionNode,
-  fragments: NamedFragments
-) : Operation {
+  fragments: NamedFragments,
+  validateInput?: boolean,
+}) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
@@ -2002,14 +2006,22 @@ function operationFromAST(
       source: operation.selectionSet,
       variableDefinitions,
       fragments,
+      validate: validateInput,
     }),
     variableDefinitions,
     operation.name?.value
   );
 }
 
-export function parseOperation(schema: Schema, operation: string, operationName?: string): Operation {
-  return operationFromDocument(schema, parse(operation), operationName);
+export function parseOperation(
+  schema: Schema,
+  operation: string,
+  options?: {
+    operationName?: string,
+    validate?: boolean,
+  },
+): Operation {
+  return operationFromDocument(schema, parse(operation), options);
 }
 
 export function parseSelectionSet({
