@@ -3789,4 +3789,106 @@ describe('Named fragments preservation', () => {
       }
     `);
   });
+
+  it('preserves directives when fragment not used (because used only once)', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields : "id") {
+          id: ID!
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      query test($if: Boolean) {
+        t {
+          id
+          ...OnT @include(if: $if)
+        }
+      }
+
+      fragment OnT on T {
+        a
+        b
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              id
+              ... on T @include(if: $if) {
+                a
+                b
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('preserves directives when fragment is re-used', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields : "id") {
+          id: ID!
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      query test($test1: Boolean, $test2: Boolean) {
+        t {
+          id
+          ...OnT @include(if: $test1)
+          ...OnT @include(if: $test2)
+        }
+      }
+
+      fragment OnT on T {
+        a
+        b
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              id
+              ...OnT @include(if: $test1)
+              ...OnT @include(if: $test2)
+            }
+          }
+          
+          fragment OnT on T {
+            a
+            b
+          }
+        },
+      }
+    `);
+  });
 });
