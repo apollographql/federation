@@ -1,3 +1,3 @@
 export { LocalGraphQLDataSource } from './LocalGraphQLDataSource';
 export { RemoteGraphQLDataSource } from './RemoteGraphQLDataSource';
-export { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
+export { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
