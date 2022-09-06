@@ -659,7 +659,8 @@ class FetchGroup {
       this.isEntityFetch,
       this._selection.clone(),
       this._inputs?.clone(),
-      this.mergeAt
+      this.mergeAt,
+      this.deferRef,
     );
   }
 
@@ -1015,9 +1016,10 @@ class FetchGroup {
   }
 
   toString(): string {
+    const base = `[${this.index}]${this.deferRef ? '(deferred)' : ''} ${this.subgraphName}`;
     return this.isTopLevel
-      ? `[${this.index}] ${this.subgraphName}[${this._selection}]`
-      : `[${this.index}] ${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+      ? `${base}[${this._selection}]`
+      : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
   }
 }
 
