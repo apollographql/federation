@@ -1756,12 +1756,17 @@ class InlineFragmentSelection extends FragmentSelection {
           const spread = new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
           // We use the fragment when the fragments condition is either the same, or a supertype of our current condition.
           // If it's the same type, then we don't really want to preserve the current condition, it is included in the
-          // spread and we can return it directive. But if the fragment condition is a superset, then we should preserve
+          // spread and we can return it directly. But if the fragment condition is a superset, then we should preserve
           // our current condition since it restricts the selection more than the fragment actual does.
           if (sameType(typeCondition, candidate.typeCondition)) {
+            // If we ignore the current condition, then we need to ensure any directive applied to it are preserved.
+            this.fragmentElement.appliedDirectives.forEach((directive) => {
+              spread.element().applyDirective(directive.definition!, directive.arguments());
+            })
             return spread;
           }
           optimizedSelection = selectionSetOf(spread.element().parentType, spread);
+          break;
         }
       }
     }

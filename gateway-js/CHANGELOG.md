@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix directives on fragment spread being lost [PR #2126](https://github.com/apollographql/federation/pull/2126).
+
 ## 2.1.1
 
 - Fix build-time regression caused by #1970 (removal of @types/node-fetch from runtime dependencies) [PR #2116](https://github.com/apollographql/federation/pull/2116)

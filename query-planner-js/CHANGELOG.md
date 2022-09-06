@@ -4,7 +4,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix directives on fragment spread being lost [PR #2126](https://github.com/apollographql/federation/pull/2126).
+
 ## 2.1.1
+
 - Fix issue where @defer condition gets ignored [PR #2121](https://github.com/apollographql/federation/pull/2121).
 
 ## 2.1.0
