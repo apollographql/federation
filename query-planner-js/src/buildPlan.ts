@@ -701,8 +701,14 @@ class FetchGroup {
    * Adds another group as a parent of this one (meaning that this fetch should happen after the provided one).
    */
   addParent(parent: ParentRelation) {
-    assert(!this.isChildOf(parent.group), () => `Group ${parent.group} is already a parent of ${this}`);
-    assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is already a parent of ${this} (but the child relationship is broken)`);
+    if (this.isChildOf(parent.group)) {
+      // Due to how we handle the building of multiple query plans when there is choices, it's possible that we re-traverse
+      // key edges we've already traversed before, and that can means hitting this condition. While we could try to filter
+      // "already-children" before calling this method, it's easier to just make this a no-op.
+      return;
+    }
+
+    assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is a parent of ${this}, but the child relationship is broken`);
     assert(!parent.group.isChildOf(this), () => `Group ${parent.group} is a child of ${this}: adding is as parent would create a cycle`);
 
     this.dependencyGraph.onModification();
