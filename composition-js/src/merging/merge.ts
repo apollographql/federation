@@ -393,20 +393,20 @@ class Merger {
     // calling root type a "value type" when hinting).
     this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
-    for (const type of typesToMerge) {
-      // We've already merged unions above and we've going to merge enums last
-      if (type.kind === 'UnionType' || type.kind === 'EnumType') {
-        continue;
-      }
-      this.mergeType(this.subgraphsTypes(type), type);
-    }
-
     for (const definition of this.merged.directives()) {
       // we should skip the supergraph specific directives, that is the @core and @join directives.
       if (linkSpec.isSpecDirective(definition) || joinSpec.isSpecDirective(definition)) {
         continue;
       }
       this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
+    }
+
+    for (const type of typesToMerge) {
+      // We've already merged unions above and we've going to merge enums last
+      if (type.kind === 'UnionType' || type.kind === 'EnumType') {
+        continue;
+      }
+      this.mergeType(this.subgraphsTypes(type), type);
     }
 
     // We merge enum dead last because enums can be used as both input and output types and the merging behavior
@@ -1946,7 +1946,8 @@ class Merger {
       return;
     }
 
-    if (dest.schema().directive(name)?.repeatable) {
+    const theDirective = dest.schema().directive(name);
+    if (theDirective?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
         const directive = this.pickNextDirective(perSource);
