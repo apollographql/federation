@@ -1946,8 +1946,7 @@ class Merger {
       return;
     }
 
-    const theDirective = dest.schema().directive(name);
-    if (theDirective?.repeatable) {
+    if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
         const directive = this.pickNextDirective(perSource);
