@@ -49,6 +49,7 @@ import {
   setValues,
   MultiMap,
   NamedFragmentDefinition,
+  typenameFieldName,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -88,6 +89,10 @@ import { QueryPlannerConfig } from "./config";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
+
+// Somewhat random string used to optimise handling __typename in some cases. See usage for details. The concrete value
+// has no particular significance.
+const SIBLING_TYPENAME_KEY = 'sibling_typename';
 
 // If a query can be resolved by more than this number of plans, we'll try to reduce the possible options we'll look
 // at to get it below this number to void query planning running forever.
@@ -701,8 +706,14 @@ class FetchGroup {
    * Adds another group as a parent of this one (meaning that this fetch should happen after the provided one).
    */
   addParent(parent: ParentRelation) {
-    assert(!this.isChildOf(parent.group), () => `Group ${parent.group} is already a parent of ${this}`);
-    assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is already a parent of ${this} (but the child relationship is broken)`);
+    if (this.isChildOf(parent.group)) {
+      // Due to how we handle the building of multiple query plans when there is choices, it's possible that we re-traverse
+      // key edges we've already traversed before, and that can means hitting this condition. While we could try to filter
+      // "already-children" before calling this method, it's easier to just make this a no-op.
+      return;
+    }
+
+    assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is a parent of ${this}, but the child relationship is broken`);
     assert(!parent.group.isChildOf(this), () => `Group ${parent.group} is a child of ${this}: adding is as parent would create a cycle`);
 
     this.dependencyGraph.onModification();
@@ -977,21 +988,21 @@ class FetchGroup {
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
-    const operation = this.isEntityFetch
+    let operation = this.isEntityFetch
       ? operationForEntitiesFetch(
           this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
           this.selection,
           variableDefinitions,
-          fragments,
           operationName,
         )
       : operationForQueryFetch(
           this.rootKind,
           this.selection,
           variableDefinitions,
-          fragments,
           operationName,
         );
+
+    operation = operation.optimize(fragments);
 
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
@@ -1876,6 +1887,126 @@ interface FetchGroupProcessor<TProcessed, TDeferred> {
   reduceRoots(roots: TProcessed[], isParallel: boolean): TProcessed,
 }
 
+
+/**
+ * Modify the provided selection set to optimize the handling of __typename selection for query planning.
+ *
+ * Explicit querying of __typename can create some inefficiency for the query planning process if not
+ * handled specially. More precisely, query planning performance is directly proportional to how many possible
+ * plans a query has, since it compute all those options to compare them. Further, the number of possible
+ * plans double for every field for which there is a choice, so miminizing the number of field for which we
+ * have choices is paramount.
+ *
+ * And for a given type, __typename can always be provided by any subgraph having that type (it works as a
+ * kind of "always @shareable" field), so it often creates theoretical choices. In practice it doesn't
+ * matter which subgraph we use for __typename: we're happy to use whichever subgraph we're using for
+ * the "other" fields queried for the type. But the default query planning algorithm does not know how
+ * to do that.
+ *
+ * Let's note that this isn't an issue in most cases, because the query planning algorithm knows not to
+ * consider "obviously" inefficient paths. Typically, querying the __typename of an entity is generally
+ * ok because when looking at a path, the query planning algorithm always favor getting a field "locally"
+ * if it can (which it always can for __typename) and ignore alternative that would jump subgraphs.
+ *
+ * But this can still be a performance issue when a __typename is queried after a @shareable field: in
+ * that case, the algorithm would consider getting the __typename from each version of the @shareable
+ * field and this would add to the options to consider. But as, again, __typename can always be fetched
+ * from any subgraph, it's more efficient to ignore those options and simply get __typename from whichever
+ * subgraph we get any other of the other field requested (on the type on which we request __typename).
+ *
+ * It is unclear how to do this cleanly with the current planning algorithm however, so this method
+ * implements an alternative: to avoid the query planning spending time of exploring options for
+ * __typename, we "remove" the __typename selections from the operation. But of course, we still
+ * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
+ * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
+ * be added back eventually. The core query planning algorithm will ignore that tag, and because
+ * __typename has been otherwise removed, we'll save any related work. But as we build the final
+ * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
+ * and when we fine one, we'll add back the request to __typename. As this only happen after the 
+ * query planning algorithm has computed all choices, we achieve our goal of not considering useless 
+ * choices due to __typename. Do note that if __typename is the "only" selection of some selection
+ * set, then we leave it untouched, and let the query planning algorithm treat it as any other
+ * field. We have no other choice in that case, and that's actually what we want.
+ */
+function optimizeSiblingTypenames(selectionSet: SelectionSet): SelectionSet {
+  const selections = selectionSet.selections();
+  let updatedSelections: Selection[] | undefined = undefined;
+  let typenameSelection: Selection | undefined = undefined;
+  // We remember the first non-__typename field selection found. This is the one we'll "tag" if we do find a __typename
+  // occurrence that we want to remove. We only use for _field_ selections because at the stage where this is applied,
+  // we cannot be sure the selection set is "minimized" and so some of the inline fragments may end up being eliminated
+  // (for instance, the fragment condition could be "less precise" than the parent type, in which case query planning
+  // will ignore it) and tagging those could lose the tagging.
+  let firstFieldSelection: FieldSelection | undefined = undefined;
+  for (let i = 0; i < selections.length; i++) {
+    const selection = selections[i];
+    let updated: Selection | undefined;
+    if (!typenameSelection && selection.kind === 'FieldSelection' && selection.field.name === typenameFieldName) {
+      // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
+      // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_ 
+      // 2 selection of __typename, then we won't optimise things as much as we could, but there is no practical reason
+      // whatsoever to have 2 selection of __typename in the first place, so not being optimal is moot.
+      updated = undefined;
+      typenameSelection = selection;
+    } else {
+      const updatedSubSelection = selection.selectionSet ? optimizeSiblingTypenames(selection.selectionSet) : undefined;
+      if (updatedSubSelection === selection.selectionSet) {
+        updated = selection;
+      } else {
+        updated = selection.withUpdatedSubSelection(updatedSubSelection);
+      }
+      if (!firstFieldSelection && updated.kind === 'FieldSelection') {
+        firstFieldSelection = updated;
+      }
+    }
+
+    // As soon as we find a selection that is discarded or modified, we need to create new selection set so we
+    // first copy everything up to this selection.
+    if (updated !== selection && !updatedSelections) {
+      updatedSelections = [];
+      for (let j = 0; j < i; j++) {
+        updatedSelections.push(selections[j]);
+      }
+    }
+    // Record the (potentially updated) selection if we're creating a new selection set, and said selection is not discarded.
+    if (updatedSelections && !!updated) {
+      updatedSelections.push(updated);
+    }
+  }
+
+  if (!updatedSelections || (typenameSelection && !firstFieldSelection)) {
+    // This means that either no selection was modified at all, or there is no other field selection than __typename one.
+    // In both case, we want to return the current selectionSet unmodified.
+    return selectionSet;
+  }
+
+  // If we have some __typename selection that was removed but need to be "remembered" for later, "tag" whichever first
+  // field selection is still part of the operation (what we tag doesn't matter since again, __typename can be queried from
+  // anywhere and that has no performance impact).
+  if (typenameSelection) {
+    assert(firstFieldSelection, 'Should not have got here');
+    // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
+    firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
+  }
+  return new SelectionSet(selectionSet.parentType, selectionSet.fragments).addAll(updatedSelections)
+}
+
+/**
+ * Applies `optimizeSiblingTypenames` to the provided operation selection set.
+ */
+function withSiblingTypenameOptimizedAway(operation: Operation): Operation {
+  const updatedSelectionSet = optimizeSiblingTypenames(operation.selectionSet);
+  if (updatedSelectionSet === operation.selectionSet) {
+    return operation;
+  }
+  return new Operation(
+    operation.rootKind,
+    updatedSelectionSet,
+    operation.variableDefinitions,
+    operation.name
+  );
+}
+
 export function computeQueryPlan({
   config,
   supergraphSchema,
@@ -1909,6 +2040,7 @@ export function computeQueryPlan({
   // later if possible (which is why we saved them above before expansion).
   operation = operation.expandAllFragments();
   operation = withoutIntrospection(operation);
+  operation = withSiblingTypenameOptimizedAway(operation);
 
   let assignedDeferLabels: Set<string> | undefined = undefined;
   let hasDefers: boolean = false;
@@ -2800,6 +2932,21 @@ function computeGroupsForTree(
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
 
+          // We have a operation element, field or inline fragment. We first check if it's been "tagged" to remember that __typename
+          // must be queried. See the comment on the `optimizeSiblingTypenames()` method to see why this exists.
+          const typenameAttachment = operation.getAttachement(SIBLING_TYPENAME_KEY);
+          if (typenameAttachment !== undefined) {
+            // We need to add the query __typename for the current type in the current group.
+            // Note that the value of the "attachement" is the alias or '' if there is no alias
+            const alias = typenameAttachment === '' ? undefined : typenameAttachment;
+            const typenameField = new Field(operation.parentType.typenameField()!, {}, new VariableDefinitions(), alias);
+            group.addSelection(path.concat(typenameField));
+            dependencyGraph.deferTracking.updateSubselection({
+              ...deferContext,
+              pathToDeferParent: deferContext.pathToDeferParent.concat(typenameField),
+            });
+          }
+
           const { updatedOperation, updatedDeferContext } = extractDeferFromOperation({
             dependencyGraph,
             operation,
@@ -3213,7 +3360,6 @@ function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments,
   operationName?: string
 ): Operation {
   const variableDefinitions = new VariableDefinitions();
@@ -3243,17 +3389,14 @@ function operationForEntitiesFetch(
     ),
   );
 
-  return new Operation('query', entitiesCall, variableDefinitions, operationName).optimize(
-    fragments,
-  );
+  return new Operation('query', entitiesCall, variableDefinitions, operationName);
 }
 
 function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments,
   operationName?: string
 ): Operation {
-  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName).optimize(fragments);
+  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
 }

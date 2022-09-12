@@ -3892,3 +3892,167 @@ describe('Named fragments preservation', () => {
     `);
   });
 });
+
+test('works with key chains', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id1") {
+        id1: ID!
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id1")  @key(fields: "id2") {
+        id1: ID!
+        id2: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id2") {
+        id2: ID!
+        x: Int
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  // Note: querying `id2` is only purpose, because there is 2 choice to get `id2` (either
+  // from then 2nd or 3rd subgraph), and that create some choice in the query planning algorithm,
+  // so excercices additional paths.
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        id2
+        x
+        y
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              id1
+            }
+          }
+        },
+        Flatten(path: "t") {
+          Fetch(service: "Subgraph2") {
+            {
+              ... on T {
+                __typename
+                id1
+              }
+            } =>
+            {
+              ... on T {
+                id2
+              }
+            }
+          },
+        },
+        Flatten(path: "t") {
+          Fetch(service: "Subgraph3") {
+            {
+              ... on T {
+                __typename
+                id2
+              }
+            } =>
+            {
+              ... on T {
+                x
+                y
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
+
+describe('__typename handling', () => {
+  it('preservers aliased __typename', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      query {
+        t {
+          foo: __typename
+          x
+        }
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              foo: __typename
+              x
+            }
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(api, gql`
+      query {
+        t {
+          foo: __typename
+          x
+          __typename
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              foo: __typename
+              x
+            }
+          }
+        },
+      }
+    `);
+  });
+});

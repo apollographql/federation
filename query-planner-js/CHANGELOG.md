@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix potential assertion during query planning [PR #2133](https://github.com/apollographql/federation/pull/2133).
+
 ## 2.1.2-alpha.0
 
 - Fix some defer query plans having invalid result sets (with empty branches) [PR #2125](https://github.com/apollographql/federation/pull/2125). 
