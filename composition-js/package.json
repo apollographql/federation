@@ -1,6 +1,6 @@
 {
   "name": "@apollo/composition",
-  "version": "2.1.2-alpha.0",
+  "version": "2.1.2-alpha.1",
   "description": "Apollo Federation composition utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
