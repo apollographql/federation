@@ -62,6 +62,8 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
 }
 
 abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
+  private attachements?: Map<string, string>;
+
   constructor(
     schema: Schema,
     private readonly variablesInElement: Variables
@@ -74,6 +76,25 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
   }
 
   abstract updateForAddingTo(selection: SelectionSet): T;
+
+  addAttachement(key: string, value: string) {
+    if (!this.attachements) {
+      this.attachements = new Map();
+    }
+    this.attachements.set(key, value);
+  }
+
+  getAttachement(key: string): string | undefined {
+    return this.attachements?.get(key);
+  }
+
+  protected copyAttachementsTo(elt: AbstractOperationElement<any>) {
+    if (this.attachements) {
+      for (const [k, v] of this.attachements.entries()) {
+        elt.addAttachement(k, v);
+      }
+    }
+  }
 }
 
 export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
@@ -86,7 +107,6 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     readonly alias?: string
   ) {
     super(definition.schema(), variablesInArguments(args));
-    this.validate();
   }
 
   get name(): string {
@@ -106,6 +126,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const directive of this.appliedDirectives) {
       newField.applyDirective(directive.definition!, directive.arguments());
     }
+    this.copyAttachementsTo(newField);
     return newField;
   }
 
@@ -152,7 +173,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return true;
   }
 
-  private validate() {
+  validate() {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
@@ -276,6 +297,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
+    this.copyAttachementsTo(newFragment);
     return newFragment;
   }
 
@@ -326,6 +348,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     }
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    this.copyAttachementsTo(updated);
     updatedDirectives.forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
     return updated;
   }
@@ -386,6 +409,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     }
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    this.copyAttachementsTo(updated);
     const deferDirective = this.schema().deferDirective();
     // Re-apply all the non-defer directives
     this.appliedDirectives.filter((d) => d.name !== deferDirective.name).forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
@@ -1238,8 +1262,10 @@ export class SelectionSet extends Freezable<SelectionSet> {
     // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
     // and it happens to mimic prior behavior on the query plan side so it saves us from changing tests for no good reasons.
     const typenameSelection = this._selections.get(typenameFieldName);
+    const isNonAliasedTypenameSelection =
+      (s: Selection) => s.kind === 'FieldSelection' && !s.field.alias && s.field.name === typenameFieldName;
     if (typenameSelection) {
-      return typenameSelection.concat(this.selections().filter(s => s.kind != 'FieldSelection' || s.field.name !== typenameFieldName));
+      return typenameSelection.concat(this.selections().filter(s => !isNonAliasedTypenameSelection(s)));
     } else {
       return this.selections();
     }
@@ -1261,7 +1287,11 @@ export class SelectionSet extends Freezable<SelectionSet> {
   clone(): SelectionSet {
     const cloned = new SelectionSet(this.parentType);
     for (const selection of this.selections()) {
-      cloned.add(selection.clone());
+      const clonedSelection = selection.clone();
+      // Note: while we could used cloned.add() directly, this does some checks (in `updatedForAddingTo` in particular)
+      // which we can skip when we clone (since we know the inputs have already gone through that).
+      cloned._selections.add(clonedSelection.key(), clonedSelection);
+      ++cloned._selectionCount;
     }
     return cloned;
   }
@@ -1470,6 +1500,7 @@ export class FieldSelection extends Freezable<FieldSelection> {
   }
 
   validate() {
+    this.field.validate();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -1518,6 +1549,10 @@ export class FieldSelection extends Freezable<FieldSelection> {
       directives: this.element().appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet?.toSelectionSetNode()
     };
+  }
+
+  withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FieldSelection {
+    return new FieldSelection(this.field, newSubSelection);
   }
 
   equals(that: Selection): boolean {
@@ -1601,6 +1636,8 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
   abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
 
   abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
+
+  abstract withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FragmentSelection;
 
   protected us(): FragmentSelection {
     return this;
@@ -1805,6 +1842,10 @@ class InlineFragmentSelection extends FragmentSelection {
       : new InlineFragmentSelection(newFragment, updatedSubSelections);
   }
 
+  withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): InlineFragmentSelection {
+    return new InlineFragmentSelection(this.fragmentElement, newSubSelection);
+  }
+
   toString(expandFragments: boolean = true, indent?: string): string {
     return (indent ?? '') + this.fragmentElement + ' ' + this.selectionSet.toString(expandFragments, true, indent);
   }
@@ -1915,6 +1956,10 @@ class FragmentSpreadSelection extends FragmentSelection {
 
   private spreadDirectives(): Directive<FragmentElement>[] {
     return this._element.appliedDirectives.slice(this.namedFragment.appliedDirectives.length);
+  }
+
+  withUpdatedSubSelection(_: SelectionSet | undefined): InlineFragmentSelection {
+    assert(false, `Unssupported`);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
