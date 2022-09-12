@@ -1,6 +1,6 @@
 {
   "name": "@apollo/composition",
-  "version": "2.1.0-alpha.1",
+  "version": "2.1.1",
   "description": "Apollo Federation composition utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,6 +31,6 @@
     "@apollo/query-graphs": "file:../query-graphs-js"
   },
   "peerDependencies": {
-    "graphql": "^16.0.0"
+    "graphql": "^16.5.0"
   }
 }

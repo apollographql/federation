@@ -1,12 +1,11 @@
 import {
   buildClientSchema,
   getIntrospectionQuery,
+  GraphQLError,
   GraphQLObjectType,
   print,
 } from 'graphql';
 import gql from 'graphql-tag';
-import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
-import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
@@ -24,6 +23,7 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
+import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -45,10 +45,10 @@ describe('executeQueryPlan', () => {
   async function executePlan(
     queryPlan: QueryPlan,
     operation: Operation,
-    executeRequestContext?: GraphQLRequestContext,
+    executeRequestContext?: GatewayGraphQLRequestContext,
     executeSchema?: Schema,
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
-  ): Promise<GraphQLExecutionResult> {
+  ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
     const operationContext = buildOperationContext({
       schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
@@ -63,7 +63,7 @@ describe('executeQueryPlan', () => {
     );
   }
 
-  async function executeOperation(operationString: string, requestContext?: GraphQLRequestContext): Promise<GraphQLExecutionResult> {
+  async function executeOperation(operationString: string, requestContext?: GatewayGraphQLRequestContext): Promise<GatewayExecutionResult> {
       const operation = parseOp(operationString);
       const queryPlan = buildPlan(operation);
       return executePlan(queryPlan, operation, requestContext);
@@ -92,7 +92,7 @@ describe('executeQueryPlan', () => {
     ).not.toThrow();
   });
 
-  function buildRequestContext(): GraphQLRequestContext {
+  function buildRequestContext(): GatewayGraphQLRequestContext {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return {
@@ -126,7 +126,9 @@ describe('executeQueryPlan', () => {
       overrideResolversInService('accounts', {
         RootQuery: {
           me() {
-            throw new AuthenticationError('Something went wrong');
+            throw new GraphQLError('Something went wrong', {
+              extensions: { code: 'UNAUTHENTICATED' },
+            });
           },
         },
       });
@@ -2933,6 +2935,140 @@ describe('executeQueryPlan', () => {
             "foo": "foo",
           },
           "id": "id",
+        }
+      `);
+    });
+
+    test('correctly include key/typename when top-level required object is non-external', async () => {
+      const entityTwo = {
+        id: 'key2',
+        external: 'v2',
+      };
+      const entityOne = {
+        id: 'key1',
+        two: { id: entityTwo.id },
+      };
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            one: One
+          }
+
+          type One @key(fields: "id") {
+            id: ID!
+            two: Two
+            computed: String @requires(fields: "two { external }")
+          }
+
+          type Two @key(fields: "id") {
+            id: ID!
+            external: String @external
+          }
+        `,
+        resolvers: {
+          Query: {
+            one() {
+              return entityOne;
+            },
+          },
+          One: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === entityOne.id ? { ...entityOne, ...ref } : undefined;
+            },
+            computed(parent: any) {
+              return `computed value: ${parent.two.external}`;
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Two @key(fields: "id") {
+            id: ID!
+            external: String
+          }
+        `,
+        resolvers: {
+          Two: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === entityTwo.id ? entityTwo : undefined;
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        {
+          one {
+            computed
+          }
+        }
+      `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                one {
+                  __typename
+                  two {
+                    __typename
+                    id
+                  }
+                  id
+                }
+              }
+            },
+            Flatten(path: "one.two") {
+              Fetch(service: "S2") {
+                {
+                  ... on Two {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Two {
+                    external
+                  }
+                }
+              },
+            },
+            Flatten(path: "one") {
+              Fetch(service: "S1") {
+                {
+                  ... on One {
+                    __typename
+                    two {
+                      external
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on One {
+                    computed
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "one": Object {
+            "computed": "computed value: v2",
+          },
         }
       `);
     });

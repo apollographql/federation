@@ -1,9 +1,12 @@
 import {
+  defaultRootName,
   Schema,
+  SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { Field, FieldSelection, parseOperation, SelectionSet } from '../../dist/operations';
+import { Field, FieldSelection, Operation, operationFromDocument, parseOperation, SelectionSet } from '../../dist/operations';
 import './matchers';
+import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -11,6 +14,21 @@ function parseSchema(schema: string): Schema {
   } catch (e) {
     throw new Error('Error parsing the schema:\n' + e.toString());
   }
+}
+
+function astField(name: string, selectionSet?: SelectionSetNode): FieldNode {
+  return {
+    kind: Kind.FIELD,
+    name: { kind: Kind.NAME, value: name },
+    selectionSet,
+  };
+}
+
+function astSSet(...selections: SelectionNode[]): SelectionSetNode {
+  return {
+    kind: Kind.SELECTION_SET,
+    selections,
+  };
 }
 
 describe('fragments optimization', () => {
@@ -339,5 +357,144 @@ describe('selection set freezing', () => {
     // ... but more importantly for this test, that s1/s2 were not modified.
     expect(s1.toString()).toBe('{ t { a } }');
     expect(s2.toString()).toBe('{ t { b } }');
+  });
+});
+
+describe('validations', () => {
+  test.each([
+    { directive: '@defer', rootKind: 'mutation' },
+    { directive: '@defer', rootKind: 'subscription' },
+    { directive: '@stream', rootKind: 'mutation' },
+    { directive: '@stream', rootKind: 'subscription' },
+  ])('reject $directive on $rootKind type', ({ directive, rootKind }) => {
+    const schema = parseSchema(`
+      type Query {
+        x: String
+      }
+
+      type Mutation {
+        x: String
+      }
+
+      type Subscription {
+        x: String
+      }
+    `);
+
+    expect(() => {
+      parseOperation(schema, `
+        ${rootKind} {
+          ... ${directive} {
+            x
+          }
+        }
+      `)
+    }).toThrowError(new GraphQLError(`The @defer and @stream directives cannot be used on ${rootKind} root type "${defaultRootName(rootKind as SchemaRootKind)}"`));
+  });
+});
+
+describe('empty branches removal', () => {
+  const schema = parseSchema(`
+    type Query {
+      t: T
+      u: Int
+    }
+
+    type T {
+      a: Int
+      b: Int
+      c: C
+    }
+
+    type C {
+      x: String
+      y: String
+    }
+  `);
+
+  const withoutEmptyBranches = (op: string | SelectionSetNode) => {
+    let operation: Operation;
+    if (typeof op === 'string') {
+      operation = parseOperation(schema, op);
+    } else {
+      // Note that testing the removal of empty branches requires to take inputs that are not valid operations in the first place,
+      // so we can't build those from `parseOperation` (this call the graphQL-js `parse` under the hood, and there is no way to
+      // disable validation for that method). So instead, we manually build the AST (using some helper methods defined above) and
+      // build the operation from there, disabling validation.
+      const opDef: OperationDefinitionNode = {
+        kind: Kind.OPERATION_DEFINITION,
+        operation: OperationTypeNode.QUERY,
+        selectionSet: op,
+      }
+      const document: DocumentNode = {
+        kind: Kind.DOCUMENT,
+        definitions: [opDef],
+      }
+      operation = operationFromDocument(schema, document, { validate: false });
+    }
+    return operation.selectionSet.withoutEmptyBranches()?.toString()
+  };
+
+
+  it.each([
+    '{ t { a } }',
+    '{ t { a b } }',
+    '{ t { a c { x y } } }',
+  ])('is identity if there is no empty branch', (op) => {
+    expect(withoutEmptyBranches(op)).toBe(op);
+  });
+
+  it('removes simple empty branches', () => {
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('a'),
+          astField('c', astSSet()),
+        ))
+      )
+    )).toBe('{ t { a } }');
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('c', astSSet()),
+          astField('a'),
+        ))
+      )
+    )).toBe('{ t { a } }');
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet())
+      )
+    )).toBeUndefined();
+  });
+
+  it('removes cascading empty branches', () => {
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('c', astSSet()),
+        ))
+      )
+    )).toBeUndefined();
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('u'),
+        astField('t', astSSet(
+          astField('c', astSSet()),
+        ))
+      )
+    )).toBe('{ u }');
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('c', astSSet()),
+        )),
+        astField('u'),
+      )
+    )).toBe('{ u }');
   });
 });

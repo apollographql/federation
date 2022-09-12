@@ -17,7 +17,7 @@ import FederationArchitecture from '../shared/diagrams/federation-architecture.m
 ```mermaid
 graph BT;
   subgraph " ";
-  gateway([Supergraph<br/>gateway]);
+  gateway([Graph router]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   serviceC[Reviews<br/>subgraph];
@@ -53,7 +53,7 @@ In a federated architecture, your individual GraphQL APIs are called **subgraphs
 graph BT;
   clients(Clients);
   subgraph " ";
-  gateway([Supergraph<br/>gateway]);
+  gateway([Graph router]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   serviceC[Reviews<br/>subgraph];
@@ -63,7 +63,7 @@ graph BT;
   class clients secondary;
 ```
 
-A **gateway** serves as the public access point for your supergraph. It receives incoming GraphQL operations and intelligently distributes them across your subgraphs. To clients, this looks exactly the same as querying any other GraphQL server—no special configuration is required.
+A **graph router** (also known as a **gateway**) serves as the public access point for your supergraph. It receives incoming GraphQL operations and intelligently routes them across your subgraphs. To clients, this looks exactly the same as querying any other GraphQL server—no client-side configuration is required.
 
 > Apollo Federation does not currently support [GraphQL subscription operations](https://www.apollographql.com/docs/react/data/subscriptions/).
 
@@ -89,9 +89,9 @@ type Product {
 
 </CodeColumns>
 
-To communicate with all of your subgraphs, the gateway uses a special **supergraph schema** that _combines_ these subgraph schemas.
+To communicate with all of your subgraphs, the router uses a special **supergraph schema** that _combines_ these subgraph schemas.
 
-To create a supergraph schema, you use a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
+To create a supergraph schema, you use a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your router:
 
 ```graphql title="Supergraph schema (simplified)"
 type User {
@@ -105,17 +105,17 @@ type Product {
 }
 ```
 
-> A real supergraph schema includes additional information that tells your gateway _which_ subgraph is responsible for _which_ types and fields. [Learn more about composition.](./federated-types/composition/)
+> A real supergraph schema includes additional information that tells your router _which_ subgraph is responsible for _which_ types and fields. [Learn more about composition.](./federated-types/composition/)
 
 ### Server instances
 
-In a federated architecture, each subgraph instance has its own GraphQL server, and _so does the gateway_. External clients query the gateway, and the gateway then queries individual subgraphs to obtain, combine, and return results:
+In a federated architecture, each subgraph instance has its own GraphQL server, and _so does the router_. External clients query the router, and the router then queries individual subgraphs to obtain, combine, and return results:
 
 ```mermaid
 graph BT;
   clients(Clients);
   subgraph " ";
-  gateway([Gateway]);
+  gateway([Router]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   serviceC[Reviews<br/>subgraph];
@@ -125,10 +125,10 @@ graph BT;
   class clients secondary;
 ```
 
-* The gateway is one of the following:
+* The router is one of the following:
+    * An instance of [the Apollo Router](https://www.apollographql.com/docs/router/): a high-performance, precompiled Rust executable
     * An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
-    * An instance of [the Apollo Router](https://www.apollographql.com/docs/router/): a high-performance, Rust-based graph router
-* Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./other-servers/). Different subgraphs in the same supergraph can even use different server libraries.
+* Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./supported-subgraphs/). Different subgraphs in the same supergraph can even use different server libraries.
 
 
 ## Benefits of federation
@@ -168,7 +168,7 @@ Instead, your organization should expose a [unified supergraph](https://principl
 graph BT;
   clients(Clients);
   subgraph " ";
-  gateway([Gateway]);
+  gateway([Router]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   gateway --- serviceA & serviceB;
@@ -197,7 +197,7 @@ flowchart TB;
   class teamA,teamB,teamC,teamD,teamE tertiary;
 ```
 
-With a supergraph, you can reduce performance _and_ productivity bottlenecks simultaneously. Each team can maintain their own subgraph(s) independently, and your supergraph's gateway serves primarily to _route_ incoming operations, not to resolve each of them completely.
+With a supergraph, you can reduce performance _and_ productivity bottlenecks simultaneously. Each team can maintain their own subgraph(s) independently, and your supergraph's router serves primarily to _route_ incoming operations, not to resolve each of them completely.
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -218,14 +218,14 @@ graph TB;
   teamC -.- serviceC;
   teamD -.- serviceD;
   teamE -.- serviceE;
-  gateway([Gateway]);
+  gateway([Router]);
   serviceA & serviceB & serviceC & serviceD & serviceE --- gateway;
   maintainers{Graph<br/>team};
   gateway -.- maintainers;
   class teamA,teamB,teamC,teamD,teamE,maintainers tertiary;
 ```
 
-In this structure, the "graph team" might be a separate team that's dedicated to maintaining your gateway as part of back-end infrastructure, or it might be a "meta team" that includes representatives from other teams that maintain subgraphs.
+In this structure, the "graph team" might be a separate team that's dedicated to maintaining your router as part of back-end infrastructure, or it might be a "meta team" that includes representatives from other teams that maintain subgraphs.
 
 ### Adopt incrementally
 
@@ -348,14 +348,14 @@ These resulting schemas provide the best of both worlds:
 
 ### Managed federation
 
-A federated gateway can operate in **managed federation** mode, where [Apollo Studio](https://www.apollographql.com/docs/studio/) acts as the source of truth for your supergraph's configuration:
+A graph router can operate in **managed federation** mode, where [Apollo Studio](https://www.apollographql.com/docs/studio/) acts as the source of truth for your supergraph's configuration:
 
 ```mermaid
 graph LR;
   subgraph "Your infrastructure"
   serviceA[Products<br/>subgraph];
   serviceB[Reviews<br/>subgraph];
-  gateway([Gateway]);
+  gateway([Router]);
   end
   subgraph "Apollo cloud"
     registry{{Apollo Schema<br/>Registry}};

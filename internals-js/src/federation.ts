@@ -7,7 +7,6 @@ import {
   Directive,
   DirectiveDefinition,
   ErrGraphQLValidationFailed,
-  errorCauses,
   FieldDefinition,
   InputFieldDefinition,
   InterfaceType,
@@ -22,6 +21,7 @@ import {
   ScalarType,
   Schema,
   SchemaBlueprint,
+  SchemaConfig,
   SchemaDefinition,
   SchemaElement,
   sourceASTs,
@@ -54,6 +54,7 @@ import {
   ERRORS,
   withModifiedErrorMessage,
   extractGraphQLErrorOptions,
+  errorCauses,
 } from "./error";
 import { computeShareables } from "./precompute";
 import {
@@ -76,6 +77,7 @@ import {
   extendsDirectiveSpec,
   shareableDirectiveSpec,
   overrideDirectiveSpec,
+  composeDirectiveSpec,
   FEDERATION2_SPEC_DIRECTIVES,
   ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
   FEDERATION2_ONLY_SPEC_DIRECTIVES,
@@ -599,6 +601,10 @@ export class FederationMetadata {
     return this.getFederationDirective(tagSpec.tagDirectiveSpec.name);
   }
 
+  composeDirective(): DirectiveDefinition<{name: string}> {
+    return this.getFederationDirective(composeDirectiveSpec.name);
+  }
+
   inaccessibleDirective(): DirectiveDefinition<{}> {
     return this.getFederationDirective(
       inaccessibleSpec.inaccessibleDirectiveSpec.name
@@ -615,7 +621,7 @@ export class FederationMetadata {
       this.extendsDirective(),
     ];
     return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective())
+      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective(), this.composeDirective())
       : baseDirectives;
   }
 
@@ -698,7 +704,9 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onDirectiveDefinitionAndSchemaParsed(schema: Schema): GraphQLError[] {
-    return completeSubgraphSchema(schema);
+    const errors = completeSubgraphSchema(schema);
+    schema.schemaDefinition.processUnappliedDirectives();
+    return errors;
   }
 
   onInvalidation(schema: Schema) {
@@ -873,6 +881,10 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
     return error;
   }
+
+  applyDirectivesAfterParsing() {
+    return true;
+  }
 }
 
 function findUnusedNamedForLinkDirective(schema: Schema): string | undefined {
@@ -927,7 +939,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])';
+export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {
@@ -1013,8 +1025,8 @@ export function buildSubgraph(
   return subgraph.validate();
 }
 
-export function newEmptyFederation2Schema(): Schema {
-  const schema = new Schema(new FederationBlueprint(true));
+export function newEmptyFederation2Schema(config?: SchemaConfig): Schema {
+  const schema = new Schema(new FederationBlueprint(true), config);
   setSchemaAsFed2Subgraph(schema);
   return schema;
 }
@@ -1422,7 +1434,7 @@ export class Subgraph {
     }
 
     const core = this.schema.coreFeatures;
-    return !core || core.sourceFeature(d)?.url.identity !== linkIdentity;
+    return !core || core.sourceFeature(d)?.feature.url.identity !== linkIdentity;
   }
 
   private isPrintedType(t: NamedType): boolean {
@@ -1437,7 +1449,7 @@ export class Subgraph {
     }
 
     const core = this.schema.coreFeatures;
-    return !core || core.sourceFeature(t)?.url.identity !== linkIdentity;
+    return !core || core.sourceFeature(t)?.feature.url.identity !== linkIdentity;
   }
 
   private isPrintedDirectiveApplication(d: Directive): boolean {

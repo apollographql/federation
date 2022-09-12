@@ -7,7 +7,7 @@ description: Share types and fields across multiple subgraphs
 >
 >For more information about using value types in Federation 1, you can view the [previous version of this article](/federation/v1/value-types/).
 
-In a federated graph, it's common to want to reuse a GraphQL type in multiple [subgraphs](../subgraphs/).
+In a federated graph, it's common to want to reuse a GraphQL type across multiple [subgraphs](../subgraphs/).
 
 For example, suppose you want to define and reuse a generic `Position` type in different subgraphs:
 
@@ -92,7 +92,7 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 
 #### ⚠️ Important considerations for `@shareable`
 
-* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
+* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](./federated-directives/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
 * If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
 ## Differing shared fields
@@ -100,7 +100,7 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 Shared fields can differ between subgraphs in specific ways:
 * The return type of a shared field can vary in nullability (`String` / `String!`).
   * A shared field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A shared field can be omitted from a subgraph entirely, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
+* A field can be omitted from a subgraph, _IF_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
 
 For example, take a look at the shared `Food` type below:
 
@@ -109,14 +109,14 @@ For example, take a look at the shared `Food` type below:
 ```graphql {3} title="Subgraph A"
 type Food @shareable {
   name: String!
-  cost: Int!
+  price: Int!
 }
 ```
 
 ```graphql {3-4} title="Subgraph B"
 type Food @shareable {
   name: String!
-  cost: Int # Nullable
+  price: Int # Nullable
   inStock: Boolean! # Not in A
 }
 ```
@@ -374,7 +374,7 @@ To incrementally add the field to _all_ of our subgraphs _without_ breaking comp
 
 ### Using `@inaccessible`
 
-If you apply the `@inaccessible` directive to a field, composition _omits_ that field from your gateway's API schema. This helps you incrementally add a field to _multiple_ subgraphs without breaking composition.
+If you apply the `@inaccessible` directive to a field, composition _omits_ that field from your gateway's API schema. This helps you incrementally add a field to multiple subgraphs without breaking composition.
 
 To use `@inaccessible` in a subgraph, first make sure you include it in the `import` array of your Federation 2 opt-in declaration:
 
@@ -528,4 +528,4 @@ input UserInput {
 }
 ```
 
-To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-from-multiple-subgraphs)
+To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-from-multiple-subgraphs).

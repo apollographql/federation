@@ -43,10 +43,12 @@ import {
   isConditionalDirective,
   isDirectiveApplicationsSubset,
   isAbstractType,
+  DeferDirectiveArgs,
+  Variable,
 } from "./definitions";
 import { ERRORS } from "./error";
 import { isDirectSubtype, sameType } from "./types";
-import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
+import { assert, mapEntries, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
@@ -178,27 +180,46 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
     const selectionParent = selectionSet.parentType;
     const fieldParent = this.definition.parent;
-    if (selectionParent.name !== fieldParent.name) {
-      if (this.name === typenameFieldName) {
-        return this.withUpdatedDefinition(selectionParent.typenameField()!);
-      }
+    if (selectionParent === fieldParent) {
+      return this;
+    }
 
-      // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
-      // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
-      // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
-      // the supergraph interface, even if it does in the subgraph).
-      validate(
+    if (this.name === typenameFieldName) {
+      return this.withUpdatedDefinition(selectionParent.typenameField()!);
+    }
+
+    // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
+    // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
+    // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
+    // the supergraph interface, even if it does in the subgraph).
+    validate(
+      selectionParent.name == fieldParent.name
+      || (
         !isUnionType(selectionParent)
         && (
           (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name))
           || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
-        ),
-        () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
-      );
-      const fieldDef = selectionParent.field(this.name);
-      validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent} (that does not declare that type)"`);
-      return this.withUpdatedDefinition(fieldDef);
-    }
+        )
+      ),
+      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
+    );
+    const fieldDef = selectionParent.field(this.name);
+    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}" (that does not declare that field)`);
+    return this.withUpdatedDefinition(fieldDef);
+  }
+
+  hasDefer(): boolean {
+    // @defer cannot be on field at the moment
+    return false;
+  }
+
+  deferDirectiveArgs(): undefined {
+    // @defer cannot be on field at the moment (but exists so we can call this method on any `OperationElement` conveniently)
+    return undefined;
+  }
+
+  withoutDefer(): Field<TArgs> {
+    // @defer cannot be on field at the moment
     return this;
   }
 
@@ -243,8 +264,15 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return this.sourceType;
   }
 
+  castedType(): CompositeType {
+    return this.typeCondition ? this.typeCondition : this.sourceType;
+  }
+
   withUpdatedSourceType(newSourceType: CompositeType): FragmentElement {
-    const newFragment = new FragmentElement(newSourceType, this.typeCondition);
+    // Note that we pass the type-condition name instead of the type itself, to ensure that if `newSourceType` was from a different
+    // schema (typically, the supergraph) than `this.sourceType` (typically, a subgraph), then the new condition uses the
+    // definition of the proper schema (the supergraph in such cases, instead of the subgraph).
+    const newFragment = new FragmentElement(newSourceType, this.typeCondition?.name);
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
@@ -264,6 +292,106 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       return this.withUpdatedSourceType(selectionParent);
     }
     return this;
+  }
+
+  hasDefer(): boolean {
+    return this.hasAppliedDirective('defer');
+  }
+
+  hasStream(): boolean {
+    return this.hasAppliedDirective('stream');
+  }
+
+  deferDirectiveArgs(): DeferDirectiveArgs | undefined {
+    // Note: @defer is not repeatable, so the return array below is either empty, or has a single value.
+    return this.appliedDirectivesOf(this.schema().deferDirective())[0]?.arguments();
+  }
+
+  /**
+   * Returns this fragment element but with any @defer directive on it removed.
+   *
+   * This method will return `undefined` if, upon removing @defer, the fragment has no conditions nor
+   * any remaining applied directives (meaning that it carries no information whatsoever and can be
+   * ignored).
+   */
+  withoutDefer(): FragmentElement | undefined {
+    const deferName = this.schema().deferDirective().name;
+    const updatedDirectives = this.appliedDirectives.filter((d) => d.name !== deferName);
+    if (!this.typeCondition && updatedDirectives.length === 0) {
+      return undefined;
+    }
+
+    if (updatedDirectives.length === this.appliedDirectives.length) {
+      return this;
+    }
+
+    const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    updatedDirectives.forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
+    return updated;
+  }
+
+  /**
+   * Returns this fragment element, but it is has a @defer directive, the element is returned with
+   * the @defer "normalized".
+   *
+   * See `Operation.withNormalizedDefer` for details on our so-called @defer normalization.
+   */
+  withNormalizedDefer(normalizer: DeferNormalizer): FragmentElement | undefined {
+    const deferArgs = this.deferDirectiveArgs();
+    if (!deferArgs) {
+      return this;
+    }
+
+    let newDeferArgs: DeferDirectiveArgs | undefined = undefined;
+    let conditionVariable: Variable | undefined = undefined;
+    if (deferArgs.if !== undefined) {
+      if (typeof deferArgs.if === 'boolean') {
+        if (deferArgs.if) {
+          // Harcoded `if: true`, remove the `if`
+          newDeferArgs = {
+            ...deferArgs,
+            if: undefined,
+          }
+        } else {
+          // Harcoded `if: false`, remove the @defer altogether
+          return this.withoutDefer();
+        }
+      } else {
+        // `if` on a variable
+        conditionVariable = deferArgs.if;
+      }
+    }
+
+    let label = deferArgs.label;
+    if (!label) {
+      label = normalizer.newLabel();
+      if (newDeferArgs) {
+        newDeferArgs.label = label;
+      } else {
+        newDeferArgs = {
+          ...deferArgs,
+          label,
+        }
+      }
+    }
+
+    // Now that we are sure to have a label, if we had a (non-trivial) condition,
+    // associate it to that label.
+    if (conditionVariable) {
+      normalizer.registerCondition(label, conditionVariable);
+    }
+
+    if (!newDeferArgs) {
+      return this;
+    }
+
+    const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    const deferDirective = this.schema().deferDirective();
+    // Re-apply all the non-defer directives
+    this.appliedDirectives.filter((d) => d.name !== deferDirective.name).forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
+    // And then re-apply the @defer with the new label.
+    updated.applyDirective(this.schema().deferDirective(), newDeferArgs);
+    return updated;
   }
 
   equals(that: OperationElement): boolean {
@@ -406,6 +534,61 @@ export class Operation {
       this.variableDefinitions,
       this.name
     );
+  }
+
+  /**
+   * Returns this operation but potentially modified so all/some of the @defer applications have been removed.
+   *
+   * @param labelsToRemove - If provided, then only the `@defer` applications with labels in the provided
+   * set will be remove. Other `@defer` applications will be untouched. If `undefined`, then all `@defer`
+   * applications are removed.
+   */
+  withoutDefer(labelsToRemove?: Set<string>): Operation {
+    // If we have named fragments, we should be looking inside those and either expand those having @defer or,
+    // probably better, replace them with a verison without @defer. But as we currently only call this method
+    // after `expandAllFragments`, we'll implement this when/if we need it.
+    assert(!this.selectionSet.fragments || this.selectionSet.fragments.isEmpty(), 'Removing @defer currently only work on "expanded" selections (no named fragments)');
+    const updated = this.selectionSet.withoutDefer(labelsToRemove);
+    return updated == this.selectionSet
+      ? this
+      : new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
+  }
+
+  /**
+   * Returns this operation but modified to "normalize" all the @defer applications.
+   *
+   * "Normalized" in this context means that all the `@defer` application in the
+   * resulting operation will:
+   *  - have a (unique) label. Which imply that this method generates label for
+   *    any `@defer` not having a label.
+   *  - have a non-trivial `if` condition, if any. By non-trivial, we mean that
+   *    the condition will be a variable and not an hard-coded `true` or `false`.
+   *    To do this, this method will remove the condition of any `@defer` that
+   *    has `if: true`, and will completely remove any `@defer` application that
+   *    has `if: false`.
+   */
+  withNormalizedDefer(): {
+    operation: Operation,
+    hasDefers: boolean,
+    assignedDeferLabels: Set<string>,
+    deferConditions: SetMultiMap<string, string>,
+  } {
+    // Similar comment than in `withoutDefer`
+    assert(!this.selectionSet.fragments || this.selectionSet.fragments.isEmpty(), 'Assigning @defer lables currently only work on "expanded" selections (no named fragments)');
+
+    const normalizer = new DeferNormalizer();
+    const { hasDefers, hasNonLabelledOrConditionalDefers } = normalizer.init(this.selectionSet);
+    let updatedOperation: Operation = this;
+    if (hasNonLabelledOrConditionalDefers) {
+      const updated = this.selectionSet.withNormalizedDefer(normalizer);
+      updatedOperation = new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
+    }
+    return {
+      operation: updatedOperation,
+      hasDefers,
+      assignedDeferLabels: normalizer.assignedLabels,
+      deferConditions: normalizer.deferConditions,
+    };
   }
 
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
@@ -621,6 +804,68 @@ abstract class Freezable<T> {
   abstract clone(): T;
 }
 
+/**
+ * Utility class used to handle "normalizing" the @defer in an operation.
+ *
+ * See `Operation.withNormalizedDefer` for details on what we mean by normalizing in
+ * this context.
+ */
+class DeferNormalizer {
+  private index = 0;
+  readonly assignedLabels = new Set<string>();
+  readonly deferConditions = new SetMultiMap<string, string>();
+  private readonly usedLabels = new Set<string>();
+
+  /**
+   * Initializes the "labeller" with all the labels used in the provided selections set.
+   *
+   * @return - whether `selectionSet` has any non-labeled @defer.
+   */
+  init(selectionSet: SelectionSet): { hasDefers: boolean, hasNonLabelledOrConditionalDefers: boolean }  {
+    let hasNonLabelledOrConditionalDefers = false;
+    let hasDefers = false;
+    const stack: Selection[] = selectionSet.selections().concat();
+    while (stack.length > 0) {
+      const selection = stack.pop()!;
+      if (selection.kind === 'FragmentSelection') {
+        const deferArgs = selection.element().deferDirectiveArgs();
+        if (deferArgs) {
+          hasDefers = true;
+          if (!deferArgs.label || deferArgs.if !== undefined) {
+            hasNonLabelledOrConditionalDefers = true;
+          }
+          if (deferArgs.label) {
+            this.usedLabels.add(deferArgs.label);
+          }
+        }
+      }
+      if (selection.selectionSet) {
+        selection.selectionSet.selections().forEach((s) => stack.push(s));
+      }
+    }
+    return { hasDefers, hasNonLabelledOrConditionalDefers };
+  }
+
+  private nextLabel(): string {
+    return `qp__${this.index++}`;
+  }
+
+  newLabel(): string {
+    let candidate = this.nextLabel();
+    // It's unlikely that auto-generated label would conflict an existing one, but
+    // not taking any chances.
+    while (this.usedLabels.has(candidate)) {
+      candidate = this.nextLabel();
+    }
+    this.assignedLabels.add(candidate);
+    return candidate;
+  }
+
+  registerCondition(label: string, condition: Variable): void {
+    this.deferConditions.add(condition.name, label);
+  }
+}
+
 export class SelectionSet extends Freezable<SelectionSet> {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
@@ -707,7 +952,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
     if (names && names.length === 0) {
       return this;
     }
-
     const newFragments = updateSelectionSetFragments
       ? (names ? this.fragments?.without(names) : undefined)
       : this.fragments;
@@ -724,20 +968,62 @@ export class SelectionSet extends Freezable<SelectionSet> {
   }
 
   /**
+   * Returns the result of mapping the provided `mapper` to all the selection of this selection set.
+   *
+   * This method assumes that the `mapper` may often return it's argument directly, meaning that only
+   * a small subset of selection actually need any modifications, and will avoid re-creating new
+   * objects when that is the case. This does mean that the resulting selection set may be `this`
+   * directly, or may alias some of the sub-selection in `this`.
+   */
+  private lazyMap(mapper: (selection: Selection) => Selection | SelectionSet | undefined): SelectionSet {
+    let updatedSelections: Selection[] | undefined = undefined;
+    const selections = this.selections();
+    for (let i = 0; i < selections.length; i++) {
+      const selection = selections[i];
+      const updated = mapper(selection);
+      if (updated !== selection && !updatedSelections) {
+        updatedSelections = [];
+        for (let j = 0; j < i; j++) {
+          updatedSelections.push(selections[j]);
+        }
+      }
+      if (!!updated && updatedSelections) {
+        if (updated instanceof SelectionSet) {
+          updated.selections().forEach((s) => updatedSelections!.push(s));
+        } else {
+          updatedSelections.push(updated);
+        }
+      }
+    }
+    if (!updatedSelections) {
+      return this;
+    }
+    return new SelectionSet(this.parentType, this.fragments).addAll(updatedSelections)
+  }
+
+  withoutDefer(labelsToRemove?: Set<string>): SelectionSet {
+    assert(!this.fragments, 'Not yet supported');
+    return this.lazyMap((selection) => selection.withoutDefer(labelsToRemove));
+  }
+
+  withNormalizedDefer(normalizer: DeferNormalizer): SelectionSet {
+    assert(!this.fragments, 'Not yet supported');
+    return this.lazyMap((selection) => selection.withNormalizedDefer(normalizer));
+  }
+
+  /**
    * Returns the selection select from filtering out any selection that does not match the provided predicate.
    *
    * Please that this method will expand *ALL* fragments as the result of applying it's filtering. You should
    * call `optimize` on the result if you want to re-apply some fragments.
    */
   filter(predicate: (selection: Selection) => boolean): SelectionSet {
-    const filtered = new SelectionSet(this.parentType, this.fragments);
-    for (const selection of this.selections()) {
-      const filteredSelection = selection.filter(predicate);
-      if (filteredSelection) {
-        filtered.add(filteredSelection);
-      }
-    }
-    return filtered;
+    return this.lazyMap((selection) => selection.filter(predicate));
+  }
+
+  withoutEmptyBranches(): SelectionSet | undefined {
+    const updated = this.filter((selection) => selection.selectionSet?.isEmpty() !== true);
+    return updated.isEmpty() ? undefined : updated;
   }
 
   protected freezeInternals(): void {
@@ -766,7 +1052,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * This is very similar to `mergeIn` except that it takes a direct array of selection, and the direct aliasing
    * remarks from `mergeInd` applies here too.
    */
-  addAll(selections: Selection[]): SelectionSet {
+  addAll(selections: readonly Selection[]): SelectionSet {
     selections.forEach(s => this.add(s));
     return this;
   }
@@ -914,9 +1200,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
       selection.validate();
-      const selectionFragments = selection.namedFragments();
-      // We make this an assertion because this is a programming error. But validate is a convenient place for this in practice.
-      assert(!selectionFragments || selectionFragments === this.fragments, () => `Selection fragments (${selectionFragments}) for ${selection} does not match selection set one (${this.fragments})`);
     }
   }
 
@@ -1149,13 +1432,15 @@ export class FieldSelection extends Freezable<FieldSelection> {
   }
 
   filter(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
-    if (!predicate(this)) {
-      return undefined;
-    }
     if (!this.selectionSet) {
-      return this;
+      return predicate(this) ? this : undefined;
     }
-    return new FieldSelection(this.field, this.selectionSet.filter(predicate));
+
+    const updatedSelectionSet = this.selectionSet.filter(predicate);
+    const thisWithFilteredSelectionSet = this.selectionSet === updatedSelectionSet
+      ? this
+      : new FieldSelection(this.field, updatedSelectionSet);
+    return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
   protected freezeInternals(): void {
@@ -1264,6 +1549,20 @@ export class FieldSelection extends Freezable<FieldSelection> {
     return this.selectionSet?.fragments;
   }
 
+  withoutDefer(labelsToRemove?: Set<string>): FieldSelection {
+    const updatedSubSelections = this.selectionSet?.withoutDefer(labelsToRemove);
+    return updatedSubSelections === this.selectionSet
+      ? this
+      : new FieldSelection(this.field, updatedSubSelections);
+  }
+
+  withNormalizedDefer(normalizer: DeferNormalizer): FieldSelection {
+    const updatedSubSelections = this.selectionSet?.withNormalizedDefer(normalizer);
+    return updatedSubSelections === this.selectionSet
+      ? this
+      : new FieldSelection(this.field, updatedSubSelections);
+  }
+
   clone(): FieldSelection {
     if (!this.selectionSet) {
       return this;
@@ -1297,27 +1596,40 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   abstract validate(): void;
 
+  abstract withoutDefer(labelsToRemove?: Set<string>): FragmentSelection | SelectionSet;
+
+  abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
+
+  abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
+
   protected us(): FragmentSelection {
     return this;
+  }
+
+  protected validateDeferAndStream() {
+    if (this.element().hasDefer() || this.element().hasStream()) {
+      const schemaDef = this.element().schema().schemaDefinition;
+      const parentType = this.element().parentType;
+      validate(
+        schemaDef.rootType('mutation') !== parentType && schemaDef.rootType('subscription') !== parentType,
+        () => `The @defer and @stream directives cannot be used on ${schemaDef.roots().filter((t) => t.type === parentType).pop()?.rootKind} root type "${parentType}"`,
+      );
+    }
   }
 
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
   }
 
-  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
-    const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    return this.element() === updatedFragment
-      ? this.cloneIfFrozen()
-      : new InlineFragmentSelection(updatedFragment, this.selectionSet.cloneIfFrozen());
-  }
-
-  filter(predicate: (selection: Selection) => boolean): InlineFragmentSelection | undefined {
-    if (!predicate(this)) {
-      return undefined;
-    }
+  filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
     // Note that we essentially expand all fragments as part of this.
-    return new InlineFragmentSelection(this.element(), this.selectionSet.filter(predicate));
+    const selectionSet = this.selectionSet;
+    const updatedSelectionSet = selectionSet.filter(predicate);
+    const thisWithFilteredSelectionSet = updatedSelectionSet === selectionSet
+      ? this
+      : new InlineFragmentSelection(this.element(), updatedSelectionSet);
+
+    return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
   protected freezeInternals() {
@@ -1363,6 +1675,7 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 
   validate() {
+    this.validateDeferAndStream();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -1371,6 +1684,31 @@ class InlineFragmentSelection extends FragmentSelection {
     );
     this.selectionSet.validate();
   }
+
+  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
+    const updatedFragment = this.element().updateForAddingTo(selectionSet);
+    if (this.element() === updatedFragment) {
+      return this.cloneIfFrozen();
+    }
+
+    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
+    // the underlying selection set uses the updated type as parent type.
+    const updatedCastedType = updatedFragment.castedType();
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet.parentType !== updatedCastedType) {
+      updatedSelectionSet = new SelectionSet(updatedCastedType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
+  }
+
 
   get selectionSet(): SelectionSet {
     return this._selectionSet;
@@ -1412,12 +1750,17 @@ class InlineFragmentSelection extends FragmentSelection {
           const spread = new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
           // We use the fragment when the fragments condition is either the same, or a supertype of our current condition.
           // If it's the same type, then we don't really want to preserve the current condition, it is included in the
-          // spread and we can return it directive. But if the fragment condition is a superset, then we should preserve
+          // spread and we can return it directly. But if the fragment condition is a superset, then we should preserve
           // our current condition since it restricts the selection more than the fragment actual does.
           if (sameType(typeCondition, candidate.typeCondition)) {
+            // If we ignore the current condition, then we need to ensure any directive applied to it are preserved.
+            this.fragmentElement.appliedDirectives.forEach((directive) => {
+              spread.element().applyDirective(directive.definition!, directive.arguments());
+            })
             return spread;
           }
           optimizedSelection = selectionSetOf(spread.element().parentType, spread);
+          break;
         }
       }
     }
@@ -1435,6 +1778,31 @@ class InlineFragmentSelection extends FragmentSelection {
 
   collectUsedFragmentNames(collector: Map<string, number>): void {
     this.selectionSet.collectUsedFragmentNames(collector);
+  }
+
+  withoutDefer(labelsToRemove?: Set<string>): FragmentSelection | SelectionSet {
+    const updatedSubSelections = this.selectionSet.withoutDefer(labelsToRemove);
+    const deferArgs = this.fragmentElement.deferDirectiveArgs();
+    const hasDeferToRemove = deferArgs && (!labelsToRemove || (deferArgs.label && labelsToRemove.has(deferArgs.label)));
+    if (updatedSubSelections === this.selectionSet && !hasDeferToRemove) {
+      return this;
+    }
+    const newFragment = hasDeferToRemove ? this.fragmentElement.withoutDefer() : this.fragmentElement;
+    if (!newFragment) {
+      return updatedSubSelections;
+    }
+    return new InlineFragmentSelection(newFragment, updatedSubSelections);
+  }
+
+  withNormalizedDefer(normalizer: DeferNormalizer): InlineFragmentSelection | SelectionSet {
+    const newFragment = this.fragmentElement.withNormalizedDefer(normalizer);
+    const updatedSubSelections = this.selectionSet.withNormalizedDefer(normalizer);
+    if (!newFragment) {
+      return updatedSubSelections;
+    }
+    return newFragment === this.fragmentElement && updatedSubSelections === this.selectionSet
+      ? this
+      : new InlineFragmentSelection(newFragment, updatedSubSelections);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
@@ -1480,7 +1848,9 @@ class FragmentSpreadSelection extends FragmentSelection {
   }
 
   validate(): void {
-    // We don't do anything because fragment definition are validated when created.
+    this.validateDeferAndStream();
+
+    // We don't do anything else because fragment definition are validated when created.
   }
 
   toSelectionNode(): FragmentSpreadNode {
@@ -1508,13 +1878,23 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this;
   }
 
+  updateForAddingTo(_selectionSet: SelectionSet): FragmentSelection {
+    // This is a little bit iffy, because the fragment could link to a schema (typically the supergraph API one)
+    // that is different from the one of `_selectionSet` (say, a subgraph fetch selection in which we're trying to
+    // reuse a user fragment). But in practice, we expand all fragments when we do query planning and only re-add
+    // fragments back at the very end, so this should be fine. Importantly, we don't want this method to mistakenly
+    // expand the spread, as that would compromise the code that optimize subgraph fetches to re-use named
+    // fragments.
+    return this;
+  }
+
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection | readonly Selection[] {
     if (names && !names.includes(this.namedFragment.name)) {
       return this;
     }
 
     const expandedSubSelections = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
-    return sameType(this._element.parentType, this.namedFragment.typeCondition)
+    return sameType(this._element.parentType, this.namedFragment.typeCondition) && this._element.appliedDirectives.length === 0
       ? expandedSubSelections.selections()
       : new InlineFragmentSelection(this._element, expandedSubSelections);
   }
@@ -1523,6 +1903,14 @@ class FragmentSpreadSelection extends FragmentSelection {
     this.selectionSet.collectUsedFragmentNames(collector);
     const usageCount = collector.get(this.namedFragment.name);
     collector.set(this.namedFragment.name, usageCount === undefined ? 1 : usageCount + 1);
+  }
+
+  withoutDefer(_labelsToRemove?: Set<string>): FragmentSelection {
+    assert(false, 'Unsupported, see `Operation.withoutDefer`');
+  }
+
+  withNormalizedDefer(_normalizezr: DeferNormalizer): FragmentSelection {
+    assert(false, 'Unsupported, see `Operation.withAllDeferLabelled`');
   }
 
   private spreadDirectives(): Directive<FragmentElement>[] {
@@ -1543,9 +1931,13 @@ class FragmentSpreadSelection extends FragmentSelection {
 export function operationFromDocument(
   schema: Schema,
   document: DocumentNode,
-  operationName?: string,
+  options?: {
+    operationName?: string,
+    validate?: boolean,
+  }
 ) : Operation {
   let operation: OperationDefinitionNode | undefined;
+  const operationName = options?.operationName;
   const fragments = new NamedFragments();
   // We do a first pass to collect the operation, and create all named fragment, but without their selection set yet.
   // This allow later to be able to access any fragment regardless of the order in which the fragments are defined.
@@ -1590,14 +1982,20 @@ export function operationFromDocument(
     }
   });
   fragments.validate();
-  return operationFromAST(schema, operation, fragments);
+  return operationFromAST({schema, operation, fragments, validateInput: options?.validate});
 }
 
-function operationFromAST(
+function operationFromAST({
+  schema,
+  operation,
+  fragments,
+  validateInput,
+}:{
   schema: Schema,
   operation: OperationDefinitionNode,
-  fragments: NamedFragments
-) : Operation {
+  fragments: NamedFragments,
+  validateInput?: boolean,
+}) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
@@ -1608,14 +2006,22 @@ function operationFromAST(
       source: operation.selectionSet,
       variableDefinitions,
       fragments,
+      validate: validateInput,
     }),
     variableDefinitions,
     operation.name?.value
   );
 }
 
-export function parseOperation(schema: Schema, operation: string, operationName?: string): Operation {
-  return operationFromDocument(schema, parse(operation), operationName);
+export function parseOperation(
+  schema: Schema,
+  operation: string,
+  options?: {
+    operationName?: string,
+    validate?: boolean,
+  },
+): Operation {
+  return operationFromDocument(schema, parse(operation), options);
 }
 
 export function parseSelectionSet({

@@ -1,9 +1,4 @@
 import { deprecate } from 'util';
-import { GraphQLService, Unsubscriber } from 'apollo-server-core';
-import {
-  GraphQLExecutionResult,
-  GraphQLRequestContextExecutionDidStart,
-} from 'apollo-server-types';
 import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
 import LRUCache from 'lru-cache';
@@ -63,6 +58,7 @@ import {
   ServiceDefinition,
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
+import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -118,7 +114,7 @@ interface GraphQLServiceEngineConfig {
   graphVariant?: string;
 }
 
-export class ApolloGateway implements GraphQLService {
+export class ApolloGateway implements GatewayInterface {
   public schema?: GraphQLSchema;
   // Same as a `schema` but as a `Schema` to avoid reconverting when we need it.
   // TODO(sylvain): if we add caching in `Schema.toGraphQLJSSchema`, we could maybe only keep `apiSchema`
@@ -651,7 +647,7 @@ export class ApolloGateway implements GraphQLService {
    */
   public onSchemaChange(
     callback: (schema: GraphQLSchema) => void,
-  ): Unsubscriber {
+  ): GatewayUnsubscriber {
     this.onSchemaChangeListeners.add(callback);
 
     return () => {
@@ -664,7 +660,7 @@ export class ApolloGateway implements GraphQLService {
       apiSchema: GraphQLSchema;
       coreSupergraphSdl: string;
     }) => void,
-  ): Unsubscriber {
+  ): GatewayUnsubscriber {
     this.onSchemaLoadOrUpdateListeners.add(callback);
 
     return () => {
@@ -744,9 +740,9 @@ export class ApolloGateway implements GraphQLService {
   // ApolloServerPluginUsageReporting) assumes that. In fact, errors talking to backends
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
-  public executor = async <TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
-  ): Promise<GraphQLExecutionResult> => {
+  public executor = async (
+    requestContext: GatewayGraphQLRequestContext,
+  ): Promise<GatewayExecutionResult> => {
     const spanAttributes = requestContext.operationName
       ? { operationName: requestContext.operationName }
       : {};
@@ -785,7 +781,7 @@ export class ApolloGateway implements GraphQLService {
                   const operation = operationFromDocument(
                     this.apiSchema!,
                     document,
-                    request.operationName,
+                    { operationName: request.operationName },
                   );
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);
@@ -824,7 +820,7 @@ export class ApolloGateway implements GraphQLService {
             });
           }
 
-          const response = await executeQueryPlan<TContext>(
+          const response = await executeQueryPlan(
             queryPlan,
             serviceMap,
             requestContext,
@@ -882,8 +878,8 @@ export class ApolloGateway implements GraphQLService {
     );
   };
 
-  private validateIncomingRequest<TContext>(
-    requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
+  private validateIncomingRequest(
+    requestContext: GatewayGraphQLRequestContext,
     operationContext: OperationContext,
   ) {
     return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {

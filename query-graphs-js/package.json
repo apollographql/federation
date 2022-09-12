@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-graphs",
-  "version": "2.1.0-alpha.1",
+  "version": "2.1.1",
   "description": "Apollo Federation library to work with 'query graphs'",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,6 +31,6 @@
     "access": "public"
   },
   "peerDependencies": {
-    "graphql": "^16.0.0"
+    "graphql": "^16.5.0"
   }
 }

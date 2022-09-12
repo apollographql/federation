@@ -1,20 +1,19 @@
-import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
+import { astSerializer, queryPlanSerializer, QueryPlanner, QueryPlannerConfig } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
 import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
-import { QueryPlannerConfig } from '../config';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
-function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+export function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
   return composeAndCreatePlannerWithOptions(services, {});
 }
 
-function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
+export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
   const compositionResults = composeServices(
     services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
   );
@@ -950,6 +949,180 @@ describe('@provides', () => {
       }
       `);
   });
+
+  it('works with type-condition, even for types only reachable by the @provides', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          noProvides: E
+          withProvides: E @provides(fields: "i { a ... on T1 { b } }")
+        }
+
+        type E @key(fields: "id") {
+          id: ID!
+          i: I @external
+        }
+
+        interface I {
+          a: Int
+        }
+
+        type T1 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @external
+          b: Int @external
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @external
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type E @key(fields: "id") {
+          id: ID!
+          i: I @shareable
+        }
+
+        interface I {
+          a: Int
+        }
+
+        type T1 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @shareable
+          b: Int @shareable
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: ID!
+          a: Int @shareable
+          c: Int
+        }
+      `
+    }
+
+    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    let operation = operationFromDocument(api, gql`
+      {
+        noProvides {
+          i {
+            a
+            ... on T1 {
+              b
+            }
+            ... on T2 {
+              c
+            }
+          }
+        }
+      }
+      `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
+    // go the the second subgraph for everything.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              noProvides {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "noProvides") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on E {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on E {
+                  i {
+                    __typename
+                    a
+                    ... on T1 {
+                      b
+                    }
+                    ... on T2 {
+                      c
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    // But the same operation with the provides allow to get what is provided from the first subgraph.
+    operation = operationFromDocument(api, gql`
+      {
+        withProvides {
+          i {
+            a
+            ... on T1 {
+              b
+            }
+            ... on T2 {
+              c
+            }
+          }
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              withProvides {
+                i {
+                  __typename
+                  a
+                  ... on T1 {
+                    b
+                  }
+                  ... on T2 {
+                    __typename
+                    id
+                  }
+                }
+              }
+            }
+          },
+          Flatten(path: "withProvides.i") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T2 {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T2 {
+                  c
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('@requires', () => {
@@ -1278,7 +1451,7 @@ describe('@requires', () => {
       }
     `);
 
-    // Ensures that manually asking for the required dependencies doesn't change anything 
+    // Ensures that manually asking for the required dependencies doesn't change anything
     // (note: technically it happens to switch the order of fields in the inputs of "Subgraph2"
     // so the plans are not 100% the same "string", which is why we inline it in both cases,
     // but that's still the same plan and a perfectly valid output).
@@ -3550,4 +3723,269 @@ describe('Named fragments preservation', () => {
 
     expect(plan).toMatchInlineSnapshot(reuseQueryFragments ? withReuse : withoutReuse);
   });
+
+  it('works with nested fragments when only the nested fragment gets preserved', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields : "id") {
+          id: ID!
+          a: V
+          b: V
+        }
+
+        type V {
+          v: Int
+        }
+
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...OnT
+        }
+      }
+
+      fragment OnT on T {
+        a {
+          ...OnV
+        }
+        b {
+          ...OnV
+        }
+      }
+
+      fragment OnV on V {
+        v
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              a {
+                ...OnV
+              }
+              b {
+                ...OnV
+              }
+            }
+          }
+          
+          fragment OnV on V {
+            v
+          }
+        },
+      }
+    `);
+  });
+
+  it('preserves directives when fragment not used (because used only once)', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields : "id") {
+          id: ID!
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      query test($if: Boolean) {
+        t {
+          id
+          ...OnT @include(if: $if)
+        }
+      }
+
+      fragment OnT on T {
+        a
+        b
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              id
+              ... on T @include(if: $if) {
+                a
+                b
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('preserves directives when fragment is re-used', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields : "id") {
+          id: ID!
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      query test($test1: Boolean, $test2: Boolean) {
+        t {
+          id
+          ...OnT @include(if: $test1)
+          ...OnT @include(if: $test2)
+        }
+      }
+
+      fragment OnT on T {
+        a
+        b
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              id
+              ...OnT @include(if: $test1)
+              ...OnT @include(if: $test2)
+            }
+          }
+          
+          fragment OnT on T {
+            a
+            b
+          }
+        },
+      }
+    `);
+  });
+});
+
+test('works with key chains', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id1") {
+        id1: ID!
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id1")  @key(fields: "id2") {
+        id1: ID!
+        id2: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id2") {
+        id2: ID!
+        x: Int
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  // Note: querying `id2` is only purpose, because there is 2 choice to get `id2` (either
+  // from then 2nd or 3rd subgraph), and that create some choice in the query planning algorithm,
+  // so excercices additional paths.
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        id2
+        x
+        y
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              id1
+            }
+          }
+        },
+        Flatten(path: "t") {
+          Fetch(service: "Subgraph2") {
+            {
+              ... on T {
+                __typename
+                id1
+              }
+            } =>
+            {
+              ... on T {
+                id2
+              }
+            }
+          },
+        },
+        Flatten(path: "t") {
+          Fetch(service: "Subgraph3") {
+            {
+              ... on T {
+                __typename
+                id2
+              }
+            } =>
+            {
+              ... on T {
+                x
+                y
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
 });

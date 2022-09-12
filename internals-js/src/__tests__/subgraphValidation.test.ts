@@ -1,7 +1,6 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import { Subgraph } from '..';
-import { errorCauses } from '../definitions';
+import { Subgraph, errorCauses } from '..';
 import { asFed2SubgraphDocument, buildSubgraph } from "../federation"
 import { defaultPrintOptions, printSchema } from '../print';
 import './matchers';
@@ -635,6 +634,8 @@ describe('@core/@link handling', () => {
     directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
     directive @federation__override(from: String!) on FIELD_DEFINITION
+
+    directive @federation__composeDirective(name: String) repeatable on SCHEMA
 
     type T
       @key(fields: "k")

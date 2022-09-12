@@ -1,3 +1,4 @@
+import nock from 'nock';
 import {
   loadSupergraphSdlFromStorage,
   loadSupergraphSdlFromUplinks,
@@ -21,6 +22,7 @@ import {
   nockAfterEach,
   nockBeforeEach,
 } from '../../../__tests__/nockAssertions';
+import { FetcherRequestInit } from '@apollo/utils.fetcher';
 
 const logger = {
   warn: jest.fn(),
@@ -88,6 +90,48 @@ describe('loadSupergraphSdlFromStorage', () => {
       id: 'originalId-1234',
       supergraphSdl: getTestingSupergraphSdl(),
     });
+  });
+
+  it('Queries alternate Uplink URL if first one times out', async () => {
+    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).delay(120_000).reply(500);
+    mockSupergraphSdlRequestIfAfter(
+      'originalId-1234',
+      mockCloudConfigUrl2,
+    ).reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'originalId-1234',
+            supergraphSdl: getTestingSupergraphSdl(),
+          },
+        },
+      }),
+    );
+
+    const result = await loadSupergraphSdlFromUplinks({
+      graphRef,
+      apiKey,
+      endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
+      errorReportingEndpoint: undefined,
+      fetcher,
+      requestTimeoutMs,
+      compositionId: 'originalId-1234',
+      maxRetries: 1,
+      roundRobinSeed: 0,
+      logger,
+    });
+
+    expect(result).toMatchObject({
+      id: 'originalId-1234',
+      supergraphSdl: getTestingSupergraphSdl(),
+    });
+
+    // We're intentionally delaying the response above, so we need to make sure
+    // nock shuts down correctly, and isn't related to the underlying abort
+    // mechanism.
+    nock.abortPendingRequests();
   });
 
   it('Throws error if all Uplink URLs fail', async () => {
@@ -417,9 +461,9 @@ describe('loadSupergraphSdlFromUplinks', () => {
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: mockOutOfBandReporterUrl,
-      fetcher: (...args) => {
+      fetcher: (url: string, init?: FetcherRequestInit) => {
         calls++;
-        return fetcher(...args);
+        return fetcher(url, init);
       },
       requestTimeoutMs,
       compositionId: 'id-1234',

@@ -27,6 +27,36 @@ export class MultiMap<K, V> extends Map<K, V[]> {
     }
     return this;
   }
+
+  addAll(otherMap: MultiMap<K, V>): this {
+    for (const [k, vs] of otherMap.entries()) {
+      for (const v of vs) {
+        this.add(k, v);
+      }
+    }
+    return this;
+  }
+}
+
+export class SetMultiMap<K, V> extends Map<K, Set<V>> {
+  add(key: K, value: V): this {
+    let values = this.get(key);
+    if (!values) {
+      values = new Set<V>();
+      this.set(key, values);
+    }
+    values.add(value);
+    return this;
+  }
+
+  addAll(otherMap: SetMultiMap<K, V>): this {
+    for (const [k, vs] of otherMap.entries()) {
+      for (const v of vs) {
+        this.add(k, v);
+      }
+    }
+    return this;
+  }
 }
 
 /**
@@ -352,5 +382,30 @@ export function printHumanReadableList(
     return actualPrefix + joinStrings(toDisplay, ', ', undefined, lastSeparator);
   } else {
     return actualPrefix + joinStrings(toDisplay, ', ', undefined, ', ') + ', ...';
+  }
+}
+
+export type Concrete<Type> = {
+  [Property in keyof Type]-?: Type[Property];
+};
+
+// for use with Array.filter
+// Example:
+//   const x = [1,2,undefined];
+//   const y: number[] = x.filter(isDefined);
+export const isDefined = <T>(t: T | undefined): t is T => t === undefined ? false : true;
+
+/**
+ * Removes the first occurrence of the provided element in the provided array, if said array contains said elements.
+ *
+ * @return whether the element was removed.
+ */
+export function removeArrayElement<T>(element: T, array: T[]): boolean {
+  const index = array.indexOf(element);
+  if (index >= 0) {
+    array.splice(index, 1);
+    return true;
+  } else {
+    return false;
   }
 }

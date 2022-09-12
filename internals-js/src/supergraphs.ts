@@ -1,7 +1,6 @@
-import { ASTNode, DocumentNode } from "graphql";
-import { err } from '@apollo/core-schema';
+import { DocumentNode, GraphQLError } from "graphql";
 import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./coreSpec";
-import { CoreFeature, CoreFeatures, Schema } from "./definitions";
+import { CoreFeatures, Schema, sourceASTs } from "./definitions";
 import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph } from "./extractSubgraphsFromSupergraph";
@@ -17,24 +16,6 @@ const SUPPORTED_FEATURES = new Set([
   'https://specs.apollo.dev/inaccessible/v0.1',
   'https://specs.apollo.dev/inaccessible/v0.2',
 ]);
-
-export function ErrUnsupportedFeature(feature: CoreFeature): Error {
-  return err('UnsupportedFeature', {
-    message: `feature ${feature.url} is for: ${feature.purpose} but is unsupported`,
-    feature,
-    nodes: feature.directive.sourceAST,
-  });
-}
-
-export function ErrForUnsupported(core: CoreFeature, ...features: readonly CoreFeature[]): Error {
-  return err('ForUnsupported', {
-    message:
-      `the \`for:\` argument is unsupported by version ${core.url.version} ` +
-      `of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).`,
-    features,
-    nodes: [core.directive.sourceAST, ...features.map(f => f.directive.sourceAST)].filter(n => !!n) as ASTNode[]
-  });
-}
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');
 
@@ -56,18 +37,28 @@ export function buildSupergraphSchema(supergraphSdl: string | DocumentNode): [Sc
  * Throws if that is not true.
  */
 function checkFeatureSupport(coreFeatures: CoreFeatures) {
-  const errors = [];
-  if (coreFeatures.coreItself.url.equals(coreVersionZeroDotOneUrl)) {
+  const errors: GraphQLError[] = [];
+  const coreItself = coreFeatures.coreItself;
+  if (coreItself.url.equals(coreVersionZeroDotOneUrl)) {
     const purposefulFeatures = [...coreFeatures.allFeatures()].filter(f => f.purpose)
     if (purposefulFeatures.length > 0) {
-      errors.push(ErrForUnsupported(coreFeatures.coreItself, ...purposefulFeatures));
+      errors.push(ERRORS.UNSUPPORTED_LINKED_FEATURE.err(
+        `the \`for:\` argument is unsupported by version ${coreItself.url.version} ` +
+        `of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).`,
+        {
+          nodes: sourceASTs(coreItself.directive, ...purposefulFeatures.map(f => f.directive))
+        }
+      ));
     }
   }
 
   for (const feature of coreFeatures.allFeatures()) {
     if (feature.url.equals(coreVersionZeroDotOneUrl) || feature.purpose === 'EXECUTION' || feature.purpose === 'SECURITY') {
       if (!SUPPORTED_FEATURES.has(feature.url.base.toString())) {
-        errors.push(ErrUnsupportedFeature(feature));
+        errors.push(ERRORS.UNSUPPORTED_LINKED_FEATURE.err(
+          `feature ${feature.url} is for: ${feature.purpose} but is unsupported`,
+          { nodes: feature.directive.sourceAST },
+        ));
       }
     }
   }

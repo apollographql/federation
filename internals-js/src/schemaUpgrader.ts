@@ -4,12 +4,11 @@ import {
   Kind,
   print as printAST,
 } from "graphql";
-import { ERRORS } from "./error";
+import { errorCauses, ERRORS } from "./error";
 import {
   baseType,
   CompositeType,
   Directive,
-  errorCauses,
   Extension,
   FieldDefinition,
   isCompositeType,
@@ -432,7 +431,8 @@ class SchemaUpgrader {
 
   private fixFederationDirectivesArguments() {
     for (const directive of [this.metadata.keyDirective(), this.metadata.requiresDirective(), this.metadata.providesDirective()]) {
-      for (const application of directive.applications()) {
+      // Note that we may remove (to replace) some of the application we iterate on, so we need to copy the list we iterate on first.
+      for (const application of Array.from(directive.applications())) {
         const fields = application.arguments().fields;
         if (typeof fields !== 'string') {
           // The one case we have seen in practice is user passing an array of string, so we handle that. If it's something else,
@@ -676,14 +676,14 @@ class SchemaUpgrader {
             continue;
           }
           const otherResolvingSubgraphs = this.otherSubgraphs.filter((s) => resolvesField(s, field));
-          if (otherResolvingSubgraphs.length > 0) {
+          if (otherResolvingSubgraphs.length > 0 && !field.hasAppliedDirective(shareableDirective)) {
             field.applyDirective(shareableDirective);
             this.addChange(new ShareableFieldAddition(field.coordinate, otherResolvingSubgraphs.map((s) => s.name)));
           }
         }
       } else {
         const otherDeclaringSubgraphs = this.otherSubgraphs.filter((s) => s.schema.type(type.name));
-        if (otherDeclaringSubgraphs.length > 0) {
+        if (otherDeclaringSubgraphs.length > 0 && !type.hasAppliedDirective(shareableDirective)) {
           type.applyDirective(shareableDirective);
           this.addChange(new ShareableTypeAddition(type.coordinate, otherDeclaringSubgraphs.map((s) => s.name)));
         }
@@ -697,7 +697,8 @@ class SchemaUpgrader {
       return;
     }
 
-    for (const application of tagDirective.applications()) {
+    // Copying the list we iterate on as we remove in the loop.
+    for (const application of Array.from(tagDirective.applications())) {
       const element = application.parent;
       if (!(element instanceof FieldDefinition)) {
         continue;

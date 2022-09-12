@@ -21,6 +21,7 @@ The following errors might be raised during composition:
 | Code | Description | Since | Comment |
 |---|---|---|---|
 | `DEFAULT_VALUE_USES_INACCESSIBLE` | An element is marked as @inaccessible but is used in the default value of an element visible in the API schema. | 2.0.0 |  |
+| `DIRECTIVE_COMPOSITION_ERROR` | Error when composing custom directives. | 2.1.0 |  |
 | `DIRECTIVE_DEFINITION_INVALID` | A built-in or federation directive has an invalid definition in the schema. | 2.0.0 | Replaces: `TAG_DEFINITION_INVALID` |
 | `DISALLOWED_INACCESSIBLE` | An element is marked as @inaccessible that is not allowed to be @inaccessible. | 2.0.0 |  |
 | `DOWNSTREAM_SERVICE_ERROR` | Indicates an error in a subgraph service query during query execution in a federated service. | 0.x |  |
@@ -90,6 +91,7 @@ The following errors might be raised during composition:
 | `UNKNOWN_FEDERATION_LINK_VERSION` | The version of federation in a @link directive on the schema is unknown. | 2.0.0 |  |
 | `UNKNOWN_LINK_VERSION` | The version of @link set on the schema is unknown. | 2.1.0 |  |
 | `UNSUPPORTED_FEATURE` | Indicates an error due to feature currently unsupported by federation. | 2.1.0 |  |
+| `UNSUPPORTED_LINKED_FEATURE` | Indicates that a feature used in a @link is either unsupported or is used with unsupported options. | 2.0.0 |  |
 
 </div>
 

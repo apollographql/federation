@@ -4,12 +4,12 @@ import { AbortController } from "node-abort-controller";
 import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
-import type { FetcherResponse } from '@apollo/utils.fetcher';
-import type { Logger } from '@apollo/utils.logger';
 import type {
-  AbortableFetcher as Fetcher,
-  AbortableFetcherRequestInit as FetcherRequestInit,
-} from './types';
+  FetcherResponse,
+  Fetcher,
+  FetcherRequestInit,
+} from '@apollo/utils.fetcher';
+import type { Logger } from '@apollo/utils.logger';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql

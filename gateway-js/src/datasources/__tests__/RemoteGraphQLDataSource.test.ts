@@ -1,10 +1,10 @@
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Response, Headers } from 'node-fetch';
-import { GraphQLRequestContext } from 'apollo-server-types';
 import { GraphQLDataSourceRequestKind } from '../types';
 import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import nock from 'nock';
 import { GraphQLError } from 'graphql';
+import { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);
@@ -317,7 +317,7 @@ describe('didReceiveResponse', () => {
         response,
       }: Required<
         Pick<
-          GraphQLRequestContext<MyContext>,
+          GatewayGraphQLRequestContext<MyContext>,
           'request' | 'response' | 'context'
         >
       >) {
@@ -362,7 +362,7 @@ describe('didReceiveResponse', () => {
         response,
       }: Required<
         Pick<
-          GraphQLRequestContext<MyContext>,
+          GatewayGraphQLRequestContext<MyContext>,
           'request' | 'response' | 'context'
         >
       >) {
@@ -398,7 +398,7 @@ describe('didReceiveResponse', () => {
         response,
       }: Required<
         Pick<
-          GraphQLRequestContext<MyContext>,
+          GatewayGraphQLRequestContext<MyContext>,
           'request' | 'response' | 'context'
         >
       >) {
@@ -452,7 +452,7 @@ describe('didEncounterError', () => {
       },
       incomingRequestContext: {
         context,
-      } as GraphQLRequestContext<MyContext>,
+      } as GatewayGraphQLRequestContext<MyContext>,
       context,
     });
 

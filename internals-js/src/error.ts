@@ -56,6 +56,62 @@ export function extractGraphQLErrorOptions(e: GraphQLError): GraphQLErrorOptions
   };
 }
 
+class AggregateGraphQLError extends GraphQLError {
+  constructor(
+    code: String,
+    message: string,
+    readonly causes: GraphQLError[],
+    options?: GraphQLErrorOptions,
+  ) {
+    super(
+      message + '. Caused by:\n' + causes.map((c) => c.toString()).join('\n\n'),
+      {
+        ...options,
+        extensions: { code },
+      }
+    );
+  }
+
+  toString() {
+    let output = `[${this.extensions.code}] ${super.toString()}`
+    output += "\ncaused by:";
+    for (const cause of this.causes) {
+      output += "\n\n  - ";
+      output += cause.toString().split("\n").join("\n    ");
+    }
+    return output;
+  }
+}
+
+export function aggregateError(code: String, message: string, causes: GraphQLError[]): GraphQLError {
+  return new AggregateGraphQLError(code, message, causes);
+}
+
+/**
+ * Given an error, check if it is a graphQL error and potentially extract its causes if is aggregate.
+ * If the error is not a graphQL error, undefined is returned.
+ */
+export function errorCauses(e: Error): GraphQLError[] | undefined {
+  if (e instanceof AggregateGraphQLError) {
+    return e.causes;
+  }
+  if (e instanceof GraphQLError) {
+    return [e];
+  }
+  return undefined;
+}
+
+export function printGraphQLErrorsOrRethrow(e: Error): string {
+  const causes = errorCauses(e);
+  if (!causes) {
+    throw e;
+  }
+  return causes.map(e => e.toString()).join('\n\n');
+}
+
+export function printErrors(errors: GraphQLError[]): string {
+  return errors.map(e => e.toString()).join('\n\n');
+}
 /*
  * Most codes currently originate from the initial fed 2 release so we use this for convenience.
  * This can be changed later, inline versions everywhere, if that becomes irrelevant.
@@ -142,6 +198,11 @@ const DIRECTIVE_DEFINITION_INVALID = makeCodeDefinition(
 const TYPE_DEFINITION_INVALID = makeCodeDefinition(
   'TYPE_DEFINITION_INVALID',
   'A built-in or federation type has an invalid definition in the schema.',
+);
+
+const UNSUPPORTED_LINKED_FEATURE = makeCodeDefinition(
+  'UNSUPPORTED_LINKED_FEATURE',
+  'Indicates that a feature used in a @link is either unsupported or is used with unsupported options.',
 );
 
 const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
@@ -459,6 +520,12 @@ const DOWNSTREAM_SERVICE_ERROR = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const DIRECTIVE_COMPOSITION_ERROR = makeCodeDefinition(
+  'DIRECTIVE_COMPOSITION_ERROR',
+  'Error when composing custom directives.',
+  { addedIn: '2.1.0' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -473,6 +540,7 @@ export const ERRORS = {
   INVALID_GRAPHQL,
   DIRECTIVE_DEFINITION_INVALID,
   TYPE_DEFINITION_INVALID,
+  UNSUPPORTED_LINKED_FEATURE,
   UNKNOWN_FEDERATION_LINK_VERSION,
   UNKNOWN_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
@@ -540,6 +608,7 @@ export const ERRORS = {
   KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS,
   PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
   REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  DIRECTIVE_COMPOSITION_ERROR,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});
