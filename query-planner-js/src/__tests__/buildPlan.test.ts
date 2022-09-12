@@ -3989,3 +3989,70 @@ test('works with key chains', () => {
     }
   `);
 });
+
+describe('__typename handling', () => {
+  it('preservers aliased __typename', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      query {
+        t {
+          foo: __typename
+          x
+        }
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              foo: __typename
+              x
+            }
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(api, gql`
+      query {
+        t {
+          foo: __typename
+          x
+          __typename
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              foo: __typename
+              x
+            }
+          }
+        },
+      }
+    `);
+  });
+});
