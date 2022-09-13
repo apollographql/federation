@@ -1,5 +1,5 @@
 import { GraphQLSchema } from 'graphql';
-import { ApolloGraphQLSchemaExtensions } from "../typings/graphql";
+import { ApolloGraphQLSchemaExtensions } from '../typings/graphql';
 
 const { version } = require('../../package.json');
 

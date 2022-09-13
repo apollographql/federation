@@ -1,6 +1,6 @@
 import { buildSchema } from 'graphql';
 import { addExtensions } from '../addExtensions';
-import { ApolloGraphQLSchemaExtensions } from "../../typings/graphql";
+import { ApolloGraphQLSchemaExtensions } from '../../typings/graphql';
 const { version } = require('../../../package.json');
 
 describe('addExtensions', () => {
@@ -8,7 +8,7 @@ describe('addExtensions', () => {
   it('adds gateway extensions to a schema', async () => {
     const schema = buildSchema('type Query { hello: String }');
     expect(schema.extensions).toEqual({});
-    const actualExtensions = addExtensions(schema).extensions;
+    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
     expect(actualExtensions).toEqual({ apollo: { gateway: { version: version } } });
   });
 
@@ -23,7 +23,8 @@ describe('addExtensions', () => {
         }
       }
     };
-    expect(addExtensions(schema).extensions).toEqual({
+    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
+    expect(actualExtensions).toEqual({
       foo: 'bar',
       apollo: {
         gateway: {
@@ -39,7 +40,8 @@ describe('addExtensions', () => {
     schema.extensions = {
       apollo: undefined
     };
-    expect(addExtensions(schema).extensions).toEqual({
+    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
+    expect(actualExtensions).toEqual({
       apollo: {
         gateway: {
           version: version
@@ -56,7 +58,8 @@ describe('addExtensions', () => {
         gateway: undefined
       }
     };
-    expect(addExtensions(schema).extensions).toEqual({
+    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
+    expect(actualExtensions).toEqual({
       apollo: {
         gateway: {
           version: version
