@@ -32,8 +32,8 @@ import {
   Subgraphs,
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
-import { FEDERATION_SPEC_TYPES } from "./federationSpec";
 import { valueEquals } from "./values";
+import { FEDERATION1_TYPES } from "./federationSpec";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
@@ -330,7 +330,7 @@ class SchemaUpgrader {
     // `federation__Any`, ... in the new upgraded schema.
     // But note that even "importing" those types would not completely work because fed2 essentially drops the `_` at the beginning of those
     // type names (relying on the core schema prefixing instead) and so some special translation needs to happen.
-    for (const typeSpec of FEDERATION_SPEC_TYPES) {
+    for (const typeSpec of FEDERATION1_TYPES) {
       const typeNameInOriginal = this.originalSubgraph.metadata().federationTypeNameInSchema(typeSpec.name);
       const type = this.schema.type(typeNameInOriginal);
       if (type) {

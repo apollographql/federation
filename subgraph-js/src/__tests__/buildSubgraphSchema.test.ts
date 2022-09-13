@@ -133,11 +133,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 """
 A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
@@ -391,11 +391,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 type Review {
   id: ID
@@ -460,11 +460,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 type Review {
   id: ID
@@ -521,11 +521,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 type Product
   @key(fields: "upc")
@@ -573,11 +573,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 type Product
   @key(fields: "upc")
@@ -637,11 +637,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 type Review
   @key(fields: "id")
@@ -706,11 +706,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE
 
 extend type User
   @key(fields: "email")
@@ -791,11 +791,11 @@ directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 
-directive @extends on OBJECT | INTERFACE
-
 directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION`,
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+directive @extends on OBJECT | INTERFACE`,
         typesDefinitions: `
 
 scalar _FieldSet
@@ -830,7 +830,7 @@ directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFAC
 
 directive @federation__extends on OBJECT | INTERFACE
 
-directive @federation__shareable on OBJECT | FIELD_DEFINITION
+directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
 
 directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 

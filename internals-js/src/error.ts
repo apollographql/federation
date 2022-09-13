@@ -405,6 +405,12 @@ const INVALID_FIELD_SHARING = makeCodeDefinition(
   'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
 );
 
+const INVALID_SHAREABLE_USAGE = makeCodeDefinition(
+  'INVALID_SHAREABLE_USAGE',
+  'The `@shareable` federation directive is used in an invalid way.',
+  { addedIn: '2.1.2' },
+);
+
 const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
   'INVALID_LINK_DIRECTIVE_USAGE',
   'An application of the @link directive is invalid/does not respect the specification.'
@@ -581,6 +587,7 @@ export const ERRORS = {
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
+  INVALID_SHAREABLE_USAGE,
   INVALID_LINK_DIRECTIVE_USAGE,
   INVALID_LINK_IDENTIFIER,
   LINK_IMPORT_NAME_MISMATCH,
