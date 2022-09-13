@@ -1974,19 +1974,24 @@ function optimizeSiblingTypenames(selectionSet: SelectionSet): SelectionSet {
     }
   }
 
-  if (!updatedSelections || (typenameSelection && !firstFieldSelection)) {
-    // This means that either no selection was modified at all, or there is no other field selection than __typename one.
-    // In both case, we want to return the current selectionSet unmodified.
+  if (!updatedSelections || updatedSelections.length === 0) {
+    // No selection was modified at all, or there is no other field selection than __typename one.
+    // In both case, we just return the current selectionSet unmodified.
     return selectionSet;
   }
 
-  // If we have some __typename selection that was removed but need to be "remembered" for later, "tag" whichever first
-  // field selection is still part of the operation (what we tag doesn't matter since again, __typename can be queried from
-  // anywhere and that has no performance impact).
+  // If we have some __typename selection that was removed but need to be "remembered" for later,
+  // "tag" whichever first field selection is still part of the operation.
   if (typenameSelection) {
-    assert(firstFieldSelection, 'Should not have got here');
-    // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
-    firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
+    if (firstFieldSelection) {
+      // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
+      firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
+    } else {
+      // If we have no other field selection, then we can't optimize __typename and we need to add
+      // it back to the updated subselections (we add it first because that's usually where we
+      // put __typename by convention).
+      updatedSelections = [typenameSelection as Selection].concat(updatedSelections);
+    }
   }
   return new SelectionSet(selectionSet.parentType, selectionSet.fragments).addAll(updatedSelections)
 }
