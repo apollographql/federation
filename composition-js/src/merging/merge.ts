@@ -65,6 +65,10 @@ import {
   filterTypesOfKind,
   isNonNullType,
   isExecutableDirectiveLocation,
+  parseFieldSetArgument,
+  isCompositeType,
+  isDefined,
+  addSubgraphToError,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -74,6 +78,7 @@ import {
 } from "../hints";
 import { ComposeDirectiveManager } from '../composeDirectiveManager';
 import { MismatchReporter } from './reporter';
+import { inspect } from "util";
 
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -2092,6 +2097,128 @@ class Merger {
         }
       }
     }
+
+    // We need to redo some validation for @requires after merge. The reason is that each subgraph validates that its own
+    // @requires are valid, but "requirements" are requested from _other_ subgraphs (by definition of @requires really),
+    // and there is a few situations (see details below) where a validity within the originated subgraph does not entail
+    // validity for all subgraph that would have to provide those "requirements".
+    // Long story short, we need to re-validate every @requires against the supergraph to guarantee it will always work
+    // at runtime.
+    for (const subgraph of this.subgraphs) {
+      for (const requiresApplication of subgraph.metadata().requiresDirective().applications()) {
+        const originalField = requiresApplication.parent as FieldDefinition<CompositeType>;
+        assert(originalField.kind === 'FieldDefinition', () => `Expected ${inspect(originalField)} to be a field`);
+        const mergedType = this.merged.type(originalField.parent.name);
+        // The type should exists: there is a few types we don't merge, but those are from specific core features and they shouldn't have @provides.
+        // In fact, if we were to not merge a type with a @provides, this would essentially mean that @provides cannot work, so worth catching
+        // the issue early if this ever happen for some reason. And of course, the type should be composite since it is in at least the one
+        // subgraph we're checking.
+        assert(mergedType && isCompositeType(mergedType), () => `Merged type ${originalField.parent.name} should exist should have field ${originalField.name}`)
+        assert(isCompositeType(mergedType), `${mergedType} should be a composite type but got ${mergedType.kind}`);
+        try {
+          parseFieldSetArgument({
+            parentType: mergedType,
+            directive: requiresApplication,
+            decorateValidationErrors: false,
+          });
+        } catch (e) {
+          if (!(e instanceof GraphQLError)) {
+            throw e;
+          }
+
+          // Providing a useful error message to the user here is tricky in the general case because what we checked is that
+          // a given subgraph @provides definition is invalid "on the supergraph", but the user seeing the error will not have
+          // the supergraph, so we need to express the error in terms of the subgraphs.
+          // But in practice, there is only a handful of cases that can trigger an error here. Indeed, at this point we know that
+          //  - the @require application is valid in its original subgraph.
+          //  - there was not merging errors (we don't call this whole method otherwise).
+          // This eliminate the risk of the error being due to some invalid syntax, of some subsection on a non-composite or missing
+          // on on a composite one (merging would have error), or of some unknown field in the selection (output types are merged
+          // by union, so any field that was in the subgraph will be in the supergraph), or even any error due to the types of fields
+          // involved (because the merged type is always a (non-strict) supertype of its counterpart in any subgraph, and anything
+          // that could be queried in a subtype can be queried on a supertype).
+          // As such, the only errors that we can have here are due to field arguments: because they are merged by intersection,
+          // it _is_ possible that something that is valid in a subgraph is not valid in the supergraph. And the only 2 things that
+          // can make such invalidity are:
+          //  1. an argument may not be in the supergraph: it is in the subgraph, but not in all the subgraphs having the field,
+          //    and the `@provides` passes a concrete value to that argument.
+          //  2. the type of an argument in the supergraph is a strict subtype the type that argument has in `subgraph` (the one
+          //    with the `@provides`) _and_ the `@provides` selection relies on the type difference. Now, argument types are input
+          //    types and the only subtyping difference input types is related to nullability (neither interfaces nor union are
+          //    input types in particular), so the only case this can happen is if a field `x` has some argument `a` type `A` in
+          //    `subgraph` but type `!A` with no default in the supergraph, _and_ the `@provides` queries that field `x` _without_
+          //    value for `a` (valid when `a` has type `A` but not with `!A` and no default).
+          // So to ensure we provide good error messages, we brute-force detecting those 2 possible cases and have a special
+          // treatment for each.
+          // Note that this detection is based on pattern-matching the error message, which is somewhat fragile, but because we
+          // only have 2 cases, we can easily cover them with unit tests, which means there is no practical risk of a message
+          // change breaking this code and being released undetected. A cleaner implementation would probably require having
+          // error codes and classes for all the graphqQL validations, but doing so cleanly is a fair amount of effort and probably
+          // no justified "just for this particular case".
+          const requireAST = requiresApplication.sourceAST ? [ addSubgraphToASTNode(requiresApplication.sourceAST, subgraph.name)] : [];
+
+          const that = this;
+          const registerError = (
+            arg: string,
+            field: string,
+            isIncompatible: (f: FieldDefinition<any>) => boolean,
+            makeMsg: (incompatibleSubgraphs: string) => string,
+          ) => {
+            const incompatibleSubgraphs = that.subgraphs.values().map((otherSubgraph) => {
+              if (otherSubgraph.name === subgraph.name) {
+                return undefined;
+              }
+              const fieldInOther = otherSubgraph.schema.elementByCoordinate(field);
+              const fieldIsIncompatible = fieldInOther
+                && fieldInOther instanceof FieldDefinition
+                && isIncompatible(fieldInOther);
+              return fieldIsIncompatible
+                ? {
+                  name: otherSubgraph.name,
+                  node: fieldInOther.sourceAST ? addSubgraphToASTNode(fieldInOther.sourceAST, otherSubgraph.name) : undefined,
+                }
+                : undefined;
+            }).filter(isDefined);
+            assert(incompatibleSubgraphs.length > 0, () => `Got error on ${arg} of ${field} but no "incompatible" subgraphs (error: ${e})`);
+            const nodes = requireAST.concat(incompatibleSubgraphs.map((s) => s.node).filter(isDefined));
+            const error = ERRORS.REQUIRES_INVALID_FIELDS.err(
+              `On field "${originalField.coordinate}", for ${requiresApplication}: ${makeMsg(printSubgraphNames(incompatibleSubgraphs.map((s) => s.name)))}`,
+              { nodes }
+            );
+            that.errors.push(addSubgraphToError(error, subgraph.name));
+          }
+
+          const unknownArgument = e.message.match(/Unknown argument \"(?<arg>[^"]*)\" found in value: \"(?<field>[^"]*)\" has no argument.*/);
+          if (unknownArgument) {
+            const arg = unknownArgument.groups?.arg!;
+            const field = unknownArgument.groups?.field!;
+            registerError(
+              arg,
+              field,
+              (f) => !f.argument(arg),
+              (incompatibleSubgraphs) => `cannot provide a value for argument "${arg}" of field "${field}" as argument "${arg}" is not defined in ${incompatibleSubgraphs}`,
+            );
+            continue;
+          }
+
+          const missingMandatory = e.message.match(/Missing mandatory value for argument \"(?<arg>[^"]*)\" of field \"(?<field>[^"]*)\".*/);
+          if (missingMandatory) {
+            const arg = missingMandatory.groups?.arg!;
+            const field = missingMandatory.groups?.field!;
+            registerError(
+              arg,
+              field,
+              (f) => !!f.argument(arg)?.isRequired(),
+              (incompatibleSubgraphs) => `no value provided for argument "${arg}" of field "${field}" but a value is mandatory as "${arg}" is required in ${incompatibleSubgraphs}`,
+            );
+            continue;
+          }
+
+          assert(false, () => `Unexpected error throw by ${requiresApplication} when evaluated on supergraph: ${e.message}`);
+        }
+      }
+    }
+
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(

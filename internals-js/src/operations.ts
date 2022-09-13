@@ -182,7 +182,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       if (appliedValue === undefined) {
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!),
-          () => `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
+          () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
           isValidValue(appliedValue, argDef, this.variableDefinitions),
@@ -921,7 +921,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
       this._cachedSelections = selections;
     }
     assert(this._cachedSelections, 'Cache should have been populated');
-    if (reversedOrder) {
+    if (reversedOrder && this._cachedSelections.length > 1) {
       const reversed = new Array(this._selectionCount);
       for (let i = 0; i < this._selectionCount; i++) {
         reversed[i] = this._cachedSelections[this._selectionCount - i - 1];
@@ -1282,6 +1282,21 @@ export class SelectionSet extends Freezable<SelectionSet> {
         ? selection.selectionSet.toOperationPathsInternal(updatedPaths)
         : updatedPaths;
     });
+  }
+
+  /**
+   * Calls the provided callback on all the "elements" (including nested ones) of this selection set.
+   * The specific order of traversal should not be relied on.
+   */
+  forEachElement(callback: (elt: OperationElement) => void) {
+    const stack = this.selections().concat();
+    while (stack.length > 0) {
+      const selection = stack.pop()!;
+      callback(selection.element());
+      // Note: we reserve to preserver ordering (since the stack re-reverse). Not a big cost in general
+      // and make output a bit more intuitive.
+      selection.selectionSet?.selections(true).forEach((s) => stack.push(s));
+    }
   }
 
   clone(): SelectionSet {
