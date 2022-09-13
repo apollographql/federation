@@ -2,6 +2,8 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+- Allow fields with arguments in `@requires` [PR #2120](https://github.com/apollographql/federation/pull/2120).
+
 ## 2.1.0
 
 - Don't apply @shareable when upgrading fed1 supergraphs if it's already @shareable [PR #2043](https://github.com/apollographql/federation/pull/2043)
