@@ -78,6 +78,7 @@ import {
 } from "../hints";
 import { ComposeDirectiveManager } from '../composeDirectiveManager';
 import { MismatchReporter } from './reporter';
+import { inspect } from "util";
 
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -2106,6 +2107,7 @@ class Merger {
     for (const subgraph of this.subgraphs) {
       for (const requiresApplication of subgraph.metadata().requiresDirective().applications()) {
         const originalField = requiresApplication.parent as FieldDefinition<CompositeType>;
+        assert(originalField.kind === 'FieldDefinition', () => `Expected ${inspect(originalField)} to be a field`);
         const mergedType = this.merged.type(originalField.parent.name);
         // The type should exists: there is a few types we don't merge, but those are from specific core features and they shouldn't have @provides.
         // In fact, if we were to not merge a type with a @provides, this would essentially mean that @provides cannot work, so worth catching
