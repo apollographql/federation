@@ -230,6 +230,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly startFetchIdGen: number,
     readonly hasDefers: boolean,
     readonly variableDefinitions: VariableDefinitions,
+    private readonly statistics: PlanningStatistics | undefined,
     private readonly startVertex: RV,
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
@@ -445,6 +446,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
       debug.log(() => `Reduced plans to consider to ${planCount} plans`);
     }
 
+    if (this.statistics) {
+      this.statistics.evaluatedPlanCount += planCount;
+    }
+
     debug.log(() => `All branches:${this.closedBranches.map((opts, i) => `\n${i}:${opts.map((opt => `\n - ${simultaneousPathsToString(opt)}`))}`)}`);
 
     // Note that usually, we'll have a majority of branches with just one option. We can group them in
@@ -528,6 +533,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       0,
       false,
       this.variableDefinitions,
+      undefined,
       edge.head,
       'query',
       this.costFunction,
@@ -2012,6 +2018,10 @@ function withSiblingTypenameOptimizedAway(operation: Operation): Operation {
   );
 }
 
+export type PlanningStatistics = {
+  evaluatedPlanCount: number,
+}
+
 export function computeQueryPlan({
   config,
   supergraphSchema,
@@ -2022,13 +2032,20 @@ export function computeQueryPlan({
   supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
   operation: Operation,
-}): QueryPlan {
+}): {
+  plan: QueryPlan,
+  statistics: PlanningStatistics,
+} {
   if (operation.rootKind === 'subscription') {
     throw ERRORS.UNSUPPORTED_FEATURE.err(
       'Query planning does not currently support subscriptions.',
       { nodes: [parse(operation.toString())] },
     );
   }
+
+  const statistics: PlanningStatistics = {
+    evaluatedPlanCount: 0,
+  };
 
   const reuseQueryFragments = config.reuseQueryFragments ?? true;
   let fragments = operation.selectionSet.fragments
@@ -2062,7 +2079,10 @@ export function computeQueryPlan({
   debug.group(() => `Computing plan for\n${operation}`);
   if (operation.selectionSet.isEmpty()) {
     debug.groupEnd('Empty plan');
-    return { kind: 'QueryPlan' };
+    return {
+      plan: { kind: 'QueryPlan' },
+      statistics,
+    };
   }
 
   const root = federatedQueryGraph.root(operation.rootKind);
@@ -2086,6 +2106,7 @@ export function computeQueryPlan({
       processor,
       root,
       deferConditions,
+      statistics,
     })
   } else {
     rootNode = computePlanInternal({
@@ -2095,11 +2116,15 @@ export function computeQueryPlan({
       processor,
       root,
       hasDefers,
+      statistics,
     });
   }
 
   debug.groupEnd('Query plan computed');
-  return { kind: 'QueryPlan', node: rootNode };
+  return {
+    plan: { kind: 'QueryPlan', node: rootNode },
+    statistics,
+  };
 }
 
 function computePlanInternal({
@@ -2109,6 +2134,7 @@ function computePlanInternal({
   processor,
   root,
   hasDefers,
+  statistics,
 }: {
   supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
@@ -2116,9 +2142,10 @@ function computePlanInternal({
   processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
   root: RootVertex,
   hasDefers: boolean,
+  statistics: PlanningStatistics,
 }): PlanNode | undefined {
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers);
+    const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers, statistics);
     let allMain: (PlanNode | undefined)[] = [];
     let allDeferred: DeferredNode[] = [];
     let primarySelection: SelectionSet | undefined = undefined;
@@ -2143,7 +2170,7 @@ function computePlanInternal({
       deferred: allDeferred,
     });
   } else {
-    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers);
+    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers, statistics);
     const { main, deferred } = dependencyGraph.process(processor);
     return processRootNodes({
       processor,
@@ -2162,6 +2189,7 @@ function computePlanForDeferConditionals({
   processor,
   root,
   deferConditions,
+  statistics,
 }: {
   supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
@@ -2169,6 +2197,7 @@ function computePlanForDeferConditionals({
   processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
   root: RootVertex,
   deferConditions: SetMultiMap<string, string>,
+  statistics: PlanningStatistics,
 }): PlanNode | undefined {
   return generateConditionNodes(
     operation,
@@ -2181,6 +2210,7 @@ function computePlanForDeferConditionals({
       processor,
       root,
       hasDefers: true,
+      statistics,
     }),
   );
 }
@@ -2296,6 +2326,7 @@ function computeRootParallelDependencyGraph(
   root: RootVertex,
   startFetchIdGen: number,
   hasDefer: boolean,
+  statistics: PlanningStatistics,
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(
     supergraphSchema,
@@ -2305,6 +2336,7 @@ function computeRootParallelDependencyGraph(
     root,
     startFetchIdGen,
     hasDefer,
+    statistics,
   )[0];
 }
 
@@ -2316,6 +2348,7 @@ function computeRootParallelBestPlan(
   root: RootVertex,
   startFetchIdGen: number,
   hasDefers: boolean,
+  statistics: PlanningStatistics,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTaversal(
     supergraphSchema,
@@ -2324,10 +2357,11 @@ function computeRootParallelBestPlan(
     startFetchIdGen,
     hasDefers,
     variables,
+    statistics,
     root,
     root.rootKind,
     defaultCostFunction,
-    emptyContext
+    emptyContext,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -2358,16 +2392,17 @@ function computeRootSerialDependencyGraph(
   federatedQueryGraph: QueryGraph,
   root: RootVertex,
   hasDefers: boolean,
+  statistics: PlanningStatistics,
 ): FetchDependencyGraph[] {
   const rootType = hasDefers ? supergraphSchema.schemaDefinition.rootType(root.rootKind) : undefined;
   // We have to serially compute a plan for each top-level selection.
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId: number = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root, startingFetchId, hasDefers);
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root, startingFetchId, hasDefers, statistics);
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[i], operation.variableDefinitions, federatedQueryGraph, root, prevDepGraph.nextFetchId(), hasDefers);
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[i], operation.variableDefinitions, federatedQueryGraph, root, prevDepGraph.nextFetchId(), hasDefers, statistics);
     const newSubgraph = onlyRootSubgraph(newDepGraph);
     if (prevSubgraph === newSubgraph) {
       // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can concat them in a single fetch

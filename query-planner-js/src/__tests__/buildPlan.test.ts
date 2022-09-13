@@ -4055,4 +4055,157 @@ describe('__typename handling', () => {
       }
     `);
   });
+
+  it('does not needlessly consider options for __typename', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          s: S
+        }
+
+        type S @key(fields: "id") {
+          id: ID
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type S @key(fields: "id") {
+          id: ID
+          t: T @shareable
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type S @key(fields: "id") {
+          id: ID
+          t: T @shareable
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    // This tests the patch from https://github.com/apollographql/federation/pull/2137.
+    // Namely, the schema is such that `x` can only be fetched from one subgraph, but
+    // technically __typename can be fetched from 2 subgraphs. However, the optimization
+    // we test for is that we actually don't consider both choices for __typename and
+    // instead only evaluate a single query plan (the assertion on `evaluatePlanCount`)
+    let operation = operationFromDocument(api, gql`
+      query {
+        s {
+          t {
+            __typename
+            x
+          }
+        }
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              s {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "s") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on S {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on S {
+                  t {
+                    __typename
+                    x
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    // Almost the same test, but we artificially create a case where the result set
+    // for `s` has a __typename alongside just an inline fragments. This should
+    // change nothing to the example (the __typename on `s` is trivially fetched
+    // from the 1st subgraph and does not create new choices), but an early bug
+    // in the implementation made this example forgo the optimization of the
+    // __typename within `t`. We make sure this is not case (that we still only
+    // consider a single choice of plan).
+    operation = operationFromDocument(api, gql`
+      query {
+        s {
+          __typename
+          ... on S {
+            t {
+              __typename
+              x
+            }
+          }
+        }
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              s {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "s") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on S {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on S {
+                  t {
+                    __typename
+                    x
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
