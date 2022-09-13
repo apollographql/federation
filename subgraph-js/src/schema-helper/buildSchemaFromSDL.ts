@@ -112,7 +112,7 @@ export function addResolversToSchema(
     const type = schema.getType(typeName);
 
     if (isAbstractType(type)) {
-      const existingExtensions = type.extensions as ApolloGraphQLUnionTypeExtensions | ApolloGraphQLInterfaceTypeExtensions;
+      const existingExtensions: ApolloGraphQLUnionTypeExtensions | ApolloGraphQLInterfaceTypeExtensions = type.extensions;
       for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
         if (fieldName === '__resolveReference') {
           type.extensions = {
@@ -169,7 +169,7 @@ export function addResolversToSchema(
     if (!isObjectType(type)) continue;
 
     const fieldMap = type.getFields();
-    const existingExtensions = type.extensions as ApolloGraphQLObjectTypeExtensions;
+    const existingExtensions: ApolloGraphQLObjectTypeExtensions = type.extensions;
     for (const [fieldName, fieldConfig] of Object.entries(fieldConfigs)) {
       if (fieldName === '__resolveReference') {
         type.extensions = {

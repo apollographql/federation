@@ -8,7 +8,7 @@ describe('addExtensions', () => {
   it('adds gateway extensions to a schema', async () => {
     const schema = buildSchema('type Query { hello: String }');
     expect(schema.extensions).toEqual({});
-    const actualExtensions = addExtensions(schema).extensions as ApolloGraphQLSchemaExtensions;
+    const actualExtensions = addExtensions(schema).extensions;
     expect(actualExtensions).toEqual({ apollo: { gateway: { version: version } } });
   });
 

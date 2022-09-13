@@ -4,7 +4,7 @@ import { ApolloGraphQLSchemaExtensions } from "../typings/graphql";
 const { version } = require('../../package.json');
 
 export function addExtensions(schema: GraphQLSchema): GraphQLSchema {
-  const schemaExtension = schema.extensions as ApolloGraphQLSchemaExtensions ?? {};
+  const schemaExtension: ApolloGraphQLSchemaExtensions = schema.extensions ?? {};
   const apolloExtension = schemaExtension?.apollo ?? {};
   const gatewayExtension = apolloExtension?.gateway ?? {};
 
