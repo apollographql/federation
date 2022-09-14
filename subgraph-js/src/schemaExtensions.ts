@@ -1,4 +1,9 @@
-import { GraphQLResolveInfo } from 'graphql';
+import {
+  GraphQLInterfaceTypeExtensions,
+  GraphQLObjectTypeExtensions,
+  GraphQLResolveInfo,
+  GraphQLUnionTypeExtensions
+} from 'graphql';
 
 type GraphQLReferenceResolver<TContext> = (
   reference: object,
@@ -10,22 +15,20 @@ interface ApolloSubgraphExtensions<TContext> {
   resolveReference?: GraphQLReferenceResolver<TContext>;
 }
 
-declare module 'graphql/type/definition' {
-  interface GraphQLObjectTypeExtensions<_TSource = any, _TContext = any> {
-    apollo?: {
-      subgraph?: ApolloSubgraphExtensions<_TContext>;
-    };
+export interface ApolloGraphQLObjectTypeExtensions<_TSource = any, _TContext = any> extends GraphQLObjectTypeExtensions {
+  apollo?: {
+    subgraph?: ApolloSubgraphExtensions<_TContext>;
   }
+}
 
-  interface GraphQLInterfaceTypeExtensions<_TSource = any, _TContext = any> {
-    apollo?: {
-      subgraph?: ApolloSubgraphExtensions<_TContext>;
-    };
+export interface ApolloGraphQLInterfaceTypeExtensions<_TSource = any, _TContext = any> extends GraphQLInterfaceTypeExtensions {
+  apollo?: {
+    subgraph?: ApolloSubgraphExtensions<_TContext>;
   }
+}
 
-  interface GraphQLUnionTypeExtensions<_TSource = any, _TContext = any> {
-    apollo?: {
-      subgraph?: ApolloSubgraphExtensions<_TContext>;
-    };
+export interface ApolloGraphQLUnionTypeExtensions<_TSource = any, _TContext = any> extends GraphQLUnionTypeExtensions {
+  apollo?: {
+    subgraph?: ApolloSubgraphExtensions<_TContext>;
   }
 }
