@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.1.2-alpha.2
+
 - Fix issue with path #2137 (optimization for `__typename`) [PR #2140](https://github.com/apollographql/federation/pull/2140).
 
 ## 2.1.2-alpha.1

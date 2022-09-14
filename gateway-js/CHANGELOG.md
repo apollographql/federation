@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.1.2-alpha.2
+
 - Allow fields with arguments in `@requires` [PR #2120](https://github.com/apollographql/federation/pull/2120).
 
 ## 2.1.2-alpha.1
