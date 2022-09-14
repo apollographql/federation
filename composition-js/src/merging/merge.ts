@@ -415,8 +415,6 @@ class Merger {
       this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
     }
 
-    this.mergeAllAppliedDirectives();
-
     // We merge enum dead last because enums can be used as both input and output types and the merging behavior
     // depends on their usage and it's easier to check said usage if everything else has been merge (at least
     // anything that may use an enum type, so all fields and arguments).
@@ -427,6 +425,8 @@ class Merger {
     if (!this.merged.schemaDefinition.rootType('query')) {
       this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
     }
+
+    this.mergeAllAppliedDirectives();
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
