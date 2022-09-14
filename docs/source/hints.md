@@ -33,7 +33,7 @@ The following hints might be generated during composition:
 | `INCONSISTENT_DESCRIPTION` | Indicates that an element has a description in more than one subgraph, and the descriptions are not equal. | `WARN` |
 | `INCONSISTENT_ARGUMENT_PRESENCE` | Indicates that an optional argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph. | `WARN` |
 | `FROM_SUBGRAPH_DOES_NOT_EXIST` | Source subgraph specified by @override directive does not exist | `WARN` |
-| `INCONSISTEN_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | `WARN` |
+| `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | `WARN` |
 | `DIRECTIVE_COMPOSITION_WARN` | Indicates that an issue was detected when composing custom directives. | `WARN` |
 
 </div>

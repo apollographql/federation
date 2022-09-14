@@ -170,7 +170,7 @@ const UNUSED_ENUM_TYPE = makeCodeDefinition({
 });
 
 const INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
-  code: 'INCONSISTEN_NON_REPEATABLE_DIRECTIVE_ARGUMENTS',
+  code: 'INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS',
   level: HintLevel.WARN,
   description: 'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
 });

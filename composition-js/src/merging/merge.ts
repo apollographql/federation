@@ -274,6 +274,11 @@ class Merger {
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
+  private appliedDirectivesToMerge: {
+    names: Set<string>,
+    sources: (SchemaElement<any, any> | undefined)[],
+    dest: SchemaElement<any, any>,
+  }[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -289,6 +294,7 @@ class Merger {
     );
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
+    this.appliedDirectivesToMerge = [];
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -424,6 +430,8 @@ class Merger {
     if (!this.merged.schemaDefinition.rootType('query')) {
       this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
     }
+
+    this.mergeAllAppliedDirectives();
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
@@ -626,7 +634,7 @@ class Merger {
     this.checkForExtensionWithNoBase(sources, dest);
     this.mergeDescription(sources, dest);
     this.addJoinType(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     switch (dest.kind) {
       case 'ScalarType':
         // Since we don't handle applied directives yet, we have nothing specific to do for scalars.
@@ -1034,7 +1042,7 @@ class Merger {
     // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
     // validate the external ones are consistent.
     this.mergeDescription(withoutExternal, dest);
-    this.mergeAppliedDirectives(withoutExternal, dest);
+    this.recordAppliedDirectivesToMerge(withoutExternal, dest);
     this.addArgumentsShallow(withoutExternal, dest);
     for (const destArg of dest.arguments()) {
       const subgraphArgs = withoutExternal.map(f => f?.argument(destArg.name));
@@ -1399,7 +1407,7 @@ class Merger {
 
   private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>) {
     this.mergeDescription(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     this.mergeTypeReference(sources, dest, true);
     this.mergeDefaultValue(sources, dest, 'Argument');
   }
@@ -1567,7 +1575,7 @@ class Merger {
     // 2. it easier to see if the value is marked @inaccessible.
     const valueSources = sources.map(s => s?.value(value.name));
     this.mergeDescription(valueSources, value);
-    this.mergeAppliedDirectives(valueSources, value);
+    this.recordAppliedDirectivesToMerge(valueSources, value);
 
     const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
     const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph);
@@ -1694,7 +1702,7 @@ class Merger {
 
   private mergeInputField(sources: (InputFieldDefinition | undefined)[], dest: InputFieldDefinition) {
     this.mergeDescription(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     const allTypesEqual = this.mergeTypeReference(sources, dest, true);
     const mergeContext = new FieldMergeContext(sources);
     this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
@@ -1911,11 +1919,33 @@ class Merger {
     return source.locations.filter(loc => isExecutableDirectiveLocation(loc));
   }
 
-  private mergeAppliedDirectives(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
+  // In general, we want to merge applied directives after merging elements, the one exception
+  // is @inaccessible, which is necessary to exist in the supergraph for EnumValues to properly
+  // determine whether the fact that a value is both input / output will matter
+  private recordAppliedDirectivesToMerge(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
+    const inaccessibleName = inaccessibleInSupergraph?.name;
     const names = this.gatherAppliedDirectiveNames(sources);
-    for (const name of names) {
-      this.mergeAppliedDirective(name, sources, dest);
+
+    if (inaccessibleName && names.has(inaccessibleName)) {
+      this.mergeAppliedDirective(inaccessibleName, sources, dest);
+      names.delete(inaccessibleName);
     }
+    this.appliedDirectivesToMerge.push({
+      names,
+      sources,
+      dest,
+    });
+  }
+
+  // to be called after elements are merged
+  private mergeAllAppliedDirectives() {
+    for (const { names, sources, dest } of this.appliedDirectivesToMerge) {
+      for (const name of names) {
+        this.mergeAppliedDirective(name, sources, dest);
+      }
+    }
+    this.appliedDirectivesToMerge = [];
   }
 
   private gatherAppliedDirectiveNames(sources: (SchemaElement<any, any> | undefined)[]): Set<string> {
@@ -2024,7 +2054,7 @@ class Merger {
 
   private mergeSchemaDefinition(sources: SchemaDefinition[], dest: SchemaDefinition) {
     this.mergeDescription(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     // Before merging, we actually rename all the root types to their default name
     // in subgraphs (see federation.ts, `prepareSubgraphsForFederation`), so this
     // method should never report an error in practice as there should never be

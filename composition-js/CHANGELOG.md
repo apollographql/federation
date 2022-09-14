@@ -2,6 +2,9 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
+## vNext
+
+- Fix composition of repeatable custom directives [PR #2136](https://github.com/apollographql/federation/pull/2136)
 - Allow fields with arguments in `@requires` [PR #2120](https://github.com/apollographql/federation/pull/2120).
 
 ## 2.1.0
