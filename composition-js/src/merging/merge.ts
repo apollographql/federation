@@ -1940,6 +1940,7 @@ class Merger {
         this.mergeAppliedDirective(name, sources, dest);
       }
     }
+    this.appliedDirectivesToMerge = [];
   }
 
   private gatherAppliedDirectiveNames(sources: (SchemaElement<any, any> | undefined)[]): Set<string> {
