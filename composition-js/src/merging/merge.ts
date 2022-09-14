@@ -269,6 +269,11 @@ class Merger {
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
+  private appliedDirectivesToMerge: {
+    names: Set<string>,
+    sources: (SchemaElement<any, any> | undefined)[],
+    dest: SchemaElement<any, any>,
+  }[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -284,6 +289,7 @@ class Merger {
     );
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
+    this.appliedDirectivesToMerge = [];
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -393,6 +399,14 @@ class Merger {
     // calling root type a "value type" when hinting).
     this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
+    for (const type of typesToMerge) {
+      // We've already merged unions above and we've going to merge enums last
+      if (type.kind === 'UnionType' || type.kind === 'EnumType') {
+        continue;
+      }
+      this.mergeType(this.subgraphsTypes(type), type);
+    }
+
     for (const definition of this.merged.directives()) {
       // we should skip the supergraph specific directives, that is the @core and @join directives.
       if (linkSpec.isSpecDirective(definition) || joinSpec.isSpecDirective(definition)) {
@@ -401,13 +415,7 @@ class Merger {
       this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
     }
 
-    for (const type of typesToMerge) {
-      // We've already merged unions above and we've going to merge enums last
-      if (type.kind === 'UnionType' || type.kind === 'EnumType') {
-        continue;
-      }
-      this.mergeType(this.subgraphsTypes(type), type);
-    }
+    this.mergeAllAppliedDirectives();
 
     // We merge enum dead last because enums can be used as both input and output types and the merging behavior
     // depends on their usage and it's easier to check said usage if everything else has been merge (at least
@@ -1906,10 +1914,31 @@ class Merger {
     return source.locations.filter(loc => isExecutableDirectiveLocation(loc));
   }
 
+  // In general, we want to merge applied directives after merging elements, the one exception
+  // is @inaccessible, which is necessary to exist in the supergraph for EnumValues to properly
+  // determine whether the fact that a value is both input / output will matter
   private mergeAppliedDirectives(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
+    const inaccessibleName = inaccessibleInSupergraph?.name;
     const names = this.gatherAppliedDirectiveNames(sources);
-    for (const name of names) {
-      this.mergeAppliedDirective(name, sources, dest);
+
+    if (inaccessibleName && names.has(inaccessibleName)) {
+      this.mergeAppliedDirective(inaccessibleName, sources, dest);
+      names.delete(inaccessibleName);
+    }
+    this.appliedDirectivesToMerge.push({
+      names,
+      sources,
+      dest,
+    });
+  }
+
+  // to be called after elements are merged
+  private mergeAllAppliedDirectives() {
+    for (const { names, sources, dest } of this.appliedDirectivesToMerge) {
+      for (const name of names) {
+        this.mergeAppliedDirective(name, sources, dest);
+      }
     }
   }
 

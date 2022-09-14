@@ -6,7 +6,7 @@ import {
   schemas,
   errors,
   composeAsFed2Subgraphs,
-} from "./compose.test";
+} from "./testHelper";
 
 describe("composition involving @override directive", () => {
   it.skip("@override whole type", () => {
