@@ -223,7 +223,6 @@ const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
 
 const KEY_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS.createCode('key');
 const PROVIDES_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS.createCode('provides');
-const REQUIRES_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS.createCode('requires');
 
 const DIRECTIVE_FIELDS_MISSING_EXTERNAL = makeFederationDirectiveErrorCodeCategory(
   'FIELDS_MISSING_EXTERNAL',
@@ -545,7 +544,6 @@ export const ERRORS = {
   UNKNOWN_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
-  REQUIRES_FIELDS_HAS_ARGS,
   PROVIDES_MISSING_EXTERNAL,
   REQUIRES_MISSING_EXTERNAL,
   KEY_UNSUPPORTED_ON_INTERFACE,
@@ -644,4 +642,5 @@ export const REMOVED_ERRORS = [
   ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case'],
 
   ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH', 'Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error'],
+  ['REQUIRES_FIELDS_HAS_ARGS', 'Since federation 2.1.1, using fields with arguments in a @requires is fully supported'],
 ];

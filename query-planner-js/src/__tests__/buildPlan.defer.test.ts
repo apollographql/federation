@@ -1171,8 +1171,6 @@ describe('nested @defer', () => {
       }
     `);
 
-    // TODO(Sylvain): this is correct but inefficient. We should recognize that the
-    // fetch in the middle is useless and can be removed. To be fixed post-vacation.
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1183,31 +1181,14 @@ describe('nested @defer', () => {
                 name
               }
             }:
-            Sequence {
-              Fetch(service: "Subgraph1", id: 0) {
-                {
-                  me {
-                    __typename
-                    name
-                    id
-                  }
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                me {
+                  __typename
+                  name
+                  id
                 }
-              },
-              Flatten(path: "me") {
-                Fetch(service: "Subgraph2") {
-                  {
-                    ... on User {
-                      __typename
-                      id
-                    }
-                  } =>
-                  {
-                    ... on User {
-                      age
-                    }
-                  }
-                },
-              },
+              }
             }
           }, [
             Deferred(depends: [0], path: "me") {
@@ -1217,7 +1198,7 @@ describe('nested @defer', () => {
                     age
                   }:
                   Flatten(path: "me") {
-                    Fetch(service: "Subgraph1", id: 1) {
+                    Fetch(service: "Subgraph2", id: 1) {
                       {
                         ... on User {
                           __typename
@@ -1227,6 +1208,7 @@ describe('nested @defer', () => {
                       {
                         ... on User {
                           __typename
+                          age
                           id
                         }
                       }
@@ -2417,7 +2399,13 @@ test('@defer everything within entity', () => {
 });
 
 describe('defer with conditions', () => {
-  test('simple @defer with condition', () => {
+  test.each([{
+    name: 'without explicit label',
+    label: undefined,
+  }, {
+    name: 'with explicit label',
+    label: 'testLabel',
+  }])('simple @defer with condition $name', ({label}) => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2447,14 +2435,14 @@ describe('defer with conditions', () => {
       query($cond: Boolean) {
         t {
           x
-          ... @defer(if: $cond) {
+          ... @defer(${label ? `label: "${label}", ` : ''}if: $cond) {
             y
           }
         }
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {
@@ -2476,7 +2464,7 @@ describe('defer with conditions', () => {
                   }
                 }
               }, [
-                Deferred(depends: [0], path: "t") {
+                Deferred(depends: [0], path: "t"${label ? `, label: "${label}"` : ''}) {
                   {
                     y
                   }:
@@ -2993,7 +2981,7 @@ describe('defer with conditions', () => {
 });
 
 test('defer when some interface has different definitions in different subgraphs', () => {
-  // This test exists to ensure an early bug is fixed: that but was in the code building
+  // This test exists to ensure an early bug is fixed: that bug was in the code building
   // the `subselection` of `DeferNode` in the plan, and was such that those subselections
   // were created with links to subgraph types instead the supergraph ones. As a result,
   // we were sometimes trying to add a field (`b` in the example here) to version of a
@@ -3294,6 +3282,99 @@ describe('named fragments', () => {
                     ... on T {
                       y
                       z
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('can request __typename in a fragment', () => {
+    // Note that there is nothing super special about __typename in theory, but because it's a field that is always available
+    // in all subghraph (for a type the subgraph has), it tends to create multiple options for the query planner, and so
+    // excercises some code-paths that triggered an early bug in the handling of `@defer` (https://github.com/apollographql/federation/issues/2128).
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...OnT @defer
+          x
+        }
+      }
+
+      fragment OnT on T {
+        y
+        __typename
+      }
+    `);
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                x
+              }
+            }:
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  id
+                  x
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                ... on T {
+                  __typename
+                  y
+                }
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      __typename
+                      y
                     }
                   }
                 },

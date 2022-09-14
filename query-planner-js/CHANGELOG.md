@@ -4,6 +4,23 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix issue with path #2137 (optimization for `__typename`) [PR #2140](https://github.com/apollographql/federation/pull/2140).
+
+## 2.1.2-alpha.1
+
+- Fix potential inefficient planning due to `__typename` [PR #2137](https://github.com/apollographql/federation/pull/2137).
+- Fix potential assertion during query planning [PR #2133](https://github.com/apollographql/federation/pull/2133).
+
+## 2.1.2-alpha.0
+
+- Fix some defer query plans having invalid result sets (with empty branches) [PR #2125](https://github.com/apollographql/federation/pull/2125). 
+- Fix defer information lost when cloning fetch group (resulting in non-deferred parts) [PR #2129](https://github.com/apollographql/federation/pull/2129).
+- Fix directives on fragment spread being lost [PR #2126](https://github.com/apollographql/federation/pull/2126).
+
+## 2.1.1
+
+- Fix issue where @defer condition gets ignored [PR #2121](https://github.com/apollographql/federation/pull/2121).
+
 ## 2.1.0
 
 - Fix issue where fragment expansion can erase applied directives (most notably `@defer`) [PR #2093](https://github.com/apollographql/federation/pull/2093).
