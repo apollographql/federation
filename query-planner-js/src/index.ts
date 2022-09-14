@@ -6,7 +6,7 @@ import { QueryPlan } from './QueryPlan';
 
 import { Schema, Operation, Concrete } from '@apollo/federation-internals';
 import { buildFederatedQueryGraph, QueryGraph } from "@apollo/query-graphs";
-import { computeQueryPlan } from './buildPlan';
+import { computeQueryPlan, PlanningStatistics } from './buildPlan';
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from './config';
 
 export { QueryPlannerConfig } from './config';
@@ -14,6 +14,7 @@ export { QueryPlannerConfig } from './config';
 export class QueryPlanner {
   private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
+  private _lastGeneratedPlanStatistics: PlanningStatistics | undefined;
 
   constructor(
     public readonly supergraphSchema: Schema,
@@ -28,11 +29,17 @@ export class QueryPlanner {
       return { kind: 'QueryPlan' };
     }
 
-    return computeQueryPlan({
+    const {plan, statistics} = computeQueryPlan({
       config: this.config,
       supergraphSchema: this.supergraphSchema,
       federatedQueryGraph: this.federatedQueryGraph,
       operation,
     });
+    this._lastGeneratedPlanStatistics = statistics;
+    return plan;
+  }
+
+  lastGeneratedPlanStatistics(): PlanningStatistics | undefined {
+    return this._lastGeneratedPlanStatistics;
   }
 }

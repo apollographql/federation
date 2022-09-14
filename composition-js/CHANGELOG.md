@@ -5,6 +5,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## vNext
 
 - Fix composition of repeatable custom directives [PR #2136](https://github.com/apollographql/federation/pull/2136)
+- Allow fields with arguments in `@requires` [PR #2120](https://github.com/apollographql/federation/pull/2120).
 
 ## 2.1.0
 

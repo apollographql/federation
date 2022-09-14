@@ -1500,6 +1500,78 @@ describe('composition', () => {
           'Argument "Query.q(a:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"']
       ]);
     });
+
+    it('errors if a subgraph argument is "@required" without arguments but that argument is mandatory in the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            x(arg: Int): Int @external
+            y: Int @requires(fields: "x")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            x(arg: Int!): Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        [
+          'REQUIRES_INVALID_FIELDS',
+          '[subgraphA] On field "T.y", for @requires(fields: "x"): no value provided for argument "arg" of field "T.x" but a value is mandatory as "arg" is required in subgraph "subgraphB"',
+        ]
+      ]);
+    });
+
+    it('errors if a subgraph argument is "@required" with an argument, but that argument is not in the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            x(arg: Int): Int @external
+            y: Int @requires(fields: "x(arg: 42)")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(errors(result)).toStrictEqual([
+        [
+          'REQUIRES_INVALID_FIELDS',
+          '[subgraphA] On field "T.y", for @requires(fields: "x(arg: 42)"): cannot provide a value for argument "arg" of field "T.x" as argument "arg" is not defined in subgraph "subgraphB"',
+        ]
+      ]);
+    });
   });
 
   describe('post-merge validation', () => {

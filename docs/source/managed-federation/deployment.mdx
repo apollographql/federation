@@ -60,7 +60,7 @@ type EmailChannel implements Channel @key(fields: "id") {
 
 To safely remove the `EmailChannel` type from your supergraph schema:
 
-1. Perform a `subgraph push` of the `email` subgraph that removes the `EmailChannel` type from its schema.
+1. Perform a `rover subgraph publish` of the `email` subgraph that removes the `EmailChannel` type from its schema.
 2. Deploy a new version of the subgraph that removes the `EmailChannel` type.
 
 The first step causes the query planner to stop sending fragments `...on EmailChannel`, which would fail validation if sent to a subgraph that isn't aware of the type.
