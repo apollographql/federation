@@ -81,7 +81,7 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 
 * More subgraphs support Federation 2 syntax
   * [18 subgraph-compatible libraries](https://www.apollographql.com/docs/federation/other-servers)
-  * [Subgraph spec](https://www.apollographql.com/docs/federation/federation-spec)
+  * [Subgraph spec](https://www.apollographql.com/docs/federation/subgraph-spec)
 * Enhanced test automation
 
 ### Federation 2 Preview

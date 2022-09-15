@@ -62,7 +62,7 @@
     "API Reference": {
       "@apollo/subgraph": "/api/apollo-subgraph",
       "@apollo/gateway": "/api/apollo-gateway",
-      "Subgraph specification": "/federation-spec"
+      "Subgraph specification": "/subgraph-spec"
     }
   }
 }
