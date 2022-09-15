@@ -9,7 +9,7 @@ Apollo Federation supports sending **federated traces** from the Apollo gateway,
 
 1. The gateway receives an operation from a client.
 2. The gateway constructs a query plan for the operation, delegating sub-queries to subgraphs.
-3. For each [fetch](https://www.apollographql.com/docs/federation/federation-spec/#fetch-service-capabilities) to a subgraph, a response is received.
+3. For each [fetch](https://www.apollographql.com/docs/federation/subgraph-spec/#fetch-service-capabilities) to a subgraph, a response is received.
 4. The [`extensions`](https://www.apollographql.com/docs/resources/graphql-glossary/#extensions) of each response includes a trace from the sub-query.
 5. The gateway collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
 6. The federated trace is sent to the Apollo [metrics ingress](https://www.apollographql.com/docs/studio/setup-analytics/#sending-metrics-to-the-reporting-endpoint) for processing.
