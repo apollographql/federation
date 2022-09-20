@@ -3386,3 +3386,111 @@ describe('named fragments', () => {
     `);
   });
 });
+
+test('do not merge query branches with @defer', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        a: Int
+        b: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        c: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  // We have 2 separate @defer, so we should 2 deferred parts, not 1 defer parts with parallel fetches.
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        a
+        ... @defer {
+          b
+        }
+        ... @defer {
+          c
+        }
+      }
+    }
+  `);
+
+  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              a
+            }
+          }:
+          Fetch(service: "Subgraph1", id: 0) {
+            {
+              t {
+                __typename
+                a
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [0], path: "t") {
+            {
+              c
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    c
+                  }
+                }
+              },
+            }
+          },
+          Deferred(depends: [0], path: "t") {
+            {
+              b
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    b
+                  }
+                }
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});

@@ -3197,20 +3197,40 @@ export class Directive<
   }
 }
 
-export function sameDirectiveApplication(application1: Directive<any, any>, application2: Directive<any, any>): boolean {
-  return application1.name === application2.name && argumentsEquals(application1.arguments(), application2.arguments());
+/**
+ * Checks if 2 directive applications should be considered equal.
+ *
+ * By default, 2 directive applications are considered equal if they are for the same directive and are passed the same values to
+ * the same arguments. However, some special directive can be excluded so that no 2 applications are ever consider equal. By default,
+ * this is the case of @defer, as never want to merge @defer applications so that each create its own "deferred block".
+ */
+export function sameDirectiveApplication(
+  application1: Directive<any, any>,
+  application2: Directive<any, any>,
+  directivesNeverEqualToThemselves: string[] = [ 'defer' ],
+): boolean {
+  // Note: we check name equality first because this method is most often called with directive that are simply not the same
+  // name and this ensure we exit cheaply more often than not.
+  return application1.name === application2.name 
+    && !directivesNeverEqualToThemselves.includes(application1.name)
+    && !directivesNeverEqualToThemselves.includes(application2.name)
+    && argumentsEquals(application1.arguments(), application2.arguments());
 }
 
 /**
  * Checks whether the 2 provided "set" of directive applications are the same (same applications, regardless or order).
  */
-export function sameDirectiveApplications(applications1: readonly Directive<any, any>[], applications2: readonly Directive<any, any>[]): boolean {
+export function sameDirectiveApplications(
+  applications1: readonly Directive<any, any>[],
+  applications2: readonly Directive<any, any>[],
+  directivesNeverEqualToThemselves: string[] = [ 'defer' ],
+): boolean {
   if (applications1.length !== applications2.length) {
     return false;
   }
 
   for (const directive1 of applications1) {
-    if (!applications2.some(directive2 => sameDirectiveApplication(directive1, directive2))) {
+    if (!applications2.some(directive2 => sameDirectiveApplication(directive1, directive2, directivesNeverEqualToThemselves))) {
       return false;
     }
   }
