@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNext
+- Fix regression in updateForAddingTo [PR #2154](https://github.com/apollographql/federation/pull/2154)
 ## 2.1.0
 
 - Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
