@@ -4209,3 +4209,105 @@ describe('__typename handling', () => {
     `);
   });
 });
+
+
+describe('miscellaneous buildPlan tests', () => {
+  // test to fix https://github.com/apollographql/federation/issues/2152
+  test('ensure a field marked @inaccessible and @external in the SDL can be reached when field is required', () => {
+    const supergraphSdl = `
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+      @link(url: "https://specs.apollo.dev/inaccessible/v0.2", for: SECURITY)
+    {
+      query: Query
+    }
+
+    directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+    directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+    directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+    scalar join__FieldSet
+
+    enum join__Graph {
+      A @join__graph(name: "a", url: "http://a:4000/graphql")
+      B @join__graph(name: "b", url: "http://b:4000/graphql")
+    }
+
+    scalar link__Import
+
+    enum link__Purpose {
+      SECURITY
+
+      EXECUTION
+    }
+
+    type One
+      @join__type(graph: A, key: "id")
+      @join__type(graph: B, key: "id")
+    {
+      id: ID!
+      a: String @inaccessible @join__field(graph: A) @join__field(graph: B, external: true)
+      b: String @join__field(graph: B, requires: "a")
+    }
+
+    type Query
+      @join__type(graph: A)
+      @join__type(graph: B)
+    {
+      one: One @join__field(graph: A)
+    }
+    `
+    const supergraph = buildSchema(supergraphSdl);
+    const api = supergraph.toAPISchema();
+    const queryPlanner = new QueryPlanner(supergraph);
+
+    const operation = operationFromDocument(api, gql`
+      query Query {
+        one {
+          b
+        }
+      }
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "a") {
+          {
+            one {
+              __typename
+              id
+              a
+            }
+          }
+        },
+        Flatten(path: "one") {
+          Fetch(service: "b") {
+            {
+              ... on One {
+                __typename
+                id
+                a
+              }
+            } =>
+            {
+              ... on One {
+                b
+              }
+            }
+          },
+        },
+      },
+    }
+    `);
+  });
+});

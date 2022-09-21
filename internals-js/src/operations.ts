@@ -201,7 +201,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
     const selectionParent = selectionSet.parentType;
     const fieldParent = this.definition.parent;
-    if (selectionParent === fieldParent) {
+    if (selectionParent.name === fieldParent.name) {
       return this;
     }
 
