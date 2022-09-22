@@ -2566,6 +2566,82 @@ describe('@requires', () => {
       `);
     });
   });
+
+  it('can require @inaccessible fields', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          one: One
+          onlyIn1: Int
+        }
+
+        type One @key(fields: "id") {
+          id: ID!
+          a: String @inaccessible
+          onlyIn1: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Query {
+          onlyIn2: Int
+        }
+
+        type One @key(fields: "id") {
+          id: ID!
+          a: String @external
+          b: String @requires(fields: "a" )
+          onlyIn2: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        one {
+          b
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              one {
+                __typename
+                id
+                a
+              }
+            }
+          },
+          Flatten(path: "one") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on One {
+                  __typename
+                  id
+                  a
+                }
+              } =>
+              {
+                ... on One {
+                  b
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {

@@ -22,7 +22,6 @@ import {
   Selection,
   SelectionSet,
   selectionSetOf,
-  selectionSetOfPath,
   Type,
   Variable,
   VariableDefinition,
@@ -804,8 +803,8 @@ class FetchGroup {
     }
   }
 
-  addSelection(path: OperationPath) {
-    this._selection.forWrite().addPath(path);
+  addSelection(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
+    this._selection.forWrite().addPath(path, onPathEnd);
   }
 
   addSelections(selection: SelectionSet) {
@@ -930,7 +929,8 @@ class FetchGroup {
     if (path.length === 0) {
       selectionSet = merged.selection;
     } else {
-      selectionSet = selectionSetOfPath(path, (endOfPathSet) => {
+      selectionSet = new SelectionSet(this.selection.parentType);
+      selectionSet.addPath(path, (endOfPathSet) => {
         assert(endOfPathSet, () => `Merge path ${path} ends on a non-selectable type`);
         for (const selection of merged.selection.selections()) {
           const withoutUneededFragments = removeRedundantFragments(selection, endOfPathSet.parentType, mergePathConditionalDirectives);
@@ -3344,11 +3344,10 @@ function addPostRequireInputs(
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
-    const addedSelection = selectionSetOfPath(requirePath, (endOfPathSet) => {
+    preRequireGroup.addSelection(requirePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${requirePath} ends on a non-selectable type`);
       endOfPathSet.addAll(keyInputs.selections());
     });
-    preRequireGroup.addSelections(addedSelection);
   }
   return updatedPath;
 }

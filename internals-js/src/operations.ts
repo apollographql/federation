@@ -26,7 +26,6 @@ import {
   isInterfaceType,
   isLeafType,
   isNullableType,
-  isObjectType,
   isUnionType,
   ObjectType,
   runtimeTypesIntersects,
@@ -75,6 +74,9 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
     return mergeVariables(this.variablesInElement, this.variablesInAppliedDirectives());
   }
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   abstract updateForAddingTo(selection: SelectionSet): T;
 
   addAttachement(key: string, value: string) {
@@ -198,6 +200,9 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     }
   }
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
     const selectionParent = selectionSet.parentType;
     const fieldParent = this.definition.parent;
@@ -209,19 +214,16 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       return this.withUpdatedDefinition(selectionParent.typenameField()!);
     }
 
-    // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
-    // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
-    // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
-    // the supergraph interface, even if it does in the subgraph).
+    // There is 2 valid cases were we could get here:
+    //  1. either `selectionParent` and `fieldParent` are the same underlying type (same name) but from different underlying schema. Typically,
+    //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
+    //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
+    //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
+    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check. 
+    // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
     validate(
       selectionParent.name == fieldParent.name
-      || (
-        !isUnionType(selectionParent)
-        && (
-          (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name))
-          || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
-        )
-      ),
+      || (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name)),
       () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
     );
     const fieldDef = selectionParent.field(this.name);
@@ -301,6 +303,9 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return newFragment;
   }
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   updateForAddingTo(selectionSet: SelectionSet): FragmentElement {
     const selectionParent = selectionSet.parentType;
     const fragmentParent = this.parentType;
@@ -1112,7 +1117,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return toAdd;
   }
 
-  addPath(path: OperationPath) {
+  addPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
     let previousSelections: SelectionSet = this;
     let currentSelections: SelectionSet | undefined = this;
     for (const element of path) {
@@ -1120,6 +1125,9 @@ export class SelectionSet extends Freezable<SelectionSet> {
       const mergedSelection: Selection = currentSelections.add(selectionOfElement(element));
       previousSelections = currentSelections;
       currentSelections = mergedSelection.selectionSet;
+    }
+    if (onPathEnd) {
+      onPathEnd(currentSelections);
     }
   }
 
@@ -1382,19 +1390,6 @@ export function selectionOfElement(element: OperationElement, subSelection?: Sel
   return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection);
 }
 
-export function selectionSetOfPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void): SelectionSet {
-  validate(path.length > 0, () => `Cannot create a selection set from an empty path`);
-  const last = selectionSetOfElement(path[path.length - 1]);
-  let current = last;
-  for (let i = path.length - 2; i >= 0; i--) {
-    current = selectionSetOfElement(path[i], current);
-  }
-  if (onPathEnd) {
-    onPathEnd(last.selections()[0].selectionSet);
-  }
-  return current;
-}
-
 export type Selection = FieldSelection | FragmentSelection;
 
 export class FieldSelection extends Freezable<FieldSelection> {
@@ -1526,6 +1521,34 @@ export class FieldSelection extends Freezable<FieldSelection> {
     this.selectionSet?.validate();
   }
 
+  /**
+   * Returns a field selection "equivalent" to the one represented by this object, but such that:
+   *  1. its parent type is the exact one of the provided selection set (same type of same schema object).
+   *  2. it is not frozen (which might involve cloning).
+   *
+   * This method assumes that such a thing is possible, meaning that the parent type of the provided
+   * selection set does have a field that correspond to this selection (which can support any sub-selection).
+   * If that is not the case, an assertion will be thrown.
+   *
+   * Note that in the simple cases where this selection parent type is already the one of the provide
+   * `selectionSet`, then this method is mostly a no-op, except for the potential cloning if this selection
+   * is frozen. But this method mostly exists to make working with multiple "similar" schema easier.
+   * That is, `Selection` and `SelectionSet` are intrinsically linked to a particular `Schema` object since
+   * their underlying `OperationElement` points to fields and types of a particular `Schema`. And we want to
+   * make sure that _everything_ within a particular `SelectionSet` does link to the same `Schema` object,
+   * or things could get really confusing (nor would it make much sense; a selection set is that of a particular
+   * schema fundamentally). In many cases, when we work with a single schema (when we parse an operation string
+   * against a given schema for instance), this problem is moot, but as we do query planning for instance, we
+   * end up building queries over subgraphs _based_ on some selections from the supergraph API schema, and so
+   * we need to deal with the fact that the code can easily mix selection from different schema. One option
+   * could be to simply hard-reject such mixing, meaning that `SelectionSet.add(Selection)` could error out
+   * if the provided selection is not of the same schema of that of the selection set we add to, thus forcing
+   * the caller to first ensure the selection is properly "rebased" on the same schema. But this would be a
+   * bit inconvenient and so this this method instead provide a sort of "automatic rebasing": that is, it
+   * allows `this` selection not be of the same schema as the provided `selectionSet` as long as both are
+   * "compatible", and as long as it's the case, it return an equivalent selection that is suitable to be
+   * added to `selectionSet` (it's against the same fundamental schema).
+   */
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const updatedField = this.field.updateForAddingTo(selectionSet);
     if (this.field === updatedField) {
@@ -1650,6 +1673,9 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
 
   abstract withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FragmentSelection;
