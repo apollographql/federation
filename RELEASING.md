@@ -21,7 +21,7 @@ This is a quick and opinionated set of commands for building and releasing a new
 1. `echo "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?quick_pull=1&title=Release+$FEDERATION_RELEASE_VERSION&template=APOLLO_RELEASE_TEMPLATE.md"` and click the resulting link to open PR in Github
     - If `gh` is installed (the command-line tool for github), create a PR thusly:
       ```
-      gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md
+      gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/PULL_REQUEST_TEMPLATE/APOLLO_RELEASE_TEMPLATE.md
       ``` 
 1. Tag the commit to begin the publishing process[^publishing]
     - For alpha/beta/preview `APOLLO_DIST_TAG=next npm run release:start-ci-publish`

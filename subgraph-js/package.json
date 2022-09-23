@@ -1,6 +1,6 @@
 {
   "name": "@apollo/subgraph",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Apollo Subgraph Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
