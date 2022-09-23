@@ -21,10 +21,10 @@ graph TB;
 
 * **Subgraph schemas.** Each **subgraph** has a distinct schema that indicates _which_ types and fields of your composed **supergraph** it can resolve.
     * These are the only schemas that your teams define manually.
-* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific information that tells your gateway which subgraphs can resolve which fields.
+* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific information that tells your router which subgraphs can resolve which fields.
     * This schema is the result of performing [composition](./composition/) on your collection of subgraph schemas.
 * **API schema.** This schema is similar to the supergraph schema, but it _omits_ federation-specific types, fields, and directives that are considered "machinery" and are not part of your public API.
-    * This is the schema that your gateway exposes to clients, who don't need to know internal implementation details about your graph.
+    * This is the schema that your router exposes to clients, who don't need to know internal implementation details about your graph.
 
 Let's look at an example!
 
@@ -101,9 +101,9 @@ As these schemas show, multiple subgraphs can contribute unique fields to a sing
 
 The supergraph schema is the output of [schema composition](./composition/). It serves the following purposes:
 
-* It provides your gateway with the name and endpoint URL for each of your subgraphs.
+* It provides your router with the name and endpoint URL for each of your subgraphs.
 * It includes all types and fields defined by all of your subgraphs.
-* It tells your gateway which of your subgraphs can resolve which GraphQL fields.
+* It tells your router which of your subgraphs can resolve which GraphQL fields.
 
 Here's the supergraph schema composed with [the subgraph schemas above](#subgraph-schemas):
 
@@ -188,11 +188,11 @@ type User
 
 </ExpansionPanel>
 
-As you can see, the supergraph schema includes a lot of Federation-specific additions! These additions are used only by the gateway, and you'll never need to add them manually.
+As you can see, the supergraph schema includes a lot of Federation-specific additions! These additions are used only by the router, and you'll never need to add them manually.
 
 ## API schema
 
-The gateway uses its [supergraph schema](#supergraph-schema) to produce an **API schema**, which it exposes to clients as your actual GraphQL API. This schema cleanly and logically represents the combination of your [subgraph schemas](#subgraph-schemas):
+The router uses its [supergraph schema](#supergraph-schema) to produce an **API schema**, which it exposes to clients as your actual GraphQL API. This schema cleanly and logically represents the combination of your [subgraph schemas](#subgraph-schemas):
 
 ```graphql
 type Product {

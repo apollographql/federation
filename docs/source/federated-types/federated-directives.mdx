@@ -224,7 +224,7 @@ See also [Value types in Apollo Federation](./sharing-types/) and [Resolving ano
 directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 ```
 
-Indicates that a definition in the subgraph schema should be _omitted_ from the gateway's [API schema](./overview/#api-schema), _even if that definition is also present in other subgraphs_. This means that the field is not exposed to clients at all.
+Indicates that a definition in the subgraph schema should be _omitted_ from the router's [API schema](./overview/#api-schema), _even if that definition is also present in other subgraphs_. This means that the field is not exposed to clients at all.
 
 Common use cases for `@inaccessible` include:
 
@@ -497,7 +497,7 @@ Examples:
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 ```
 
-Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/studio/contracts/) uses `@tag` to define inclusion and exclusion filters.
+Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/studio/contracts/) uses `@tag` with its inclusion and exclusion filters.
 
 > ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
 >
