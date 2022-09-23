@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix building subgraph selections using the wrong underlying schema [PR #2155](https://github.com/apollographql/federation/pull/2155).
+
 ## 2.1.2
 
 - Allow fields with arguments in `@requires` [PR #2120](https://github.com/apollographql/federation/pull/2120).
