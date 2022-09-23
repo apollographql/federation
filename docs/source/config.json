@@ -28,7 +28,7 @@
     "Building Your Supergraph": {
       "Subgraphs in Apollo Server": "/subgraphs",
       "Other subgraph libraries": "/supported-subgraphs",
-      "The graph router/gateway": "/gateway"
+      "The graph router/gateway": "/router"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
