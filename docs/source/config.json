@@ -25,10 +25,10 @@
       "3️⃣ Local composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
-    "Implementing a Supergraph": {
+    "Building Your Supergraph": {
       "Subgraphs in Apollo Server": "/subgraphs",
       "Other subgraph libraries": "/supported-subgraphs",
-      "Graph router/gateway": "/gateway"
+      "The graph router/gateway": "/router"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",

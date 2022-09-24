@@ -35,7 +35,7 @@ To learn how to install Rover and use this command, see the [quickstart](../quic
 
 ### Automatically with managed federation
 
-With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its registered schema. This enables your running graph router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
+With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its published schema. This enables your running graph router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
 
 ```mermaid
 graph LR;
@@ -67,13 +67,13 @@ For example, take a look at these two subgraph schemas:
 <CodeColumns>
 
 ```graphql {2} title="Subgraph A"
-type Event {
+type Event @shareable {
   timestamp: String!
 }
 ```
 
 ```graphql {2} title="Subgraph B"
-type Event {
+type Event @shareable {
   timestamp: Int!
 }
 ```

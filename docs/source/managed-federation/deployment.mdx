@@ -24,7 +24,7 @@ Whenever possible, you should update your subgraph configuration in a way that i
 
 Additionally, **call `rover subgraph publish` for a subgraph only after all replicas of that subgraph are deployed**. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
 
-In the rare case where a configuration change is _not_ backward compatible with your gateway's query planner, you should update your registered subgraph schemas _before_ you deploy your updated code.
+In the rare case where a configuration change is _not_ backward compatible with your router's query planner, you should update your registered subgraph schemas _before_ you deploy your updated code.
 
 You should also perform configuration updates that affect query planning prior to (and separately from) other changes. This helps avoid a scenario where the query planner generates queries that fail validation in downstream services or violate your resolvers.
 
@@ -33,7 +33,7 @@ Examples of this include:
 - Modifying `@key`, `@requires`, or `@provides` directives
 - Removing a type implementation from an interface
 
-In general, always exercise caution when pushing configuration changes that affect your gateway's query planner, and consider how those changes will affect your other subgraphs.
+In general, always exercise caution when pushing configuration changes that affect your router's query planner, and consider how those changes will affect your other subgraphs.
 
 ### Example scenario
 
@@ -101,7 +101,7 @@ query {
 }
 ```
 
-Currently, the gateway expands all interfaces into implementing types.
+Currently, the router expands all interfaces into implementing types.
 
 ## Removing a subgraph
 
@@ -113,13 +113,13 @@ To "de-register" a subgraph with Apollo, call `rover subgraph delete`:
 rover subgraph delete my-supergraph@my-variant --name accounts
 ```
 
-The next time it starts up or polls, your gateway obtains an updated configuration that reflects the removed subgraph.
+The next time it starts up or polls, your router obtains an updated configuration that reflects the removed subgraph.
 
 ## Using variants to control rollout
 
-With managed federation, you can control which version of your graph a fleet of gateways are using. In the majority of cases, rolling over all of your gateway instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
+With managed federation, you can control which version of your graph a fleet of routers are using. In the majority of cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
 
-However, changes at the gateway level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](https://www.apollographql.com/docs/studio/schema/registry/#registering-a-schema-to-a-variant) to manage different fleets of gateways running with different configurations.
+However, changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](/studio/schema/registry/#registering-a-schema-to-a-variant) to manage different fleets of gateways running with different configurations.
 
 ### Example
 
@@ -131,14 +131,14 @@ To configure a canary deployment, you might maintain two production graph varian
    rover subgraph check my-supergraph@prod-canary --name launches --schema ./launches/schema.graphql
    ```
 2. Deploy your changes to the `launches` subgraph in your production environment, _without_ running `rover subgraph publish`.
-    * _This ensures that your production gateway's configuration is not updated yet._
+    * _This ensures that your production router's configuration is not updated yet._
 3. Update your `prod-canary` variant's registered schema, by running:
     ```
     rover subgraph publish my-supergraph@prod-canary --name launches --schema ./launches/schema.graphql
     ```
-    * _If composition fails due to intermediate changes to the canary graph, the canary gateway's configuration will not be updated._
+    * _If composition fails due to intermediate changes to the canary graph, the canary router's configuration will not be updated._
 4. Wait for health checks to pass against the canary and confirm that operation metrics appear as expected.
-5. After the canary is stable, roll out the changes to your production gateways:
+5. After the canary is stable, roll out the changes to your production routers:
     ```
     rover subgraph publish my-supergraph@prod --name=launches --schema ./launches/schema.graphql
     ```
@@ -206,13 +206,13 @@ With this atomic strategy, the query planner resolves all outstanding requests t
 
 ## Reliability and security
 
-Your gateway fetches its configuration by polling Apollo Uplink, an Apollo-hosted endpoint specifically for serving supergraph configs. In the event that your updated config is inaccessible due to an outage in Uplink, your gateway continues to serve its most recently fetched configuration.
+Your router fetches its configuration by polling Apollo Uplink, an Apollo-hosted endpoint specifically for serving supergraph configs. In the event that your updated config is inaccessible due to an outage in Uplink, your router continues to serve its most recently fetched configuration.
 
-If you restart a gateway instance or spin up a _new_ instance during an Uplink outage, that instance can't fetch its configuration until Apollo resolves the outage.
+If you restart a router instance or spin up a _new_ instance during an Uplink outage, that instance can't fetch its configuration until Apollo resolves the outage.
 
 ## The `subgraph publish` lifecycle
 
-Whenever you call `rover subgraph publish` for a particular subgraph, it both updates that subgraph's registered schema and updates the gateway's managed configuration.
+Whenever you call `rover subgraph publish` for a particular subgraph, it both updates that subgraph's registered schema and updates the router's managed configuration.
 
 Because your graph is dynamically changing and multiple subgraphs might be updated simultaneously, it's possible for changes to cause composition errors, even if `rover subgraph check` was successful. For this reason, updating a subgraph re-triggers composition in the cloud, ensuring that all subgraphs still compose to form a complete supergraph before updating the configuration. The workflow behind the scenes can be summed up as follows:
 
@@ -222,9 +222,9 @@ Because your graph is dynamically changing and multiple subgraphs might be updat
 4. If composition fails, the command exits and emits errors.
 5. If composition succeeds, Apollo Uplink begins serving the updated supergraph schema.
 
-On the other side of the equation sits the gateway. The gateway regularly polls Apollo Uplink for changes to its configuration. The lifecycle of dynamic configuration updates is as follows:
+On the other side of the equation sits the router. The router regularly polls Apollo Uplink for changes to its configuration. The lifecycle of dynamic configuration updates is as follows:
 
-1. The gateway polls for updates to its configuration.
-2. On update, the gateway downloads the updated configuration, including the new supergraph schema.
-3. The gateway uses the new supergraph schema to update its query planning logic.
-4. The gateway continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.
+1. The router polls for updates to its configuration.
+2. On update, the router downloads the updated configuration, including the new supergraph schema.
+3. The router uses the new supergraph schema to update its query planning logic.
+4. The router continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.
