@@ -9,7 +9,7 @@ Apollo Federation supports sending **federated traces** from your graph router, 
 
 1. The router receives an operation from a client.
 2. The router constructs a query plan for the operation, delegating sub-queries to subgraphs.
-3. For each [fetch](./subgraph-spec/#fetch-service-capabilities) to a subgraph, a response is received.
+3. For each fetch to a subgraph, a response is received.
 4. The [`extensions`](/resources/graphql-glossary/#extensions) of each response includes a trace from the sub-query.
 5. The router collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
 6. The federated trace is sent to the Apollo [metrics ingress](/studio/metrics/usage-reporting/) for processing.

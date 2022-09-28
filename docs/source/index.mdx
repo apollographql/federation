@@ -125,10 +125,12 @@ graph BT;
   class clients secondary;
 ```
 
-* The router is one of the following:
-    * [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
-    * An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
-* Subgraphs can run Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library, _or_ they can run any other [subgraph-compatible GraphQL server](./supported-subgraphs/). Different subgraphs in the same supergraph can even use different server libraries.
+- The router is one of the following:
+    - [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
+    - An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
+- Subgraphs can each run any [subgraph-compatible GraphQL server](./building-supergraphs/supported-subgraphs/).
+    - This includes Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library. 
+    - Different subgraphs in the same supergraph can even use different server libraries.
 
 
 ## Benefits of federation
