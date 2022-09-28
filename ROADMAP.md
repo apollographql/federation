@@ -16,10 +16,10 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 ## Table of Contents
 
 * [What's next](#whats-next)
-  * [Next Release](#next-release)
   * [Under Consideration](#under-consideration)
 
 * [Released](#released)
+  * [Federation 2.1](#federation-21)
   * [Federation 2 GA](#federation-2-ga)
   * [Federation 2 Preview](#federation-2-preview)
   * [Federation 2 Alpha](#federation-2-alpha)
@@ -29,27 +29,23 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 
 ## What's Next
 
-### Next Release
-
-* `@tag` export to API schema
-* Compose user-defined directives in subgraphs
-
 ### Under Consideration
 
-* `@defer` support in query planning
-* Subscriptions support in query planning
+* Ability to add fields to one subgraph at a time, allowing those fields to be immediately usable by clients. 
+* Subscriptions support in query planning.
 * Entity interfaces can be spread across multiple subgraphs & interface queries with `@interfaceObject` helper.
 * Harmonizing shared value types across subgraphs to a canonical desired state.
-* Advanced caching, auth, demand control, rate limiting, governance, and more!
+* Advanced caching, auth, demand control, rate limiting, governance, and more.
 * Importing shared types into subgraph schemas, to keep things more DRY.
 * Nested `@provides` support beyond what Fed 2 already supports natively.
-* Process subgraph and supergraph schemas with a new [core-schema-js](https://github.com/apollographql/core-schema-js) library.
-* Expanded use of [core schemas](https://github.com/apollographql/core-schema-js) to compose your own directives in subgraphs.
-* Type merging that can be relaxed even further with `@default` - [#1187](https://github.com/apollographql/federation/issues/1187)
-* Lots more!
 
 
 ## Released
+
+### Federation 2.1
+
+* Entity-based [`@defer` support](https://www.apollographql.com/docs/router/executing-operations/defer-support/) in query planning  (in [Preview](https://www.apollographql.com/docs/resources/product-launch-stages/)). 
+* Added [@composeDirective](https://www.apollographql.com/docs/federation/federated-types/federated-directives/#composedirective) to specify directives that should be merged to the supergraph during composition.
 
 ### Federation 2 GA
 
