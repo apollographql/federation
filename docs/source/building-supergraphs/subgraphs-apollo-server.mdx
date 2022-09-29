@@ -2,15 +2,13 @@
 title: Implementing a subgraph with Apollo Server
 ---
 
-import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-
 This article demonstrates how to create a **subgraph** for a federated supergraph using Node.js and Apollo Server.
 
-> To create a subgraph using a different language and/or framework, see the list of [Federation-compatible subgraph implementations](./supported-subgraphs/). Note that not all listed libraries provide full support for Federation features.
+> To create a subgraph using a different language and/or framework, see the list of [Federation-compatible subgraph implementations](./supported-subgraphs/). Note that not all listed libraries support _all_ Federation features.
 
 ## Defining a subgraph
 
-> To be part of a supergraph, a subgraph must conform to the [Apollo Federation subgraph specification](./subgraph-spec/), which exposes the subgraph's capabilities to your graph router, as well as to tools like Apollo Studio.
+> To be part of a supergraph, a subgraph must conform to the [Apollo Federation subgraph specification](../subgraph-spec/), which exposes the subgraph's capabilities to your graph router, as well as to tools like Apollo Studio.
 
 Converting an existing monolithic graph into a single subgraph is a convenient first step in building a federated supergraph. To start, here's a *non-federated* Apollo Server setup:
 
@@ -66,7 +64,7 @@ const { buildSubgraphSchema } = require('@apollo/subgraph');
 
 ### 2. Opt in to Federation 2
 
-For a subgraph to use [new features in Federation 2](./federation-2/new-in-federation-2/), its schema needs to include the following `extend schema` definition:
+For a subgraph to use [new features in Federation 2](../federation-2/new-in-federation-2/), its schema needs to include the following `extend schema` definition:
 
 ```js {2-4}
 const typeDefs = gql`
@@ -87,13 +85,13 @@ extend schema
 
 This definition enables the schema to use Federation 2 features. Without it, Federation 2 composition assumes that a subgraph is using Federation 1, which sets certain defaults for backward compatibility.
 
-> As you begin using more [federation-specific directives](./federated-types/federated-directives) beyond `@key` and `@shareable`, you'll need to add those directives to the `import` array shown above.
+> As you begin using more [federation-specific directives](../federated-types/federated-directives) beyond `@key` and `@shareable`, you'll need to add those directives to the `import` array shown above.
 
 ### 3. Define an entity
 
 > Entities aren't _required_ in a subgraph, but they're a core building block of a federated supergraph, so it's good to get some practice defining them.
 
-As part of our federated architecture, we want _other_ subgraphs to be able to contribute fields to the `User` type. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
+As part of our federated architecture, we want _other_ subgraphs to be able to contribute fields to the `User` type. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](../entities/):
 
 ```js {10} title="index.js"
 const typeDefs = gql`
@@ -133,7 +131,7 @@ const resolvers = {
 
 (This example requires defining the `fetchUserById` function to obtain the appropriate `User` from our backing data store.)
 
-> [Learn more about entities.](./entities/)
+> [Learn more about entities.](../entities/)
 
 ### 4. Generate the subgraph schema
 
@@ -195,96 +193,6 @@ server.listen(4001).then(({ url }) => {
     console.log(`🚀 Server ready at ${url}`);
 });
 ```
-
-## Securing your subgraphs
-
-Because of the power and flexibility of the [`Query._entities` and `Query._service` fields](#subgraph-specific-fields), your subgraphs should **not** be directly accessible by clients. Instead, only your graph router should have access to your subgraphs. Clients then communicate with the router:
-
-<FederationArchitecture />
-
-Make sure to implement any necessary firewall rules, access control lists, or other measures to ensure that individual subgraphs can be accessed _only_ via the router.
-
-### Disabling CORS
-
-We recommend that subgraphs do not enable CORS (or at least do not use the wildcard `access-control-allow-origin: *` header). This prevents attackers from exploiting a user's browser to access a subgraph directly.
-
-For Apollo Server subgraphs, you need to disable the default wildcard CORS policy (which is appropriate for many publicly-exposed servers but not for inaccessible servers like subgraphs). For details, see the [Apollo Server CORS documentation](/apollo-server/security/cors/#choosing-cors-options-for-your-project).
-
-## Subgraph-specific fields
-
-When you [generate your subgraph schema](#4-generate-the-subgraph-schema), some federation-specific definitions are automatically added to it. In addition to directive definitions like `@key`, the most useful of these definitions for debugging are two fields of the `Query` type: `_service` and `_entities`:
-
-```graphql
-type Query {
-  # ...your field definitions...
-
-  # Added automatically
-  _service: _Service!
-  _entities(representations: [_Any!]!): [_Entity]!
-}
-```
-
-### `Query._service`
-
-This field returns a `_Service` object with one field of its own: `sdl`. You can query it like so:
-
-```graphql
-query GetSubgraphSchema {
-  _service {
-    sdl
-  }
-}
-```
-
-The `sdl` field returns your subgraph's schema as an SDL string. This field has a couple of important differences from a standard [introspection query](https://graphql.org/learn/introspection/) that a tool like Apollo Sandbox uses:
-
-* Unlike introspection, the `sdl` field is _not_ disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
-* Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.
-
-### `Query._entities`
-
-> [Learn about entities](./entities/) if you haven't yet.
-
-This field takes a list of **entity representations** and returns a list of corresponding entities.
-
-> Whenever one subgraph references _another_ subgraph's entity, it uses an **entity representation** to do so. An entity representation is an object that includes _only_ the entity's `__typename` and the fields in the entity's `@key`.
-
-```graphql
-_entities(representations: [_Any!]!): [_Entity]!
-```
-
-* The `_Any` type is a special scalar that enables you to provide entity representations of any valid shape.
-* The `_Entity` type is a generated [union type](https://www.apollographql.com/docs/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
-
-You can query this field like so, providing a value for the `$representations` variable as shown:
-
-```graphql title="Query"
-query ($representations: [_Any!]!) {
-  _entities(representations: $representations) {
-    ... on User {
-      id
-      username
-    }
-  }
-}
-```
-
-```json title="Variable"
-{
-  "representations": [
-    {
-      "__typename": "User",
-      "id": "5"
-    }
-  ]
-}
-```
-
-#### Using in tests and debugging
-
-If you're writing integration tests for your subgraph, you can test the return value of the `_entities` field for various entity representations that your _other_ subgraphs use.
-
-If you're developing your subgraph in your local environment, you can [mock the return value](https://www.apollographql.com/docs/apollo-server/testing/mocking/) of the `_entities` field for your _other_ subgraphs so you don't have to connect those subgraphs to their respective data stores.
 
 ## Custom directives in subgraphs
 
@@ -382,4 +290,4 @@ const server = new ApolloServer({
 });
 ```
 
-Also make sure to read about the [gateway's support for custom directives](./gateway/#custom-directive-support).
+Also make sure to read about the [gateway's support for custom directives](./router/#custom-directive-support).

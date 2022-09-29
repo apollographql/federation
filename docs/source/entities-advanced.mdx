@@ -272,7 +272,7 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 <ExpansionPanel title="With IntrospectAndCompose">
 
-> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](./gateway/#limitations-of-introspectandcompose).
+> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](./building-supergraphs/router/#limitations-of-introspectandcompose).
 
 When you provide `IntrospectAndCompose` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
 

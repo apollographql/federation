@@ -5,7 +5,7 @@ description: The entry point to your federated supergraph
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
 
-After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **graph router** (also known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
+After you set up at least one federation-ready [subgraph](./subgraphs-overview/), you can configure a **graph router** (also known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
 
 <FederationArchitecture />
 
@@ -15,7 +15,7 @@ Apollo actively supports two options for your graph router:
 
 * **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
     * [Go to the Apollo Router docs.](/router/quickstart/)
-    * [See the federation quickstart](./quickstart/setup/) (which uses the Apollo Router).
+    * [See the federation quickstart](../quickstart/setup/) (which uses the Apollo Router).
 * **Apollo Server:** Apollo Server can act as your graph router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
 
 **We recommend starting with the Apollo Router.** It's faster to configure, it's more performant (especially with high request loads), and it rarely requires writing custom code.
@@ -40,7 +40,7 @@ Create a new Node.js project with `npm init`, then install the necessary package
 npm install @apollo/gateway apollo-server graphql
 ```
 
-The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a graph router, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
+The `@apollo/gateway` package includes the [`ApolloGateway` class](../api/apollo-gateway/). To configure Apollo Server to act as a graph router, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
 ```js {7-11,13-16} title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
@@ -67,11 +67,11 @@ server.listen().then(({ url }) => {
 
 ### Composing the supergraph schema
 
-In the above example, we provide the `supergraphSdl` option to the `ApolloGateway` constructor. This is the string representation of our [supergraph schema](./federated-types/overview/#supergraph-schema), which is composed from all of our subgraph schemas.
+In the above example, we provide the `supergraphSdl` option to the `ApolloGateway` constructor. This is the string representation of our [supergraph schema](../federated-types/overview/#supergraph-schema), which is composed from all of our subgraph schemas.
 
-To learn how to compose your supergraph schema, see [Supported methods](./federated-types/composition/#supported-methods).
+To learn how to compose your supergraph schema, see [Supported methods](../federated-types/composition/#supported-methods).
 
-> In production, we strongly recommend running the gateway in a **managed mode** with Apollo Studio, which enables your gateway to update its configuration without a restart. For details, see [Setting up managed federation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
+> In production, we strongly recommend running the gateway in a **managed mode** with Apollo Studio, which enables your gateway to update its configuration without a restart. For details, see [Setting up managed federation](/studio/managed-federation/setup/).
 
 On startup, the gateway processes your `supergraphSdl`, which includes routing information for your subgraphs. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
 
@@ -199,7 +199,7 @@ Each item in the `subgraphs` array is an object that specifies the `name` and `u
 
 On startup, the gateway fetches each subgraph's schema from its `url` and composes those schemas into a supergraph schema. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
 
-Additional configuration options can be found in the [`IntrospectAndCompose` API documentation](./api/apollo-gateway#class-introspectandcompose).
+Additional configuration options can be found in the [`IntrospectAndCompose` API documentation](../api/apollo-gateway#class-introspectandcompose).
 
 However, `IntrospectAndCompose` has important [limitations](#limitations-of-introspectandcompose).
 
@@ -207,7 +207,7 @@ However, `IntrospectAndCompose` has important [limitations](#limitations-of-intr
 
 The `IntrospectAndCompose` option can sometimes be helpful for local development, but it's strongly discouraged for any other environment. Here are some reasons why:
 
-* **Composition might fail.** With `IntrospectAndCompose`, your gateway performs composition dynamically on startup, which requires network communication with each subgraph. If composition fails, your gateway [throws errors](./errors/) and experiences unplanned downtime.
+* **Composition might fail.** With `IntrospectAndCompose`, your gateway performs composition dynamically on startup, which requires network communication with each subgraph. If composition fails, your gateway [throws errors](../errors/) and experiences unplanned downtime.
     * With the static or dynamic `supergraphSdl` configuration, you instead provide a supergraph schema that has _already_ been composed successfully. This prevents composition errors and enables faster startup.
 * **Gateway instances might differ.** If you deploy multiple instances of your gateway _while_ deploying updates to your subgraphs, your gateway instances might fetch different schemas from the _same_ subgraph. This can result in sporadic composition failures or inconsistent supergraph schemas between instances.
     * When you deploy multiple instances with `supergraphSdl`, you provide the exact same static artifact to each instance, enabling more predictable behavior.
@@ -387,11 +387,11 @@ server.listen().then(({ url }) => {
 
 > In this example, multiple calls to `didReceiveResponse` are `push`ing a value onto the shared `context.serverIds` array. The order of these calls cannot be guaranteed. If you write logic that modifies the shared `context` object, make sure that modifications are not destructive, and that the order of modifications doesn't matter.
 
-To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](./api/apollo-gateway/).
+To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](../api/apollo-gateway/).
 
 ## Custom directive support
 
-The `@apollo/gateway` library supports the use of custom [directives](https://www.apollographql.com/docs/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
+The `@apollo/gateway` library supports the use of custom [directives](/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
 
 ### Type system directives
 
@@ -410,7 +410,7 @@ type ExampleType {
 }
 ```
 
-The gateway strips all definitions _and_ uses of type system directives from your graph's [API schema](./federated-types/overview/#api-schema). This has no effect on your subgraph schemas, which retain this information.
+The gateway strips all definitions _and_ uses of type system directives from your graph's [API schema](../federated-types/overview/#api-schema). This has no effect on your subgraph schemas, which retain this information.
 
 Effectively, the gateway supports type system directives by _ignoring_ them, making them the responsibility of the subgraphs that define them.
 

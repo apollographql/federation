@@ -2,7 +2,7 @@
 title: Composition hints
 ---
 
-When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./subgraphs/) into a supergraph schema, the composition process might output **hints** that provide additional information about the result. Hints are primarily informative and _do not_ necessarily indicate that a problem needs to be fixed.
+When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, the composition process might output **hints** that provide additional information about the result. Hints are primarily informative and _do not_ necessarily indicate that a problem needs to be fixed.
 
 Hints are categorized under the following levels:
 

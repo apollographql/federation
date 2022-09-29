@@ -3,13 +3,13 @@ title: Deploying with managed federation
 description: Best practices
 ---
 
-When rolling out changes to a [subgraph](../subgraphs/), we recommend the following workflow:
+When rolling out changes to a [subgraph](../building-supergraphs/subgraphs-overview/), we recommend the following workflow:
 
-1. Confirm the backward compatibility of each change by [running `rover subgraph check`](https://www.apollographql.com/docs/rover/subgraphs/#checking-subgraph-schema-changes) in your CI pipeline.
+1. Confirm the backward compatibility of each change by [running `rover subgraph check`](/rover/subgraphs/#checking-subgraph-schema-changes) in your CI pipeline.
 2. Merge backward compatible changes that successfully pass schema checks.
 3. Deploy changes to the subgraph in your infrastructure.
 4. Wait until all replicas finish deploying.
-5. Run [`rover subgraph publish`](https://www.apollographql.com/docs/rover/subgraphs/#publishing-a-subgraph-schema-to-apollo-studio) to update your managed federation configuration:
+5. Run [`rover subgraph publish`](/rover/subgraphs/#publishing-a-subgraph-schema-to-apollo-studio) to update your managed federation configuration:
 
 ```bash
 rover subgraph publish my-supergraph@my-variant \
@@ -20,7 +20,7 @@ rover subgraph publish my-supergraph@my-variant \
 
 ## Pushing configuration updates safely
 
-Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. As suggested above, the best way to do this is to run `rover subgraph check` before updating. You should also generally seek to minimize the number of [breaking changes](https://www.apollographql.com/docs/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
+Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. As suggested above, the best way to do this is to run `rover subgraph check` before updating. You should also generally seek to minimize the number of [breaking changes](/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
 
 Additionally, **call `rover subgraph publish` for a subgraph only after all replicas of that subgraph are deployed**. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
 
@@ -143,7 +143,7 @@ To configure a canary deployment, you might maintain two production graph varian
     rover subgraph publish my-supergraph@prod --name=launches --schema ./launches/schema.graphql
     ```
 
-If you [associate metrics with variants](https://www.apollographql.com/docs/studio/schema/registry/#associating-metrics-with-a-variant) as well, you can use [Apollo Studio](https://studio.apollographql.com) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
+If you [associate metrics with variants](/studio/schema/registry/#associating-metrics-with-a-variant) as well, you can use [Apollo Studio](https://studio.apollographql.com) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
 
 ## Modifying query-planning logic
 
