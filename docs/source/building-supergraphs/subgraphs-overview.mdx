@@ -54,7 +54,7 @@ For Apollo Server subgraphs, you need to disable the default wildcard CORS polic
 
 ## Subgraph-specific fields
 
-When you [generate your subgraph schema](#4-generate-the-subgraph-schema), some federation-specific definitions are automatically added to it. In addition to directive definitions like `@key`, the most useful of these definitions for debugging are two fields of the `Query` type: `_service` and `_entities`:
+Subgraph-compatible server libraries automatically add some federation-specific definitions to your subgraph schema. In addition to directive definitions like `@key`, the most useful of these definitions for debugging are two fields of the `Query` type: `_service` and `_entities`:
 
 ```graphql
 type Query {
