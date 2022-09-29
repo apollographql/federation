@@ -31,13 +31,12 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 
 ### Under Consideration
 
-* Ability to add fields to one subgraph at a time, allowing those fields to be immediately usable by clients. 
+* Ability to add value type fields to one subgraph at a time, allowing those fields to be immediately usable by clients. 
 * Subscriptions support in query planning.
 * Entity interfaces can be spread across multiple subgraphs & interface queries with `@interfaceObject` helper.
 * Harmonizing shared value types across subgraphs to a canonical desired state.
 * Advanced caching, auth, demand control, rate limiting, governance, and more.
 * Importing shared types into subgraph schemas, to keep things more DRY.
-* Nested `@provides` support beyond what Fed 2 already supports natively.
 
 
 ## Released
