@@ -26,9 +26,10 @@
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
     "Building Your Supergraph": {
-      "Subgraphs in Apollo Server": "/subgraphs",
-      "Other subgraph libraries": "/supported-subgraphs",
-      "The graph router/gateway": "/router"
+      "Subgraphs": "/building-supergraphs/subgraphs-overview",
+      "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
+      "Router/gateway": "/building-supergraphs/router",
+      "Apollo Server subgraphs": "/building-supergraphs/subgraphs-apollo-server"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
