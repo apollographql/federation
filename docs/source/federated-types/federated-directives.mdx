@@ -563,7 +563,7 @@ type Employee implements User @tag(name: "team-admin") {
 
 ### `@composeDirective`
 
-> ⚠️ **Important:** This feature is currently available only in Rover and the open-source Federation libraries. Studio support is coming soon.
+> ⚠️ **Important:** This feature is currently available only in Rover and select open-source subgraph libraries like `@apollo/subgraph` which is used in the [JavaScript/TypeScript subgraph libraries](../building-supergraphs/supported-subgraphs#javascript--typescript). In many subgraph libraries you can manually add the `@composeDirective` definition below to your subgraph schema to enable support. Studio support is coming soon.
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
@@ -587,6 +587,7 @@ directive @hello on FIELD_DEFINITION
 
 This directive has the following requirements:
 
+  - Ensure your [subgraph library](../building-supergraphs/supported-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
   - The directive to preserve must be defined and imported from a core specification via the `@link` directive.
   - The specified directive `name` must match the name used for the directive _in this subgraph_.
       - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the _modified_ name, not the default name.
