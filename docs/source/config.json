@@ -14,7 +14,7 @@
     "Introduction": "/",
     "Federation 2 Updates": {
       "☀️ New in Federation 2": "/federation-2/new-in-federation-2",
-      "🚚 Moving your graph": "/federation-2/moving-to-federation-2",
+      "🚚 Moving from Federation 1": "/federation-2/moving-to-federation-2",
       "⬅️ Backward compatibility": "/federation-2/backward-compatibility",
       "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
       "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md"

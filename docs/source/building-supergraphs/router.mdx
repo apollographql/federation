@@ -11,12 +11,17 @@ After you set up at least one federation-ready [subgraph](./subgraphs-overview/)
 
 ## Choosing a router library
 
-Apollo actively supports two options for your graph router:
+Apollo actively supports the following options for your graph router:
 
-* **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
-    * [Go to the Apollo Router docs.](/router/quickstart/)
-    * [See the federation quickstart](../quickstart/setup/) (which uses the Apollo Router).
-* **Apollo Server:** Apollo Server can act as your graph router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
+- **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
+
+    If you're getting started with federation, we recommend [creating a **cloud supergraph**](/studio/getting-started) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages Apollo Router instances for you!
+
+    You can also host your own Apollo Router instances:
+
+    - [Go to the Apollo Router docs.](/router/quickstart/)
+    - [See the federation quickstart](../quickstart/setup/) (which uses the Apollo Router).
+- **Apollo Server:** Apollo Server can act as your graph router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
 
 **We recommend starting with the Apollo Router.** It's faster to configure, it's more performant (especially with high request loads), and it rarely requires writing custom code.
 
@@ -71,7 +76,7 @@ In the above example, we provide the `supergraphSdl` option to the `ApolloGatewa
 
 To learn how to compose your supergraph schema, see [Supported methods](../federated-types/composition/#supported-methods).
 
-> In production, we strongly recommend running the gateway in a **managed mode** with Apollo Studio, which enables your gateway to update its configuration without a restart. For details, see [Setting up managed federation](/studio/managed-federation/setup/).
+> In production, we strongly recommend running the gateway in a **managed mode** with Apollo Studio, which enables your gateway to update its configuration without a restart. For details, see [Setting up managed federation](../managed-federation/setup/).
 
 On startup, the gateway processes your `supergraphSdl`, which includes routing information for your subgraphs. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
 
