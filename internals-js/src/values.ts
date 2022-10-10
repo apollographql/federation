@@ -162,7 +162,12 @@ function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean
     // Beware of false-negative due to getting undefined because the property is not
     // in args2.
     if (v2 === undefined) {
-      return v1 === undefined && b.hasOwnProperty(key);
+      // if objects were created with Object.create(null), they will not have
+      // a hasOwnProperty function, which makes it impossible to tell if
+      // the property is there explicitly or not
+      if (v1 === undefined && b.hasOwnProperty && !b.hasOwnProperty(key)) {
+        return false;
+      }
     }
     if (!valueEquals(v1, v2)) {
       return false;
@@ -743,4 +748,3 @@ function collectVariables(value: any, variables: Variable[]) {
     Object.keys(value).forEach(k => collectVariables(value[k], variables));
   }
 }
-
