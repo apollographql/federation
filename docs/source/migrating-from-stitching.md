@@ -44,7 +44,7 @@ npm install @apollo/subgraph
 Then use the `buildSubgraphSchema` function to augment your schema with fields that are necessary for federation support:
 
 ```js
-const { ApolloServer } = require('apollo-server');
+const { ApolloServer } = require('@apollo/server');
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 
 const server = new ApolloServer({
