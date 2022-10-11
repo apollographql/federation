@@ -28,8 +28,7 @@ These options will cause the Apollo gateway to collect tracing information from 
 
 > **Note:** This section explains how your router communicates with subgraphs around encoded tracing information. It is not necessary to understand in order to enable federated tracing.
 
-<!-- TODO(AS4) update link below -->
-Your router inspects the `extensions` field of all subgraph responses for the presence of an `ftv1` field. This field contains a representation of the tracing information for the sub-query that was executed against the subgraph, sent as the Base64 encoding of the [protobuf representation](https://github.com/apollographql/apollo-server/blob/version-4/packages/usage-reporting-protobuf/src/reports.proto) of the trace.
+Your router inspects the `extensions` field of all subgraph responses for the presence of an `ftv1` field. This field contains a representation of the tracing information for the sub-query that was executed against the subgraph, sent as the Base64 encoding of the [protobuf representation](https://github.com/apollographql/apollo-server/blob/main/packages/usage-reporting-protobuf/src/reports.proto) of the trace.
 
 To request this information of a subgraph, the router sends the header pair `'apollo-federation-include-trace': 'ftv1'` on fetches if configured to collect metrics, as per above. By default, a federated Apollo Server subgraph recognizes this header pair and attaches tracing information in extensions of the response.
 
