@@ -41,7 +41,7 @@ The field-level statistics that Apollo aggregates from these traces are collecte
 
 ## How errors work
 
-The Apollo Platform provides functionality to modify error details for the client, via the [`formatError`](/apollo-server/data/errors) option. Additionally, there is functionality to support modifying error details for the metrics ingress, via the [`sendErrors`](/apollo-server/data/errors#for-apollo-studio-reporting) option to the [inline trace plugin](/apollo-server/api/plugin/inline-trace/).
+The Apollo Platform provides functionality to modify error details for the client, via the [`formatError`](/apollo-server/data/errors#for-client-responses) option. Additionally, there is functionality to support modifying error details for the metrics ingress, via the [`sendErrors`](/apollo-server/data/errors#for-apollo-studio-reporting) option to the [inline trace plugin](/apollo-server/api/plugin/inline-trace/).
 
 When modifying errors for the client, you might want to use this option to hide implementation details, like database errors, from your users. When modifying errors for reporting, you might want to obfuscate or redact personal information, like user IDs or emails.
 

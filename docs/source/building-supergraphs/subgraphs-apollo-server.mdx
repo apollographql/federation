@@ -51,7 +51,7 @@ async function startApolloServer() {
 
 </MultiCodeBlock>
 
-> Above, we wrap our schema in the `gql` tag from the `graphql-tag` package, converting our schema into an AST (i.e. `DocumentNode`). We do this because the [`buildSubgraphSchema`](../api/apollo-subgraph/#buildsubgraphschema) function requires that the schema we pass in be a `DocumentNode` type. 
+> Above, we wrap our schema in the `gql` tag from the `graphql-tag` package, converting our schema into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](../api/apollo-subgraph/#buildsubgraphschema) function requires the schema we pass in to be a `DocumentNode`.
 
 This should look familiar if you've [set up Apollo Server](/apollo-server/getting-started/) before. If you haven't, we recommend you familiarize yourself with the basics before jumping into federation.
 
@@ -287,7 +287,7 @@ const server = new ApolloServer({
 <ExpansionPanel title="Expand example">
 
 ```js {15-17}
-const { ApolloServer, SchemaDirectiveVisitor } = require('apollo-server');
+const { ApolloServer, gql, SchemaDirectiveVisitor } = require('apollo-server');
 
 // typeDefs and resolvers defined here
 
@@ -312,7 +312,7 @@ const server = new ApolloServer({
 **With Apollo Federation**, you instead call `SchemaDirectiveVisitor.visitSchemaDirectives`, passing in your schema and your directives, _before_ you provide your schema to the constructor of `ApolloServer`:
 
 ```js
-const { ApolloServer, SchemaDirectiveVisitor } = require('apollo-server');
+const { ApolloServer, gql, SchemaDirectiveVisitor } = require('apollo-server');
 const { buildSubgraphSchema } = require ('@apollo/subgraph')
 
 // typeDefs and resolvers defined here
