@@ -11,13 +11,44 @@ Our subgraphs can use any GraphQL server library that supports Apollo Federation
 
 > If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a subgraph.
 
-If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/blob/main/apollo-server/v3/getting-started) (which is not yet federated).
+If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/blob/main/apollo-server/v4/getting-started) (which is not yet federated).
 
-First, install the latest version of the `@apollo/subgraph` library in your project:
+First, install the latest version of `@apollo/subgraph` and `graphql-tag` into your project:
 
 ```shell
-npm install @apollo/subgraph
+npm install @apollo/subgraph graphql-tag
 ```
+
+Import the `gql` tag into the file where you create your schema (`index.ts` for our example):
+
+<MultiCodeBlock>
+
+```ts title="index.ts"
+import gql from 'graphql-tag';
+```
+
+</MultiCodeBlock>
+
+Then, wrap your schema in the `gql` tag, like so:
+
+<MultiCodeBlock>
+
+```ts
+const typeDefs = gql`
+  type Book {
+    title: String
+    author: String
+  }
+
+  type Query {
+    books: [Book]
+  }
+`;
+```
+
+</MultiCodeBlock>
+
+> We wrap our schema in the `gql` tag from the `graphql-tag` package to convert our schema into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](../api/apollo-subgraph/#buildsubgraphschema) function below requires the schema we pass in to be a `DocumentNode` type.
 
 Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 
