@@ -165,7 +165,7 @@ function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean
       // if objects were created with Object.create(null), they will not have
       // a hasOwnProperty function, which makes it impossible to tell if
       // the property is there explicitly or not
-      if (v1 === undefined && b.hasOwnProperty && !b.hasOwnProperty(key)) {
+      if (v1 === undefined && !keys2.includes(key)) {
         return false;
       }
     }
