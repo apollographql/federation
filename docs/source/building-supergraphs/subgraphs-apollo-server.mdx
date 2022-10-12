@@ -51,7 +51,7 @@ async function startApolloServer() {
 
 </MultiCodeBlock>
 
-> Above, we wrap our schema in the `gql` tag from the `graphql-tag` package, converting our schema into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](../api/apollo-subgraph/#buildsubgraphschema) function requires the schema we pass in to be a `DocumentNode`.
+> Above, we wrap our schema in the `gql` tag from the `graphql-tag` package, converting our schema into an AST (i.e., `DocumentNode`). While Apollo Server can accept a `string` (or `DocumentNode`) for its `typeDefs`, the [`buildSubgraphSchema`](../api/apollo-subgraph/#buildsubgraphschema) function which we will use below requires the schema we pass in to be a `DocumentNode`.
 
 This should look familiar if you've [set up Apollo Server](/apollo-server/getting-started/) before. If you haven't, we recommend you familiarize yourself with the basics before jumping into federation.
 

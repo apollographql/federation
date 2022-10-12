@@ -498,7 +498,7 @@ This enables you to modify any combination of the operation's `context` and the 
 
 The `http` property of the `request` and `response` objects contains additional HTTP-specific properties, such as `headers`.
 
-This method must return an object that matches the structure of a [`GraphQLResponse`](https://github.com/apollographql/apollo-server/blob/dd15bc1d7df6b5614b53e5cad62699222dc44279/packages/server/src/externalTypes/graphql.ts#L49).  If no modifications are necessary, return the original `response`.
+This method must return an object that matches the structure of a [`GraphQLResponse`](https://github.com/apollographql/apollo-server/blob/dd15bc1d7df6b5614b53e5cad62699222dc44279/packages/server/src/externalTypes/graphql.ts#L44-L52).  If no modifications are necessary, return the original `response`.
 
 #### `didEncounterError`
 
