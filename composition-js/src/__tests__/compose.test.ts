@@ -2071,6 +2071,39 @@ describe('composition', () => {
         ['INVALID_FIELD_SHARING', 'Non-shareable field "E.b" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
       ]);
     });
+
+    it('include hint in error message on shareable error due to target-less @override', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            e: E
+          }
+
+          type E @key(fields: "id") {
+            id: ID!
+            a: Int @override(from: "badName")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type E @key(fields: "id") {
+            id: ID!
+            a: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.a" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them (please note that "E.a" has an @override directive in "subgraphA" that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)'],
+      ]);
+    });
   });
 
   it('handles renamed federation directives', () => {
