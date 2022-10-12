@@ -376,9 +376,9 @@ const server = new ApolloServer({
   plugins: [
     // highlight-start
     {
-      async requestDidStart() {
+      requestDidStart() {
         return {
-          willSendResponse({ contextValue, response }) {
+          async willSendResponse({ contextValue, response }) {
             // Append our final result to the outgoing response headers
             response.http.headers.set(
               'Server-Id',

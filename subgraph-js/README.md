@@ -7,10 +7,10 @@ For complete documentation, see the [Apollo Subgraph API reference](https://www.
 ## Usage
 
 ```js
-import { ApolloServer } = from '@apollo/server';
-import { startStandaloneServer } = from '@apollo/server/standalone';
-import { gql } = from 'graphql-tag';
-import { buildSubgraphSchema } = from '@apollo/subgraph';
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { gql } from 'graphql-tag';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 
 const typeDefs = gql`
   type Query {
