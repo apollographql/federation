@@ -5,6 +5,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## vNext
 
 - Improves error message to help with misspelled source of an `@override` [PR #2181](https://github.com/apollographql/federation/pull/2181).
+- Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
 
 ## 2.1.3
 

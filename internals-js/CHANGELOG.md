@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNext
+
+- Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
+
 ## 2.1.0
 
 - Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
