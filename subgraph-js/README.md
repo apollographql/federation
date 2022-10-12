@@ -7,8 +7,10 @@ For complete documentation, see the [Apollo Subgraph API reference](https://www.
 ## Usage
 
 ```js
-const { ApolloServer, gql } = require("apollo-server");
-const { buildSubgraphSchema } = require("@apollo/subgraph");
+import { ApolloServer } = from '@apollo/server';
+import { startStandaloneServer } = from '@apollo/server/standalone';
+import { gql } = from 'graphql-tag';
+import { buildSubgraphSchema } = from '@apollo/subgraph';
 
 const typeDefs = gql`
   type Query {
@@ -38,7 +40,7 @@ const server = new ApolloServer({
   schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 
-server.listen(4001).then(({ url }) => {
-    console.log(`🚀 Server ready at ${url}`);
-});
+// Note the top-level await!
+const { url } = await startStandaloneServer(server);
+console.log(`🚀  Server ready at ${url}`);
 ```

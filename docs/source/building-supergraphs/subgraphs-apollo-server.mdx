@@ -16,6 +16,7 @@ Converting an existing monolithic graph into a single subgraph is a convenient f
 
 ```ts title="index.ts"
 import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
 import { gql } from 'graphql-tag';
 import { startStandaloneServer } from '@apollo/server/standalone';
 
@@ -187,6 +188,7 @@ Here are the snippets above combined (again, note that for this sample to be com
 
 ```ts title="index.ts"
 import { ApolloServer } = from '@apollo/server';
+import { startStandaloneServer } = from '@apollo/server/standalone';
 import { gql } = from 'graphql-tag';
 import { buildSubgraphSchema } = from '@apollo/subgraph';
 
