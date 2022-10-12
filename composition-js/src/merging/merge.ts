@@ -94,12 +94,18 @@ export type CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
 }
 
+type FieldMergeContextProperties = {
+  usedOverridden: boolean,
+  unusedOverridden: boolean,
+  overrideWithUnknownTarget: boolean,
+}
+
 // for each source, specify additional properties that validate functions can set
 class FieldMergeContext {
-  _props: { usedOverridden: boolean, unusedOverridden: boolean }[];
+  _props: FieldMergeContextProperties[];
 
   constructor(sources: unknown[]) {
-    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false }));
+    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false, overrideWithUnknownTarget: false}));
   }
 
   isUsedOverridden(idx: number) {
@@ -110,6 +116,10 @@ class FieldMergeContext {
     return this._props[idx].unusedOverridden;
   }
 
+  hasOverrideWithUnknownTarget(idx: number) {
+    return this._props[idx].overrideWithUnknownTarget;
+  }
+
   setUsedOverridden(idx: number) {
     this._props[idx].usedOverridden = true;
   }
@@ -118,7 +128,11 @@ class FieldMergeContext {
     this._props[idx].unusedOverridden = true;
   }
 
-  some(predicate: ({ usedOverridden, unusedOverridden }: { usedOverridden: boolean, unusedOverridden: boolean }) => boolean): boolean {
+  setOverrideWithUnknownTarget(idx: number) {
+    this._props[idx].overrideWithUnknownTarget = true;
+  }
+
+  some(predicate: (props: FieldMergeContextProperties) => boolean): boolean {
     return this._props.some(predicate);
   }
 }
@@ -947,10 +961,11 @@ class Merger {
 
     // for each subgraph that has an @override directive, check to see if any errors or hints should be surfaced
     subgraphsWithOverride.forEach((subgraphName) => {
-      const { overrideDirective } = subgraphMap[subgraphName];
+      const { overrideDirective, idx } = subgraphMap[subgraphName];
       const sourceSubgraphName = overrideDirective?.arguments()?.from;
       const overridingSubgraphASTNode = overrideDirective?.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
       if (!this.names.includes(sourceSubgraphName)) {
+        result.setOverrideWithUnknownTarget(idx);
         const suggestions = suggestionList(sourceSubgraphName, this.names);
         const extraMsg = didYouMean(suggestions);
         this.hints.push(new CompositionHint(
@@ -979,8 +994,8 @@ class Merger {
         const fromIdx = this.names.indexOf(sourceSubgraphName);
         const fromField = sources[fromIdx];
         const { result: hasIncompatible, conflictingDirective, subgraph } = this.overrideConflictsWithOtherDirective({
-          idx: subgraphMap[subgraphName].idx,
-          field: sources[subgraphMap[subgraphName].idx],
+          idx,
+          field: sources[idx],
           subgraphName,
           fromIdx: this.names.indexOf(sourceSubgraphName),
           fromField: sources[fromIdx],
@@ -1078,8 +1093,23 @@ class Merger {
       const nonShareables = shareableSources.length > 0
         ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
         : 'all of them';
+
+      // An easy-to-make error that can lead here is the mispelling of the `from` argument of an @override. Because in that case, the
+      // @override will essentially be ignored (we'll have logged a warning, but the error we're about to log will overshadow it) and
+      // the 2 field insteances will violate the sharing rules. But because in that case the error is ultimately with @override, it
+      // can be hard for user to understand why they get a shareability error, so we detect this case and offer an additional hint
+      // at what the problem might be in the error message (note that even if we do find an @override with a unknown target, we
+      // cannot be 100% sure this is the issue, because this could also be targeting a subgraph that has just been removed, in which
+      // case the shareable error is legit; so keep the shareabilty error with a strong hint is hopefully good enough in practice).
+      // Note: if there is multiple non-shareable fields with "target-less overrides", we only hint about one of them, because that's
+      // easier and almost surely good enough to bring the attention of the user to potential typo in @override usage.
+      const subgraphWithTargetlessOverride = nonShareableSources.find((s) => mergeContext.hasOverrideWithUnknownTarget(s));
+      let extraHint = '';
+      if (subgraphWithTargetlessOverride !== undefined) {
+        extraHint = ` (please note that "${dest.coordinate}" has an @override directive in "${this.names[subgraphWithTargetlessOverride]}" that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)`;
+      }
       this.errors.push(ERRORS.INVALID_FIELD_SHARING.err(
-        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
+        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}${extraHint}`,
         { nodes: sourceASTs(...allResolving) },
       ));
     }

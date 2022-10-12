@@ -391,6 +391,25 @@ describe('validations', () => {
       `)
     }).toThrowError(new GraphQLError(`The @defer and @stream directives cannot be used on ${rootKind} root type "${defaultRootName(rootKind as SchemaRootKind)}"`));
   });
+
+  test('allows nullable variable for non-nullable input field with default', () => {
+    const schema = parseSchema(`
+      input I {
+        x: Int! = 42
+      }
+
+      type Query {
+        f(i: I): Int
+      }
+    `);
+
+    // Just testing that this parse correctly and does not throw an exception.
+    parseOperation(schema, `
+      query test($x: Int) {
+        f(i: { x: $x })
+      }
+    `);
+  });
 });
 
 describe('empty branches removal', () => {
