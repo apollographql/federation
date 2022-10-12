@@ -43,33 +43,34 @@ npm install @apollo/gateway @apollo/server graphql
 The `@apollo/gateway` package includes the [`ApolloGateway` class](../api/apollo-gateway/). To configure Apollo Server to act as a graph router, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
 ```js title="index.js"
-const { ApolloServer } = require('@apollo/server');
-const { startStandaloneServer } = require('@apollo/server/standalone');
-const { ApolloGateway } = require('@apollo/gateway');
-const { readFileSync } = require('fs');
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway } from '@apollo/gateway';
+import { readFileSync } from 'fs';
 
-async function startApolloGateway() {
-  const supergraphSdl = readFileSync('./supergraph.graphql').toString();
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
-  // Initialize an ApolloGateway instance and pass it
-  // the supergraph schema as a string
-  // highlight-start
-  const gateway = new ApolloGateway({
-    supergraphSdl,
-  });
-  // highlight-end
+// Initialize an ApolloGateway instance and pass it
+// the supergraph schema as a string
+// highlight-start
+const gateway = new ApolloGateway({
+  supergraphSdl,
+});
+// highlight-end
 
-  // Pass the ApolloGateway to the ApolloServer constructor
-  // highlight-start
-  const server = new ApolloServer({
-    gateway,
-  });
-  // highlight-end
+// Pass the ApolloGateway to the ApolloServer constructor
+// highlight-start
+const server = new ApolloServer({
+  gateway,
+});
+// highlight-end
 
-  const { url } = await startStandaloneServer(server);
-  console.log(`🚀  Server ready at ${url}`);
-}
+// Note the top-level `await`!
+const { url } = await startStandaloneServer(server);
+console.log(`🚀  Server ready at ${url}`);
 ```
+
+<TopLevelAwait>
 
 ### Composing the supergraph schema
 
@@ -86,31 +87,29 @@ On startup, the gateway processes your `supergraphSdl`, which includes routing i
 In the above example, we provide a _static_ supergraph schema to the gateway. This approach requires the gateway to restart in order to update the supergraph schema. This is undesirable for many applications, so we also provide the ability to update the supergraph schema dynamically.
 
 ```js title="index.js"
-const { ApolloServer } = require('@apollo/server');
-const { startStandaloneServer } = require('@apollo/server/standalone');
-const { ApolloGateway } = require('@apollo/gateway');
-const { readFile } = require('fs/promises');
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway } from '@apollo/gateway';
+import { readFile } from 'fs/promises';
 
-async function startApolloGateway() {
-  let supergraphUpdate;
-  const gateway = new ApolloGateway({
-    async supergraphSdl({ update }) {
-      // `update` is a function that we'll save for later use
-      supergraphUpdate = update;
-      return {
-        supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
-      }
-    },
-  });
+let supergraphUpdate;
+const gateway = new ApolloGateway({
+  async supergraphSdl({ update }) {
+    // `update` is a function that we'll save for later use
+    supergraphUpdate = update;
+    return {
+      supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
+    }
+  },
+});
 
-  // Pass the ApolloGateway to the ApolloServer constructor
-  const server = new ApolloServer({
-    gateway,
-  });
+// Pass the ApolloGateway to the ApolloServer constructor
+const server = new ApolloServer({
+  gateway,
+});
 
-  const { url } = await startStandaloneServer(server);
-  console.log(`🚀  Server ready at ${url}`);
-}
+const { url } = await startStandaloneServer(server);
+console.log(`🚀  Server ready at ${url}`);
 ```
 
 There are a few things happening here. Let's take a look at each of them individually.
@@ -124,47 +123,45 @@ With the `update` function, we can now programatically update the supergraph sch
 The code below demonstrates a more complete example using a file watcher. In this example, assume that we're updating the `supergraphSdl.graphql` file with the Rover CLI.
 
 ```js title="index.js"
-const { ApolloServer } = require('@apollo/server');
-const { startStandaloneServer } = require('@apollo/server/standalone');
-const { ApolloGateway } = require('@apollo/gateway');
-const { watch } = require('fs');
-const { readFile } = require('fs/promises');
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway } from '@apollo/gateway';
+import { watch } from 'fs';
+import { readFile } from 'fs/promises';
 
-async function startApolloGateway() {
-  const server = new ApolloServer({
-    gateway: new ApolloGateway({
-      async supergraphSdl({ update, healthCheck }) {
-        // create a file watcher
-        const watcher = watch('./supergraph.graphql');
-        // subscribe to file changes
-        watcher.on('change', async () => {
+const server = new ApolloServer({
+  gateway: new ApolloGateway({
+    async supergraphSdl({ update, healthCheck }) {
+      // create a file watcher
+      const watcher = watch('./supergraph.graphql');
+      // subscribe to file changes
+      watcher.on('change', async () => {
+        // update the supergraph schema
+        try {
+          const updatedSupergraph = await readFile('./supergraph.graphql', 'utf-8');
+          // optional health check update to ensure our services are responsive
+          await healthCheck(updatedSupergraph);
           // update the supergraph schema
-          try {
-            const updatedSupergraph = await readFile('./supergraph.graphql', 'utf-8');
-            // optional health check update to ensure our services are responsive
-            await healthCheck(updatedSupergraph);
-            // update the supergraph schema
-            update(updatedSupergraph);
-          } catch (e) {
-            // handle errors that occur during health check or while updating the supergraph schema
-            console.error(e);
-          }
-        });
-
-        return {
-          supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
-          // cleanup is called when the gateway is stopped
-          async cleanup() {
-            watcher.close();
-          }
+          update(updatedSupergraph);
+        } catch (e) {
+          // handle errors that occur during health check or while updating the supergraph schema
+          console.error(e);
         }
-      },
-    }),
-  });
+      });
 
-  const { url } = await startStandaloneServer(server);
-  console.log(`🚀  Server ready at ${url}`);
-}
+      return {
+        supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
+        // cleanup is called when the gateway is stopped
+        async cleanup() {
+          watcher.close();
+        }
+      }
+    },
+  }),
+});
+
+const { url } = await startStandaloneServer(server);
+console.log(`🚀  Server ready at ${url}`);
 ```
 
 This example is a bit more complete. Let's take a look at what we've added.
@@ -262,11 +259,11 @@ After adding the `userId` to the shared `context` object, the gateway can then a
 
 <ExpansionPanel title="Expand example">
 
-```javascript {7-13,17-19,25-32}
-const { ApolloServer } = require('@apollo/server');
-const { startStandaloneServer } = require('@apollo/server/standalone');
-const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
-const { readFileSync } = require('fs');
+```javascript
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway, RemoteGraphQLDataSource } from '@apollo/gateway';
+import { readFileSync } from 'fs';
 
 // highlight-start
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
@@ -279,36 +276,35 @@ class AuthenticatedDataSource extends RemoteGraphQLDataSource {
 // highlight-end
 
 
-async function startApolloGateway() {
-  const supergraphSdl = readFileSync('./supergraph.graphql').toString();
-  const gateway = new ApolloGateway({
-    supergraphSdl,
-    //highlight-start
-    buildService({ name, url }) {
-      return new AuthenticatedDataSource({ url });
-    },
-    //highlight-end
-  });
 
-  const server = new ApolloServer({
-    gateway,
-  });
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
+const gateway = new ApolloGateway({
+  supergraphSdl,
+  //highlight-start
+  buildService({ name, url }) {
+    return new AuthenticatedDataSource({ url });
+  },
+  //highlight-end
+});
 
-  const { url } = await startStandaloneServer(server, {
-    //highlight-start
-    context: async ({ req }) => {
-      // Get the user token from the headers
-      const token = req.headers.authorization || '';
-      // Try to retrieve a user with the token
-      const userId = getUserId(token);
-      // Add the user ID to the context
-      return { userId };
-    },
-    //highlight-end
-  });
+const server = new ApolloServer({
+  gateway,
+});
 
-  console.log(`🚀  Server ready at ${url}`);
-}
+const { url } = await startStandaloneServer(server, {
+  //highlight-start
+  context: async ({ req }) => {
+    // Get the user token from the headers
+    const token = req.headers.authorization || '';
+    // Try to retrieve a user with the token
+    const userId = getUserId(token);
+    // Add the user ID to the context
+    return { userId };
+  },
+  //highlight-end
+});
+
+console.log(`🚀  Server ready at ${url}`);
 ```
 
 </ExpansionPanel>
@@ -343,10 +339,10 @@ To implement this flow, we can use the `didReceiveResponse` callback of the `Rem
 <ExpansionPanel title="Expand example">
 
 ```javascript
-const { ApolloServer } = require('@apollo/server');
-const { startStandaloneServer } = require('@apollo/server/standalone');
-const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
-const { readFileSync } = require('fs');
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway, RemoteGraphQLDataSource } from '@apollo/gateway';
+import { readFileSync } from 'fs';
 
 const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
@@ -365,45 +361,43 @@ class DataSourceWithServerId extends RemoteGraphQLDataSource {
   // highlight-end
 }
 
-async function startApolloGateway() {
-  const gateway = new ApolloGateway({
-    supergraphSdl,
+const gateway = new ApolloGateway({
+  supergraphSdl,
+  // highlight-start
+  buildService({ url }) {
+    return new DataSourceWithServerId({ url });
+  }
+  // highlight-end
+});
+
+const server = new ApolloServer({
+  gateway,
+  plugins: [
     // highlight-start
-    buildService({ url }) {
-      return new DataSourceWithServerId({ url });
+    {
+      async requestDidStart() {
+        return {
+          willSendResponse({ contextValue, response }) {
+            // Append our final result to the outgoing response headers
+            response.http.headers.set(
+              'Server-Id',
+              contextValue.serverIds.join(',')
+            );
+          }
+        };
+      }
     }
     // highlight-end
-  });
+  ]
+});
 
-  const server = new ApolloServer({
-    gateway,
-    plugins: [
-      // highlight-start
-      {
-        requestDidStart() {
-          return {
-            willSendResponse({ contextValue, response }) {
-              // Append our final result to the outgoing response headers
-              response.http.headers.set(
-                'Server-Id',
-                contextValue.serverIds.join(',')
-              );
-            }
-          };
-        }
-      }
-      // highlight-end
-    ]
-  });
-  
-  const { url } = await startStandaloneServer(server, {
-    context() {
-      return { serverIds: [] };
-    },
-  });
+const { url } = await startStandaloneServer(server, {
+  context() {
+    return { serverIds: [] };
+  },
+});
 
-  console.log(`🚀  Server ready at ${url}`);
-}
+console.log(`🚀  Server ready at ${url}`);
 ```
 
 </ExpansionPanel>
@@ -414,7 +408,7 @@ To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API d
 
 ## Custom directive support
 
-The `@apollo/gateway` library supports the use of custom [directives](/apollo-server/v3/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
+The `@apollo/gateway` library supports the use of custom [directives](/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
 
 ### Type system directives
 
