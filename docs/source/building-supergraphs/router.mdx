@@ -75,8 +75,6 @@ const { url } = await startStandaloneServer(server);
 console.log(`🚀  Server ready at ${url}`);
 ```
 
-<TopLevelAwait>
-
 ### Composing the supergraph schema
 
 In the above example, we provide the `supergraphSdl` option to the `ApolloGateway` constructor. This is the string representation of our [supergraph schema](../federated-types/overview/#supergraph-schema), which is composed from all of our subgraph schemas.
@@ -279,8 +277,6 @@ class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   }
 }
 // highlight-end
-
-
 
 const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 const gateway = new ApolloGateway({
