@@ -102,7 +102,7 @@ type Product {
 
 ### Server instances
 
-In a federated architecture, each subgraph instance is a GraphQL service, and _so is the router_. External clients query the router, and the router then queries individual subgraphs to obtain, combine, and return results:
+In a federated architecture, each subgraph instance is a GraphQL service that's queried _only_ by the router. The router is a separate service that exposes a GraphQL endpoint to external clients. Clients query the router, and the router then queries individual subgraphs to obtain, combine, and return results:
 
 ```mermaid
 graph BT;
@@ -124,7 +124,7 @@ graph BT;
     - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/studio/getting-started) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages Apollo Router instances for you!
 - An instance of Apollo Server using special extensions from the [`@apollo/gateway`](./api/apollo-gateway) library
 
-**Subgraphs** can each run any [subgraph-compatible GraphQL server](./building-supergraphs/supported-subgraphs/).
+**Subgraphs** can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/).
 
 - This includes Apollo Server using special extensions from the [`@apollo/subgraph`](./api/apollo-subgraph) library.
 - Different subgraphs in the same supergraph can use different server libraries.
