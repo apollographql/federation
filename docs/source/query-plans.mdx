@@ -24,8 +24,7 @@ Let's say our federated supergraph includes these subgraphs:
 
 <CodeColumns>
 
-```graphql
-# Hotels subgraph
+```graphql title="Hotels subgraph"
 type Hotel @key(fields: "id") {
   id: ID!
   address: String!
@@ -36,9 +35,8 @@ type Query {
 }
 ```
 
-```graphql
-# Reviews subgraph
-extend Type Hotel @key(fields: "id") {
+```graphql title="Reviews subgraph"
+type Hotel @key(fields: "id") {
   id: ID! @external
   reviews: [Review!]!
 }
@@ -442,7 +440,7 @@ Now that you've learned about each query plan node, take another look at the exa
 
 You can view the query plan for a particular operation in any of the following ways:
 
-* [In the Apollo Studio Explorer](/studio/explorer/additional-features/#query-plans-for-federated-graphs)
+* [In the Apollo Studio Explorer](/studio/explorer/additional-features/#query-plans-for-supergraphs)
     * Note that you must [register your federated graph](./managed-federation/setup/) with Apollo Studio to view query plans in the Explorer.
 * As direct output from the `@apollo/gateway` library (see below)
 
