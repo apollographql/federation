@@ -10,7 +10,7 @@ import { createHttpLink } from '@apollo/client/link/http';
 import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
-import { Report, Trace } from '@apollo/usage-reporting-protobuf';
+import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
