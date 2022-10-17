@@ -105,11 +105,11 @@ describe('printSubgraphSchema', () => {
     `);
   });
 
-  it('prints reviews subgraph correctly', () => {
+  fit('prints reviews subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
-    expect(printSubgraphSchema(schema)).toMatchString(`
-      extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])
+    expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
+      "extend schema
+        @link(url: \\"https://specs.apollo.dev/federation/v2.1\\", import: [\\"@key\\", \\"@requires\\", \\"@provides\\", \\"@external\\", \\"@tag\\", \\"@extends\\", \\"@shareable\\", \\"@inaccessible\\", \\"@override\\", \\"@composeDirective\\"])
 
       directive @stream on FIELD
 
@@ -119,21 +119,24 @@ describe('printSubgraphSchema', () => {
         topReviews(first: Int = 5): [Review]
       }
 
+      union ReviewSubject = Book | Van | Image
+
       type Review
-        @key(fields: "id")
+        @key(fields: \\"id\\")
       {
         id: ID!
         body(format: Boolean = false): String
-        author: User @provides(fields: "username")
+        author: User @provides(fields: \\"username\\")
         product: Product
+        subject: ReviewSubject
         metadata: [MetadataOrError]
       }
 
       input UpdateReviewInput
-        @tag(name: "from-reviews")
+        @tag(name: \\"from-reviews\\")
       {
         id: ID!
-        body: String @tag(name: "from-reviews")
+        body: String @tag(name: \\"from-reviews\\")
       }
 
       type UserMetadata {
@@ -141,76 +144,90 @@ describe('printSubgraphSchema', () => {
       }
 
       type User
-        @key(fields: "id")
-        @tag(name: "from-reviews")
+        @key(fields: \\"id\\")
+        @tag(name: \\"from-reviews\\")
       {
         id: ID!
         username: String @external
         reviews: [Review]
         numberOfReviews: Int!
         metadata: [UserMetadata] @external
-        goodAddress: Boolean @requires(fields: "metadata { address }")
+        goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
       }
 
       interface Product
-        @tag(name: "from-reviews")
+        @tag(name: \\"from-reviews\\")
       {
-        reviews: [Review] @tag(name: "from-reviews")
+        reviews: [Review] @tag(name: \\"from-reviews\\")
       }
 
-      type Furniture implements Product
-        @key(fields: "upc")
+      interface WebResource {
+        resourceUrl: String
+      }
+
+      type Image
+        @key(fields: \\"name\\")
+      {
+        name: String!
+      }
+
+      type Furniture implements Product & WebResource
+        @key(fields: \\"upc\\")
       {
         upc: String!
         reviews: [Review]
+        resourceUrl: String
       }
 
-      type Book implements Product
-        @key(fields: "isbn")
+      type Book implements Product & WebResource
+        @key(fields: \\"isbn\\")
       {
         isbn: String!
         reviews: [Review]
         similarBooks: [Book]! @external
-        relatedReviews: [Review!]! @requires(fields: "similarBooks { isbn }")
+        relatedReviews: [Review!]! @requires(fields: \\"similarBooks { isbn }\\")
+        resourceUrl: String
       }
 
       interface Vehicle {
         retailPrice: String
       }
 
-      type Car implements Vehicle
-        @key(fields: "id")
+      type Car implements Vehicle & WebResource
+        @key(fields: \\"id\\")
       {
         id: String!
         price: String @external
-        retailPrice: String @requires(fields: "price")
+        retailPrice: String @requires(fields: \\"price\\")
+        resourceUrl: String
       }
 
-      type Van implements Vehicle
-        @key(fields: "id")
+      type Van implements Vehicle & WebResource
+        @key(fields: \\"id\\")
       {
         id: String!
         price: String @external
-        retailPrice: String @requires(fields: "price")
+        retailPrice: String @requires(fields: \\"price\\")
+        resourceUrl: String
       }
 
       input ReviewProduct {
         upc: String!
         body: String!
-        stars: Int @deprecated(reason: "Stars are no longer in use")
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
       }
 
       type Mutation {
         reviewProduct(input: ReviewProduct!): Product
-        updateReview(review: UpdateReviewInput! @tag(name: "from-reviews")): Review
+        updateReview(review: UpdateReviewInput! @tag(name: \\"from-reviews\\")): Review
         deleteReview(id: ID!): Boolean
       }
 
       type KeyValue
         @shareable
-        @tag(name: "from-reviews")
+        @tag(name: \\"from-reviews\\")
       {
-        key: String! @tag(name: "from-reviews")
+        key: String! @tag(name: \\"from-reviews\\")
         value: String!
       }
 
@@ -221,7 +238,7 @@ describe('printSubgraphSchema', () => {
         message: String
       }
 
-      union MetadataOrError = KeyValue | Error
+      union MetadataOrError = KeyValue | Error"
     `);
   });
 

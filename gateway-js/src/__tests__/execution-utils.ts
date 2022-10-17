@@ -50,7 +50,6 @@ export async function execute(
       ] as [string, LocalGraphQLDataSource];
     }),
   );
-
   const { schema, queryPlanner } = getFederatedTestingSchema(services);
 
   const apiSchema = schema.toAPISchema();
@@ -91,7 +90,6 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
   if (compositionResult.errors) {
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
-
   const queryPlanner = new QueryPlanner(compositionResult.schema, { exposeDocumentNodeInFetchNode: false} );
   const schema = buildSchema(compositionResult.supergraphSdl);
 

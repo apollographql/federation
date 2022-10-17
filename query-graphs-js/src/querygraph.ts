@@ -1164,11 +1164,17 @@ class GraphBuilderFromSchema extends GraphBuilder {
         abstractTypesWithTheirRuntimeTypes.push([type, possibleRuntimeTypes(type)]);
       }
     }
-
+    const supergraphAbstractTypesWithTheirRuntimeTypes: {[key: string]: readonly ObjectType[]} = {};
+    for (const type of this?.supergraph?.apiSchema?.types() || []) {
+      if (isAbstractType(type)) {
+        supergraphAbstractTypesWithTheirRuntimeTypes[type.name] = possibleRuntimeTypes(type);
+      }
+    }
     // Check every pair of abstract type that intersect on at least 2 runtime types to see if have
     // edges to add. Note that in practice, we only care about 'Union -> Interface' and 'Interface -> Interface'
     for (let i = 0; i < abstractTypesWithTheirRuntimeTypes.length - 1; i++) {
       const [t1, t1Runtimes] = abstractTypesWithTheirRuntimeTypes[i];
+      const t1RuntimesGlobal = supergraphAbstractTypesWithTheirRuntimeTypes[t1.name] || [];
       // Note that in general, t1 is already part of the graph `addTypeRecursively` don't really add anything, it
       // just return the existing vertex. That said, if t1 is returned by no field (at least no field reachable from
       // a root type), the type will not be part of the graph. And in that case, we do add it. And it's actually
@@ -1180,11 +1186,25 @@ class GraphBuilderFromSchema extends GraphBuilder {
       const t1Vertex = this.addTypeRecursively(t1);
       for (let j = i; j < abstractTypesWithTheirRuntimeTypes.length; j++) {
         const [t2, t2Runtimes] = abstractTypesWithTheirRuntimeTypes[j];
+        const t2RuntimesGlobal = supergraphAbstractTypesWithTheirRuntimeTypes[t2.name] || [];
+
         // We ignore the pair if both are interfaces and one implements the other. We'll already have appropriate
         // edges if that's the case.
         if (isInterfaceType(t1) && isInterfaceType(t2) && (t1.implementsInterface(t2) || t2.implementsInterface(t1))) {
           continue;
         }
+
+        // We ignore the pair of interface and union in case the supergraph contains some unknowns
+        if ((isUnionType(t1) && isInterfaceType(t2)) || (isUnionType(t2) && isInterfaceType(t1))) {
+          if (t2RuntimesGlobal.some(t => t2Runtimes.find(t2r => t2r.name === t.name))) {
+            continue;
+          }
+
+          if (t1RuntimesGlobal.some(t => t1Runtimes.find(t1r => t1r.name === t.name))) {
+            continue;
+          }
+        }
+
         // Note that as everything comes from the same subgraph schema, using reference equality is fine.
         const intersecting = t1Runtimes.filter(o1 => t2Runtimes.includes(o1));
         if (intersecting.length >= 2) {

@@ -22,11 +22,14 @@ export const typeDefs = gql`
     topReviews(first: Int = 5): [Review]
   }
 
+  union ReviewSubject = Book | Van | Image
+
   type Review @key(fields: "id") {
     id: ID!
     body(format: Boolean = false): String
     author: User @provides(fields: "username")
     product: Product
+    subject: ReviewSubject
     metadata: [MetadataOrError]
   }
 
@@ -52,32 +55,44 @@ export const typeDefs = gql`
     reviews: [Review] @tag(name: "from-reviews")
   }
 
-  type Furniture implements Product @key(fields: "upc") {
-    upc: String!
-    reviews: [Review]
+  interface WebResource {
+    resourceUrl: String
   }
 
-  type Book implements Product @key(fields: "isbn") {
+  type Image @key(fields: "name") {
+    name: String!
+  }
+
+  type Furniture implements Product & WebResource @key(fields: "upc") {
+    upc: String!
+    reviews: [Review]
+    resourceUrl: String
+  }
+
+  type Book implements Product & WebResource @key(fields: "isbn") {
     isbn: String!
     reviews: [Review]
     similarBooks: [Book]! @external
     relatedReviews: [Review!]! @requires(fields: "similarBooks { isbn }")
+    resourceUrl: String
   }
 
   interface Vehicle {
     retailPrice: String
   }
 
-  type Car implements Vehicle @key(fields: "id") {
+  type Car implements Vehicle & WebResource @key(fields: "id") {
     id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
+    resourceUrl: String
   }
 
-  type Van implements Vehicle @key(fields: "id") {
+  type Van implements Vehicle & WebResource @key(fields: "id") {
     id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
+    resourceUrl: String
   }
 
   input ReviewProduct {
@@ -117,6 +132,7 @@ const reviews = [
     id: '1',
     authorID: '1',
     product: { __typename: 'Furniture', upc: '1' },
+    subject: { __typename: 'Image', name: 'first_image.png' },
     body: 'Love it!',
     metadata: [{ code: 418, message: "I'm a teapot" }],
   },
@@ -130,6 +146,7 @@ const reviews = [
     id: '3',
     authorID: '2',
     product: { __typename: 'Furniture', upc: '3' },
+    subject: { __typename: 'Furniture', upc: '3', resourceUrl: 'http://furniture.com/3' },
     body: 'Could be better.',
   },
   {
@@ -155,6 +172,7 @@ const reviews = [
     id: '6',
     authorID: '1',
     product: { __typename: 'Book', isbn: '0201633612' },
+    subject: { __typename: 'Book', isbn: '0201633612', resourceUrl: 'http://book.com/0201633612' },
     body: 'A classic.',
   },
 ];
@@ -200,6 +218,11 @@ export const resolvers: GraphQLResolverMap<unknown> = {
       );
       return Boolean(deleted);
     },
+  },
+  Image: {
+    __resolveReference(image) {
+      return { __typename: 'Image', id: image.name };
+    }
   },
   Review: {
     author(review) {
