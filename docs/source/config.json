@@ -4,7 +4,7 @@
   "algoliaFilters": [
     "docset:federation",
     [
-      "docset:server",
+      "docset:apollo-server",
       "docset:rover",
       "docset:router",
       "docset:studio"
