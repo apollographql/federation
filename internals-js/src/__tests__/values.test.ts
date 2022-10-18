@@ -6,6 +6,7 @@ import { parseOperation } from '../operations';
 import { buildForErrors } from './subgraphValidation.test';
 import gql from 'graphql-tag';
 import { printSchema } from '../print';
+import { valueEquals } from '../values';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -166,7 +167,7 @@ describe('default value validation', () => {
     // correctly type-checked, so we currently don't have a good way to figure out it's an enum when we display
     // it in the error message). We could fix this someday if we change to using a specific class/object for
     // enum values internally (though this might have backward compatbility constraints), but in the meantime,
-    // it's unlikely to trip users too much. 
+    // it's unlikely to trip users too much.
     expect(buildForErrors(doc)).toStrictEqual([[
       'INVALID_GRAPHQL',
       '[S] Invalid default value (got: "THREE") provided for argument Query.f(e:) of type E.'
@@ -377,4 +378,13 @@ describe('values printing', () => {
     `
     expect(printSchema(parseSchema(sdl))).toMatchString(sdl);
   })
+});
+
+describe('objectEquals tests', () => {
+  it('simple object equality tests', () => {
+    expect(valueEquals({ foo: 'foo' }, { foo: 'foo'})).toBe(true);
+    expect(valueEquals({ foo: 'foo', bar: undefined }, { foo: 'foo', bar: undefined})).toBe(true);
+    expect(valueEquals({ foo: 'foo' }, { foo: 'foo', bar: undefined})).toBe(false);
+    expect(valueEquals({ foo: 'foo', bar: undefined }, { foo: 'foo' })).toBe(false);
+  });
 });
