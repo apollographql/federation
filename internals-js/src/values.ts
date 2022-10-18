@@ -161,8 +161,8 @@ function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean
     const v2 = b[key];
     // Beware of false-negative due to getting undefined because the property is not
     // in args2.
-    if (v2 === undefined) {
-      return v1 === undefined && b.hasOwnProperty(key);
+    if (v2 === undefined && !keys2.includes(key)) {
+      return false;
     }
     if (!valueEquals(v1, v2)) {
       return false;
@@ -743,4 +743,3 @@ function collectVariables(value: any, variables: Variable[]) {
     Object.keys(value).forEach(k => collectVariables(value[k], variables));
   }
 }
-
