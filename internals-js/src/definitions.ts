@@ -3064,7 +3064,7 @@ export class Directive<
     for (const argDef of definition.arguments()) {
       const argValue = withDefaultValues(this._args[argDef.name], argDef);
       // Note that argValue could be '0' or something falsy here, so we must explicitly check === undefined
-      if (argValue === undefined) {
+      if (argValue !== undefined) {
         updated[argDef.name] = argValue;
       }
     }
