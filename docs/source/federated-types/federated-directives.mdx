@@ -65,7 +65,7 @@ type Book @fed__shareable {
 As shown, custom namespace prefixes _also_ end in two underscores.
 
 
-### `@link`
+### The `@link` directive
 
 ```graphql
 directive @link(
@@ -76,7 +76,7 @@ directive @link(
 ) repeatable on SCHEMA
 ```
 
-Links definitions from an external specification to this schema. Every Federation 2 subgraph uses the `@link` directive to import the _other_ federation-specific directives described in this article (see the syntax in [Importing directives](#importing-directives)).
+This directive links definitions from an external specification to this schema. Every Federation 2 subgraph uses the `@link` directive to import the _other_ federation-specific directives described in this article (see the syntax in [Importing directives](#importing-directives)).
 
 For more information on `@link`, see the [official spec](https://specs.apollo.dev/link/v1.0/).
 

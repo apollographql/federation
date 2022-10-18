@@ -18,7 +18,7 @@ In summary, subgraphs report timing and error information to the router, and the
 
 ## Enabling federated tracing with `@apollo/gateway`
 
-Ensure that all dependencies on `apollo-server` are at version `2.7.0` or higher. Provide an API key to your gateway via the `APOLLO_KEY` environment variable for the gateway to report metrics to the default ingress. To ensure that subgraphs do not report metrics as well, either do not provide them with an `APOLLO_KEY` or install the [`ApolloServerPluginUsageReportingDisabled` plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/usage-reporting/) in your `ApolloServer`.
+You can use the `@apollo/server` package's [built-in usage reporting plugin](/apollo-server/api/plugin/usage-reporting) to enable federated tracing for your gateway. Provide an API key to your gateway via the `APOLLO_KEY` environment variable for the gateway to report metrics to the default ingress. To ensure that subgraphs do not report metrics as well, either do not provide them with an `APOLLO_KEY` or install the [`ApolloServerPluginUsageReportingDisabled` plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/usage-reporting/) in your `ApolloServer`.
 
 These options will cause the Apollo gateway to collect tracing information from the underlying subgraphs and pass them on, along with the query plan, to the Apollo metrics ingress. Currently, only Apollo Server supports detailed metrics insights as a subgraph, but we would love to work with you to implement the protocol in other languages!
 
@@ -28,7 +28,7 @@ These options will cause the Apollo gateway to collect tracing information from 
 
 > **Note:** This section explains how your router communicates with subgraphs around encoded tracing information. It is not necessary to understand in order to enable federated tracing.
 
-Your router inspects the `extensions` field of all subgraph responses for the presence of an `ftv1` field. This field contains a representation of the tracing information for the sub-query that was executed against the subgraph, sent as the Base64 encoding of the [protobuf representation](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-reporting-protobuf/src/reports.proto) of the trace.
+Your router inspects the `extensions` field of all subgraph responses for the presence of an `ftv1` field. This field contains a representation of the tracing information for the sub-query that was executed against the subgraph, sent as the Base64 encoding of the [protobuf representation](https://github.com/apollographql/apollo-server/blob/main/packages/usage-reporting-protobuf/src/reports.proto) of the trace.
 
 To request this information of a subgraph, the router sends the header pair `'apollo-federation-include-trace': 'ftv1'` on fetches if configured to collect metrics, as per above. By default, a federated Apollo Server subgraph recognizes this header pair and attaches tracing information in extensions of the response.
 
@@ -40,7 +40,7 @@ The field-level statistics that Apollo aggregates from these traces are collecte
 
 ## How errors work
 
-The Apollo Platform provides functionality to modify error details for the client, via the [`formatError`](https://www.apollographql.com/docs/apollo-server/features/errors/#for-the-client-response) option. Additionally, there is functionality to support modifying error details for the metrics ingress, via the [`rewriteError`](https://www.apollographql.com/docs/apollo-server/data/errors/#for-apollo-studio-reporting) option to the [inline trace plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/inline-trace/).
+The Apollo Platform provides functionality to modify error details for the client, via the [`formatError`](/apollo-server/data/errors#for-client-responses) option. Additionally, there is functionality to support modifying error details for the metrics ingress, via the [`sendErrors`](/apollo-server/data/errors#for-apollo-studio-reporting) option to the [inline trace plugin](/apollo-server/api/plugin/inline-trace/).
 
 When modifying errors for the client, you might want to use this option to hide implementation details, like database errors, from your users. When modifying errors for reporting, you might want to obfuscate or redact personal information, like user IDs or emails.
 

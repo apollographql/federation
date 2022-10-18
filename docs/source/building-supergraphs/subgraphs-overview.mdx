@@ -96,7 +96,7 @@ _entities(representations: [_Any!]!): [_Entity]!
 ```
 
 * The `_Any` type is a special scalar that enables you to provide entity representations of any valid shape.
-* The `_Entity` type is a generated [union type](https://www.apollographql.com/docs/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
+* The `_Entity` type is a generated [union type](/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
 
 You can query this field like so, providing a value for the `$representations` variable as shown:
 
@@ -126,4 +126,4 @@ query ($representations: [_Any!]!) {
 
 If you're writing integration tests for your subgraph, you can test the return value of the `_entities` field for various entity representations that your _other_ subgraphs use.
 
-If you're developing your subgraph in your local environment, you can [mock the return value](https://www.apollographql.com/docs/apollo-server/testing/mocking/) of the `_entities` field for your _other_ subgraphs so you don't have to connect those subgraphs to their respective data stores.
+If you're developing your subgraph in your local environment, you can [mock the return value](/apollo-server/testing/mocking/) of the `_entities` field for your _other_ subgraphs so you don't have to connect those subgraphs to their respective data stores.

@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Improves error message to help with misspelled source of an `@override` [PR #2181](https://github.com/apollographql/federation/pull/2181).
+
 ## 2.1.2
 
 - Fix composition of repeatable custom directives [PR #2136](https://github.com/apollographql/federation/pull/2136)
