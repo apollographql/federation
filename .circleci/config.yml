@@ -35,43 +35,28 @@ jobs:
   # The docker tag represents the Node.js version and the full list is available
   # at https://hub.docker.com/r/circleci/node/.
 
-  NodeJS 12:
-    docker:
-      - image: cimg/node:12.22
-    steps:
-      - common_test_steps
-      # We will save the results of this one particular invocation to use in
-      # the publish step. Not only does this make the publishing step take less
-      # time, this also ensures that a passing version gets deployed even if,
-      # theoretically, rebuilding the same commit on the same version of
-      # Node.js should yield the same results!
-      - persist_to_workspace:
-          root: .
-          paths:
-            - ./**
-
   NodeJS 14:
     docker:
-      - image: cimg/node:14.19
+      - image: cimg/node:14.20
     steps:
       - common_test_steps
 
   NodeJS 16:
     docker:
-      - image: cimg/node:16.15
+      - image: cimg/node:16.18
     steps:
       - common_test_steps
 
   NodeJS 18:
     docker:
-      - image: cimg/node:18.2.0
+      - image: cimg/node:18.11.0
     steps:
       - common_test_steps
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
-      - image: cimg/node:16.15
+      - image: cimg/node:16.18
     steps:
       - checkout
       - oss/npm_clean_install_with_caching
@@ -81,7 +66,7 @@ jobs:
   Error code Doc:
     description: "Ensure the error code documentation is up to date"
     docker:
-      - image: cimg/node:16.15
+      - image: cimg/node:16.18
     steps:
       - checkout
       - oss/npm_clean_install_with_caching
@@ -91,7 +76,7 @@ jobs:
   Hints code Doc:
     description: "Ensure the hints code documentation is up to date"
     docker:
-      - image: cimg/node:16.15
+      - image: cimg/node:16.18
     steps:
       - checkout
       - oss/npm_clean_install_with_caching
@@ -121,9 +106,6 @@ workflows:
   version: 2
   Build:
     jobs:
-      - NodeJS 12:
-          name: "JS: Node 12"
-          <<: *common_non_publish_filters
       - NodeJS 14:
           name: "JS: Node 14"
           <<: *common_non_publish_filters
@@ -146,7 +128,6 @@ workflows:
           name: "JS: Package tarballs"
           <<: *common_non_publish_filters
           requires:
-            - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
             - "JS: Node 18"
@@ -156,7 +137,6 @@ workflows:
           name: "JS: Dry-run"
           <<: *common_publish_filters
           requires:
-            - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
             - "JS: Node 18"
