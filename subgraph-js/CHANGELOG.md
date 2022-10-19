@@ -2,10 +2,11 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/subgraph-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## 2.2.0
+## vNext
 
 - Adds support for the 2.2 version of the federation spec (that is, `@link(url: "https://specs.apollo.dev/federation/v2.2")`), which:
-  - allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
+- allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
 
 ## 2.1.0
 
