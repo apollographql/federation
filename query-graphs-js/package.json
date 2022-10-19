@@ -20,7 +20,7 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "SEE LICENSE IN ./LICENSE",
   "engines": {
-    "node": ">=12.13.0"
+    "node": ">=14.15.0"
   },
   "dependencies": {
     "@apollo/federation-internals": "file:../internals-js",
