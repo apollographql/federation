@@ -1194,13 +1194,14 @@ class GraphBuilderFromSchema extends GraphBuilder {
           continue;
         }
 
-        // We ignore the pair of interface and union in case the supergraph contains some unknowns
+        // We ignore the pair of interface and union in case the supergraph contains
+        // type that unknown to the given runtime
         if ((isUnionType(t1) && isInterfaceType(t2)) || (isUnionType(t2) && isInterfaceType(t1))) {
-          if (t2RuntimesGlobal.some(t => t2Runtimes.find(t2r => t2r.name === t.name))) {
+          if (t2RuntimesGlobal.some(t => !t2Runtimes.find(t2r => t2r.name === t.name))) {
             continue;
           }
 
-          if (t1RuntimesGlobal.some(t => t1Runtimes.find(t1r => t1r.name === t.name))) {
+          if (t1RuntimesGlobal.some(t => !t1Runtimes.find(t1r => t1r.name === t.name))) {
             continue;
           }
         }
