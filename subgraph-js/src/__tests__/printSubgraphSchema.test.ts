@@ -121,6 +121,10 @@ describe('printSubgraphSchema', () => {
 
       union ReviewSubject = Book | Van | Image
 
+      interface ReviewSubjectInterface {
+        subjectInterfaceId: ID!
+      }
+
       type Review
         @key(fields: \\"id\\")
       {
@@ -129,6 +133,7 @@ describe('printSubgraphSchema', () => {
         author: User @provides(fields: \\"username\\")
         product: Product
         subject: ReviewSubject
+        subjectInterface: ReviewSubjectInterface
         metadata: [MetadataOrError]
       }
 
@@ -165,10 +170,11 @@ describe('printSubgraphSchema', () => {
         resourceUrl: String
       }
 
-      type Image
+      type Image implements ReviewSubjectInterface
         @key(fields: \\"name\\")
       {
         name: String!
+        subjectInterfaceId: ID! @external
       }
 
       type Furniture implements Product & WebResource
@@ -179,9 +185,10 @@ describe('printSubgraphSchema', () => {
         resourceUrl: String
       }
 
-      type Book implements Product & WebResource
+      type Book implements Product & WebResource & ReviewSubjectInterface
         @key(fields: \\"isbn\\")
       {
+        subjectInterfaceId: ID!
         isbn: String!
         reviews: [Review]
         similarBooks: [Book]! @external
@@ -202,9 +209,10 @@ describe('printSubgraphSchema', () => {
         resourceUrl: String
       }
 
-      type Van implements Vehicle & WebResource
+      type Van implements Vehicle & WebResource & ReviewSubjectInterface
         @key(fields: \\"id\\")
       {
+        subjectInterfaceId: ID!
         id: String!
         price: String @external
         retailPrice: String @requires(fields: \\"price\\")

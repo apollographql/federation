@@ -21,7 +21,12 @@ export const typeDefs = gql`
     resourceUrl: String
   }
 
-  type Image implements NamedObject & WebResource @key(fields: "name") {
+  interface ReviewSubjectInterface {
+    subjectInterfaceId: ID!
+  }
+
+  type Image implements NamedObject & WebResource & ReviewSubjectInterface @key(fields: "name") {
+      subjectInterfaceId: ID!
       name: String!
       # Same as option below but the type is different
       attributes: ImageAttributes!

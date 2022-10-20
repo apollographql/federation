@@ -24,12 +24,17 @@ export const typeDefs = gql`
 
   union ReviewSubject = Book | Van | Image
 
+  interface ReviewSubjectInterface {
+    subjectInterfaceId: ID!
+  }
+
   type Review @key(fields: "id") {
     id: ID!
     body(format: Boolean = false): String
     author: User @provides(fields: "username")
     product: Product
     subject: ReviewSubject
+    subjectInterface: ReviewSubjectInterface
     metadata: [MetadataOrError]
   }
 
@@ -59,8 +64,9 @@ export const typeDefs = gql`
     resourceUrl: String
   }
 
-  type Image @key(fields: "name") {
+  type Image implements ReviewSubjectInterface @key(fields: "name") {
     name: String!
+    subjectInterfaceId: ID! @external
   }
 
   type Furniture implements Product & WebResource @key(fields: "upc") {
@@ -69,7 +75,8 @@ export const typeDefs = gql`
     resourceUrl: String
   }
 
-  type Book implements Product & WebResource @key(fields: "isbn") {
+  type Book implements Product & WebResource & ReviewSubjectInterface @key(fields: "isbn") {
+    subjectInterfaceId: ID!
     isbn: String!
     reviews: [Review]
     similarBooks: [Book]! @external
@@ -88,7 +95,8 @@ export const typeDefs = gql`
     resourceUrl: String
   }
 
-  type Van implements Vehicle & WebResource @key(fields: "id") {
+  type Van implements Vehicle & WebResource & ReviewSubjectInterface @key(fields: "id") {
+    subjectInterfaceId: ID!
     id: String!
     price: String @external
     retailPrice: String @requires(fields: "price")
@@ -133,6 +141,7 @@ const reviews = [
     authorID: '1',
     product: { __typename: 'Furniture', upc: '1' },
     subject: { __typename: 'Image', name: 'first_image.png' },
+    subjectInterface: { __typename: 'Image', name: 'first_image.png' },
     body: 'Love it!',
     metadata: [{ code: 418, message: "I'm a teapot" }],
   },
@@ -147,6 +156,7 @@ const reviews = [
     authorID: '2',
     product: { __typename: 'Furniture', upc: '3' },
     subject: { __typename: 'Furniture', upc: '3', resourceUrl: 'http://furniture.com/3' },
+    subjectInterface: { __typename: 'Furniture', upc: '3', resourceUrl: 'http://furniture.com/3' },
     body: 'Could be better.',
   },
   {
@@ -173,6 +183,7 @@ const reviews = [
     authorID: '1',
     product: { __typename: 'Book', isbn: '0201633612' },
     subject: { __typename: 'Book', isbn: '0201633612', resourceUrl: 'http://book.com/0201633612' },
+    subjectInterface: { __typename: 'Book', isbn: '0201633612', resourceUrl: 'http://book.com/0201633612' },
     body: 'A classic.',
   },
 ];

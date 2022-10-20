@@ -386,6 +386,102 @@ it('fetches interface/union intersection properly', async () => {
   `);
 });
 
+it('fetches interface/interface intersection properly', async () => {
+  const query = `#graphql
+    query GetUserAndProducts {
+      me {
+        reviews {
+          subjectInterface {
+            ... on WebResource {
+              resourceUrl
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const { data, queryPlan } = await execute({
+    query,
+  });
+
+  expect(data).toEqual({
+    me: {
+      reviews: [
+        {
+          subjectInterface: {
+            resourceUrl: 'https://images.com/first_image.png',
+          },
+        },
+        { subjectInterface: null },
+        { subjectInterface: { resourceUrl: 'http://book.com/0201633612' } },
+      ],
+    },
+  });
+
+  expect(queryPlan).toCallService('accounts');
+  expect(queryPlan).toCallService('reviews');
+  expect(queryPlan).toCallService('documents');
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "accounts") {
+          {
+            me {
+              __typename
+              id
+            }
+          }
+        },
+        Flatten(path: "me") {
+          Fetch(service: "reviews") {
+            {
+              ... on User {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on User {
+                reviews {
+                  subjectInterface {
+                    __typename
+                    ... on Book {
+                      resourceUrl
+                    }
+                    ... on Image {
+                      __typename
+                      name
+                    }
+                    ... on Van {
+                      resourceUrl
+                    }
+                  }
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "me.reviews.@.subjectInterface") {
+          Fetch(service: "documents") {
+            {
+              ... on Image {
+                __typename
+                name
+              }
+            } =>
+            {
+              ... on Image {
+                resourceUrl
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
+
 it('fetches interfaces returned from other services', async () => {
   const query = `#graphql
     query GetUserAndProducts {
