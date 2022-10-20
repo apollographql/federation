@@ -49,6 +49,7 @@ import {
   MultiMap,
   NamedFragmentDefinition,
   typenameFieldName,
+  mapKeys,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -948,6 +949,18 @@ class FetchGroup {
     this.dependencyGraph.remove(merged);
   }
 
+  removeUselessChild(child: FetchGroup) {
+    const relationToChild = child.parentRelation(this);
+    assert(relationToChild, () => `Cannot remove useless ${child} of ${this}: the former is not a child of the latter`);
+    const childPathInThis = relationToChild.path;
+    assert(childPathInThis, () => `Cannot remove useless ${child} of ${this}: the path of the former into the later is unknown`);
+
+    this.dependencyGraph.onModification();
+    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn". 
+    this.relocateChildrenOnMergedIn(child, childPathInThis);
+    this.dependencyGraph.remove(child);
+  }
+
   private relocateChildrenOnMergedIn(merged: FetchGroup, pathInThis: OperationPath) {
     for (const child of merged.children()) {
       // This could already be a child of `this`. Typically, we can have case where we have:
@@ -1033,7 +1046,7 @@ class FetchGroup {
   }
 
   toString(): string {
-    const base = `[${this.index}]${this.deferRef ? '(deferred)' : ''} ${this.subgraphName}`;
+    const base = `[${this.index}]${this.deferRef ? '(deferred)' : ''}${this._id ? `{id: ${this._id}}` : ''} ${this.subgraphName}`;
     return this.isTopLevel
       ? `${base}[${this._selection}]`
       : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
@@ -1499,6 +1512,10 @@ class FetchDependencyGraph {
     }
 
     for (const group of this.rootGroups.values()) {
+      this.removeUselessGroups(group);
+    }
+
+    for (const group of this.rootGroups.values()) {
       this.mergeChildFetchesForSameSubgraphAndPath(group);
     }
 
@@ -1519,6 +1536,34 @@ class FetchDependencyGraph {
     }
     for (const g of children) {
       this.removeEmptyGroups(g);
+    }
+  }
+
+  private removeUselessGroups(group: FetchGroup) {
+    // Recursing first, this makes it a bit easier to reason about.
+    for (const child of group.children()) {
+      this.removeUselessGroups(child);
+    }
+
+    // If a group is such that everything is fetches is already included in the inputs, then
+    // this group does useless fetches and can be removed.
+    if (group.inputs && group.inputs.contains(group.selection)) {
+      // In general, removing a group is a bit tricky because we need to deal with the fact
+      // that the group can have multiple parents and children and no break the "path in parent"
+      // in all those cases. To keep thing relatively easily, we only handle the following
+      // cases (other cases will remain non-optimal, but hopefully this handle all the cases
+      // we care about in practice):
+      //   1. if the group has no children. In which case we can just remove it with no ceremony.
+      //   2. if the group has only a single parent and we have a path to that parent.
+      if (group.children().length === 0) {
+        this.remove(group);
+      } else {
+        const parents = group.parents();
+        const parent = parents[0];
+        if (parents.length === 1 && parent.path) {
+          parent.group.removeUselessChild(group);
+        }
+      }
     }
   }
 
@@ -1786,12 +1831,16 @@ class FetchDependencyGraph {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     rootGroups: readonly FetchGroup[],
     currentDeferRef: string | undefined,
+    otherDeferGroups: SetMultiMap<string, FetchGroup> | undefined = undefined,
   ): {
     main: TProcessed[],
     deferred: TDeferred[],
   } {
     const allMain: TProcessed[] = [];
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
+    if (otherDeferGroups) {
+      allDeferredGroups.addAll(otherDeferGroups);
+    }
     for (const rootGroup of rootGroups.values()) {
       const { main, unhandled, deferredGroups } = this.processGroup(processor, rootGroup);
       assert(unhandled.length == 0, () => `Root group ${rootGroup} should have no remaining groups unhandled, but got ${unhandled}`);
@@ -1799,16 +1848,33 @@ class FetchDependencyGraph {
       allDeferredGroups.addAll(deferredGroups);
     }
 
-    // We iterate on every @defer that are within our "current level" (so at top-level, that's all the non-nested @defer).
-    // Note in particular that we may be able to truly defer anything for some of those @defer due the limitations of
-    // what can be done at the query planner level. However, we still create `DeferNode` and `DeferredNode` in those case
-    // so that the execution can at least defer the sending of the response back (future handling of defer-passthrough will
-    // also piggy-back on this).
+    // We're going to handled all @defer at our "current level" (so at top-level, that's all the non-nested @defer),
+    // and the "starting" group for those defers, if any, are in `allDeferredGroups`. However, `allDeferredGroups`
+    // can actually contains defer groups that are for "deeper" level of @defer-nestedness, and that is because
+    // sometimes the key we need to resume a nested @defer is the same than for the current @defer (or put another way,
+    // a @defer B may be nested inside @defer A "in the query", but be such that we don't need anything fetched within
+    // the deferred part of A to start the deferred part of B).
+    // Long story short, we first collect the groups from `allDeferredGroups` that are _not_ in our current level, if
+    // any, and pass those to recursion call below so they can be use a their proper level of nestedness. 
     const defersInCurrent = this.deferTracking.defersInParent(currentDeferRef);
+    const handledDefersInCurrent = new Set(defersInCurrent.map((d) => d.label));
+    const unhandledDefersInCurrent = mapKeys(allDeferredGroups).filter((label) => !handledDefersInCurrent.has(label));
+    let unhandledDeferGroups: SetMultiMap<string, FetchGroup> | undefined = undefined;
+    if (unhandledDefersInCurrent.length > 0) {
+      unhandledDeferGroups = new SetMultiMap();
+      for (const label of unhandledDefersInCurrent) {
+        unhandledDeferGroups.set(label, allDeferredGroups.get(label)!);
+      }
+    }
+
+    // We now iterate on every @defer of said "current level". Note in particular that we may not be able to truly defer
+    // anything for some of those @defer due the limitations of what can be done at the query planner level. However, we
+    // still create `DeferNode` and `DeferredNode` in those case so that the execution can at least defer the sending of
+    // the response back (future handling of defer-passthrough will also piggy-back on this).
     const allDeferred: TDeferred[] = [];
     for (const defer of defersInCurrent) {
       const groups = allDeferredGroups.get(defer.label) ?? [];
-      const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label);
+      const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label, unhandledDeferGroups);
       const mainReduced = processor.reduceParallel(main);
       const processed = deferred.length === 0
         ? mainReduced
