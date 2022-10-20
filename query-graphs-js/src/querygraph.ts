@@ -1129,7 +1129,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    *   }
    * }
    * ```
-   * the we currently have no edge between `U` and `I1` whatsoever, so query planning would have
+   * then we currently have no edge between `U` and `I1` whatsoever, so query planning would have
    * to type-explode `U` even though that's not necessary (assuming everything is in the same
    * subgraph, we'd want to send the query "as-is").
    * Same thing for:
@@ -1137,7 +1137,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * {
    *   i1 {
    *     x
-   *     ... on U2 {
+   *     ... on I2 {
    *       y
    *     }
    *   }
@@ -1149,7 +1149,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * And so this method is about adding such edges. Essentially, every time 2 abstract types have
    * an intersection of runtime types > 1, we add an edge.
    *
-   * Do not that in practice we only add those edges when we build a query graph for query planning
+   * Do note that in practice we only add those edges when we build a query graph for query planning
    * purposes, because not type-exploding is only an optimization but type-exploding will always "work"
    * and for composition validation, we don't care about being optimal, while limiting edges make
    * validation faster by limiting the choices to explore. Also, query planning is careful, as
@@ -1157,18 +1157,46 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * later type-exploding in impossible runtime types.
    */
   addAdditionalAbstractTypeEdges() {
+    // As mentioned above, we only care about this on subgraphs query graphs and during query planning, and
+    // we'll have a supergraph when that happens. But if this ever get called in some other path, ignore this.
+    if (!this.supergraph) {
+      return;
+    }
+
     // For each abstract type in the schema, it's runtime types.
-    const abstractTypesWithTheirRuntimeTypes: [AbstractType, readonly ObjectType[]][] = [];
+    type AbstractTypeWithRuntimes = {
+      type: AbstractType,
+      runtimeTypesInSubgraph: readonly ObjectType[],
+      runtimeTypesInSupergraph: readonly ObjectType[],
+    }
+    const abstractTypesWithTheirRuntimeTypes: AbstractTypeWithRuntimes[] = [];
     for (const type of this.schema.types()) {
       if (isAbstractType(type)) {
-        abstractTypesWithTheirRuntimeTypes.push([type, possibleRuntimeTypes(type)]);
+        const typeInSupergraph = this.supergraph.apiSchema.type(type.name);
+        // All "normal" types from subgraphs should be in the supergraph API, but there is a couple exceptions:
+        // - subgraphs have the `_Entity` type, which is not in the supergraph.
+        // - inaccessible types also won't be in the supergrah.
+        // In all those cases, we don't create any additional edges for those types. For inaccessible type, we
+        // could theoretically try to add them, but we would need the full supergraph while we currently only
+        // have access to the API schema, and besides, inacessible types can only be part of the query execution in
+        // indirect ways, through some @requires for instance, and you'd need pretty weird @requires for the
+        // optimization here to ever matter.
+        if (!typeInSupergraph) {
+          continue;
+        }
+        assert(isAbstractType(typeInSupergraph), () => `${type} should not be a ${type.kind} in a subgraph but a ${typeInSupergraph.kind} in the supergraph`);
+        abstractTypesWithTheirRuntimeTypes.push({
+          type,
+          runtimeTypesInSubgraph: possibleRuntimeTypes(type),
+          runtimeTypesInSupergraph: possibleRuntimeTypes(typeInSupergraph),
+        });
       }
     }
 
     // Check every pair of abstract type that intersect on at least 2 runtime types to see if have
     // edges to add. Note that in practice, we only care about 'Union -> Interface' and 'Interface -> Interface'
     for (let i = 0; i < abstractTypesWithTheirRuntimeTypes.length - 1; i++) {
-      const [t1, t1Runtimes] = abstractTypesWithTheirRuntimeTypes[i];
+      const t1 = abstractTypesWithTheirRuntimeTypes[i];
       // Note that in general, t1 is already part of the graph `addTypeRecursively` don't really add anything, it
       // just return the existing vertex. That said, if t1 is returned by no field (at least no field reachable from
       // a root type), the type will not be part of the graph. And in that case, we do add it. And it's actually
@@ -1177,21 +1205,72 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // in the first place (we could also try to purge such subset after this method, but it's probably not worth
       // it in general) and it's not a big deal: it will just use a bit more memory than necessary, and it's probably
       // pretty rare in the first place.
-      const t1Vertex = this.addTypeRecursively(t1);
+      const t1Vertex = this.addTypeRecursively(t1.type);
       for (let j = i; j < abstractTypesWithTheirRuntimeTypes.length; j++) {
-        const [t2, t2Runtimes] = abstractTypesWithTheirRuntimeTypes[j];
+        const t2 = abstractTypesWithTheirRuntimeTypes[j];
+
         // We ignore the pair if both are interfaces and one implements the other. We'll already have appropriate
         // edges if that's the case.
-        if (isInterfaceType(t1) && isInterfaceType(t2) && (t1.implementsInterface(t2) || t2.implementsInterface(t1))) {
+        if (isInterfaceType(t1.type) && isInterfaceType(t2.type) && (t1.type.implementsInterface(t2.type) || t2.type.implementsInterface(t1.type))) {
           continue;
         }
-        // Note that as everything comes from the same subgraph schema, using reference equality is fine.
-        const intersecting = t1Runtimes.filter(o1 => t2Runtimes.includes(o1));
-        if (intersecting.length >= 2) {
+
+        let addT1ToT2 = false;
+        let addT2ToT1 = false;
+        if (t1.type === t2.type) {
+          // We always add an edge from a type to itself. This is just saying that if we're type-casting to the type we're already
+          // on, it's doing nothing, and in particular it shouldn't force us to type-explode anymore that if we didn't had the
+          // cast in the first place. Note that we only set `addT1ToT1` to true, otherwise we'd be adding the same edge twice.
+          addT1ToT2 = true;
+        } else {
+          // Otherwise, there is 2 aspects to take into account:
+          // - it's only worth adding an edge between types, meaining that we might save type-exploding into the runtime
+          //   types of the "target" one, if the local intersection (of runtime types, in the current subgraph) for the
+          //   abstract types is more than 2. If it's just 1 type, then going to that type directly is not less efficient
+          //   and is more precise in a sense. And if the intersection is empty, then no point in polluting the query graphs
+          //   with edges we'll never take.
+          // - _but_ we can only save type-exploding if that local intersection does not exclude any runtime types that
+          //   are local to the "source" type, not local to the "target" type, *but* are global to the "taget" type,
+          //   because such type should not be excluded and only type-explosion will achieve that (for some concrete
+          //   example, see the "merged abstract types handling" tests in `buildPlan.test.ts`).
+          //   In other words, we don't want to avoid the type explosion if there is a type in the intersection of
+          //   the local "source" runtimes and global "target" runtimes that are not in the purely local runtimes
+          //   intersection.
+
+          // Everything comes from the same subgraph schema, using reference equality is fine here.
+          const intersectingLocal = t1.runtimeTypesInSubgraph.filter(o1 => t2.runtimeTypesInSubgraph.includes(o1));
+          if (intersectingLocal.length >= 2) {
+            const isInLocalOtherTypeButNotLocalIntersection = (type: ObjectType, otherType: AbstractTypeWithRuntimes) => (
+              otherType.runtimeTypesInSubgraph.some((t) => t.name === type.name)
+              && !intersectingLocal.some((t) => t.name === type.name)
+            );
+            // TODO: we're currently _never_ adding the edge if the "target" is a union. We shouldn't be doing that, this
+            // will genuinely make some cases less efficient than they could be (though those cases are admittedly a bit convoluted),
+            // but this make sense *until* https://github.com/apollographql/federation/issues/2256 gets fixed. Because until
+            // then, we do not properly track unions through composition, and that means there is never a difference (in the query
+            // planner) between a local union definition and the supergraph one, even if that different actually exists.
+            // And so, never type-exploding in that case is somewhat safer, as not-type-exploding is ultimately an optimisation.
+            // Please note that this is *not* a fix for #2256, and most of the issues created by #2256 still needs fixing, but
+            // it avoids making it even worth for a few corner cases. We should remove the `isUnionType` below once the
+            // fix for #2256 is implemented.
+            if (!(isUnionType(t2.type) || t2.runtimeTypesInSupergraph.some((rt) => isInLocalOtherTypeButNotLocalIntersection(rt, t1)))) {
+              addT1ToT2 = true;
+            }
+            if (!(isUnionType(t1.type) ||t1.runtimeTypesInSupergraph.some((rt) => isInLocalOtherTypeButNotLocalIntersection(rt, t2)))) {
+              addT2ToT1 = true;
+            }
+          }
+        }
+
+        if (addT1ToT2 || addT2ToT1) {
           // Same remark as for t1 above.
-          const t2Vertex = this.addTypeRecursively(t2);
-          this.addEdge(t1Vertex, t2Vertex, new DownCast(t1, t2));
-          this.addEdge(t2Vertex, t1Vertex, new DownCast(t2, t1));
+          const t2Vertex = this.addTypeRecursively(t2.type);
+          if (addT1ToT2) {
+            this.addEdge(t1Vertex, t2Vertex, new DownCast(t1.type, t2.type));
+          }
+          if (addT2ToT1) {
+            this.addEdge(t2Vertex, t1Vertex, new DownCast(t2.type, t1.type));
+          }
         }
       }
     }
