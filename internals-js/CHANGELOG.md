@@ -3,7 +3,7 @@
 ## vNext
 
 - Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
-- Provide support for marking @external on object type [PR #2213](https://github.com/apollographql/federation/pull/2213)
+- Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
 
 ## 2.1.0
 
