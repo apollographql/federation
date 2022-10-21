@@ -1270,6 +1270,19 @@ export class Schema {
       this.validate();
 
       const apiSchema = this.clone();
+
+      // As we compute the API schema of a supergraph, we want to ignore explicit definitions of `@defer` and `@stream` because
+      // those corresponds to the merging of potential definition from the subgraphs, but whether the supergraph API schema
+      // support defer or not is unrelated to the subgraph capacity. As far as gateway/router support goes, whether the defer/stream
+      // definitions ends up being provided or not will depends on the runtime `config` argument of the `toGraphQLJSSchema` that
+      // is the called on the API schema (the schema resulting of that method).
+      for (const toRemoveIfCustom of ['defer', 'stream']) {
+        const directive = apiSchema.directive(toRemoveIfCustom);
+        if (directive && !directive.isBuiltIn) {
+          directive.removeRecursive();
+        }
+      }
+
       removeInaccessibleElements(apiSchema);
       removeAllCoreFeatures(apiSchema);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
