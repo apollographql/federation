@@ -426,38 +426,6 @@ describe('composition', () => {
         ]);
       });
 
-      it('errors on incompatible types with @external', () => {
-        const subgraphA = {
-          name: 'subgraphA',
-          typeDefs: gql`
-            type Query {
-              T: T! @provides(fields: "f")
-            }
-
-            type T @key(fields: "id") {
-              id: ID!
-              f: String @external
-            }
-          `,
-        };
-
-        const subgraphB = {
-          name: 'subgraphB',
-          typeDefs: gql`
-            type T @key(fields: "id") {
-              id: ID!
-              f: Int @shareable
-            }
-          `,
-        };
-
-        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-        expect(result.errors).toBeDefined();
-        expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_TYPE_MISMATCH', 'Type of field "T.f" is incompatible across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
-        ]);
-      });
-
       it('errors on merging a list type with a non-list version', () => {
         const subgraphA = {
           name: 'subgraphA',
@@ -1040,74 +1008,6 @@ describe('composition', () => {
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Type of argument "T.f(x:)" is incompatible across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"']
-        ]);
-      });
-
-      it('errors on missing arguments to @external declaration', () => {
-        const subgraphA = {
-          name: 'subgraphA',
-          typeDefs: gql`
-            type Query {
-              T: T! @provides(fields: "f")
-            }
-
-            type T @key(fields: "id") {
-              id: ID!
-              f: String @external
-            }
-          `,
-        };
-
-        const subgraphB = {
-          name: 'subgraphB',
-          typeDefs: gql`
-            type T @key(fields: "id") {
-              id: ID!
-              f(x: Int): String @shareable
-            }
-          `,
-        };
-
-        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-        expect(result.errors).toBeDefined();
-        expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_ARGUMENT_MISSING', 'Field "T.f" is missing argument "T.f(x:)" in some subgraphs where it is marked @external: argument "T.f(x:)" is declared in subgraph "subgraphB" but not in subgraph "subgraphA" (where "T.f" is @external).'],
-        ]);
-      });
-
-      it('errors on incompatible argument types in @external declaration', () => {
-        const subgraphA = {
-          name: 'subgraphA',
-          typeDefs: gql`
-            type Query {
-              T: T!
-            }
-
-            interface I {
-              f(x: String): String
-            }
-
-            type T implements I @key(fields: "id") {
-              id: ID!
-              f(x: String): String @external
-            }
-          `,
-        };
-
-        const subgraphB = {
-          name: 'subgraphB',
-          typeDefs: gql`
-            type T @key(fields: "id") {
-              id: ID!
-              f(x: Int): String
-            }
-          `,
-        };
-
-        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-        expect(result.errors).toBeDefined();
-        expect(errors(result)).toStrictEqual([
-          ['EXTERNAL_ARGUMENT_TYPE_MISMATCH', 'Type of argument "T.f(x:)" is incompatible across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
         ]);
       });
 
