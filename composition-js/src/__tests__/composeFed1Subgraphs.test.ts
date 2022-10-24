@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
+import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WITH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -66,7 +66,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -88,7 +88,7 @@ describe('basic type extensions', () => {
     // an extension.
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -148,7 +148,7 @@ describe('basic type extensions', () => {
     // Same remark than in prevoius test
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -163,7 +163,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -235,7 +235,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -250,7 +250,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -267,7 +267,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphC')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }

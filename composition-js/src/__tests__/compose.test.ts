@@ -2,7 +2,7 @@ import {
   asFed2SubgraphDocument,
   assert,
   buildSubgraph,
-  FEDERATION2_LINK_WTH_FULL_IMPORTS,
+  FEDERATION2_LINK_WITH_FULL_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
   isObjectType,
@@ -287,7 +287,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -304,7 +304,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -359,7 +359,7 @@ describe('composition', () => {
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -378,7 +378,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -1894,7 +1894,7 @@ describe('composition', () => {
   });
 
   describe('field sharing', () => {
-    it ('errors if a non-shareable fields are shared in "value types"', () => {
+    it('errors if a non-shareable fields are shared in "value types"', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1929,7 +1929,7 @@ describe('composition', () => {
       ]);
     });
 
-    it ('errors if a non-shareable fields are shared in an "entity type"', () => {
+    it('errors if a non-shareable fields are shared in an "entity type"', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1963,7 +1963,7 @@ describe('composition', () => {
       ]);
     });
 
-    it ('errors if a query is shared without @shareable', () => {
+    it('errors if a query is shared without @shareable', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -1990,7 +1990,7 @@ describe('composition', () => {
       ]);
     });
 
-    it ('errors if provided fields are not marked @shareable', () => {
+    it('errors if provided fields are not marked @shareable', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2032,7 +2032,7 @@ describe('composition', () => {
       ]);
     });
 
-    it ('applies @shareable on type only to the field within the definition', () => {
+    it('applies @shareable on type only to the field within the definition', () => {
       const subgraphA = {
         typeDefs: gql`
           type Query {
@@ -2103,6 +2103,43 @@ describe('composition', () => {
       expect(errors(result)).toStrictEqual([
         ['INVALID_FIELD_SHARING', 'Non-shareable field "E.a" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them (please note that "E.a" has an @override directive in "subgraphA" that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)'],
       ]);
+    });
+
+    it('allows applying @shareable on both a type definition and its extensions', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            e: E
+          }
+
+          type E @shareable {
+            id: ID!
+            a: Int
+          }
+
+          extend type E @shareable {
+            b: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type E @shareable {
+            id: ID!
+            a: Int
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      // Note that a previous test makes sure that _not_ having @shareable on the type extension ends up failing (as `b` is
+      // not considered shareable in `subgraphA`. So succeeding here shows both that @shareable is accepted in the 2 places
+      // (definition and extension) but also that it's properly taking into account.
+      assertCompositionSuccess(result);
     });
   });
 

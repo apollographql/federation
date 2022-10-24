@@ -49,6 +49,7 @@ The following errors might be raised during composition:
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
 | `INVALID_LINK_DIRECTIVE_USAGE` | An application of the @link directive is invalid/does not respect the specification. | 2.0.0 |  |
 | `INVALID_LINK_IDENTIFIER` | A url/version for a @link feature is invalid/does not respect the specification. | 2.1.0 |  |
+| `INVALID_SHAREABLE_USAGE` | The `@shareable` federation directive is used in an invalid way. | 2.1.2 |  |
 | `INVALID_SUBGRAPH_NAME` | A subgraph name is invalid (subgraph names cannot be a single underscore ("_")). | 2.0.0 |  |
 | `KEY_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@key` directive includes some directive applications. This is not supported | 2.1.0 |  |
 | `KEY_FIELDS_HAS_ARGS` | The `fields` argument of a `@key` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |

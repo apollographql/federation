@@ -95,6 +95,36 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 * If a type or field is marked `@shareable` in _any_ subgraph, it must be marked either `@shareable` or [`@external`](./federated-directives/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
 * If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
+#### 📝 A note regaring `@shareable` on types
+
+When `@shareable` is put on an object type declaration, it only applies to the fields within that exact declaration. This become relevant if a subgraph defines a type though an [object definition](https://spec.graphql.org/June2018/#ObjectTypeDefinition) and one or more [object extensions](https://spec.graphql.org/June2018/#sec-Object-Extensions). For instance, if a subgraph declares:
+```graphql title="Subgraph A"
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+
+extend type Position {
+  z: Int!
+}
+```
+then field `z` will _not_ be shareable. To make `z` shareable, you can either mark it with `@shareable` directly or mark the extension itself shareable:
+```graphql title="Subgraph A"
+# This example only works with v2.2+ of the federation specification. In earlier versions, `@shareable` was
+# not marked `repeatable` and so this example would be rejected by graphQL.
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.2", import: ["@shareable"])
+
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+
+extend type Position @shareable {
+  z: Int!
+}
+```
+
 ## Differing shared fields
 
 Shared fields can differ between subgraphs in specific ways:

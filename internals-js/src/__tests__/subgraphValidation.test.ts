@@ -668,7 +668,7 @@ describe('@core/@link handling', () => {
 
     directive @federation__extends on OBJECT | INTERFACE
 
-    directive @federation__shareable on OBJECT | FIELD_DEFINITION
+    directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
 
     directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
@@ -1126,3 +1126,62 @@ describe('federation 1 schema', () => {
     ]]);
   });
 })
+
+describe('@shareable', () => {
+  it('can only be applied to fields of object types', () => {
+    const doc = gql`
+      interface I {
+        a: Int @shareable
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid use of @shareable on field "I.a": only object type fields can be marked with @shareable'
+    ]]);
+  });
+
+  it('rejects duplicate @shareable on the same definition declaration', () => {
+    const doc = gql`
+      type E @shareable @key(fields: "id") @shareable {
+        id: ID!
+        a: Int
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
+    ]]);
+  });
+
+  it('rejects duplicate @shareable on the same extension declaration', () => {
+    const doc = gql`
+      type E @shareable {
+        id: ID!
+        a: Int
+      }
+
+      extend type E @shareable @shareable {
+        b: Int
+      }
+    `;
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
+    ]]);
+  });
+
+  it('rejects duplicate @shareable on a field', () => {
+    const doc = gql`
+      type E {
+        a: Int @shareable @shareable
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid duplicate application of @shareable on field "E.a": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
+    ]]);
+  });
+});
