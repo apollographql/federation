@@ -106,7 +106,7 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
-const ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES = Object.values(FederationDirectiveName) as string[];
+const ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES: string[] = Object.values(FederationDirectiveName);
 
 function validateFieldSetSelections({
   directiveName,
@@ -485,7 +485,7 @@ function validateShareableNotRepeatedOnSameDeclaration(
   metadata: FederationMetadata,
   errorCollector: GraphQLError[],
 ) {
-  const shareableApplications: Directive<any, {}>[] = element.appliedDirectivesOf(metadata.shareableDirective());
+  const shareableApplications: Directive[] = element.appliedDirectivesOf(metadata.shareableDirective());
   if (shareableApplications.length <= 1) {
     return;
   }
