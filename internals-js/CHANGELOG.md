@@ -2,6 +2,9 @@
 
 ## vNext
 
+
+## 2.1.4
+
 - Ensures supergraph `@defer`/`@stream` definitions of supergraph are not included in the API schema [PR #2212](https://github.com/apollographql/federation/pull/2212).
 - Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
 
