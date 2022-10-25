@@ -14,6 +14,7 @@ import {
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
 import { maybeCacheControlFromInfo } from '@apollo/cache-control-types';
+import { ApolloGraphQLObjectTypeExtensions } from './schemaExtensions';
 
 export type Maybe<T> = null | undefined | T;
 
@@ -95,11 +96,8 @@ export function entitiesResolver({
       }
     }
 
-    const resolveReference =
-      type.extensions.apollo?.subgraph?.resolveReference ??
-      function defaultResolveReference() {
-        return reference;
-      };
+    const extensions: ApolloGraphQLObjectTypeExtensions = type.extensions;
+    const resolveReference = extensions.apollo?.subgraph?.resolveReference ?? (() => reference);
 
     // FIXME somehow get this to show up special in Studio traces?
     const result = resolveReference(reference, context, info);

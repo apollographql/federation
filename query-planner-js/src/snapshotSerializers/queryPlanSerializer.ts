@@ -96,11 +96,15 @@ function printNode(
       break;
     case 'Condition':
       if (node.ifClause) {
+        const indentationInner = indentationNext + config.indent;
         if (node.elseClause) {
           result +=
             `Condition(if: \$${node.condition}) {` + config.spacingOuter +
-            indentationNext + printNode(node.ifClause, config, indentationNext, depth, refs, printer) + ',' + config.spacingOuter +
-            indentationNext + printNode(node.elseClause, config, indentationNext, depth, refs, printer) + config.spacingOuter +
+            indentationNext + `Then {` + config.spacingOuter +
+            indentationInner + printNode(node.ifClause, config, indentationInner, depth, refs, printer) + config.spacingOuter +
+            indentationNext + `} Else {` + config.spacingOuter +
+            indentationInner + printNode(node.elseClause, config, indentationInner, depth, refs, printer) + config.spacingOuter +
+            indentationNext + `}` + config.spacingOuter +
             indentation + '}'
         } else {
           result +=

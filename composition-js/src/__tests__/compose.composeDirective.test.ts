@@ -2,7 +2,7 @@ import { assert, FEDERATION2_LINK_WTH_FULL_IMPORTS, printSchema, Schema } from '
 import { DirectiveLocation } from 'graphql';
 import gql from 'graphql-tag';
 import { composeServices, CompositionResult } from '../compose';
-import { errors } from './compose.test';
+import { errors } from './testHelper';
 
 const generateSubgraph = ({
   name,
@@ -925,5 +925,73 @@ describe('composing custom core directives', () => {
     expect(feature?.imports).toEqual([]);
     expect(feature?.nameInSchema).toEqual('mytag');
     expect(printSchema(schema)).toMatchSnapshot();
-    });
+  });
+
+  it('repeatable custom directives', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        extend schema @composeDirective(name: "@auth")
+          @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective", "@shareable"])
+          @link(url: "https://custom.dev/auth/v1.0", import: ["@auth"])
+          directive @auth(scope: String!) repeatable on FIELD_DEFINITION
+
+        type Query {
+          shared: String @shareable @auth(scope: "VIEWER")
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        extend schema @composeDirective(name: "@auth")
+          @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective", "@shareable"])
+          @link(url: "https://custom.dev/auth/v1.0", import: ["@auth"])
+          directive @auth(scope: String!) repeatable on FIELD_DEFINITION
+
+          type Query {
+          shared: String @shareable @auth(scope: "ADMIN")
+        }`,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    const appliedDirectives = schema.elementByCoordinate('Query.shared')?.appliedDirectives;
+    expect(appliedDirectives?.map(d => [d.name, d.arguments()])).toMatchObject([['auth', { scope: 'VIEWER'}], ['auth', { scope: 'ADMIN'}]]);
+  });
+
+  it('custom directive on nullable array', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        extend schema @composeDirective(name: "@auth")
+          @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective", "@shareable"])
+          @link(url: "https://custom.dev/auth/v1.0", import: ["@auth"])
+          directive @auth(scope: [String!]) repeatable on FIELD_DEFINITION
+
+        type Query {
+          shared: String @shareable @auth(scope: "VIEWER")
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        extend schema @composeDirective(name: "@auth")
+          @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective", "@shareable"])
+          @link(url: "https://custom.dev/auth/v1.0", import: ["@auth"])
+          directive @auth(scope: [String!]) repeatable on FIELD_DEFINITION
+
+          type Query {
+          shared: String @shareable @auth
+        }`,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    const appliedDirectives = schema.elementByCoordinate('Query.shared')?.appliedDirectives;
+    expect(appliedDirectives?.map(d => [d.name, d.arguments()])).toMatchObject([['auth', { scope: 'VIEWER'}], ['auth', {}]]);
+  });
 });

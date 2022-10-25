@@ -22,7 +22,6 @@ import {
   Selection,
   SelectionSet,
   selectionSetOf,
-  selectionSetOfPath,
   Type,
   Variable,
   VariableDefinition,
@@ -49,6 +48,8 @@ import {
   setValues,
   MultiMap,
   NamedFragmentDefinition,
+  typenameFieldName,
+  mapKeys,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -88,6 +89,10 @@ import { QueryPlannerConfig } from "./config";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
+
+// Somewhat random string used to optimise handling __typename in some cases. See usage for details. The concrete value
+// has no particular significance.
+const SIBLING_TYPENAME_KEY = 'sibling_typename';
 
 // If a query can be resolved by more than this number of plans, we'll try to reduce the possible options we'll look
 // at to get it below this number to void query planning running forever.
@@ -225,6 +230,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly startFetchIdGen: number,
     readonly hasDefers: boolean,
     readonly variableDefinitions: VariableDefinitions,
+    private readonly statistics: PlanningStatistics | undefined,
     private readonly startVertex: RV,
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
@@ -440,6 +446,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
       debug.log(() => `Reduced plans to consider to ${planCount} plans`);
     }
 
+    if (this.statistics) {
+      this.statistics.evaluatedPlanCount += planCount;
+    }
+
     debug.log(() => `All branches:${this.closedBranches.map((opts, i) => `\n${i}:${opts.map((opt => `\n - ${simultaneousPathsToString(opt)}`))}`)}`);
 
     // Note that usually, we'll have a majority of branches with just one option. We can group them in
@@ -523,6 +533,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       0,
       false,
       this.variableDefinitions,
+      undefined,
       edge.head,
       'query',
       this.costFunction,
@@ -659,7 +670,8 @@ class FetchGroup {
       this.isEntityFetch,
       this._selection.clone(),
       this._inputs?.clone(),
-      this.mergeAt
+      this.mergeAt,
+      this.deferRef,
     );
   }
 
@@ -700,8 +712,14 @@ class FetchGroup {
    * Adds another group as a parent of this one (meaning that this fetch should happen after the provided one).
    */
   addParent(parent: ParentRelation) {
-    assert(!this.isChildOf(parent.group), () => `Group ${parent.group} is already a parent of ${this}`);
-    assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is already a parent of ${this} (but the child relationship is broken)`);
+    if (this.isChildOf(parent.group)) {
+      // Due to how we handle the building of multiple query plans when there is choices, it's possible that we re-traverse
+      // key edges we've already traversed before, and that can means hitting this condition. While we could try to filter
+      // "already-children" before calling this method, it's easier to just make this a no-op.
+      return;
+    }
+
+    assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is a parent of ${this}, but the child relationship is broken`);
     assert(!parent.group.isChildOf(this), () => `Group ${parent.group} is a child of ${this}: adding is as parent would create a cycle`);
 
     this.dependencyGraph.onModification();
@@ -786,8 +804,8 @@ class FetchGroup {
     }
   }
 
-  addSelection(path: OperationPath) {
-    this._selection.forWrite().addPath(path);
+  addSelection(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
+    this._selection.forWrite().addPath(path, onPathEnd);
   }
 
   addSelections(selection: SelectionSet) {
@@ -912,7 +930,8 @@ class FetchGroup {
     if (path.length === 0) {
       selectionSet = merged.selection;
     } else {
-      selectionSet = selectionSetOfPath(path, (endOfPathSet) => {
+      selectionSet = new SelectionSet(this.selection.parentType);
+      selectionSet.addPath(path, (endOfPathSet) => {
         assert(endOfPathSet, () => `Merge path ${path} ends on a non-selectable type`);
         for (const selection of merged.selection.selections()) {
           const withoutUneededFragments = removeRedundantFragments(selection, endOfPathSet.parentType, mergePathConditionalDirectives);
@@ -928,6 +947,18 @@ class FetchGroup {
       this.relocateParentsOnMergedIn(merged);
     }
     this.dependencyGraph.remove(merged);
+  }
+
+  removeUselessChild(child: FetchGroup) {
+    const relationToChild = child.parentRelation(this);
+    assert(relationToChild, () => `Cannot remove useless ${child} of ${this}: the former is not a child of the latter`);
+    const childPathInThis = relationToChild.path;
+    assert(childPathInThis, () => `Cannot remove useless ${child} of ${this}: the path of the former into the later is unknown`);
+
+    this.dependencyGraph.onModification();
+    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn". 
+    this.relocateChildrenOnMergedIn(child, childPathInThis);
+    this.dependencyGraph.remove(child);
   }
 
   private relocateChildrenOnMergedIn(merged: FetchGroup, pathInThis: OperationPath) {
@@ -976,21 +1007,21 @@ class FetchGroup {
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
-    const operation = this.isEntityFetch
+    let operation = this.isEntityFetch
       ? operationForEntitiesFetch(
           this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
           this.selection,
           variableDefinitions,
-          fragments,
           operationName,
         )
       : operationForQueryFetch(
           this.rootKind,
           this.selection,
           variableDefinitions,
-          fragments,
           operationName,
         );
+
+    operation = operation.optimize(fragments);
 
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
@@ -1015,9 +1046,10 @@ class FetchGroup {
   }
 
   toString(): string {
+    const base = `[${this.index}]${this.deferRef ? '(deferred)' : ''}${this._id ? `{id: ${this._id}}` : ''} ${this.subgraphName}`;
     return this.isTopLevel
-      ? `[${this.index}] ${this.subgraphName}[${this._selection}]`
-      : `[${this.index}] ${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+      ? `${base}[${this._selection}]`
+      : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
   }
 }
 
@@ -1480,6 +1512,10 @@ class FetchDependencyGraph {
     }
 
     for (const group of this.rootGroups.values()) {
+      this.removeUselessGroups(group);
+    }
+
+    for (const group of this.rootGroups.values()) {
       this.mergeChildFetchesForSameSubgraphAndPath(group);
     }
 
@@ -1500,6 +1536,34 @@ class FetchDependencyGraph {
     }
     for (const g of children) {
       this.removeEmptyGroups(g);
+    }
+  }
+
+  private removeUselessGroups(group: FetchGroup) {
+    // Recursing first, this makes it a bit easier to reason about.
+    for (const child of group.children()) {
+      this.removeUselessGroups(child);
+    }
+
+    // If a group is such that everything is fetches is already included in the inputs, then
+    // this group does useless fetches and can be removed.
+    if (group.inputs && group.inputs.contains(group.selection)) {
+      // In general, removing a group is a bit tricky because we need to deal with the fact
+      // that the group can have multiple parents and children and no break the "path in parent"
+      // in all those cases. To keep thing relatively easily, we only handle the following
+      // cases (other cases will remain non-optimal, but hopefully this handle all the cases
+      // we care about in practice):
+      //   1. if the group has no children. In which case we can just remove it with no ceremony.
+      //   2. if the group has only a single parent and we have a path to that parent.
+      if (group.children().length === 0) {
+        this.remove(group);
+      } else {
+        const parents = group.parents();
+        const parent = parents[0];
+        if (parents.length === 1 && parent.path) {
+          parent.group.removeUselessChild(group);
+        }
+      }
     }
   }
 
@@ -1767,12 +1831,16 @@ class FetchDependencyGraph {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     rootGroups: readonly FetchGroup[],
     currentDeferRef: string | undefined,
+    otherDeferGroups: SetMultiMap<string, FetchGroup> | undefined = undefined,
   ): {
     main: TProcessed[],
     deferred: TDeferred[],
   } {
     const allMain: TProcessed[] = [];
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
+    if (otherDeferGroups) {
+      allDeferredGroups.addAll(otherDeferGroups);
+    }
     for (const rootGroup of rootGroups.values()) {
       const { main, unhandled, deferredGroups } = this.processGroup(processor, rootGroup);
       assert(unhandled.length == 0, () => `Root group ${rootGroup} should have no remaining groups unhandled, but got ${unhandled}`);
@@ -1780,16 +1848,33 @@ class FetchDependencyGraph {
       allDeferredGroups.addAll(deferredGroups);
     }
 
-    // We iterate on every @defer that are within our "current level" (so at top-level, that's all the non-nested @defer).
-    // Note in particular that we may be able to truly defer anything for some of those @defer due the limitations of
-    // what can be done at the query planner level. However, we still create `DeferNode` and `DeferredNode` in those case
-    // so that the execution can at least defer the sending of the response back (future handling of defer-passthrough will
-    // also piggy-back on this).
+    // We're going to handled all @defer at our "current level" (so at top-level, that's all the non-nested @defer),
+    // and the "starting" group for those defers, if any, are in `allDeferredGroups`. However, `allDeferredGroups`
+    // can actually contains defer groups that are for "deeper" level of @defer-nestedness, and that is because
+    // sometimes the key we need to resume a nested @defer is the same than for the current @defer (or put another way,
+    // a @defer B may be nested inside @defer A "in the query", but be such that we don't need anything fetched within
+    // the deferred part of A to start the deferred part of B).
+    // Long story short, we first collect the groups from `allDeferredGroups` that are _not_ in our current level, if
+    // any, and pass those to recursion call below so they can be use a their proper level of nestedness. 
     const defersInCurrent = this.deferTracking.defersInParent(currentDeferRef);
+    const handledDefersInCurrent = new Set(defersInCurrent.map((d) => d.label));
+    const unhandledDefersInCurrent = mapKeys(allDeferredGroups).filter((label) => !handledDefersInCurrent.has(label));
+    let unhandledDeferGroups: SetMultiMap<string, FetchGroup> | undefined = undefined;
+    if (unhandledDefersInCurrent.length > 0) {
+      unhandledDeferGroups = new SetMultiMap();
+      for (const label of unhandledDefersInCurrent) {
+        unhandledDeferGroups.set(label, allDeferredGroups.get(label)!);
+      }
+    }
+
+    // We now iterate on every @defer of said "current level". Note in particular that we may not be able to truly defer
+    // anything for some of those @defer due the limitations of what can be done at the query planner level. However, we
+    // still create `DeferNode` and `DeferredNode` in those case so that the execution can at least defer the sending of
+    // the response back (future handling of defer-passthrough will also piggy-back on this).
     const allDeferred: TDeferred[] = [];
     for (const defer of defersInCurrent) {
       const groups = allDeferredGroups.get(defer.label) ?? [];
-      const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label);
+      const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label, unhandledDeferGroups);
       const mainReduced = processor.reduceParallel(main);
       const processed = deferred.length === 0
         ? mainReduced
@@ -1874,6 +1959,135 @@ interface FetchGroupProcessor<TProcessed, TDeferred> {
   reduceRoots(roots: TProcessed[], isParallel: boolean): TProcessed,
 }
 
+
+/**
+ * Modify the provided selection set to optimize the handling of __typename selection for query planning.
+ *
+ * Explicit querying of __typename can create some inefficiency for the query planning process if not
+ * handled specially. More precisely, query planning performance is directly proportional to how many possible
+ * plans a query has, since it compute all those options to compare them. Further, the number of possible
+ * plans double for every field for which there is a choice, so miminizing the number of field for which we
+ * have choices is paramount.
+ *
+ * And for a given type, __typename can always be provided by any subgraph having that type (it works as a
+ * kind of "always @shareable" field), so it often creates theoretical choices. In practice it doesn't
+ * matter which subgraph we use for __typename: we're happy to use whichever subgraph we're using for
+ * the "other" fields queried for the type. But the default query planning algorithm does not know how
+ * to do that.
+ *
+ * Let's note that this isn't an issue in most cases, because the query planning algorithm knows not to
+ * consider "obviously" inefficient paths. Typically, querying the __typename of an entity is generally
+ * ok because when looking at a path, the query planning algorithm always favor getting a field "locally"
+ * if it can (which it always can for __typename) and ignore alternative that would jump subgraphs.
+ *
+ * But this can still be a performance issue when a __typename is queried after a @shareable field: in
+ * that case, the algorithm would consider getting the __typename from each version of the @shareable
+ * field and this would add to the options to consider. But as, again, __typename can always be fetched
+ * from any subgraph, it's more efficient to ignore those options and simply get __typename from whichever
+ * subgraph we get any other of the other field requested (on the type on which we request __typename).
+ *
+ * It is unclear how to do this cleanly with the current planning algorithm however, so this method
+ * implements an alternative: to avoid the query planning spending time of exploring options for
+ * __typename, we "remove" the __typename selections from the operation. But of course, we still
+ * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
+ * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
+ * be added back eventually. The core query planning algorithm will ignore that tag, and because
+ * __typename has been otherwise removed, we'll save any related work. But as we build the final
+ * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
+ * and when we fine one, we'll add back the request to __typename. As this only happen after the 
+ * query planning algorithm has computed all choices, we achieve our goal of not considering useless 
+ * choices due to __typename. Do note that if __typename is the "only" selection of some selection
+ * set, then we leave it untouched, and let the query planning algorithm treat it as any other
+ * field. We have no other choice in that case, and that's actually what we want.
+ */
+function optimizeSiblingTypenames(selectionSet: SelectionSet): SelectionSet {
+  const selections = selectionSet.selections();
+  let updatedSelections: Selection[] | undefined = undefined;
+  let typenameSelection: Selection | undefined = undefined;
+  // We remember the first non-__typename field selection found. This is the one we'll "tag" if we do find a __typename
+  // occurrence that we want to remove. We only use for _field_ selections because at the stage where this is applied,
+  // we cannot be sure the selection set is "minimized" and so some of the inline fragments may end up being eliminated
+  // (for instance, the fragment condition could be "less precise" than the parent type, in which case query planning
+  // will ignore it) and tagging those could lose the tagging.
+  let firstFieldSelection: FieldSelection | undefined = undefined;
+  for (let i = 0; i < selections.length; i++) {
+    const selection = selections[i];
+    let updated: Selection | undefined;
+    if (!typenameSelection && selection.kind === 'FieldSelection' && selection.field.name === typenameFieldName) {
+      // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
+      // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_ 
+      // 2 selection of __typename, then we won't optimise things as much as we could, but there is no practical reason
+      // whatsoever to have 2 selection of __typename in the first place, so not being optimal is moot.
+      updated = undefined;
+      typenameSelection = selection;
+    } else {
+      const updatedSubSelection = selection.selectionSet ? optimizeSiblingTypenames(selection.selectionSet) : undefined;
+      if (updatedSubSelection === selection.selectionSet) {
+        updated = selection;
+      } else {
+        updated = selection.withUpdatedSubSelection(updatedSubSelection);
+      }
+      if (!firstFieldSelection && updated.kind === 'FieldSelection') {
+        firstFieldSelection = updated;
+      }
+    }
+
+    // As soon as we find a selection that is discarded or modified, we need to create new selection set so we
+    // first copy everything up to this selection.
+    if (updated !== selection && !updatedSelections) {
+      updatedSelections = [];
+      for (let j = 0; j < i; j++) {
+        updatedSelections.push(selections[j]);
+      }
+    }
+    // Record the (potentially updated) selection if we're creating a new selection set, and said selection is not discarded.
+    if (updatedSelections && !!updated) {
+      updatedSelections.push(updated);
+    }
+  }
+
+  if (!updatedSelections || updatedSelections.length === 0) {
+    // No selection was modified at all, or there is no other field selection than __typename one.
+    // In both case, we just return the current selectionSet unmodified.
+    return selectionSet;
+  }
+
+  // If we have some __typename selection that was removed but need to be "remembered" for later,
+  // "tag" whichever first field selection is still part of the operation.
+  if (typenameSelection) {
+    if (firstFieldSelection) {
+      // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
+      firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
+    } else {
+      // If we have no other field selection, then we can't optimize __typename and we need to add
+      // it back to the updated subselections (we add it first because that's usually where we
+      // put __typename by convention).
+      updatedSelections = [typenameSelection as Selection].concat(updatedSelections);
+    }
+  }
+  return new SelectionSet(selectionSet.parentType, selectionSet.fragments).addAll(updatedSelections)
+}
+
+/**
+ * Applies `optimizeSiblingTypenames` to the provided operation selection set.
+ */
+function withSiblingTypenameOptimizedAway(operation: Operation): Operation {
+  const updatedSelectionSet = optimizeSiblingTypenames(operation.selectionSet);
+  if (updatedSelectionSet === operation.selectionSet) {
+    return operation;
+  }
+  return new Operation(
+    operation.rootKind,
+    updatedSelectionSet,
+    operation.variableDefinitions,
+    operation.name
+  );
+}
+
+export type PlanningStatistics = {
+  evaluatedPlanCount: number,
+}
+
 export function computeQueryPlan({
   config,
   supergraphSchema,
@@ -1884,13 +2098,20 @@ export function computeQueryPlan({
   supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
   operation: Operation,
-}): QueryPlan {
+}): {
+  plan: QueryPlan,
+  statistics: PlanningStatistics,
+} {
   if (operation.rootKind === 'subscription') {
     throw ERRORS.UNSUPPORTED_FEATURE.err(
       'Query planning does not currently support subscriptions.',
       { nodes: [parse(operation.toString())] },
     );
   }
+
+  const statistics: PlanningStatistics = {
+    evaluatedPlanCount: 0,
+  };
 
   const reuseQueryFragments = config.reuseQueryFragments ?? true;
   let fragments = operation.selectionSet.fragments
@@ -1907,11 +2128,12 @@ export function computeQueryPlan({
   // later if possible (which is why we saved them above before expansion).
   operation = operation.expandAllFragments();
   operation = withoutIntrospection(operation);
+  operation = withSiblingTypenameOptimizedAway(operation);
 
   let assignedDeferLabels: Set<string> | undefined = undefined;
   let hasDefers: boolean = false;
   let deferConditions: SetMultiMap<string, string> | undefined = undefined;
-  if (config.deferStreamSupport.enableDefer) {
+  if (config.incrementalDelivery.enableDefer) {
     ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
   } else {
     // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
@@ -1923,7 +2145,10 @@ export function computeQueryPlan({
   debug.group(() => `Computing plan for\n${operation}`);
   if (operation.selectionSet.isEmpty()) {
     debug.groupEnd('Empty plan');
-    return { kind: 'QueryPlan' };
+    return {
+      plan: { kind: 'QueryPlan' },
+      statistics,
+    };
   }
 
   const root = federatedQueryGraph.root(operation.rootKind);
@@ -1947,6 +2172,7 @@ export function computeQueryPlan({
       processor,
       root,
       deferConditions,
+      statistics,
     })
   } else {
     rootNode = computePlanInternal({
@@ -1956,11 +2182,15 @@ export function computeQueryPlan({
       processor,
       root,
       hasDefers,
+      statistics,
     });
   }
 
   debug.groupEnd('Query plan computed');
-  return { kind: 'QueryPlan', node: rootNode };
+  return {
+    plan: { kind: 'QueryPlan', node: rootNode },
+    statistics,
+  };
 }
 
 function computePlanInternal({
@@ -1970,6 +2200,7 @@ function computePlanInternal({
   processor,
   root,
   hasDefers,
+  statistics,
 }: {
   supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
@@ -1977,9 +2208,10 @@ function computePlanInternal({
   processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
   root: RootVertex,
   hasDefers: boolean,
+  statistics: PlanningStatistics,
 }): PlanNode | undefined {
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers);
+    const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers, statistics);
     let allMain: (PlanNode | undefined)[] = [];
     let allDeferred: DeferredNode[] = [];
     let primarySelection: SelectionSet | undefined = undefined;
@@ -2004,7 +2236,7 @@ function computePlanInternal({
       deferred: allDeferred,
     });
   } else {
-    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers);
+    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers, statistics);
     const { main, deferred } = dependencyGraph.process(processor);
     return processRootNodes({
       processor,
@@ -2023,6 +2255,7 @@ function computePlanForDeferConditionals({
   processor,
   root,
   deferConditions,
+  statistics,
 }: {
   supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
@@ -2030,6 +2263,7 @@ function computePlanForDeferConditionals({
   processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
   root: RootVertex,
   deferConditions: SetMultiMap<string, string>,
+  statistics: PlanningStatistics,
 }): PlanNode | undefined {
   return generateConditionNodes(
     operation,
@@ -2042,6 +2276,7 @@ function computePlanForDeferConditionals({
       processor,
       root,
       hasDefers: true,
+      statistics,
     }),
   );
 }
@@ -2157,6 +2392,7 @@ function computeRootParallelDependencyGraph(
   root: RootVertex,
   startFetchIdGen: number,
   hasDefer: boolean,
+  statistics: PlanningStatistics,
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(
     supergraphSchema,
@@ -2166,6 +2402,7 @@ function computeRootParallelDependencyGraph(
     root,
     startFetchIdGen,
     hasDefer,
+    statistics,
   )[0];
 }
 
@@ -2177,6 +2414,7 @@ function computeRootParallelBestPlan(
   root: RootVertex,
   startFetchIdGen: number,
   hasDefers: boolean,
+  statistics: PlanningStatistics,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTaversal(
     supergraphSchema,
@@ -2185,10 +2423,11 @@ function computeRootParallelBestPlan(
     startFetchIdGen,
     hasDefers,
     variables,
+    statistics,
     root,
     root.rootKind,
     defaultCostFunction,
-    emptyContext
+    emptyContext,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -2219,16 +2458,17 @@ function computeRootSerialDependencyGraph(
   federatedQueryGraph: QueryGraph,
   root: RootVertex,
   hasDefers: boolean,
+  statistics: PlanningStatistics,
 ): FetchDependencyGraph[] {
   const rootType = hasDefers ? supergraphSchema.schemaDefinition.rootType(root.rootKind) : undefined;
   // We have to serially compute a plan for each top-level selection.
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId: number = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root, startingFetchId, hasDefers);
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root, startingFetchId, hasDefers, statistics);
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[i], operation.variableDefinitions, federatedQueryGraph, root, prevDepGraph.nextFetchId(), hasDefers);
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[i], operation.variableDefinitions, federatedQueryGraph, root, prevDepGraph.nextFetchId(), hasDefers, statistics);
     const newSubgraph = onlyRootSubgraph(newDepGraph);
     if (prevSubgraph === newSubgraph) {
       // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can concat them in a single fetch
@@ -2798,6 +3038,21 @@ function computeGroupsForTree(
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
 
+          // We have a operation element, field or inline fragment. We first check if it's been "tagged" to remember that __typename
+          // must be queried. See the comment on the `optimizeSiblingTypenames()` method to see why this exists.
+          const typenameAttachment = operation.getAttachement(SIBLING_TYPENAME_KEY);
+          if (typenameAttachment !== undefined) {
+            // We need to add the query __typename for the current type in the current group.
+            // Note that the value of the "attachement" is the alias or '' if there is no alias
+            const alias = typenameAttachment === '' ? undefined : typenameAttachment;
+            const typenameField = new Field(operation.parentType.typenameField()!, {}, new VariableDefinitions(), alias);
+            group.addSelection(path.concat(typenameField));
+            dependencyGraph.deferTracking.updateSubselection({
+              ...deferContext,
+              pathToDeferParent: deferContext.pathToDeferParent.concat(typenameField),
+            });
+          }
+
           const { updatedOperation, updatedDeferContext } = extractDeferFromOperation({
             dependencyGraph,
             operation,
@@ -3155,11 +3410,10 @@ function addPostRequireInputs(
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
-    const addedSelection = selectionSetOfPath(requirePath, (endOfPathSet) => {
+    preRequireGroup.addSelection(requirePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${requirePath} ends on a non-selectable type`);
       endOfPathSet.addAll(keyInputs.selections());
     });
-    preRequireGroup.addSelections(addedSelection);
   }
   return updatedPath;
 }
@@ -3211,7 +3465,6 @@ function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments,
   operationName?: string
 ): Operation {
   const variableDefinitions = new VariableDefinitions();
@@ -3241,17 +3494,14 @@ function operationForEntitiesFetch(
     ),
   );
 
-  return new Operation('query', entitiesCall, variableDefinitions, operationName).optimize(
-    fragments,
-  );
+  return new Operation('query', entitiesCall, variableDefinitions, operationName);
 }
 
 function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments,
   operationName?: string
 ): Operation {
-  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName).optimize(fragments);
+  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
 }

@@ -2,25 +2,25 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## 2.1.0-alpha.4
+## vNext
+
+
+## 2.1.4
+
+- Improves error message to help with misspelled source of an `@override` [PR #2181](https://github.com/apollographql/federation/pull/2181).
+
+## 2.1.2
+
+- Fix composition of repeatable custom directives [PR #2136](https://github.com/apollographql/federation/pull/2136)
+- Allow fields with arguments in `@requires` [PR #2120](https://github.com/apollographql/federation/pull/2120).
+
+## 2.1.0
 
 - Don't apply @shareable when upgrading fed1 supergraphs if it's already @shareable [PR #2043](https://github.com/apollographql/federation/pull/2043)
 - Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
-
-## 2.1.0-alpha.3
-
 - Don't require `@link` when using `@composeDirective` [PR #2046](https://github.com/apollographql/federation/pull/2046)
-
-## 2.1.0-alpha.2
-
 - Add `@composeDirective` directive to specify directives that should be merged to the supergraph during composition [PR #1996](https://github.com/apollographql/federation/pull/1996).
-
-## 2.1.0-alpha.1
-
 - Warn on merging inconsistent non-repeatable directive applications instead of failing composition [PR #1840](https://github.com/apollographql/federation/pull/1840).
-
-## 2.1.0-alpha.0
-
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## v2.0.1

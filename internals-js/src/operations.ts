@@ -26,7 +26,6 @@ import {
   isInterfaceType,
   isLeafType,
   isNullableType,
-  isObjectType,
   isUnionType,
   ObjectType,
   runtimeTypesIntersects,
@@ -62,6 +61,8 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
 }
 
 abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
+  private attachements?: Map<string, string>;
+
   constructor(
     schema: Schema,
     private readonly variablesInElement: Variables
@@ -73,7 +74,29 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
     return mergeVariables(this.variablesInElement, this.variablesInAppliedDirectives());
   }
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   abstract updateForAddingTo(selection: SelectionSet): T;
+
+  addAttachement(key: string, value: string) {
+    if (!this.attachements) {
+      this.attachements = new Map();
+    }
+    this.attachements.set(key, value);
+  }
+
+  getAttachement(key: string): string | undefined {
+    return this.attachements?.get(key);
+  }
+
+  protected copyAttachementsTo(elt: AbstractOperationElement<any>) {
+    if (this.attachements) {
+      for (const [k, v] of this.attachements.entries()) {
+        elt.addAttachement(k, v);
+      }
+    }
+  }
 }
 
 export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
@@ -86,7 +109,6 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     readonly alias?: string
   ) {
     super(definition.schema(), variablesInArguments(args));
-    this.validate();
   }
 
   get name(): string {
@@ -106,6 +128,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const directive of this.appliedDirectives) {
       newField.applyDirective(directive.definition!, directive.arguments());
     }
+    this.copyAttachementsTo(newField);
     return newField;
   }
 
@@ -152,7 +175,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return true;
   }
 
-  private validate() {
+  validate() {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
@@ -161,7 +184,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       if (appliedValue === undefined) {
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!),
-          () => `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
+          () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
           isValidValue(appliedValue, argDef, this.variableDefinitions),
@@ -177,6 +200,9 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     }
   }
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
     const selectionParent = selectionSet.parentType;
     const fieldParent = this.definition.parent;
@@ -188,19 +214,16 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       return this.withUpdatedDefinition(selectionParent.typenameField()!);
     }
 
-    // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
-    // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
-    // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
-    // the supergraph interface, even if it does in the subgraph).
+    // There is 2 valid cases were we could get here:
+    //  1. either `selectionParent` and `fieldParent` are the same underlying type (same name) but from different underlying schema. Typically,
+    //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
+    //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
+    //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
+    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check. 
+    // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
     validate(
       selectionParent.name == fieldParent.name
-      || (
-        !isUnionType(selectionParent)
-        && (
-          (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name))
-          || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
-        )
-      ),
+      || (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name)),
       () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
     );
     const fieldDef = selectionParent.field(this.name);
@@ -276,9 +299,13 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
+    this.copyAttachementsTo(newFragment);
     return newFragment;
   }
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
   updateForAddingTo(selectionSet: SelectionSet): FragmentElement {
     const selectionParent = selectionSet.parentType;
     const fragmentParent = this.parentType;
@@ -326,6 +353,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     }
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    this.copyAttachementsTo(updated);
     updatedDirectives.forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
     return updated;
   }
@@ -386,6 +414,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     }
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    this.copyAttachementsTo(updated);
     const deferDirective = this.schema().deferDirective();
     // Re-apply all the non-defer directives
     this.appliedDirectives.filter((d) => d.name !== deferDirective.name).forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
@@ -831,10 +860,11 @@ class DeferNormalizer {
         const deferArgs = selection.element().deferDirectiveArgs();
         if (deferArgs) {
           hasDefers = true;
+          if (!deferArgs.label || deferArgs.if !== undefined) {
+            hasNonLabelledOrConditionalDefers = true;
+          }
           if (deferArgs.label) {
             this.usedLabels.add(deferArgs.label);
-          } else {
-            hasNonLabelledOrConditionalDefers = true;
           }
         }
       }
@@ -896,7 +926,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
       this._cachedSelections = selections;
     }
     assert(this._cachedSelections, 'Cache should have been populated');
-    if (reversedOrder) {
+    if (reversedOrder && this._cachedSelections.length > 1) {
       const reversed = new Array(this._selectionCount);
       for (let i = 0; i < this._selectionCount; i++) {
         reversed[i] = this._cachedSelections[this._selectionCount - i - 1];
@@ -951,7 +981,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
     if (names && names.length === 0) {
       return this;
     }
-
     const newFragments = updateSelectionSetFragments
       ? (names ? this.fragments?.without(names) : undefined)
       : this.fragments;
@@ -1088,7 +1117,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return toAdd;
   }
 
-  addPath(path: OperationPath) {
+  addPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
     let previousSelections: SelectionSet = this;
     let currentSelections: SelectionSet | undefined = this;
     for (const element of path) {
@@ -1096,6 +1125,9 @@ export class SelectionSet extends Freezable<SelectionSet> {
       const mergedSelection: Selection = currentSelections.add(selectionOfElement(element));
       previousSelections = currentSelections;
       currentSelections = mergedSelection.selectionSet;
+    }
+    if (onPathEnd) {
+      onPathEnd(currentSelections);
     }
   }
 
@@ -1200,9 +1232,6 @@ export class SelectionSet extends Freezable<SelectionSet> {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
       selection.validate();
-      const selectionFragments = selection.namedFragments();
-      // We make this an assertion because this is a programming error. But validate is a convenient place for this in practice.
-      assert(!selectionFragments || selectionFragments === this.fragments, () => `Selection fragments (${selectionFragments}) for ${selection} does not match selection set one (${this.fragments})`);
     }
   }
 
@@ -1241,8 +1270,10 @@ export class SelectionSet extends Freezable<SelectionSet> {
     // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
     // and it happens to mimic prior behavior on the query plan side so it saves us from changing tests for no good reasons.
     const typenameSelection = this._selections.get(typenameFieldName);
+    const isNonAliasedTypenameSelection =
+      (s: Selection) => s.kind === 'FieldSelection' && !s.field.alias && s.field.name === typenameFieldName;
     if (typenameSelection) {
-      return typenameSelection.concat(this.selections().filter(s => s.kind != 'FieldSelection' || s.field.name !== typenameFieldName));
+      return typenameSelection.concat(this.selections().filter(s => !isNonAliasedTypenameSelection(s)));
     } else {
       return this.selections();
     }
@@ -1261,10 +1292,29 @@ export class SelectionSet extends Freezable<SelectionSet> {
     });
   }
 
+  /**
+   * Calls the provided callback on all the "elements" (including nested ones) of this selection set.
+   * The specific order of traversal should not be relied on.
+   */
+  forEachElement(callback: (elt: OperationElement) => void) {
+    const stack = this.selections().concat();
+    while (stack.length > 0) {
+      const selection = stack.pop()!;
+      callback(selection.element());
+      // Note: we reserve to preserver ordering (since the stack re-reverse). Not a big cost in general
+      // and make output a bit more intuitive.
+      selection.selectionSet?.selections(true).forEach((s) => stack.push(s));
+    }
+  }
+
   clone(): SelectionSet {
     const cloned = new SelectionSet(this.parentType);
     for (const selection of this.selections()) {
-      cloned.add(selection.clone());
+      const clonedSelection = selection.clone();
+      // Note: while we could used cloned.add() directly, this does some checks (in `updatedForAddingTo` in particular)
+      // which we can skip when we clone (since we know the inputs have already gone through that).
+      cloned._selections.add(clonedSelection.key(), clonedSelection);
+      ++cloned._selectionCount;
     }
     return cloned;
   }
@@ -1338,19 +1388,6 @@ export function selectionSetOfElement(element: OperationElement, subSelection?: 
 
 export function selectionOfElement(element: OperationElement, subSelection?: SelectionSet): Selection {
   return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection);
-}
-
-export function selectionSetOfPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void): SelectionSet {
-  validate(path.length > 0, () => `Cannot create a selection set from an empty path`);
-  const last = selectionSetOfElement(path[path.length - 1]);
-  let current = last;
-  for (let i = path.length - 2; i >= 0; i--) {
-    current = selectionSetOfElement(path[i], current);
-  }
-  if (onPathEnd) {
-    onPathEnd(last.selections()[0].selectionSet);
-  }
-  return current;
 }
 
 export type Selection = FieldSelection | FragmentSelection;
@@ -1435,17 +1472,15 @@ export class FieldSelection extends Freezable<FieldSelection> {
   }
 
   filter(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
-    if (!predicate(this)) {
-      return undefined;
-    }
     if (!this.selectionSet) {
-      return this;
+      return predicate(this) ? this : undefined;
     }
 
     const updatedSelectionSet = this.selectionSet.filter(predicate);
-    return this.selectionSet === updatedSelectionSet
+    const thisWithFilteredSelectionSet = this.selectionSet === updatedSelectionSet
       ? this
       : new FieldSelection(this.field, updatedSelectionSet);
+    return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
   protected freezeInternals(): void {
@@ -1475,6 +1510,7 @@ export class FieldSelection extends Freezable<FieldSelection> {
   }
 
   validate() {
+    this.field.validate();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -1485,6 +1521,34 @@ export class FieldSelection extends Freezable<FieldSelection> {
     this.selectionSet?.validate();
   }
 
+  /**
+   * Returns a field selection "equivalent" to the one represented by this object, but such that:
+   *  1. its parent type is the exact one of the provided selection set (same type of same schema object).
+   *  2. it is not frozen (which might involve cloning).
+   *
+   * This method assumes that such a thing is possible, meaning that the parent type of the provided
+   * selection set does have a field that correspond to this selection (which can support any sub-selection).
+   * If that is not the case, an assertion will be thrown.
+   *
+   * Note that in the simple cases where this selection parent type is already the one of the provide
+   * `selectionSet`, then this method is mostly a no-op, except for the potential cloning if this selection
+   * is frozen. But this method mostly exists to make working with multiple "similar" schema easier.
+   * That is, `Selection` and `SelectionSet` are intrinsically linked to a particular `Schema` object since
+   * their underlying `OperationElement` points to fields and types of a particular `Schema`. And we want to
+   * make sure that _everything_ within a particular `SelectionSet` does link to the same `Schema` object,
+   * or things could get really confusing (nor would it make much sense; a selection set is that of a particular
+   * schema fundamentally). In many cases, when we work with a single schema (when we parse an operation string
+   * against a given schema for instance), this problem is moot, but as we do query planning for instance, we
+   * end up building queries over subgraphs _based_ on some selections from the supergraph API schema, and so
+   * we need to deal with the fact that the code can easily mix selection from different schema. One option
+   * could be to simply hard-reject such mixing, meaning that `SelectionSet.add(Selection)` could error out
+   * if the provided selection is not of the same schema of that of the selection set we add to, thus forcing
+   * the caller to first ensure the selection is properly "rebased" on the same schema. But this would be a
+   * bit inconvenient and so this this method instead provide a sort of "automatic rebasing": that is, it
+   * allows `this` selection not be of the same schema as the provided `selectionSet` as long as both are
+   * "compatible", and as long as it's the case, it return an equivalent selection that is suitable to be
+   * added to `selectionSet` (it's against the same fundamental schema).
+   */
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const updatedField = this.field.updateForAddingTo(selectionSet);
     if (this.field === updatedField) {
@@ -1523,6 +1587,10 @@ export class FieldSelection extends Freezable<FieldSelection> {
       directives: this.element().appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet?.toSelectionSetNode()
     };
+  }
+
+  withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FieldSelection {
+    return new FieldSelection(this.field, newSubSelection);
   }
 
   equals(that: Selection): boolean {
@@ -1605,6 +1673,13 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
 
   abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
 
+  /**
+   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
+   */
+  abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
+
+  abstract withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FragmentSelection;
+
   protected us(): FragmentSelection {
     return this;
   }
@@ -1624,40 +1699,15 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
   }
 
-  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
-    const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    if (this.element() === updatedFragment) {
-      return this.cloneIfFrozen();
-    }
-
-    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
-    // the underlying selection set uses the updated type as parent type.
-    const updatedCastedType = updatedFragment.castedType();
-    let updatedSelectionSet : SelectionSet | undefined;
-    if (this.selectionSet.parentType !== updatedCastedType) {
-      updatedSelectionSet = new SelectionSet(updatedCastedType);
-      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
-      // effect of the type change.
-      for (const selection of this.selectionSet.selections()) {
-        updatedSelectionSet.add(selection);
-      }
-    } else {
-      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
-    }
-
-    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
-  }
-
   filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
-    if (!predicate(this)) {
-      return undefined;
-    }
     // Note that we essentially expand all fragments as part of this.
     const selectionSet = this.selectionSet;
     const updatedSelectionSet = selectionSet.filter(predicate);
-    return updatedSelectionSet === selectionSet
+    const thisWithFilteredSelectionSet = updatedSelectionSet === selectionSet
       ? this
       : new InlineFragmentSelection(this.element(), updatedSelectionSet);
+
+    return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
   protected freezeInternals() {
@@ -1713,6 +1763,31 @@ class InlineFragmentSelection extends FragmentSelection {
     this.selectionSet.validate();
   }
 
+  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
+    const updatedFragment = this.element().updateForAddingTo(selectionSet);
+    if (this.element() === updatedFragment) {
+      return this.cloneIfFrozen();
+    }
+
+    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
+    // the underlying selection set uses the updated type as parent type.
+    const updatedCastedType = updatedFragment.castedType();
+    let updatedSelectionSet : SelectionSet | undefined;
+    if (this.selectionSet.parentType !== updatedCastedType) {
+      updatedSelectionSet = new SelectionSet(updatedCastedType);
+      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
+      // effect of the type change.
+      for (const selection of this.selectionSet.selections()) {
+        updatedSelectionSet.add(selection);
+      }
+    } else {
+      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    }
+
+    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
+  }
+
+
   get selectionSet(): SelectionSet {
     return this._selectionSet;
   }
@@ -1753,12 +1828,17 @@ class InlineFragmentSelection extends FragmentSelection {
           const spread = new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
           // We use the fragment when the fragments condition is either the same, or a supertype of our current condition.
           // If it's the same type, then we don't really want to preserve the current condition, it is included in the
-          // spread and we can return it directive. But if the fragment condition is a superset, then we should preserve
+          // spread and we can return it directly. But if the fragment condition is a superset, then we should preserve
           // our current condition since it restricts the selection more than the fragment actual does.
           if (sameType(typeCondition, candidate.typeCondition)) {
+            // If we ignore the current condition, then we need to ensure any directive applied to it are preserved.
+            this.fragmentElement.appliedDirectives.forEach((directive) => {
+              spread.element().applyDirective(directive.definition!, directive.arguments());
+            })
             return spread;
           }
           optimizedSelection = selectionSetOf(spread.element().parentType, spread);
+          break;
         }
       }
     }
@@ -1785,7 +1865,6 @@ class InlineFragmentSelection extends FragmentSelection {
     if (updatedSubSelections === this.selectionSet && !hasDeferToRemove) {
       return this;
     }
-
     const newFragment = hasDeferToRemove ? this.fragmentElement.withoutDefer() : this.fragmentElement;
     if (!newFragment) {
       return updatedSubSelections;
@@ -1802,6 +1881,10 @@ class InlineFragmentSelection extends FragmentSelection {
     return newFragment === this.fragmentElement && updatedSubSelections === this.selectionSet
       ? this
       : new InlineFragmentSelection(newFragment, updatedSubSelections);
+  }
+
+  withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): InlineFragmentSelection {
+    return new InlineFragmentSelection(this.fragmentElement, newSubSelection);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
@@ -1877,13 +1960,23 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this;
   }
 
+  updateForAddingTo(_selectionSet: SelectionSet): FragmentSelection {
+    // This is a little bit iffy, because the fragment could link to a schema (typically the supergraph API one)
+    // that is different from the one of `_selectionSet` (say, a subgraph fetch selection in which we're trying to
+    // reuse a user fragment). But in practice, we expand all fragments when we do query planning and only re-add
+    // fragments back at the very end, so this should be fine. Importantly, we don't want this method to mistakenly
+    // expand the spread, as that would compromise the code that optimize subgraph fetches to re-use named
+    // fragments.
+    return this;
+  }
+
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection | readonly Selection[] {
     if (names && !names.includes(this.namedFragment.name)) {
       return this;
     }
 
     const expandedSubSelections = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
-    return sameType(this._element.parentType, this.namedFragment.typeCondition)
+    return sameType(this._element.parentType, this.namedFragment.typeCondition) && this._element.appliedDirectives.length === 0
       ? expandedSubSelections.selections()
       : new InlineFragmentSelection(this._element, expandedSubSelections);
   }
@@ -1906,6 +1999,10 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this._element.appliedDirectives.slice(this.namedFragment.appliedDirectives.length);
   }
 
+  withUpdatedSubSelection(_: SelectionSet | undefined): InlineFragmentSelection {
+    assert(false, `Unssupported`);
+  }
+
   toString(expandFragments: boolean = true, indent?: string): string {
     if (expandFragments) {
       return (indent ?? '') + this._element + ' ' + this.selectionSet.toString(true, true, indent);
@@ -1920,9 +2017,13 @@ class FragmentSpreadSelection extends FragmentSelection {
 export function operationFromDocument(
   schema: Schema,
   document: DocumentNode,
-  operationName?: string,
+  options?: {
+    operationName?: string,
+    validate?: boolean,
+  }
 ) : Operation {
   let operation: OperationDefinitionNode | undefined;
+  const operationName = options?.operationName;
   const fragments = new NamedFragments();
   // We do a first pass to collect the operation, and create all named fragment, but without their selection set yet.
   // This allow later to be able to access any fragment regardless of the order in which the fragments are defined.
@@ -1967,14 +2068,20 @@ export function operationFromDocument(
     }
   });
   fragments.validate();
-  return operationFromAST(schema, operation, fragments);
+  return operationFromAST({schema, operation, fragments, validateInput: options?.validate});
 }
 
-function operationFromAST(
+function operationFromAST({
+  schema,
+  operation,
+  fragments,
+  validateInput,
+}:{
   schema: Schema,
   operation: OperationDefinitionNode,
-  fragments: NamedFragments
-) : Operation {
+  fragments: NamedFragments,
+  validateInput?: boolean,
+}) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
@@ -1985,14 +2092,22 @@ function operationFromAST(
       source: operation.selectionSet,
       variableDefinitions,
       fragments,
+      validate: validateInput,
     }),
     variableDefinitions,
     operation.name?.value
   );
 }
 
-export function parseOperation(schema: Schema, operation: string, operationName?: string): Operation {
-  return operationFromDocument(schema, parse(operation), operationName);
+export function parseOperation(
+  schema: Schema,
+  operation: string,
+  options?: {
+    operationName?: string,
+    validate?: boolean,
+  },
+): Operation {
+  return operationFromDocument(schema, parse(operation), options);
 }
 
 export function parseSelectionSet({

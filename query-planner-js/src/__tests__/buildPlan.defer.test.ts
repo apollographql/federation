@@ -4,7 +4,7 @@ import { QueryPlanner } from '@apollo/query-planner';
 import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./buildPlan.test";
 
 function composeAndCreatePlannerWithDefer(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  return composeAndCreatePlannerWithOptions(services, { deferStreamSupport: { enableDefer : true }});
+  return composeAndCreatePlannerWithOptions(services, { incrementalDelivery: { enableDefer : true }});
 }
 
 describe('handles simple @defer', () => {
@@ -1171,8 +1171,6 @@ describe('nested @defer', () => {
       }
     `);
 
-    // TODO(Sylvain): this is correct but inefficient. We should recognize that the
-    // fetch in the middle is useless and can be removed. To be fixed post-vacation.
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1183,31 +1181,14 @@ describe('nested @defer', () => {
                 name
               }
             }:
-            Sequence {
-              Fetch(service: "Subgraph1", id: 0) {
-                {
-                  me {
-                    __typename
-                    name
-                    id
-                  }
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                me {
+                  __typename
+                  name
+                  id
                 }
-              },
-              Flatten(path: "me") {
-                Fetch(service: "Subgraph2") {
-                  {
-                    ... on User {
-                      __typename
-                      id
-                    }
-                  } =>
-                  {
-                    ... on User {
-                      age
-                    }
-                  }
-                },
-              },
+              }
             }
           }, [
             Deferred(depends: [0], path: "me") {
@@ -1217,7 +1198,7 @@ describe('nested @defer', () => {
                     age
                   }:
                   Flatten(path: "me") {
-                    Fetch(service: "Subgraph1", id: 1) {
+                    Fetch(service: "Subgraph2") {
                       {
                         ... on User {
                           __typename
@@ -1226,14 +1207,13 @@ describe('nested @defer', () => {
                       } =>
                       {
                         ... on User {
-                          __typename
-                          id
+                          age
                         }
                       }
                     },
                   }
                 }, [
-                  Deferred(depends: [1], path: "me") {
+                  Deferred(depends: [0], path: "me") {
                     {
                       address
                     }:
@@ -2417,7 +2397,13 @@ test('@defer everything within entity', () => {
 });
 
 describe('defer with conditions', () => {
-  test('simple @defer with condition', () => {
+  test.each([{
+    name: 'without explicit label',
+    label: undefined,
+  }, {
+    name: 'with explicit label',
+    label: 'testLabel',
+  }])('simple @defer with condition $name', ({label}) => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2447,81 +2433,84 @@ describe('defer with conditions', () => {
       query($cond: Boolean) {
         t {
           x
-          ... @defer(if: $cond) {
+          ... @defer(${label ? `label: "${label}", ` : ''}if: $cond) {
             y
           }
         }
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {
-          Defer {
-            Primary {
-              {
-                t {
-                  x
+          Then {
+            Defer {
+              Primary {
+                {
+                  t {
+                    x
+                  }
+                }:
+                Fetch(service: "Subgraph1", id: 0) {
+                  {
+                    t {
+                      __typename
+                      x
+                      id
+                    }
+                  }
                 }
-              }:
-              Fetch(service: "Subgraph1", id: 0) {
+              }, [
+                Deferred(depends: [0], path: "t"${label ? `, label: "${label}"` : ''}) {
+                  {
+                    y
+                  }:
+                  Flatten(path: "t") {
+                    Fetch(service: "Subgraph2") {
+                      {
+                        ... on T {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on T {
+                          y
+                        }
+                      }
+                    },
+                  }
+                },
+              ]
+            }
+          } Else {
+            Sequence {
+              Fetch(service: "Subgraph1") {
                 {
                   t {
                     __typename
+                    id
                     x
-                    id
                   }
                 }
-              }
-            }, [
-              Deferred(depends: [0], path: "t") {
-                {
-                  y
-                }:
-                Flatten(path: "t") {
-                  Fetch(service: "Subgraph2") {
-                    {
-                      ... on T {
-                        __typename
-                        id
-                      }
-                    } =>
-                    {
-                      ... on T {
-                        y
-                      }
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
                     }
-                  },
-                }
-              },
-            ]
-          },
-          Sequence {
-            Fetch(service: "Subgraph1") {
-              {
-                t {
-                  __typename
-                  id
-                  x
-                }
-              }
-            },
-            Flatten(path: "t") {
-              Fetch(service: "Subgraph2") {
-                {
-                  ... on T {
-                    __typename
-                    id
+                  } =>
+                  {
+                    ... on T {
+                      y
+                    }
                   }
-                } =>
-                {
-                  ... on T {
-                    y
-                  }
-                }
+                },
               },
-            },
+            }
           }
         },
       }
@@ -2564,50 +2553,53 @@ describe('defer with conditions', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {
-          Defer {
-            Primary {
+          Then {
+            Defer {
+              Primary {
+                {
+                  t {
+                    x
+                  }
+                }:
+                Fetch(service: "Subgraph1", id: 0) {
+                  {
+                    t {
+                      __typename
+                      x
+                      id
+                    }
+                  }
+                }
+              }, [
+                Deferred(depends: [0], path: "t") {
+                  {
+                    y
+                  }:
+                  Flatten(path: "t") {
+                    Fetch(service: "Subgraph1") {
+                      {
+                        ... on T {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on T {
+                          y
+                        }
+                      }
+                    },
+                  }
+                },
+              ]
+            }
+          } Else {
+            Fetch(service: "Subgraph1") {
               {
                 t {
                   x
-                }
-              }:
-              Fetch(service: "Subgraph1", id: 0) {
-                {
-                  t {
-                    __typename
-                    x
-                    id
-                  }
-                }
-              }
-            }, [
-              Deferred(depends: [0], path: "t") {
-                {
                   y
-                }:
-                Flatten(path: "t") {
-                  Fetch(service: "Subgraph1") {
-                    {
-                      ... on T {
-                        __typename
-                        id
-                      }
-                    } =>
-                    {
-                      ... on T {
-                        y
-                      }
-                    }
-                  },
                 }
-              },
-            ]
-          },
-          Fetch(service: "Subgraph1") {
-            {
-              t {
-                x
-                y
               }
             }
           }
@@ -2681,34 +2673,83 @@ describe('defer with conditions', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond1) {
-          Condition(if: $cond2) {
-            Defer {
-              Primary {
-                {
-                  t {
-                    x
-                  }
-                }:
-                Fetch(service: "Subgraph1", id: 0) {
-                  {
-                    t {
-                      __typename
-                      x
-                      id
-                    }
-                  }
-                }
-              }, [
-                Deferred(depends: [0], path: "t", label: "bar") {
-                  Defer {
-                    Primary {
+          Then {
+            Condition(if: $cond2) {
+              Then {
+                Defer {
+                  Primary {
+                    {
+                      t {
+                        x
+                      }
+                    }:
+                    Fetch(service: "Subgraph1", id: 0) {
                       {
-                        u {
-                          a
+                        t {
+                          __typename
+                          x
+                          id
                         }
+                      }
+                    }
+                  }, [
+                    Deferred(depends: [0], path: "t", label: "bar") {
+                      Defer {
+                        Primary {
+                          {
+                            u {
+                              a
+                            }
+                          }:
+                          Flatten(path: "t") {
+                            Fetch(service: "Subgraph1", id: 1) {
+                              {
+                                ... on T {
+                                  __typename
+                                  id
+                                }
+                              } =>
+                              {
+                                ... on T {
+                                  u {
+                                    __typename
+                                    a
+                                    id
+                                  }
+                                }
+                              }
+                            },
+                          }
+                        }, [
+                          Deferred(depends: [1], path: "t.u") {
+                            {
+                              b
+                            }:
+                            Flatten(path: "t.u") {
+                              Fetch(service: "Subgraph3") {
+                                {
+                                  ... on U {
+                                    __typename
+                                    id
+                                  }
+                                } =>
+                                {
+                                  ... on U {
+                                    b
+                                  }
+                                }
+                              },
+                            }
+                          },
+                        ]
+                      }
+                    },
+                    Deferred(depends: [0], path: "t", label: "foo") {
+                      {
+                        y
                       }:
                       Flatten(path: "t") {
-                        Fetch(service: "Subgraph1", id: 1) {
+                        Fetch(service: "Subgraph2") {
                           {
                             ... on T {
                               __typename
@@ -2717,20 +2758,149 @@ describe('defer with conditions', () => {
                           } =>
                           {
                             ... on T {
-                              u {
-                                __typename
-                                a
-                                id
-                              }
+                              y
                             }
                           }
                         },
                       }
-                    }, [
-                      Deferred(depends: [1], path: "t.u") {
+                    },
+                  ]
+                }
+              } Else {
+                Defer {
+                  Primary {
+                    {
+                      t {
+                        x
+                        u {
+                          a
+                        }
+                      }
+                    }:
+                    Fetch(service: "Subgraph1", id: 0) {
+                      {
+                        t {
+                          __typename
+                          x
+                          id
+                          u {
+                            __typename
+                            a
+                            id
+                          }
+                        }
+                      }
+                    }
+                  }, [
+                    Deferred(depends: [0], path: "t", label: "foo") {
+                      {
+                        y
+                      }:
+                      Flatten(path: "t") {
+                        Fetch(service: "Subgraph2") {
+                          {
+                            ... on T {
+                              __typename
+                              id
+                            }
+                          } =>
+                          {
+                            ... on T {
+                              y
+                            }
+                          }
+                        },
+                      }
+                    },
+                    Deferred(depends: [0], path: "t.u") {
+                      {
+                        b
+                      }:
+                      Flatten(path: "t.u") {
+                        Fetch(service: "Subgraph3") {
+                          {
+                            ... on U {
+                              __typename
+                              id
+                            }
+                          } =>
+                          {
+                            ... on U {
+                              b
+                            }
+                          }
+                        },
+                      }
+                    },
+                  ]
+                }
+              }
+            }
+          } Else {
+            Condition(if: $cond2) {
+              Then {
+                Defer {
+                  Primary {
+                    {
+                      t {
+                        x
+                        y
+                      }
+                    }:
+                    Sequence {
+                      Fetch(service: "Subgraph1", id: 0) {
                         {
+                          t {
+                            __typename
+                            id
+                            x
+                          }
+                        }
+                      },
+                      Flatten(path: "t") {
+                        Fetch(service: "Subgraph2") {
+                          {
+                            ... on T {
+                              __typename
+                              id
+                            }
+                          } =>
+                          {
+                            ... on T {
+                              y
+                            }
+                          }
+                        },
+                      },
+                    }
+                  }, [
+                    Deferred(depends: [0], path: "t", label: "bar") {
+                      {
+                        u {
+                          a
                           b
-                        }:
+                        }
+                      }:
+                      Sequence {
+                        Flatten(path: "t") {
+                          Fetch(service: "Subgraph1") {
+                            {
+                              ... on T {
+                                __typename
+                                id
+                              }
+                            } =>
+                            {
+                              ... on T {
+                                u {
+                                  __typename
+                                  id
+                                  a
+                                }
+                              }
+                            }
+                          },
+                        },
                         Flatten(path: "t.u") {
                           Fetch(service: "Subgraph3") {
                             {
@@ -2745,147 +2915,30 @@ describe('defer with conditions', () => {
                               }
                             }
                           },
-                        }
-                      },
-                    ]
-                  }
-                },
-                Deferred(depends: [0], path: "t", label: "foo") {
-                  {
-                    y
-                  }:
-                  Flatten(path: "t") {
-                    Fetch(service: "Subgraph2") {
-                      {
-                        ... on T {
-                          __typename
-                          id
-                        }
-                      } =>
-                      {
-                        ... on T {
-                          y
-                        }
+                        },
                       }
                     },
-                  }
-                },
-              ]
-            },
-            Defer {
-              Primary {
-                {
-                  t {
-                    x
-                    u {
-                      a
-                    }
-                  }
-                }:
-                Fetch(service: "Subgraph1", id: 0) {
-                  {
-                    t {
-                      __typename
-                      x
-                      id
-                      u {
-                        __typename
-                        a
-                        id
-                      }
-                    }
-                  }
+                  ]
                 }
-              }, [
-                Deferred(depends: [0], path: "t", label: "foo") {
-                  {
-                    y
-                  }:
-                  Flatten(path: "t") {
-                    Fetch(service: "Subgraph2") {
-                      {
-                        ... on T {
-                          __typename
-                          id
-                        }
-                      } =>
-                      {
-                        ... on T {
-                          y
-                        }
-                      }
-                    },
-                  }
-                },
-                Deferred(depends: [0], path: "t.u") {
-                  {
-                    b
-                  }:
-                  Flatten(path: "t.u") {
-                    Fetch(service: "Subgraph3") {
-                      {
-                        ... on U {
-                          __typename
-                          id
-                        }
-                      } =>
-                      {
-                        ... on U {
-                          b
-                        }
-                      }
-                    },
-                  }
-                },
-              ]
-            }
-          },
-          Condition(if: $cond2) {
-            Defer {
-              Primary {
-                {
-                  t {
-                    x
-                    y
-                  }
-                }:
+              } Else {
                 Sequence {
-                  Fetch(service: "Subgraph1", id: 0) {
+                  Fetch(service: "Subgraph1") {
                     {
                       t {
                         __typename
                         id
                         x
-                      }
-                    }
-                  },
-                  Flatten(path: "t") {
-                    Fetch(service: "Subgraph2") {
-                      {
-                        ... on T {
+                        u {
                           __typename
                           id
-                        }
-                      } =>
-                      {
-                        ... on T {
-                          y
+                          a
                         }
                       }
-                    },
-                  },
-                }
-              }, [
-                Deferred(depends: [0], path: "t", label: "bar") {
-                  {
-                    u {
-                      a
-                      b
                     }
-                  }:
-                  Sequence {
+                  },
+                  Parallel {
                     Flatten(path: "t") {
-                      Fetch(service: "Subgraph1") {
+                      Fetch(service: "Subgraph2") {
                         {
                           ... on T {
                             __typename
@@ -2894,11 +2947,7 @@ describe('defer with conditions', () => {
                         } =>
                         {
                           ... on T {
-                            u {
-                              __typename
-                              id
-                              a
-                            }
+                            y
                           }
                         }
                       },
@@ -2918,57 +2967,9 @@ describe('defer with conditions', () => {
                         }
                       },
                     },
-                  }
-                },
-              ]
-            },
-            Sequence {
-              Fetch(service: "Subgraph1") {
-                {
-                  t {
-                    __typename
-                    id
-                    x
-                    u {
-                      __typename
-                      id
-                      a
-                    }
-                  }
+                  },
                 }
-              },
-              Parallel {
-                Flatten(path: "t") {
-                  Fetch(service: "Subgraph2") {
-                    {
-                      ... on T {
-                        __typename
-                        id
-                      }
-                    } =>
-                    {
-                      ... on T {
-                        y
-                      }
-                    }
-                  },
-                },
-                Flatten(path: "t.u") {
-                  Fetch(service: "Subgraph3") {
-                    {
-                      ... on U {
-                        __typename
-                        id
-                      }
-                    } =>
-                    {
-                      ... on U {
-                        b
-                      }
-                    }
-                  },
-                },
-              },
+              }
             }
           }
         },
@@ -2978,7 +2979,7 @@ describe('defer with conditions', () => {
 });
 
 test('defer when some interface has different definitions in different subgraphs', () => {
-  // This test exists to ensure an early bug is fixed: that but was in the code building
+  // This test exists to ensure an early bug is fixed: that bug was in the code building
   // the `subselection` of `DeferNode` in the plan, and was such that those subselections
   // were created with links to subgraph types instead the supergraph ones. As a result,
   // we were sometimes trying to add a field (`b` in the example here) to version of a
@@ -3081,6 +3082,469 @@ test('defer when some interface has different definitions in different subgraphs
           Deferred(depends: [], path: "i") {
             {
               c
+            }:
+          },
+        ]
+      },
+    }
+  `);
+});
+
+describe('named fragments', () => {
+  test('simple use', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...TestFragment @defer
+        }
+      }
+
+      fragment TestFragment on T {
+        x
+        y
+      }
+    `);
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            :
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                ... on T {
+                  x
+                  y
+                }
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      x
+                      y
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('expands into the same field deferred and not deferred', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+          y: Int
+          z: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...Fragment1
+          ...Fragment2 @defer
+        }
+      }
+
+      fragment Fragment1 on T {
+        x
+        y
+      }
+
+      fragment Fragment2 on T {
+        y
+        z
+      }
+    `);
+
+    // Field 'y' is queried twice, both in the deferred and non-deferred section. The spec says that
+    // means the field is requested twice, so ensures that's what we do.
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                x
+                y
+              }
+            }:
+            Sequence {
+              Fetch(service: "Subgraph1", id: 0) {
+                {
+                  t {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      x
+                      y
+                    }
+                  }
+                },
+              },
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                ... on T {
+                  y
+                  z
+                }
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      y
+                      z
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('can request __typename in a fragment', () => {
+    // Note that there is nothing super special about __typename in theory, but because it's a field that is always available
+    // in all subghraph (for a type the subgraph has), it tends to create multiple options for the query planner, and so
+    // excercises some code-paths that triggered an early bug in the handling of `@defer` (https://github.com/apollographql/federation/issues/2128).
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ...OnT @defer
+          x
+        }
+      }
+
+      fragment OnT on T {
+        y
+        __typename
+      }
+    `);
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            {
+              t {
+                x
+              }
+            }:
+            Fetch(service: "Subgraph1", id: 0) {
+              {
+                t {
+                  __typename
+                  id
+                  x
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [0], path: "t") {
+              {
+                ... on T {
+                  __typename
+                  y
+                }
+              }:
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      __typename
+                      y
+                    }
+                  }
+                },
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+});
+
+test('do not merge query branches with @defer', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        a: Int
+        b: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        c: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  // We have 2 separate @defer, so we should 2 deferred parts, not 1 defer parts with parallel fetches.
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        a
+        ... @defer {
+          b
+        }
+        ... @defer {
+          c
+        }
+      }
+    }
+  `);
+
+  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              a
+            }
+          }:
+          Fetch(service: "Subgraph1", id: 0) {
+            {
+              t {
+                __typename
+                a
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [0], path: "t") {
+            {
+              c
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    c
+                  }
+                }
+              },
+            }
+          },
+          Deferred(depends: [0], path: "t") {
+            {
+              b
+            }:
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    b
+                  }
+                }
+              },
+            }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('@defer only the key of an entity', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t : T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: String
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        v0
+        ... @defer {
+          id
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  // Making sure that the deferred part has no fetches since we only defer the key
+  // and that _has to_ be fetched before deferring anyway.
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v0
+            }
+          }:
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                v0
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [], path: "t") {
+            {
+              id
             }:
           },
         ]

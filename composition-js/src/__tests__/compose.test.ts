@@ -1,9 +1,7 @@
 import {
   asFed2SubgraphDocument,
   assert,
-  buildSchema,
   buildSubgraph,
-  extractSubgraphsFromSupergraph,
   FEDERATION2_LINK_WTH_FULL_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
@@ -11,45 +9,18 @@ import {
   ObjectType,
   printSchema,
   printType,
-  Schema,
-  ServiceDefinition,
-  Subgraphs
 } from '@apollo/federation-internals';
-import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
+import { CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
 import { print } from 'graphql';
-
-export function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
-  if (r.errors) {
-    throw new Error(`Expected composition to succeed but got errors:\n${r.errors.join('\n\n')}`);
-  }
-}
-
-export function errors(r: CompositionResult): [string, string][] {
-  return r.errors?.map(e => [e.extensions.code as string, e.message]) ?? [];
-}
-
-// Returns [the supergraph schema, its api schema, the extracted subgraphs]
-export function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
-  // Note that we could user `result.schema`, but reparsing to ensure we don't lose anything with printing/parsing.
-  const schema = buildSchema(result.supergraphSdl);
-  expect(schema.isCoreSchema()).toBeTruthy();
-  return [schema, schema.toAPISchema(), extractSubgraphsFromSupergraph(schema)];
-}
-
-// Note that tests for composition involving fed1 subgraph are in `composeFed1Subgraphs.test.ts` so all the test of this
-// file are on fed2 subgraphs, but to avoid needing to add the proper `@link(...)` everytime, we inject it here automatically.
-export function composeAsFed2Subgraphs(services: ServiceDefinition[]): CompositionResult {
-  return composeServices(services.map((s) => asFed2Service(s)));
-}
-
-export function asFed2Service(service: ServiceDefinition): ServiceDefinition {
-  return {
-    ...service,
-    typeDefs: asFed2SubgraphDocument(service.typeDefs)
-  };
-}
+import {
+  assertCompositionSuccess,
+  schemas,
+  errors,
+  composeAsFed2Subgraphs,
+  asFed2Service,
+} from "./testHelper";
 
 describe('composition', () => {
   it('generates a valid supergraph', () => {
@@ -156,6 +127,9 @@ describe('composition', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
+        "The foo directive description"
+        directive @foo(url: String) on FIELD
+
         "A cool schema"
         schema {
           query: Query
@@ -178,6 +152,9 @@ describe('composition', () => {
     const subgraph2 = {
       name: 'Subgraph2',
       typeDefs: gql`
+        "The foo directive description"
+        directive @foo(url: String) on FIELD
+
         "An enum"
         enum E {
           "The A value"
@@ -197,6 +174,9 @@ describe('composition', () => {
       schema {
         query: Query
       }
+
+      """The foo directive description"""
+      directive @foo(url: String) on FIELD
 
       """An enum"""
       enum E {
@@ -1520,6 +1500,78 @@ describe('composition', () => {
           'Argument "Query.q(a:)" is required in some subgraphs but does not appear in all subgraphs: it is required in subgraph "subgraphA" but does not appear in subgraph "subgraphB"']
       ]);
     });
+
+    it('errors if a subgraph argument is "@required" without arguments but that argument is mandatory in the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            x(arg: Int): Int @external
+            y: Int @requires(fields: "x")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            x(arg: Int!): Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        [
+          'REQUIRES_INVALID_FIELDS',
+          '[subgraphA] On field "T.y", for @requires(fields: "x"): no value provided for argument "arg" of field "T.x" but a value is mandatory as "arg" is required in subgraph "subgraphB"',
+        ]
+      ]);
+    });
+
+    it('errors if a subgraph argument is "@required" with an argument, but that argument is not in the supergraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            x(arg: Int): Int @external
+            y: Int @requires(fields: "x(arg: 42)")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(errors(result)).toStrictEqual([
+        [
+          'REQUIRES_INVALID_FIELDS',
+          '[subgraphA] On field "T.y", for @requires(fields: "x(arg: 42)"): cannot provide a value for argument "arg" of field "T.x" as argument "arg" is not defined in subgraph "subgraphB"',
+        ]
+      ]);
+    });
   });
 
   describe('post-merge validation', () => {
@@ -2017,6 +2069,39 @@ describe('composition', () => {
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
         ['INVALID_FIELD_SHARING', 'Non-shareable field "E.b" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+      ]);
+    });
+
+    it('include hint in error message on shareable error due to target-less @override', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            e: E
+          }
+
+          type E @key(fields: "id") {
+            id: ID!
+            a: Int @override(from: "badName")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type E @key(fields: "id") {
+            id: ID!
+            a: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.a" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them (please note that "E.a" has an @override directive in "subgraphA" that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)'],
       ]);
     });
   });

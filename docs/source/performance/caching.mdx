@@ -3,11 +3,11 @@ title: Server-side caching
 sidebar_title: Caching
 ---
 
-> Using cache control with Apollo Federation requires at least v3.0.2 of Apollo Server in your subgraphs _and_ gateway. Please note that Apollo Server's cache hints API has evolved as of v3, so be sure to review the [updated caching documentation](https://www.apollographql.com/docs/apollo-server/performance/caching/).
+> Using cache control with Apollo Federation requires at least v3.0.2 of Apollo Server in your subgraphs _and_ gateway. Please note that Apollo Server's cache hints API has evolved as of v3, so be sure to review the [updated caching documentation](/apollo-server/performance/caching/).
 
 ## Using cache hints with subgraphs
 
-To set [static cache hints](https://www.apollographql.com/docs/apollo-server/performance/caching/#in-your-schema-static) with Apollo Server-based subgraphs, the `@cacheControl` directive and `CacheControlScope` enum definitions must be included in the subgraph schema:
+To set [static cache hints](/apollo-server/performance/caching/#in-your-schema-static) with Apollo Server-based subgraphs, the `@cacheControl` directive and `CacheControlScope` enum definitions must be included in the subgraph schema:
 
 ```graphql
 enum CacheControlScope {
@@ -24,11 +24,11 @@ directive @cacheControl(
 
 The subgraph calculates and sets the cache hint for the response that it sends to the gateway, and the gateway then calculates the cache hint for the overall response. This hint is based on the most restrictive settings among all of the responses received from the subgraphs involved in query plan execution.
 
-Cache hints can also be set [dynamically in subgraph resolvers](https://www.apollographql.com/docs/apollo-server/performance/caching/#in-your-resolvers-dynamic).
+Cache hints can also be set [dynamically in subgraph resolvers](/apollo-server/performance/caching/#in-your-resolvers-dynamic).
 
 ### Setting entity cache hints
 
-Subgraph schemas contain an `_entities` root field on the `Query` type, so all query plans that require entity resolution have a [`maxAge` of `0` set by default](https://www.apollographql.com/docs/apollo-server/performance/caching/#default-maxagee). To override this default behavior, you can add a `@cacheControl` directive to an entity's definition:
+Subgraph schemas contain an `_entities` root field on the `Query` type, so all query plans that require entity resolution have a [`maxAge` of `0` set by default](/apollo-server/performance/caching/#default-maxagee). To override this default behavior, you can add a `@cacheControl` directive to an entity's definition:
 
 ```graphql
 type Book @key(fields: "isbn") @cacheControl(maxAge: 30) {
@@ -39,7 +39,7 @@ type Book @key(fields: "isbn") @cacheControl(maxAge: 30) {
 
 When the `_entities` field is resolved it checks the applicable concrete type for a cache hint (e.g. the `Book` type in the example above) and applies that hint instead.
 
-To set cache hints dynamically, the [`cacheControl` object and its methods](https://www.apollographql.com/docs/apollo-server/performance/caching/#in-your-resolvers-dynamic) are also available in the `info` parameter of the `__resolveReference` resolver.
+To set cache hints dynamically, the [`cacheControl` object and its methods](/apollo-server/performance/caching/#in-your-resolvers-dynamic) are also available in the `info` parameter of the `__resolveReference` resolver.
 
 ### Overriding subgraph cache hints in the gateway
 
@@ -106,7 +106,7 @@ The response will be considered **not cacheable**.
 
 The `cache-control` header in the response from the astronauts subgraph will be `max-age=20, public` based on the cache hint applied to the `Astronaut` type, which will be taken into consideration when this subgraph responds to the `_entities` query from the gateway.
 
-The missions subgraph, however, does not include a `cache-control` header in its response to the gateway, thus indicating that it is not cacheable. Consequently, the entire response sent to the client is not cacheable. At first glance, this behavior might seem unexpected because the `@cacheControl(maxAge: 10)` directive is applied to the `mission` root query field. But upon closer inspection, we see that this field returns the `Mission` type which contains a non-scalar `Astronaut` field and this type will have a [default `maxAge` of `0` applied](https://www.apollographql.com/docs/apollo-server/performance/caching/#default-maxage).
+The missions subgraph, however, does not include a `cache-control` header in its response to the gateway, thus indicating that it is not cacheable. Consequently, the entire response sent to the client is not cacheable. At first glance, this behavior might seem unexpected because the `@cacheControl(maxAge: 10)` directive is applied to the `mission` root query field. But upon closer inspection, we see that this field returns the `Mission` type which contains a non-scalar `Astronaut` field and this type will have a [default `maxAge` of `0` applied](/apollo-server/performance/caching/#default-maxage).
 
 The missions subgraph isn't aware of the cache hint set on the `Astronaut` type in the astronauts subgraph, so there are two ways to address this. The first option is to apply the `@cacheControl` directive to the `Astronaut` entity in the missions subgraph, with the `inheritMaxAge` argument set to `true`:
 

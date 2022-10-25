@@ -1,4 +1,9 @@
-/other-servers/ /docs/federation/supported-subgraphs/
+/subgraphs/ /docs/federation/building-supergraphs/subgraphs-apollo-server/
+/gateway/ /docs/federation/building-supergraphs/router/
+/router/ /docs/federation/building-supergraphs/router/
+/supported-subgraphs/ /docs/federation/building-supergraphs/supported-subgraphs/
+/other-servers/ /docs/federation/building-supergraphs/supported-subgraphs/
+/federation-spec/ /docs/federation/subgraph-spec/
 
 /v2/* /docs/federation/:splat
 /workbench/* /docs/federation/v1/workbench/:splat

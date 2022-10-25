@@ -65,6 +65,10 @@ import {
   filterTypesOfKind,
   isNonNullType,
   isExecutableDirectiveLocation,
+  parseFieldSetArgument,
+  isCompositeType,
+  isDefined,
+  addSubgraphToError,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -74,6 +78,7 @@ import {
 } from "../hints";
 import { ComposeDirectiveManager } from '../composeDirectiveManager';
 import { MismatchReporter } from './reporter';
+import { inspect } from "util";
 
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -89,12 +94,18 @@ export type CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
 }
 
+type FieldMergeContextProperties = {
+  usedOverridden: boolean,
+  unusedOverridden: boolean,
+  overrideWithUnknownTarget: boolean,
+}
+
 // for each source, specify additional properties that validate functions can set
 class FieldMergeContext {
-  _props: { usedOverridden: boolean, unusedOverridden: boolean }[];
+  _props: FieldMergeContextProperties[];
 
   constructor(sources: unknown[]) {
-    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false }));
+    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false, overrideWithUnknownTarget: false}));
   }
 
   isUsedOverridden(idx: number) {
@@ -105,6 +116,10 @@ class FieldMergeContext {
     return this._props[idx].unusedOverridden;
   }
 
+  hasOverrideWithUnknownTarget(idx: number) {
+    return this._props[idx].overrideWithUnknownTarget;
+  }
+
   setUsedOverridden(idx: number) {
     this._props[idx].usedOverridden = true;
   }
@@ -113,7 +128,11 @@ class FieldMergeContext {
     this._props[idx].unusedOverridden = true;
   }
 
-  some(predicate: ({ usedOverridden, unusedOverridden }: { usedOverridden: boolean, unusedOverridden: boolean }) => boolean): boolean {
+  setOverrideWithUnknownTarget(idx: number) {
+    this._props[idx].overrideWithUnknownTarget = true;
+  }
+
+  some(predicate: (props: FieldMergeContextProperties) => boolean): boolean {
     return this._props.some(predicate);
   }
 }
@@ -269,6 +288,11 @@ class Merger {
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
+  private appliedDirectivesToMerge: {
+    names: Set<string>,
+    sources: (SchemaElement<any, any> | undefined)[],
+    dest: SchemaElement<any, any>,
+  }[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -284,6 +308,7 @@ class Merger {
     );
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
+    this.appliedDirectivesToMerge = [];
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -419,6 +444,8 @@ class Merger {
     if (!this.merged.schemaDefinition.rootType('query')) {
       this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
     }
+
+    this.mergeAllAppliedDirectives();
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
@@ -621,7 +648,7 @@ class Merger {
     this.checkForExtensionWithNoBase(sources, dest);
     this.mergeDescription(sources, dest);
     this.addJoinType(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     switch (dest.kind) {
       case 'ScalarType':
         // Since we don't handle applied directives yet, we have nothing specific to do for scalars.
@@ -934,10 +961,11 @@ class Merger {
 
     // for each subgraph that has an @override directive, check to see if any errors or hints should be surfaced
     subgraphsWithOverride.forEach((subgraphName) => {
-      const { overrideDirective } = subgraphMap[subgraphName];
+      const { overrideDirective, idx } = subgraphMap[subgraphName];
       const sourceSubgraphName = overrideDirective?.arguments()?.from;
       const overridingSubgraphASTNode = overrideDirective?.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
       if (!this.names.includes(sourceSubgraphName)) {
+        result.setOverrideWithUnknownTarget(idx);
         const suggestions = suggestionList(sourceSubgraphName, this.names);
         const extraMsg = didYouMean(suggestions);
         this.hints.push(new CompositionHint(
@@ -966,8 +994,8 @@ class Merger {
         const fromIdx = this.names.indexOf(sourceSubgraphName);
         const fromField = sources[fromIdx];
         const { result: hasIncompatible, conflictingDirective, subgraph } = this.overrideConflictsWithOtherDirective({
-          idx: subgraphMap[subgraphName].idx,
-          field: sources[subgraphMap[subgraphName].idx],
+          idx,
+          field: sources[idx],
           subgraphName,
           fromIdx: this.names.indexOf(sourceSubgraphName),
           fromField: sources[fromIdx],
@@ -1029,7 +1057,7 @@ class Merger {
     // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
     // validate the external ones are consistent.
     this.mergeDescription(withoutExternal, dest);
-    this.mergeAppliedDirectives(withoutExternal, dest);
+    this.recordAppliedDirectivesToMerge(withoutExternal, dest);
     this.addArgumentsShallow(withoutExternal, dest);
     for (const destArg of dest.arguments()) {
       const subgraphArgs = withoutExternal.map(f => f?.argument(destArg.name));
@@ -1065,8 +1093,23 @@ class Merger {
       const nonShareables = shareableSources.length > 0
         ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
         : 'all of them';
+
+      // An easy-to-make error that can lead here is the mispelling of the `from` argument of an @override. Because in that case, the
+      // @override will essentially be ignored (we'll have logged a warning, but the error we're about to log will overshadow it) and
+      // the 2 field insteances will violate the sharing rules. But because in that case the error is ultimately with @override, it
+      // can be hard for user to understand why they get a shareability error, so we detect this case and offer an additional hint
+      // at what the problem might be in the error message (note that even if we do find an @override with a unknown target, we
+      // cannot be 100% sure this is the issue, because this could also be targeting a subgraph that has just been removed, in which
+      // case the shareable error is legit; so keep the shareabilty error with a strong hint is hopefully good enough in practice).
+      // Note: if there is multiple non-shareable fields with "target-less overrides", we only hint about one of them, because that's
+      // easier and almost surely good enough to bring the attention of the user to potential typo in @override usage.
+      const subgraphWithTargetlessOverride = nonShareableSources.find((s) => mergeContext.hasOverrideWithUnknownTarget(s));
+      let extraHint = '';
+      if (subgraphWithTargetlessOverride !== undefined) {
+        extraHint = ` (please note that "${dest.coordinate}" has an @override directive in "${this.names[subgraphWithTargetlessOverride]}" that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)`;
+      }
       this.errors.push(ERRORS.INVALID_FIELD_SHARING.err(
-        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
+        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}${extraHint}`,
         { nodes: sourceASTs(...allResolving) },
       ));
     }
@@ -1394,7 +1437,7 @@ class Merger {
 
   private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>) {
     this.mergeDescription(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     this.mergeTypeReference(sources, dest, true);
     this.mergeDefaultValue(sources, dest, 'Argument');
   }
@@ -1562,7 +1605,7 @@ class Merger {
     // 2. it easier to see if the value is marked @inaccessible.
     const valueSources = sources.map(s => s?.value(value.name));
     this.mergeDescription(valueSources, value);
-    this.mergeAppliedDirectives(valueSources, value);
+    this.recordAppliedDirectivesToMerge(valueSources, value);
 
     const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
     const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph);
@@ -1689,7 +1732,7 @@ class Merger {
 
   private mergeInputField(sources: (InputFieldDefinition | undefined)[], dest: InputFieldDefinition) {
     this.mergeDescription(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     const allTypesEqual = this.mergeTypeReference(sources, dest, true);
     const mergeContext = new FieldMergeContext(sources);
     this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
@@ -1864,6 +1907,8 @@ class Merger {
     dest.repeatable = repeatable!;
     dest.addLocations(...locations!);
 
+    this.mergeDescription(sources, dest);
+
     if (inconsistentRepeatable) {
       this.mismatchReporter.reportMismatchHint({
         code: HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
@@ -1904,11 +1949,33 @@ class Merger {
     return source.locations.filter(loc => isExecutableDirectiveLocation(loc));
   }
 
-  private mergeAppliedDirectives(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
+  // In general, we want to merge applied directives after merging elements, the one exception
+  // is @inaccessible, which is necessary to exist in the supergraph for EnumValues to properly
+  // determine whether the fact that a value is both input / output will matter
+  private recordAppliedDirectivesToMerge(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
+    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
+    const inaccessibleName = inaccessibleInSupergraph?.name;
     const names = this.gatherAppliedDirectiveNames(sources);
-    for (const name of names) {
-      this.mergeAppliedDirective(name, sources, dest);
+
+    if (inaccessibleName && names.has(inaccessibleName)) {
+      this.mergeAppliedDirective(inaccessibleName, sources, dest);
+      names.delete(inaccessibleName);
     }
+    this.appliedDirectivesToMerge.push({
+      names,
+      sources,
+      dest,
+    });
+  }
+
+  // to be called after elements are merged
+  private mergeAllAppliedDirectives() {
+    for (const { names, sources, dest } of this.appliedDirectivesToMerge) {
+      for (const name of names) {
+        this.mergeAppliedDirective(name, sources, dest);
+      }
+    }
+    this.appliedDirectivesToMerge = [];
   }
 
   private gatherAppliedDirectiveNames(sources: (SchemaElement<any, any> | undefined)[]): Set<string> {
@@ -2017,7 +2084,7 @@ class Merger {
 
   private mergeSchemaDefinition(sources: SchemaDefinition[], dest: SchemaDefinition) {
     this.mergeDescription(sources, dest);
-    this.mergeAppliedDirectives(sources, dest);
+    this.recordAppliedDirectivesToMerge(sources, dest);
     // Before merging, we actually rename all the root types to their default name
     // in subgraphs (see federation.ts, `prepareSubgraphsForFederation`), so this
     // method should never report an error in practice as there should never be
@@ -2090,6 +2157,128 @@ class Merger {
         }
       }
     }
+
+    // We need to redo some validation for @requires after merge. The reason is that each subgraph validates that its own
+    // @requires are valid, but "requirements" are requested from _other_ subgraphs (by definition of @requires really),
+    // and there is a few situations (see details below) where a validity within the originated subgraph does not entail
+    // validity for all subgraph that would have to provide those "requirements".
+    // Long story short, we need to re-validate every @requires against the supergraph to guarantee it will always work
+    // at runtime.
+    for (const subgraph of this.subgraphs) {
+      for (const requiresApplication of subgraph.metadata().requiresDirective().applications()) {
+        const originalField = requiresApplication.parent as FieldDefinition<CompositeType>;
+        assert(originalField.kind === 'FieldDefinition', () => `Expected ${inspect(originalField)} to be a field`);
+        const mergedType = this.merged.type(originalField.parent.name);
+        // The type should exists: there is a few types we don't merge, but those are from specific core features and they shouldn't have @provides.
+        // In fact, if we were to not merge a type with a @provides, this would essentially mean that @provides cannot work, so worth catching
+        // the issue early if this ever happen for some reason. And of course, the type should be composite since it is in at least the one
+        // subgraph we're checking.
+        assert(mergedType && isCompositeType(mergedType), () => `Merged type ${originalField.parent.name} should exist should have field ${originalField.name}`)
+        assert(isCompositeType(mergedType), `${mergedType} should be a composite type but got ${mergedType.kind}`);
+        try {
+          parseFieldSetArgument({
+            parentType: mergedType,
+            directive: requiresApplication,
+            decorateValidationErrors: false,
+          });
+        } catch (e) {
+          if (!(e instanceof GraphQLError)) {
+            throw e;
+          }
+
+          // Providing a useful error message to the user here is tricky in the general case because what we checked is that
+          // a given subgraph @provides definition is invalid "on the supergraph", but the user seeing the error will not have
+          // the supergraph, so we need to express the error in terms of the subgraphs.
+          // But in practice, there is only a handful of cases that can trigger an error here. Indeed, at this point we know that
+          //  - the @require application is valid in its original subgraph.
+          //  - there was not merging errors (we don't call this whole method otherwise).
+          // This eliminate the risk of the error being due to some invalid syntax, of some subsection on a non-composite or missing
+          // on on a composite one (merging would have error), or of some unknown field in the selection (output types are merged
+          // by union, so any field that was in the subgraph will be in the supergraph), or even any error due to the types of fields
+          // involved (because the merged type is always a (non-strict) supertype of its counterpart in any subgraph, and anything
+          // that could be queried in a subtype can be queried on a supertype).
+          // As such, the only errors that we can have here are due to field arguments: because they are merged by intersection,
+          // it _is_ possible that something that is valid in a subgraph is not valid in the supergraph. And the only 2 things that
+          // can make such invalidity are:
+          //  1. an argument may not be in the supergraph: it is in the subgraph, but not in all the subgraphs having the field,
+          //    and the `@provides` passes a concrete value to that argument.
+          //  2. the type of an argument in the supergraph is a strict subtype the type that argument has in `subgraph` (the one
+          //    with the `@provides`) _and_ the `@provides` selection relies on the type difference. Now, argument types are input
+          //    types and the only subtyping difference input types is related to nullability (neither interfaces nor union are
+          //    input types in particular), so the only case this can happen is if a field `x` has some argument `a` type `A` in
+          //    `subgraph` but type `!A` with no default in the supergraph, _and_ the `@provides` queries that field `x` _without_
+          //    value for `a` (valid when `a` has type `A` but not with `!A` and no default).
+          // So to ensure we provide good error messages, we brute-force detecting those 2 possible cases and have a special
+          // treatment for each.
+          // Note that this detection is based on pattern-matching the error message, which is somewhat fragile, but because we
+          // only have 2 cases, we can easily cover them with unit tests, which means there is no practical risk of a message
+          // change breaking this code and being released undetected. A cleaner implementation would probably require having
+          // error codes and classes for all the graphqQL validations, but doing so cleanly is a fair amount of effort and probably
+          // no justified "just for this particular case".
+          const requireAST = requiresApplication.sourceAST ? [ addSubgraphToASTNode(requiresApplication.sourceAST, subgraph.name)] : [];
+
+          const that = this;
+          const registerError = (
+            arg: string,
+            field: string,
+            isIncompatible: (f: FieldDefinition<any>) => boolean,
+            makeMsg: (incompatibleSubgraphs: string) => string,
+          ) => {
+            const incompatibleSubgraphs = that.subgraphs.values().map((otherSubgraph) => {
+              if (otherSubgraph.name === subgraph.name) {
+                return undefined;
+              }
+              const fieldInOther = otherSubgraph.schema.elementByCoordinate(field);
+              const fieldIsIncompatible = fieldInOther
+                && fieldInOther instanceof FieldDefinition
+                && isIncompatible(fieldInOther);
+              return fieldIsIncompatible
+                ? {
+                  name: otherSubgraph.name,
+                  node: fieldInOther.sourceAST ? addSubgraphToASTNode(fieldInOther.sourceAST, otherSubgraph.name) : undefined,
+                }
+                : undefined;
+            }).filter(isDefined);
+            assert(incompatibleSubgraphs.length > 0, () => `Got error on ${arg} of ${field} but no "incompatible" subgraphs (error: ${e})`);
+            const nodes = requireAST.concat(incompatibleSubgraphs.map((s) => s.node).filter(isDefined));
+            const error = ERRORS.REQUIRES_INVALID_FIELDS.err(
+              `On field "${originalField.coordinate}", for ${requiresApplication}: ${makeMsg(printSubgraphNames(incompatibleSubgraphs.map((s) => s.name)))}`,
+              { nodes }
+            );
+            that.errors.push(addSubgraphToError(error, subgraph.name));
+          }
+
+          const unknownArgument = e.message.match(/Unknown argument \"(?<arg>[^"]*)\" found in value: \"(?<field>[^"]*)\" has no argument.*/);
+          if (unknownArgument) {
+            const arg = unknownArgument.groups?.arg!;
+            const field = unknownArgument.groups?.field!;
+            registerError(
+              arg,
+              field,
+              (f) => !f.argument(arg),
+              (incompatibleSubgraphs) => `cannot provide a value for argument "${arg}" of field "${field}" as argument "${arg}" is not defined in ${incompatibleSubgraphs}`,
+            );
+            continue;
+          }
+
+          const missingMandatory = e.message.match(/Missing mandatory value for argument \"(?<arg>[^"]*)\" of field \"(?<field>[^"]*)\".*/);
+          if (missingMandatory) {
+            const arg = missingMandatory.groups?.arg!;
+            const field = missingMandatory.groups?.field!;
+            registerError(
+              arg,
+              field,
+              (f) => !!f.argument(arg)?.isRequired(),
+              (incompatibleSubgraphs) => `no value provided for argument "${arg}" of field "${field}" but a value is mandatory as "${arg}" is required in ${incompatibleSubgraphs}`,
+            );
+            continue;
+          }
+
+          assert(false, () => `Unexpected error throw by ${requiresApplication} when evaluated on supergraph: ${e.message}`);
+        }
+      }
+    }
+
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(

@@ -44,7 +44,7 @@ npm install @apollo/subgraph
 Then use the `buildSubgraphSchema` function to augment your schema with fields that are necessary for federation support:
 
 ```js
-const { ApolloServer } = require('apollo-server');
+const { ApolloServer } = require('@apollo/server');
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 
 const server = new ApolloServer({
@@ -59,7 +59,7 @@ const server = new ApolloServer({
 
 ### Using a GraphQL server besides Apollo Server
 
-There are [several community-contributed packages](./supported-subgraphs/) that add federation support to other GraphQL runtimes.
+There are [several community-contributed packages](./building-supergraphs/supported-subgraphs/) that add federation support to other GraphQL runtimes.
 
 ## Step 2: Register your schemas with a GraphQL registry
 
@@ -177,7 +177,7 @@ After you've fully migrated your graph and incoming traffic to use your federate
 You can now begin to modify your existing schema to take full advantage of the
 features that federation provides. These features include:
 
-* Greater flexibility with [federation core concepts](./subgraphs/)
+* Greater flexibility with [federation core concepts](./)
 * [Metrics and analysis of query plans](./performance/monitoring/#metrics-and-observability)
 * [Gateway support for live schema updates](./managed-federation/deployment/#the-subgraph-publish-lifecycle)
 * [Validation of composition logic and usage traffic](./managed-federation/federated-schema-checks/)

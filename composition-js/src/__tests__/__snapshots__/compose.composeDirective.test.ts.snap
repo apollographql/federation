@@ -58,8 +58,8 @@ type User
   @join__type(graph: SUBGRAPHB, key: \\"id\\")
 {
   id: Int
-  a: String @tag(name: \\"a\\", prop: \\"b\\") @join__field(graph: SUBGRAPHA)
-  b: String @mytag(name: \\"c\\") @join__field(graph: SUBGRAPHA)
+  a: String @join__field(graph: SUBGRAPHA) @tag(name: \\"a\\", prop: \\"b\\")
+  b: String @join__field(graph: SUBGRAPHA) @mytag(name: \\"c\\")
   subgraphB: String @join__field(graph: SUBGRAPHB)
 }"
 `;

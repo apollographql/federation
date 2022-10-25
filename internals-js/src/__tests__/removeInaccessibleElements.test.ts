@@ -1,6 +1,5 @@
 import {
   ArgumentDefinition,
-  errorCauses,
   FieldDefinition,
   InterfaceType,
   ObjectType,
@@ -8,8 +7,8 @@ import {
 } from "../definitions";
 import { buildSchema } from "../buildSchema";
 import { removeInaccessibleElements } from "../inaccessibleSpec";
-import { GraphQLErrorExt } from "@apollo/core-schema/dist/error";
 import { GraphQLError } from "graphql";
+import { errorCauses } from "../error";
 
 describe("removeInaccessibleElements", () => {
   const INACCESSIBLE_V02_HEADER = `
@@ -31,7 +30,6 @@ describe("removeInaccessibleElements", () => {
   `;
 
   function getCauses(e: unknown): GraphQLError[] {
-    expect(e instanceof GraphQLErrorExt).toBeTruthy();
     const causes = errorCauses(e as Error);
     expect(causes).toBeDefined();
     expect(Array.isArray(causes)).toBeTruthy();

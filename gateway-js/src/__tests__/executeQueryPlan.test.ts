@@ -3072,6 +3072,195 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test.each([
+      {
+        name: 'nullable argument, no default, no value passed',
+        argNullable: true,
+        defaultValue: undefined,
+        valuePassed: undefined,
+      },
+      {
+        name: 'nullable argument, no default, value passed',
+        argNullable: true,
+        defaultValue: undefined,
+        valuePassed: 42,
+      },
+      {
+        name: 'nullable argument, default, no value passed',
+        argNullable: true,
+        defaultValue: 24,
+        valuePassed: undefined,
+      },
+      {
+        name: 'nullable argument, default, value passed',
+        argNullable: true,
+        defaultValue: 24,
+        valuePassed: 42,
+      },
+      {
+        name: 'non-nullable argument, no default, no value passed',
+        argNullable: false,
+        defaultValue: undefined,
+        valuePassed: undefined,
+      },
+      {
+        name: 'non-nullable argument, no default, value passed',
+        argNullable: false,
+        defaultValue: undefined,
+        valuePassed: 42,
+      },
+      {
+        name: 'non-nullable argument, default, no value passed',
+        argNullable: false,
+        defaultValue: 24,
+        valuePassed: undefined,
+      },
+      {
+        name: 'non-nullable argument, default, value passed',
+        argNullable: false,
+        defaultValue: 24,
+        valuePassed: 42,
+      },
+    ])('requires on field with argument: $name', async ({
+      argNullable,
+      defaultValue,
+      valuePassed,
+    }: {
+      argNullable: boolean,
+      defaultValue?: number,
+      valuePassed?: number,
+    }) => {
+
+      const argType = `Int${argNullable ? '' : '!'}${defaultValue ? ` = ${defaultValue}` : ''}`;
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: Int!
+            x(opt: ${argType}): String!
+          }
+        `,
+        resolvers: {
+          T: {
+            __resolveReference(ref: { id: number}) {
+              return ref;
+            },
+            x(_: any, args: any) {
+              return `args: ${JSON.stringify(args)}`;
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: Int!
+            x(opt: ${argType}): String! @external
+            y: String @requires(fields: "x${valuePassed ? `(opt: ${valuePassed})` : ''}")
+          }
+
+        `,
+        resolvers: {
+          Query: {
+            t() {
+              return {id: 0};
+            },
+          },
+          T: {
+            __resolveReference(ref: { id: number }) {
+              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+              return ref;
+            },
+            y(parent: any) {
+              return `x: ${parent.x}`;
+            }
+          }
+        }
+      }
+
+      if (!argNullable && !defaultValue && !valuePassed) {
+        // We test all combination of `argNullable`, `defaultValue` set/unset and `valuePassed` set/unset, and all should be allowed
+        // except if the value is non-nullable and has neither a default nor a value passed. In that case, just ensure the error message
+        // is meaningful.
+        expect(() => getFederatedTestingSchema([ s1, s2 ])).toThrowError(
+          '[S2] On field "T.y", for @requires(fields: "x"): Missing mandatory value for argument "opt" of field "T.x" in selection "x"'
+        );
+        return;
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        {
+          t {
+            y
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "S1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    x${valuePassed ? `(opt: ${valuePassed})` : ''}
+                  }
+                }
+              },
+            },
+            Flatten(path: "t") {
+              Fetch(service: "S2") {
+                {
+                  ... on T {
+                    __typename
+                    x
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Object {
+            "y": "x: args: {${valuePassed ? `\\"opt\\":${valuePassed}` : (defaultValue ? `\\"opt\\":${defaultValue}` : '')}}",
+          },
+        }
+      `);
+    });
   });
 
   describe('@key', () => {

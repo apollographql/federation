@@ -793,47 +793,102 @@ describe('clone', () => {
   });
 });
 
-test('correctly convert to a graphQL-js schema', () => {
-  const sdl = `
-    schema {
-      query: MyQuery
-    }
+describe('Conversion to graphQL-js schema', () => {
+  test('works on simple schema', () => {
+    const sdl = `
+      schema {
+        query: MyQuery
+      }
 
-    directive @foo on FIELD
+      directive @foo on FIELD
 
-    type A {
-      f1(x: Int): String
-      f2: String
-    }
+      type A {
+        f1(x: Int): String
+        f2: String
+      }
 
-    type MyQuery {
-      a: A
-      b: Int
-    }
-  `;
-  const schema = parseSchema(sdl);
+      type MyQuery {
+        a: A
+        b: Int
+      }
+    `;
+    const schema = parseSchema(sdl);
 
-  const graphqQLSchema = schema.toGraphQLJSSchema();
-  expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
+    const graphqQLSchema = schema.toGraphQLJSSchema();
+    expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
+  });
+
+  test('can optionally add @defer and/or @streams definition(s)', () => {
+    const sdl = `
+      type Query {
+        x: Int
+      }
+    `;
+    const schema = parseSchema(sdl);
+
+    expect(printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true }))).toMatchString(`
+      directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+      type Query {
+        x: Int
+      }
+    `);
+
+    expect(printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true, includeStream:  true }))).toMatchString(`
+      directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+      directive @stream(label: String, initialCount: Int = 0, if: Boolean! = true) on FIELD
+
+      type Query {
+        x: Int
+      }
+    `);
+  });
+
+  test('adding @defer and/or @streams definition(s) works properly for API schema of supergraphs with their own @defer definition', () => {
+    // Note that this test doesn't use a valid supergraph schema, but that doesn't really matter in this test. All that matter
+    // is that taking `toAPISchema()` followed by `toGraphQLJSSchema(config)` works properly when the original schema already has
+    // a `@defer` definition.
+    const sdl = `
+      directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @stream(label: String, initialCount: Int = 0, if: Boolean! = true) on FIELD
+
+      type Query {
+        x: Int
+      }
+    `;
+
+    // Note that with API schema, we want the @defer/@stream definitions from the original schema to essentially be ignored.
+    // So whether or not the @defer/@stream definition ends up in the output of `toGraphQLJSSchema` (of that API schema) should
+    // solely depend on the config provided to that method.
+    const apiSchema = parseSchema(sdl).toAPISchema();
+
+    expect(printGraphQLjsSchema(apiSchema.toGraphQLJSSchema())).toMatchString(`
+      type Query {
+        x: Int
+      }
+    `);
+
+    expect(printGraphQLjsSchema(apiSchema.toGraphQLJSSchema({ includeDefer: true }))).toMatchString(`
+      directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+      type Query {
+        x: Int
+      }
+    `);
+
+    expect(printGraphQLjsSchema(apiSchema.toGraphQLJSSchema({ includeDefer: true, includeStream:  true }))).toMatchString(`
+      directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+      directive @stream(label: String, initialCount: Int = 0, if: Boolean! = true) on FIELD
+
+      type Query {
+        x: Int
+      }
+    `);
+  });
 });
 
-test('Conversion to graphQL-js schema can optionally include @defer definition', () => {
-  const sdl = `
-    type Query {
-      x: Int
-    }
-  `;
-  const schema = parseSchema(sdl);
-
-  const graphqQLSchema = schema.toGraphQLJSSchema({ includeDefer: true });
-  expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(`
-    directive @defer(label: String, if: Boolean) on FRAGMENT_SPREAD | INLINE_FRAGMENT
-
-    type Query {
-      x: Int
-    }
-  `);
-});
 
 test('retrieving elements by coordinate', () => {
   const sdl = `

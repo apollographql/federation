@@ -1,11 +1,11 @@
 ---
 title: Query plans
-description: How your gateway plans operations across subgraphs
+description: How your router plans operations across subgraphs
 ---
 
 > ⚠️ You definitely don't need to understand the details of query plans to get started with Apollo Federation! This information is provided primarily for advanced debugging purposes.
 
-Whenever your gateway receives an incoming GraphQL operation, it needs to figure out how to use your subgraphs to populate data for each of that operation's fields. To do this, the gateway generates a **query plan**:
+Whenever your router receives an incoming GraphQL operation, it needs to figure out how to use your subgraphs to populate data for each of that operation's fields. To do this, the router generates a **query plan**:
 
 ```mermaid
 flowchart TB;
@@ -20,12 +20,11 @@ A query plan is a blueprint for dividing a single incoming operation into _one o
 
 ## Example graph
 
-Let's say our federated graph includes these subgraphs:
+Let's say our federated supergraph includes these subgraphs:
 
 <CodeColumns>
 
-```graphql
-# Hotels subgraph
+```graphql title="Hotels subgraph"
 type Hotel @key(fields: "id") {
   id: ID!
   address: String!
@@ -36,9 +35,8 @@ type Query {
 }
 ```
 
-```graphql
-# Reviews subgraph
-extend Type Hotel @key(fields: "id") {
+```graphql title="Reviews subgraph"
+type Hotel @key(fields: "id") {
   id: ID! @external
   reviews: [Review!]!
 }
@@ -52,7 +50,7 @@ type Review {
 
 </CodeColumns>
 
-Based on these subgraphs, clients can execute the following query against our gateway:
+Based on these subgraphs, clients can execute the following query against our router:
 
 ```graphql
 query GetHotels {
@@ -66,9 +64,9 @@ query GetHotels {
 }
 ```
 
-This query includes fields from both the Hotels subgraph and the Reviews subgraph. Therefore, the gateway needs to send at least one query to each subgraph to populate all requested fields.
+This query includes fields from both the Hotels subgraph and the Reviews subgraph. Therefore, the router needs to send at least one query to each subgraph to populate all requested fields.
 
-Take a look at the gateway's query plan for this query:
+Take a look at the router's query plan for this query:
 
 <ExpansionPanel title="Click to expand">
 
@@ -142,7 +140,7 @@ Each of these is described in further detail below.
 
 ### `Fetch` node
 
-A `Fetch` node tells the gateway to execute a particular GraphQL operation on a particular subgraph. Every query plan includes at least one `Fetch` node.
+A `Fetch` node tells the router to execute a particular GraphQL operation on a particular subgraph. Every query plan includes at least one `Fetch` node.
 
 ```graphql
 # Executes the query shown on the "books" subgraph
@@ -188,7 +186,7 @@ QueryPlan {
 
 ### `Parallel` node
 
-A `Parallel` node tells the gateway that all of the node's immediate children can be executed in parallel. This node appears in query plans whenever the gateway can execute completely independent operations on different subgraphs.
+A `Parallel` node tells the router that all of the node's immediate children can be executed in parallel. This node appears in query plans whenever the router can execute completely independent operations on different subgraphs.
 
 ```graphql
 Parallel {
@@ -217,7 +215,7 @@ query GetBooksAndMovies {
 }
 ```
 
-In this case, the data returned by each subgraph does _not_ depend on the data returned by any _other_ subgraph. Therefore, the gateway can query both subgraphs in parallel.
+In this case, the data returned by each subgraph does _not_ depend on the data returned by any _other_ subgraph. Therefore, the router can query both subgraphs in parallel.
 
 The query plan for the operation looks like this:
 
@@ -250,7 +248,7 @@ QueryPlan {
 
 ### `Sequence` node
 
-A `Sequence` node tells the gateway that the node's immediate children _must_ be executed _serially_ in the order listed.
+A `Sequence` node tells the router that the node's immediate children _must_ be executed _serially_ in the order listed.
 
 ```graphql
 Sequence {
@@ -327,7 +325,7 @@ As shown, this query plan defines a `Sequence` that executes a `Fetch` on the Ho
 
 ### `Flatten` node
 
-A `Flatten` node always appears inside a `Sequence` node, and it always _contains_ a `Fetch` node. It tells the gateway to merge the data returned by its `Fetch` node with data that was _previously_ `Fetch`ed during the current `Sequence`:
+A `Flatten` node always appears inside a `Sequence` node, and it always _contains_ a `Fetch` node. It tells the router to merge the data returned by its `Fetch` node with data that was _previously_ `Fetch`ed during the current `Sequence`:
 
 ```graphql
 Flatten(path: "hotels.@") {
@@ -337,7 +335,7 @@ Flatten(path: "hotels.@") {
 }
 ```
 
-The `Flatten` node's `path` argument tells the gateway _at what position_ to merge the newly returned data with the existing data. An `@` element in a `path` indicates that the immediately preceding path element returns a list.
+The `Flatten` node's `path` argument tells the router _at what position_ to merge the newly returned data with the existing data. An `@` element in a `path` indicates that the immediately preceding path element returns a list.
 
 In the snippet above, the data returned by the `Flatten`'s `Fetch` is added to the `Sequence`'s existing data within the objects contained in the `hotels` list field.
 
@@ -357,19 +355,19 @@ query GetHotels {
 }
 ```
 
-The query plan for this operation first instructs the gateway to execute this query on the Hotels subgraph:
+The query plan for this operation first instructs the router to execute this query on the Hotels subgraph:
 
 ```graphql
 {
   hotels {
     id
     address
-    __typename # The gateway requests this to resolve references (see below)
+    __typename # The router requests this to resolve references (see below)
   }
 }
 ```
 
-At this point, we still need review-related information for each hotel. The query plan next instructs the gateway to query the Reviews subgraph for a list of `Hotel` objects that each have this structure:
+At this point, we still need review-related information for each hotel. The query plan next instructs the router to query the Reviews subgraph for a list of `Hotel` objects that each have this structure:
 
 ```graphql
 {
@@ -379,7 +377,7 @@ At this point, we still need review-related information for each hotel. The quer
 }
 ```
 
-Now, the gateway needs to know _how to merge_ these `Hotel` objects with the data it already fetched from the Hotels subgraph. The `Flatten` node's `path` argument tells it exactly that:
+Now, the router needs to know _how to merge_ these `Hotel` objects with the data it already fetched from the Hotels subgraph. The `Flatten` node's `path` argument tells it exactly that:
 
 ```graphql
 Flatten(path: "hotels.@") {
@@ -389,7 +387,7 @@ Flatten(path: "hotels.@") {
 
 In other words, "Take the `Hotel` objects returned by the Reviews subgraph and merge them with the `Hotel` objects in the top-level `hotels` field returned by the _first_ query."
 
-When the gateway completes this merge, the resulting data exactly matches the structure of the client's original query:
+When the router completes this merge, the resulting data exactly matches the structure of the client's original query:
 
 ```graphql
 {
@@ -432,9 +430,9 @@ Flatten(path: "hotels.@") {
 Instead of containing a GraphQL operation, this `Fetch` node contains two **GraphQL fragments**, separated by `=>`.
 
 * The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
-* The second fragment contains the entity fields and subfields that the gateway needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
+* The second fragment contains the entity fields and subfields that the router needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
-When the gateway sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./subgraphs/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
+When the router sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./building-supergraphs/subgraphs-overview/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
 
 Now that you've learned about each query plan node, take another look at the example query plan in [Example graph](#example-graph) to see how these nodes work together in a complete query plan.
 
@@ -442,11 +440,11 @@ Now that you've learned about each query plan node, take another look at the exa
 
 You can view the query plan for a particular operation in any of the following ways:
 
-* [In the Apollo Studio Explorer](https://www.apollographql.com/docs/studio/explorer/additional-features/#query-plans-for-federated-graphs)
+* [In the Apollo Studio Explorer](/studio/explorer/additional-features/#query-plans-for-supergraphs)
     * Note that you must [register your federated graph](./managed-federation/setup/) with Apollo Studio to view query plans in the Explorer.
-* As direct output from your gateway (see below)
+* As direct output from the `@apollo/gateway` library (see below)
 
-### Outputting query plans from the gateway
+### Outputting query plans with `@apollo/gateway`
 
 Your gateway can output the query plan for each incoming operation as it's calculated.  To do so, add the following to the file where you initalize your `ApolloGateway` instance:
 

@@ -94,7 +94,7 @@ export function printSchema(schema: Schema, options: PrintOptions = defaultPrint
   return definitions.flat().join('\n\n');
 }
 
-function definitionAndExtensions<T extends ExtendableElement>(element: {extensions(): ReadonlySet<Extension<T>>}, options: PrintOptions): (Extension<any> | null | undefined)[] {
+function definitionAndExtensions<T extends ExtendableElement>(element: {extensions(): readonly Extension<T>[]}, options: PrintOptions): (Extension<any> | null | undefined)[] {
   return options.mergeTypesAndExtensions ? [undefined] : [null, ...element.extensions()];
 }
 
@@ -102,7 +102,7 @@ function printSchemaDefinitionAndExtensions(schemaDefinition: SchemaDefinition, 
   return printDefinitionAndExtensions(schemaDefinition, options, printSchemaDefinitionOrExtension);
 }
 
-function printDefinitionAndExtensions<T extends {extensions(): ReadonlySet<Extension<any>>}>(
+function printDefinitionAndExtensions<T extends {extensions(): readonly Extension<any>[]}>(
   t: T,
   options: PrintOptions,
   printer: (t: T, options: PrintOptions, extension?: Extension<any> | null) => string | undefined

@@ -2,9 +2,8 @@ import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graph
 import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
-import { err } from '@apollo/core-schema';
 import { assert, firstOf } from './utils';
-import { ERRORS } from "./error";
+import { aggregateError, ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
 import { didYouMean, suggestionList } from "./suggestions";
@@ -15,11 +14,7 @@ export const linkIdentity = 'https://specs.apollo.dev/link';
 
 export const linkDirectiveDefaultName = 'link';
 
-export const ErrCoreCheckFailed = (causes: Error[]) =>
-  err('CheckFailed', {
-    message: 'one or more checks failed',
-    causes
-  })
+export const ErrCoreCheckFailed = (causes: GraphQLError[]) => aggregateError('CheckFailed', 'one or more checks failed', causes);
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
