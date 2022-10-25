@@ -595,7 +595,9 @@ function addSubgraphInputField(
     const copiedType = encodedType
       ? decodeType(encodedType, subgraph.schema, subgraph.name)
       : copyType(supergraphField.type!, subgraph.schema, subgraph.name);
-    return (subgraphType as InputObjectType).addField(supergraphField.name, copiedType);
+    const field = (subgraphType as InputObjectType).addField(supergraphField.name, copiedType);
+    field.defaultValue = supergraphField.defaultValue
+    return field
   } else {
     return undefined;
   }
