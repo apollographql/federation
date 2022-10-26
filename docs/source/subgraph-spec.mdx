@@ -52,7 +52,7 @@ extend type Query {
   _service: _Service!
 }
 
-directive @external on FIELD_DEFINITION
+directive @external on FIELD_DEFINITION | OBJECT
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION
 directive @provides(fields: FieldSet!) on FIELD_DEFINITION
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE

@@ -5,6 +5,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## vNext
 
 - Improves error message to help with misspelled source of an `@override` [PR #2181](https://github.com/apollographql/federation/pull/2181).
+- Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
 
 ## 2.1.2
 

@@ -965,6 +965,11 @@ class GraphBuilderFromSchema extends GraphBuilder {
     return !!metadata && field.hasAppliedDirective(directiveFct(metadata));
   }
 
+  private isExternal(field: FieldDefinition<any>): boolean {
+    const metadata = federationMetadata(this.schema);
+    return !!metadata && metadata.isFieldExternal(field);
+  }
+
   /**
    * Adds a vertex for the provided root object type (marking that vertex as a root vertex for the
    * provided `kind`) and recursively descend into the type definition to adds the related vertices
@@ -1028,7 +1033,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // we do so, we need the vertex corresponding to that field type to exists, and in rare cases a type could be only
       // mentioned in this external field, so if we don't add the type here, we'll never do and get an issue later as we
       // add @provides edges.
-      if (this.hasDirective(field, (m) => m.externalDirective())) {
+      if (this.isExternal(field)) {
         this.addTypeRecursively(field.type!)
       } else {
         this.addEdgeForField(field, head);
@@ -1049,7 +1054,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
     //      need to type-explode to make we handle that @require).
-    return field && !this.hasDirective(field, (m) => m.externalDirective()) && !this.hasDirective(field, (m) => m.requiresDirective());
+    return field && !this.isExternal(field) && !this.hasDirective(field, (m) => m.requiresDirective());
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -1073,7 +1078,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external itself, and it must be provided on every of the runtime types
-      if (this.hasDirective(field, (m) => m.externalDirective()) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      if (this.isExternal(field) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);

@@ -1642,11 +1642,13 @@ class ExternalTester {
   private readonly fakeExternalFields = new Set<string>();
   private readonly providedFields = new Set<string>();
   private readonly externalDirective: DirectiveDefinition<{}>;
+  private readonly externalFieldsOnType = new Set<string>();
 
   constructor(readonly schema: Schema) {
     this.externalDirective = this.metadata().externalDirective();
     this.collectFakeExternals();
     this.collectProvidedFields();
+    this.collectExternalsOnType();
   }
 
   private metadata(): FederationMetadata {
@@ -1685,8 +1687,18 @@ class ExternalTester {
     }
   }
 
+  private collectExternalsOnType() {
+    for (const type of this.schema.objectTypes()) {
+      if (type.hasAppliedDirective(this.externalDirective)) {
+        for (const field of type.fields()) {
+          this.externalFieldsOnType.add(field.coordinate);
+        }
+      }
+    }
+  }
+
   isExternal(field: FieldDefinition<any> | InputFieldDefinition) {
-    return field.hasAppliedDirective(this.externalDirective) && !this.isFakeExternal(field);
+    return (field.hasAppliedDirective(this.externalDirective) || this.externalFieldsOnType.has(field.coordinate)) && !this.isFakeExternal(field);
   }
 
   isFakeExternal(field: FieldDefinition<any> | InputFieldDefinition) {
