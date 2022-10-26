@@ -2,6 +2,7 @@
 
 ## vNext
 
+- Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 
 ## 2.1.4
 
