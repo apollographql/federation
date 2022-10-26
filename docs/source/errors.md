@@ -44,6 +44,9 @@ The following errors might be raised during composition:
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
 | `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257) | 2.0.0 |  |
 | `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implementation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
+| `INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE` | A subgraph has a `@key` on an interface type, but that subgraph does not define all the implementation (in the supergraph) of that interface | 2.3.0 |  |
+| `INTERFACE_KEY_NOT_ON_IMPLEMENTATION` | A `@key` is defined on an interface type, but is not defined (or is not resolvable) on at least one of the interface implementations | 2.3.0 |  |
+| `INTERFACE_OBJECT_USAGE_ERROR` | Error in the usage of the @interfaceObject directive. | 2.3.0 |  |
 | `INVALID_FEDERATION_SUPERGRAPH` | Indicates that a schema provided for an Apollo Federation supergraph is not a valid supergraph schema. | 2.1.0 |  |
 | `INVALID_FIELD_SHARING` | A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs. | 2.0.0 |  |
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
@@ -56,7 +59,7 @@ The following errors might be raised during composition:
 | `KEY_FIELDS_SELECT_INVALID_TYPE` | The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key` | 0.x |  |
 | `KEY_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@key` directive is not a string. | 2.0.0 |  |
 | `KEY_INVALID_FIELDS` | The `fields` argument of a `@key` directive is invalid (it has invalid syntax, includes unknown fields, ...). | 2.0.0 |  |
-| `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
+| `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is only supported when @linking to federation 2.3+. | 2.0.0 |  |
 | `LINK_IMPORT_NAME_MISMATCH` | The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs. | 2.0.0 |  |
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |

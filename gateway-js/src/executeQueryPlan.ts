@@ -24,12 +24,13 @@ import {
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
   getResponseName,
+  FetchDataRewrite,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { assert, defaultRootName, errorCodeDef, ERRORS } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 
 export type ServiceMap = {
@@ -323,6 +324,7 @@ async function executeFetch(
             context.supergraphSchema,
             entity,
             requires,
+            fetch.inputRewrites,
           );
           if (representation && representation[TypeNameMetaFieldDef.name]) {
             representations.push(representation);
@@ -484,6 +486,34 @@ async function executeFetch(
   }
 }
 
+function updateRewrites(rewrites: FetchDataRewrite[] | undefined, pathElement: string): {
+  updated: FetchDataRewrite[],
+  completeRewrite?: any,
+} | undefined {
+  if (!rewrites) {
+    return undefined;
+  }
+
+  let completeRewrite: any = undefined;
+  const updated = rewrites
+    .map((r) => {
+      let u: FetchDataRewrite | undefined = undefined;
+      if (r.path[0] === pathElement) {
+        const updatedPath = r.path.slice(1);
+        if (updatedPath.length === 0) {
+          completeRewrite = r.setValueTo;
+        } else {
+          u = { ...r, path: updatedPath };
+        }
+      }
+      return u;
+    })
+    .filter(isDefined);
+  return updated.length === 0 && completeRewrite === undefined
+    ? undefined
+    : { updated, completeRewrite };
+}
+
 /**
  *
  * @param source Result of GraphQL execution.
@@ -493,6 +523,7 @@ function executeSelectionSet(
   schema: GraphQLSchema,
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
+  activeRewrites?: FetchDataRewrite[],
 ): Record<string, any> | null {
 
   // If the underlying service has returned null for the parent (source)
@@ -522,10 +553,17 @@ function executeSelectionSet(
           // here.
           return null;
         }
+
+        const updatedRewrites = updateRewrites(activeRewrites, responseName);
+        if (updatedRewrites?.completeRewrite !== undefined) {
+          result[responseName] = updatedRewrites.completeRewrite;
+          continue;
+        }
+
         if (Array.isArray(source[responseName])) {
           result[responseName] = source[responseName].map((value: any) =>
             selections
-              ? executeSelectionSet(schema, value, selections)
+              ? executeSelectionSet(schema, value, selections, updatedRewrites?.updated)
               : value,
           );
         } else if (selections) {
@@ -533,6 +571,7 @@ function executeSelectionSet(
             schema,
             source[responseName],
             selections,
+            updatedRewrites?.updated,
           );
         } else {
           result[responseName] = source[responseName];
@@ -545,9 +584,10 @@ function executeSelectionSet(
         if (!typename) continue;
 
         if (doesTypeConditionMatch(schema, selection.typeCondition, typename)) {
+          const updatedRewrites = activeRewrites ? updateRewrites(activeRewrites, `... on ${selection.typeCondition}`) : undefined;
           deepMerge(
             result,
-            executeSelectionSet(schema, source, selection.selections),
+            executeSelectionSet(schema, source, selection.selections, updatedRewrites?.updated),
           );
         }
         break;

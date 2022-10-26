@@ -69,6 +69,7 @@ import {
   isCompositeType,
   isDefined,
   addSubgraphToError,
+  printHumanReadableList,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -254,10 +255,6 @@ function indexOfMax(arr: number[]): number {
 
 function descriptionString(toIndent: string, indentation: string): string {
   return indentation + '"""\n' + indentation + toIndent.replace('\n', '\n' + indentation) + '\n' + indentation + '"""';
-}
-
-function typeKindToString(t: NamedType): string {
-  return t.kind.replace("Type", " Type");
 }
 
 function locationString(locations: DirectiveLocation[]): string {
@@ -447,6 +444,15 @@ class Merger {
 
     this.mergeAllAppliedDirectives();
 
+
+    // When @interfaceObject is used in a subgraph, then that subgraph essentially provides fields both
+    // to the interface but also to all it's implementation. But so far, we only merged the type definition
+    // itself, so we now need to potentially add the field to the implementations if missing.
+    // Note that we do this after everything else have been merged because this method will essentially
+    // copy things from interface in the merged schema into their implementation in that same schema so
+    // we want to make sure everything is ready.
+    this.addMissingInterfaceObjectFieldsToImplementations();
+
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
     if (this.errors.length === 0) {
@@ -492,22 +498,52 @@ class Merger {
   // and report errors otherwise.
   private addTypesShallow() {
     const mismatchedTypes = new Set<string>();
-    for (const subgraph of this.subgraphsSchema) {
+    const typesWithInterfaceObject = new Set<string>();
+    for (const subgraph of this.subgraphs) {
+      const metadata = subgraph.metadata();
+
       // We include the built-ins in general (even if we skip some federation specific ones): if a subgraph built-in
       // is not a supergraph built-in, we should add it as a normal type.
-      for (const type of subgraph.allTypes()) {
+      for (const type of subgraph.schema.allTypes()) {
         if (!isMergedType(type)) {
           continue;
         }
+
+        let expectedKind = type.kind;
+        if (metadata.isInterfaceObjectType(type)) {
+          expectedKind = 'InterfaceType';
+          typesWithInterfaceObject.add(type.name);
+        }
         const previous = this.merged.type(type.name);
         if (!previous) {
-          this.merged.addType(newNamedType(type.kind, type.name));
-        } else if (previous.kind !== type.kind) {
+          this.merged.addType(newNamedType(expectedKind, type.name));
+        } else if (previous.kind !== expectedKind) {
           mismatchedTypes.add(type.name);
         }
       }
     }
     mismatchedTypes.forEach(t => this.reportMismatchedTypeDefinitions(t));
+
+    // Most invalid use of @interfaceObject are reported as a mismatch above, but one exception is the
+    // case where a type is used only with @interfaceObject, but there is no corresponding interface
+    // definition in any subgraph.
+    for (const itfObjectType of typesWithInterfaceObject) {
+      if (mismatchedTypes.has(itfObjectType)) {
+        continue;
+      }
+
+      if (!this.subgraphsSchema.some((s) => s.type(itfObjectType)?.kind === 'InterfaceType')) {
+        const subgraphsWithType = this.subgraphs.values().filter((s) => s.schema.type(itfObjectType) !== undefined);
+        // Note that there is meaningful way in which the supergraph could work in this situation, expect maybe if
+        // the type is unused, because validation composition would complain it cannot find the `__typename` in path
+        // leading to that type. But the error here is a bit more "direct"/user friendly than what post-merging
+        // validation would return, so we make this a hard error, not just a warning.
+        this.errors.push(ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
+          `Type "${itfObjectType}" is declared with @interfaceObject in all the subgraphs in which is is defined (it is defined in ${printSubgraphNames(subgraphsWithType.map((s) => s.name))} but should be defined as an interface in at least one subgraph)`,
+          { nodes: sourceASTs(...subgraphsWithType.map((s) => s.schema.type(itfObjectType))) },
+        ));
+      }
+    }
   }
 
   private addCoreFeatures() {
@@ -549,6 +585,14 @@ class Merger {
 
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
     const supergraphType = this.merged.type(mismatchedType)!;
+    const typeKindToString = (t: NamedType) => {
+      const metadata = federationMetadata(t.schema());
+      if (metadata?.isInterfaceObjectType(t)) {
+        return 'Interface Object Type (Object Type with @interfaceObject)';
+      } else {
+        return t.kind.replace("Type", " Type");
+      }
+    };
     this.mismatchReporter.reportMismatchError(
       ERRORS.TYPE_KIND_MISMATCH,
       `Type "${mismatchedType}" has mismatched kind: it is defined as `,
@@ -559,12 +603,17 @@ class Merger {
   }
 
   private subgraphsTypes<T extends NamedType>(supergraphType: T): (T | undefined)[] {
-    return this.subgraphsSchema.map((subgraph) => {
-      const type = subgraph.type(supergraphType.name);
+    return this.subgraphs.values().map((subgraph) => {
+      const type = subgraph.schema.type(supergraphType.name);
+      if (!type) {
+        return undefined;
+      }
+
       // At this point, we have already reported errors for type mismatches (and so composition
       // will fail, we just try to gather more errors), so simply ignore versions of the type
-      // that don't have the proper kind.
-      if (!type || type.kind !== supergraphType.kind) {
+      // that don't have the "proper" kind.
+      const kind = subgraph.metadata().isInterfaceObjectType(type) ? 'InterfaceType' : type.kind;
+      if (kind !== supergraphType.kind) {
         return undefined;
       }
       return type as T;
@@ -657,7 +706,8 @@ class Merger {
         this.mergeObject(sources as (ObjectType | undefined)[], dest);
         break;
       case 'InterfaceType':
-        this.mergeInterface(sources as (InterfaceType | undefined)[], dest);
+        // Note that due to @interfaceObject, we can have some ObjectType in the sources, not just interfaces.
+        this.mergeInterface(sources as (InterfaceType | ObjectType | undefined)[], dest);
         break;
       case 'UnionType':
         this.mergeUnion(sources as (UnionType | undefined)[], dest);
@@ -711,15 +761,19 @@ class Merger {
 
       // There is either 1 join__type per-key, or if there is no key, just one for the type.
       const sourceMetadata = this.subgraphs.values()[idx].metadata();
+      // Note that mechanically we don't need to substitue `undefined` for `false` below (`false` is the
+      // default value), but doing so 1) yield smaller supergraph (because the parameter isn't included)
+      // and 2) this avoid needless disrepancies compared to supergraphs generated before @interfaceObject was added.
+      const isInterfaceObject = sourceMetadata.isInterfaceObjectType(source) ? true : undefined;
       const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
       if (!keys.length) {
-        dest.applyDirective(joinTypeDirective, { graph: name });
+        dest.applyDirective(joinTypeDirective, { graph: name, isInterfaceObject });
       } else {
         for (const key of keys) {
           const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
           const { resolvable } = key.arguments();
-          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable });
+          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable, isInterfaceObject });
         }
       }
     }
@@ -811,6 +865,71 @@ class Merger {
         });
       }
     }
+  }
+
+  private addMissingInterfaceObjectFieldsToImplementations() {
+    // For each merged object types, we check if we're missing a field from one of the implemented interface.
+    // If we do, then we look if one of the subgraph provides that field as a (non-external) interface object
+    // type, and if that's the case, we add the field to the object.
+    for (const type of this.merged.objectTypes()) {
+      for (const implementedItf of type.interfaces()) {
+        for (const itfField of implementedItf.fields()) {
+          if (type.field(itfField.name)) {
+            continue;
+          }
+
+          // Note that we don't blindly add the field yet, that would be incorrect in many cases (and we
+          // have a specific validation that return a user-friendly error in such incorrect cases, see
+          // `postMergeValidations`). We must first check that there is some subgraph that implement
+          // that field as an "interface object", since in that case the field will genuinely be provided
+          // by that subgraph at runtime.
+          if (this.isFieldProvidedByAnInterfaceObject(itfField.name, implementedItf.name)) {
+            // Note it's possible that interface is abstracted away (as an interface object) in multiple
+            // subgraphs, so we don't bother with the field definition in those subgraphs, but rather
+            // just copy the merged definition from the interface.
+            const implemField = type.addField(itfField.name, itfField.type);
+            // Cases could probably be made for both either copying or not copying the description
+            // and applied directives from the interface field, but we copy both here as it feels
+            // more likely to be what user expects (assume they care either way). It's unlikely
+            // this will be an issue to anyone, but we can always make this behaviour tunable
+            // "somehow" later if the need arise. Feels highly overkill at this point though.
+            implemField.description = itfField.description;
+            this.copyNonJoinAppliedDirectives(itfField, implemField);
+            for (const itfArg of itfField.arguments()) {
+              const implemArg = implemField.addArgument(itfArg.name, itfArg.type, itfArg.defaultValue);
+              implemArg.description = itfArg.description;
+              this.copyNonJoinAppliedDirectives(itfArg, implemArg);
+            }
+
+            // We add a special @join__field for those added field with no `graph` target. This
+            // clarify to the later extraction process that this particular field doesn't come
+            // from any particular subgraph (it comes indirectly from an @interfaceObject type,
+            // but it's very much indirect so ...).
+            implemField.applyDirective(joinSpec.fieldDirective(this.merged), { graph: undefined });
+          }
+        }
+      }
+    }
+  }
+
+  private copyNonJoinAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
+    // This method is used to copy "user provided" applied directives from interface fields to some
+    // implementation type when @interfaceObject is used. But we shouldn't copy the `join` spec directive
+    // as those are for the interface field but are invalid for the implementation field.
+    source.appliedDirectives.forEach((d) => {
+      if (!joinSpec.isSpecDirective(d.definition!)) {
+        dest.applyDirective(d.name, {...d.arguments()})
+      }
+    });
+  }
+
+  private isFieldProvidedByAnInterfaceObject(fieldName: string, interfaceName: string): boolean {
+    return this.subgraphs.values().some((s) => {
+      const meta = s.metadata();
+      const type = s.schema.type(interfaceName);
+      const field = type && meta.isInterfaceObjectType(type) ? type.field(fieldName) : undefined;
+      return field && !meta.isFieldExternal(field);
+    });
   }
 
   private addFieldsShallow<T extends ObjectType | InterfaceType | InputObjectType>(sources: (T | undefined)[], dest: T) {
@@ -1506,12 +1625,55 @@ class Merger {
     }
   }
 
-  private mergeInterface(sources: (InterfaceType | undefined)[], dest: InterfaceType) {
+  private mergeInterface(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
+    this.validateInterfaceKeys(sources, dest);
+
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
       this.hintOnInconsistentValueTypeField(sources, dest, destField);
       const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeField(subgraphFields, destField);
+    }
+  }
+
+  private validateInterfaceKeys(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
+    // Remark: it might be ok to filter @inaccessible types in `supergraphImplementations`, but this require
+    // some more thinking (and I'm not even sure it makes a practical difference given the rules for validaty
+    // of @inacessible) and it will be backward compatible to filter them later, while the reverse wouldn't
+    // technically be, so we stay on the safe side.
+    const supergraphImplementations = dest.possibleRuntimeTypes();
+
+    // Validate that if a source defines a (resolvable) @key on an interface, then that subgraph defines
+    // all the implementations of that interface in the supergraph.
+    for (const [idx, source] of sources.entries()) {
+      if (!source || !isInterfaceType(source)) {
+        continue;
+      }
+      const sourceMetadata = this.subgraphs.values()[idx].metadata();
+      const resolvableKey = source.appliedDirectivesOf(sourceMetadata.keyDirective()).find((k) => k.arguments().resolvable !== false);
+      if (!resolvableKey) {
+        continue;
+      }
+
+      const implementationsInSubgraph = source.possibleRuntimeTypes();
+      if (implementationsInSubgraph.length < supergraphImplementations.length) {
+        const missingImplementations = supergraphImplementations.filter((superImpl) => !implementationsInSubgraph.some((subgImpl) => superImpl.name === subgImpl.name));
+        const typesString = printHumanReadableList(
+          missingImplementations.map((i) => `"${i.coordinate}"`),
+          {
+            prefix: 'type',
+            prefixPlural: 'types',
+          }
+        );
+        this.errors.push(addSubgraphToError(
+          ERRORS.INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE.err(
+            `Interface type "${source.coordinate}" has a resolvable key (${resolvableKey}) in subgraph "${this.names[idx]}" but that subgraph is missing some of the supergraph implementation types of "${dest.coordinate}". `
+            + `Subgraph "${this.names[idx]}" should define ${typesString} (and have ${missingImplementations.length > 1 ? 'them' : 'it'} implement "${source.coordinate}").`,
+            { nodes: resolvableKey.sourceAST},
+          ),
+          this.names[idx],
+        ));
+      }
     }
   }
 

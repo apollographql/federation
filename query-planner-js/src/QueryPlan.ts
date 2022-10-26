@@ -39,6 +39,12 @@ export interface FetchNode {
   operationName: string | undefined;
   operationKind: OperationTypeNode;
   operationDocumentNode?: DocumentNode;
+  inputRewrites?: FetchDataRewrite[];
+}
+
+export interface FetchDataRewrite {
+  path: string[],
+  setValueTo?: any,
 }
 
 export interface FlattenNode {

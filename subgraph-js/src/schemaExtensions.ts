@@ -5,7 +5,7 @@ import {
   GraphQLUnionTypeExtensions
 } from 'graphql';
 
-type GraphQLReferenceResolver<TContext> = (
+export type GraphQLReferenceResolver<TContext> = (
   reference: object,
   context: TContext,
   info: GraphQLResolveInfo,

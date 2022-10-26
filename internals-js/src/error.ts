@@ -235,7 +235,7 @@ const REQUIRES_MISSING_EXTERNAL = DIRECTIVE_FIELDS_MISSING_EXTERNAL.createCode('
 
 const DIRECTIVE_UNSUPPORTED_ON_INTERFACE = makeFederationDirectiveErrorCodeCategory(
   'UNSUPPORTED_ON_INTERFACE',
-  (directive) => `A \`@${directive}\` directive is used on an interface, which is not (yet) supported.`,
+  (directive) => `A \`@${directive}\` directive is used on an interface, which is ${directive === 'key' ? 'only supported when @linking to federation 2.3+' : 'not (yet) supported'}.`,
 );
 
 const KEY_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCode('key');
@@ -531,6 +531,25 @@ const DIRECTIVE_COMPOSITION_ERROR = makeCodeDefinition(
   { addedIn: '2.1.0' },
 );
 
+const INTERFACE_OBJECT_USAGE_ERROR = makeCodeDefinition(
+  'INTERFACE_OBJECT_USAGE_ERROR',
+  'Error in the usage of the @interfaceObject directive.',
+  { addedIn: '2.3.0' },
+);
+
+const INTERFACE_KEY_NOT_ON_IMPLEMENTATION = makeCodeDefinition(
+  'INTERFACE_KEY_NOT_ON_IMPLEMENTATION',
+  'A `@key` is defined on an interface type, but is not defined (or is not resolvable) on at least one of the interface implementations',
+  { addedIn: '2.3.0' },
+);
+
+const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
+  'INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE',
+  'A subgraph has a `@key` on an interface type, but that subgraph does not define all the implementation (in the supergraph) of that interface',
+  { addedIn: '2.3.0' },
+)
+
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -614,6 +633,9 @@ export const ERRORS = {
   PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
   REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
   DIRECTIVE_COMPOSITION_ERROR,
+  INTERFACE_OBJECT_USAGE_ERROR,
+  INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
+  INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

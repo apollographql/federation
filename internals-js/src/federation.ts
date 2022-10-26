@@ -302,6 +302,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
   isOnParentType = false,
   allowOnNonExternalLeafFields = false,
   allowFieldsWithArguments = false,
+  allowOnInterface = false,
   onFields,
 }: {
   definition: DirectiveDefinition<{fields: any}>,
@@ -311,13 +312,14 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
   isOnParentType?: boolean,
   allowOnNonExternalLeafFields?: boolean,
   allowFieldsWithArguments?: boolean,
+  allowOnInterface?: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
 }): void {
   for (const application of definition.applications()) {
     const elt = application.parent as TParent;
     const type = targetTypeExtractor(elt);
     const parentType = isOnParentType ? type : (elt.parent as NamedType);
-    if (isInterfaceType(parentType)) {
+    if (isInterfaceType(parentType) && !allowOnInterface) {
       const code = ERROR_CATEGORIES.DIRECTIVE_UNSUPPORTED_ON_INTERFACE.get(definition.name);
       errorCollector.push(code.err(
         isOnParentType
@@ -434,6 +436,69 @@ function validateNoExternalOnInterfaceFields(metadata: FederationMetadata, error
           { nodes: field.sourceAST },
         ));
       }
+    }
+  }
+}
+
+function validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata: FederationMetadata, errorCollector: GraphQLError[]): void {
+  for (const itfType of metadata.schema.interfaceTypes()) {
+    const implementations = itfType.possibleRuntimeTypes();
+    for (const keyApplication of itfType.appliedDirectivesOf(metadata.keyDirective())) {
+      // Note that we will always have validated all @key fields at this point, so not bothering with extra validation
+      const fields = parseFieldSetArgument({parentType: itfType, directive: keyApplication, validate: false});
+      const isResolvable = !(keyApplication.arguments().resolvable === false);
+      const implementationsWithKeyButNotResolvable = new Array<ObjectType>();
+      const implementationsMissingKey = new Array<ObjectType>();
+      for (const type of implementations) {
+        const matchingApp = type.appliedDirectivesOf(metadata.keyDirective()).find((app) => {
+          const appFields = parseFieldSetArgument({parentType: type, directive: app, validate: false});
+          return fields.equals(appFields);
+        });
+        if (matchingApp) {
+          if (isResolvable && matchingApp.arguments().resolvable === false) {
+            implementationsWithKeyButNotResolvable.push(type);
+          }
+        } else {
+          implementationsMissingKey.push(type);
+        }
+      }
+
+      if (implementationsMissingKey.length > 0) {
+        const typesString = printHumanReadableList(
+          implementationsMissingKey.map((i) => `"${i.coordinate}"`),
+          {
+            prefix: 'type',
+            prefixPlural: 'types',
+          }
+        );
+        errorCollector.push(ERRORS.INTERFACE_KEY_NOT_ON_IMPLEMENTATION.err(
+          `Key ${keyApplication} on interface type "${itfType.coordinate}" is missing on implementation ${typesString}.`,
+          { nodes: sourceASTs(...implementationsMissingKey) },
+        ));
+      } else if (implementationsWithKeyButNotResolvable.length > 0) {
+        const typesString = printHumanReadableList(
+          implementationsWithKeyButNotResolvable.map((i) => `"${i.coordinate}"`),
+          {
+            prefix: 'type',
+            prefixPlural: 'types',
+          }
+        );
+        errorCollector.push(ERRORS.INTERFACE_KEY_NOT_ON_IMPLEMENTATION.err(
+          `Key ${keyApplication} on interface type "${itfType.coordinate}" should be resolvable on all implementation types, but is declared with argument "@key(resolvable:)" set to false in ${typesString}.`,
+          { nodes: sourceASTs(...implementationsWithKeyButNotResolvable) },
+        ));
+      }
+    }
+  }
+}
+
+function validateInterfaceObjectsAreOnEntities(metadata: FederationMetadata, errorCollector: GraphQLError[]): void {
+  for (const application of metadata.interfaceObjectDirective().applications()) {
+    if (!isEntityType(application.parent)) {
+      errorCollector.push(ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
+        `The @interfaceObject directive can only be applied to entity types but type "${application.parent.coordinate}" has no @key in this subgraph.`,
+        { nodes: application.parent.sourceAST }
+      ));
     }
   }
 }
@@ -606,6 +671,11 @@ export class FederationMetadata {
     return this.sharingPredicate()(field);
   }
 
+  isInterfaceObjectType(type: NamedType): type is ObjectType {
+    return isObjectType(type)
+      && hasAppliedDirective(type, this.interfaceObjectDirective());
+  }
+
   federationDirectiveNameInSchema(name: string): string {
     if (this.isFed2Schema()) {
       const coreFeatures = this.schema.coreFeatures;
@@ -660,6 +730,15 @@ export class FederationMetadata {
     return this.schema.directive(this.federationDirectiveNameInSchema(name)) as DirectiveDefinition<TApplicationArgs> | undefined;
   }
 
+  private getPost20FederationDirective<TApplicationArgs extends {[key: string]: any}>(
+    name: FederationDirectiveName
+  ): Post20FederationDirectiveDefinition<TApplicationArgs> {
+    return this.getFederationDirective<TApplicationArgs>(name) ?? {
+      name,
+      applications: () => new Array<Directive<any, TApplicationArgs>>(),
+    };
+  }
+
   keyDirective(): DirectiveDefinition<{fields: any, resolvable?: boolean}> {
     return this.getLegacyFederationDirective(FederationDirectiveName.KEY);
   }
@@ -692,15 +771,16 @@ export class FederationMetadata {
     return this.getLegacyFederationDirective(FederationDirectiveName.TAG);
   }
 
-  composeDirective(): DirectiveDefinition<{name: string}> | FederationDirectiveNotDefinedInSchema<{name: string}> {
-    return this.getFederationDirective<{name: string}>(FederationDirectiveName.COMPOSE_DIRECTIVE) ?? {
-      name: FederationDirectiveName.COMPOSE_DIRECTIVE,
-      applications: () => new Array<Directive<any, {name: string}>>(),
-    };
+  composeDirective(): Post20FederationDirectiveDefinition<{name: string}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.COMPOSE_DIRECTIVE);
   }
 
   inaccessibleDirective(): DirectiveDefinition<{}> {
     return this.getLegacyFederationDirective(FederationDirectiveName.INACCESSIBLE);
+  }
+
+  interfaceObjectDirective(): Post20FederationDirectiveDefinition<{}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.INTERFACE_OBJECT);
   }
 
   allFederationDirectives(): DirectiveDefinition[] {
@@ -723,6 +803,11 @@ export class FederationMetadata {
     if (isFederationDirectiveDefinedInSchema(composeDirective)) {
       baseDirectives.push(composeDirective);
     }
+    const interfaceObjectDirective = this.interfaceObjectDirective();
+    if (isFederationDirectiveDefinedInSchema(interfaceObjectDirective)) {
+      baseDirectives.push(interfaceObjectDirective);
+    }
+
     return baseDirectives;
   }
 
@@ -762,10 +847,18 @@ export type FederationDirectiveNotDefinedInSchema<TApplicationArgs extends {[key
   applications: () => readonly Directive<any, TApplicationArgs>[],
 }
 
+export type Post20FederationDirectiveDefinition<TApplicationArgs extends {[key: string]: any}> =
+  DirectiveDefinition<TApplicationArgs>
+  | FederationDirectiveNotDefinedInSchema<TApplicationArgs>;
+
 export function isFederationDirectiveDefinedInSchema<TApplicationArgs extends {[key: string]: any}>(
-  definition: DirectiveDefinition<TApplicationArgs> | FederationDirectiveNotDefinedInSchema<TApplicationArgs>
+  definition: Post20FederationDirectiveDefinition<TApplicationArgs>
 ): definition is DirectiveDefinition<TApplicationArgs> {
   return definition instanceof DirectiveDefinition;
+}
+
+export function hasAppliedDirective(type: NamedType, definition: Post20FederationDirectiveDefinition<any>): boolean {
+  return isFederationDirectiveDefinedInSchema(definition) && type.hasAppliedDirective(definition);
 }
 
 export class FederationBlueprint extends SchemaBlueprint {
@@ -872,6 +965,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       metadata,
       isOnParentType: true,
       allowOnNonExternalLeafFields: true,
+      allowOnInterface: metadata.federationFeature()!.url.version.compareTo(new FeatureVersion(2, 3)) >= 0,
       onFields: field => {
         const type = baseType(field.type!);
         if (isUnionType(type) || isInterfaceType(type)) {
@@ -925,6 +1019,8 @@ export class FederationBlueprint extends SchemaBlueprint {
 
     validateNoExternalOnInterfaceFields(metadata, errorCollector);
     validateAllExternalFieldsUsed(metadata, errorCollector);
+    validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
+    validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
@@ -1070,7 +1166,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.2", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {
@@ -1123,11 +1219,19 @@ export function isFederationField(field: FieldDefinition<CompositeType>): boolea
 }
 
 export function isEntityType(type: NamedType): boolean {
-  if (type.kind !== "ObjectType") {
+  if (!isObjectType(type) && !isInterfaceType(type)) {
     return false;
   }
   const metadata = federationMetadata(type.schema());
   return !!metadata && type.hasAppliedDirective(metadata.keyDirective());
+}
+
+export function isInterfaceObjectType(type: NamedType): boolean {
+  if (!isObjectType(type)) {
+    return false;
+  }
+  const metadata = federationMetadata(type.schema());
+  return !!metadata && metadata.isInterfaceObjectType(type);
 }
 
 export function buildSubgraph(
@@ -1191,7 +1295,6 @@ function isFedSpecLinkDirective(directive: Directive<SchemaDefinition>): directi
 }
 
 function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
-
   // We special case @key, @requires and @provides because we've seen existing user schema where those
   // have been defined in an invalid way, but in a way that fed1 wasn't rejecting. So for convenience,
   // if we detect one of those case, we just remove the definition and let the code afteward add the
@@ -1482,6 +1585,10 @@ export const serviceTypeSpec = createObjectTypeSpecification({
 export const entityTypeSpec = createUnionTypeSpecification({
   name: '_Entity',
   membersFct: (schema) => {
+    // Please note that `_Entity` cannot use "interface entities" since interface types cannot be in unions.
+    // It is ok in practice because _Entity is only use as return type for `_entities`, and even when interfaces
+    // are involve, the result of an `_entities` call will always be an object type anyway, and since we force
+    // all implementations of an interface entity to be entity themselves in a subgraph, we're fine.
     return schema.objectTypes().filter(isEntityType).map((t) => t.name);
   },
 });
