@@ -70,7 +70,7 @@ jobs:
 
   GraphQL v15 Support:
     docker:
-      - image: cimg/node:16.10.0
+      - image: cimg/node:16.18.0
     steps:
       - oss/install_specific_npm_version:
           version: '7'
