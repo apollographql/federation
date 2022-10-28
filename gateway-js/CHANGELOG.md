@@ -6,6 +6,17 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
+## v0.52.1
+- The change released in v0.52.0 which updates the TypeScript types relating to the gateway interface has been improved to be more compatible with Apollo Server 2. [PR #2080](https://github.com/apollographql/apollo-server/pull/2080)
+
+## v0.52.0
+
+- The method `RemoteGraphQLDataSource.errorFromResponse` now returns a `GraphQLError` (as defined by `graphql`) rather than an `ApolloError` (as defined by `apollo-server-errors`). [PR #2028](https://github.com/apollographql/federation/pull/2028)
+  - __BREAKING__: If you call `RemoteGraphQLDataSource.errorFromResponse` manually and expect its return value to be a particular subclass of `GraphQLError`, or if you expect the error received by `didEncounterError` to be a particular subclass of `GraphQLError`, then this change may affect you. We recommend checking `error.extensions.code` instead.
+- The `LocalGraphQLDataSource` class no longer supports the undocumented `__resolveObject` Apollo Server feature. [PR #2007](https://github.com/apollographql/federation/pull/2007)
+  - __BREAKING__: If you relied on the undocumented `__resolveObject` feature with `LocalGraphQLDataSource`, it will no longer work. If this affects you, file an issue and we can help you find a workaround.
+- Some TypeScript types, such as the arguments and return value of `GraphQLDataSource.process`, are defined using types from the `@apollo/server-gateway-interface` package instead of from `apollo-server-types` and `apollo-server-core`. This is intended to be fully backwards-compatible; please file an issue if this leads to TypeScript compilation issues. [PR #2044](https://github.com/apollographql/federation/pull/2044)
+
 ## v0.51.0
 
 - The `fetch` implementation used by default by `UplinkFetcher` and `RemoteGraphQLDataSource` is now imported from `make-fetch-happen` v10 instead of v8. The fetcher used by `RemoteGraphQLDataSource` no longer limits the number of simultaneous requests per subgraph (or specifically, per host/port pair) to 15 by default; instead, there is no limit.  (If you want to restore the previous behavior, install `make-fetch-happen`, import `fetcher` from it, and pass `new RemoteGraphQLDataSource({ fetcher: fetcher.defaults(maxSockets: 15)}))` in your `buildService` option.) Note that if you invoke the `fetcher` yourself in a `RemoteGraphQLDataSource` subclass, you should ensure that you pass "plain" objects rather than `Headers` or `Request` objects, as the newer version has slightly different logic about how to recognize `Headers` and `Request` objects. We have adjusted the TypeScript types for `fetcher` so that only these "plain" objects (which result in consistent behavior across all fetcher implementations) are permitted.  [PR #1805](https://github.com/apollographql/federation/pull/1805)

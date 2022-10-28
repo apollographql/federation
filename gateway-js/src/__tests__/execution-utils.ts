@@ -2,7 +2,6 @@ import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
-import { GraphQLRequest, GraphQLExecutionResult } from 'apollo-server-types';
 import type { Logger } from '@apollo/utils.logger';
 import {
   composeAndValidate,
@@ -22,6 +21,7 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { parse } from 'graphql';
+import { GatewayExecutionResult, GatewayGraphQLRequest } from '@apollo/server-gateway-interface';
 
 const prettyFormat = require('pretty-format');
 
@@ -39,10 +39,10 @@ export function overrideResolversInService(
 }
 
 export async function execute(
-  request: GraphQLRequest,
+  request: GatewayGraphQLRequest,
   services: ServiceDefinitionModule[] = fixtures,
   logger: Logger = console,
-): Promise<GraphQLExecutionResult & { queryPlan: QueryPlan }> {
+): Promise<GatewayExecutionResult & { queryPlan: QueryPlan }> {
   const serviceMap = Object.fromEntries(
     services.map(({ name, typeDefs, resolvers }) => {
       return [

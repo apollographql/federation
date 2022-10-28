@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-planner",
-  "version": "0.10.2",
+  "version": "0.11.1",
   "description": "Apollo Query Planner",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -27,7 +27,7 @@
   "dependencies": {
     "chalk": "^4.1.0",
     "deep-equal": "^2.0.5",
-    "pretty-format": "^27.4.6"
+    "pretty-format": "^28.0.0"
   },
   "peerDependencies": {
     "graphql": "^15.8.0 || ^16.0.0"
