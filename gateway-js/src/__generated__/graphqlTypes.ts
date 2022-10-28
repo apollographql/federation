@@ -24,8 +24,11 @@ export type ApiMonitoringReport = {
   tags?: InputMaybe<Array<Scalars['String']>>;
 };
 
+/** Input type for providing error details in field arguments. */
 export type Error = {
+  /** The error code. */
   code: ErrorCode;
+  /** The error message. */
   message?: InputMaybe<Scalars['String']>;
 };
 

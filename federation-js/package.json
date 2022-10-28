@@ -17,7 +17,7 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=12.13.0 <18.0"
+    "node": ">=12.13.0"
   },
   "publishConfig": {
     "access": "public"

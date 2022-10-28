@@ -3,9 +3,8 @@
 This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. The Federation v2 equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/main/gateway-js/CHANGELOG.md) on the `main` branch of this repo.
 
 ## vNEXT
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually)
 
-- Nothing yet! Stay tuned.
+- Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## v0.52.1
 - The change released in v0.52.0 which updates the TypeScript types relating to the gateway interface has been improved to be more compatible with Apollo Server 2. [PR #2080](https://github.com/apollographql/apollo-server/pull/2080)
