@@ -41,7 +41,7 @@
     // versions we support.
     {
       "matchPackageNames": ["@types/node"],
-      "allowedVersions": "12.x"
+      "allowedVersions": "14.x"
     },
     // node-fetch v3 only ships as ESM. We currently build to CommonJS and even
     // if we start publishing as ESM we're not going to go ESM-only for a while.

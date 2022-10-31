@@ -27,7 +27,7 @@
     "hints-doc:check": "npm run hints-doc && git diff --exit-code"
   },
   "engines": {
-    "node": ">=12.13.0",
+    "node": ">=14.15.0",
     "npm": ">=7 <9"
   },
   "dependencies": {

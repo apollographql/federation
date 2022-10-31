@@ -2,6 +2,8 @@
 
 ## vNext
 
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+
 ## 2.1.0
 
 - Fix abnormally high memory usage when extracting subgraphs for some fed1 supergraphs (and small other memory footprint improvements) [PR #2089](https://github.com/apollographql/federation/pull/2089).
