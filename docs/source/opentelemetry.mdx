@@ -227,8 +227,8 @@ Now we can replace our `ZipkinExporter` with an `OTLPTraceExporter`. We can also
 
 ```js
 // Configure an exporter that pushes all traces to a Collector
-// (This assumes the Collector is running on localhost at the
-// default port of 55681)
+// (This assumes the Collector is running on the default url
+// of http://localhost:4318/v1/traces)
 const collectorTraceExporter = new OTLPTraceExporter();
 provider.addSpanProcessor(
   new BatchSpanProcessor(collectorTraceExporter, {
