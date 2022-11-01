@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNext
+
+- Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
+
+## 2.1.4
+
+- Ensures supergraph `@defer`/`@stream` definitions of supergraph are not included in the API schema [PR #2212](https://github.com/apollographql/federation/pull/2212).
+- Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
+
 ## 2.1.0
 
 - Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)

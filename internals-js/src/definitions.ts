@@ -1270,6 +1270,19 @@ export class Schema {
       this.validate();
 
       const apiSchema = this.clone();
+
+      // As we compute the API schema of a supergraph, we want to ignore explicit definitions of `@defer` and `@stream` because
+      // those correspond to the merging of potential definitions from the subgraphs, but whether the supergraph API schema
+      // supports defer or not is unrelated to the subgraph capacity. As far as gateway/router support goes, whether the defer/stream
+      // definitions end up being provided or not will depend on the runtime `config` argument of the `toGraphQLJSSchema` that
+      // is the called on the API schema (the schema resulting from that method).
+      for (const toRemoveIfCustom of ['defer', 'stream']) {
+        const directive = apiSchema.directive(toRemoveIfCustom);
+        if (directive && !directive.isBuiltIn) {
+          directive.removeRecursive();
+        }
+      }
+
       removeInaccessibleElements(apiSchema);
       removeAllCoreFeatures(apiSchema);
       assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
@@ -3062,7 +3075,11 @@ export class Directive<
     assert(definition, () => `Cannot include default values for arguments: cannot find directive definition for ${this.name}`);
     const updated = Object.create(null);
     for (const argDef of definition.arguments()) {
-      updated[argDef.name] = withDefaultValues(this._args[argDef.name], argDef);
+      const argValue = withDefaultValues(this._args[argDef.name], argDef);
+      // Note that argValue could be '0' or something falsy here, so we must explicitly check === undefined
+      if (argValue !== undefined) {
+        updated[argDef.name] = argValue;
+      }
     }
     return updated;
   }
@@ -3211,7 +3228,7 @@ export function sameDirectiveApplication(
 ): boolean {
   // Note: we check name equality first because this method is most often called with directive that are simply not the same
   // name and this ensure we exit cheaply more often than not.
-  return application1.name === application2.name 
+  return application1.name === application2.name
     && !directivesNeverEqualToThemselves.includes(application1.name)
     && !directivesNeverEqualToThemselves.includes(application2.name)
     && argumentsEquals(application1.arguments(), application2.arguments());

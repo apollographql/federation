@@ -9,8 +9,9 @@ For complete documentation, see the [Apollo Gateway API reference](https://www.a
 ## Usage
 
 ```js
-const { ApolloServer } = require("apollo-server");
-const { ApolloGateway, IntrospectAndCompose } = require("@apollo/gateway");
+import { ApolloServer } from "@apollo/server";
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway, IntrospectAndCompose } from "@apollo/gateway";
 
 const gateway = new ApolloGateway({
   supergraphSdl: new IntrospectAndCompose({
@@ -23,7 +24,7 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({ gateway });
 
-server.listen().then(({ url }) => {
-  console.log(`🚀 Server ready at ${url}`);
-});
+// Note the top-level await!
+const { url } = await startStandaloneServer(server);
+console.log(`🚀  Server ready at ${url}`);
 ```

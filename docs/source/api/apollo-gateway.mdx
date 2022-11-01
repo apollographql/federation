@@ -4,12 +4,14 @@ description: Apollo Gateway API reference
 api_reference: true
 ---
 
-This API reference documents the exports from the `@apollo/gateway` package.
+This API reference documents the exports from the `@apollo/gateway` package. This package enables you to use Apollo Server as a gateway for a federated supergraph. For more information, see [Node.js gateway setup](../building-supergraphs/router/#nodejs-gateway-setup).
+
+> We recommend that all supergraphs use the Apollo Router instead of this Node.js-based gateway. See [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library).
 
 ## `class ApolloGateway`
 
 The core class of Apollo Server's federated gateway implementation. For an
-example of using `ApolloGateway`, see [The gateway](../gateway/).
+example of using `ApolloGateway`, see [The graph router](../building-supergraphs/router/).
 
 ### Methods
 
@@ -195,7 +197,7 @@ An object to use for logging in place of `console`. If provided, this object mus
 
 If you provide this value, the gateway automatically logs all messages of _all_ severity levels (`debug` through `error`), regardless of whether the `debug` option is set to `true`. It is the responsibility of the logger to determine how to handle logged messages of each level.
 
-This logger is automatically added to the `GraphQLRequestContext` object that's passed to all Apollo Server [plugin functions](https://www.apollographql.com/docs/apollo-server/integrations/plugins/).
+This logger is automatically added to the `GraphQLRequestContext` object that's passed to all Apollo Server [plugin functions](/apollo-server/integrations/plugins/).
 </td>
 </tr>
 
@@ -308,7 +310,7 @@ Define this function to customize your gateway's data transport to some or all o
 
 ##### The `buildService` function
 
-If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
+If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/federation/blob/main/gateway-js/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
 
 The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
 
@@ -498,7 +500,7 @@ This enables you to modify any combination of the operation's `context` and the 
 
 The `http` property of the `request` and `response` objects contains additional HTTP-specific properties, such as `headers`.
 
-This method must return an object that matches the structure of a [`GraphQLResponse`](https://github.com/apollographql/apollo-server/blob/2562d096/packages/apollo-server-types/src/index.ts#L43-L48).  If no modifications are necessary, return the original `response`.
+This method must return an object that matches the structure of a [`GraphQLResponse`](https://github.com/apollographql/apollo-server/blob/dd15bc1d7df6b5614b53e5cad62699222dc44279/packages/server/src/externalTypes/graphql.ts#L44-L52).  If no modifications are necessary, return the original `response`.
 
 #### `didEncounterError`
 
@@ -577,7 +579,7 @@ The details of the `fetch` response sent by the subgraph.
 </td>
 <td>
 
-[The `context` argument](https://www.apollographql.com/docs/apollo-server/data/resolvers/#the-context-argument) passed between the GraphQL operation's resolvers.
+[The `context` argument](/apollo-server/data/resolvers/#the-context-argument) passed between the GraphQL operation's resolvers.
 </td>
 </tr>
 </tbody>
@@ -585,7 +587,7 @@ The details of the `fetch` response sent by the subgraph.
 
 ## `class IntrospectAndCompose`
 
-> ⚠️ **We strongly recommend _against_ using `IntrospectAndCompose` in production.** For details, see [Limitations of `IntrospectAndCompose`](../router#limitations-of-introspectandcompose).
+> ⚠️ **We strongly recommend _against_ using `IntrospectAndCompose` in production.** For details, see [Limitations of `IntrospectAndCompose`](../building-supergraphs/router#limitations-of-introspectandcompose).
 
 `IntrospectAndCompose` is a development tool for fetching and composing subgraph SDL into a supergraph for your gateway. Given a list of subgraphs and their URLs, `IntrospectAndCompose` will issue queries for their SDL, compose them into a supergraph, and provide that supergraph to the gateway. It can also be configured to update via polling and perform subgraph health checks to ensure that supergraphs are updated safely. `IntrospectAndCompose` implements the `SupergraphManager` interface and is passed in to `ApolloGateway`'s `supergraphSdl` constructor option.
 

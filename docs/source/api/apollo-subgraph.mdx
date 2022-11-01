@@ -4,7 +4,7 @@ description: Apollo Federation API reference
 api_reference: true
 ---
 
-This API reference documents the exports from the `@apollo/subgraph` package.
+This API reference documents the exports from the `@apollo/subgraph` package. This package enables you to use Apollo Server as a subgraph in a federated supergraph. For more information, see [Implementing a subgraph with Apollo Server](../building-supergraphs/subgraphs-apollo-server).
 
 ## `buildSubgraphSchema`
 
@@ -18,7 +18,7 @@ const server = new ApolloServer({
 });
 ```
 
-Used when [defining a subgraph](../subgraphs/#defining-a-subgraph) in a federated graph.
+Used when [defining a subgraph](../building-supergraphs/subgraphs-apollo-server/#defining-a-subgraph) in a federated graph.
 
 Each schema module is an object with the following format:
 
@@ -134,7 +134,7 @@ This object includes a `__typename` field, along with whichever fields the subgr
 
 An object that's passed to every resolver that executes for a particular operation. This enables resolvers to share helpful context, including any relevant `DataSource`s.
 
-For details, see [The `context` argument](https://www.apollographql.com/docs/apollo-server/data/resolvers/#the-context-argument).
+For details, see [The `context` argument](/apollo-server/data/resolvers/#the-context-argument).
 </td>
 </tr>
 
@@ -150,7 +150,7 @@ For details, see [The `context` argument](https://www.apollographql.com/docs/apo
 
 Contains information about the operation's execution state, including the field name, the path to the field from the root, and more.
 
-This object's core fields are listed in the [GraphQL.js source code](https://github.com/graphql/graphql-js/blob/master/src/type/definition.js#L954-L965), and it is extended with additional functionality by other modules, like [`apollo-cache-control`](https://github.com/apollographql/apollo-server/tree/570f548b887/packages/apollo-cache-control).
+This object's core fields are listed in the [GraphQL.js source code](https://github.com/graphql/graphql-js/blob/a24a9f35b876bdd0d5050eca34d3020bd0db9a29/src/type/definition.ts#L891-L902).
 </td>
 </tr>
 </tbody>
@@ -168,9 +168,9 @@ const typeDefs = gql`
 
 const resolvers = {
   User: {
-    __resolveReference(user, { datasources }){
+    __resolveReference(user, { dataSources }){
       // user will always have at least the `id` and the `__typename` here
-      return datasources.users.fetchUserById(user.id)
+      return dataSources.users.fetchUserById(user.id)
     }
   }
 };

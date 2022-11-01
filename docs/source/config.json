@@ -4,17 +4,17 @@
   "algoliaFilters": [
     "docset:federation",
     [
-      "docset:server",
+      "docset:apollo-server",
       "docset:rover",
       "docset:router",
-      "docset:studio"
+      "docset:graphos"
     ]
   ],
   "sidebar": {
     "Introduction": "/",
     "Federation 2 Updates": {
       "☀️ New in Federation 2": "/federation-2/new-in-federation-2",
-      "🚚 Moving your graph": "/federation-2/moving-to-federation-2",
+      "🚚 Moving from Federation 1": "/federation-2/moving-to-federation-2",
       "⬅️ Backward compatibility": "/federation-2/backward-compatibility",
       "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
       "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md"
@@ -26,9 +26,10 @@
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
     "Building Your Supergraph": {
-      "Subgraphs in Apollo Server": "/subgraphs",
-      "Other subgraph libraries": "/supported-subgraphs",
-      "The graph router/gateway": "/router"
+      "Subgraphs": "/building-supergraphs/subgraphs-overview",
+      "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
+      "Router/gateway": "/building-supergraphs/router",
+      "Apollo Server subgraphs": "/building-supergraphs/subgraphs-apollo-server"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",

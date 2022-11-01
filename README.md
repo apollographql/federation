@@ -14,15 +14,6 @@ For Federation 1, see the [docs](https://www.apollographql.com/docs/federation/v
 
 Checkout the [project roadmap](ROADMAP.md) to see what's coming next!
 
-## 👋 Feedback Wanted - Apollo Developer Research Study 🎉
-Hi there!
-
-We're looking for developers who are evaluating or setting up Apollo Federation to participate in a **60 minute remote research interview**. We want to understand how developers are using Federation and gather feedback. As a token of our appreciation, we’ll email you a **$100 gift card**. If you’re interested, please [take this quick survey](https://www.surveymonkey.com/r/8CSMT9V) and we’ll reach out if you’re a fit for this upcoming study.
-
-Thank you in advance for your help!
-
-The survey closes on 7/29/2022
-
 ## Contributing
 
 If this project seems like something to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://github.com/apollographql/.github/blob/HEAD/CODE_OF_CONDUCT.md) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.

@@ -1198,7 +1198,7 @@ describe('nested @defer', () => {
                     age
                   }:
                   Flatten(path: "me") {
-                    Fetch(service: "Subgraph2", id: 1) {
+                    Fetch(service: "Subgraph2") {
                       {
                         ... on User {
                           __typename
@@ -1207,15 +1207,13 @@ describe('nested @defer', () => {
                       } =>
                       {
                         ... on User {
-                          __typename
                           age
-                          id
                         }
                       }
                     },
                   }
                 }, [
-                  Deferred(depends: [1], path: "me") {
+                  Deferred(depends: [0], path: "me") {
                     {
                       address
                     }:
@@ -3488,6 +3486,66 @@ test('do not merge query branches with @defer', () => {
                 }
               },
             }
+          },
+        ]
+      },
+    }
+  `);
+});
+
+test('@defer only the key of an entity', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t : T
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: String
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        v0
+        ... @defer {
+          id
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  // Making sure that the deferred part has no fetches since we only defer the key
+  // and that _has to_ be fetched before deferring anyway.
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Defer {
+        Primary {
+          {
+            t {
+              v0
+            }
+          }:
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                v0
+                id
+              }
+            }
+          }
+        }, [
+          Deferred(depends: [], path: "t") {
+            {
+              id
+            }:
           },
         ]
       },
