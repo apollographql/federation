@@ -71,7 +71,7 @@
     "jest-config": "29.2.2",
     "jest-cucumber": "3.0.1",
     "jest-junit": "14.0.1",
-    "lerna": "6.0.1",
+    "lerna": "4.0.0",
     "log4js": "6.6.1",
     "mocked-env": "1.3.5",
     "nock": "13.2.9",
