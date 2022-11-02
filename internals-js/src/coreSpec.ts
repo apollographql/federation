@@ -344,7 +344,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
       if (errors.length > 0) {
         return { args, errors }
       }
-      args.push({ name: 'import', type: new ListType(schema.type(importName)!) });
+      args.push({ name: 'import', type: new ListType(new NonNullType(schema.type(importName)!)) });
     }
     return { args, errors: [] };
   }

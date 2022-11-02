@@ -72,7 +72,7 @@ directive @link(
   url: String!,
   as: String,
   for: link__Purpose,
-  import: [link__Import]
+  import: [link__Import!]
 ) repeatable on SCHEMA
 ```
 

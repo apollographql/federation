@@ -551,7 +551,7 @@ test('preserves default values of input object fields', () => {
 
     directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import!]) repeatable on SCHEMA
 
     input Input
       @join__type(graph: SERVICE)

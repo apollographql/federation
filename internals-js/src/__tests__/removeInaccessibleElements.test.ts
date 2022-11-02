@@ -212,7 +212,7 @@ describe("removeInaccessibleElements", () => {
 
   it(`handles renames of @inaccessible via import "as"`, () => {
     const schema = buildSchema(`
-      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import!]) repeatable on SCHEMA
 
       enum link__Purpose {
         EXECUTION
