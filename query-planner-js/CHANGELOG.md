@@ -4,6 +4,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+
+## 2.1.4
+
 - Optimize plan for defer where only keys are fetched [PR #2182](https://github.com/apollographql/federation/pull/2182).
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
 

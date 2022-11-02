@@ -1,4 +1,4 @@
-import { buildSupergraphSchema, extractSubgraphsFromSupergraph } from "..";
+import { buildSupergraphSchema, extractSubgraphsFromSupergraph, InputObjectType } from "..";
 
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
@@ -533,6 +533,69 @@ test('handles unions types having no members in a subgraph correctly', () => {
   expect(b.type('C')).toBeUndefined();
   expect(a.type('D')).toBeDefined();
 })
+
+test('preserves default values of input object fields', () => {
+  const supergraph = `
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+    {
+      query: Query
+    }
+
+    directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+    directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+    input Input
+      @join__type(graph: SERVICE)
+    {
+      a: Int! = 1234
+    }
+
+    scalar join__FieldSet
+
+    enum join__Graph {
+      SERVICE @join__graph(name: "service", url: "")
+    }
+
+    scalar link__Import
+
+    enum link__Purpose {
+      """
+      \`SECURITY\` features provide metadata necessary to securely resolve fields.
+      """
+      SECURITY
+
+      """
+      \`EXECUTION\` features provide metadata necessary for operation execution.
+      """
+      EXECUTION
+    }
+
+    type Query
+      @join__type(graph: SERVICE)
+    {
+      field(input: Input!): String
+    }
+  `;
+
+  const schema = buildSupergraphSchema(supergraph)[0];
+  const subgraphs = extractSubgraphsFromSupergraph(schema);
+
+  const subgraph = subgraphs.get('service')
+  const inputType = subgraph?.schema.type('Input') as InputObjectType | undefined
+  const inputFieldA = inputType?.field('a')
+
+  expect(inputFieldA?.defaultValue).toBe(1234)
+})
+
 
 test('throw meaningful error for invalid federation directive fieldSet', () => {
   const supergraph = `
