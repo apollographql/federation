@@ -5,6 +5,7 @@
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 - Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Link Import should be nullable list with non-nullable elements [PR #2231](https://github.com/apollographql/federation/pull/2231)
 
 ## 2.1.4
 

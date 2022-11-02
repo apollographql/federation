@@ -8,6 +8,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   - Note that this require the use of the new 2.2 version of the federation spec introduced in this change.
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Link Import should be nullable list with non-nullable elements [PR #2231](https://github.com/apollographql/federation/pull/2231)
 
 ## 2.1.4
 
