@@ -2,14 +2,12 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## 2.2.0
+## vNext
 
 - Allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
   - Note that this require the use of the new 2.2 version of the federation spec introduced in this change.
-
-## vNext
-
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
 
 ## 2.1.4
 
@@ -17,7 +15,6 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Optimize plan for defer where only keys are fetched [PR #2182](https://github.com/apollographql/federation/pull/2182).
 - Improves error message to help with misspelled source of an `@override` [PR #2181](https://github.com/apollographql/federation/pull/2181).
 - Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
-- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
 
 ## 2.1.3
 
