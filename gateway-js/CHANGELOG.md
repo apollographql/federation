@@ -4,6 +4,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- __BREAKING__: Disable exposing full document to sub-query by default (introduced 2.1.0):
+  - This change decreases memory consumption in general (which is the reason for disabling this by
+    default), but users that have custom code making use of `GraphQLDataSourceProcessOptions.document`
+    will now need to explicitly set `GatewayConfig.queryPlannerConfig.exposeDocumentNodeInFetchNode`.
 - Allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
   - Note that this require the use of the new 2.2 version of the federation spec introduced in this change.
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).

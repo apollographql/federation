@@ -1,6 +1,18 @@
 import { Concrete } from "@apollo/federation-internals";
 
 export type QueryPlannerConfig = {
+  /**
+   * If enabled, the `FetchNode.operationDocumentNode` field in query plan will be populated with the AST
+   * of the underlying operation (_on top_ of the "serialized" string `FetchNode.operation` which is always
+   * present). This can used by specific gateway user code that needs read-only access to such AST in
+   * order to save having to parse `FetchNode.operation`. Without this option, `FetchNode.operationDocumentNode`
+   * will always be `undefined`.
+   *
+   * Enabling this option will make query plans use more memory and you should consider increasing the
+   * query plan cache size (though `GatewayConfig.experimental_approximateQueryPlanStoreMiB`) if you enable it.
+   *
+   * Defaults to false (at least since 2.2; it temporarily defaulted to true before 2.2).
+   */
   exposeDocumentNodeInFetchNode?: boolean;
 
   /**
@@ -39,7 +51,7 @@ export function enforceQueryPlannerConfigDefaults(
   config?: QueryPlannerConfig
 ): Concrete<QueryPlannerConfig> {
   return {
-    exposeDocumentNodeInFetchNode: true,
+    exposeDocumentNodeInFetchNode: false,
     reuseQueryFragments: true,
     incrementalDelivery: {
       enableDefer: false,

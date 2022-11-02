@@ -41,6 +41,10 @@ export type GraphQLDataSourceProcessOptions<
       context: GatewayGraphQLRequestContext<TContext>['context'];
       /**
        * The document representation of the request's query being sent to the subgraph, if available.
+       *
+       * Note that this field is not populated by default. You can enable it by setting the
+       * `GatewayConfig.queryPlannerConfig.exposeDocumentNodeInFetchNode` configuration but note that
+       * this will increase the memory used by the gateway query plan cache.
        */
       document?: GatewayGraphQLRequestContext<TContext>['document'];
     }
