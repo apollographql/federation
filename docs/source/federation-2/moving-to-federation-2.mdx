@@ -178,7 +178,7 @@ scalar link__Import
 
 directive @link(
   url: String!,
-  import: [link__Import],
+  import: [link__Import!],
 ) repeatable on SCHEMA
 
 # Required if the corresponding directive is used

@@ -654,7 +654,7 @@ describe('@core/@link handling', () => {
       query: Query
     }
 
-    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import!]) repeatable on SCHEMA
 
     directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
@@ -885,7 +885,7 @@ describe('@core/@link handling', () => {
           k: ID!
         }
 
-        directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+        directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import!]) repeatable on SCHEMA
 
         scalar link__Import
         scalar link__Purpose

@@ -7,6 +7,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Adds support for the 2.2 version of the federation spec (that is, `@link(url: "https://specs.apollo.dev/federation/v2.2")`), which:
 - allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Link Import should be nullable list with non-nullable elements [PR #2231](https://github.com/apollographql/federation/pull/2231)
 
 ## 2.1.0
 

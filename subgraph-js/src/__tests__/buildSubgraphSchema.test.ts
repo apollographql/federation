@@ -816,7 +816,7 @@ type Query {
       {
         name: 'fed2',
         header: 'extend schema\n  @link(url: "https://specs.apollo.dev/link/v1.0")\n  @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])\n\n',
-        directiveDefinitions: `directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+        directiveDefinitions: `directive @link(url: String, as: String, for: link__Purpose, import: [link__Import!]) repeatable on SCHEMA
 
 directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
