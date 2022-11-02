@@ -193,12 +193,12 @@ export class ApolloGateway implements GatewayInterface {
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
     // Create ~about~ a 30MiB InMemoryLRUCache (or 50MiB if the full operation ASTs are
-    // enabled in query plans as this plan then use quite a bit more memory). This is
+    // enabled in query plans as this requires plans to use more memory). This is
     // less than precise since the technique to calculate the size of a DocumentNode is
     // only using JSON.stringify on the DocumentNode (and thus doesn't account
     // for unicode characters, etc.), but it should do a reasonable job at
     // providing a caching document store for most operations.
-    const defaultSize = (this.config.queryPlannerConfig?.exposeDocumentNodeInFetchNode ?? false) ? 50 : 30;
+    const defaultSize = this.config.queryPlannerConfig?.exposeDocumentNodeInFetchNode ? 50 : 30;
     return new LRUCache<string, QueryPlan>({
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || defaultSize),
       sizeCalculation: approximateObjectSize,

@@ -11,9 +11,7 @@ export type QueryPlannerConfig = {
    * Enabling this option will make query plans use more memory and you should consider increasing the
    * query plan cache size (though `GatewayConfig.experimental_approximateQueryPlanStoreMiB`) if you enable it.
    *
-   * Defaults to false (at least since 2.2; it temporarily defaulted to true before 2.2, but this resulted
-   * to additional memory consumption even though it is only useful for users that explicitely want to
-   * use that field).
+   * Defaults to false (at least since 2.2; it temporarily defaulted to true before 2.2).
    */
   exposeDocumentNodeInFetchNode?: boolean;
 
