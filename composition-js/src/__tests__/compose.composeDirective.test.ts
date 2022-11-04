@@ -85,6 +85,11 @@ const expectCoreFeature = (schema: Schema, identity: string, version: string, im
   expect(feature?.imports).toEqual(imports);
 };
 
+const expectNoCoreFeature = (schema: Schema, identity: string) => {
+  const feature = schema.coreFeatures?.getByIdentity(identity);
+  expect(feature).toBeUndefined();
+}
+
 describe('composing custom core directives', () => {
   it('simple success case', () => {
     const subgraphA = generateSubgraph({
@@ -122,6 +127,145 @@ describe('composing custom core directives', () => {
     expectDirectiveDefinition(schema, 'foo__bar', [DirectiveLocation.FIELD_DEFINITION], ['name']);
     expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@bar', as: '@foo__bar' }]);
     expectDirectiveOnElement(schema, 'User.subgraphA', 'foo__bar', { name: 'a' });
+  });
+
+  it('simple success case, non-core', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectNoCoreFeature(schema, 'https://specs.apollo.dev/foo');
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+  });
+
+
+  it('non-core, location mismatch', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION | OBJECT',
+      usage: '@foo(name: "a")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_ERROR',
+        'Directive \"@foo\" cannot be composed because the definitions are not the same in all subgraphs { \"subgraphA\": \"directive @foo(name: String!) on FIELD_DEFINITION\",\"subgraphB\": \"directive @foo(name: String!) on FIELD_DEFINITION | OBJECT\" } ',
+      ]
+    ]);
+  });
+
+  it('non-core, parameter name mismatch', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(differentName: String!) on FIELD_DEFINITION',
+      usage: '@foo(differentName: "a")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_ERROR',
+        'Directive \"@foo\" cannot be composed because the definitions are not the same in all subgraphs { \"subgraphA\": \"directive @foo(name: String!) on FIELD_DEFINITION\",\"subgraphB\": \"directive @foo(differentName: String!) on FIELD_DEFINITION\" } ',
+      ]
+    ]);
+  });
+
+  it('non-core, parameter type mismatch', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_ERROR',
+        'Directive \"@foo\" cannot be composed because the definitions are not the same in all subgraphs { \"subgraphA\": \"directive @foo(name: String!) on FIELD_DEFINITION\",\"subgraphB\": \"directive @foo(name: String) on FIELD_DEFINITION\" } ',
+      ]
+    ]);
+  });
+
+  it('non-core feature directives, multiple', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective"])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @composeDirective(name: "@foo")
+        @composeDirective(name: "@bar")
+
+        directive @foo(name: String!) on FIELD_DEFINITION
+        directive @bar(name: String!) on FIELD_DEFINITION
+        type Query {
+          a: User
+        }
+        type User @key(fields: "id") {
+          id: Int
+          a: String @foo(name: "a") @bar(name: "b")
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective"])
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @composeDirective(name: "@foo")
+        @composeDirective(name: "@bar")
+
+        directive @foo(name: String!) on FIELD_DEFINITION
+        directive @bar(name: String!) on FIELD_DEFINITION
+        type Query {
+          b: User
+        }
+        type User @key(fields: "id") {
+          id: Int
+          b: String @bar(name: "b") @foo(name: "a")
+        }
+      `,
+    };
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveOnElement(schema, 'User.a', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.a', 'bar', { name: 'b' });
+    expectDirectiveOnElement(schema, 'User.b', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.b', 'bar', { name: 'b' });
   });
 
   it('simple success case (composeDirective is renamed)', () => {
@@ -580,24 +724,6 @@ describe('composing custom core directives', () => {
 
   it.todo('composing same major version, but incompatible directives results in error');
 
-  it('composing custom directive not in a core feature results in raised hint', () => {
-    const subgraphA = generateSubgraph({
-      name: 'subgraphA',
-      composeText: '@composeDirective(name: "@foo")',
-      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
-      usage: '@foo(name: "a")',
-    });
-    const subgraphB = generateSubgraph({
-      name: 'subgraphB',
-    });
-
-    const result = composeServices([subgraphA, subgraphB]);
-    expect(errors(result)).toStrictEqual([
-      ['DIRECTIVE_COMPOSITION_ERROR', 'Directive "@foo" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature'],
-    ]);
-    expect(hints(result)).toStrictEqual([]);
-  });
-
   it('composing custom directive with different names in different subgraphs results in error', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
@@ -752,7 +878,7 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
         'DIRECTIVE_COMPOSITION_ERROR',
-        `Directive "${directive}" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature`,
+        `Directive "${directive}" in subgraph "subgraphA" cannot be composed because it matches a reserved directive name`,
       ]
     ]);
   });

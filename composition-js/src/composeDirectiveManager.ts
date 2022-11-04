@@ -11,10 +11,46 @@ import {
   Subgraph,
   Directive,
   isDefined,
+  printDirectiveDefinition,
 } from '@apollo/federation-internals';
 import { GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
 import { MismatchReporter } from './merging/reporter';
+
+type MergeDirectiveItem = {
+  sgName: string,
+  feature?: CoreFeature,
+  directiveName: string,
+  directiveNameAs: string,
+  composeDirective: Directive, // the directive instance causing the directive to be composed
+};
+
+const isSameDirective = (a: DirectiveDefinition, b: DirectiveDefinition) => {
+  // same locations
+  const locationBSet = new Set(b.locations);
+  if (a.locations.length !== b.locations.length) {
+    return false;
+  }
+  if (!a.locations.every(loc => locationBSet.has(loc))) {
+    return false;
+  }
+
+  // same arguments
+  const aArgs = a.arguments();
+  const bArgs = b.arguments();
+  if (aArgs.length !== bArgs.length) {
+    return false;
+  }
+  for (let i = 0; i < aArgs.length; i += 1) {
+    if (aArgs[i].name !== bArgs[i].name) {
+      return false;
+    }
+    if (aArgs[i].type?.toString() !== bArgs[i].type?.toString()) {
+      return false;
+    }
+  }
+  return true;
+};
 
 /**
  * Return true if the directive from the same core feature has a different name in the subgraph
@@ -44,7 +80,7 @@ const directiveHasDifferentNameInSubgraph = ({
   return importedName !== `@${expectedName}`;
 };
 
-const allEqual = <T>(arr: T[]) => arr.every((val: T) => val === arr[0]);
+const allEqual = <T>(arr: T[], cmp: (a: T, b: T) => boolean = (a,b) => a === b) => arr.every((val: T) => cmp(arr[0], val));
 
 type FeatureAndSubgraph = {
   feature: CoreFeature,
@@ -64,6 +100,16 @@ const DISALLOWED_IDENTITIES = [
   'https://specs.apollo.dev/federation',
 ];
 
+/**
+ * Don't allow directiveNameAs to match any of these reserved names
+ */
+const RESERVED_NAMES = [
+  'join__field',
+  'join__graph',
+  'join__type',
+  'join__implements',
+];
+
 export class ComposeDirectiveManager {
   // map of subgraphs to directives being composed
   mergeDirectiveMap: Map<string, Set<string>>;
@@ -73,6 +119,9 @@ export class ComposeDirectiveManager {
 
   // map of directive names to identity,origName
   directiveIdentityMap: Map<string, [string,string]>;
+
+  // this is only for directives that are not attached to a core feature
+  directiveDefinitionMap: Map<string, DirectiveDefinition>;
 
   mismatchReporter: MismatchReporter;
 
@@ -84,6 +133,7 @@ export class ComposeDirectiveManager {
     this.mergeDirectiveMap = new Map();
     this.latestFeatureMap = new Map();
     this.directiveIdentityMap = new Map();
+    this.directiveDefinitionMap = new Map();
     this.mismatchReporter = new MismatchReporter(subgraphs.names(), pushError, pushHint);
   }
 
@@ -204,20 +254,8 @@ export class ComposeDirectiveManager {
     return identities;
   }
 
-  validate(): { errors: GraphQLError[], hints: CompositionHint[] } {
-    const errors: GraphQLError[] = [];
-    const hints: CompositionHint[] = [];
-    const wontMergeFeatures = new Set<string>();
-    const wontMergeDirectiveNames = new Set<string>();
-
-    type MergeDirectiveItem = {
-      sgName: string,
-      feature: CoreFeature,
-      directiveName: string,
-      directiveNameAs: string,
-      composeDirective: Directive, // the directive instance causing the directive to be composed
-    };
-
+  // as part of validation, we want to build directive information from the subgraphs
+  private buildMultiMaps() {
     const itemsBySubgraph = new MultiMap<string, MergeDirectiveItem>();
     const itemsByDirectiveName = new MultiMap<string, MergeDirectiveItem>();
     const itemsByOrigDirectiveName = new MultiMap<string, MergeDirectiveItem>();
@@ -225,7 +263,6 @@ export class ComposeDirectiveManager {
     // gather default-composed directive names from subgraphs
     const tagNamesInSubgraphs = this.subgraphs.values().map(sg => sg.metadata().federationDirectiveNameInSchema('tag'));
     const inaccessibleNamesInSubgraphs = this.subgraphs.values().map(sg => sg.metadata().federationDirectiveNameInSchema('inaccessible'));
-
 
     // iterate over subgraphs to build up the MultiMap's
     for (const sg of this.subgraphs) {
@@ -243,55 +280,61 @@ export class ComposeDirectiveManager {
         }
 
         const name = composeInstance.arguments().name.slice(1);
+
         const directive = sg.schema.directive(name);
         if (directive) {
           const featureDetails = sg.schema.coreFeatures?.sourceFeature(directive);
-          if (featureDetails) {
-            const identity = featureDetails.feature.url.identity;
-
-            // make sure that core feature is not blacklisted
-            if (DISALLOWED_IDENTITIES.includes(identity)) {
-              this.forFederationDirective(sg, composeInstance, directive);
-            } else if (tagNamesInSubgraphs.includes(name)) {
-              const subgraphs: string[] = [];
-              this.subgraphs.names().forEach((sg, idx) => {
-                if (tagNamesInSubgraphs[idx] === name) {
-                  subgraphs.push(sg);
-                }
-              });
-              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
-                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it conflicts with automatically composed federation directive "@tag". Conflict exists in subgraph(s): (${subgraphs.join(',')})`,
-                { nodes: composeInstance.sourceAST },
-              ));
-            } else if (inaccessibleNamesInSubgraphs.includes(name)) {
-              const subgraphs: string[] = [];
-              this.subgraphs.names().forEach((sg, idx) => {
-                if (inaccessibleNamesInSubgraphs[idx] === name) {
-                  subgraphs.push(sg);
-                }
-              });
-              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
-                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it conflicts with automatically composed federation directive "@inaccessible". Conflict exists in subgraph(s): (${subgraphs.join(',')})`,
-                { nodes: composeInstance.sourceAST },
-              ));
-            } else {
-              const item = {
-                composeDirective: composeInstance,
-                sgName: sg.name,
-                feature: featureDetails.feature,
-                directiveName: featureDetails.nameInFeature,
-                directiveNameAs: name,
-              };
-
-              itemsBySubgraph.add(sg.name, item);
-              itemsByDirectiveName.add(name, item);
-              itemsByOrigDirectiveName.add(item.directiveName, item);
-            }
+          const identity = featureDetails?.feature.url.identity ?? '';
+          const fromCoreFeature = !!featureDetails;
+          let directiveName: string;
+          if (fromCoreFeature) {
+            directiveName = featureDetails.nameInFeature;
           } else {
+            directiveName = name;
+          }
+
+          // make sure that core feature is not blacklisted
+          if (fromCoreFeature && DISALLOWED_IDENTITIES.includes(identity)) {
+            this.forFederationDirective(sg, composeInstance, directive);
+          } else if (tagNamesInSubgraphs.includes(name)) {
+            const subgraphs: string[] = [];
+            this.subgraphs.names().forEach((sg, idx) => {
+              if (tagNamesInSubgraphs[idx] === name) {
+                subgraphs.push(sg);
+              }
+            });
             this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
-              `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it is not a member of a core feature`,
+              `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it conflicts with automatically composed federation directive "@tag". Conflict exists in subgraph(s): (${subgraphs.join(',')})`,
               { nodes: composeInstance.sourceAST },
             ));
+          } else if (inaccessibleNamesInSubgraphs.includes(name)) {
+            const subgraphs: string[] = [];
+            this.subgraphs.names().forEach((sg, idx) => {
+              if (inaccessibleNamesInSubgraphs[idx] === name) {
+                subgraphs.push(sg);
+              }
+            });
+            this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+              `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it conflicts with automatically composed federation directive "@inaccessible". Conflict exists in subgraph(s): (${subgraphs.join(',')})`,
+              { nodes: composeInstance.sourceAST },
+            ));
+          } else if (RESERVED_NAMES.includes(name)) {
+            this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+              `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it matches a reserved directive name`,
+              { nodes: composeInstance.sourceAST },
+            ));
+          } else {
+            const item = {
+              composeDirective: composeInstance,
+              sgName: sg.name,
+              feature: featureDetails?.feature,
+              directiveName,
+              directiveNameAs: name,
+            };
+
+            itemsBySubgraph.add(sg.name, item);
+            itemsByDirectiveName.add(name, item);
+            itemsByOrigDirectiveName.add(item.directiveName, item);
           }
         } else {
           const words = suggestionList(`@${name}`, sg.schema.directives().map(d => `@${d.name}`));
@@ -303,13 +346,30 @@ export class ComposeDirectiveManager {
       }
     }
 
+    return {
+      itemsBySubgraph,
+      itemsByDirectiveName,
+      itemsByOrigDirectiveName,
+    };
+  }
+
+  validate() {
+    const wontMergeFeatures = new Set<string>();
+    const wontMergeDirectiveNames = new Set<string>();
+
+    const {
+      itemsBySubgraph,
+      itemsByDirectiveName,
+      itemsByOrigDirectiveName,
+    } = this.buildMultiMaps();
+
     // for each feature, determine if the versions are compatible
     for (const identity of this.allCoreFeaturesUsedBySubgraphs()) {
       // for the feature, find all subgraphs for which the feature has a directive composed
       const subgraphsUsed = this.subgraphs.values()
         .map(sg => {
           const items = itemsBySubgraph.get(sg.name);
-          if (items && items.find(item => item.feature.url.identity === identity)) {
+          if (items && items.find(item => item.feature?.url.identity === identity)) {
             return sg.name;
           }
           return undefined;
@@ -335,7 +395,7 @@ export class ComposeDirectiveManager {
           }
         ));
       }
-      if (!allEqual(items.map(item => item.feature.url.identity))) {
+      if (!allEqual(items.map(item => item.feature?.url.identity))) {
         wontMergeDirectiveNames.add(name);
         this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
           `Composed directive "@${name}" is not linked by the same core feature in every subgraph`,
@@ -378,28 +438,48 @@ export class ComposeDirectiveManager {
           (elt) => elt ? `"@${elt.item.directiveNameAs}"` : undefined
         );
       }
-      const nonExportedSubgraphs = this.subgraphs.values()
-        .filter(sg => !items.map(item => item.sgName).includes(sg.name));
-      const subgraphsWithDifferentNaming = nonExportedSubgraphs.filter(subgraph => directiveHasDifferentNameInSubgraph({
-        subgraph,
-        origName: items[0].directiveName,
-        expectedName: items[0].directiveNameAs,
-        identity: items[0].feature.url.identity,
-      }));
-      if (subgraphsWithDifferentNaming.length > 0) {
-        this.pushHint(new CompositionHint(
-          HINTS.DIRECTIVE_COMPOSITION_WARN,
-          `Composed directive "@${name}" is named differently in a subgraph that doesn't export it. Consistent naming will be required to export it.`,
-          subgraphsWithDifferentNaming
-            .map((subgraph : Subgraph): SubgraphASTNode | undefined => {
-              const ast = subgraph.schema.coreFeatures?.getByIdentity(items[0].feature.url.identity)?.directive.sourceAST;
-              return ast ? {
-                ...ast,
-                subgraph: subgraph.name,
-              } : undefined;
-            })
-            .filter(isDefined),
-        ));
+
+      // we know these will be the same in all subgraphs at this point, so just use the first one
+      const { directiveName, directiveNameAs } = items[0];
+      const feature = items[0].feature;
+
+      // if directive is associated with a core feature, we need to do some additional checks
+      if (feature) {
+        const nonExportedSubgraphs = this.subgraphs.values()
+          .filter(sg => !items.map(item => item.sgName).includes(sg.name));
+        const subgraphsWithDifferentNaming = nonExportedSubgraphs.filter(subgraph => directiveHasDifferentNameInSubgraph({
+          subgraph,
+          origName: directiveName,
+          expectedName: directiveNameAs,
+          identity: feature.url.identity,
+        }));
+        if (subgraphsWithDifferentNaming.length > 0) {
+          this.pushHint(new CompositionHint(
+            HINTS.DIRECTIVE_COMPOSITION_WARN,
+            `Composed directive "@${name}" is named differently in a subgraph that doesn't export it. Consistent naming will be required to export it.`,
+            subgraphsWithDifferentNaming
+              .map((subgraph : Subgraph): SubgraphASTNode | undefined => {
+                const ast = subgraph.schema.coreFeatures?.getByIdentity(feature.url.identity)?.directive.sourceAST;
+                return ast ? {
+                  ...ast,
+                  subgraph: subgraph.name,
+                } : undefined;
+              })
+              .filter(isDefined),
+          ));
+        }
+      } else {
+        // If directive is not attached to a core feature, we need to ensure the definition is the same everywhere
+        const directives = items.map(item => this.subgraphs.get(item.sgName)!.schema.directive(item.directiveName)!);
+        if (!allEqual(directives, isSameDirective)) {
+          wontMergeDirectiveNames.add(directiveName);
+          this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+            `Directive "@${name}" cannot be composed because the definitions are not the same in all subgraphs { ${items.map(item => `"${item.sgName}": "${printDirectiveDefinition(this.subgraphs.get(item.sgName)!.schema.directive(item.directiveName)!)}"`).join(',')} } `,
+            { nodes: items[0].composeDirective.sourceAST },
+          ));
+        } else {
+          this.directiveDefinitionMap.set(directiveName, directives[0]);
+        }
       }
     }
 
@@ -407,18 +487,15 @@ export class ComposeDirectiveManager {
     for (const [subgraph, items] of itemsBySubgraph.entries()) {
       const directivesForSubgraph = new Set<string>();
       for (const item of items) {
-        if (!wontMergeFeatures.has(item.feature.url.identity) && !wontMergeDirectiveNames.has(item.directiveNameAs)) {
+        if ((!item.feature || !wontMergeFeatures.has(item.feature.url.identity)) && !wontMergeDirectiveNames.has(item.directiveNameAs)) {
           directivesForSubgraph.add(item.directiveNameAs);
         }
-        this.directiveIdentityMap.set(item.directiveNameAs, [item.feature.url.identity, item.directiveName]);
+        if (item.feature) {
+          this.directiveIdentityMap.set(item.directiveNameAs, [item.feature.url.identity, item.directiveName]);
+        }
       }
       this.mergeDirectiveMap.set(subgraph, directivesForSubgraph);
     }
-
-    return {
-      errors,
-      hints,
-    };
   }
 
   shouldComposeDirective({ subgraphName, directiveName }: {
@@ -430,10 +507,14 @@ export class ComposeDirectiveManager {
   }
 
   directiveExistsInSupergraph(directiveName: string): boolean {
-    return !!this.directiveIdentityMap.get(directiveName);
+    return this.directiveDefinitionMap.has(directiveName) || this.directiveIdentityMap.has(directiveName);
   }
 
   getLatestDirectiveDefinition(directiveName: string): DirectiveDefinition | undefined {
+    if (this.directiveDefinitionMap.has(directiveName)) {
+      return this.directiveDefinitionMap.get(directiveName);
+    }
+
     const val = this.directiveIdentityMap.get(directiveName);
     if (val) {
       const [identity, origName] = val;
