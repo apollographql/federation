@@ -1971,6 +1971,14 @@ class Merger {
   // to be called after elements are merged
   private mergeAllAppliedDirectives() {
     for (const { names, sources, dest } of this.appliedDirectivesToMerge) {
+      // There is some cases where we had to call the method that records directives to merged
+      // on a `dest` that ended up being removed from the ouptut (typically because we needed
+      // to known if that `dest` was @inaccessible before deciding if it should be kept or
+      // not). So check that the `dest` is still there (still "attached") and skip it entirely
+      // otherwise.
+      if (!dest.isAttached()) {
+        continue;
+      }
       for (const name of names) {
         this.mergeAppliedDirective(name, sources, dest);
       }
