@@ -6,6 +6,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Relax `@composeDirective` to allow for directives that are not in a core feature [PR #2234](https://github.com/apollographql/federation/pull/2234)
 
 ## 2.1.4
 
