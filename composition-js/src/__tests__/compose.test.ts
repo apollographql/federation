@@ -2818,6 +2818,44 @@ describe('composition', () => {
       `);
     });
 
+    it('do not error if a skipped inconsistent value has directive applied', () => {
+      const subgraphA = {
+        name: 'subgraphA',
+        typeDefs: gql`
+          type Query {
+            f(e: E!): Int
+          }
+
+          enum E {
+            V1
+            V2 @deprecated(reason: "use V3 instead")
+            V3
+          }
+        `,
+      };
+
+      const subgraphB = {
+        name: 'subgraphB',
+        typeDefs: gql`
+          enum E {
+            V1
+            V3
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      // Note that we will also generate an hint for the skipped value but this is already
+      // tested by `hints.test.ts` so we don't duplicate the check here.
+      expect(printType(result.schema.toAPISchema().type('E')!)).toMatchString(`
+        enum E {
+          V1
+          V3
+        }
+      `);
+    });
+
     it('errors if enum used _only_ as input as no consistent values', () => {
       const subgraphA = {
         name: 'subgraphA',

@@ -4,6 +4,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix error when a skipped enum value had directives applied [PR #2232](https://github.com/apollographql/federation/pull/2232).
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 
 ## 2.1.4
