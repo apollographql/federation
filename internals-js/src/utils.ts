@@ -167,6 +167,21 @@ export function arrayEquals<T>(
   return true;
 }
 
+/**
+ * Whether the first set contains (or is equal to) the second set.
+ */
+export function setContains<T>(container: Set<T>, maybeContained: Set<T>): boolean {
+  if (container === maybeContained) {
+    return true;
+  }
+  for (const elt of maybeContained) {
+    if (!container.has(elt)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function firstOf<T>(iterable: Iterable<T>): T | undefined {
   const res = iterable[Symbol.iterator]().next();
   return res.done ? undefined : res.value;
