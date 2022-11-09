@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 ## vNEXT
 
+## v0.6.0
+
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## v0.4.2
