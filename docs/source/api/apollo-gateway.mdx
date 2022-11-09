@@ -462,11 +462,11 @@ Override this method in a subclass to modify each outgoing fetch request before 
 
 ```js
 // Adds an `x-user-id` header to each outgoing fetch request
-class AuthenticatedDataSource extends RemoteGraphQLDataSource({
+class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
     request.http.headers.set('x-user-id', context.userId);
   }
-});
+};
 ```
 
 This method takes a `requestContext`  object that contains both the original unmodified `request` and the current `context`.
@@ -510,7 +510,6 @@ If you _don't_ override this method, the default implementation `throw`s the err
 
 ```javascript
 class MyDataSource extends RemoteGraphQLDataSource {
-
   didEncounterError(error, fetchRequest, fetchResponse, context) {
     throw error;
   }
