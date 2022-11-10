@@ -1792,10 +1792,6 @@ class FetchDependencyGraph {
   }
 
   private mergeRemainings(r1: UnhandledGroups, r2: UnhandledGroups): [FetchGroup[], UnhandledGroups] {
-    if (r1.length === 0 && r2.length === 0) {
-      return [[], []];
-    }
-
     const unhandled: UnhandledGroups = [];
     const toHandle: FetchGroup[] = [];
     for (const [g, edges] of r1) {

@@ -4,6 +4,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix potential QP issue with shareable root fields [PR #2239](https://github.com/apollographql/federation/pull/2239).
 - Correctly reject field names starting with `__` [PR #2237](https://github.com/apollographql/federation/pull/2237).
 - Fix error when a skipped enum value had directives applied [PR #2232](https://github.com/apollographql/federation/pull/2232).
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
