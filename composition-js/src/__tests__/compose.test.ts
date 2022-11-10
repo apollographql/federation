@@ -1327,6 +1327,33 @@ describe('composition', () => {
       ]);
     });
 
+    it('errors when a subgraph has a field with an introspection-reserved name', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            __someQuery: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            aValidOne: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_GRAPHQL', '[subgraphA] Name "__someQuery" must not begin with "__", which is reserved by GraphQL introspection.'],
+      ]);
+    });
+
     it('errors when the @tag definition is invalid', () => {
       const subgraphA = {
         typeDefs: gql`

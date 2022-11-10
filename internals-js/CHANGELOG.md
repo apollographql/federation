@@ -2,6 +2,7 @@
 
 ## vNext
 
+- Correctly reject field names starting with `__` [PR #2237](https://github.com/apollographql/federation/pull/2237).
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 
 ## 2.1.4

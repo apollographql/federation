@@ -146,6 +146,10 @@ class Validator {
 
   private validateName(elt: { name: string, sourceAST?: ASTNode}) {
     if (isIntrospectionName(elt.name)) {
+      this.addError(
+        `Name "${elt.name}" must not begin with "__", which is reserved by GraphQL introspection.`,
+        elt.sourceAST ? { nodes: elt.sourceAST } : {}
+      );
       return;
     }
     try {
