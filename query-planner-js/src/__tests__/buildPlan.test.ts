@@ -24,69 +24,154 @@ export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[]
   ];
 }
 
-test('can use same root operation from multiple subgraphs in parallel', () => {
-  const subgraph1 = {
-    name: 'Subgraph1',
-    typeDefs: gql`
-      type Query {
-        me: User! @shareable
-      }
+describe('shareable root fields', () => {
+  test('can use same root operation from multiple subgraphs in parallel', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          me: User! @shareable
+        }
 
-      type User @key(fields: "id") {
-        id: ID!
-        prop1: String
-      }
-    `
-  }
-
-  const subgraph2 = {
-    name: 'Subgraph2',
-    typeDefs: gql`
-      type Query {
-        me: User! @shareable
-      }
-
-      type User @key(fields: "id") {
-        id: ID!
-        prop2: String
-      }
-    `
-  }
-
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      me {
-        prop1
-        prop2
-      }
+        type User @key(fields: "id") {
+          id: ID!
+          prop1: String
+        }
+      `
     }
-  `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
-  // Note that even though we have keys, it is faster to query both
-  // subgraphs in parallel for each property than querying one first
-  // and then using the key.
-  expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Parallel {
-        Fetch(service: "Subgraph1") {
-          {
-            me {
-              prop1
-            }
-          }
-        },
-        Fetch(service: "Subgraph2") {
-          {
-            me {
-              prop2
-            }
-          }
-        },
-      },
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Query {
+          me: User! @shareable
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          prop2: String
+        }
+      `
     }
-  `);
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        me {
+          prop1
+          prop2
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // Note that even though we have keys, it is faster to query both
+    // subgraphs in parallel for each property than querying one first
+    // and then using the key.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Parallel {
+          Fetch(service: "Subgraph1") {
+            {
+              me {
+                prop1
+              }
+            }
+          },
+          Fetch(service: "Subgraph2") {
+            {
+              me {
+                prop2
+              }
+            }
+          },
+        },
+      }
+    `);
+  });
+
+  test('handles root operation shareable in many subgraphs', () => {
+    const fieldCount = 4;
+    const fields = [...Array(fieldCount).keys()].map((i) => `f${i}`);
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type User @key(fields: "id") {
+          id: ID!
+          ${fields.map((f) => `${f}: Int\n`)}
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Query {
+          me: User! @shareable
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type Query {
+          me: User! @shareable
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    const operation = operationFromDocument(api, gql`
+      {
+        me {
+          ${fields.map((f) => `${f}\n`)}
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              me {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "me") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on User {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on User {
+                  f0
+                  f1
+                  f2
+                  f3
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 test('pick keys that minimize fetches', () => {
@@ -4279,6 +4364,58 @@ describe('__typename handling', () => {
                 }
               }
             },
+          },
+        },
+      }
+    `);
+  });
+});
+
+describe('mutations', () => {
+  it('executes mutation operations in sequence', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          q1: Int
+        }
+
+        type Mutation {
+          m1: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation {
+          m2: Int
+        }
+      `
+    }
+
+    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    let operation = operationFromDocument(api, gql`
+      mutation {
+        m2
+        m1
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              m2
+            }
+          },
+          Fetch(service: "Subgraph1") {
+            {
+              m1
+            }
           },
         },
       }

@@ -154,6 +154,7 @@ const defaultCostFunction: CostFunction = {
    * dwarfted the actual cost of fields resolution).
    */
   onFetchGroup: (group: FetchGroup) => (fetchCost + selectionCost(group.selection)),
+
   /**
    * We sum the cost of fetch groups in parallel. Note that if we were only concerned about expected latency,
    * we could instead take the `max` of the values, but as we also try to minimize general resource usage, we
@@ -195,15 +196,6 @@ const defaultCostFunction: CostFunction = {
   reduceDefer(nonDeferred: number, _: SelectionSet, deferredValues: number[]): number {
     return sequenceCost([nonDeferred, parallelCost(deferredValues)]);
   },
-
-  /**
-   * For roots, we just switch between with the sequence or parallel computation based on the type of root kind.
-   */
-  reduceRoots: (roots: number[], rootsAreParallel: boolean) => (
-    roots.length === 0
-      ? 0
-      : (rootsAreParallel ? parallelCost(roots) : sequenceCost(roots))
-  )
 };
 
 function parallelCost(values: number[]): number {
@@ -211,7 +203,7 @@ function parallelCost(values: number[]): number {
 }
 
 function sequenceCost(stages: number[]): number {
-  return stages.reduceRight((acc, stage, idx) => (acc + ((idx + 1) * pipeliningCost * stage)), 0);
+  return stages.reduceRight((acc, stage, idx) => (acc + (Math.max(1, idx * pipeliningCost) * stage)), 0);
 }
 
 class QueryPlanningTaversal<RV extends Vertex> {
@@ -512,11 +504,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private cost(dependencyGraph: FetchDependencyGraph): number {
-    const { main, deferred } = dependencyGraph.process(this.costFunction);
-    const mainCost = this.costFunction.reduceRoots(main, true);
+    const { main, deferred } = dependencyGraph.process(this.costFunction, this.rootKind);
     return deferred.length === 0
-      ? mainCost
-      : this.costFunction.reduceDefer(mainCost, dependencyGraph.deferTracking.primarySelection!, deferred);
+      ? main
+      : this.costFunction.reduceDefer(main, dependencyGraph.deferTracking.primarySelection!, deferred);
   }
 
   private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
@@ -1741,22 +1732,21 @@ class FetchDependencyGraph {
 
     const groupIsOnlyParentOfAllChildren = children.every(g => g.parents().length === 1);
     if (groupIsOnlyParentOfAllChildren) {
-      const nodes: TProcessed[] = [processed];
-
-      let nextGroups = children;
-      let remainingNext: UnhandledGroups = [];
-      const allDeferredGroups = new SetMultiMap<string, FetchGroup>(deferredGroups);
-      while (nextGroups.length > 0) {
-        const {inParallel, next, unhandled, deferredGroups} = this.processParallelGroups(processor, nextGroups, remainingNext);
-        nodes.push(inParallel);
-        const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
-        remainingNext = newRemaining;
-        nextGroups = canHandle.concat(next);
-        allDeferredGroups.addAll(deferredGroups);
-      }
+      // We process the children as if they were parallel roots (they are from `processed`
+      // in a way), and then just add process at the beginning of the sequence.
+      const {
+        mainSequence,
+        unhandled,
+        deferredGroups: allDeferredGroups,
+      } = this.processRootMainGroups({
+        processor,
+        rootGroups: children,
+        rootsAreParallel: true,
+        initialDeferredGroups: deferredGroups,
+      });
       return {
-        main: processor.reduceSequence(nodes),
-        unhandled: remainingNext,
+        main: processor.reduceSequence([processed].concat(mainSequence)),
+        unhandled,
         deferredGroups: allDeferredGroups,
       };
     } else {
@@ -1770,30 +1760,31 @@ class FetchDependencyGraph {
     }
   }
 
-  private processParallelGroups<TProcessed, TDeferred>(
+  private processGroups<TProcessed, TDeferred>(
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     groups: readonly FetchGroup[],
+    processInParallel: boolean,
     remaining: UnhandledGroups
   ): {
-    inParallel: TProcessed,
+    processed: TProcessed,
     next: FetchGroup[],
     unhandled: UnhandledGroups,
     deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
-    const parallelNodes: TProcessed[] = [];
+    const processedNodes: TProcessed[] = [];
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     let remainingNext = remaining;
     let toHandleNext: FetchGroup[] = [];
     for (const group of groups) {
       const { main, deferredGroups, unhandled } = this.processGroup(processor, group);
-      parallelNodes.push(main);
+      processedNodes.push(main);
       allDeferredGroups.addAll(deferredGroups);
       const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
       toHandleNext = toHandleNext.concat(canHandle);
       remainingNext = newRemaining;
     }
     return {
-      inParallel: processor.reduceParallel(parallelNodes),
+      processed: processInParallel ? processor.reduceParallel(processedNodes) : processor.reduceSequence(processedNodes),
       next: toHandleNext,
       unhandled: remainingNext,
       deferredGroups: allDeferredGroups,
@@ -1827,26 +1818,77 @@ class FetchDependencyGraph {
     }
   }
 
-  private processRootGroups<TProcessed, TDeferred>(
+  /**
+   * Process the "main" (non-deferred) groups starting at the provided roots. The deferred groups are collected
+   * by this method but not otherwise processed.
+   */
+  private processRootMainGroups<TProcessed, TDeferred>({
+    processor,
+    rootGroups,
+    rootsAreParallel,
+    initialDeferredGroups,
+  }: {
+    processor: FetchGroupProcessor<TProcessed, TDeferred>,
+    rootGroups: readonly FetchGroup[]
+    rootsAreParallel: boolean,
+    initialDeferredGroups?: SetMultiMap<string, FetchGroup>,
+  }): {
+    mainSequence: TProcessed[],
+    unhandled: UnhandledGroups,
+    deferredGroups: SetMultiMap<string, FetchGroup>,
+  } {
+    let nextGroups = rootGroups;
+    let remainingNext: UnhandledGroups = [];
+    const mainSequence: TProcessed[] = [];
+    const allDeferredGroups = initialDeferredGroups
+      ? new SetMultiMap<string, FetchGroup>(initialDeferredGroups)
+      : new SetMultiMap<string, FetchGroup>();
+    let processInParallel = rootsAreParallel;
+    while (nextGroups.length > 0) {
+      const { processed, next, unhandled, deferredGroups } = this.processGroups(processor, nextGroups, processInParallel, remainingNext);
+      // After the root groups, handled on the first iteration, we can process everything in parallel.
+      processInParallel = true;
+      mainSequence.push(processed);
+      const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
+      remainingNext = newRemaining;
+      nextGroups = canHandle.concat(next);
+      allDeferredGroups.addAll(deferredGroups);
+    }
+    return {
+      mainSequence,
+      unhandled: remainingNext,
+      deferredGroups: allDeferredGroups,
+    };
+  }
+
+  private processRootGroups<TProcessed, TDeferred>({
+    processor,
+    rootGroups,
+    rootsAreParallel = true,
+    currentDeferRef,
+    otherDeferGroups = undefined,
+  }: {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     rootGroups: readonly FetchGroup[],
-    currentDeferRef: string | undefined,
-    otherDeferGroups: SetMultiMap<string, FetchGroup> | undefined = undefined,
-  ): {
-    main: TProcessed[],
+    rootsAreParallel: boolean,
+    unhandledGroups?: UnhandledGroups,
+    currentDeferRef?: string,
+    otherDeferGroups?: SetMultiMap<string, FetchGroup>,
+  }): {
+    mainSequence: TProcessed[],
     deferred: TDeferred[],
   } {
-    const allMain: TProcessed[] = [];
+    const {
+      mainSequence,
+      unhandled,
+      deferredGroups,
+    } = this.processRootMainGroups({ processor, rootsAreParallel, rootGroups });
+    assert(unhandled.length == 0, () => `Root groups ${rootGroups} should have no remaining groups unhandled, but got ${unhandled}`);
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     if (otherDeferGroups) {
       allDeferredGroups.addAll(otherDeferGroups);
     }
-    for (const rootGroup of rootGroups.values()) {
-      const { main, unhandled, deferredGroups } = this.processGroup(processor, rootGroup);
-      assert(unhandled.length == 0, () => `Root group ${rootGroup} should have no remaining groups unhandled, but got ${unhandled}`);
-      allMain.push(main);
-      allDeferredGroups.addAll(deferredGroups);
-    }
+    allDeferredGroups.addAll(deferredGroups);
 
     // We're going to handled all @defer at our "current level" (so at top-level, that's all the non-nested @defer),
     // and the "starting" group for those defers, if any, are in `allDeferredGroups`. However, `allDeferredGroups`
@@ -1874,25 +1916,53 @@ class FetchDependencyGraph {
     const allDeferred: TDeferred[] = [];
     for (const defer of defersInCurrent) {
       const groups = allDeferredGroups.get(defer.label) ?? [];
-      const { main, deferred } = this.processRootGroups(processor, Array.from(groups), defer.label, unhandledDeferGroups);
-      const mainReduced = processor.reduceParallel(main);
-      const processed = deferred.length === 0
+      const { mainSequence: mainSequenceOfDefer, deferred: deferredOfDefer } = this.processRootGroups({
+        processor,
+        rootGroups: Array.from(groups),
+        rootsAreParallel: true,
+        currentDeferRef: defer.label,
+        otherDeferGroups: unhandledDeferGroups,
+      });
+      const mainReduced = processor.reduceSequence(mainSequenceOfDefer);
+      const processed = deferredOfDefer.length === 0
         ? mainReduced
-        : processor.reduceDefer(mainReduced, defer.subselection, deferred);
+        : processor.reduceDefer(mainReduced, defer.subselection, deferredOfDefer);
       allDeferred.push(processor.reduceDeferred(defer, processed));
     }
-    return { main: allMain, deferred: allDeferred };
+    return { mainSequence, deferred: allDeferred };
   }
 
+  /**
+   * Processes the "plan" represented by this dependency graph using the provided `processor`.
+   *
+   * @return both a "main" (non-deferred) part and a (potentially empty) deferred part.
+   */
   process<TProcessed, TDeferred>(
-    processor: FetchGroupProcessor<TProcessed, TDeferred>
+    processor: FetchGroupProcessor<TProcessed, TDeferred>,
+    rootKind: SchemaRootKind,
   ): {
-    main: TProcessed[],
+    main: TProcessed,
     deferred: TDeferred[],
   } {
     this.reduceAndOptimize();
 
-    return this.processRootGroups(processor, this.rootGroups.values(), undefined);
+    const { mainSequence, deferred } = this.processRootGroups({
+      processor,
+      rootGroups: this.rootGroups.values(),
+      rootsAreParallel: rootKind === 'query',
+    });
+    // Note that the return of `processRootGroups` should always be reduced as a sequence, regardless of `rootKind`.
+    // For queries, it just happens in that the majority of cases, `mainSequence` will be an array of a single element
+    // and that single element will be a parallel node of the actual roots. But there is some special cases where some
+    // while the roots are started in parallel, the overall plan shape is something like:
+    //   Root1 \
+    //          -> Other
+    //   Root2 /
+    // And so it is a sequence, even if the roots will be queried in parallel.
+    return {
+      main: processor.reduceSequence(mainSequence),
+      deferred,
+    };
   }
 
   dumpOnConsole(msg?: string) {
@@ -1956,7 +2026,6 @@ interface FetchGroupProcessor<TProcessed, TDeferred> {
   reduceSequence(values: TProcessed[]): TProcessed;
   reduceDeferred(deferInfo: DeferredInfo, value: TProcessed): TDeferred;
   reduceDefer(main: TProcessed, subSelection: SelectionSet, deferredBlocks: TDeferred[]): TProcessed,
-  reduceRoots(roots: TProcessed[], isParallel: boolean): TProcessed,
 }
 
 
@@ -2210,15 +2279,17 @@ function computePlanInternal({
   hasDefers: boolean,
   statistics: PlanningStatistics,
 }): PlanNode | undefined {
+  let main: PlanNode | undefined = undefined;
+  let primarySelection: SelectionSet | undefined = undefined;
+  let deferred: DeferredNode[] = [];
+
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers, statistics);
-    let allMain: (PlanNode | undefined)[] = [];
-    let allDeferred: DeferredNode[] = [];
-    let primarySelection: SelectionSet | undefined = undefined;
     for (const dependencyGraph of dependencyGraphs) {
-      const { main, deferred } = dependencyGraph.process(processor);
-      allMain = allMain.concat(main);
-      allDeferred = allDeferred.concat(deferred);
+      const { main: localMain, deferred: localDeferred } = dependencyGraph.process(processor, operation.rootKind);
+      // Note that `reduceSequence` "flatten" sequence if needs be.
+      main = main ? processor.reduceSequence([main, localMain]) : localMain;
+      deferred = deferred.concat(localDeferred);
       const newSelection = dependencyGraph.deferTracking.primarySelection;
       if (newSelection) {
         if (primarySelection) {
@@ -2228,24 +2299,17 @@ function computePlanInternal({
         }
       }
     }
-    return processRootNodes({
-      processor,
-      rootNodes: allMain,
-      rootsAreParallel: false,
-      primarySelection,
-      deferred: allDeferred,
-    });
   } else {
     const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers, statistics);
-    const { main, deferred } = dependencyGraph.process(processor);
-    return processRootNodes({
-      processor,
-      rootNodes: main,
-      rootsAreParallel: true,
-      primarySelection: dependencyGraph.deferTracking.primarySelection,
-      deferred,
-    });
+    ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
+    primarySelection = dependencyGraph.deferTracking.primarySelection;
+
   }
+  if (deferred.length > 0) {
+    assert(primarySelection, 'Should have had a primary selection created');
+    return processor.reduceDefer(main, primarySelection, deferred);
+  }
+  return main;
 }
 
 function computePlanForDeferConditionals({
@@ -2304,28 +2368,6 @@ function generateConditionNodes(
     ifClause: generateConditionNodes(ifOperation, conditions, idx+1, onFinalOperation),
     elseClause: generateConditionNodes(elseOperation, conditions, idx+1, onFinalOperation),
   };
-}
-
-
-function processRootNodes({
-  processor,
-  rootNodes,
-  rootsAreParallel,
-  primarySelection,
-  deferred,
-}: {
-  processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>,
-  rootNodes: (PlanNode | undefined)[],
-  rootsAreParallel: boolean,
-  primarySelection: SelectionSet | undefined,
-  deferred: DeferredNode[],
-}): PlanNode | undefined {
-  let rootNode = processor.reduceRoots(rootNodes, rootsAreParallel);
-  if (deferred.length > 0) {
-    assert(primarySelection, 'Should have had a primary selection created');
-    rootNode = processor.reduceDefer(rootNode, primarySelection, deferred);
-  }
-  return rootNode;
 }
 
 function isIntrospectionSelection(selection: Selection): boolean {
@@ -2556,7 +2598,6 @@ function fetchGroupToPlanProcessor({
       },
       deferred: deferredBlocks,
     }),
-    reduceRoots: (roots: (PlanNode | undefined)[], rootsAreParallel) => flatWrapNodes(rootsAreParallel ? 'Parallel' : 'Sequence', roots),
   };
 }
 
@@ -2567,7 +2608,7 @@ function fetchGroupToPlanProcessor({
 // with four children.
 function flatWrapNodes(
   kind: ParallelNode['kind'] | SequenceNode['kind'],
-  nodes: (PlanNode| undefined)[],
+  nodes: (PlanNode | undefined)[],
 ): PlanNode | undefined {
   const filteredNodes = nodes.filter((n) => !!n) as PlanNode[];
   if (filteredNodes.length === 0) {
