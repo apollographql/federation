@@ -210,7 +210,9 @@ type Position @shareable {
 }
 ```
 
-If a field is marked `@shareable` in _any_ subgraph, it **must** be marked as either `@shareable` or [`@external`](#external) in _every_ Federation 2 subgraph that defines it.
+If an object type field is marked `@shareable` in _any_ subgraph, it **must** be marked as either `@shareable` or [`@external`](#external) in _every_ Federation 2 subgraph that defines it.
+
+The `@shareable` directive is usually only used on object types, but is supported on an interface field to _force_ all the implementations of that field _within_ the current subgraph to be declared with `@shareable`. Note that `@shareable` is never required on interface field and we do not generally recommend its usage. 
 
 > If a Federation 2 supergraph includes a Federation 1 subgraph, all value types in the Federation 1 subgraph are automatically considered `@shareable` by the Federation 2 composition algorithm.
 

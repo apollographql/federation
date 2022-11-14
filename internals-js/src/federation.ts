@@ -915,15 +915,29 @@ export class FederationBlueprint extends SchemaBlueprint {
         validateShareableNotRepeatedOnSameDeclaration(field, metadata, errorCollector);
       }
     }
-    // Additionally, reject using @shareable on an interface field, as that does not actually
-    // make sense.
+    // Additionally, if @shareable is used on an interface field, ensures it is applied to
+    // every implementations (unless @external).
     for (const shareableApplication of metadata.shareableDirective().applications()) {
       const element = shareableApplication.parent;
-      if (element instanceof FieldDefinition && !isObjectType(element.parent)) {
-        errorCollector.push(ERRORS.INVALID_SHAREABLE_USAGE.err(
-          `Invalid use of @shareable on field "${element.coordinate}": only object type fields can be marked with @shareable`,
-          { nodes: sourceASTs(shareableApplication, element.parent) },
-        ));
+      const parentType = element.parent;
+      if (element instanceof FieldDefinition && isInterfaceType(parentType)) {
+        const implemsWithoutShareable = parentType.possibleRuntimeTypes().map((implem) => {
+          const implemField = implem.field(element.name);
+          assert(implemField, () => `${implem} implements interface ${parentType} but does not have field ${element.name}: this should have been rejected earlier`)
+          return implemField;
+        }).filter((implemField) => !metadata.isFieldExternal(implemField) && !metadata.isFieldShareable(implemField));
+
+        if (implemsWithoutShareable.length > 0) {
+          const printedTypes = printHumanReadableList(
+            implemsWithoutShareable.map((f) => `"${f.parent.name}"`),
+            { prefix: 'type', prefixPlural: 'types'
+            }
+          );
+          errorCollector.push(ERRORS.INVALID_SHAREABLE_USAGE.err(
+            `Interface field "${element.coordinate}" is marked @shareable but its implementation in ${printedTypes} is not (note that if you do not want to force the field to be @shareable in all implementations, you can simply remove @shareable from "${element.coordinate}")`,
+            { nodes: sourceASTs(shareableApplication, element.parent) },
+          ));
+        }
       }
     }
 

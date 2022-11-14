@@ -8,6 +8,13 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   - This change decreases memory consumption in general (which is the reason for disabling this by
     default), but users that have custom code making use of `GraphQLDataSourceProcessOptions.document`
     will now need to explicitly set `GatewayConfig.queryPlannerConfig.exposeDocumentNodeInFetchNode`.
+- __BREAKING__: validate `@shareable` on interface fields:
+  - marking an interface field as `@shareable` was syntactically allowed, but was not validated in any way, or had any
+    effect. In this release, we allow `@shareable` on interface fields, but _only_ as way to force all the
+    implementation to mark the field `@shareable`. As a consequence, if a field was previously marked as
+    `@shareable` in an interface but not in some/all implementations of that interface, an error will
+    now be raise. The simplest fix is to remove `@shareable` in the interface definition: it is *never*
+    required to mark an interface field `@shareable` and it will never break to remove it.
 - Allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
   - Note that this require the use of the new 2.2 version of the federation spec introduced in this change.
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
