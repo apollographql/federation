@@ -9,6 +9,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
     default), but users that have custom code making use of `GraphQLDataSourceProcessOptions.document`
     will now need to explicitly set `GatewayConfig.queryPlannerConfig.exposeDocumentNodeInFetchNode`.
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Fix potential QP issue with shareable root fields [PR #2239](https://github.com/apollographql/federation/pull/2239).
 
 ## 2.1.4
 
