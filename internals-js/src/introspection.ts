@@ -2,6 +2,16 @@ import { DirectiveLocation } from "graphql";
 import { EnumType, FieldDefinition, ListType, NonNullType, ObjectType, Schema } from "./definitions";
 
 export const introspectionFieldNames = [ '__schema', '__type' ];
+export const introspectionTypeNames = [
+  '__Schema',
+  '__Directive',
+  '__DirectiveLocation',
+  '__Type',
+  '__Field',
+  '__InputValue',
+  '__EnumValue',
+  '__TypeKind',
+]
 
 export function isIntrospectionName(name: string): boolean {
   return name.startsWith('__');
