@@ -28,7 +28,7 @@ import {
   allFieldDefinitionsInSelectionSet,
   DeferDirectiveArgs,
   isInterfaceType,
-  setContains,
+  isSubset,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
@@ -1888,7 +1888,7 @@ function anImplementationIsEntityWithFieldShareable<V extends Vertex>(path: OpGr
           return true;
         }
         const otherNames = new Set(typeInOther.fields().map((f) => f.name));
-        if (!setContains(fieldNames, otherNames)) {
+        if (!isSubset(fieldNames, otherNames)) {
           // Same, we have a genuine difference.
           return true;
         }

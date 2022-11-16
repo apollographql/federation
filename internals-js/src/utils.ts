@@ -168,14 +168,14 @@ export function arrayEquals<T>(
 }
 
 /**
- * Whether the first set contains (or is equal to) the second set.
+ * Whether the first set is a (non-strict) subset of the second set.
  */
-export function setContains<T>(container: Set<T>, maybeContained: Set<T>): boolean {
-  if (container === maybeContained) {
+export function isSubset<T>(superset: Set<T>, maybeSubset: Set<T>): boolean {
+  if (superset === maybeSubset) {
     return true;
   }
-  for (const elt of maybeContained) {
-    if (!container.has(elt)) {
+  for (const elt of maybeSubset) {
+    if (!superset.has(elt)) {
       return false;
     }
   }
