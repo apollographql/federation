@@ -4422,3 +4422,167 @@ describe('mutations', () => {
     `);
   });
 });
+
+describe('interface type-explosion', () => {
+  test('handles non-matching value types under interface field', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          i: I
+        }
+
+        interface I {
+          s: S
+        }
+
+        type T implements I @key(fields: "id") {
+          id: ID!
+          s: S @shareable
+        }
+
+        type S @shareable {
+          x: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          s: S @shareable
+        }
+
+        type S @shareable {
+          x: Int
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        i {
+          s {
+            y
+          }
+        }
+      }
+    `);
+
+    // The schema is constructed in such a way that we *need* to type-explode interface `I`
+    // to be able to find field `y`. Make sure that happens.
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              i {
+                __typename
+                ... on T {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "i") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  s {
+                    y
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  test('skip type-explosion early if unnecessary', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          i: I
+        }
+
+        interface I {
+          s: S
+        }
+
+        type T implements I @key(fields: "id") {
+          id: ID!
+          s: S @shareable
+        }
+
+        type S @shareable {
+          x: Int
+          y: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          s: S @shareable
+        }
+
+        type S @shareable {
+          x: Int
+          y: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        i {
+          s {
+            y
+          }
+        }
+      }
+    `);
+
+    // This test is a small variation on the previous test ('handles non-matching ...'), we
+    // we _can_ use the interface field directly and don't need to type-explode. So we
+    // double-check that the plan indeed does not type-explode, but the true purpose of
+    // this test is to ensure the proper optimisation kicks in so that we do _not_ even
+    // evaluate the plan where we type explode. In other words, we ensure that the plan
+    // we get is the _only_ one evaluated.
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            i {
+              __typename
+              s {
+                y
+              }
+            }
+          }
+        },
+      }
+    `);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+  });
+});

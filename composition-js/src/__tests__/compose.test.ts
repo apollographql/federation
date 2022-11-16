@@ -367,7 +367,7 @@ describe('composition', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         name: String! @external
       }
 
@@ -386,7 +386,7 @@ describe('composition', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
     `);

@@ -1053,7 +1053,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     //   2) it is not external.
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
-    //      need to type-explode to make we handle that @require).
+    //      need to type-explode to make sure we handle that @require).
     return field && !this.isExternal(field) && !this.hasDirective(field, (m) => m.requiresDirective());
   }
 

@@ -55,6 +55,7 @@ import {
   NamedSchemaElement,
 } from "./definitions";
 import { ERRORS, errorCauses, withModifiedErrorNodes } from "./error";
+import { introspectionTypeNames } from "./introspection";
 
 function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
@@ -210,6 +211,10 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
+        // Like graphql-js, we just silently ignore definitions for introspection types
+        if (introspectionTypeNames.includes(definitionNode.name.value)) {
+          continue;
+        }
         typeDefinitions.push(definitionNode);
         let type = schema.type(definitionNode.name.value);
         // Note that the type may already exists due to an extension having been processed first, but we know we
@@ -240,6 +245,10 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeExtension':
       case 'EnumTypeExtension':
       case 'InputObjectTypeExtension':
+        // Like graphql-js, we just silently ignore definitions for introspection types
+        if (introspectionTypeNames.includes(definitionNode.name.value)) {
+          continue;
+        }
         typeExtensions.push(definitionNode);
         const existing = schema.type(definitionNode.name.value);
         // In theory, graphQL does not let you have an extension without a corresponding definition. However,

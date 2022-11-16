@@ -402,6 +402,35 @@ class QueryPlanningTaversal<RV extends Vertex> {
     this.closedBranches[i - 1] = firstBranch;
   }
 
+  private pruneClosedBranches() {
+    for (let i = 0; i < this.closedBranches.length; i++) {
+      const branch = this.closedBranches[i];
+      if (branch.length <= 1) {
+        continue;
+      }
+
+      const pruned: SimultaneousPaths<RV>[] = [];
+      for (const toCheck of branch) {
+        if (!this.optionIsOverriden(toCheck, branch)) {
+          pruned.push(toCheck);
+        }
+      }
+      this.closedBranches[i] = pruned;
+    }
+  }
+
+  private optionIsOverriden(toCheck: SimultaneousPaths<RV>, allOptions: SimultaneousPaths<RV>[]): boolean {
+    for (const option of allOptions) {
+      if (toCheck === option) {
+        continue;
+      }
+      if (toCheck.every((p) => option.some((o) => p.isOverriddenBy(o)))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private computeBestPlanFromClosedBranches() {
     if (this.closedBranches.length === 0) {
       return;
@@ -411,8 +440,12 @@ class QueryPlanningTaversal<RV extends Vertex> {
     // Note however that "all the possible plans" is essentially a cartesian product of all
     // the closed branches options, and if a lot of branches have multiple options, this can
     // exponentially explode.
-    // So we first look at how many plans we'd have to generate, and if it's "too much", we
-    // reduce it to something manageable by arbitrarilly throwing out options. This effectively
+    // So first, we check if we can preemptively prune some branches based on those branches having options
+    // that are known to be overriden by other ones.
+    this.pruneClosedBranches();
+
+    // We're out of smart ideas for now, so we look at how many plans we'd have to generate, and if it's
+    // "too much", we reduce it to something manageable by arbitrarilly throwing out options. This effectively
     // means that when a query has too many options, we give up on always finding the "best"
     // query plan in favor of an "ok" query plan.
     // TODO: currently, when we need to reduce options, we do so somewhat arbitrarilly. More

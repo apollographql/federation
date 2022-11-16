@@ -64,6 +64,8 @@ describe('basic type extensions', () => {
       }
     `);
 
+    // Note that extract subgraphs use @shareable on keys even though it's redundant because
+    // it's easier to do so and harmless otherwise.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
         ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
@@ -74,7 +76,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
 
@@ -96,7 +98,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         price: Int!
       }
     `);
@@ -156,7 +158,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         price: Int!
       }
     `);
@@ -171,7 +173,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
 
@@ -243,7 +245,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         price: Int!
       }
     `);
@@ -256,7 +258,7 @@ describe('basic type extensions', () => {
       }
 
       type Product {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
 
@@ -275,7 +277,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         color: String!
       }
     `);
