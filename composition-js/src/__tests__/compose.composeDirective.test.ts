@@ -365,7 +365,7 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@join__field', '@join__graph', '@join__implements', '@join__type',
+    '@join__field', '@join__graph', '@join__implements', '@join__type', '@join__unionMember', '@join__enumValue'
   ])('join spec directives should result in an error', (directive) => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
@@ -376,6 +376,8 @@ describe('composing custom core directives', () => {
         directive @join__graph(name: String!, url: String!) on ENUM_VALUE
         directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
         directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+        directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+        directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
         scalar join__FieldSet
 
@@ -735,7 +737,7 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@join__field', '@join__graph', '@join__implements', '@join__type'
+    '@join__field', '@join__graph', '@join__implements', '@join__type', '@join__unionMember', '@join__enumValue'
   ])('naming conflict with join spec directives', (directive) => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',

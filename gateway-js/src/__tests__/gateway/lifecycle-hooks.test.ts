@@ -147,7 +147,7 @@ describe('lifecycle hooks', () => {
     // the supergraph (even just formatting differences), this ID will change
     // and this test will have to updated.
     expect(secondCall[0]!.compositionId).toEqual(
-      '97f11725be210d703ced94cd941ef00d72ab26a9e04bdb724207b9e89e87359e',
+      'ed8cb418d55e7cd069f11d093b2ea29316e1a913a5757f383cc78ed399414104',
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);

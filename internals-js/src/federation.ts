@@ -40,8 +40,11 @@ import {
   PossibleTypeExtensionsRule,
   print as printAST,
   Source,
-  SchemaExtensionNode,
   GraphQLErrorOptions,
+  SchemaDefinitionNode,
+  OperationTypeNode,
+  OperationTypeDefinitionNode,
+  ConstDirectiveNode,
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -1168,13 +1171,20 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
 export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
-export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
-  const fed2LinkExtension: SchemaExtensionNode = {
-    kind: Kind.SCHEMA_EXTENSION,
-    directives: [{
-      kind: Kind.DIRECTIVE,
-      name: { kind: Kind.NAME, value: linkDirectiveDefaultName },
-      arguments: [{
+/**
+ * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
+ * returns an equivalent document that `@link` to the last known federation spec.
+ *
+ * @param document - the document to "augment".
+ * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or 
+ *   added to the schema definition. Defaults to `true` (added as an extension), as this mimics what we tends to write manually.
+ */
+export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension: boolean }): DocumentNode {
+  const directiveToAdd: ConstDirectiveNode = ({
+    kind: Kind.DIRECTIVE,
+    name: { kind: Kind.NAME, value: linkDirectiveDefaultName },
+    arguments: [
+      {
         kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: 'url' },
         value: { kind: Kind.STRING, value: federationSpec.url.toString() }
@@ -1183,13 +1193,54 @@ export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
         kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: 'import' },
         value: { kind: Kind.LIST, values: federationSpec.directiveSpecs().map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
-      }]
-    }]
-  };
-  return {
-    kind: Kind.DOCUMENT,
-    loc: document.loc,
-    definitions: document.definitions.concat(fed2LinkExtension)
+      }
+    ]
+  });
+  if (options?.addAsSchemaExtension ?? true) {
+    return {
+      kind: Kind.DOCUMENT,
+      loc: document.loc,
+      definitions: document.definitions.concat({
+        kind: Kind.SCHEMA_EXTENSION,
+        directives: [directiveToAdd]
+      }),
+    }
+  }
+
+  // We can't add a new schema definition if it already exists. If it doesn't we need to know if there is a mutation type or
+  // not.
+  const existingSchemaDefinition = document.definitions.find((d): d is SchemaDefinitionNode => d.kind == Kind.SCHEMA_DEFINITION);
+  if (existingSchemaDefinition) {
+    return {
+      kind: Kind.DOCUMENT,
+      loc: document.loc,
+      definitions: document.definitions.filter((d) => d !== existingSchemaDefinition).concat([{
+        ...existingSchemaDefinition,
+        directives: [directiveToAdd].concat(existingSchemaDefinition.directives ?? []),
+      }]),
+    }
+  } else {
+    const hasMutation = document.definitions.some((d) => d.kind === Kind.OBJECT_TYPE_DEFINITION && d.name.value === 'Mutation');
+    const makeOpType = (opType: OperationTypeNode, name: string): OperationTypeDefinitionNode => ({
+      kind: Kind.OPERATION_TYPE_DEFINITION,
+      operation: opType,
+      type: {
+        kind: Kind.NAMED_TYPE,
+        name: {
+          kind: Kind.NAME,
+          value: name,
+        }
+      },
+    });
+    return {
+      kind: Kind.DOCUMENT,
+      loc: document.loc,
+      definitions: document.definitions.concat({
+        kind: Kind.SCHEMA_DEFINITION,
+        directives: [directiveToAdd],
+        operationTypes: [ makeOpType(OperationTypeNode.QUERY, 'Query') ].concat(hasMutation ? makeOpType(OperationTypeNode.MUTATION, 'Mutation') : []),
+      }),
+    }
   }
 }
 

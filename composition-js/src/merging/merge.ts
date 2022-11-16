@@ -1689,7 +1689,29 @@ class Merger {
       }
     }
     for (const type of dest.types()) {
+      this.addJoinUnionMember(sources, dest, type);
       this.hintOnInconsistentUnionMember(sources, dest, type.name);
+    }
+  }
+
+  private addJoinUnionMember(sources: (UnionType | undefined)[], dest: UnionType, member: ObjectType) {
+    const joinUnionMemberDirective = joinSpec.unionMemberDirective(this.merged);
+    // We should always be merging with the latest join spec, so this should exists, but well, in prior versions where
+    // the directive didn't existed, we simply did had any replacement so ...
+    if (!joinUnionMemberDirective) {
+      return;
+    }
+
+    for (const [idx, source] of sources.entries()) {
+      if (!source?.hasTypeMember(member.name)) {
+        continue;
+      }
+
+      const name = this.joinSpecName(idx);
+      dest.applyDirective(joinUnionMemberDirective, {
+        graph: name,
+        member: member.name,
+      });
     }
   }
 
@@ -1768,6 +1790,7 @@ class Merger {
     const valueSources = sources.map(s => s?.value(value.name));
     this.mergeDescription(valueSources, value);
     this.recordAppliedDirectivesToMerge(valueSources, value);
+    this.addJoinEnumValue(valueSources, value);
 
     const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(inaccessibleSpec.inaccessibleDirectiveSpec.name);
     const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph);
@@ -1814,6 +1837,26 @@ class Merger {
       }
     } else if (position === 'Output') {
       this.hintOnInconsistentOutputEnumValue(sources, dest, value.name);
+    }
+  }
+
+  private addJoinEnumValue(sources: (EnumValue | undefined)[], dest: EnumValue) {
+    const joinEnumValueDirective = joinSpec.enumValueDirective(this.merged);
+    // We should always be merging with the latest join spec, so this should exists, but well, in prior versions where
+    // the directive didn't existed, we simply did had any replacement so ...
+    if (!joinEnumValueDirective) {
+      return;
+    }
+
+    for (const [idx, source] of sources.entries()) {
+      if (!source) {
+        continue;
+      }
+
+      const name = this.joinSpecName(idx);
+      dest.applyDirective(joinEnumValueDirective, {
+        graph: name,
+      });
     }
   }
 
