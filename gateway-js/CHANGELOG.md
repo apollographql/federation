@@ -17,6 +17,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   - Note that this require the use of the new 2.2 version of the federation spec introduced in this change.
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Fix issue where QP was generating invalid plan missing some data [#361](https://github.com/apollographql/federation/issues/361).
+- Avoid reusing named fragments that are invalid for the subgraph [PR #2255](https://github.com/apollographql/federation/pull/2255).
 - Fix QP not always type-exploding interface when necessary [PR #2246](https://github.com/apollographql/federation/pull/2246).
 - Fix potential QP issue with shareable root fields [PR #2239](https://github.com/apollographql/federation/pull/2239).
 - Correctly reject field names starting with `__` [PR #2237](https://github.com/apollographql/federation/pull/2237).
