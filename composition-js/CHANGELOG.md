@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.2.0
+
 - __BREAKING__: composition now rejects `@shareable` on interface fields. The `@shareable` directive is about
   controlling if multiple subgraphs can resolve a particular field, and as interface field are never directly resolved
   (it's their implementation that are), having `@shareable` on interface fields is not completely meaningful and

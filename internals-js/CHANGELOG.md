@@ -2,6 +2,8 @@
 
 ## vNext
 
+## 2.2.0
+
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 - Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)

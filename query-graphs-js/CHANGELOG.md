@@ -2,6 +2,8 @@
 
 ## vNext
 
+## 2.2.0
+
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
 
 ## 2.1.0
