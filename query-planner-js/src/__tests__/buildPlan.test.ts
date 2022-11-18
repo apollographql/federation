@@ -4052,6 +4052,88 @@ describe('Named fragments preservation', () => {
       }
     `);
   });
+
+  it('do not try to apply fragments that are not valid for the subgaph', () => {
+    // Slightly artificial example for simplicity, but this highlight the problem.
+    // In that example, the only queried subgraph is the first one (there is in fact
+    // no way to ever reach the 2nd one), so the plan should mostly simply forward
+    // the query to the 1st subgraph, but a subtlety is that the named fragment used
+    // in the query is *not* valid for Subgraph1, because it queries `b` on `I`, but
+    // there is no `I.b` in Subgraph1.
+    // So including the named fragment in the fetch would be erroneous: the subgraph
+    // server would reject it when validating the query, and we must make sure it
+    // is not reused.
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          i1: I
+          i2: I
+        }
+
+        interface I {
+          a: Int
+        }
+
+        type T implements I {
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        interface I {
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      query {
+        i1 {
+          ... on T {
+            ...Frag
+          }
+        }
+        i2 {
+          ... on T {
+            ...Frag
+          }
+        }
+      }
+
+      fragment Frag on I {
+        b
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            i1 {
+              __typename
+              ... on T {
+                b
+              }
+            }
+            i2 {
+              __typename
+              ... on T {
+                b
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
 });
 
 test('works with key chains', () => {
