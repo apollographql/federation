@@ -5,6 +5,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## vNext
 
 - Fix issue where QP was generating invalid plan missing some data [#361](https://github.com/apollographql/federation/issues/361).
+- Avoid reusing named fragments that are invalid for the subgraph [PR #2255](https://github.com/apollographql/federation/pull/2255).
 - Fix QP not always type-exploding interface when necessary [PR #2246](https://github.com/apollographql/federation/pull/2246).
 - Fix potential QP issue with shareable root fields [PR #2239](https://github.com/apollographql/federation/pull/2239).
 - Correctly reject field names starting with `__` [PR #2237](https://github.com/apollographql/federation/pull/2237).
