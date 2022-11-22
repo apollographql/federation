@@ -2,6 +2,8 @@
 
 ## vNext
 
+## 2.2.1
+
 - Fix federation spec always being expanded to the last version [PR #2274](https://github.com/apollographql/federation/pull/2274).
 
 ## 2.2.0
