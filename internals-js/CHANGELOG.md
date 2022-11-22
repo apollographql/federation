@@ -2,6 +2,8 @@
 
 ## vNext
 
+- Fix federation spec always being expanded to the last version [PR #2274](https://github.com/apollographql/federation/pull/2274).
+
 ## 2.2.0
 
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
