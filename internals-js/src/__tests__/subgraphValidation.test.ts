@@ -668,13 +668,11 @@ describe('@core/@link handling', () => {
 
     directive @federation__extends on OBJECT | INTERFACE
 
-    directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
+    directive @federation__shareable on OBJECT | FIELD_DEFINITION
 
     directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
     directive @federation__override(from: String!) on FIELD_DEFINITION
-
-    directive @federation__composeDirective(name: String) repeatable on SCHEMA
 
     type T
       @key(fields: "k")

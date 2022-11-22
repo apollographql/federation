@@ -507,18 +507,16 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
       return this;
     }
     this._definitions.push(definition);
-    // We sort by decreased versions (this makes `find` a bit easier, and it feels somewhat natural anyway to have more
-    // recent versions first).
+    // We sort by decreased versions sa it feels somewhat natural anyway to have more recent versions first.
     this._definitions.sort((def1, def2) => -def1.version.compareTo(def2.version));
     return this;
   }
 
   /**
-   * Returns the known definition with the greatest version that satisfies the requested version, or undefined if no
-   * known version can satisfy this version.
+   * Returns the definition corresponding to the requested version if known.
    */
   find(requested: FeatureVersion): T | undefined {
-    return this._definitions.find(def => def.version.satisfies(requested));
+    return this._definitions.find((def) => def.version.equals(requested));
   }
 
   versions(): FeatureVersion[] {

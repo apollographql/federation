@@ -641,52 +641,66 @@ export class FederationMetadata {
     }
   }
 
-  private getFederationDirective<TApplicationArgs extends {[key: string]: any}>(
+  // Should only be be called for "legacy" directives, those that existed in 2.0. This
+  // allow to avoiding have to double-check the directive exists every time when we
+  // know it will always exists (note that even though we accept fed1 schema as inputs,
+  // those are almost immediately converted to fed2 ones by the `SchemaUpgrader`, so
+  // we include @shareable or @override in those "legacy" directives).
+  private getLegacyFederationDirective<TApplicationArgs extends {[key: string]: any}>(
     name: FederationDirectiveName
   ): DirectiveDefinition<TApplicationArgs> {
-    const directive = this.schema.directive(this.federationDirectiveNameInSchema(name));
+    const directive = this.getFederationDirective<TApplicationArgs>(name);
     assert(directive, `The provided schema does not have federation directive @${name}`);
-    return directive as DirectiveDefinition<TApplicationArgs>;
+    return directive;
+  }
+
+  private getFederationDirective<TApplicationArgs extends {[key: string]: any}>(
+    name: FederationDirectiveName
+  ): DirectiveDefinition<TApplicationArgs> | undefined {
+    return this.schema.directive(this.federationDirectiveNameInSchema(name)) as DirectiveDefinition<TApplicationArgs> | undefined;
   }
 
   keyDirective(): DirectiveDefinition<{fields: any, resolvable?: boolean}> {
-    return this.getFederationDirective(FederationDirectiveName.KEY);
+    return this.getLegacyFederationDirective(FederationDirectiveName.KEY);
   }
 
   overrideDirective(): DirectiveDefinition<{from: string}> {
-    return this.getFederationDirective(FederationDirectiveName.OVERRIDE);
+    return this.getLegacyFederationDirective(FederationDirectiveName.OVERRIDE);
   }
 
   extendsDirective(): DirectiveDefinition<Record<string, never>> {
-    return this.getFederationDirective(FederationDirectiveName.EXTENDS);
+    return this.getLegacyFederationDirective(FederationDirectiveName.EXTENDS);
   }
 
   externalDirective(): DirectiveDefinition<{reason: string}> {
-    return this.getFederationDirective(FederationDirectiveName.EXTERNAL);
+    return this.getLegacyFederationDirective(FederationDirectiveName.EXTERNAL);
   }
 
   requiresDirective(): DirectiveDefinition<{fields: any}> {
-    return this.getFederationDirective(FederationDirectiveName.REQUIRES);
+    return this.getLegacyFederationDirective(FederationDirectiveName.REQUIRES);
   }
 
   providesDirective(): DirectiveDefinition<{fields: any}> {
-    return this.getFederationDirective(FederationDirectiveName.PROVIDES);
+    return this.getLegacyFederationDirective(FederationDirectiveName.PROVIDES);
   }
 
   shareableDirective(): DirectiveDefinition<{}> {
-    return this.getFederationDirective(FederationDirectiveName.SHAREABLE);
+    return this.getLegacyFederationDirective(FederationDirectiveName.SHAREABLE);
   }
 
   tagDirective(): DirectiveDefinition<{name: string}> {
-    return this.getFederationDirective(FederationDirectiveName.TAG);
+    return this.getLegacyFederationDirective(FederationDirectiveName.TAG);
   }
 
-  composeDirective(): DirectiveDefinition<{name: string}> {
-    return this.getFederationDirective(FederationDirectiveName.COMPOSE_DIRECTIVE);
+  composeDirective(): DirectiveDefinition<{name: string}> | FederationDirectiveNotDefinedInSchema<{name: string}> {
+    return this.getFederationDirective<{name: string}>(FederationDirectiveName.COMPOSE_DIRECTIVE) ?? {
+      name: FederationDirectiveName.COMPOSE_DIRECTIVE,
+      applications: () => new Array<Directive<any, {name: string}>>(),
+    };
   }
 
   inaccessibleDirective(): DirectiveDefinition<{}> {
-    return this.getFederationDirective(FederationDirectiveName.INACCESSIBLE);
+    return this.getLegacyFederationDirective(FederationDirectiveName.INACCESSIBLE);
   }
 
   allFederationDirectives(): DirectiveDefinition[] {
@@ -698,9 +712,18 @@ export class FederationMetadata {
       this.tagDirective(),
       this.extendsDirective(),
     ];
-    return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective(), this.composeDirective())
-      : baseDirectives;
+    if (!this.isFed2Schema()) {
+      return baseDirectives;
+    }
+
+    baseDirectives.push(this.shareableDirective());
+    baseDirectives.push(this.inaccessibleDirective());
+    baseDirectives.push(this.overrideDirective());
+    const composeDirective = this.composeDirective();
+    if (isFederationDirectiveDefinedInSchema(composeDirective)) {
+      baseDirectives.push(composeDirective);
+    }
+    return baseDirectives;
   }
 
   // Note that a subgraph may have no "entities" and so no _EntityType.
@@ -732,6 +755,17 @@ export class FederationMetadata {
     }
     return baseTypes;
   }
+}
+
+export type FederationDirectiveNotDefinedInSchema<TApplicationArgs extends {[key: string]: any}> = {
+  name: string,
+  applications: () => readonly Directive<any, TApplicationArgs>[],
+}
+
+export function isFederationDirectiveDefinedInSchema<TApplicationArgs extends {[key: string]: any}>(
+  definition: DirectiveDefinition<TApplicationArgs> | FederationDirectiveNotDefinedInSchema<TApplicationArgs>
+): definition is DirectiveDefinition<TApplicationArgs> {
+  return definition instanceof DirectiveDefinition;
 }
 
 export class FederationBlueprint extends SchemaBlueprint {
