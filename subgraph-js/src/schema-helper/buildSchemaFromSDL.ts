@@ -23,8 +23,9 @@ import {
   ASTNode,
   StringValueNode,
 } from 'graphql';
+import { IResolvers } from "@graphql-tools/utils";
 
-import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
+import { GraphQLSchemaModule } from './resolverMap';
 import {
   PossibleTypeExtensionsRule,
   KnownTypeNamesRule,
@@ -106,7 +107,7 @@ export function modulesFromSDL(
 
 export function addResolversToSchema(
   schema: GraphQLSchema,
-  resolvers: GraphQLResolverMap<any>
+  resolvers: IResolvers,
 ) {
   for (const [typeName, fieldConfigs] of Object.entries(resolvers)) {
     const type = schema.getType(typeName);

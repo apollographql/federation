@@ -6,17 +6,18 @@ import {
 } from 'graphql';
 import {
   GraphQLSchemaModule,
-  GraphQLResolverMap,
   addResolversToSchema,
   modulesFromSDL,
 } from './schema-helper';
+import { IResolvers } from "@graphql-tools/utils";
+
 
 import { assert, buildSubgraph, FEDERATION_UNNAMED_SUBGRAPH_NAME, printSchema } from '@apollo/federation-internals';
 import { entitiesResolver } from './types';
 
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
-  resolvers?: GraphQLResolverMap<unknown>;
+  resolvers?: IResolvers;
 };
 
 export { GraphQLSchemaModule };
