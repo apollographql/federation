@@ -93,8 +93,9 @@ export interface DeferredNode {
   }[],
   // The optional defer label.
   label?: string,
-  // Path to the @defer this correspond to. The `subselection` starts at that `path`.
-  path: ResponsePath,
+  // Path, in the query, to the @defer this corresponds to. The `subselection` starts at that `queryPath`.
+  // This look like: `[ 'products', '... on Book', 'reviews' ]`
+  queryPath: string[],
   // The part of the original query that "selects" the data to send in that deferred response (once the plan in `node` completes). Will be set _unless_ `node` is a `DeferNode` itself.
   subselection?: string,
   // The plan to get all the data for that deferred part. Usually set, but can be undefined for a `@defer` where everything has been fetched in the "primary block", that is when
