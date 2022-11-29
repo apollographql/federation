@@ -29,7 +29,7 @@
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
       "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
       "Router/gateway": "/building-supergraphs/router",
-      "Apollo Server subgraphs": "/building-supergraphs/subgraphs-apollo-server"
+      "Apollo Server subgraphs": "/apollo-server/subgraphs-apollo-server"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
@@ -61,8 +61,8 @@
       "OpenTelemetry": "/opentelemetry"
     },
     "API Reference": {
-      "@apollo/subgraph": "/api/apollo-subgraph",
-      "@apollo/gateway": "/api/apollo-gateway",
+      "@apollo/subgraph": "/apollo-server/using-federation/api/apollo-subgraph/",
+      "@apollo/gateway": "/apollo-server/using-federation/api/apollo-gateway",
       "Subgraph specification": "/subgraph-spec"
     }
   }
