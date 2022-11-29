@@ -29,7 +29,7 @@
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
       "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
       "Router/gateway": "/building-supergraphs/router",
-      "Apollo Server subgraphs": "/apollo-server/subgraphs-apollo-server"
+      "Apollo Server subgraphs": "/apollo-server/using-federation/apollo-subgraph-setup"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",

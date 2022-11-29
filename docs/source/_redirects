@@ -5,7 +5,7 @@
 /other-servers/ /docs/federation/building-supergraphs/supported-subgraphs/
 /federation-spec/ /docs/federation/subgraph-spec/
 /federation/building-supergraphs/router#nodejs-gateway-setup /docs/apollo-server/using-federation/apollo-gateway-setup
-/building-supergraphs/subgraphs-apollo-server /docs/apollo-server/using-federation/apollo-subgraph-setup
+/building-supergraphs/subgraphs-apollo-server/ /docs/apollo-server/using-federation/apollo-subgraph-setup
 /api/apollo-subgraph /docs/apollo-server/using-federation/api/apollo-subgraph/
 /api/apollo-gateway /docs/apollo-server/using-federation/api/apollo-gateway/
 
