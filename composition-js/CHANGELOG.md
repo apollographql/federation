@@ -4,6 +4,15 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.2.0
+
+- __BREAKING__: composition now rejects `@shareable` on interface fields. The `@shareable` directive is about
+  controlling if multiple subgraphs can resolve a particular field, and as interface field are never directly resolved
+  (it's their implementation that are), having `@shareable` on interface fields is not completely meaningful and
+  was never meant to be supported. If an existing subgraph does have a `@shareable` on an interface field, this
+  will now be rejected, but the `@shareable` can simply and safely be removed since it previously was ignored.
+- Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
 - Fix error when a skipped enum value had directives applied [PR #2232](https://github.com/apollographql/federation/pull/2232).
 
 ## 2.1.4

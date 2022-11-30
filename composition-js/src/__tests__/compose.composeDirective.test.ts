@@ -1,4 +1,4 @@
-import { assert, FEDERATION2_LINK_WTH_FULL_IMPORTS, printSchema, Schema } from '@apollo/federation-internals';
+import { assert, FEDERATION2_LINK_WITH_FULL_IMPORTS, printSchema, Schema } from '@apollo/federation-internals';
 import { DirectiveLocation } from 'graphql';
 import gql from 'graphql-tag';
 import { composeServices, CompositionResult } from '../compose';
@@ -9,7 +9,7 @@ const generateSubgraph = ({
   linkText = '',
   composeText = '',
   directiveText = '',
-  federationText = FEDERATION2_LINK_WTH_FULL_IMPORTS,
+  federationText = FEDERATION2_LINK_WITH_FULL_IMPORTS,
   usage = '',
 }: {
   name: string,

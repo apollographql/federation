@@ -167,6 +167,21 @@ export function arrayEquals<T>(
   return true;
 }
 
+/**
+ * Whether the first set is a (non-strict) subset of the second set.
+ */
+export function isSubset<T>(superset: Set<T>, maybeSubset: Set<T>): boolean {
+  if (superset === maybeSubset) {
+    return true;
+  }
+  for (const elt of maybeSubset) {
+    if (!superset.has(elt)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function firstOf<T>(iterable: Iterable<T>): T | undefined {
   const res = iterable[Symbol.iterator]().next();
   return res.done ? undefined : res.value;

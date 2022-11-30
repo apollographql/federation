@@ -690,10 +690,35 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * @param type - the type at which we're looking at applying the fragment
    */
   canApplyAtType(type: CompositeType): boolean {
-    return (
+    const applyAtType =
       sameType(this.typeCondition, type)
-      || (isAbstractType(this.typeCondition) && !isUnionType(type) && isDirectSubtype(this.typeCondition, type))
-    );
+      || (isAbstractType(this.typeCondition) && !isUnionType(type) && isDirectSubtype(this.typeCondition, type));
+    return applyAtType
+      && this.validForSchema(type.schema());
+  }
+
+  // Checks whether this named fragment can be applied to the provided schema, which might be different
+  // from the one the named fragment originate from.
+  private validForSchema(schema: Schema): boolean {
+    if (schema === this.schema()) {
+      return true;
+    }
+
+    const typeInSchema = schema.type(this.typeCondition.name);
+    if (!typeInSchema || !isCompositeType(typeInSchema)) {
+      return false;
+    }
+
+    // We try "rebasing" the selection into the provided schema and checks if that succeed.
+    try {
+      const rebasedSelection = new SelectionSet(typeInSchema);
+      rebasedSelection.mergeIn(this.selectionSet);
+      // If this succeed, it means the fragment could be applied to that schema and be valid.
+      return true;
+    } catch (e) {
+      // We don't really care what kind of error was triggered; only that it doesn't work.
+      return false;
+    }
   }
 
   toString(indent?: string): string {

@@ -329,9 +329,13 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
               const ownerApplications = ownerDirective ? type.appliedDirectivesOf(ownerDirective) : [];
               if (!ownerApplications.length) {
                 const fieldBaseType = baseType(field.type!);
+                const isShareable = isObjectType(type) && subgraphs.values().filter((s) => s.schema.type(type.name)).length > 1;
                 for (const subgraph of subgraphs) {
                   if (subgraph.schema.type(fieldBaseType.name)) {
-                    addSubgraphField(field, subgraph);
+                    const subgraphField = addSubgraphField(field, subgraph);
+                    if (subgraphField && isShareable) {
+                      subgraphField.applyDirective(subgraph.metadata().shareableDirective());
+                    }
                   }
                 }
               } else {
@@ -341,6 +345,12 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
               }
             } else {
+              const isShareable = isObjectType(type)
+                && (fieldApplications as Directive<any, { external?: boolean, usedOverridden?: boolean }>[]).filter((application) => {
+                  const args = application.arguments();
+                  return !args.external && !args.usedOverridden;
+                }).length > 1;
+
               for (const application of fieldApplications) {
                 const args = application.arguments();
                 const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
@@ -367,6 +377,9 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 }
                 if (args.override) {
                   subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': args.override});
+                }
+                if (isShareable && !args.external && !args.usedOverridden) {
+                  subgraphField.applyDirective(subgraph.metadata().shareableDirective());
                 }
               }
             }

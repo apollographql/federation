@@ -92,7 +92,7 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlanner = new QueryPlanner(compositionResult.schema, { exposeDocumentNodeInFetchNode: false} );
+  const queryPlanner = new QueryPlanner(compositionResult.schema);
   const schema = buildSchema(compositionResult.supergraphSdl);
 
   const serviceMap = Object.fromEntries(

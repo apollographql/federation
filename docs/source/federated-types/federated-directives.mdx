@@ -218,6 +218,8 @@ If a field is included in an entity's [`@key` directive](#key), that field is au
 
 See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
 
+> The `@shareable` directive is about indicating when an object field can be resolved by multiple subgraphs. As interface fields are not directly resolved (their implementation is), `@shareable` is not meaningful on an interface field and is not allowed (at least since federation 2.2; earlier versions of federation 2 mistakenly ignored `@shareable` on interface fields).
+
 ### `@inaccessible`
 
 ```graphql
@@ -334,7 +336,7 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 ### `@external`
 
 ```graphql
-directive @external on FIELD_DEFINITION
+directive @external on FIELD_DEFINITION | OBJECT
 ```
 
 Indicates that this subgraph usually _can't_ resolve a particular object field, but it still needs to define that field for other purposes.
@@ -355,6 +357,15 @@ type Query {
 ```
 
 This example subgraph _usually_ can't resolve the `Product.name` field, but it _can_ at the `Query.outOfStockProducts` query path (indicated by the [`@provides` directive](#provides)).
+
+If applied to an object type definition, _all_ of that type's fields are considered `@external`:
+
+```graphql {1}
+type Position @external {
+  x: Int!
+  y: Int!
+}
+```
 
 
 ### `@provides`
