@@ -61,7 +61,7 @@
       "OpenTelemetry": "/opentelemetry"
     },
     "API Reference": {
-      "@apollo/subgraph": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-subgraph/",
+      "@apollo/subgraph": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-subgraph",
       "@apollo/gateway": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-gateway",
       "Subgraph specification": "/subgraph-spec"
     }
