@@ -4,6 +4,27 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.2.0
+
+- __BREAKING__: Disable exposing full document to sub-query by default (introduced 2.1.0):
+  - This change decreases memory consumption in general (which is the reason for disabling this by
+    default), but users that have custom code making use of `GraphQLDataSourceProcessOptions.document`
+    will now need to explicitly set `GatewayConfig.queryPlannerConfig.exposeDocumentNodeInFetchNode`.
+- __BREAKING__: composition now rejects `@shareable` on interface fields. The `@shareable` directive is about
+  controlling if multiple subgraphs can resolve a particular field, and as interface field are never directly resolved
+  (it's their implementation that are), having `@shareable` on interface fields is not completely meaningful and
+  was never meant to be supported. If an existing subgraph does have a `@shareable` on an interface field, this
+  will now be rejected, but the `@shareable` can simply and safely be removed since it previously was ignored.
+- Allows `@shareable` to be repeatable so it can be allowed on both a type definition and its extensions [PR #2175](https://github.com/apollographql/federation/pull/2175).
+  - Note that this require the use of the new 2.2 version of the federation spec introduced in this change.
+- Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Fix issue where QP was generating invalid plan missing some data [#361](https://github.com/apollographql/federation/issues/361).
+- Avoid reusing named fragments that are invalid for the subgraph [PR #2255](https://github.com/apollographql/federation/pull/2255).
+- Fix QP not always type-exploding interface when necessary [PR #2246](https://github.com/apollographql/federation/pull/2246).
+- Fix potential QP issue with shareable root fields [PR #2239](https://github.com/apollographql/federation/pull/2239).
+- Correctly reject field names starting with `__` [PR #2237](https://github.com/apollographql/federation/pull/2237).
+- Fix error when a skipped enum value had directives applied [PR #2232](https://github.com/apollographql/federation/pull/2232).
 - Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
 
 ## 2.1.4

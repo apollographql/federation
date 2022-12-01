@@ -27,11 +27,14 @@ import {
   printSubgraphNames,
   allFieldDefinitionsInSelectionSet,
   DeferDirectiveArgs,
+  isInterfaceType,
+  isSubset,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
 import { Transition } from "./transition";
 import { PathContext, emptyContext } from "./pathContext";
+import { v4 as uuidv4 } from 'uuid';
 
 const debug = newDebugLogger('path');
 
@@ -119,39 +122,68 @@ function withReplacedLastElement<T>(arr: readonly T[], newLast: T): T[] {
  * @param TNullEdge - typing information to indicate whether the path can have "null" edges or not. Either `null` (
  *   meaning that the path may have null edges) or `never` (the path cannot have null edges).
  */
+type PathProps<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> = {
+  /** The query graph of which this is a path. */
+  readonly graph: QueryGraph,
+  /** The vertex at which the path starts (the head vertex of the first edge in path, aliased here for convenience). */
+  readonly root: RV,
+  /** The vertex at which the path stops (the tail vertex of the last edge in path, aliased here for convenience). */
+  readonly tail: Vertex,
+  /** The triggers associated to each edges in the paths (see `GraphPath` for more details on triggers). */
+  readonly edgeTriggers: readonly TTrigger[],
+  /** The edges (stored by edge index) composing the path. */
+  readonly edgeIndexes: readonly (number | TNullEdge)[],
+  /**
+  * For each edge in the path, if the edge has conditions, the set of paths that fulfill that condition.
+  * Note that no matter which kind of traversal we are doing, fulfilling the conditions is always driven by
+  * the conditions themselves, and as conditions are a graphQL result set, the resulting set of paths are
+  * `OpGraphPath` (and as they are all rooted at the edge head vertex, we use the `OpPathTree` representation
+    * for that set of paths).
+  */
+  readonly edgeConditions: readonly (OpPathTree | null)[],
+
+  readonly subgraphEnteringEdge?: {
+    index: number,
+    edge: Edge,
+    cost: number,
+  },
+
+  readonly ownPathIds: readonly string[],
+  readonly overriddingPathIds: readonly string[],
+
+  readonly edgeToTail?: Edge | TNullEdge,
+  /** Names of the all the possible runtime types the tail of the path can be. */
+  readonly runtimeTypesOfTail: readonly ObjectType[],
+  /** If the last edge (the one getting to tail) was a DownCast, the runtime types before that edge. */
+  readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
+
+  readonly deferOnTail?: DeferDirectiveArgs,
+}
+
 export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
   private constructor(
-    /** The query graph of which this is a path. */
-    readonly graph: QueryGraph,
-    /** The vertex at which the path starts (the head vertex of the first edge in path, aliased here for convenience). */
-    readonly root: RV,
-    /** The vertex at which the path stops (the tail vertex of the last edge in path, aliased here for convenience). */
-    readonly tail: Vertex,
-    /** The triggers associated to each edges in the paths (see `GraphPath` for more details on triggers). */
-    private readonly edgeTriggers: readonly TTrigger[],
-    /** The edges (stored by edge index) composing the path. */
-    private readonly edgeIndexes: readonly (number | TNullEdge)[],
-    /**
-     * For each edge in the path, if the edge has conditions, the set of paths that fulfill that condition.
-     * Note that no matter which kind of traversal we are doing, fulfilling the conditions is always driven by
-     * the conditions themselves, and as conditions are a graphQL result set, the resulting set of paths are
-     * `OpGraphPath` (and as they are all rooted at the edge head vertex, we use the `OpPathTree` representation
-     * for that set of paths).
-     */
-    private readonly edgeConditions: readonly (OpPathTree | null)[],
-
-    private readonly subgraphEnteringEdgeIndex: number,
-    readonly subgraphEnteringEdge: Edge | undefined,
-    readonly subgraphEnteringEdgeCost: number,
-
-    private readonly edgeToTail: Edge | TNullEdge | undefined,
-    /** Names of the all the possible runtime types the tail of the path can be. */
-    private readonly runtimeTypesOfTail: readonly ObjectType[],
-    /** If the last edge (the one getting to tail) was a DownCast, the runtime types before that edge. */
-    private readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
-
-    readonly deferOnTail?: DeferDirectiveArgs,
+    private readonly props: PathProps<TTrigger, RV, TNullEdge>,
   ) {
+  }
+
+  get graph(): QueryGraph {
+    return this.props.graph;
+  }
+
+  get root(): RV {
+    return this.props.root;
+  }
+
+  get tail(): Vertex {
+    return this.props.tail;
+  }
+
+  get deferOnTail(): DeferDirectiveArgs | undefined {
+    return this.props.deferOnTail;
+  }
+
+  get subgraphEnteringEdge(): { index: number, edge: Edge, cost: number } | undefined {
+    return this.props.subgraphEnteringEdge;
   }
 
   /**
@@ -163,7 +195,17 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   ): GraphPath<TTrigger, RV, TNullEdge> {
     // If 'graph' is a federated query graph, federation renames all root type to their default names, so we rely on this here.
     const runtimeTypes = isFederatedGraphRootType(root.type) ? [] : possibleRuntimeTypes(root.type as CompositeType);
-    return new GraphPath(graph, root, root, [], [], [], -1, undefined, -1, undefined, runtimeTypes);
+    return new GraphPath({
+      graph,
+      root,
+      tail: root,
+      edgeTriggers: [],
+      edgeIndexes: [],
+      edgeConditions: [],
+      ownPathIds: [],
+      overriddingPathIds: [],
+      runtimeTypesOfTail: runtimeTypes
+    });
   }
 
   /**
@@ -185,7 +227,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * _not_ counted here.
    */
   get size(): number {
-    return this.edgeIndexes.length;
+    return this.props.edgeIndexes.length;
   }
 
   subgraphJumps(): number {
@@ -218,7 +260,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         if (edge) {
           this.currentVertex = edge.tail;
         }
-        return { done: false, value: [edge, path.edgeTriggers[idx], path.edgeConditions[idx]] };
+        return { done: false, value: [edge, path.props.edgeTriggers[idx], path.props.edgeConditions[idx]] };
       }
     };
   }
@@ -227,15 +269,15 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * The last edge in the path (if it isn't empty).
    */
   lastEdge(): Edge | TNullEdge | undefined {
-    return this.edgeToTail;
+    return this.props.edgeToTail;
   }
 
   lastTrigger(): TTrigger | undefined {
-    return this.edgeTriggers[this.size - 1];
+    return this.props.edgeTriggers[this.size - 1];
   }
 
   tailPossibleRuntimeTypes(): readonly ObjectType[] {
-    return this.runtimeTypesOfTail;
+    return this.props.runtimeTypesOfTail;
   }
 
   /**
@@ -253,7 +295,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     assert(conditionsResolution.satisfied, 'Should add to a path if the conditions cannot be satisfied');
     assert(!edge || edge.conditions || !conditionsResolution.pathTree, () => `Shouldn't have conditions paths (got ${conditionsResolution.pathTree}) for edge without conditions (edge: ${edge})`);
 
-    if (edge && edge.transition.kind === 'DownCast' && this.edgeToTail) {
+    if (edge && edge.transition.kind === 'DownCast' && this.props.edgeToTail) {
       const previousOperation = this.lastTrigger();
       if (previousOperation instanceof FragmentElement && previousOperation.appliedDirectives.length === 0) {
         // This mean we have 2 type-cast back-to-back and that means the previous operation might not be
@@ -275,39 +317,32 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         //  2. `... on C` restricts strictly more than `... on B` and so the latter can't impact the result.
         // So if we detect that we're in that situation, we remove the `... on B` (but note that this is an
         // optimization, keeping `... on B` wouldn't be incorrect, just useless).
-        const runtimeTypesWithoutPreviousCast = updateRuntimeTypes(this.runtimeTypesBeforeTailIfLastIsCast!, edge);
+        const runtimeTypesWithoutPreviousCast = updateRuntimeTypes(this.props.runtimeTypesBeforeTailIfLastIsCast!, edge);
         if (runtimeTypesWithoutPreviousCast.length > 0
-          && runtimeTypesWithoutPreviousCast.every(t => this.runtimeTypesOfTail.includes(t))
+          && runtimeTypesWithoutPreviousCast.every(t => this.props.runtimeTypesOfTail.includes(t))
         ) {
           // Note that edge is from the vertex we've eliminating from the path. So we need to get the edge goes
           // directly from the prior vertex to the new tail for that path.
-          const updatedEdge = this.graph.outEdges(this.edgeToTail!.head).find(e => e.tail.type === edge.tail.type);
+          const updatedEdge = this.graph.outEdges(this.props.edgeToTail!.head).find(e => e.tail.type === edge.tail.type);
           if (updatedEdge) {
             // We replace the previous operation by the new one.
             debug.log(() => `Previous cast ${previousOperation} is made obsolete by new cast ${trigger}, removing from path.`);
-            return new GraphPath(
-              this.graph,
-              this.root,
-              updatedEdge.tail,
-              withReplacedLastElement(this.edgeTriggers, trigger),
-              withReplacedLastElement(this.edgeIndexes, updatedEdge.index),
-              withReplacedLastElement(this.edgeConditions, conditionsResolution.pathTree ?? null),
-              this.subgraphEnteringEdgeIndex,
-              this.subgraphEnteringEdge,
-              this.subgraphEnteringEdgeCost,
-              updatedEdge,
-              runtimeTypesWithoutPreviousCast,
-              this.runtimeTypesBeforeTailIfLastIsCast, // Note that those haven't changed, and last is still a cast
-              defer,
-            );
+            return new GraphPath({
+              ...this.props,
+              tail: updatedEdge.tail,
+              edgeTriggers: withReplacedLastElement(this.props.edgeTriggers, trigger),
+              edgeIndexes: withReplacedLastElement(this.props.edgeIndexes, updatedEdge.index),
+              edgeConditions: withReplacedLastElement(this.props.edgeConditions, conditionsResolution.pathTree ?? null),
+              edgeToTail: updatedEdge,
+              runtimeTypesOfTail: runtimeTypesWithoutPreviousCast,
+              deferOnTail: defer,
+            });
           }
         }
       }
     }
 
-    let subgraphEnteringEdgeIndex = this.subgraphEnteringEdgeIndex;
     let subgraphEnteringEdge = this.subgraphEnteringEdge;
-    let subgraphEnteringEdgeCost = this.subgraphEnteringEdgeCost;
     if (edge) {
       // `subgraphEnteringEdge` is used to be able to eliminate some options when we can detect that going to subgraph
       // was ineffectient (see `advancePathWithNonCollectingAndTypePreservingTransitions` for details). So first,
@@ -315,31 +350,28 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       // that the source is different from the destination. But really, if we use `@defer`, we should never rely on the
       // optimization that `subgraphEnteringEdge`, so we clear it entirely.
       if (edge.isKeyOrRootTypeEdgeToSelf()) {
-        subgraphEnteringEdgeIndex = -1;
         subgraphEnteringEdge = undefined;
-        subgraphEnteringEdgeCost = -1;
       } else if (edge.transition.kind === 'KeyResolution') {
-        subgraphEnteringEdgeIndex = this.size;
-        subgraphEnteringEdge = edge;
-        subgraphEnteringEdgeCost = conditionsResolution.cost;
+        subgraphEnteringEdge = {
+          index: this.size,
+          edge,
+          cost: conditionsResolution.cost,
+        };
       }
     }
 
-    return new GraphPath(
-      this.graph,
-      this.root,
-      edge ? edge.tail : this.tail,
-      this.edgeTriggers.concat(trigger),
-      this.edgeIndexes.concat((edge ? edge.index : null) as number | TNullEdge),
-      this.edgeConditions.concat(conditionsResolution.pathTree ?? null),
-      subgraphEnteringEdgeIndex,
+    return new GraphPath({
+      ...this.props,
+      tail: edge ? edge.tail : this.tail,
+      edgeTriggers: this.props.edgeTriggers.concat(trigger),
+      edgeIndexes: this.props.edgeIndexes.concat((edge ? edge.index : null) as number | TNullEdge),
+      edgeConditions: this.props.edgeConditions.concat(conditionsResolution.pathTree ?? null),
       subgraphEnteringEdge,
-      subgraphEnteringEdgeCost,
-      edge,
-      updateRuntimeTypes(this.runtimeTypesOfTail, edge),
-      edge?.transition?.kind === 'DownCast' ? this.runtimeTypesOfTail : undefined,
-      defer,
-    );
+      edgeToTail: edge,
+      runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
+      runtimeTypesBeforeTailIfLastIsCast: edge?.transition?.kind === 'DownCast' ? this.props.runtimeTypesOfTail : undefined,
+      deferOnTail: defer,
+    });
   }
 
   /**
@@ -355,39 +387,39 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       return this;
     }
 
-    let prevRuntimeTypes = this.runtimeTypesBeforeTailIfLastIsCast;
-    let runtimeTypes = this.runtimeTypesOfTail;
+    let prevRuntimeTypes = this.props.runtimeTypesBeforeTailIfLastIsCast;
+    let runtimeTypes = this.props.runtimeTypesOfTail;
     for (const [edge] of tailPath) {
       prevRuntimeTypes = runtimeTypes;
       runtimeTypes = updateRuntimeTypes(runtimeTypes, edge);
     }
-    return new GraphPath(
-      this.graph,
-      this.root,
-      tailPath.tail,
-      this.edgeTriggers.concat(tailPath.edgeTriggers),
-      this.edgeIndexes.concat(tailPath.edgeIndexes),
-      this.edgeConditions.concat(tailPath.edgeConditions),
-      tailPath.subgraphEnteringEdge ? tailPath.subgraphEnteringEdgeIndex : this.subgraphEnteringEdgeIndex,
-      tailPath.subgraphEnteringEdge ? tailPath.subgraphEnteringEdge : this.subgraphEnteringEdge,
-      tailPath.subgraphEnteringEdge ? tailPath.subgraphEnteringEdgeCost : this.subgraphEnteringEdgeCost,
-      tailPath.edgeToTail,
-      runtimeTypes,
-      tailPath.edgeToTail?.transition?.kind === 'DownCast' ? prevRuntimeTypes : undefined
-    );
+    return new GraphPath({
+      ...this.props,
+      tail: tailPath.tail,
+      edgeTriggers: this.props.edgeTriggers.concat(tailPath.props.edgeTriggers),
+      edgeIndexes: this.props.edgeIndexes.concat(tailPath.props.edgeIndexes),
+      edgeConditions: this.props.edgeConditions.concat(tailPath.props.edgeConditions),
+      subgraphEnteringEdge: tailPath.subgraphEnteringEdge ? tailPath.subgraphEnteringEdge : this.subgraphEnteringEdge,
+      ownPathIds: this.props.ownPathIds.concat(tailPath.props.ownPathIds),
+      overriddingPathIds: this.props.overriddingPathIds.concat(tailPath.props.overriddingPathIds),
+      edgeToTail: tailPath.props.edgeToTail,
+      runtimeTypesOfTail: runtimeTypes,
+      runtimeTypesBeforeTailIfLastIsCast: tailPath.props.edgeToTail?.transition?.kind === 'DownCast' ? prevRuntimeTypes : undefined,
+      deferOnTail: tailPath.deferOnTail,
+    });
   }
 
   checkDirectPathFomPreviousSubgraphTo(
     typeName: string,
     triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
   ): Vertex | undefined {
-    if (this.subgraphEnteringEdgeIndex < 0) {
+    const enteringEdge = this.subgraphEnteringEdge;
+    if (!enteringEdge) {
       return undefined;
     }
-    assert(this.subgraphEnteringEdge, 'Should have an entering edge since the index is >= 0');
-    let prevSubgraphVertex = this.subgraphEnteringEdge.head;
-    for (let i = this.subgraphEnteringEdgeIndex + 1; i < this.size; i++) {
-      const triggerToMatch = this.edgeTriggers[i];
+    let prevSubgraphVertex = enteringEdge.edge.head;
+    for (let i = enteringEdge.index + 1; i < this.size; i++) {
+      const triggerToMatch = this.props.edgeTriggers[i];
       const prevSubgraphMatchingEdge = triggerToEdge(this.graph, prevSubgraphVertex, triggerToMatch);
       if (prevSubgraphMatchingEdge === null) {
         // This means the trigger doesn't make us move (it's typically an inline fragment with no conditions, just directive), which we can always match.
@@ -419,7 +451,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     // In theory, we could always return `this.graph.outEdges(this.tail)` here. But in practice, `nonTrivialFollowupEdges` may give us a subset
     // of those "out edges" that avoids some of the edges that we know we don't need to check because they are guaranteed to be inefficient
     // after the previous `tailEdge`. Note that is purely an optimization (see https://github.com/apollographql/federation/pull/1653 for more details).
-    const tailEdge = this.edgeToTail;
+    const tailEdge = this.props.edgeToTail;
     return tailEdge
       ? this.graph.nonTrivialFollowupEdges(tailEdge)
       : this.graph.outEdges(this.tail);
@@ -453,7 +485,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 
   private edgeAt(index: number, v: Vertex): Edge | TNullEdge {
-    const edgeIdx = this.edgeIndexes[index];
+    const edgeIdx = this.props.edgeIndexes[index];
     return (edgeIdx !== null ? this.graph.outEdge(v, edgeIdx) : null) as Edge | TNullEdge;
   }
 
@@ -496,7 +528,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * Whether any of the edge in the path has associated conditions paths.
    */
   hasAnyEdgeConditions(): boolean {
-    return this.edgeConditions.some(c => c !== null);
+    return this.props.edgeConditions.some(c => c !== null);
   }
 
   isOnTopLevelQueryRoot(): boolean {
@@ -546,20 +578,42 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     }
 
     const newSize = lastNonDowncastIdx + 1;
-    return new GraphPath(
-      this.graph,
-      this.root,
-      lastNonDowncastVertex,
-      this.edgeTriggers.slice(0, newSize),
-      this.edgeIndexes.slice(0, newSize),
-      this.edgeConditions.slice(0, newSize),
-      // Note as we _only_ truncate downCast edges, the "subgraph entering edge" cannot have changed.
-      this.subgraphEnteringEdgeIndex,
-      this.subgraphEnteringEdge,
-      this.subgraphEnteringEdgeCost,
-      lastNonDowncastEdge,
-      runtimeTypesAtLastNonDowncastEdge
-    );
+    return new GraphPath({
+      ...this.props,
+      tail: lastNonDowncastVertex,
+      edgeTriggers: this.props.edgeTriggers.slice(0, newSize),
+      edgeIndexes: this.props.edgeIndexes.slice(0, newSize),
+      edgeConditions: this.props.edgeConditions.slice(0, newSize),
+      edgeToTail: lastNonDowncastEdge,
+      runtimeTypesOfTail: runtimeTypesAtLastNonDowncastEdge,
+      runtimeTypesBeforeTailIfLastIsCast: undefined,
+    });
+  }
+
+  markOverridding(otherOptions: GraphPath<TTrigger, RV, TNullEdge>[][]): {
+    thisPath: GraphPath<TTrigger, RV, TNullEdge>,
+    otherOptions: GraphPath<TTrigger, RV, TNullEdge>[][],
+  } {
+    const newId = uuidv4();
+    return {
+      thisPath: new GraphPath({
+        ...this.props,
+        ownPathIds: this.props.ownPathIds.concat(newId),
+      }),
+      otherOptions: otherOptions.map((paths) => paths.map((p) => new GraphPath({
+        ...p.props,
+        overriddingPathIds: p.props.overriddingPathIds.concat(newId),
+      }))),
+    };
+  }
+
+  isOverriddenBy(otherPath: GraphPath<TTrigger, RV, TNullEdge>): boolean {
+    for (const overriddingId of this.props.overriddingPathIds) {
+      if (otherPath.props.ownPathIds.includes(overriddingId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   toString(): string {
@@ -575,10 +629,10 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         const label = edge.label();
         return ` -${label === "" ? "" : '-[' + label + ']-'}-> ${edge.tail}`
       }
-      return ` (${this.edgeTriggers[idx]}) `;
+      return ` (${this.props.edgeTriggers[idx]}) `;
     }).join('');
     const deferStr = this.deferOnTail ? ` <defer='${this.deferOnTail.label}'>` : '';
-    return `${isRoot ? '' : this.root}${pathStr}${deferStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
+    return `${isRoot ? '' : this.root}${pathStr}${deferStr} (types: [${this.props.runtimeTypesOfTail.join(', ')}])`;
   }
 }
 
@@ -1119,10 +1173,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // Note that we ignore the case where the "entering edge" is the "current" type as we might end up in an infinite
         // loop when calling `hasValidDirectKeyEdge` in that case without additional care and it's not useful because this
         // very method already ensure we don't create unnecessary chains of keys for the "current type"
-        if (subgraphEnteringEdge && edge.transition.kind === 'KeyResolution' && subgraphEnteringEdge.tail.type.name !== typeName) {
+        if (subgraphEnteringEdge && edge.transition.kind === 'KeyResolution' && subgraphEnteringEdge.edge.tail.type.name !== typeName) {
           const prevSubgraphVertex = toAdvance.checkDirectPathFomPreviousSubgraphTo(edge.tail.type.name, triggerToEdge);
-          const backToPreviousSubgraph = subgraphEnteringEdge.head.source === edge.tail.source;
-          const maxCost = toAdvance.subgraphEnteringEdgeCost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
+          const backToPreviousSubgraph = subgraphEnteringEdge.edge.head.source === edge.tail.source;
+          const maxCost = toAdvance.subgraphEnteringEdge.cost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
           if (prevSubgraphVertex
             && (
               backToPreviousSubgraph
@@ -1130,8 +1184,8 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
             )
           ) {
             debug.groupEnd(
-              () => `Ignored: edge correspond to a detour by subgraph ${edge.head.source} from subgraph ${subgraphEnteringEdge.head.source}: `
-              + `we have a direct path from ${subgraphEnteringEdge.head.type} to ${edge.tail.type} in ${subgraphEnteringEdge.head.source}`
+              () => `Ignored: edge correspond to a detour by subgraph ${edge.head.source} from subgraph ${subgraphEnteringEdge.edge.head.source}: `
+              + `we have a direct path from ${subgraphEnteringEdge.edge.head.type} to ${edge.tail.type} in ${subgraphEnteringEdge.edge.head.source}`
               + (backToPreviousSubgraph ? '.' : ` and can move to ${edge.tail.source} from there`)
             );
             // Note that we just found that going to the previous subgraph is useless because there is a more direct path.
@@ -1737,6 +1791,119 @@ function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): bo
   return false;
 }
 
+/*
+ * This method is used to detect the case where using an interface field "directly" could fail (lead to a dead end later for the quer path)
+ * _while_ type-exploding may succeed.
+ *
+ * In general, taking a field from an interface directly or through it's implementation by type-exploding leads to the same option, and so
+ * taking one or the other is more of a matter of "which is more efficient". But there is a special case where this may not be the case,
+ * and this is:
+ *  1. when the interface is implemented by an entity type.
+ *  2. the field being looked at is @shareable.
+ *  3. the field type has a different set of fields (and less fields) in the "current" subgraph than in another one.
+ *
+ * Consider for instance:
+ * ```
+ *   # Subgraph A
+ *   type Query {
+ *     i: I
+ *   }
+  *
+ *   interface I {
+ *     s: S
+ *   }
+ *
+ *   type T implements I @key(fields: "id") {
+ *     id: ID!
+ *     s: S @shareable
+ *   }
+ *
+ *   type S @shareable {
+ *     x: Int
+ *   }
+ * ```
+ * ```
+ *   # Subgraph B
+ *   type T @key(fields: "id") {
+ *     id: ID!
+ *     s: S @shareable
+ *   }
+ *
+ *   type S @shareable {
+ *     x: Int
+ *     y: Int
+ *   }
+ * ```
+ * and suppose that `{ i { s { y } } }` is queried. If we follow `I.s` in subgraph A, then the `y` field
+ * cannot be found, because `S` is not an entity (not that it could also be an entity but not have a usable
+ * key between the 2 subgraphs) and so we cannot "jump" to subgraph B. However, if we "type-explode" into
+ * implementation `T`, then we can jump to subgraph B from that, at which point we can reach `y`.
+ *
+ * So the goal of this method is to detect when we might be in such a case: when we are, we will have to
+ * consider type-explosion on top of the direct route in case that direct route ends up "not panning out"
+ * (note that by the time this method is called, we're only looking at the options for type `I.s`; we
+ * do not know yet if `y` is queried next and so cannot tell if type-explosion will be necessary or not).
+ */
+function anImplementationIsEntityWithFieldShareable<V extends Vertex>(path: OpGraphPath<V>, fieldName: string, itf: InterfaceType): boolean {
+  const metadata = federationMetadata(itf.schema());
+  assert(metadata, "Interface should have come from a federation subgraph");
+  for (const implem of itf.possibleRuntimeTypes()) {
+    if (!implem.hasAppliedDirective(metadata.keyDirective())) {
+      continue;
+    }
+    const field = implem.field(fieldName);
+    // Note that this should only be called if field exists, but no reason to fail otherwise.
+    if (!field || !field.hasAppliedDirective(metadata.shareableDirective())) {
+      continue;
+    }
+
+    // Returning `true` for this method has a cost: it will make us consider type-explosion for `itf`, and this can
+    // sometime lead to a large number of additional path to explore, which can have a substantial cost. So we want
+    // to limit it if we can avoid it. As it happens, we should return `true` if it is possible that "something"
+    // (some field) in the type of `field` is reachable in _another_ subgraph but no in the one of the current path.
+    // And while it's not trivial to check this in general, there is some easy case we can elimiate. For instance,
+    // if the type in the current subgraph has only leaf fields, we can check that all other subgraphs reachable
+    // from the implementation have the same set of leafs.
+    const type = baseType(field.type!);
+    if (isLeafType(type)) {
+      continue;
+    }
+    if (isObjectType(type) && type.fields().every((f) => isLeafType(baseType(f.type!)))) {
+      const fieldNames = new Set(type.fields().map((f) => f.name));
+      for (const v of path.graph.verticesForType(implem.name)) {
+        if (v.source === path.tail.source) {
+          continue;
+        }
+        const otherMetadata = federationMetadata(v.type.schema());
+        assert(otherMetadata, "Type should have come from a federation subgraph");
+        assert(isObjectType(v.type) || isInterfaceType(v.type), () => `${implem} is an object in ${path.tail.source} but a ${v.type.kind} in ${v.source}`);
+        const fieldInOther = v.type.field(fieldName);
+        if (!fieldInOther || !fieldInOther.hasAppliedDirective(otherMetadata.shareableDirective())) {
+          // The shareable field is actually not shared here (it's either not declared, or external), so we can ignore that subgraph.
+          continue;
+        }
+        const typeInOther = baseType(fieldInOther.type!);
+        if (typeInOther.name !== type.name || !(isObjectType(typeInOther) || isInterfaceType(typeInOther))) {
+          // We have a genuine difference here, so we should explore type explosion.
+          return true;
+        }
+        const otherNames = new Set(typeInOther.fields().map((f) => f.name));
+        if (!isSubset(fieldNames, otherNames)) {
+          // Same, we have a genuine difference.
+          return true;
+        }
+        // Note that if the type is the same and the fields too, then we know the type of those fields must be leaf type,
+        // or merging would have complained.
+      }
+      // So every other instance of the type
+      return false;
+    }
+    // Alright, we officially "don't know", so we return "true" so type-explosion is tested.
+    return true;
+  }
+  return false;
+}
+
 function isProvidedEdge(edge: Edge): boolean {
   return edge.transition.kind === 'FieldCollection' && edge.transition.isPartOfProvide;
 }
@@ -1770,41 +1937,58 @@ function advanceWithOperation<V extends Vertex>(
           debug.groupEnd(() => `No edge for field ${field} on object type ${currentType}`);
           return undefined;
         }
-        const fieldOptions = addFieldEdge(path, operation, edge, conditionResolver, context);
-        debug.groupEnd(() => fieldOptions
+        const fieldPath = addFieldEdge(path, operation, edge, conditionResolver, context);
+        debug.groupEnd(() => fieldPath
           ? `Collected field ${field} on object type ${currentType}`
           : `Cannot satisfy @requires on field ${field} for object type ${currentType}`
         );
-        return fieldOptions;
+        return pathAsOptions(fieldPath);
       case 'InterfaceType':
         // First, we check if there is a direct edge from the interface (which only happens if we're in a subgraph that knows all of the
         // implementations of that interface globally and all of them resolve the field).
-        // If there is one, then we have 2 options: either we take that edge, or we type-explode (like when we don't have a direct interface edge).
-        // In general, taking the interface edge is better than type explosion. However, there is a special case: if the field has a @provides in
-        // at least some of the implementations. In that case, it could be that type-exploding ends up faster because the @provides saves on a fetch
-        // we have to do if we take the direct edge. So if any implementation has a @provides, we include both options (direct interface or type explosion
-        // and let the later query-plan "cost" evaluation decide what is best).
+        // If there is one, then we have 2 options:
+        //  - either we take that edge,
+        //  - or we type-explode (like when we don't have a direct interface edge).
+        // We want to avoid looking at both options if we can avoid it because it multiplies planning work quickly if
+        // we always check both options. And in general, taking the interface edge is better than type explosion "if it works",
+        // so we distinguish a number of cases where we know that:
+        // - either type-exploding cannot work unless taking the interface edge also do (the `anImplementationIsEntityWithFieldShareable`)
+        // - or that type-exploding cannot be more efficient than the direct path (when no @provides are involved; if a provide is involved
+        //   in one of the implementation, then type-exploding may lead to a shorter overall plan thanks to that @provides)
         const itfEdge = nextEdgeForField(path, operation);
-        let itfOptions: SimultaneousPaths<V>[] | undefined = undefined;
+        let itfPath: OpGraphPath<V> | undefined = undefined;
+        let directPathOverrideTypeExplosion = false;
         if (itfEdge) {
-          itfOptions = addFieldEdge(path, operation, itfEdge, conditionResolver, context);
+          itfPath = addFieldEdge(path, operation, itfEdge, conditionResolver, context);
+          assert(itfPath, () => `Interface edge ${itfEdge} shouldn't have conditions`);
+          // There is 2 separate case where we going to do _both_ "direct" and "type-exploding" options:
+          // 1. if there is a @provides: in that case the "type-exploding" case can legit be more efficient and we want to
+          //   consider it "all the way"
+          // 2. in the sub-case of `!anImplementationIsEntityWithFieldShareable(...)`, where we want to have the type-exploding
+          //   option only for the case where the "direct" one fails later. But in that case, we'll remember that if the direct
+          //   option pan out, then we can ignore the type-exploding one.
+          // `directPathOverrideTypeExplosion` indicates that we're in the 2nd case above, not the 1st one.
+          directPathOverrideTypeExplosion =
+            field.name === typenameFieldName
+            || (!isProvidedEdge(itfEdge) && !anImplementationHasAProvides(field.name, currentType));
+          // We can special case terminal (leaf) fields: as long they have no @provides, then the path ends there and there is no need
+          // to check type explosion "in case the direct path don't pan out". Additionally, if we're not in the case where an implementation
+          // is an entity and the field is shareable, then there is no case where the direct case wouldn't "pan out" but the type-explosion
+          // would, so we can ignore type-exploding there too.
           // TODO: We should re-assess this when we support @requires on interface fields (typically, should we even try to type-explode
           // if the direct edge cannot be satisfied? Probably depends on the exact semantic of @requires on interface fields).
-          assert(itfOptions, () => `Interface edge ${itfEdge} shouldn't have conditions`);
-          // Further, if we've getting the __typename, we must _not_ type-explode.
-          if (field.name === typenameFieldName || (!isProvidedEdge(itfEdge) && !anImplementationHasAProvides(field.name, currentType))) {
-            debug.groupEnd(() => `Collecting field ${field} on interface ${currentType} without type-exploding`);
-            return itfOptions;
-          } else {
-            debug.log(() => `Collecting field ${field} on interface ${currentType} as 1st option`);
+          if (directPathOverrideTypeExplosion && (isLeafType(field.type!) || !anImplementationIsEntityWithFieldShareable(path, field.name, currentType))) {
+            debug.groupEnd(() => `Collecting (leaf) field ${field} on interface ${currentType} without type-exploding`);
+            return pathAsOptions(itfPath);
           }
+          debug.log(() => `Collecting field ${field} on interface ${currentType} as 1st option`);
         }
         // Otherwise, that means we need to type explode and descend into every possible implementations (implementations "in the current
         // subgraph", since the previous edge to this interface had to come from the current subgraph and can thus only have returned
         // local implementations).
         // TODO: once we add @key on interfaces, this will have to be updated.
         const implementations = path.tailPossibleRuntimeTypes();
-        debug.log(() => !itfOptions
+        debug.log(() => !itfPath
           ? `No direct edge: type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}]`
           : `Type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}] as 2nd option`
         );
@@ -1822,8 +2006,8 @@ function advanceWithOperation<V extends Vertex>(
           // If we find no option for that implementation, we bail (as we need to simultaneously advance all implementations).
           if (!implemOptions) {
             debug.groupEnd();
-            debug.groupEnd(() => `Cannot collect field ${field} from ${implemType}: stopping with options ${advanceOptionsToString(itfOptions)}`);
-            return itfOptions;
+            debug.groupEnd(() => `Cannot collect field ${field} from ${implemType}: stopping with options [${itfPath}]`);
+            return pathAsOptions(itfPath);
           }
           // If the new fragment makes it so that we're on an unsatisfiable branch, we just ignore that implementation.
           if (implemOptions.length === 0) {
@@ -1853,14 +2037,19 @@ function advanceWithOperation<V extends Vertex>(
           // If we find no option to advance that implementation, we bail (as we need to simultaneously advance all implementations).
           if (withField.length === 0) {
             debug.groupEnd(); // implem group
-            debug.groupEnd(() => `Cannot collect field ${field} from ${implemType}: stopping with options ${advanceOptionsToString(itfOptions)}`);
-            return itfOptions;
+            debug.groupEnd(() => `Cannot collect field ${field} from ${implemType}: stopping with options [${itfPath}]`);
+            return pathAsOptions(itfPath);
           }
           debug.groupEnd(() => `Collected field ${field} from ${implemType}`);
           optionsByImplems.push(withField);
         }
-        const implemOptions = flatCartesianProduct(optionsByImplems);
-        const allOptions = itfOptions ? itfOptions.concat(implemOptions) : implemOptions;
+        let allOptions = flatCartesianProduct(optionsByImplems);
+        if (itfPath) {
+          if (directPathOverrideTypeExplosion) {
+            ({ thisPath: itfPath, otherOptions: allOptions } = itfPath.markOverridding(allOptions));
+          }
+          allOptions = pathAsOptions(itfPath)!.concat(allOptions);
+        }
         debug.groupEnd(() => `With type-exploded options: ${advanceOptionsToString(allOptions)}`);
         return allOptions;
       case 'UnionType':
@@ -1868,7 +2057,7 @@ function advanceWithOperation<V extends Vertex>(
         const typenameEdge = nextEdgeForField(path, operation);
         assert(typenameEdge, `Should always have an edge for __typename edge on an union`);
         debug.groupEnd(() => `Trivial collection of __typename for union ${currentType}`);
-        return addFieldEdge(path, operation, typenameEdge, conditionResolver, context);
+        return pathAsOptions(addFieldEdge(path, operation, typenameEdge, conditionResolver, context));
       default:
         // Only object, interfaces and unions (only for __typename) have fields so the query should have been flagged invalid if a field was selected on something else.
         assert(false, `Unexpected ${currentType.kind} type ${currentType} from ${path.tail} given operation ${operation}`);
@@ -1961,9 +2150,13 @@ function addFieldEdge<V extends Vertex>(
   edge: Edge,
   conditionResolver: ConditionResolver,
   context: PathContext
-): SimultaneousPaths<V>[] | undefined {
+): OpGraphPath<V> | undefined {
   const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
-  return conditionResolution.satisfied ? [[ path.add(fieldOperation, edge, conditionResolution) ]] : undefined;
+  return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
+}
+
+function pathAsOptions<V extends Vertex>(path: OpGraphPath<V> | undefined): SimultaneousPaths<V>[] | undefined {
+  return path ? [[path]] : undefined;
 }
 
 function nextEdgeForField<V extends Vertex>(

@@ -52,12 +52,12 @@ extend type Query {
   _service: _Service!
 }
 
-directive @external on FIELD_DEFINITION
+directive @external on FIELD_DEFINITION | OBJECT
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION
 directive @provides(fields: FieldSet!) on FIELD_DEFINITION
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-directive @shareable on OBJECT | FIELD_DEFINITION
+directive @shareable repeatable on OBJECT | FIELD_DEFINITION
 directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 directive @override(from: String!) on FIELD_DEFINITION

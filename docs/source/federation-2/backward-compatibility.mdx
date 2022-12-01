@@ -3,11 +3,17 @@ title: Backward compatibility in Federation 2
 description: FAQ
 ---
 
+## Is official support ending for `@apollo/gateway` v0.x?
+
+**Yes.** As of 15 November 2022, `@apollo/gateway` v0.x is officially deprecated, with end-of-life scheduled for 22 September 2023. **`@apollo/gateway` v2.x remains fully supported.**
+
+[Learn more about deprecation and end-of-life.](https://www.apollographql.com/docs/resources/product-launch-stages#stages-for-discontinuing-support)
+
 ## Do I need to modify my subgraph schemas to use Federation 2?
 
 **Eventually.** The process of [moving to Federation 2](./moving-to-federation-2/) has three steps:
 
-1. Update your gateway to support Federation 2.
+1. Upgrade your gateway to support Federation 2.
 2. Begin composing your supergraph schema with Federation 2 composition logic.
 3. Update your individual subgraphs to use Federation 2 features and directives.
 
@@ -139,14 +145,10 @@ Federation 2 provides [more flexible composition rules](./new-in-federation-2/#m
 
 **Your plugins and customizations for `@apollo/gateway` `0.x` will continue to work as expected in `@apollo/gateway` `2.x`**.
 
-## Is official support for `@apollo/gateway` v0.x being removed?
-
-**No,** at _least_ through the end of 2022. We'll announce more specific updates about `@apollo/gateway` v0.x support as they're available.
-
 ## Compatibility table
 
-| | Federation 1<br/>Composition | Federation 2<br/>Composition |
+| Router/Gateway version | Federation 1<br/>Composition | Federation 2<br/>Composition |
 |-|--------------|--------------|
-| `@apollo/gateway` v0.x | ✅ | ❌ |
-| `@apollo/gateway` v2.x | ✅ | ✅ |
-| [Apollo Router](https://www.apollographql.com/docs/router/) | ✅ | ✅ |
+| [Apollo Router](https://www.apollographql.com/docs/router/) v1.x | 🟢 | 🟢 |
+| `@apollo/gateway` v2.x | 🟢 | 🟢 |
+| `@apollo/gateway` v0.x (deprecated) | 🟢 | ❌ |
