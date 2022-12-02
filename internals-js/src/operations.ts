@@ -441,6 +441,12 @@ export type OperationElement = Field<any> | FragmentElement;
 
 export type OperationPath = OperationElement[];
 
+export function operationPathToStringPath(path: OperationPath): string[] {
+  return path
+    .filter((p) => !(p.kind === 'FragmentElement' && !p.typeCondition))
+    .map((p) => p.kind === 'Field' ? p.responseName() : `... on ${p.typeCondition?.coordinate}`);
+}
+
 export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolean {
   if (p1 === p2) {
     return true;

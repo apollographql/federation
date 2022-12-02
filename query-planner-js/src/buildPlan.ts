@@ -22,7 +22,6 @@ import {
   Selection,
   SelectionSet,
   selectionSetOf,
-  Type,
   Variable,
   VariableDefinition,
   VariableDefinitions,
@@ -50,13 +49,13 @@ import {
   NamedFragmentDefinition,
   typenameFieldName,
   mapKeys,
+  operationPathToStringPath,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
   Edge,
   emptyContext,
   ExcludedEdges,
-  FieldCollection,
   QueryGraph,
   GraphPath,
   isPathContext,
@@ -1082,7 +1081,7 @@ class DeferredInfo {
 
   constructor(
     readonly label: string,
-    readonly responsePath: ResponsePath,
+    readonly path: GroupPath,
     readonly parentType: CompositeType,
     readonly deferred = new Set<string>(),
     readonly dependencies = new Set<string>(),
@@ -1122,6 +1121,75 @@ function deferContextAfterSubgraphJump(baseContext: DeferContext): DeferContext 
     };
 }
 
+class GroupPath {
+  private constructor(
+    private readonly fullPath: OperationPath,
+    private readonly pathInGroup: OperationPath,
+    private readonly responsePath: ResponsePath,
+  ) {
+  }
+
+  static empty(): GroupPath {
+    return new GroupPath([], [], []);
+  }
+
+  inGroup(): OperationPath {
+    return this.pathInGroup;
+  }
+
+  full(): OperationPath {
+    return this.fullPath;
+  }
+
+  inResponse(): ResponsePath {
+    return this.responsePath;
+  }
+
+  forNewKeyFetch(newGroupContext: OperationPath): GroupPath {
+    return new GroupPath(
+      this.fullPath,
+      newGroupContext,
+      this.responsePath,
+    );
+  }
+
+  forParentOfGroup(pathOfGroupInParent: OperationPath): GroupPath {
+    return new GroupPath(
+      this.fullPath,
+      concatOperationPaths(pathOfGroupInParent, this.pathInGroup),
+      this.responsePath,
+    );
+  }
+
+  private updatedResponsePath(element: OperationElement) {
+    if (element.kind !== 'Field') {
+      return this.responsePath;
+    }
+
+    let type = element.definition.type!;
+    const newPath = this.responsePath.concat(element.responseName());
+    while (!isNamedType(type)) {
+      if (isListType(type)) {
+        newPath.push('@');
+      }
+      type = type.ofType;
+    }
+    return newPath;
+  }
+
+  add(element: OperationElement): GroupPath {
+    return new GroupPath(
+      this.fullPath.concat(element),
+      this.pathInGroup.concat(element),
+      this.updatedResponsePath(element),
+    );
+  }
+
+  toString() {
+    return `[${this.fullPath}]:[${this.pathInGroup}]`;
+  }
+}
+
 class DeferTracking {
   private readonly topLevelDeferred = new Set<string>();
   readonly primarySelection: SelectionSet | undefined;
@@ -1140,7 +1208,7 @@ class DeferTracking {
     for (const deferredBlock of this.deferred.values()) {
       const clonedInfo = new DeferredInfo(
         deferredBlock.label,
-        deferredBlock.responsePath,
+        deferredBlock.path,
         deferredBlock.parentType,
         new Set(deferredBlock.deferred),
       );
@@ -1153,12 +1221,12 @@ class DeferTracking {
   registerDefer({
     deferContext,
     deferArgs,
-    responsePath,
+    path,
     parentType,
   }: {
     deferContext: DeferContext,
     deferArgs: DeferDirectiveArgs,
-    responsePath: ResponsePath,
+    path: GroupPath,
     parentType: CompositeType,
   }): void {
     // Having the primary selection undefined means that @defer handling is actually disabled, so save anything costly that we won't be using.
@@ -1169,7 +1237,7 @@ class DeferTracking {
     assert(deferArgs.label, 'All @defer should have be labelled at this point');
     let deferredBlock = this.deferred.get(deferArgs.label);
     if (!deferredBlock) {
-      deferredBlock = new DeferredInfo(deferArgs.label, responsePath, parentType);
+      deferredBlock = new DeferredInfo(deferArgs.label, path, parentType);
       this.deferred.set(deferArgs.label, deferredBlock);
     }
 
@@ -2617,7 +2685,7 @@ function fetchGroupToPlanProcessor({
     reduceDeferred: (deferInfo: DeferredInfo, value: PlanNode | undefined): DeferredNode => ({
       depends: [...deferInfo.dependencies].map((id) => ({ id })),
       label: assignedDeferLabels?.has(deferInfo.label) ? undefined : deferInfo.label,
-      path: deferInfo.responsePath,
+      queryPath: operationPathToStringPath(deferInfo.path.full()),
       // Note that if the deferred block has nested @defer, then the `value` is going to be a `DeferNode` and we'll
       // use it's own `subselection`, so we don't need it here.
       subselection: deferInfo.deferred.size === 0 ? sanitizeAndPrintSubselection(deferInfo.subselection) : undefined,
@@ -2654,16 +2722,6 @@ function flatWrapNodes(
     kind,
     nodes: filteredNodes.flatMap((n) => n.kind === kind ? n.nodes : [n]),
   };
-}
-function addToResponsePath(path: ResponsePath, responseName: string, type: Type) {
-  path = path.concat(responseName);
-  while (!isNamedType(type)) {
-    if (isListType(type)) {
-      path.push('@');
-    }
-    type = type.ofType;
-  }
-  return path;
 }
 
 function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragments): NamedFragments {
@@ -2882,7 +2940,7 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
     const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType });
-    computeGroupsForTree(dependencyGraph, child, group, emptyDeferContext);
+    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(), emptyDeferContext);
   }
   return dependencyGraph;
 }
@@ -2893,23 +2951,24 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
   const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
-  computeGroupsForTree(dependencyGraph, pathTree, group, emptyDeferContext);
+  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(), emptyDeferContext);
   return dependencyGraph;
 }
 
 function wrapEntitySelection(
+  path: GroupPath,
   type: CompositeType,
   selections: SelectionSet | undefined,
   context: PathContext
 ): {
   updatedSelection: Selection,
-  updatedPath: OperationPath,
+  newPath: GroupPath,
 }{
   const typeCast = new FragmentElement(type, type.name);
   let updatedSelection = selectionOfElement(typeCast, selections);
-  let updatedPath = [typeCast];
+  let newGroupContext = [typeCast];
   if (context.conditionals.length === 0) {
-    return { updatedSelection, updatedPath };
+    return { updatedSelection, newPath: path.forNewKeyFetch(newGroupContext) };
   }
 
   const schema = type.schema();
@@ -2925,22 +2984,23 @@ function wrapEntitySelection(
     const fragment = new FragmentElement(type, type.name);
     fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
     updatedSelection = selectionOfElement(fragment, selectionSetOf(type, updatedSelection));
-    updatedPath = [fragment].concat(updatedPath);
+    newGroupContext = [fragment].concat(newGroupContext);
   }
 
-  return {updatedSelection, updatedPath};
+  return {updatedSelection, newPath: path.forNewKeyFetch(newGroupContext) };
 }
 
-function extractPathInParentForKeyFetch(type: CompositeType, path: OperationPath): OperationPath {
+function extractPathInParentForKeyFetch(type: CompositeType, path: GroupPath): OperationPath {
   // A "key fetch" (calls to the `_entities` operation) always have to start with some type-cast into
   // the entity fetched (`type` in this function), so we can remove a type-cast into the entity from
   // the parent path if it is the last thing in the past. And doing that removal ensures the code
   // later reuse fetch groups for different entities, as long as they get otherwise merged into the
   // parent at the same place.
-  const lastElement = path[path.length - 1];
+  const inGroup = path.inGroup();
+  const lastElement = inGroup[inGroup.length - 1];
   return (lastElement && lastElement.kind === 'FragmentElement' && lastElement.typeCondition?.name === type.name)
-    ? path.slice(0, path.length - 1)
-    : path;
+    ? inGroup.slice(0, inGroup.length - 1)
+    : inGroup;
 }
 
 /**
@@ -2958,31 +3018,28 @@ function computeGroupsForTree(
   dependencyGraph: FetchDependencyGraph,
   pathTree: OpPathTree<any>,
   startGroup: FetchGroup,
+  initialGroupPath: GroupPath,
   initialDeferContext: DeferContext,
-  initialMergeAt: ResponsePath = [],
-  initialPath: OperationPath = [],
   initialContext: PathContext = emptyContext,
 ): FetchGroup[] {
   const stack: {
     tree: OpPathTree,
     group: FetchGroup,
-    mergeAt: ResponsePath,
-    path: OperationPath,
+    path: GroupPath,
     context: PathContext,
     deferContext: DeferContext,
   }[] = [{
     tree: pathTree,
     group: startGroup,
-    mergeAt: initialMergeAt,
-    path: initialPath,
+    path: initialGroupPath,
     context: initialContext,
     deferContext: initialDeferContext,
   }];
   const createdGroups = [ ];
   while (stack.length > 0) {
-    const { tree, group, mergeAt, path, context, deferContext } = stack.pop()!;
+    const { tree, group, path, context, deferContext } = stack.pop()!;
     if (tree.isLeaf()) {
-      group.addSelection(path);
+      group.addSelection(path.inGroup());
       dependencyGraph.deferTracking.updateSubselection(deferContext);
     } else {
       // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate
@@ -2997,7 +3054,7 @@ function computeGroupsForTree(
           if (edge.transition.kind === 'KeyResolution') {
             assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
-            const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, deferContextForConditions(deferContext), mergeAt, path);
+            const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, path, deferContextForConditions(deferContext));
             createdGroups.push(...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
@@ -3006,7 +3063,7 @@ function computeGroupsForTree(
             const updatedDeferContext = deferContextAfterSubgraphJump(deferContext);
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
-              mergeAt,
+              mergeAt: path.inResponse(),
               parent: { group, path: pathInParent },
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
@@ -3026,17 +3083,16 @@ function computeGroupsForTree(
             const inputSelections = newCompositeTypeSelectionSet(type);
             inputSelections.mergeIn(edge.conditions!);
 
-            const {updatedSelection, updatedPath} = wrapEntitySelection(type, inputSelections, newContext);
+            const {updatedSelection, newPath} = wrapEntitySelection(path, type, inputSelections, newContext);
             newGroup.addInputs(updatedSelection);
 
             // We also ensure to get the __typename of the current type in the "original" group.
-            group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
+            group.addSelection(path.inGroup().concat(new Field((edge.head.type as CompositeType).typenameField()!)));
 
             stack.push({
               tree: child,
               group: newGroup,
-              mergeAt,
-              path: updatedPath,
+              path: newPath,
               context: newContext,
               deferContext: updatedDeferContext,
             });
@@ -3053,12 +3109,12 @@ function computeGroupsForTree(
             // type is on another subgraph. When that happens, it means that on the original subgraph we may not have
             // added _any_ subselection for type `q` and that would make the query to the original subgraph invalid.
             // To avoid this, we request the __typename field.
-            // One exception however is if we're at the "top" of the current group (`path.length === 0`, which is a corner
+            // One exception however is if we're at the "top" of the current group (`pathInGroup.length === 0`, which is a corner
             // case but can happen with @defer when everything in a query is deferred): in that case, there is no
             // point in adding __typename because if we don't add any other selection, the group will be empty
             // and we've rather detect that and remove the group entirely later.
-            if (path.length > 0) {
-              group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
+            if (path.inGroup().length > 0) {
+              group.addSelection(path.inGroup().concat(new Field((edge.head.type as CompositeType).typenameField()!)));
             }
 
             // We take the edge, creating a new group. Note that we always create a new group because this
@@ -3069,15 +3125,14 @@ function computeGroupsForTree(
               subgraphName: edge.tail.source,
               rootKind,
               parentType: type,
-              mergeAt,
+              mergeAt: path.inResponse(),
               deferRef: updatedDeferContext.activeDeferRef,
             });
-            newGroup.addParent({ group, path });
-            const newPath = wrapEntitySelection(type, undefined, newContext).updatedPath;
+            newGroup.addParent({ group, path: path.inGroup() });
+            const { newPath } = wrapEntitySelection(path, type, undefined, newContext);
             stack.push({
               tree: child,
               group: newGroup,
-              mergeAt,
               path: newPath,
               context: newContext,
               deferContext: updatedDeferContext,
@@ -3092,19 +3147,19 @@ function computeGroupsForTree(
             dependencyGraph,
             operation,
             deferContext,
-            responsePath: mergeAt,
+            path,
           });
 
           // We're now removed any @defer. If the operation contains other directives, we need to preserve those and
           // so we add operation. Otherwise, we just skip it as a minor optimization (it makes the subgraph query
           // slighly smaller and on complex queries, it might also deduplicate similar selections).
-          const newPath = updatedOperation && updatedOperation.appliedDirectives.length > 0
-            ? path.concat(operation)
-            : path;
+          let newPath = path;
+          if (updatedOperation && updatedOperation.appliedDirectives.length > 0) {
+            newPath = path.add(updatedOperation)
+          }
           stack.push({
             tree: child,
             group,
-            mergeAt,
             path: newPath,
             context,
             deferContext: updatedDeferContext,
@@ -3120,7 +3175,7 @@ function computeGroupsForTree(
             // Note that the value of the "attachement" is the alias or '' if there is no alias
             const alias = typenameAttachment === '' ? undefined : typenameAttachment;
             const typenameField = new Field(operation.parentType.typenameField()!, {}, new VariableDefinitions(), alias);
-            group.addSelection(path.concat(typenameField));
+            group.addSelection(path.inGroup().concat(typenameField));
             dependencyGraph.deferTracking.updateSubselection({
               ...deferContext,
               pathToDeferParent: deferContext.pathToDeferParent.concat(typenameField),
@@ -3131,40 +3186,35 @@ function computeGroupsForTree(
             dependencyGraph,
             operation,
             deferContext,
-            responsePath: mergeAt,
+            path,
           });
           assert(updatedOperation, `Extracting @defer from ${operation} should not have resulted in no operation`);
 
           let updated = {
             tree: child,
             group,
-            mergeAt,
             path,
             context,
             deferContext: updatedDeferContext
           };
           if (conditions) {
             // We have some @requires.
-            const requireResult =  handleRequires(
+            const requireResult = handleRequires(
               dependencyGraph,
               edge,
               conditions,
               group,
-              mergeAt,
               path,
               context,
               updatedDeferContext,
             );
             updated.group = requireResult.group;
-            updated.mergeAt = requireResult.mergeAt;
             updated.path = requireResult.path;
             createdGroups.push(...requireResult.createdGroups);
           }
 
-          if (updatedOperation.kind === 'Field') {
-            updated.mergeAt = addToResponsePath(updated.mergeAt, updatedOperation.responseName(), (edge.transition as FieldCollection).definition.type!);
-          }
-          updated.path = updated.path.concat(updatedOperation);
+          updated.path = updated.path.add(updatedOperation);
+
           stack.push(updated);
         }
       }
@@ -3177,12 +3227,12 @@ function extractDeferFromOperation({
   dependencyGraph,
   operation,
   deferContext,
-  responsePath,
+  path,
 }: {
   dependencyGraph: FetchDependencyGraph,
   operation: OperationElement,
   deferContext: DeferContext,
-  responsePath: ResponsePath,
+  path: GroupPath,
 }): {
   updatedOperation: OperationElement | undefined,
   updatedDeferContext: DeferContext,
@@ -3206,7 +3256,7 @@ function extractDeferFromOperation({
   dependencyGraph.deferTracking.registerDefer({
     deferContext,
     deferArgs,
-    responsePath,
+    path,
     parentType: operation.parentType,
   });
 
@@ -3249,14 +3299,12 @@ function handleRequires(
   edge: Edge,
   requiresConditions: OpPathTree,
   group: FetchGroup,
-  mergeAt: ResponsePath,
-  path: OperationPath,
+  path: GroupPath,
   context: PathContext,
   deferContext: DeferContext,
 ): {
   group: FetchGroup,
-  mergeAt: ResponsePath,
-  path: OperationPath,
+  path: GroupPath,
   createdGroups: FetchGroup[],
 } {
   // @requires should be on an entity type, and we only support object types right now
@@ -3284,7 +3332,7 @@ function handleRequires(
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
-  if (parents.length === 1 && pathHasOnlyFragments(path)) {
+  if (parents.length === 1 && pathHasOnlyFragments(path.inGroup())) {
     const parent = parents[0];
 
     // We start by computing the groups for the conditions. We do this using a copy of the current
@@ -3293,13 +3341,13 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt: group.mergeAt!, deferRef: group.deferRef});
     newGroup.addParent(parent);
     newGroup.addInputs(originalInputs.forRead());
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, deferContextForConditions(deferContext), mergeAt, path);
+    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
     if (createdGroups.length == 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
       assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
       group.mergeSiblingIn(newGroup);
-      return {group, mergeAt, path, createdGroups: []};
+      return {group, path, createdGroups: []};
     }
 
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
@@ -3400,8 +3448,8 @@ function handleRequires(
     if (unmergedGroups.length == 0) {
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context, false).inputs);
-      return { group, mergeAt, path, createdGroups: [] };
+      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, path, entityType, edge, context, false).inputs);
+      return { group, path, createdGroups: [] };
     }
 
     // If we get here, it means that @require needs the information from `unmergedGroups` (plus whatever has
@@ -3427,16 +3475,15 @@ function handleRequires(
     assert(parent.path, `Missing path-in-parent for @require on ${edge} with group ${group} and parent ${parent}`);
     const newPath = addPostRequireInputs(
       dependencyGraph,
+      path.forParentOfGroup(parent.path),
       entityType,
       edge,
       context,
       parent.group,
-      concatOperationPaths(parent.path, path),
       postRequireGroup,
     );
     return {
       group: postRequireGroup,
-      mergeAt,
       path: newPath,
       createdGroups: unmergedGroups.concat(postRequireGroup),
     };
@@ -3446,50 +3493,50 @@ function handleRequires(
     // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
     // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
     // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, deferContextForConditions(deferContext), mergeAt, path);
+    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, path, deferContextForConditions(deferContext));
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {
-      return { group, mergeAt, path, createdGroups: []};
+      return { group, path, createdGroups: []};
     }
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
     // Note that we know the conditions will include a key for our group so we can resume properly.
-    const newGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt });
+    const newGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt: path.inResponse() });
     newGroup.addParents(createdGroups.map((group) => ({ group })));
     const newPath = addPostRequireInputs(
       dependencyGraph,
+      path,
       entityType,
       edge,
       context,
       group,
-      path,
       newGroup,
     );
-    return { group: newGroup, mergeAt, path: newPath, createdGroups: createdGroups.concat(newGroup) };
+    return { group: newGroup, path: newPath, createdGroups: createdGroups.concat(newGroup) };
   }
 }
 
 function addPostRequireInputs(
   dependencyGraph: FetchDependencyGraph,
+  requirePath: GroupPath,
   entityType: ObjectType,
   edge: Edge,
   context: PathContext,
   preRequireGroup: FetchGroup,
-  requirePath: OperationPath,
   postRequireGroup: FetchGroup,
-): OperationPath {
-  const { inputs, updatedPath, keyInputs } = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, context);
+): GroupPath {
+  const { inputs, newPath, keyInputs } = inputsForRequire(dependencyGraph.federatedQueryGraph, requirePath, entityType, edge, context);
   postRequireGroup.addInputs(inputs);
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
-    preRequireGroup.addSelection(requirePath, (endOfPathSet) => {
+    preRequireGroup.addSelection(requirePath.inGroup(), (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${requirePath} ends on a non-selectable type`);
       endOfPathSet.addAll(keyInputs.selections());
     });
   }
-  return updatedPath;
+  return newPath;
 }
 
 function newCompositeTypeSelectionSet(type: CompositeType): SelectionSet {
@@ -3500,13 +3547,14 @@ function newCompositeTypeSelectionSet(type: CompositeType): SelectionSet {
 
 function inputsForRequire(
   graph: QueryGraph,
+  path: GroupPath,
   entityType: ObjectType,
   edge: Edge,
   context: PathContext,
   includeKeyInputs: boolean = true
 ): {
   inputs: Selection,
-  updatedPath: OperationPath,
+  newPath: GroupPath,
   keyInputs: SelectionSet | undefined,
 }{
   const fullSelectionSet = newCompositeTypeSelectionSet(entityType);
@@ -3519,10 +3567,10 @@ function inputsForRequire(
     keyInputs = newCompositeTypeSelectionSet(entityType);
     keyInputs.mergeIn(keyCondition);
   }
-  const { updatedSelection, updatedPath } = wrapEntitySelection(entityType, fullSelectionSet, context);
+  const { updatedSelection, newPath } = wrapEntitySelection(path, entityType, fullSelectionSet, context);
   return {
     inputs: updatedSelection,
-    updatedPath,
+    newPath,
     keyInputs,
   };
 }

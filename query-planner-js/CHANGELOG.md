@@ -4,6 +4,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
+  - __BREAKING__: Any code relying directly on the query plan handling of `@defer` will need to potentially update its
+      handling of the `path` before upgrading to this version. This is *not* a concern for end-user of federation. 
+
 ## 2.2.0
 
 - __BREAKING__: Disable exposing full document to sub-query by default (introduced in 2.1.0):
