@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.2.2
+
 - Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
   - __BREAKING__: Any code relying directly on the query plan handling of `@defer` will need to potentially update its
       handling of the `path` before upgrading to this version. This is *not* a concern for end-user of federation. 
