@@ -55,6 +55,8 @@ import {
   supertypes,
   isInterfaceObjectType,
   isInterfaceType,
+  isNonNullType,
+  Type,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -89,7 +91,7 @@ import {
   buildFederatedQueryGraph,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
-import { DeferredNode, FetchDataInputRewrite } from ".";
+import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
@@ -1108,6 +1110,24 @@ class FetchGroup {
     }
   }
 
+  private finalizeSelection(): FetchDataOutputRewrite[] {
+    // Finalizing the selection involves the following:
+    // 1. we add __typename to all abstract types. This is because any follow-up fetch may need to select some of the entities fetched by this
+    //   group, and so we need to have the __typename of those.
+    // 2. we check if some selection violates `https://spec.graphql.org/draft/#FieldsInSetCanMerge()`: while the original query we plan for will
+    //   never violate this, because the planner adds some additional fields to the query (due to @key and @requires) and because type-explosion
+    //   changes the query, we could have violation of this. If that is the case, we introduce aliases to the selection to make it valid, and
+    //   then generate a rewrite on the output of the fetch so that data aliased this way is rewritten back to the original/proper response name.
+
+    addTypenameFieldForAbstractTypes(this.selection);
+
+    const rewrites: FetchDataOutputRewrite[] = [];
+    addAliasesForNonMergingFields([{ path: [], selections: this.selection }], rewrites);
+
+    this.selection.validate();
+    return rewrites;
+  }
+
   toPlanNode(
     queryPlannerConfig: QueryPlannerConfig,
     variableDefinitions: VariableDefinitions,
@@ -1118,9 +1138,8 @@ class FetchGroup {
       return undefined;
     }
 
-    addTypenameFieldForAbstractTypes(this.selection);
+    const outputRewrites = this.finalizeSelection();
 
-    this.selection.validate();
     const inputs = this._inputs?.forRead();
     if (inputs) {
       inputs.validate();
@@ -1156,6 +1175,7 @@ class FetchGroup {
       operationName: operation.name,
       operationDocumentNode: queryPlannerConfig.exposeDocumentNodeInFetchNode ? operationDocument : undefined,
       inputRewrites: this.inputRewrites.length === 0 ? undefined : this.inputRewrites,
+      outputRewrites: outputRewrites.length === 0 ? undefined : outputRewrites,
     };
 
     return this.isTopLevel
@@ -1172,6 +1192,86 @@ class FetchGroup {
     return this.isTopLevel
       ? `${base}[${this._selection}]`
       : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function genAliasName(baseName: string, unavailableNames: Map<string, any>): string {
+  let counter = 0;
+  let candidate = `${baseName}__alias_${counter}`;
+  while (unavailableNames.has(candidate)) {
+    candidate = `${baseName}__alias_${++counter}`;
+  }
+  return candidate;
+}
+
+function typesCanBeMerged(t1: Type, t2: Type): boolean {
+  // This essentially follows the beginning of https://spec.graphql.org/draft/#SameResponseShape().
+  // That is, the types cannot be merged unless:
+  // - they have the same nullability and "list-ability", potentially recursively.
+  // - their base type is either both composite, or are the same type.
+  if (isNonNullType(t1)) {
+    return isNonNullType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
+  }
+  if (isListType(t1)) {
+    return isListType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
+  }
+  if (isCompositeType(t1)) {
+    return isCompositeType(t2);
+  }
+  return sameType(t1, t2);
+}
+
+type SelectionSetAtPath = {
+  path: string[],
+  selections: SelectionSet,
+}
+
+function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewriteCollector: FetchDataOutputRewrite[]) {
+  const seenResponseNames = new Map<string, { type: Type, selections?: SelectionSetAtPath[] }>();
+  const rebasedFieldsInSet = (s: SelectionSetAtPath) => (
+    s.selections.fieldsInSet().map(({ path, field, directParent }) => ({ fieldPath: s.path.concat(path), field, directParent }))
+  );
+  for (const { fieldPath, field, directParent } of selections.map((s) => rebasedFieldsInSet(s)).flat()) {
+    const responseName = field.element().responseName();
+    const fieldType = field.element().definition.type!;
+    const previous = seenResponseNames.get(responseName);
+    if (previous) {
+      if (typesCanBeMerged(previous.type, fieldType)) {
+        // If the type is non-composite, then we're all set. But if it is composite, we need to record the sub-selection to that response name
+        // as we need to "recurse" on the merged of both the previous and this new field.
+        if (isCompositeType(baseType(fieldType))) {
+          assert(previous.selections, () => `Should have added selections for ${previous.type}`);
+          const selections = previous.selections.concat({ path: fieldPath.concat(responseName), selections: field.selectionSet! });
+          seenResponseNames.set(responseName, { ...previous, selections });
+        }
+      } else {
+        // We need to alias the new occurence.
+        const alias = genAliasName(responseName, seenResponseNames);
+        // Given how we generate aliases, it's is very unlikely that the generated alias will conflict with any of the other response name
+        // at the level, but it's theoretically possible. By adding the alias to the seen names, we ensure that in the remote change that
+        // this ever happen, we'll avoid the conflict by giving another alias to the followup occurence.
+        const selections = field.selectionSet ? [{ path: fieldPath.concat(alias), selections: field.selectionSet }] : undefined;
+        seenResponseNames.set(alias, { type: fieldType, selections });
+        const wasRemoved = directParent.removeTopLevelField(responseName);
+        assert(wasRemoved, () => `Should have found and removed ${responseName} from ${directParent}`);
+        directParent.add(field.withUpdatedField(field.element().withUpdatedAlias(alias)));
+        // Lastly, we record that the added alias need to be rewritten back to the proper response name post query.
+        rewriteCollector.push({
+          kind: 'KeyRenamer',
+          path: fieldPath.concat(alias),
+          renameKeyTo: responseName,
+        });
+      }
+    } else {
+      const selections = field.selectionSet ? [{ path: fieldPath.concat(responseName), selections: field.selectionSet }] : undefined;
+      seenResponseNames.set(responseName, { type: fieldType, selections });
+    }
+  }
+  for (const selections of seenResponseNames.values()) {
+    if (!selections.selections) {
+      continue;
+    }
+    addAliasesForNonMergingFields(selections.selections, rewriteCollector);
   }
 }
 

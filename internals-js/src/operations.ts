@@ -132,6 +132,15 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return newField;
   }
 
+  withUpdatedAlias(newAlias: string | undefined): Field<TArgs> {
+    const newField = new Field<TArgs>(this.definition, this.args, this.variableDefinitions, newAlias);
+    for (const directive of this.appliedDirectives) {
+      newField.applyDirective(directive.definition!, directive.arguments());
+    }
+    this.copyAttachementsTo(newField);
+    return newField;
+  }
+
   appliesTo(type: ObjectType | InterfaceType): boolean {
     const definition = type.field(this.name);
     return !!definition && this.selects(definition);
@@ -981,6 +990,22 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return this._cachedSelections;
   }
 
+  fieldsInSet(): { path: string[], field: FieldSelection, directParent: SelectionSet }[] {
+    const fields = new Array<{ path: string[], field: FieldSelection, directParent: SelectionSet }>();
+    for (const selection of this.selections()) {
+      if (selection.kind === 'FieldSelection') {
+        fields.push({ path: [], field: selection, directParent: this });
+      } else {
+        const condition = selection.element().typeCondition;
+        const header = condition ? [`... on ${condition}`] : [];
+        for (const { path, field, directParent } of selection.selectionSet.fieldsInSet()) {
+          fields.push({ path: header.concat(path), field, directParent });
+        }
+      }
+    }
+    return fields;
+  }
+
   usedVariables(): Variables {
     let variables: Variables = [];
     for (const byResponseName of this._selections.values()) {
@@ -1160,6 +1185,23 @@ export class SelectionSet extends Freezable<SelectionSet> {
     ++this._selectionCount;
     this._cachedSelections = undefined;
     return toAdd;
+  }
+
+  /**
+   * If this selection contains a selection of a field with provided response name at top level, removes it.
+   *
+   * @return whether a selection was removed.
+   */
+  removeTopLevelField(responseName: string): boolean {
+    // It's a bug to try to remove from a frozen selection set
+    assert(!this.isFrozen(), () => `Cannot remove from frozen selection: ${this}`);
+
+    const wasRemoved = this._selections.delete(responseName);
+    if (wasRemoved) {
+      --this._selectionCount;
+      this._cachedSelections = undefined;
+    }
+    return wasRemoved;
   }
 
   addPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
@@ -1640,6 +1682,10 @@ export class FieldSelection extends Freezable<FieldSelection> {
 
   withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FieldSelection {
     return new FieldSelection(this.field, newSubSelection);
+  }
+
+  withUpdatedField(newField: Field<any>): FieldSelection {
+    return new FieldSelection(newField, this.selectionSet);
   }
 
   equals(that: Selection): boolean {

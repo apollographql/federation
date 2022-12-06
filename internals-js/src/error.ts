@@ -395,11 +395,6 @@ const EXTERNAL_MISSING_ON_BASE = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
-const INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH = makeCodeDefinition(
-  'INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH',
-  'For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257)'
-);
-
 const INVALID_FIELD_SHARING = makeCodeDefinition(
   'INVALID_FIELD_SHARING',
   'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
@@ -604,7 +599,6 @@ export const ERRORS = {
   ARGUMENT_DEFAULT_MISMATCH,
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
-  INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
   INVALID_SHAREABLE_USAGE,
   INVALID_LINK_DIRECTIVE_USAGE,
@@ -660,16 +654,18 @@ export const REMOVED_ERRORS = [
   ['REQUIRES_FIELDS_MISSING_ON_BASE', 'Fields in @requires can now be from any subgraph.'],
   ['REQUIRES_USED_ON_BASE', 'As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires.'],
 
-  ['DUPLICATE_SCALAR_DEFINITION', 'As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`'],
-  ['DUPLICATE_ENUM_DEFINITION', 'As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`'],
-  ['DUPLICATE_ENUM_VALUE', 'As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`'],
+  ['DUPLICATE_SCALAR_DEFINITION', 'As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`.'],
+  ['DUPLICATE_ENUM_DEFINITION', 'As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`.'],
+  ['DUPLICATE_ENUM_VALUE', 'As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`.'],
 
-  ['ENUM_MISMATCH', 'Subgraph definitions for an enum are now merged by composition'],
+  ['ENUM_MISMATCH', 'Subgraph definitions for an enum are now merged by composition.'],
   ['VALUE_TYPE_NO_ENTITY', 'There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another.'],
-  ['VALUE_TYPE_UNION_TYPES_MISMATCH', 'Subgraph definitions for an union are now merged by composition'],
-  ['PROVIDES_FIELDS_SELECT_INVALID_TYPE', '@provides can now be used on field of interface, union and list types'],
-  ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case'],
+  ['VALUE_TYPE_UNION_TYPES_MISMATCH', 'Subgraph definitions for an union are now merged by composition.'],
+  ['PROVIDES_FIELDS_SELECT_INVALID_TYPE', '@provides can now be used on field of interface, union and list types.'],
+  ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case.'],
 
-  ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH', 'Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error'],
-  ['REQUIRES_FIELDS_HAS_ARGS', 'Since federation 2.1.1, using fields with arguments in a @requires is fully supported'],
+  ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH', 'Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error.'],
+  ['REQUIRES_FIELDS_HAS_ARGS', 'Since federation 2.1.1, using fields with arguments in a @requires is fully supported.'],
+
+  ['INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH', 'This error was thrown by a validation introduced to avoid running into a known runtime bug. Since federation 2.3, the underlying runtime bug has been addressed and the validation/limitation was no longer necessary and has been removed.'],
 ];

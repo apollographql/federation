@@ -25,6 +25,7 @@ import {
   QueryPlanFieldNode,
   getResponseName,
   FetchDataInputRewrite,
+  FetchDataOutputRewrite,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -308,7 +309,7 @@ async function executeFetch(
         );
 
         for (const entity of entities) {
-          deepMerge(entity, dataReceivedFromService);
+          deepMerge(entity, withFetchRewrites(dataReceivedFromService, fetch.outputRewrites));
         }
       } else {
         const requires = fetch.requires;
@@ -370,7 +371,7 @@ async function executeFetch(
         }
 
         for (let i = 0; i < entities.length; i++) {
-          deepMerge(entities[representationToEntity[i]], receivedEntities[i]);
+          deepMerge(entities[representationToEntity[i]], withFetchRewrites(receivedEntities[i], filterEntityRewrites(representations[i], fetch.outputRewrites)));
         }
       }
     }
@@ -484,6 +485,56 @@ async function executeFetch(
 
     return response.data;
   }
+}
+
+function applyOrMapRecursive(value: any | any[], fct: (v: any) => any | undefined): any | any[] | undefined {
+  if (Array.isArray(value)) {
+    const res = value.map((elt) => applyOrMapRecursive(elt, fct)).filter(isDefined);
+    return res.length === 0 ? undefined : res;
+  }
+  return fct(value);
+}
+
+function withFetchRewrites(fetchResult: ResultMap | null | void, rewrites: FetchDataOutputRewrite[] | undefined): ResultMap | null | void {
+  if (!rewrites || !fetchResult) {
+    return fetchResult;
+  }
+
+  for (const rewrite of rewrites) {
+    let obj: any = fetchResult;
+    let i = 0;
+    while (obj && i < rewrite.path.length - 1) {
+      const p = rewrite.path[i++];
+      if (p.startsWith('... on ')) {
+        const typename = p.slice('... on '.length);
+        // Filter only objects that match the condition.
+        obj = applyOrMapRecursive(obj, (elt) => elt[TypeNameMetaFieldDef.name] === typename ? elt : undefined);
+      } else {
+        obj = applyOrMapRecursive(obj, (elt) => elt[p]);
+      }
+    }
+    if (obj) {
+      applyOrMapRecursive(obj, (elt) => {
+        if (typeof elt === 'object') {
+          // We need to move the value at path[i] to `renameKeyTo`.
+          const removedKey = rewrite.path[i];
+          elt[rewrite.renameKeyTo] = elt[removedKey];
+          elt[removedKey] = undefined;
+        }
+      });
+    }
+  }
+  return fetchResult;
+}
+
+function filterEntityRewrites(entity: Record<string, any>, rewrites: FetchDataOutputRewrite[] | undefined): FetchDataOutputRewrite[] | undefined {
+  if (!rewrites) {
+    return undefined;
+  }
+
+  const typename = entity[TypeNameMetaFieldDef.name] as string;
+  const typenameAsFragment = `... on ${typename}`;
+  return rewrites.map((r) => r.path[0] === typenameAsFragment ? { ...r, path: r.path.slice(1) } : undefined).filter(isDefined)
 }
 
 function updateRewrites(rewrites: FetchDataInputRewrite[] | undefined, pathElement: string): {

@@ -1255,7 +1255,8 @@ describe('@requires', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
-    // into the same fetch group.
+    // into the same fetch group. But note that because the type for `f` differs, the 2nd instance
+    // gets aliased (or the fetch would be invalid graphQL).
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1274,7 +1275,7 @@ describe('@requires', () => {
                 ... on T3 {
                   __typename
                   id
-                  f
+                  f__alias_0: f
                 }
               }
             }
