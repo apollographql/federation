@@ -2,15 +2,16 @@
 
 This package provides utilities for combining multiple GraphQL microservices into a single GraphQL endpoint.
 
-Each microservice should implement the [federation schema specification](https://www.apollographql.com/docs/apollo-server/federation/federation-spec/). This can be done either through [Apollo Federation](https://github.com/apollographql/federation/tree/HEAD/subgraph-js) or a variety of other open source products.
+Each microservice should implement the [federation schema specification](https://www.apollographql.com/docs/apollo-server/federation/subgraph-spec/). This can be done either through [Apollo Federation](https://github.com/apollographql/federation/tree/HEAD/subgraph-js) or a variety of other open source products.
 
 For complete documentation, see the [Apollo Gateway API reference](https://www.apollographql.com/docs/apollo-server/api/apollo-gateway/).
 
 ## Usage
 
 ```js
-const { ApolloServer } = require("apollo-server");
-const { ApolloGateway, IntrospectAndCompose } = require("@apollo/gateway");
+import { ApolloServer } from "@apollo/server";
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloGateway, IntrospectAndCompose } from "@apollo/gateway";
 
 const gateway = new ApolloGateway({
   supergraphSdl: new IntrospectAndCompose({
@@ -23,7 +24,7 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({ gateway });
 
-server.listen().then(({ url }) => {
-  console.log(`🚀 Server ready at ${url}`);
-});
+// Note the top-level await!
+const { url } = await startStandaloneServer(server);
+console.log(`🚀  Server ready at ${url}`);
 ```

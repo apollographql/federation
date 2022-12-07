@@ -1,9 +1,12 @@
 import {
+  defaultRootName,
   Schema,
+  SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { Field, FieldSelection, parseOperation, SelectionSet } from '../../dist/operations';
+import { Field, FieldSelection, Operation, operationFromDocument, parseOperation, SelectionSet } from '../../dist/operations';
 import './matchers';
+import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -13,133 +16,230 @@ function parseSchema(schema: string): Schema {
   }
 }
 
-test('fragments optimization of selection sets', () => {
-  const schema = parseSchema(`
-    type Query {
-      t: T1
-    }
+function astField(name: string, selectionSet?: SelectionSetNode): FieldNode {
+  return {
+    kind: Kind.FIELD,
+    name: { kind: Kind.NAME, value: name },
+    selectionSet,
+  };
+}
 
-    interface I {
-      b: Int
-    }
+function astSSet(...selections: SelectionNode[]): SelectionSetNode {
+  return {
+    kind: Kind.SELECTION_SET,
+    selections,
+  };
+}
 
-    type T1 {
-      a: Int
-      b: Int
-      u: U
-    }
+describe('fragments optimization', () => {
+  test('handles fragments using other fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T1
+      }
 
-    type T2 {
-      x: String
-      y: String
-      b: Int
-      u: U
-    }
+      interface I {
+        b: Int
+      }
 
-    union U = T1 | T2
-  `);
+      type T1 {
+        a: Int
+        b: Int
+        u: U
+      }
 
-  const operation = parseOperation(schema, `
-    fragment OnT1 on T1 {
-      a
-      b
-    }
+      type T2 {
+        x: String
+        y: String
+        b: Int
+        u: U
+      }
 
-    fragment OnT2 on T2 {
-      x
-      y
-    }
+      union U = T1 | T2
+    `);
 
-    fragment OnI on I {
-      b
-    }
+    const operation = parseOperation(schema, `
+      fragment OnT1 on T1 {
+        a
+        b
+      }
 
-    fragment OnU on U {
-      ...OnI
-      ...OnT1
-      ...OnT2
-    }
+      fragment OnT2 on T2 {
+        x
+        y
+      }
 
-    query {
-      t {
+      fragment OnI on I {
+        b
+      }
+
+      fragment OnU on U {
+        ...OnI
         ...OnT1
         ...OnT2
-        ...OnI
-        u {
-          ...OnU
+      }
+
+      query {
+        t {
+          ...OnT1
+          ...OnT2
+          ...OnI
+          u {
+            ...OnU
+          }
         }
       }
-    }
-  `);
+    `);
 
-  const withoutFragments = parseOperation(schema, operation.toString(true, true));
-  expect(withoutFragments.toString()).toMatchString(`
-    {
-      t {
-        ... on T1 {
-          a
-          b
-        }
-        ... on T2 {
-          x
-          y
-        }
-        ... on I {
-          b
-        }
-        u {
-          ... on U {
-            ... on I {
-              b
-            }
-            ... on T1 {
-              a
-              b
-            }
-            ... on T2 {
-              x
-              y
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t {
+          ... on T1 {
+            a
+            b
+          }
+          ... on T2 {
+            x
+            y
+          }
+          ... on I {
+            b
+          }
+          u {
+            ... on U {
+              ... on I {
+                b
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
             }
           }
         }
       }
-    }
-  `);
+    `);
 
-  const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-  // Note that we expect onU to *not* be recreated because, by default, optimize only
-  // add add back a fragment if it is used at least twice (otherwise, the fragment just
-  // make the query bigger).
-  expect(optimized.toString()).toMatchString(`
-    fragment OnT1 on T1 {
-      a
-      b
-    }
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
+    // Note that we expect onU to *not* be recreated because, by default, optimize only
+    // add add back a fragment if it is used at least twice (otherwise, the fragment just
+    // make the query bigger).
+    expect(optimized.toString()).toMatchString(`
+      fragment OnT1 on T1 {
+        a
+        b
+      }
 
-    fragment OnT2 on T2 {
-      x
-      y
-    }
+      fragment OnT2 on T2 {
+        x
+        y
+      }
 
-    fragment OnI on I {
-      b
-    }
+      fragment OnI on I {
+        b
+      }
 
-    {
-      t {
-        ...OnT1
-        ...OnT2
-        ...OnI
-        u {
-          ... on U {
+      {
+        t {
+          ...OnT1
+          ...OnT2
+          ...OnI
+          u {
             ...OnI
             ...OnT1
             ...OnT2
           }
         }
       }
-    }
-  `);
+    `);
+  });
+
+  test('handles fragments with nested selections', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1a: T1
+        t2a: T1
+      }
+
+      type T1 {
+        t2: T2
+      }
+
+      type T2 {
+        x: String
+        y: String
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      fragment OnT1 on T1 {
+        t2 {
+          x
+        }
+      }
+
+      query {
+        t1a {
+          ...OnT1
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ...OnT1
+        }
+      }
+    `);
+
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1a {
+          ... on T1 {
+            t2 {
+              x
+            }
+          }
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ... on T1 {
+            t2 {
+              x
+            }
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
+    expect(optimized.toString()).toMatchString(`
+      fragment OnT1 on T1 {
+        t2 {
+          x
+        }
+      }
+
+      {
+        t1a {
+          ...OnT1
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ...OnT1
+        }
+      }
+    `);
+  });
 });
 
 describe('selection set freezing', () => {
@@ -257,5 +357,163 @@ describe('selection set freezing', () => {
     // ... but more importantly for this test, that s1/s2 were not modified.
     expect(s1.toString()).toBe('{ t { a } }');
     expect(s2.toString()).toBe('{ t { b } }');
+  });
+});
+
+describe('validations', () => {
+  test.each([
+    { directive: '@defer', rootKind: 'mutation' },
+    { directive: '@defer', rootKind: 'subscription' },
+    { directive: '@stream', rootKind: 'mutation' },
+    { directive: '@stream', rootKind: 'subscription' },
+  ])('reject $directive on $rootKind type', ({ directive, rootKind }) => {
+    const schema = parseSchema(`
+      type Query {
+        x: String
+      }
+
+      type Mutation {
+        x: String
+      }
+
+      type Subscription {
+        x: String
+      }
+    `);
+
+    expect(() => {
+      parseOperation(schema, `
+        ${rootKind} {
+          ... ${directive} {
+            x
+          }
+        }
+      `)
+    }).toThrowError(new GraphQLError(`The @defer and @stream directives cannot be used on ${rootKind} root type "${defaultRootName(rootKind as SchemaRootKind)}"`));
+  });
+
+  test('allows nullable variable for non-nullable input field with default', () => {
+    const schema = parseSchema(`
+      input I {
+        x: Int! = 42
+      }
+
+      type Query {
+        f(i: I): Int
+      }
+    `);
+
+    // Just testing that this parse correctly and does not throw an exception.
+    parseOperation(schema, `
+      query test($x: Int) {
+        f(i: { x: $x })
+      }
+    `);
+  });
+});
+
+describe('empty branches removal', () => {
+  const schema = parseSchema(`
+    type Query {
+      t: T
+      u: Int
+    }
+
+    type T {
+      a: Int
+      b: Int
+      c: C
+    }
+
+    type C {
+      x: String
+      y: String
+    }
+  `);
+
+  const withoutEmptyBranches = (op: string | SelectionSetNode) => {
+    let operation: Operation;
+    if (typeof op === 'string') {
+      operation = parseOperation(schema, op);
+    } else {
+      // Note that testing the removal of empty branches requires to take inputs that are not valid operations in the first place,
+      // so we can't build those from `parseOperation` (this call the graphQL-js `parse` under the hood, and there is no way to
+      // disable validation for that method). So instead, we manually build the AST (using some helper methods defined above) and
+      // build the operation from there, disabling validation.
+      const opDef: OperationDefinitionNode = {
+        kind: Kind.OPERATION_DEFINITION,
+        operation: OperationTypeNode.QUERY,
+        selectionSet: op,
+      }
+      const document: DocumentNode = {
+        kind: Kind.DOCUMENT,
+        definitions: [opDef],
+      }
+      operation = operationFromDocument(schema, document, { validate: false });
+    }
+    return operation.selectionSet.withoutEmptyBranches()?.toString()
+  };
+
+
+  it.each([
+    '{ t { a } }',
+    '{ t { a b } }',
+    '{ t { a c { x y } } }',
+  ])('is identity if there is no empty branch', (op) => {
+    expect(withoutEmptyBranches(op)).toBe(op);
+  });
+
+  it('removes simple empty branches', () => {
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('a'),
+          astField('c', astSSet()),
+        ))
+      )
+    )).toBe('{ t { a } }');
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('c', astSSet()),
+          astField('a'),
+        ))
+      )
+    )).toBe('{ t { a } }');
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet())
+      )
+    )).toBeUndefined();
+  });
+
+  it('removes cascading empty branches', () => {
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('c', astSSet()),
+        ))
+      )
+    )).toBeUndefined();
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('u'),
+        astField('t', astSSet(
+          astField('c', astSSet()),
+        ))
+      )
+    )).toBe('{ u }');
+
+    expect(withoutEmptyBranches(
+      astSSet(
+        astField('t', astSSet(
+          astField('c', astSSet()),
+        )),
+        astField('u'),
+      )
+    )).toBe('{ u }');
   });
 });

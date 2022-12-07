@@ -1,4 +1,4 @@
-import { Fetcher, FetcherResponse } from '@apollo/utils.fetcher';
+import { FetcherResponse, type Fetcher } from '@apollo/utils.fetcher';
 import { GraphQLError } from 'graphql';
 import {
   ErrorCode,

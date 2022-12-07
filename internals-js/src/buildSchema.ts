@@ -52,10 +52,10 @@ import {
   EnumType,
   Extension,
   ErrGraphQLValidationFailed,
-  errorCauses,
   NamedSchemaElement,
 } from "./definitions";
-import { ERRORS, withModifiedErrorNodes } from "./error";
+import { ERRORS, errorCauses, withModifiedErrorNodes } from "./error";
+import { introspectionTypeNames } from "./introspection";
 
 function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
@@ -100,7 +100,7 @@ export function buildSchemaFromAST(
   // is that:
   // 1. we can (enum values are self-contained and cannot reference anything that may need to be imported first; this
   //   is also why we skip directive applications at that point, as those _may_ reference something that hasn't been imported yet)
-  // 2. this allows the code to handle better the case where the `link__Purpose` enum is provided in the AST despite the `@link` 
+  // 2. this allows the code to handle better the case where the `link__Purpose` enum is provided in the AST despite the `@link`
   //   _definition_ not being provided. And the reason that is true is that as we later _add_ the `@link` definition, we
   //   will need to check if `link_Purpose` needs to be added or not, but when it is already present, we check it's definition
   //   is the expected, but that check will unexpected fail if we haven't finished "building" said type definition.
@@ -211,11 +211,15 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
+        // Like graphql-js, we just silently ignore definitions for introspection types
+        if (introspectionTypeNames.includes(definitionNode.name.value)) {
+          continue;
+        }
         typeDefinitions.push(definitionNode);
         let type = schema.type(definitionNode.name.value);
         // Note that the type may already exists due to an extension having been processed first, but we know we
         // have seen 2 definitions (which is invalid) if the definition has `preserverEmptyDefnition` already set
-        // since it's only set for definitions, not extensions. 
+        // since it's only set for definitions, not extensions.
         // Also note that we allow to redefine built-ins.
         if (!type || type.isBuiltIn) {
           type = schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
@@ -241,6 +245,10 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeExtension':
       case 'EnumTypeExtension':
       case 'InputObjectTypeExtension':
+        // Like graphql-js, we just silently ignore definitions for introspection types
+        if (introspectionTypeNames.includes(definitionNode.name.value)) {
+          continue;
+        }
         typeExtensions.push(definitionNode);
         const existing = schema.type(definitionNode.name.value);
         // In theory, graphQL does not let you have an extension without a corresponding definition. However,
@@ -332,9 +340,23 @@ function buildAppliedDirectives(
   for (const directive of elementNode.directives ?? []) {
     withNodeAttachedToError(
       () => {
-        const d = element.applyDirective(directive.name.value, buildArgs(directive));
-        d.setOfExtension(extension);
-        d.sourceAST = directive;
+        /**
+         * If we are at the schemaDefinition level of a federation schema, it's possible that some directives
+         * will not be added until after the federation calls completeSchema. In that case, we want to wait
+         * until after completeSchema is called before we try to apply those directives.
+         */
+        if (element !== element.schema().schemaDefinition || directive.name.value === 'link' || !element.schema().blueprint.applyDirectivesAfterParsing()) {
+          const d = element.applyDirective(directive.name.value, buildArgs(directive));
+          d.setOfExtension(extension);
+          d.sourceAST = directive;
+        } else {
+          element.addUnappliedDirective({
+            extension,
+            directive,
+            args: buildArgs(directive),
+            nameOrDef: directive.name.value,
+          });
+        }
       },
       directive,
       errors,

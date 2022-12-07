@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WTH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
+import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WITH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -64,9 +64,11 @@ describe('basic type extensions', () => {
       }
     `);
 
+    // Note that extract subgraphs use @shareable on keys even though it's redundant because
+    // it's easier to do so and harmless otherwise.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -74,7 +76,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
 
@@ -88,7 +90,7 @@ describe('basic type extensions', () => {
     // an extension.
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -96,7 +98,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         price: Int!
       }
     `);
@@ -148,7 +150,7 @@ describe('basic type extensions', () => {
     // Same remark than in prevoius test
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -156,14 +158,14 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         price: Int!
       }
     `);
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -171,7 +173,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
 
@@ -235,7 +237,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -243,20 +245,20 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         price: Int!
       }
     `);
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
 
       type Product {
-        sku: String!
+        sku: String! @shareable
         name: String!
       }
 
@@ -267,7 +269,7 @@ describe('basic type extensions', () => {
 
     expect(subgraphs.get('subgraphC')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WTH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
       {
         query: Query
       }
@@ -275,7 +277,7 @@ describe('basic type extensions', () => {
       type Product
         @key(fields: "sku")
       {
-        sku: String!
+        sku: String! @shareable
         color: String!
       }
     `);
@@ -582,6 +584,43 @@ describe('shareable', () => {
         a2: A
       }
     `);
+  });
+
+  it('supports fed1 subgraphs that define @shareable', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        type Queryf {
+          friendlyFruit: Fruit!
+        }
+
+        directive @shareable on OBJECT | FIELD_DEFINITION
+
+        type Fruit @shareable {
+          id: ID!
+          name: String!
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        type Query {
+          forbiddenFruit: Fruit!
+        }
+
+        directive @shareable on OBJECT | FIELD_DEFINITION
+
+        type Fruit @shareable {
+          id: ID!
+          name: String!
+        }
+      `
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
   });
 });
 

@@ -40,7 +40,8 @@ for (const directory of directories) {
       beforeAll(() => {
         const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
         schema = buildSchema(supergraphSdl);
-        queryPlanner = new QueryPlanner(schema);
+        const exposeDocumentNodeInFetchNode = feature.title.endsWith("(with ExposeDocumentNodeInFetchNode)");
+        queryPlanner = new QueryPlanner(schema, { exposeDocumentNodeInFetchNode: exposeDocumentNodeInFetchNode});
       });
 
       feature.scenarios.forEach((scenario) => {
@@ -65,7 +66,6 @@ for (const directory of directories) {
               queryPlan = queryPlanner.buildQueryPlan(operation);
 
               const expectedQueryPlan = JSON.parse(expectedQueryPlanString);
-
               expect(queryPlan).toMatchQueryPlan(expectedQueryPlan);
             });
           };

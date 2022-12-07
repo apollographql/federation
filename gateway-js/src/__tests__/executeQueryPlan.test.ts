@@ -1,12 +1,11 @@
 import {
   buildClientSchema,
   getIntrospectionQuery,
+  GraphQLError,
   GraphQLObjectType,
   print,
 } from 'graphql';
 import gql from 'graphql-tag';
-import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
-import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
@@ -24,6 +23,7 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
+import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -45,12 +45,13 @@ describe('executeQueryPlan', () => {
   async function executePlan(
     queryPlan: QueryPlan,
     operation: Operation,
-    executeRequestContext?: GraphQLRequestContext,
+    executeRequestContext?: GatewayGraphQLRequestContext,
     executeSchema?: Schema,
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
-  ): Promise<GraphQLExecutionResult> {
+  ): Promise<GatewayExecutionResult> {
+    const supergraphSchema = executeSchema ?? schema;
     const operationContext = buildOperationContext({
-      schema: (executeSchema ?? schema).toAPISchema().toGraphQLJSSchema(),
+      schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
       operationDocument: gql`${operation.toString()}`,
     });
     return executeQueryPlan(
@@ -58,10 +59,11 @@ describe('executeQueryPlan', () => {
       executeServiceMap ?? serviceMap,
       executeRequestContext ?? buildRequestContext(),
       operationContext,
+      supergraphSchema.toGraphQLJSSchema(),
     );
   }
 
-  async function executeOperation(operationString: string, requestContext?: GraphQLRequestContext): Promise<GraphQLExecutionResult> {
+  async function executeOperation(operationString: string, requestContext?: GatewayGraphQLRequestContext): Promise<GatewayExecutionResult> {
       const operation = parseOp(operationString);
       const queryPlan = buildPlan(operation);
       return executePlan(queryPlan, operation, requestContext);
@@ -90,7 +92,7 @@ describe('executeQueryPlan', () => {
     ).not.toThrow();
   });
 
-  function buildRequestContext(): GraphQLRequestContext {
+  function buildRequestContext(): GatewayGraphQLRequestContext {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return {
@@ -124,7 +126,9 @@ describe('executeQueryPlan', () => {
       overrideResolversInService('accounts', {
         RootQuery: {
           me() {
-            throw new AuthenticationError('Something went wrong');
+            throw new GraphQLError('Something went wrong', {
+              extensions: { code: 'UNAUTHENTICATED' },
+            });
           },
         },
       });
@@ -2737,6 +2741,525 @@ describe('executeQueryPlan', () => {
         }
         `);
       expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
+    });
+
+    test('ensures type condition on inaccessible type in @require works correctly', async () => {
+      const s1 = {
+        name: 'data',
+        typeDefs: gql`
+          extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+
+          type Entity @key(fields: "id") {
+            id: ID!
+            data: Foo
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar implements Foo {
+            foo: String!
+            bar: String!
+          }
+
+          type Data implements Foo & Bar @shareable {
+            foo: String!
+            bar: String!
+          }
+        `,
+        resolvers: {
+            Query: {
+              dummy() {
+                return {};
+              },
+            },
+            Entity: {
+              __resolveReference() {
+                return {};
+              },
+              id() {
+                return "id";
+              },
+              data() {
+                return {
+                  __typename: "Data",
+                  foo: "foo",
+                  bar: "bar",
+                };
+              },
+            },
+
+        }
+      }
+
+      let requirerRepresentation: any = undefined;
+
+      const s2 = {
+        name: 'requirer',
+        typeDefs: gql`
+          extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0",
+            import: ["@key", "@shareable", "@external", "@requires", "@inaccessible"]
+          )
+
+          type Query {
+            dummy: Entity
+          }
+
+          type Entity @key(fields: "id") {
+            id: ID!
+            data: Foo @external
+            requirer: String! @requires(fields: "data { foo ... on Bar { bar } }")
+          }
+
+          interface Foo {
+            foo: String!
+          }
+
+          interface Bar implements Foo @inaccessible {
+            foo: String!
+            bar: String!
+          }
+
+          type Data implements Foo & Bar @shareable {
+            foo: String!
+            bar: String!
+          }
+        `,
+        resolvers: {
+          Query: {
+            dummy() {
+              return {};
+            },
+          },
+          Entity: {
+            __resolveReference(representation: any) {
+              requirerRepresentation = representation;
+              return {};
+            },
+            id() {
+              return "id";
+            },
+            requirer() {
+              return "requirer";
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          dummy {
+            requirer
+          }
+        }
+        `, schema);
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "requirer") {
+              {
+                dummy {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "data") {
+                {
+                  ... on Entity {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    data {
+                      __typename
+                      foo
+                      ... on Data {
+                        bar
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "dummy") {
+              Fetch(service: "requirer") {
+                {
+                  ... on Entity {
+                    __typename
+                    data {
+                      foo
+                      ... on Bar {
+                        bar
+                      }
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on Entity {
+                    requirer
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "dummy": Object {
+            "requirer": "requirer",
+          },
+        }
+      `);
+
+      expect(requirerRepresentation).toMatchInlineSnapshot(`
+        Object {
+          "__typename": "Entity",
+          "data": Object {
+            "bar": "bar",
+            "foo": "foo",
+          },
+          "id": "id",
+        }
+      `);
+    });
+
+    test('correctly include key/typename when top-level required object is non-external', async () => {
+      const entityTwo = {
+        id: 'key2',
+        external: 'v2',
+      };
+      const entityOne = {
+        id: 'key1',
+        two: { id: entityTwo.id },
+      };
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            one: One
+          }
+
+          type One @key(fields: "id") {
+            id: ID!
+            two: Two
+            computed: String @requires(fields: "two { external }")
+          }
+
+          type Two @key(fields: "id") {
+            id: ID!
+            external: String @external
+          }
+        `,
+        resolvers: {
+          Query: {
+            one() {
+              return entityOne;
+            },
+          },
+          One: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === entityOne.id ? { ...entityOne, ...ref } : undefined;
+            },
+            computed(parent: any) {
+              return `computed value: ${parent.two.external}`;
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Two @key(fields: "id") {
+            id: ID!
+            external: String
+          }
+        `,
+        resolvers: {
+          Two: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === entityTwo.id ? entityTwo : undefined;
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        {
+          one {
+            computed
+          }
+        }
+      `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                one {
+                  __typename
+                  two {
+                    __typename
+                    id
+                  }
+                  id
+                }
+              }
+            },
+            Flatten(path: "one.two") {
+              Fetch(service: "S2") {
+                {
+                  ... on Two {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Two {
+                    external
+                  }
+                }
+              },
+            },
+            Flatten(path: "one") {
+              Fetch(service: "S1") {
+                {
+                  ... on One {
+                    __typename
+                    two {
+                      external
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on One {
+                    computed
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "one": Object {
+            "computed": "computed value: v2",
+          },
+        }
+      `);
+    });
+
+    test.each([
+      {
+        name: 'nullable argument, no default, no value passed',
+        argNullable: true,
+        defaultValue: undefined,
+        valuePassed: undefined,
+      },
+      {
+        name: 'nullable argument, no default, value passed',
+        argNullable: true,
+        defaultValue: undefined,
+        valuePassed: 42,
+      },
+      {
+        name: 'nullable argument, default, no value passed',
+        argNullable: true,
+        defaultValue: 24,
+        valuePassed: undefined,
+      },
+      {
+        name: 'nullable argument, default, value passed',
+        argNullable: true,
+        defaultValue: 24,
+        valuePassed: 42,
+      },
+      {
+        name: 'non-nullable argument, no default, no value passed',
+        argNullable: false,
+        defaultValue: undefined,
+        valuePassed: undefined,
+      },
+      {
+        name: 'non-nullable argument, no default, value passed',
+        argNullable: false,
+        defaultValue: undefined,
+        valuePassed: 42,
+      },
+      {
+        name: 'non-nullable argument, default, no value passed',
+        argNullable: false,
+        defaultValue: 24,
+        valuePassed: undefined,
+      },
+      {
+        name: 'non-nullable argument, default, value passed',
+        argNullable: false,
+        defaultValue: 24,
+        valuePassed: 42,
+      },
+    ])('requires on field with argument: $name', async ({
+      argNullable,
+      defaultValue,
+      valuePassed,
+    }: {
+      argNullable: boolean,
+      defaultValue?: number,
+      valuePassed?: number,
+    }) => {
+
+      const argType = `Int${argNullable ? '' : '!'}${defaultValue ? ` = ${defaultValue}` : ''}`;
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: Int!
+            x(opt: ${argType}): String!
+          }
+        `,
+        resolvers: {
+          T: {
+            __resolveReference(ref: { id: number}) {
+              return ref;
+            },
+            x(_: any, args: any) {
+              return `args: ${JSON.stringify(args)}`;
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: Int!
+            x(opt: ${argType}): String! @external
+            y: String @requires(fields: "x${valuePassed ? `(opt: ${valuePassed})` : ''}")
+          }
+
+        `,
+        resolvers: {
+          Query: {
+            t() {
+              return {id: 0};
+            },
+          },
+          T: {
+            __resolveReference(ref: { id: number }) {
+              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+              return ref;
+            },
+            y(parent: any) {
+              return `x: ${parent.x}`;
+            }
+          }
+        }
+      }
+
+      if (!argNullable && !defaultValue && !valuePassed) {
+        // We test all combination of `argNullable`, `defaultValue` set/unset and `valuePassed` set/unset, and all should be allowed
+        // except if the value is non-nullable and has neither a default nor a value passed. In that case, just ensure the error message
+        // is meaningful.
+        expect(() => getFederatedTestingSchema([ s1, s2 ])).toThrowError(
+          '[S2] On field "T.y", for @requires(fields: "x"): Missing mandatory value for argument "opt" of field "T.x" in selection "x"'
+        );
+        return;
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        {
+          t {
+            y
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "S1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    x${valuePassed ? `(opt: ${valuePassed})` : ''}
+                  }
+                }
+              },
+            },
+            Flatten(path: "t") {
+              Fetch(service: "S2") {
+                {
+                  ... on T {
+                    __typename
+                    x
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Object {
+            "y": "x: args: {${valuePassed ? `\\"opt\\":${valuePassed}` : (defaultValue ? `\\"opt\\":${defaultValue}` : '')}}",
+          },
+        }
+      `);
     });
   });
 

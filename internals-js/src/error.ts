@@ -56,6 +56,62 @@ export function extractGraphQLErrorOptions(e: GraphQLError): GraphQLErrorOptions
   };
 }
 
+class AggregateGraphQLError extends GraphQLError {
+  constructor(
+    code: String,
+    message: string,
+    readonly causes: GraphQLError[],
+    options?: GraphQLErrorOptions,
+  ) {
+    super(
+      message + '. Caused by:\n' + causes.map((c) => c.toString()).join('\n\n'),
+      {
+        ...options,
+        extensions: { code },
+      }
+    );
+  }
+
+  toString() {
+    let output = `[${this.extensions.code}] ${super.toString()}`
+    output += "\ncaused by:";
+    for (const cause of this.causes) {
+      output += "\n\n  - ";
+      output += cause.toString().split("\n").join("\n    ");
+    }
+    return output;
+  }
+}
+
+export function aggregateError(code: String, message: string, causes: GraphQLError[]): GraphQLError {
+  return new AggregateGraphQLError(code, message, causes);
+}
+
+/**
+ * Given an error, check if it is a graphQL error and potentially extract its causes if is aggregate.
+ * If the error is not a graphQL error, undefined is returned.
+ */
+export function errorCauses(e: Error): GraphQLError[] | undefined {
+  if (e instanceof AggregateGraphQLError) {
+    return e.causes;
+  }
+  if (e instanceof GraphQLError) {
+    return [e];
+  }
+  return undefined;
+}
+
+export function printGraphQLErrorsOrRethrow(e: Error): string {
+  const causes = errorCauses(e);
+  if (!causes) {
+    throw e;
+  }
+  return causes.map(e => e.toString()).join('\n\n');
+}
+
+export function printErrors(errors: GraphQLError[]): string {
+  return errors.map(e => e.toString()).join('\n\n');
+}
 /*
  * Most codes currently originate from the initial fed 2 release so we use this for convenience.
  * This can be changed later, inline versions everywhere, if that becomes irrelevant.
@@ -144,6 +200,11 @@ const TYPE_DEFINITION_INVALID = makeCodeDefinition(
   'A built-in or federation type has an invalid definition in the schema.',
 );
 
+const UNSUPPORTED_LINKED_FEATURE = makeCodeDefinition(
+  'UNSUPPORTED_LINKED_FEATURE',
+  'Indicates that a feature used in a @link is either unsupported or is used with unsupported options.',
+);
+
 const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
   'UNKNOWN_FEDERATION_LINK_VERSION',
   'The version of federation in a @link directive on the schema is unknown.',
@@ -162,7 +223,6 @@ const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
 
 const KEY_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS.createCode('key');
 const PROVIDES_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS.createCode('provides');
-const REQUIRES_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS.createCode('requires');
 
 const DIRECTIVE_FIELDS_MISSING_EXTERNAL = makeFederationDirectiveErrorCodeCategory(
   'FIELDS_MISSING_EXTERNAL',
@@ -181,6 +241,16 @@ const DIRECTIVE_UNSUPPORTED_ON_INTERFACE = makeFederationDirectiveErrorCodeCateg
 const KEY_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCode('key');
 const PROVIDES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCode('provides');
 const REQUIRES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE.createCode('requires');
+
+const DIRECTIVE_IN_FIELDS_ARG = makeFederationDirectiveErrorCodeCategory(
+  'DIRECTIVE_IN_FIELDS_ARG',
+  (directive) => `The \`fields\` argument of a \`@${directive}\` directive includes some directive applications. This is not supported`,
+  { addedIn: '2.1.0' },
+);
+
+const KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('key');
+const PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('provides');
+const REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS = DIRECTIVE_IN_FIELDS_ARG.createCode('requires');
 
 const EXTERNAL_UNUSED = makeCodeDefinition(
   'EXTERNAL_UNUSED',
@@ -313,11 +383,6 @@ const ARGUMENT_DEFAULT_MISMATCH = makeCodeDefinition(
   'An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.',
 );
 
-const NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH = makeCodeDefinition(
-  'NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH',
-  'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
-);
-
 const EXTENSION_WITH_NO_BASE = makeCodeDefinition(
   'EXTENSION_WITH_NO_BASE',
   'A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph.',
@@ -338,6 +403,12 @@ const INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH = makeCodeDefinition(
 const INVALID_FIELD_SHARING = makeCodeDefinition(
   'INVALID_FIELD_SHARING',
   'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
+);
+
+const INVALID_SHAREABLE_USAGE = makeCodeDefinition(
+  'INVALID_SHAREABLE_USAGE',
+  'The `@shareable` federation directive is used in an invalid way.',
+  { addedIn: '2.1.2' },
 );
 
 const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
@@ -454,6 +525,12 @@ const DOWNSTREAM_SERVICE_ERROR = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const DIRECTIVE_COMPOSITION_ERROR = makeCodeDefinition(
+  'DIRECTIVE_COMPOSITION_ERROR',
+  'Error when composing custom directives.',
+  { addedIn: '2.1.0' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -461,17 +538,18 @@ export const ERROR_CATEGORIES = {
   DIRECTIVE_INVALID_FIELDS,
   FIELDS_HAS_ARGS,
   ROOT_TYPE_USED,
+  DIRECTIVE_IN_FIELDS_ARG,
 }
 
 export const ERRORS = {
   INVALID_GRAPHQL,
   DIRECTIVE_DEFINITION_INVALID,
   TYPE_DEFINITION_INVALID,
+  UNSUPPORTED_LINKED_FEATURE,
   UNKNOWN_FEDERATION_LINK_VERSION,
   UNKNOWN_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
-  REQUIRES_FIELDS_HAS_ARGS,
   PROVIDES_MISSING_EXTERNAL,
   REQUIRES_MISSING_EXTERNAL,
   KEY_UNSUPPORTED_ON_INTERFACE,
@@ -505,11 +583,11 @@ export const ERRORS = {
   ARGUMENT_TYPE_MISMATCH,
   INPUT_FIELD_DEFAULT_MISMATCH,
   ARGUMENT_DEFAULT_MISMATCH,
-  NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH,
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
+  INVALID_SHAREABLE_USAGE,
   INVALID_LINK_DIRECTIVE_USAGE,
   INVALID_LINK_IDENTIFIER,
   LINK_IMPORT_NAME_MISMATCH,
@@ -532,6 +610,10 @@ export const ERRORS = {
   UNSUPPORTED_FEATURE,
   INVALID_FEDERATION_SUPERGRAPH,
   DOWNSTREAM_SERVICE_ERROR,
+  KEY_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  PROVIDES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  REQUIRES_HAS_DIRECTIVE_IN_FIELDS_ARGS,
+  DIRECTIVE_COMPOSITION_ERROR,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});
@@ -565,4 +647,7 @@ export const REMOVED_ERRORS = [
   ['VALUE_TYPE_UNION_TYPES_MISMATCH', 'Subgraph definitions for an union are now merged by composition'],
   ['PROVIDES_FIELDS_SELECT_INVALID_TYPE', '@provides can now be used on field of interface, union and list types'],
   ['RESERVED_FIELD_USED', 'This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case'],
+
+  ['NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH', 'Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error'],
+  ['REQUIRES_FIELDS_HAS_ARGS', 'Since federation 2.1.1, using fields with arguments in a @requires is fully supported'],
 ];

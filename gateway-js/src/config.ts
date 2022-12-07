@@ -1,9 +1,9 @@
 import { GraphQLError, GraphQLSchema } from 'graphql';
-import { HeadersInit } from 'node-fetch';
-import { GraphQLRequestContextExecutionDidStart } from 'apollo-server-types';
+import type { HeadersInit } from 'node-fetch';
+import { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 import type { Logger } from '@apollo/utils.logger';
 import { GraphQLDataSource } from './datasources/types';
-import { QueryPlan } from '@apollo/query-planner';
+import { QueryPlan, QueryPlannerConfig } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
 import { ServiceDefinition } from "@apollo/federation-internals";
@@ -21,9 +21,7 @@ export type Experimental_DidResolveQueryPlanCallback = ({
   readonly queryPlan: QueryPlan;
   readonly serviceMap: ServiceMap;
   readonly operationContext: OperationContext;
-  readonly requestContext: GraphQLRequestContextExecutionDidStart<
-    Record<string, any>
-  >;
+  readonly requestContext: GatewayGraphQLRequestContext;
 }) => void;
 
 interface ImplementingServiceLocation {
@@ -129,6 +127,8 @@ interface GatewayConfigBase {
   experimental_autoFragmentization?: boolean;
   fetcher?: Fetcher;
   serviceHealthCheck?: boolean;
+
+  queryPlannerConfig?: QueryPlannerConfig;
 }
 
 // TODO(trevor:removeServiceList)

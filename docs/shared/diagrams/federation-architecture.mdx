@@ -3,12 +3,12 @@ graph BT;
   webapp(Web app);
   iosapp(iOS app);
   subgraph " ";
-  gateway([Gateway]);
+  router([Graph router]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   serviceC[Reviews<br/>subgraph];
   end;
-  webapp & iosapp -.- gateway;
-  gateway --- serviceA & serviceB & serviceC;
+  webapp & iosapp -.- router;
+  router --- serviceA & serviceB & serviceC;
   class webapp,iosapp secondary;
 ```

@@ -4,12 +4,11 @@ import {
   Kind,
   print as printAST,
 } from "graphql";
-import { ERRORS } from "./error";
+import { errorCauses, ERRORS } from "./error";
 import {
   baseType,
   CompositeType,
   Directive,
-  errorCauses,
   Extension,
   FieldDefinition,
   isCompositeType,
@@ -33,8 +32,8 @@ import {
   Subgraphs,
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
-import { FEDERATION_SPEC_TYPES } from "./federationSpec";
 import { valueEquals } from "./values";
+import { FEDERATION1_TYPES } from "./federationSpec";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
@@ -60,6 +59,7 @@ export type UpgradeChange =
   | UnusedExternalRemoval
   | TypeWithOnlyUnusedExternalRemoval
   | ExternalOnInterfaceRemoval
+  | ExternalOnObjectTypeRemoval
   | InactiveProvidesOrRequiresRemoval
   | InactiveProvidesOrRequiresFieldsRemoval
   | ShareableFieldAddition
@@ -98,6 +98,16 @@ export class ExternalOnInterfaceRemoval {
 
   toString() {
     return `Removed @external directive on interface type field "${this.field}": @external is nonsensical on interface fields`;
+  }
+}
+
+export class ExternalOnObjectTypeRemoval {
+  readonly id = 'EXTERNAL_ON_OBJECT_TYPE_REMOVAL' as const;
+
+  constructor(readonly type: string) {}
+
+  toString() {
+    return `Removed @external directive on object type "${this.type}": @external on types was not rejected but was inactive in fed1`;
   }
 }
 
@@ -331,7 +341,7 @@ class SchemaUpgrader {
     // `federation__Any`, ... in the new upgraded schema.
     // But note that even "importing" those types would not completely work because fed2 essentially drops the `_` at the beginning of those
     // type names (relying on the core schema prefixing instead) and so some special translation needs to happen.
-    for (const typeSpec of FEDERATION_SPEC_TYPES) {
+    for (const typeSpec of FEDERATION1_TYPES) {
       const typeNameInOriginal = this.originalSubgraph.metadata().federationTypeNameInSchema(typeSpec.name);
       const type = this.schema.type(typeNameInOriginal);
       if (type) {
@@ -383,6 +393,7 @@ class SchemaUpgrader {
     this.fixFederationDirectivesArguments();
 
     this.removeExternalOnInterface();
+    this.removeExternalOnObjectTypes();
 
     // Note that we remove all external on type extensions first, so we don't have to care about it later in @key, @provides and @requires.
     this.removeExternalOnTypeExtensions();
@@ -432,7 +443,8 @@ class SchemaUpgrader {
 
   private fixFederationDirectivesArguments() {
     for (const directive of [this.metadata.keyDirective(), this.metadata.requiresDirective(), this.metadata.providesDirective()]) {
-      for (const application of directive.applications()) {
+      // Note that we may remove (to replace) some of the application we iterate on, so we need to copy the list we iterate on first.
+      for (const application of Array.from(directive.applications())) {
         const fields = application.arguments().fields;
         if (typeof fields !== 'string') {
           // The one case we have seen in practice is user passing an array of string, so we handle that. If it's something else,
@@ -480,6 +492,16 @@ class SchemaUpgrader {
           this.addChange(new ExternalOnInterfaceRemoval(field.coordinate));
           external.remove();
         }
+      }
+    }
+  }
+
+  private removeExternalOnObjectTypes() {
+    for (const type of this.schema.objectTypes()) {
+      const external = type.appliedDirectivesOf(this.metadata.externalDirective())[0];
+      if (external) {
+        this.addChange(new ExternalOnObjectTypeRemoval(type.coordinate));
+        external.remove();
       }
     }
   }
@@ -676,14 +698,14 @@ class SchemaUpgrader {
             continue;
           }
           const otherResolvingSubgraphs = this.otherSubgraphs.filter((s) => resolvesField(s, field));
-          if (otherResolvingSubgraphs.length > 0) {
+          if (otherResolvingSubgraphs.length > 0 && !field.hasAppliedDirective(shareableDirective)) {
             field.applyDirective(shareableDirective);
             this.addChange(new ShareableFieldAddition(field.coordinate, otherResolvingSubgraphs.map((s) => s.name)));
           }
         }
       } else {
         const otherDeclaringSubgraphs = this.otherSubgraphs.filter((s) => s.schema.type(type.name));
-        if (otherDeclaringSubgraphs.length > 0) {
+        if (otherDeclaringSubgraphs.length > 0 && !type.hasAppliedDirective(shareableDirective)) {
           type.applyDirective(shareableDirective);
           this.addChange(new ShareableTypeAddition(type.coordinate, otherDeclaringSubgraphs.map((s) => s.name)));
         }
@@ -697,7 +719,8 @@ class SchemaUpgrader {
       return;
     }
 
-    for (const application of tagDirective.applications()) {
+    // Copying the list we iterate on as we remove in the loop.
+    for (const application of Array.from(tagDirective.applications())) {
       const element = application.parent;
       if (!(element instanceof FieldDefinition)) {
         continue;

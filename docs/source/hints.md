@@ -2,7 +2,7 @@
 title: Composition hints
 ---
 
-When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./subgraphs/) into a supergraph schema, the composition process might output **hints** that provide additional information about the result. Hints are primarily informative and _do not_ necessarily indicate that a problem needs to be fixed.
+When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, the composition process might output **hints** that provide additional information about the result. Hints are primarily informative and _do not_ necessarily indicate that a problem needs to be fixed.
 
 Hints are categorized under the following levels:
 
@@ -33,6 +33,8 @@ The following hints might be generated during composition:
 | `INCONSISTENT_DESCRIPTION` | Indicates that an element has a description in more than one subgraph, and the descriptions are not equal. | `WARN` |
 | `INCONSISTENT_ARGUMENT_PRESENCE` | Indicates that an optional argument (of a field or directive definition) is not present in all subgraphs and will not be part of the supergraph. | `WARN` |
 | `FROM_SUBGRAPH_DOES_NOT_EXIST` | Source subgraph specified by @override directive does not exist | `WARN` |
+| `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | `WARN` |
+| `DIRECTIVE_COMPOSITION_WARN` | Indicates that an issue was detected when composing custom directives. | `WARN` |
 
 </div>
 
@@ -47,6 +49,7 @@ The following hints might be generated during composition:
 | `INCONSISTENT_ENTITY` | Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined. | `INFO` |
 | `OVERRIDDEN_FIELD_CAN_BE_REMOVED` | Field has been overridden by another subgraph. Consider removing. | `INFO` |
 | `OVERRIDE_DIRECTIVE_CAN_BE_REMOVED` | Field with @override directive no longer exists in source subgraph, the directive can be safely removed | `INFO` |
+| `DIRECTIVE_COMPOSITION_INFO` | Indicates that an issue was detected when composing custom directives. | `INFO` |
 
 </div>
 

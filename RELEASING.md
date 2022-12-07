@@ -24,7 +24,20 @@ More details can be found in [the `changeset` docs for publishing](https://githu
 
 ## Merge the release PR
 
-1. Merge the release PR to `main`
+1. `npx lerna version --no-push --force-publish=\* "$FEDERATION_RELEASE_VERSION"`[^lerna-version]
+    - `git show --pretty="" --name-only HEAD` to see the files in the commit
+    - `git --no-pager tag --points-at HEAD` to see the tags that were created
+1. `git push --follow-tags -u origin "release-$FEDERATION_RELEASE_VERSION"` to push the version bumps & tags created by lerna in the previous step
+1. `echo "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?quick_pull=1&title=Release+$FEDERATION_RELEASE_VERSION&template=APOLLO_RELEASE_TEMPLATE.md"` and click the resulting link to open PR in Github
+    - If `gh` is installed (the command-line tool for github), create a PR thusly:
+      ```
+      gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md
+      ``` 
+1. Tag the commit to begin the publishing process[^publishing]
+    - For alpha/beta/preview `APOLLO_DIST_TAG=next npm run release:start-ci-publish`
+    - For release `APOLLO_DIST_TAG=latest npm run release:start-ci-publish`
+1. `echo https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` and click the resulting link to approve publishing to NPM
+    - There will also be a message posted to #team-atlas in slack that has a link to the approval job
 1. `unset FEDERATION_RELEASE_VERSION` to ensure we don't accidentally use this variable later
 
 ![celebrate](https://media.giphy.com/media/LZElUsjl1Bu6c/giphy.gif)

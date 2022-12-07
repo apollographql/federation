@@ -2,7 +2,7 @@ import gql from 'graphql-tag';
 import { GraphQLObjectType, GraphQLSchema } from 'graphql';
 import mockedEnv from 'mocked-env';
 import type { Logger } from '@apollo/utils.logger';
-import { ApolloGateway } from '../..';
+import { ApolloGateway, UplinkSupergraphManager } from '../..';
 import {
   mockSdlQuerySuccess,
   mockServiceHealthCheckSuccess,
@@ -56,8 +56,12 @@ function getRootQueryFields(schema?: GraphQLSchema): string[] {
 let logger: Logger;
 let gateway: ApolloGateway | null = null;
 let cleanUp: (() => void) | null = null;
+let originalMinPollInterval = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
 
 beforeEach(() => {
+  // Set the min poll interval artificially low so we're not waiting during tests
+  // @ts-ignore
+  UplinkSupergraphManager['MIN_POLL_INTERVAL_MS'] = 100;
   nockBeforeEach();
 
   const warn = jest.fn();
@@ -74,12 +78,14 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  nockAfterEach();
-
+  // @ts-ignore
+  UplinkSupergraphManager['MIN_POLL_INTERVAL_MS'] = originalMinPollInterval;
   if (gateway) {
     await gateway.stop();
     gateway = null;
   }
+
+  nockAfterEach();
 
   if (cleanUp) {
     cleanUp();
@@ -90,7 +96,7 @@ afterEach(async () => {
 it('Queries remote endpoints for their SDLs', async () => {
   mockSdlQuerySuccess(simpleService);
 
-  gateway = new ApolloGateway({ serviceList: [simpleService] });
+  gateway = new ApolloGateway({ serviceList: [simpleService], logger });
   await gateway.load();
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
@@ -139,8 +145,6 @@ it('Updates Supergraph SDL from remote storage', async () => {
     logger,
     uplinkEndpoints: [mockCloudConfigUrl1],
   });
-  // for testing purposes, a short pollInterval is ideal so we'll override here
-  gateway['pollIntervalInMs'] = 100;
 
   const schemas: GraphQLSchema[] = [];
   gateway.onSchemaLoadOrUpdate(({ apiSchema }) => {
@@ -199,9 +203,6 @@ describe('Supergraph SDL update failures', () => {
       uplinkMaxRetries: 0,
     });
 
-    // for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway['pollIntervalInMs'] = 100;
-
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
@@ -231,8 +232,6 @@ describe('Supergraph SDL update failures', () => {
       uplinkEndpoints: [mockCloudConfigUrl1],
       uplinkMaxRetries: 0,
     });
-    // for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway['pollIntervalInMs'] = 100;
 
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
@@ -265,8 +264,6 @@ describe('Supergraph SDL update failures', () => {
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
     });
-    // for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway['pollIntervalInMs'] = 100;
 
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
@@ -295,8 +292,6 @@ describe('Supergraph SDL update failures', () => {
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
     });
-    // for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway['pollIntervalInMs'] = 100;
 
     await expect(
       gateway.load(mockApolloConfig),
@@ -332,8 +327,6 @@ it('Rollsback to a previous schema when triggered', async () => {
     logger,
     uplinkEndpoints: [mockCloudConfigUrl1],
   });
-  // for testing purposes, a short pollInterval is ideal so we'll override here
-  gateway['pollIntervalInMs'] = 100;
 
   gateway.onSchemaChange(onChange);
   await gateway.load(mockApolloConfig);
@@ -408,8 +401,6 @@ describe('Downstream service health checks', () => {
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1],
       });
-      // for testing purposes, a short pollInterval is ideal so we'll override here
-      gateway['pollIntervalInMs'] = 100;
 
       await gateway.load(mockApolloConfig);
       await gateway.stop();
@@ -482,8 +473,6 @@ describe('Downstream service health checks', () => {
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1],
       });
-      // for testing purposes, a short pollInterval is ideal so we'll override here
-      gateway['pollIntervalInMs'] = 100;
 
       gateway.onSchemaChange(onChange);
       await gateway.load(mockApolloConfig);
@@ -526,8 +515,6 @@ describe('Downstream service health checks', () => {
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1],
       });
-      // for testing purposes, a short pollInterval is ideal so we'll override here
-      gateway['pollIntervalInMs'] = 100;
 
       const updateSpy = jest.fn();
       gateway.onSchemaLoadOrUpdate(() => updateSpy());

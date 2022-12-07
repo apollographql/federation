@@ -2,8 +2,56 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/query-planner-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## 2.1.0-alpha.0
+## vNext
 
+## 2.2.2
+
+- Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
+  - __BREAKING__: Any code relying directly on the query plan handling of `@defer` will need to potentially update its
+      handling of the `path` before upgrading to this version. This is *not* a concern for end-user of federation. 
+
+## 2.2.0
+
+- __BREAKING__: Disable exposing full document to sub-query by default (introduced in 2.1.0):
+  - This change decreases memory consumption in general (which is the reason for disabling this by
+    default), but users that have custom code making use of `GraphQLDataSourceProcessOptions.document`
+    will now need to explicitly set `GatewayConfig.queryPlannerConfig.exposeDocumentNodeInFetchNode`.
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Avoid reusing named fragments that are invalid for the subgraph [PR #2255](https://github.com/apollographql/federation/pull/2255).
+- Fix QP not always type-exploding interface when necessary [PR #2246](https://github.com/apollographql/federation/pull/2246).
+- Fix potential QP issue with shareable root fields [PR #2239](https://github.com/apollographql/federation/pull/2239).
+
+## 2.1.4
+
+- Optimize plan for defer where only keys are fetched [PR #2182](https://github.com/apollographql/federation/pull/2182).
+
+## 2.1.3
+
+- Fix building subgraph selections using the wrong underlying schema [PR #2155](https://github.com/apollographql/federation/pull/2155).
+
+## 2.1.2
+
+- Fix issue with path #2137 (optimization for `__typename`) [PR #2140](https://github.com/apollographql/federation/pull/2140).
+- Fix potential inefficient planning due to `__typename` [PR #2137](https://github.com/apollographql/federation/pull/2137).
+- Fix potential assertion during query planning [PR #2133](https://github.com/apollographql/federation/pull/2133).
+- Fix some defer query plans having invalid result sets (with empty branches) [PR #2125](https://github.com/apollographql/federation/pull/2125). 
+- Fix defer information lost when cloning fetch group (resulting in non-deferred parts) [PR #2129](https://github.com/apollographql/federation/pull/2129).
+- Fix directives on fragment spread being lost [PR #2126](https://github.com/apollographql/federation/pull/2126).
+
+## 2.1.1
+
+- Fix issue where @defer condition gets ignored [PR #2121](https://github.com/apollographql/federation/pull/2121).
+
+## 2.1.0
+
+- Fix issue where fragment expansion can erase applied directives (most notably `@defer`) [PR #2093](https://github.com/apollographql/federation/pull/2093).
+- Fix issue with fragment reusing code something mistakenly re-expanding fragments [PR #2098](https://github.com/apollographql/federation/pull/2098).
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
+- Add `@defer` support [PR #1958](https://github.com/apollographql/federation/pull/1958)
+- Fix fragment reuse in subgraph fetches [PR #1911](https://github.com/apollographql/federation/pull/1911).
+- Expose document representation of sub-query request within GraphQLDataSourceProcessOptions so that it is available to RemoteGraphQLDataSource.process and RemoteGraphQLDataSource.willSendRequest [PR #1878](https://github.com/apollographql/federation/pull/1878)
+- Fix issue computing query plan costs that can lead to extra unnecessary fetches [PR #1937](https://github.com/apollographql/federation/pull/1937).
+- Avoid type-explosion with fed1 supergraphs using a fed2 query planner [PR #1994](https://github.com/apollographql/federation/pull/1994).
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## 2.0.3
@@ -123,4 +171,3 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 # v0.1.0
 
 - Initial release of TypeScript query planner code extracted from `@apollo/gateway`. (Previous releases of this package were wrappers around `@apollo/query-planner-wasm`, a different implementation.)
-

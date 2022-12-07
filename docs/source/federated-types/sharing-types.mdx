@@ -7,7 +7,7 @@ description: Share types and fields across multiple subgraphs
 >
 >For more information about using value types in Federation 1, you can view the [previous version of this article](/federation/v1/value-types/).
 
-In a federated graph, it's common to want to reuse a GraphQL type in multiple [subgraphs](../subgraphs/).
+In a federated graph, it's common to want to reuse a GraphQL type across multiple [subgraphs](../building-supergraphs/subgraphs-overview/).
 
 For example, suppose you want to define and reuse a generic `Position` type in different subgraphs:
 
@@ -47,7 +47,7 @@ type Position {
 
 </CodeColumns>
 
-Attempting to compose these two subgraph schemas together will [break composition](./composition/#breaking-composition). The gateway doesn't know _which subgraph_ is responsible for resolving `Position.x` and `Position.y`. To enable multiple subgraphs to resolve these fields, you must first mark that field as [`@shareable`](#using-shareable).
+Attempting to compose these two subgraph schemas together will [break composition](./composition/#breaking-composition). The router doesn't know _which subgraph_ is responsible for resolving `Position.x` and `Position.y`. To enable multiple subgraphs to resolve these fields, you must first mark that field as [`@shareable`](#using-shareable).
 
 > As an alternative, if you want Subgraphs A and B to resolve _different_ fields of `Position`, you can designate the `Position` type as an [entity](../entities).
 
@@ -92,15 +92,45 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 
 #### ⚠️ Important considerations for `@shareable`
 
-* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked `@shareable` or [`@external`](../federation-spec/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
+* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked either `@shareable` or [`@external`](./federated-directives/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
 * If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
+
+#### 📝 A note regarding `@shareable` on types
+
+When `@shareable` is put on an object type declaration, it only applies to the fields within that exact declaration. This become relevant if a subgraph defines a type though an [object definition](https://spec.graphql.org/June2018/#ObjectTypeDefinition) and one or more [object extensions](https://spec.graphql.org/June2018/#sec-Object-Extensions). For instance, if a subgraph declares:
+```graphql title="Subgraph A"
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+
+extend type Position {
+  z: Int!
+}
+```
+then field `z` will _not_ be shareable. To make `z` shareable, you can either mark it with `@shareable` directly or mark the extension itself shareable:
+```graphql title="Subgraph A"
+# This example only works with v2.2+ of the federation specification. In earlier versions, `@shareable` was
+# not marked `repeatable` and so this example would be rejected by graphQL.
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.2", import: ["@shareable"])
+
+type Position @shareable {
+  x: Int!
+  y: Int!
+}
+
+extend type Position @shareable {
+  z: Int!
+}
+```
 
 ## Differing shared fields
 
 Shared fields can differ between subgraphs in specific ways:
 * The return type of a shared field can vary in nullability (`String` / `String!`).
   * A shared field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A shared field can be omitted from a subgraph entirely, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
+* A field can be omitted from a subgraph, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
 
 For example, take a look at the shared `Food` type below:
 
@@ -109,14 +139,14 @@ For example, take a look at the shared `Food` type below:
 ```graphql {3} title="Subgraph A"
 type Food @shareable {
   name: String!
-  cost: Int!
+  price: Int!
 }
 ```
 
 ```graphql {3-4} title="Subgraph B"
 type Food @shareable {
   name: String!
-  cost: Int # Nullable
+  price: Int # Nullable
   inStock: Boolean! # Not in A
 }
 ```
@@ -194,7 +224,7 @@ This definition works for querying Subgraph A, because Subgraph A's definition i
 Arguments for a shared field can differ between subgraphs in certain ways:
 
 * If an argument is _required_ in at least one subgraph, it can be _optional_ in other subgraphs. **It cannot be omitted.**
-* If an argument is _optional in every subgraph where it's defined_, it _can_ be omitted in other subgraphs. _However:_
+* If an argument is _optional in every subgraph where it's defined_, it is _technically valid_ to omit it in other subgraphs. _However:_
     * ⚠️ **If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely!** This means that clients _can't_ provide the argument for that field.
 
 <p style="margin-bottom: 0">✅</p>
@@ -374,7 +404,7 @@ To incrementally add the field to _all_ of our subgraphs _without_ breaking comp
 
 ### Using `@inaccessible`
 
-If you apply the `@inaccessible` directive to a field, composition _omits_ that field from your gateway's API schema. This helps you incrementally add a field to _multiple_ subgraphs without breaking composition.
+If you apply the `@inaccessible` directive to a field, composition _omits_ that field from your router's API schema. This helps you incrementally add a field to multiple subgraphs without breaking composition.
 
 To use `@inaccessible` in a subgraph, first make sure you include it in the `import` array of your Federation 2 opt-in declaration:
 
@@ -500,7 +530,7 @@ This can be useful when different subgraphs are responsible for different subset
 
 >  You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
 
-Subgraphs can share `input` type definitions, but composition merges them differently. When `input` types are composed across multiple subgraphs, only their _mutual_ fields are carried over into the supergraph schema:
+Subgraphs can share `input` type definitions, but composition merges them differently. When `input` types are composed across multiple subgraphs, only their _mutual_ fields are preserved the supergraph schema:
 
 <CodeColumns>
 
@@ -528,4 +558,4 @@ input UserInput {
 }
 ```
 
-To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-from-multiple-subgraphs)
+To learn more about how composition merges different schema types under the hood, see [Merging types during composition](./composition#merging-types-from-multiple-subgraphs).

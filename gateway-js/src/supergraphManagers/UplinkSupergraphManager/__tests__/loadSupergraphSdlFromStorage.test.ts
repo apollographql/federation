@@ -1,3 +1,4 @@
+import nock from 'nock';
 import {
   loadSupergraphSdlFromStorage,
   loadSupergraphSdlFromUplinks,
@@ -21,6 +22,16 @@ import {
   nockAfterEach,
   nockBeforeEach,
 } from '../../../__tests__/nockAssertions';
+import { FetcherRequestInit } from '@apollo/utils.fetcher';
+
+const logger = {
+  warn: jest.fn(),
+  debug: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+};
+
+const requestTimeoutMs = 100;
 
 describe('loadSupergraphSdlFromStorage', () => {
   beforeEach(nockBeforeEach);
@@ -34,7 +45,9 @@ describe('loadSupergraphSdlFromStorage', () => {
       endpoint: mockCloudConfigUrl1,
       errorReportingEndpoint: undefined,
       fetcher,
+      requestTimeoutMs,
       compositionId: null,
+      logger,
     });
     expect(result).toMatchObject({
       id: 'originalId-1234',
@@ -66,16 +79,59 @@ describe('loadSupergraphSdlFromStorage', () => {
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: undefined,
       fetcher,
+      requestTimeoutMs,
       compositionId: 'originalId-1234',
       maxRetries: 1,
       roundRobinSeed: 0,
-      earliestFetchTime: null,
+      logger,
     });
 
     expect(result).toMatchObject({
       id: 'originalId-1234',
       supergraphSdl: getTestingSupergraphSdl(),
     });
+  });
+
+  it('Queries alternate Uplink URL if first one times out', async () => {
+    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).delay(120_000).reply(500);
+    mockSupergraphSdlRequestIfAfter(
+      'originalId-1234',
+      mockCloudConfigUrl2,
+    ).reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'originalId-1234',
+            supergraphSdl: getTestingSupergraphSdl(),
+          },
+        },
+      }),
+    );
+
+    const result = await loadSupergraphSdlFromUplinks({
+      graphRef,
+      apiKey,
+      endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
+      errorReportingEndpoint: undefined,
+      fetcher,
+      requestTimeoutMs,
+      compositionId: 'originalId-1234',
+      maxRetries: 1,
+      roundRobinSeed: 0,
+      logger,
+    });
+
+    expect(result).toMatchObject({
+      id: 'originalId-1234',
+      supergraphSdl: getTestingSupergraphSdl(),
+    });
+
+    // We're intentionally delaying the response above, so we need to make sure
+    // nock shuts down correctly, and isn't related to the underlying abort
+    // mechanism.
+    nock.abortPendingRequests();
   });
 
   it('Throws error if all Uplink URLs fail', async () => {
@@ -92,10 +148,11 @@ describe('loadSupergraphSdlFromStorage', () => {
         endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
         errorReportingEndpoint: undefined,
         fetcher,
+        requestTimeoutMs,
         compositionId: 'originalId-1234',
         maxRetries: 1,
         roundRobinSeed: 0,
-        earliestFetchTime: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -115,7 +172,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -140,7 +199,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -160,7 +221,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -181,7 +244,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -200,7 +265,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -220,7 +287,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -240,7 +309,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -260,7 +331,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl1,
           errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
+          requestTimeoutMs,
           compositionId: null,
+          logger,
         }),
       ).rejects.toThrowError(
         new UplinkFetcherError(
@@ -281,7 +354,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         endpoint: mockCloudConfigUrl1,
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
+        requestTimeoutMs,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -301,7 +376,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         endpoint: mockCloudConfigUrl1,
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
+        requestTimeoutMs,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -321,7 +398,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         endpoint: mockCloudConfigUrl1,
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
+        requestTimeoutMs,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -341,7 +420,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         endpoint: mockCloudConfigUrl1,
         errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
+        requestTimeoutMs,
         compositionId: null,
+        logger,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -359,7 +440,9 @@ describe('loadSupergraphSdlFromStorage', () => {
       endpoint: mockCloudConfigUrl1,
       errorReportingEndpoint: mockOutOfBandReporterUrl,
       fetcher,
+      requestTimeoutMs,
       compositionId: 'id-1234',
+      logger,
     });
     expect(result).toBeNull();
   });
@@ -378,24 +461,24 @@ describe('loadSupergraphSdlFromUplinks', () => {
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: mockOutOfBandReporterUrl,
-      fetcher: (...args) => {
+      fetcher: (url: string, init?: FetcherRequestInit) => {
         calls++;
-        return fetcher(...args);
+        return fetcher(url, init);
       },
+      requestTimeoutMs,
       compositionId: 'id-1234',
       maxRetries: 5,
       roundRobinSeed: 0,
-      earliestFetchTime: null,
+      logger,
     });
 
     expect(result).toBeNull();
     expect(calls).toBe(1);
   });
 
-  it('Waits the correct time before retrying', async () => {
-    const timeoutSpy = jest.spyOn(global, 'setTimeout');
-
+  it('Retries on error', async () => {
     mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
+    const supergraphSdl = getTestingSupergraphSdl();
     mockSupergraphSdlRequestIfAfter(
       'originalId-1234',
       mockCloudConfigUrl2,
@@ -406,29 +489,25 @@ describe('loadSupergraphSdlFromUplinks', () => {
           routerConfig: {
             __typename: 'RouterConfigResult',
             id: 'originalId-1234',
-            supergraphSdl: getTestingSupergraphSdl(),
+            supergraphSdl,
           },
         },
       }),
     );
 
-    await loadSupergraphSdlFromUplinks({
+    const result = await loadSupergraphSdlFromUplinks({
       graphRef,
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
       errorReportingEndpoint: undefined,
-      fetcher: fetcher,
+      fetcher,
+      requestTimeoutMs,
       compositionId: 'originalId-1234',
       maxRetries: 1,
       roundRobinSeed: 0,
-      earliestFetchTime: new Date(Date.now() + 1000),
+      logger,
     });
 
-    // test if setTimeout was called with a value in range to deal with time jitter
-    const setTimeoutCall = timeoutSpy.mock.calls[1][1];
-    expect(setTimeoutCall).toBeLessThanOrEqual(1000);
-    expect(setTimeoutCall).toBeGreaterThanOrEqual(900);
-
-    timeoutSpy.mockRestore();
+    expect(result?.supergraphSdl).toEqual(supergraphSdl);
   });
 });

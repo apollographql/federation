@@ -18,7 +18,7 @@ import {
 } from "./definitions";
 import { assertName, ASTNode, GraphQLError, GraphQLErrorOptions } from "graphql";
 import { isValidValue, valueToString } from "./values";
-import { isIntrospectionName } from "./introspection";
+import { introspectionTypeNames, isIntrospectionName } from "./introspection";
 import { isSubtype, sameType } from "./types";
 import { ERRORS } from "./error";
 
@@ -79,7 +79,10 @@ class Validator {
 
   validate(): GraphQLError[] {
     for (const type of this.schema.types()) {
-      this.validateName(type);
+
+      if (!introspectionTypeNames.includes(type.name)) {
+        this.validateName(type);
+      }
       switch (type.kind) {
         case 'ObjectType':
         case 'InterfaceType':
@@ -146,6 +149,10 @@ class Validator {
 
   private validateName(elt: { name: string, sourceAST?: ASTNode}) {
     if (isIntrospectionName(elt.name)) {
+      this.addError(
+        `Name "${elt.name}" must not begin with "__", which is reserved by GraphQL introspection.`,
+        elt.sourceAST ? { nodes: elt.sourceAST } : {}
+      );
       return;
     }
     try {

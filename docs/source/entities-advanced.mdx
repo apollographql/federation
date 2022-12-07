@@ -116,7 +116,7 @@ The steps for this migration depend on how you perform schema composition:
 
 3. Deploy the updated Billing subgraph to your environment.
 
-    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the gateway doesn't _know_ this yet because its supergraph schema hasn't been updated.
+    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the router doesn't _know_ this yet because its supergraph schema hasn't been updated.
 
 4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
 
@@ -140,11 +140,11 @@ The steps for this migration depend on how you perform schema composition:
 5. Compose an updated supergraph schema with your usual configuration using `rover supergraph compose`.
     * This updated supergraph schema indicates that the Billing subgraph resolves `Bill` entities, and the Payments subgraph _doesn't_.
 
-6. Assuming CI completes successfully, deploy an updated version of your _gateway_ with the new supergraph schema.
-    * When this deployment completes, the gateway begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
+6. Assuming CI completes successfully, deploy an updated version of your _router_ with the new supergraph schema.
+    * When this deployment completes, the router begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
 
 7. Deploy an updated version of your Payments subgraph without the `Bill` entity.
-    * At this point it's safe to remove this definition, because the gateway is never resolving `Bill` with the Payments subgraph.
+    * At this point it's safe to remove this definition, because the router is never resolving `Bill` with the Payments subgraph.
 
 We're done! `Bill` is now resolved in a new subgraph, and it was resolvable during each step of the migration process.
 
@@ -214,11 +214,11 @@ extend schema
 
 5. Deploy the updated Billing subgraph to your environment.
 
-    * This change is currently invisible to your gateway, which is not yet aware that the Billing subgraph defines the `Bill` entity.
+    * This change is currently invisible to your router, which is not yet aware that the Billing subgraph defines the `Bill` entity.
 
 6. Publish the updated Billing subgraph schema to Apollo.
 
-    * When the gateway fetches its new supergraph schema, it detects that it should resolve the `Bill` entity in the Billing subgraph _instead of_ in the Payments subgraph.
+    * When the router fetches its new supergraph schema, it detects that it should resolve the `Bill` entity in the Billing subgraph _instead of_ in the Payments subgraph.
 
 7. In the Payments subgraph, _remove_ the `Bill` entity and its associated resolvers:
 
@@ -241,7 +241,7 @@ extend schema
 
 8. Publish the updated Payments subgraph schema to Apollo.
 
-    * When the gateway fetches its new supergraph schema, it continues resolving the `Bill` entity in the Billing subgraph. The `@override` directive has no effect if a field is defined in only one subgraph.
+    * When the router fetches its new supergraph schema, it continues resolving the `Bill` entity in the Billing subgraph. The `@override` directive has no effect if a field is defined in only one subgraph.
 
 9. Deploy the updated Payments subgraph to your environment.
 
@@ -272,7 +272,7 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 <ExpansionPanel title="With IntrospectAndCompose">
 
-> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](./gateway/#limitations-of-introspectandcompose).
+> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](./building-supergraphs/router/#limitations-of-introspectandcompose).
 
 When you provide `IntrospectAndCompose` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
 
@@ -418,7 +418,7 @@ We can perform this migration with the following steps (additional commentary on
 
     </CodeColumns>
 
-5. Compose a new supergraph schema. Deploy a new version of your gateway that uses the updated schema.
+5. Compose a new supergraph schema. Deploy a new version of your router that uses the updated schema.
 
 6. Deploy the updated Products subgraph to your environment.
 
@@ -437,9 +437,9 @@ type Product @key(fields: "id") {
 }
 ```
 
-As shown, you use the `@requires` directive to indicate which fields (and subfields) from _other_ subgraphs are required. You also need to _define_ the required fields and apply the `@external` directive to them. This directive tells the gateway, "This subgraph knows that these fields exist, but it _can't_ resolve them itself."
+As shown, you use the `@requires` directive to indicate which fields (and subfields) from _other_ subgraphs are required. You also need to _define_ the required fields and apply the `@external` directive to them. This directive tells the router, "This subgraph knows that these fields exist, but it _can't_ resolve them itself."
 
-In the above example, if a query requests a product's `shippingEstimate`, the gateway does the following, in order:
+In the above example, if a query requests a product's `shippingEstimate`, the router does the following, in order:
 
 1. It queries the Products subgraph for the product's `size` and `weight`.
 2. It queries the Shipping subgraph for the product's `shippingEstimate`. The `size` and `weight` are included in the `Product` object passed to the resolver for `shippingEstimate`:
@@ -472,7 +472,7 @@ In this modification of the previous example, `size` and `weight` are now subfie
 
 By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with some exceptions, like entity `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
 
-You can enable multiple subgraphs to resolve a particular entity field. **This is a completely optional optimization.** When the gateway plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
+You can enable multiple subgraphs to resolve a particular entity field. **This is a completely optional optimization.** When the router plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
 
 You achieve this with one of the following directives:
 
@@ -565,8 +565,8 @@ type Product @key(fields: "id") {
 
 Here we're using two directives in combination: `@provides` and `@external`.
 
-* The `@provides` directive tells the gateway, "This subgraph can resolve the `name` of any `Product` object returned by `InStockCount.product`."
-* The `@external` directive tells the gateway, "This subgraph _can't_ resolve the `name` of a `Product` object, _except_ wherever indicated by `@provides`."
+* The `@provides` directive tells the router, "This subgraph can resolve the `name` of any `Product` object returned by `InStockCount.product`."
+* The `@external` directive tells the router, "This subgraph _can't_ resolve the `name` of a `Product` object, _except_ wherever indicated by `@provides`."
 
 #### Rules for using `@provides`
 

@@ -3,7 +3,7 @@ title: Federation error codes
 sidebar_title: Error codes
 ---
 
-When Apollo Gateway attempts to **compose** the schemas provided by your [subgraphs](./subgraphs/) into a **supergraph schema**, it confirms that:
+When Apollo Gateway attempts to **compose** the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a **supergraph schema**, it confirms that:
 
 * The subgraphs are valid
 * The resulting supergraph schema is valid
@@ -21,6 +21,7 @@ The following errors might be raised during composition:
 | Code | Description | Since | Comment |
 |---|---|---|---|
 | `DEFAULT_VALUE_USES_INACCESSIBLE` | An element is marked as @inaccessible but is used in the default value of an element visible in the API schema. | 2.0.0 |  |
+| `DIRECTIVE_COMPOSITION_ERROR` | Error when composing custom directives. | 2.1.0 |  |
 | `DIRECTIVE_DEFINITION_INVALID` | A built-in or federation directive has an invalid definition in the schema. | 2.0.0 | Replaces: `TAG_DEFINITION_INVALID` |
 | `DISALLOWED_INACCESSIBLE` | An element is marked as @inaccessible that is not allowed to be @inaccessible. | 2.0.0 |  |
 | `DOWNSTREAM_SERVICE_ERROR` | Indicates an error in a subgraph service query during query execution in a federated service. | 0.x |  |
@@ -48,7 +49,9 @@ The following errors might be raised during composition:
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
 | `INVALID_LINK_DIRECTIVE_USAGE` | An application of the @link directive is invalid/does not respect the specification. | 2.0.0 |  |
 | `INVALID_LINK_IDENTIFIER` | A url/version for a @link feature is invalid/does not respect the specification. | 2.1.0 |  |
+| `INVALID_SHAREABLE_USAGE` | The `@shareable` federation directive is used in an invalid way. | 2.1.2 |  |
 | `INVALID_SUBGRAPH_NAME` | A subgraph name is invalid (subgraph names cannot be a single underscore ("_")). | 2.0.0 |  |
+| `KEY_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@key` directive includes some directive applications. This is not supported | 2.1.0 |  |
 | `KEY_FIELDS_HAS_ARGS` | The `fields` argument of a `@key` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
 | `KEY_FIELDS_SELECT_INVALID_TYPE` | The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key` | 0.x |  |
 | `KEY_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@key` directive is not a string. | 2.0.0 |  |
@@ -57,11 +60,11 @@ The following errors might be raised during composition:
 | `LINK_IMPORT_NAME_MISMATCH` | The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs. | 2.0.0 |  |
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
-| `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | 2.0.0 |  |
 | `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
 | `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
 | `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
 | `OVERRIDE_SOURCE_HAS_OVERRIDE` | Field which is overridden to another subgraph is also marked @override. | 2.0.0 |  |
+| `PROVIDES_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@provides` directive includes some directive applications. This is not supported | 2.1.0 |  |
 | `PROVIDES_FIELDS_HAS_ARGS` | The `fields` argument of a `@provides` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
 | `PROVIDES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@provides` directive includes a field that is not marked as `@external`. | 0.x |  |
 | `PROVIDES_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@provides` directive is not a string. | 2.0.0 |  |
@@ -73,7 +76,7 @@ The following errors might be raised during composition:
 | `REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH` | An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all the subgraphs that define the field or directive definition. | 2.0.0 |  |
 | `REQUIRED_INACCESSIBLE` | An element is marked as @inaccessible but is required by an element visible in the API schema. | 2.0.0 |  |
 | `REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH` | A field of an input object type is mandatory in some subgraphs, but the field is not defined in all the subgraphs that define the input object type. | 2.0.0 |  |
-| `REQUIRES_FIELDS_HAS_ARGS` | The `fields` argument of a `@requires` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
+| `REQUIRES_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@requires` directive includes some directive applications. This is not supported | 2.1.0 |  |
 | `REQUIRES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@requires` directive includes a field that is not marked as `@external`. | 0.x |  |
 | `REQUIRES_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@requires` directive is not a string. | 2.0.0 |  |
 | `REQUIRES_INVALID_FIELDS` | The `fields` argument of a `@requires` directive is invalid (it has invalid syntax, includes unknown fields, ...). | 2.0.0 |  |
@@ -88,6 +91,7 @@ The following errors might be raised during composition:
 | `UNKNOWN_FEDERATION_LINK_VERSION` | The version of federation in a @link directive on the schema is unknown. | 2.0.0 |  |
 | `UNKNOWN_LINK_VERSION` | The version of @link set on the schema is unknown. | 2.1.0 |  |
 | `UNSUPPORTED_FEATURE` | Indicates an error due to feature currently unsupported by federation. | 2.1.0 |  |
+| `UNSUPPORTED_LINKED_FEATURE` | Indicates that a feature used in a @link is either unsupported or is used with unsupported options. | 2.0.0 |  |
 
 </div>
 
@@ -109,8 +113,10 @@ The following error codes have been removed and are no longer generated by the m
 | `KEY_MISSING_ON_BASE` | Each subgraph is now free to declare a key only if it needs it. |
 | `KEY_NOT_SPECIFIED` | Each subgraph can declare key independently of any other subgraph. |
 | `MULTIPLE_KEYS_ON_EXTENSION` | Every subgraph can have multiple keys, as necessary. |
+| `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error |
 | `PROVIDES_FIELDS_SELECT_INVALID_TYPE` | @provides can now be used on field of interface, union and list types |
 | `PROVIDES_NOT_ON_ENTITY` | @provides can now be used on any type. |
+| `REQUIRES_FIELDS_HAS_ARGS` | Since federation 2.1.1, using fields with arguments in a @requires is fully supported |
 | `REQUIRES_FIELDS_MISSING_ON_BASE` | Fields in @requires can now be from any subgraph. |
 | `REQUIRES_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires. |
 | `RESERVED_FIELD_USED` | This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case |

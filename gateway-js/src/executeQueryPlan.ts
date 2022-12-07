@@ -1,7 +1,3 @@
-import {
-  GraphQLExecutionResult,
-  GraphQLRequestContext,
-} from 'apollo-server-types';
 import { Headers } from 'node-fetch';
 import {
   execute,
@@ -15,8 +11,9 @@ import {
   isObjectType,
   isInterfaceType,
   GraphQLErrorOptions,
+  DocumentNode,
 } from 'graphql';
-import { Trace, google } from 'apollo-reporting-protobuf';
+import { Trace, google } from '@apollo/usage-reporting-protobuf';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { OperationContext } from './operationContext';
 import {
@@ -32,7 +29,8 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { defaultRootName, errorCodeDef, ERRORS } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS } from '@apollo/federation-internals';
+import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -40,20 +38,22 @@ export type ServiceMap = {
 
 type ResultMap = Record<string, any>;
 
-interface ExecutionContext<TContext> {
+interface ExecutionContext {
   queryPlan: QueryPlan;
   operationContext: OperationContext;
   serviceMap: ServiceMap;
-  requestContext: GraphQLRequestContext<TContext>;
+  requestContext: GatewayGraphQLRequestContext;
+  supergraphSchema: GraphQLSchema;
   errors: GraphQLError[];
 }
 
-export async function executeQueryPlan<TContext>(
+export async function executeQueryPlan(
   queryPlan: QueryPlan,
   serviceMap: ServiceMap,
-  requestContext: GraphQLRequestContext<TContext>,
+  requestContext: GatewayGraphQLRequestContext,
   operationContext: OperationContext,
-): Promise<GraphQLExecutionResult> {
+  supergraphSchema: GraphQLSchema,
+): Promise<GatewayExecutionResult> {
 
   const logger = requestContext.logger || console;
 
@@ -61,11 +61,12 @@ export async function executeQueryPlan<TContext>(
     try {
       const errors: GraphQLError[] = [];
 
-      const context: ExecutionContext<TContext> = {
+      const context: ExecutionContext = {
         queryPlan,
         operationContext,
         serviceMap,
         requestContext,
+        supergraphSchema,
         errors,
       };
 
@@ -166,8 +167,8 @@ export async function executeQueryPlan<TContext>(
 // we're going to ignore it, because it makes the code much simpler and more
 // typesafe. However, it doesn't actually ask for traces from the backend
 // service unless we are capturing traces for Studio.
-async function executeNode<TContext>(
-  context: ExecutionContext<TContext>,
+async function executeNode(
+  context: ExecutionContext,
   node: PlanNode,
   results: ResultMap | ResultMap[],
   path: ResponsePath,
@@ -247,11 +248,17 @@ async function executeNode<TContext>(
       }
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
+    case 'Defer': {
+      assert(false, `@defer support is not available in the gateway`);
+    }
+    case 'Condition': {
+      assert(false, `Condition nodes are not available in the gateway`);
+    }
   }
 }
 
-async function executeFetch<TContext>(
-  context: ExecutionContext<TContext>,
+async function executeFetch(
+  context: ExecutionContext,
   fetch: FetchNode,
   results: ResultMap | (ResultMap | null | undefined)[],
   _path: ResponsePath,
@@ -295,7 +302,8 @@ async function executeFetch<TContext>(
             context,
             fetch.operation,
             variables,
-            fetch.operationName
+            fetch.operationName,
+            fetch.operationDocumentNode
         );
 
         for (const entity of entities) {
@@ -309,7 +317,10 @@ async function executeFetch<TContext>(
 
         entities.forEach((entity, index) => {
           const representation = executeSelectionSet(
-            context.operationContext,
+            // Note that `requires` may include references to inacessible elements, so we should "execute" it using the supergrah
+            // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
+            // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
+            context.supergraphSchema,
             entity,
             requires,
           );
@@ -331,7 +342,8 @@ async function executeFetch<TContext>(
             context,
             fetch.operation,
             {...variables, representations},
-            fetch.operationName
+            fetch.operationName,
+            fetch.operationDocumentNode
         );
 
         if (!dataReceivedFromService) {
@@ -370,10 +382,11 @@ async function executeFetch<TContext>(
     }
   });
   async function sendOperation(
-    context: ExecutionContext<TContext>,
+    context: ExecutionContext,
     source: string,
     variables: Record<string, any>,
-    operationName: string | undefined
+    operationName: string | undefined,
+    operationDocumentNode?: DocumentNode
   ): Promise<ResultMap | void | null> {
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
@@ -411,6 +424,7 @@ async function executeFetch<TContext>(
       },
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
+      document: operationDocumentNode
     });
 
     if (response.errors) {
@@ -476,7 +490,7 @@ async function executeFetch<TContext>(
  * @param selectionSet
  */
 function executeSelectionSet(
-  operationContext: OperationContext,
+  schema: GraphQLSchema,
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
 ): Record<string, any> | null {
@@ -511,12 +525,12 @@ function executeSelectionSet(
         if (Array.isArray(source[responseName])) {
           result[responseName] = source[responseName].map((value: any) =>
             selections
-              ? executeSelectionSet(operationContext, value, selections)
+              ? executeSelectionSet(schema, value, selections)
               : value,
           );
         } else if (selections) {
           result[responseName] = executeSelectionSet(
-            operationContext,
+            schema,
             source[responseName],
             selections,
           );
@@ -530,10 +544,10 @@ function executeSelectionSet(
         const typename = source && source['__typename'];
         if (!typename) continue;
 
-        if (doesTypeConditionMatch(operationContext.schema, selection.typeCondition, typename)) {
+        if (doesTypeConditionMatch(schema, selection.typeCondition, typename)) {
           deepMerge(
             result,
-            executeSelectionSet(operationContext, source, selection.selections),
+            executeSelectionSet(schema, source, selection.selections),
           );
         }
         break;
@@ -601,9 +615,9 @@ function downstreamServiceError(
     }
   };
 
-  let codeDef = errorCodeDef(originalError);
+  const codeDef = errorCodeDef(originalError);
   // It's possible the orignal has a code, but not one we know about (one generated by the underlying `GraphQLDataSource`,
-  // which we don't control). In that case, we want to use that code (and have thus no `ErrorCodeDefinition` usable). 
+  // which we don't control). In that case, we want to use that code (and have thus no `ErrorCodeDefinition` usable).
   if (!codeDef && extensions?.code) {
     return new GraphQLError(message, errorOptions);
   }

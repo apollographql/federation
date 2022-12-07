@@ -1,7 +1,6 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import { Subgraph } from '..';
-import { errorCauses } from '../definitions';
+import { Subgraph, errorCauses } from '..';
 import { asFed2SubgraphDocument, buildSubgraph } from "../federation"
 import { defaultPrintOptions, printSchema } from '../print';
 import './matchers';
@@ -58,22 +57,6 @@ describe('fieldset-based directives', () => {
     `
     expect(buildForErrors(subgraph)).toStrictEqual([
       ['PROVIDES_FIELDS_HAS_ARGS', '[S] On field "Query.t", for @provides(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)']
-    ]);
-  });
-
-  it('rejects field defined with arguments in @requires', () => {
-    const subgraph =  gql`
-      type Query {
-        t: T
-      }
-
-      type T {
-        f(x: Int): Int @external
-        g: Int @requires(fields: "f")
-      }
-    `
-    expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_FIELDS_HAS_ARGS', '[S] On field "T.g", for @requires(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @requires)']
     ]);
   });
 
@@ -383,6 +366,136 @@ describe('fieldset-based directives', () => {
     `
     expect(buildForErrors(subgraph)).toStrictEqual([
       ['KEY_FIELDS_SELECT_INVALID_TYPE', '[S] On type "T", for @key(fields: "f"): field "T.f" is a Union type which is not allowed in @key'],
+    ]);
+  });
+
+  it('rejects directive applications in @key', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "v { x ... @include(if: false) { y }}") {
+        v: V
+      }
+
+      type V {
+        x: Int
+        y: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['KEY_DIRECTIVE_IN_FIELDS_ARG', '[S] On type "T", for @key(fields: "v { x ... @include(if: false) { y }}"): cannot have directive applications in the @key(fields:) argument but found @include(if: false).'],
+    ]);
+  });
+
+  it('rejects directive applications in @provides', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T @provides(fields: "v { ... on V @skip(if: true) { x y } }")
+      }
+
+      type T @key(fields: "id") {
+        id: ID
+        v: V @external
+      }
+
+      type V {
+        x: Int
+        y: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['PROVIDES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "Query.t", for @provides(fields: "v { ... on V @skip(if: true) { x y } }"): cannot have directive applications in the @provides(fields:) argument but found @skip(if: true).'],
+    ]);
+  });
+
+  it('rejects directive applications in @requires', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "id") {
+        id: ID
+        a: Int @requires(fields: "... @skip(if: false) { b }")
+        b: Int @external
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['REQUIRES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "T.a", for @requires(fields: "... @skip(if: false) { b }"): cannot have directive applications in the @requires(fields:) argument but found @skip(if: false).'],
+    ]);
+  });
+
+  it('can collect multiple errors in a single `fields` argument', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T @provides(fields: "f(x: 3)")
+      }
+
+      type T @key(fields: "id") {
+        id: ID
+        f(x: Int): Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      ['PROVIDES_FIELDS_HAS_ARGS', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)'],
+      ['PROVIDES_FIELDS_MISSING_EXTERNAL', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)'],
+    ]);
+  });
+
+  it('rejects aliases in @key', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "foo: id") {
+        id: ID!
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      [ 'KEY_INVALID_FIELDS', '[S] On type "T", for @key(fields: "foo: id"): Cannot use alias "foo" in "foo: id": aliases are not currently supported in @key' ],
+    ]);
+  });
+
+  it('rejects aliases in @provides', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T @provides(fields: "bar: x")
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        x: Int @external
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      [ 'PROVIDES_INVALID_FIELDS', '[S] On field "Query.t", for @provides(fields: "bar: x"): Cannot use alias "bar" in "bar: x": aliases are not currently supported in @provides' ],
+    ]);
+  });
+
+  it('rejects aliases in @requires', () => {
+    const subgraph =  gql`
+      type Query {
+        t: T
+      }
+
+      type T {
+        x: X @external
+        y: Int @external
+        g: Int @requires(fields: "foo: y")
+        h: Int @requires(fields: "x { m: a n: b }")
+      }
+
+      type X {
+        a: Int
+        b: Int
+      }
+    `
+    expect(buildForErrors(subgraph)).toStrictEqual([
+      [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.g", for @requires(fields: "foo: y"): Cannot use alias "foo" in "foo: y": aliases are not currently supported in @requires' ],
+      [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.h", for @requires(fields: "x { m: a n: b }"): Cannot use alias "m" in "m: a": aliases are not currently supported in @requires' ],
     ]);
   });
 });
@@ -1011,3 +1124,62 @@ describe('federation 1 schema', () => {
     ]]);
   });
 })
+
+describe('@shareable', () => {
+  it('can only be applied to fields of object types', () => {
+    const doc = gql`
+      interface I {
+        a: Int @shareable
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid use of @shareable on field "I.a": only object type fields can be marked with @shareable'
+    ]]);
+  });
+
+  it('rejects duplicate @shareable on the same definition declaration', () => {
+    const doc = gql`
+      type E @shareable @key(fields: "id") @shareable {
+        id: ID!
+        a: Int
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
+    ]]);
+  });
+
+  it('rejects duplicate @shareable on the same extension declaration', () => {
+    const doc = gql`
+      type E @shareable {
+        id: ID!
+        a: Int
+      }
+
+      extend type E @shareable @shareable {
+        b: Int
+      }
+    `;
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
+    ]]);
+  });
+
+  it('rejects duplicate @shareable on a field', () => {
+    const doc = gql`
+      type E {
+        a: Int @shareable @shareable
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([[
+      'INVALID_SHAREABLE_USAGE',
+      '[S] Invalid duplicate application of @shareable on field "E.a": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
+    ]]);
+  });
+});

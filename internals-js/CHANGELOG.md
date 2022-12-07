@@ -1,7 +1,30 @@
 # CHANGELOG for `@apollo/federation-internals`
 
-## 2.1.0-alpha.0
+## vNext
 
+## 2.2.1
+
+- Fix federation spec always being expanded to the last version [PR #2274](https://github.com/apollographql/federation/pull/2274).
+
+## 2.2.0
+
+- Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
+- Provide support for marking @external on object type [PR #2214](https://github.com/apollographql/federation/pull/2214)
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+- Correctly reject field names starting with `__` [PR #2237](https://github.com/apollographql/federation/pull/2237).
+- Preserve default values of input object fields [PR #2218](https://github.com/apollographql/federation/pull/2218).
+
+## 2.1.4
+
+- Ensures supergraph `@defer`/`@stream` definitions of supergraph are not included in the API schema [PR #2212](https://github.com/apollographql/federation/pull/2212).
+- Fix validation of variable on input field not taking default into account [PR #2176](https://github.com/apollographql/federation/pull/2176).
+
+## 2.1.0
+
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
+- Don't require `@link` when using `@composeDirective` [PR #2046](https://github.com/apollographql/federation/pull/2046)
+- Add `@defer` support [PR #1958](https://github.com/apollographql/federation/pull/1958)
+- Add `@composeDirective` directive to specify directives that should be merged to the supergraph during composition [PR #1996](https://github.com/apollographql/federation/pull/1996).
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## 2.0.4

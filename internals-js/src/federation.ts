@@ -7,7 +7,7 @@ import {
   Directive,
   DirectiveDefinition,
   ErrGraphQLValidationFailed,
-  errorCauses,
+  Extension,
   FieldDefinition,
   InputFieldDefinition,
   InterfaceType,
@@ -22,12 +22,13 @@ import {
   ScalarType,
   Schema,
   SchemaBlueprint,
+  SchemaConfig,
   SchemaDefinition,
   SchemaElement,
   sourceASTs,
   UnionType,
 } from "./definitions";
-import { assert, joinStrings, MultiMap, printHumanReadableList, OrderedMap } from "./utils";
+import { assert, joinStrings, MultiMap, printHumanReadableList, OrderedMap, mapValues } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import {
@@ -46,7 +47,6 @@ import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFed
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, selectionOfElement, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./tagSpec";
-import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
@@ -54,6 +54,7 @@ import {
   ERRORS,
   withModifiedErrorMessage,
   extractGraphQLErrorOptions,
+  errorCauses,
 } from "./error";
 import { computeShareables } from "./precompute";
 import {
@@ -68,17 +69,10 @@ import {
 import {
   FEDERATION_VERSIONS,
   federationIdentity,
-  fieldSetTypeSpec,
-  keyDirectiveSpec,
-  requiresDirectiveSpec,
-  providesDirectiveSpec,
-  externalDirectiveSpec,
-  extendsDirectiveSpec,
-  shareableDirectiveSpec,
-  overrideDirectiveSpec,
-  FEDERATION2_SPEC_DIRECTIVES,
-  ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES,
-  FEDERATION2_ONLY_SPEC_DIRECTIVES,
+  FederationDirectiveName,
+  FederationTypeName,
+  FEDERATION1_TYPES,
+  FEDERATION1_DIRECTIVES,
 } from "./federationSpec";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
@@ -86,7 +80,6 @@ import { didYouMean, suggestionList } from "./suggestions";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
-const inaccessibleSpec = INACCESSIBLE_VERSIONS.latest();
 const federationSpec = FEDERATION_VERSIONS.latest();
 
 // We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
@@ -113,40 +106,57 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
+const ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES: string[] = Object.values(FederationDirectiveName);
 
-// Returns a list of the coordinate of all the fields in the selection that are marked external.
-function validateFieldSetSelections(
+function validateFieldSetSelections({
+  directiveName,
+  selectionSet,
+  hasExternalInParents,
+  metadata,
+  onError,
+  allowOnNonExternalLeafFields,
+  allowFieldsWithArguments,
+}: {
   directiveName: string,
   selectionSet: SelectionSet,
   hasExternalInParents: boolean,
-  federationMetadata: FederationMetadata,
+  metadata: FederationMetadata,
+  onError: (error: GraphQLError) => void,
   allowOnNonExternalLeafFields: boolean,
-): void {
+  allowFieldsWithArguments: boolean,
+}): void {
   for (const selection of selectionSet.selections()) {
+    const appliedDirectives = selection.element().appliedDirectives;
+    if (appliedDirectives.length > 0) {
+      onError(ERROR_CATEGORIES.DIRECTIVE_IN_FIELDS_ARG.get(directiveName).err(
+        `cannot have directive applications in the @${directiveName}(fields:) argument but found ${appliedDirectives.join(', ')}.`,
+      ));
+    }
+
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
-      const isExternal = federationMetadata.isFieldExternal(field);
-      if (field.hasArguments()) {
-        throw ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
+      const isExternal = metadata.isFieldExternal(field);
+      if (!allowFieldsWithArguments && field.hasArguments()) {
+        onError(ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
           `field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`,
           { nodes: field.sourceAST },
-        );
+        ));
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaf, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
       if (!isExternal && mustBeExternal) {
         const errorCode = ERROR_CATEGORIES.DIRECTIVE_FIELDS_MISSING_EXTERNAL.get(directiveName);
-        if (federationMetadata.isFieldFakeExternal(field)) {
-          throw errorCode.err(
+        if (metadata.isFieldFakeExternal(field)) {
+          onError(errorCode.err(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
-              + `(while it is marked @${externalDirectiveSpec.name}, it is a @${keyDirectiveSpec.name} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
+              + `(while it is marked @${FederationDirectiveName.EXTERNAL}, it is a @${FederationDirectiveName.KEY} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
             { nodes: field.sourceAST }
-          );
+          ));
         } else {
-          throw errorCode.err(
-            `field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveSpec.name})`,
+          onError(errorCode.err(
+            `field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${FederationDirectiveName.EXTERNAL})`,
             { nodes: field.sourceAST }
-          );
+          ));
         }
       }
       if (selection.selectionSet) {
@@ -158,29 +168,60 @@ function validateFieldSetSelections(
         if (!newHasExternalInParents && isInterfaceType(parentType)) {
           for (const implem of parentType.possibleRuntimeTypes()) {
             const fieldInImplem = implem.field(field.name);
-            if (fieldInImplem && federationMetadata.isFieldExternal(fieldInImplem)) {
+            if (fieldInImplem && metadata.isFieldExternal(fieldInImplem)) {
               newHasExternalInParents = true;
               break;
             }
           }
         }
-        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, federationMetadata, allowOnNonExternalLeafFields);
+        validateFieldSetSelections({
+          directiveName,
+          selectionSet: selection.selectionSet,
+          hasExternalInParents: newHasExternalInParents,
+          metadata,
+          onError,
+          allowOnNonExternalLeafFields,
+          allowFieldsWithArguments,
+        });
       }
     } else {
-      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, federationMetadata, allowOnNonExternalLeafFields);
+      validateFieldSetSelections({
+        directiveName,
+        selectionSet: selection.selectionSet,
+        hasExternalInParents,
+        metadata,
+        onError,
+        allowOnNonExternalLeafFields,
+        allowFieldsWithArguments,
+      });
     }
   }
 }
 
-function validateFieldSet(
+function validateFieldSet({
+  type,
+  directive,
+  metadata,
+  errorCollector,
+  allowOnNonExternalLeafFields,
+  allowFieldsWithArguments,
+  onFields,
+}: {
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
-  federationMetadata: FederationMetadata,
+  metadata: FederationMetadata,
+  errorCollector: GraphQLError[],
   allowOnNonExternalLeafFields: boolean,
+  allowFieldsWithArguments: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
-): GraphQLError | undefined {
+}): void {
   try {
     // Note that `parseFieldSetArgument` already properly format the error, hence the separate try-catch.
+    // TODO: `parseFieldSetArgument` throws on the first issue found and never accumulate multiple
+    // errors. We could fix this, but this require changes that reaches beyond this single file, so
+    // we leave this for "later" (the `fields` value are rarely very big, so the benefit of accumulating
+    // multiple errors within one such value is not tremendous, so that this doesn't feel like a pressing
+    // issue).
     const fieldAccessor = onFields
       ? (type: CompositeType, fieldName: string) => {
         const field = type.field(fieldName);
@@ -191,19 +232,18 @@ function validateFieldSet(
       }
       : undefined;
     const selectionSet = parseFieldSetArgument({parentType: type, directive, fieldAccessor});
-
-    try {
-      validateFieldSetSelections(directive.name, selectionSet, false, federationMetadata, allowOnNonExternalLeafFields);
-      return undefined;
-    } catch (e) {
-      if (!(e instanceof GraphQLError)) {
-        throw e;
-      }
-      return handleFieldSetValidationError(directive, e);
-    }
+    validateFieldSetSelections({
+      directiveName: directive.name,
+      selectionSet,
+      hasExternalInParents: false,
+      metadata,
+      onError: (error) => errorCollector.push(handleFieldSetValidationError(directive, error)),
+      allowOnNonExternalLeafFields,
+      allowFieldsWithArguments,
+    });
   } catch (e) {
     if (e instanceof GraphQLError) {
-      return e;
+      errorCollector.push(e);
     } else {
       throw e;
     }
@@ -254,15 +294,25 @@ function fieldSetTargetDescription(directive: Directive<any, {fields: any}>): st
   return `${targetKind} "${directive.parent?.coordinate}"`;
 }
 
-function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
+function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
+  definition,
+  targetTypeExtractor,
+  errorCollector,
+  metadata,
+  isOnParentType = false,
+  allowOnNonExternalLeafFields = false,
+  allowFieldsWithArguments = false,
+  onFields,
+}: {
   definition: DirectiveDefinition<{fields: any}>,
   targetTypeExtractor: (element: TParent) => CompositeType,
   errorCollector: GraphQLError[],
-  federationMetadata: FederationMetadata,
-  isOnParentType: boolean,
-  allowOnNonExternalLeafFields: boolean,
+  metadata: FederationMetadata,
+  isOnParentType?: boolean,
+  allowOnNonExternalLeafFields?: boolean,
+  allowFieldsWithArguments?: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
-): void {
+}): void {
   for (const application of definition.applications()) {
     const elt = application.parent as TParent;
     const type = targetTypeExtractor(elt);
@@ -276,15 +326,15 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
         { nodes: sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)) },
       ));
     }
-    const error = validateFieldSet(
+    validateFieldSet({
       type,
-      application,
-      federationMetadata,
+      directive: application,
+      metadata,
+      errorCollector,
       allowOnNonExternalLeafFields,
-      onFields);
-    if (error) {
-      errorCollector.push(error);
-    }
+      allowFieldsWithArguments,
+      onFields,
+    });
   }
 }
 
@@ -430,6 +480,48 @@ function validateInterfaceRuntimeImplementationFieldsTypes(
   }
 }
 
+function validateShareableNotRepeatedOnSameDeclaration(
+  element: ObjectType | FieldDefinition<ObjectType>,
+  metadata: FederationMetadata,
+  errorCollector: GraphQLError[],
+) {
+  const shareableApplications: Directive[] = element.appliedDirectivesOf(metadata.shareableDirective());
+  if (shareableApplications.length <= 1) {
+    return;
+  }
+
+  type ByExtensions = {
+    without: Directive<any, {}>[],
+    with: MultiMap<Extension<any>, Directive<any, {}>>,
+  };
+  const byExtensions = shareableApplications.reduce<ByExtensions>(
+    (acc, v) => {
+      const ext = v.ofExtension();
+      if (ext) {
+        acc.with.add(ext, v);
+      } else {
+        acc.without.push(v);
+      }
+      return acc;
+    },
+    { without: [], with: new MultiMap() }
+  );
+  const groups = [ byExtensions.without ].concat(mapValues(byExtensions.with));
+  for (const group of groups) {
+    if (group.length > 1) {
+      const eltStr = element.kind === 'ObjectType'
+        ? `the same type declaration of "${element.coordinate}"`
+        : `field "${element.coordinate}"`;
+      errorCollector.push(ERRORS.INVALID_SHAREABLE_USAGE.err(
+        `Invalid duplicate application of @shareable on ${eltStr}: `
+        + '@shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration',
+        { nodes: sourceASTs(...group) },
+      ));
+    }
+  }
+}
+
+
 const printFieldCoordinate = (f: FieldDefinition<CompositeType>): string => `"${f.coordinate}"`;
 
 function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<ObjectType>[]]) {
@@ -549,50 +641,66 @@ export class FederationMetadata {
     }
   }
 
-  private getFederationDirective<TApplicationArgs extends {[key: string]: any}>(
-    name: string
+  // Should only be be called for "legacy" directives, those that existed in 2.0. This
+  // allow to avoiding have to double-check the directive exists every time when we
+  // know it will always exists (note that even though we accept fed1 schema as inputs,
+  // those are almost immediately converted to fed2 ones by the `SchemaUpgrader`, so
+  // we include @shareable or @override in those "legacy" directives).
+  private getLegacyFederationDirective<TApplicationArgs extends {[key: string]: any}>(
+    name: FederationDirectiveName
   ): DirectiveDefinition<TApplicationArgs> {
-    const directive = this.schema.directive(this.federationDirectiveNameInSchema(name));
+    const directive = this.getFederationDirective<TApplicationArgs>(name);
     assert(directive, `The provided schema does not have federation directive @${name}`);
-    return directive as DirectiveDefinition<TApplicationArgs>;
+    return directive;
+  }
+
+  private getFederationDirective<TApplicationArgs extends {[key: string]: any}>(
+    name: FederationDirectiveName
+  ): DirectiveDefinition<TApplicationArgs> | undefined {
+    return this.schema.directive(this.federationDirectiveNameInSchema(name)) as DirectiveDefinition<TApplicationArgs> | undefined;
   }
 
   keyDirective(): DirectiveDefinition<{fields: any, resolvable?: boolean}> {
-    return this.getFederationDirective(keyDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.KEY);
   }
 
   overrideDirective(): DirectiveDefinition<{from: string}> {
-    return this.getFederationDirective(overrideDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.OVERRIDE);
   }
 
   extendsDirective(): DirectiveDefinition<Record<string, never>> {
-    return this.getFederationDirective(extendsDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.EXTENDS);
   }
 
   externalDirective(): DirectiveDefinition<{reason: string}> {
-    return this.getFederationDirective(externalDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.EXTERNAL);
   }
 
   requiresDirective(): DirectiveDefinition<{fields: any}> {
-    return this.getFederationDirective(requiresDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.REQUIRES);
   }
 
   providesDirective(): DirectiveDefinition<{fields: any}> {
-    return this.getFederationDirective(providesDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.PROVIDES);
   }
 
   shareableDirective(): DirectiveDefinition<{}> {
-    return this.getFederationDirective(shareableDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.SHAREABLE);
   }
 
   tagDirective(): DirectiveDefinition<{name: string}> {
-    return this.getFederationDirective(tagSpec.tagDirectiveSpec.name);
+    return this.getLegacyFederationDirective(FederationDirectiveName.TAG);
+  }
+
+  composeDirective(): DirectiveDefinition<{name: string}> | FederationDirectiveNotDefinedInSchema<{name: string}> {
+    return this.getFederationDirective<{name: string}>(FederationDirectiveName.COMPOSE_DIRECTIVE) ?? {
+      name: FederationDirectiveName.COMPOSE_DIRECTIVE,
+      applications: () => new Array<Directive<any, {name: string}>>(),
+    };
   }
 
   inaccessibleDirective(): DirectiveDefinition<{}> {
-    return this.getFederationDirective(
-      inaccessibleSpec.inaccessibleDirectiveSpec.name
-    );
+    return this.getLegacyFederationDirective(FederationDirectiveName.INACCESSIBLE);
   }
 
   allFederationDirectives(): DirectiveDefinition[] {
@@ -604,9 +712,18 @@ export class FederationMetadata {
       this.tagDirective(),
       this.extendsDirective(),
     ];
-    return this.isFed2Schema()
-      ? baseDirectives.concat(this.shareableDirective(), this.inaccessibleDirective(), this.overrideDirective())
-      : baseDirectives;
+    if (!this.isFed2Schema()) {
+      return baseDirectives;
+    }
+
+    baseDirectives.push(this.shareableDirective());
+    baseDirectives.push(this.inaccessibleDirective());
+    baseDirectives.push(this.overrideDirective());
+    const composeDirective = this.composeDirective();
+    if (isFederationDirectiveDefinedInSchema(composeDirective)) {
+      baseDirectives.push(composeDirective);
+    }
+    return baseDirectives;
   }
 
   // Note that a subgraph may have no "entities" and so no _EntityType.
@@ -623,7 +740,7 @@ export class FederationMetadata {
   }
 
   fieldSetType(): ScalarType {
-    return this.schema.type(this.federationTypeNameInSchema(fieldSetTypeSpec.name)) as ScalarType;
+    return this.schema.type(this.federationTypeNameInSchema(FederationTypeName.FIELD_SET)) as ScalarType;
   }
 
   allFederationTypes(): NamedType[] {
@@ -638,6 +755,17 @@ export class FederationMetadata {
     }
     return baseTypes;
   }
+}
+
+export type FederationDirectiveNotDefinedInSchema<TApplicationArgs extends {[key: string]: any}> = {
+  name: string,
+  applications: () => readonly Directive<any, TApplicationArgs>[],
+}
+
+export function isFederationDirectiveDefinedInSchema<TApplicationArgs extends {[key: string]: any}>(
+  definition: DirectiveDefinition<TApplicationArgs> | FederationDirectiveNotDefinedInSchema<TApplicationArgs>
+): definition is DirectiveDefinition<TApplicationArgs> {
+  return definition instanceof DirectiveDefinition;
 }
 
 export class FederationBlueprint extends SchemaBlueprint {
@@ -688,7 +816,9 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onDirectiveDefinitionAndSchemaParsed(schema: Schema): GraphQLError[] {
-    return completeSubgraphSchema(schema);
+    const errors = completeSubgraphSchema(schema);
+    schema.schemaDefinition.processUnappliedDirectives();
+    return errors;
   }
 
   onInvalidation(schema: Schema) {
@@ -699,7 +829,7 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onValidation(schema: Schema): GraphQLError[] {
-    const errors = super.onValidation(schema);
+    const errorCollector = super.onValidation(schema);
 
     // We rename all root type to their default names (we do here rather than in `prepareValidation` because
     // that can actually fail).
@@ -712,7 +842,7 @@ export class FederationBlueprint extends SchemaBlueprint {
           // composition error.
           const existing = schema.type(defaultName);
           if (existing) {
-            errors.push(ERROR_CATEGORIES.ROOT_TYPE_USED.get(k).err(
+            errorCollector.push(ERROR_CATEGORIES.ROOT_TYPE_USED.get(k).err(
               `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
               + 'this is not supported by federation. '
               + 'If a root type does not use its default name, there should be no other type with that default name.',
@@ -730,19 +860,19 @@ export class FederationBlueprint extends SchemaBlueprint {
     // accepted, and some of those issues are fixed by `SchemaUpgrader`. So insofar as any fed 1 scheam is ultimately converted
     // to a fed 2 one before composition, then skipping some validation on fed 1 schema is fine.
     if (!metadata.isFed2Schema()) {
-      return errors;
+      return errorCollector;
     }
 
     // We validate the @key, @requires and @provides.
     const keyDirective = metadata.keyDirective();
-    validateAllFieldSet<CompositeType>(
-      keyDirective,
-      type => type,
-      errors,
+    validateAllFieldSet<CompositeType>({
+      definition: keyDirective,
+      targetTypeExtractor: type => type,
+      errorCollector,
       metadata,
-      true,
-      true,
-      field => {
+      isOnParentType: true,
+      allowOnNonExternalLeafFields: true,
+      onFields: field => {
         const type = baseType(field.type!);
         if (isUnionType(type) || isInterfaceType(type)) {
           let kind: string = type.kind;
@@ -752,7 +882,7 @@ export class FederationBlueprint extends SchemaBlueprint {
           );
         }
       }
-    );
+    });
     // Note that we currently reject @requires where a leaf field of the selection is not external,
     // because if it's provided by the current subgraph, why "requires" it? That said, it's not 100%
     // nonsensical if you wanted a local field to be part of the subgraph fetch even if it's not
@@ -760,21 +890,20 @@ export class FederationBlueprint extends SchemaBlueprint {
     // rejecting it as it also make it less likely user misunderstand what @requires actually do.
     // But we could consider lifting that limitation if users comes with a good rational for allowing
     // it.
-    validateAllFieldSet<FieldDefinition<CompositeType>>(
-      metadata.requiresDirective(),
-      field => field.parent,
-      errors,
+    validateAllFieldSet<FieldDefinition<CompositeType>>({
+      definition: metadata.requiresDirective(),
+      targetTypeExtractor: field => field.parent,
+      errorCollector,
       metadata,
-      false,
-      false,
-    );
+      allowFieldsWithArguments: true,
+    });
     // Note that like for @requires above, we error out if a leaf field of the selection is not
     // external in a @provides (we pass `false` for the `allowOnNonExternalLeafFields` parameter),
     // but contrarily to @requires, there is probably no reason to ever change this, as a @provides
     // of a field already provides is 100% nonsensical.
-    validateAllFieldSet<FieldDefinition<CompositeType>>(
-      metadata.providesDirective(),
-      field => {
+    validateAllFieldSet<FieldDefinition<CompositeType>>({
+      definition: metadata.providesDirective(),
+      targetTypeExtractor: field => {
         if (metadata.isFieldExternal(field)) {
           throw ERRORS.EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
             `Cannot have both @provides and @external on field "${field.coordinate}"`,
@@ -790,29 +919,49 @@ export class FederationBlueprint extends SchemaBlueprint {
         }
         return type;
       },
-      errors,
+      errorCollector,
       metadata,
-      false,
-      false,
-    );
+    });
 
-    validateNoExternalOnInterfaceFields(metadata, errors);
-    validateAllExternalFieldsUsed(metadata, errors);
+    validateNoExternalOnInterfaceFields(metadata, errorCollector);
+    validateAllExternalFieldsUsed(metadata, errorCollector);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
     if (tagDirective) {
       const error = tagSpec.checkCompatibleDirective(tagDirective);
       if (error) {
-        errors.push(error);
+        errorCollector.push(error);
       }
     }
 
     for (const itf of schema.interfaceTypes()) {
-      validateInterfaceRuntimeImplementationFieldsTypes(itf, metadata, errors);
+      validateInterfaceRuntimeImplementationFieldsTypes(itf, metadata, errorCollector);
     }
 
-    return errors;
+    // While @shareable is "repeatable", this is only so one can use it on both a main
+    // type definition _and_ possible other type extensions. But putting 2 @shareable
+    // on the same type definition or field is both useless, and suggest some miscomprehension,
+    // so we reject it with an (hopefully helpful) error message.
+    for (const objectType of schema.objectTypes()) {
+      validateShareableNotRepeatedOnSameDeclaration(objectType, metadata, errorCollector);
+      for (const field of objectType.fields()) {
+        validateShareableNotRepeatedOnSameDeclaration(field, metadata, errorCollector);
+      }
+    }
+    // Additionally, reject using @shareable on an interface field, as that does not actually
+    // make sense.
+    for (const shareableApplication of metadata.shareableDirective().applications()) {
+      const element = shareableApplication.parent;
+      if (element instanceof FieldDefinition && !isObjectType(element.parent)) {
+        errorCollector.push(ERRORS.INVALID_SHAREABLE_USAGE.err(
+          `Invalid use of @shareable on field "${element.coordinate}": only object type fields can be marked with @shareable`,
+          { nodes: sourceASTs(shareableApplication, element.parent) },
+        ));
+      }
+    }
+
+    return errorCollector;
   }
 
   validationRules(): readonly SDLValidationRule[] {
@@ -822,7 +971,7 @@ export class FederationBlueprint extends SchemaBlueprint {
   onUnknownDirectiveValidationError(schema: Schema, unknownDirectiveName: string, error: GraphQLError): GraphQLError {
     const metadata = federationMetadata(schema);
     assert(metadata, `This method should only have been called on a subgraph schema`)
-    if (ALL_FEDERATION_DIRECTIVES_DEFAULT_NAMES.includes(unknownDirectiveName)) {
+    if (ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES.includes(unknownDirectiveName)) {
       // The directive name is "unknown" but it is a default federation directive name. So it means one of a few things
       // happened:
       //  1. it's a fed1 schema but the directive is a fed2 only one (only possible case for fed1 schema).
@@ -853,7 +1002,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     } else if (!metadata.isFed2Schema()) {
       // We could get here in the case where a fed1 schema has tried to use a fed2 directive but mispelled it.
-      const suggestions = suggestionList(unknownDirectiveName, FEDERATION2_ONLY_SPEC_DIRECTIVES.map((spec) => spec.name));
+      const suggestions = suggestionList(unknownDirectiveName, ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES);
       if (suggestions.length > 0) {
         return withModifiedErrorMessage(
           error,
@@ -862,6 +1011,10 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     }
     return error;
+  }
+
+  applyDirectivesAfterParsing() {
+    return true;
   }
 }
 
@@ -906,7 +1059,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
     core.coreItself.nameInSchema,
     {
       url: federationSpec.url.toString(),
-      import: FEDERATION2_SPEC_DIRECTIVES.map((spec) => `@${spec.name}`),
+      import: federationSpec.directiveSpecs().map((spec) => `@${spec.name}`),
     }
   );
   const errors = completeSubgraphSchema(schema);
@@ -917,7 +1070,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WTH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.2", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective"])';
 
 export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
   const fed2LinkExtension: SchemaExtensionNode = {
@@ -933,7 +1086,7 @@ export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
       {
         kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: 'import' },
-        value: { kind: Kind.LIST, values: FEDERATION2_SPEC_DIRECTIVES.map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
+        value: { kind: Kind.LIST, values: federationSpec.directiveSpecs().map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
       }]
     }]
   };
@@ -1003,8 +1156,8 @@ export function buildSubgraph(
   return subgraph.validate();
 }
 
-export function newEmptyFederation2Schema(): Schema {
-  const schema = new Schema(new FederationBlueprint(true));
+export function newEmptyFederation2Schema(config?: SchemaConfig): Schema {
+  const schema = new Schema(new FederationBlueprint(true), config);
   setSchemaAsFed2Subgraph(schema);
   return schema;
 }
@@ -1046,8 +1199,8 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
   // Note that, in a perfect world, we'd do this within the `SchemaUpgrader`. But the way the code
   // is organised, this method is called before we reach the `SchemaUpgrader`, and it doesn't seem
   // worth refactoring things drastically for that minor convenience.
-  for (const spec of [keyDirectiveSpec, providesDirectiveSpec, requiresDirectiveSpec]) {
-    const directive = schema.directive(spec.name);
+  for (const name of [FederationDirectiveName.KEY, FederationDirectiveName.PROVIDES, FederationDirectiveName.REQUIRES]) {
+    const directive = schema.directive(name);
     if (!directive) {
       continue;
     }
@@ -1088,15 +1241,9 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     }
   }
 
-  return [
-    fieldSetTypeSpec.checkOrAdd(schema, '_' + fieldSetTypeSpec.name),
-    keyDirectiveSpec.checkOrAdd(schema),
-    requiresDirectiveSpec.checkOrAdd(schema),
-    providesDirectiveSpec.checkOrAdd(schema),
-    extendsDirectiveSpec.checkOrAdd(schema),
-    externalDirectiveSpec.checkOrAdd(schema),
-    tagSpec.tagDirectiveSpec.checkOrAdd(schema),
-  ].flat();
+  return FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, '_' + spec.name))
+    .concat(FEDERATION1_DIRECTIVES.map((spec) => spec.checkOrAdd(schema)))
+    .flat();
 }
 
 function completeFed2SubgraphSchema(schema: Schema) {
@@ -1122,21 +1269,32 @@ export function parseFieldSetArgument({
   directive,
   fieldAccessor,
   validate,
+  decorateValidationErrors = true,
 }: {
   parentType: CompositeType,
-  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
+  directive: Directive<SchemaElement<any, any>, {fields: any}>,
   fieldAccessor?: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined,
   validate?: boolean,
+  decorateValidationErrors?: boolean,
 }): SelectionSet {
   try {
-    return parseSelectionSet({
+    const selectionSet = parseSelectionSet({
       parentType,
       source: validateFieldSetValue(directive),
       fieldAccessor,
       validate,
     });
+    if (validate ?? true) {
+      selectionSet.forEachElement((elt) => {
+        if (elt.kind === 'Field' && elt.alias) {
+          // Note that this will be caught by the surrounding catch and "decorated".
+          throw new GraphQLError(`Cannot use alias "${elt.alias}" in "${elt}": aliases are not currently supported in @${directive.name}`);
+        }
+      });
+    }
+    return selectionSet;
   } catch (e) {
-    if (!(e instanceof GraphQLError)) {
+    if (!(e instanceof GraphQLError) || !decorateValidationErrors) {
       throw e;
     }
 
@@ -1148,7 +1306,7 @@ export function parseFieldSetArgument({
           if (msg.endsWith('.')) {
             msg = msg.slice(0, msg.length - 1);
           }
-          if (directive.name === keyDirectiveSpec.name) {
+          if (directive.name === FederationDirectiveName.KEY) {
             msg = msg + ' (the field should either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
           } else {
             msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
@@ -1204,7 +1362,7 @@ export function collectTargetFields({
   return fields;
 }
 
-function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
+function validateFieldSetValue(directive: Directive<SchemaElement<any, any>, {fields: any}>): string {
   const fields = directive.arguments().fields;
   const nodes = directive.sourceAST;
   if (typeof fields !== 'string') {
@@ -1412,7 +1570,7 @@ export class Subgraph {
     }
 
     const core = this.schema.coreFeatures;
-    return !core || core.sourceFeature(d)?.url.identity !== linkIdentity;
+    return !core || core.sourceFeature(d)?.feature.url.identity !== linkIdentity;
   }
 
   private isPrintedType(t: NamedType): boolean {
@@ -1427,7 +1585,7 @@ export class Subgraph {
     }
 
     const core = this.schema.coreFeatures;
-    return !core || core.sourceFeature(t)?.url.identity !== linkIdentity;
+    return !core || core.sourceFeature(t)?.feature.url.identity !== linkIdentity;
   }
 
   private isPrintedDirectiveApplication(d: Directive): boolean {
@@ -1479,6 +1637,13 @@ export class Subgraph {
 export type SubgraphASTNode = ASTNode & { subgraph: string };
 
 export function addSubgraphToASTNode(node: ASTNode, subgraph: string): SubgraphASTNode {
+  // We won't override a existing subgraph info: it's not like the subgraph an ASTNode can come
+  // from can ever change and this allow the provided to act as a "default" rather than a
+  // hard setter, which is convenient in `addSubgraphToError` below if some of the AST of
+  // the provided error already have a subgraph "origin".
+  if ('subgraph' in (node as any)) {
+    return node as SubgraphASTNode;
+  }
   return {
     ...node,
     subgraph
@@ -1511,11 +1676,13 @@ class ExternalTester {
   private readonly fakeExternalFields = new Set<string>();
   private readonly providedFields = new Set<string>();
   private readonly externalDirective: DirectiveDefinition<{}>;
+  private readonly externalFieldsOnType = new Set<string>();
 
   constructor(readonly schema: Schema) {
     this.externalDirective = this.metadata().externalDirective();
     this.collectFakeExternals();
     this.collectProvidedFields();
+    this.collectExternalsOnType();
   }
 
   private metadata(): FederationMetadata {
@@ -1554,8 +1721,18 @@ class ExternalTester {
     }
   }
 
+  private collectExternalsOnType() {
+    for (const type of this.schema.objectTypes()) {
+      if (type.hasAppliedDirective(this.externalDirective)) {
+        for (const field of type.fields()) {
+          this.externalFieldsOnType.add(field.coordinate);
+        }
+      }
+    }
+  }
+
   isExternal(field: FieldDefinition<any> | InputFieldDefinition) {
-    return field.hasAppliedDirective(this.externalDirective) && !this.isFakeExternal(field);
+    return (field.hasAppliedDirective(this.externalDirective) || this.externalFieldsOnType.has(field.coordinate)) && !this.isFakeExternal(field);
   }
 
   isFakeExternal(field: FieldDefinition<any> | InputFieldDefinition) {

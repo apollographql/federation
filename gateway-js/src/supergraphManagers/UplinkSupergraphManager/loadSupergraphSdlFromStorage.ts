@@ -1,11 +1,12 @@
 import { GraphQLError } from 'graphql';
 import retry from 'async-retry';
+import { AbortController } from "node-abort-controller";
 import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
 import type {
-  Fetcher,
   FetcherResponse,
+  Fetcher,
   FetcherRequestInit,
 } from '@apollo/utils.fetcher';
 import type { Logger } from '@apollo/utils.logger';
@@ -61,8 +62,8 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher,
   compositionId,
   maxRetries,
+  requestTimeoutMs,
   roundRobinSeed,
-  earliestFetchTime,
   logger,
 }: {
   graphRef: string;
@@ -72,10 +73,10 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher: Fetcher;
   compositionId: string | null;
   maxRetries: number,
+  requestTimeoutMs: number,
   roundRobinSeed: number,
-  earliestFetchTime: Date | null,
-  logger?: Logger | undefined,
-}) : Promise<Required<SupergraphSdlUpdate> | null> {
+  logger: Logger,
+}) : Promise<SupergraphSdlUpdate | null> {
   // This Promise resolves with either an updated supergraph or null if no change.
   // This Promise can reject in the case that none of the retries are successful,
   // in which case it will reject with the most frequently encountered error.
@@ -87,19 +88,18 @@ export async function loadSupergraphSdlFromUplinks({
         endpoint: endpoints[roundRobinSeed++ % endpoints.length],
         errorReportingEndpoint,
         fetcher,
+        requestTimeoutMs,
         compositionId,
         logger,
       }),
     {
       retries: maxRetries,
-      onRetry: async () => {
-        const delayMS = earliestFetchTime ? earliestFetchTime.getTime() - Date.now(): 0;
-        logger?.debug(`Waiting ${delayMS}ms before retrying (earliest fetch time ${earliestFetchTime})...`);
-        if (delayMS > 0) await new Promise(resolve => setTimeout(resolve, delayMS));
-      }
+      maxTimeout: 60_000,
+      onRetry(e, attempt) {
+        logger.debug(`Unable to fetch supergraph SDL (attempt ${attempt}), waiting before retry: ${e}`);
+      },
     },
   );
-
 }
 
 export async function loadSupergraphSdlFromStorage({
@@ -108,6 +108,7 @@ export async function loadSupergraphSdlFromStorage({
   endpoint,
   errorReportingEndpoint,
   fetcher,
+  requestTimeoutMs,
   compositionId,
   logger,
 }: {
@@ -116,9 +117,10 @@ export async function loadSupergraphSdlFromStorage({
   endpoint: string;
   errorReportingEndpoint?: string;
   fetcher: Fetcher;
+  requestTimeoutMs: number;
   compositionId: string | null;
-  logger?: Logger | undefined;
-}) : Promise<Required<SupergraphSdlUpdate> | null> {
+  logger: Logger;
+}) : Promise<SupergraphSdlUpdate | null> {
   const requestBody = JSON.stringify({
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
@@ -127,6 +129,12 @@ export async function loadSupergraphSdlFromStorage({
       ifAfterId: compositionId,
     },
   })
+
+  const controller = new AbortController();
+  const signal = setTimeout(() => {
+    logger.debug(`Aborting request due to timeout`);
+    controller.abort();
+  }, requestTimeoutMs);
 
   const requestDetails: FetcherRequestInit = {
     method: 'POST',
@@ -137,12 +145,14 @@ export async function loadSupergraphSdlFromStorage({
       'user-agent': `${name}/${version}`,
       'content-type': 'application/json',
     },
+    signal: controller.signal,
   };
+
+  logger.debug(`🔧 Fetching ${graphRef} supergraph schema from ${endpoint} ifAfterId ${compositionId}`);
 
   const startTime = new Date();
   let result: FetcherResponse;
   try {
-    logger?.debug(`🔧 Fetching supergraph schema from ${endpoint}`);
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
@@ -158,6 +168,8 @@ export async function loadSupergraphSdlFromStorage({
     });
 
     throw new UplinkFetcherError(fetchErrorMsg + (e.message ?? e));
+  } finally {
+    clearTimeout(signal);
   }
 
   const endTime = new Date();
@@ -200,7 +212,7 @@ export async function loadSupergraphSdlFromStorage({
       minDelaySeconds,
       // messages,
     } = routerConfig;
-    return { id, supergraphSdl: supergraphSdl!, minDelaySeconds };
+    return { id, supergraphSdl, minDelaySeconds };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;

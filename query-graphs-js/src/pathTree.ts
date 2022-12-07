@@ -74,7 +74,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     currentVertex: RV,
     paths: PathIterator<TTrigger, TNullEdge>[]
   ): PathTree<TTrigger, RV, TNullEdge> {
-    const maxEdges = graph.outEdges(currentVertex).length;
+    const maxEdges = graph.outEdgesCount(currentVertex);
     // We store 'null' edges at `maxEdges` index
     const forEdgeIndex: [TTrigger, OpPathTree | null, PathIterator<TTrigger, TNullEdge>[]][][] = new Array(maxEdges + 1);
     const newVertices: Vertex[] = new Array(maxEdges);
@@ -145,7 +145,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     currentVertex: RV,
     trees: PathTree<TTrigger, RV, TNullEdge>[]
   ): PathTree<TTrigger, RV, TNullEdge> {
-    const maxEdges = graph.outEdges(currentVertex).length;
+    const maxEdges = graph.outEdgesCount(currentVertex);
     // We store 'null' edges at `maxEdges` index
     const forEdgeIndex: [TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>[]][][] = new Array(maxEdges + 1);
     const newVertices: Vertex[] = new Array(maxEdges);

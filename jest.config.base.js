@@ -13,6 +13,10 @@ module.exports = {
     ],
     moduleFileExtensions: [...defaults.moduleFileExtensions, "ts", "tsx"],
     clearMocks: true,
+    snapshotFormat: {
+      escapeString: true,
+      printBasicPrototype: true,
+    },
     globals: {
       "ts-jest": {
         tsconfig: "<rootDir>/tsconfig.test.json",

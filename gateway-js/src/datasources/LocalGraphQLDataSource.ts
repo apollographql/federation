@@ -1,4 +1,4 @@
-import { GraphQLResponse } from 'apollo-server-types';
+import { GatewayGraphQLResponse } from '@apollo/server-gateway-interface';
 import {
   GraphQLSchema,
   graphql,
@@ -6,7 +6,6 @@ import {
   DocumentNode,
   parse,
 } from 'graphql';
-import { enablePluginsForSchemaResolvers } from 'apollo-server-core/dist/utils/schemaInstrumentation';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
 
 export class LocalGraphQLDataSource<
@@ -14,13 +13,12 @@ export class LocalGraphQLDataSource<
 > implements GraphQLDataSource<TContext>
 {
   constructor(public readonly schema: GraphQLSchema) {
-    enablePluginsForSchemaResolvers(schema);
   }
 
   async process({
     request,
     context,
-  }: GraphQLDataSourceProcessOptions<TContext>): Promise<GraphQLResponse> {
+  }: GraphQLDataSourceProcessOptions<TContext>): Promise<GatewayGraphQLResponse> {
     return graphql({
       schema: this.schema,
       source: request.query!,

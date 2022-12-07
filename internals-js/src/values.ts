@@ -161,8 +161,8 @@ function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean
     const v2 = b[key];
     // Beware of false-negative due to getting undefined because the property is not
     // in args2.
-    if (v2 === undefined) {
-      return v1 === undefined && b.hasOwnProperty(key);
+    if (v2 === undefined && !keys2.includes(key)) {
+      return false;
     }
     if (!valueEquals(v1, v2)) {
       return false;
@@ -525,7 +525,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     const valueKeys = new Set(Object.keys(value));
     const fieldsAreValid = locationType.fields().every(field => {
       valueKeys.delete(field.name);
-      return isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions)
+      return isValidValueApplication(value[field.name], field.type!, field.defaultValue, variableDefinitions)
     });
     const hasUnexpectedField = valueKeys.size !== 0
     return fieldsAreValid && !hasUnexpectedField;
@@ -701,14 +701,14 @@ export function argumentsFromAST(
       const expectedType = argsDefiner.argument(name)?.type;
       if (!expectedType) {
         throw ERRORS.INVALID_GRAPHQL.err(
-          `Unknown argument "${name}" found in value: ${context} has no argument named "${name}"`
+          `Unknown argument "${name}" found in value: "${context}" has no argument named "${name}"`
         );
       }
       try {
         values[name] = valueFromAST(argNode.value, expectedType);
       } catch (e) {
         if (e instanceof GraphQLError) {
-          throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument ${name}: ${e.message}`);
+          throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument "${name}": ${e.message}`);
         }
         throw e;
       }
@@ -743,4 +743,3 @@ function collectVariables(value: any, variables: Variable[]) {
     Object.keys(value).forEach(k => collectVariables(value[k], variables));
   }
 }
-

@@ -49,7 +49,7 @@ describe('ApolloGateway executor', () => {
         variables: { first: '3' },
       },
       queryHash: 'hashed',
-      context: null,
+      context: {},
       cache: {} as any,
       logger,
     });
@@ -85,7 +85,7 @@ describe('ApolloGateway executor', () => {
       document: gql(source),
       request: {},
       queryHash: 'hashed',
-      context: null,
+      context: {},
       cache: {} as any,
       logger,
     });

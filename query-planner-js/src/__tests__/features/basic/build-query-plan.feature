@@ -721,7 +721,7 @@ Scenario: for abstract types, it should add __typename when fetching objects of 
         "serviceName": "product",
         "variableUsages": [],
         "operationKind": "query",
-        "operation": "{topProducts{__typename ...on Book{price}...on Furniture{price}}}"
+        "operation": "{topProducts{__typename price}}"
       }
     }
     """
@@ -750,7 +750,7 @@ Scenario: should break up when traversing an extension field on an interface typ
             "serviceName": "product",
             "variableUsages": [],
             "operationKind": "query",
-            "operation": "{topProducts{__typename ...on Book{__typename isbn price}...on Furniture{__typename upc price}}}"
+            "operation": "{topProducts{__typename price ...on Book{__typename isbn}...on Furniture{__typename upc}}}"
           },
           {
             "kind": "Flatten",
@@ -842,7 +842,7 @@ Scenario: interface fragments should expand into possible types only
     }
     """
 
-Scenario: interface inside interface should expand into possible types only
+Scenario: interface inside interface needs not expand if unnecessary
   Given query
     """
     query {
@@ -862,7 +862,7 @@ Scenario: interface inside interface should expand into possible types only
         "serviceName": "product",
         "variableUsages": [],
         "operationKind": "query",
-        "operation": "{product(upc:\"\"){__typename ...on Book{details{country}}...on Furniture{details{country}}}}"
+        "operation": "{product(upc:\"\"){__typename details{__typename country}}}"
       }
     }
     """

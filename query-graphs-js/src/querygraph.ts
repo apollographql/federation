@@ -208,6 +208,10 @@ export class Edge {
     this._conditions.freeze();
   }
 
+  isKeyOrRootTypeEdgeToSelf(): boolean {
+    return this.head === this.tail && (this.transition.kind === 'KeyResolution' || this.transition.kind === 'RootTypeResolution');
+  }
+
   toString(): string {
     return `${this.head} -> ${this.tail} (${this.label()})`;
   }
@@ -272,7 +276,7 @@ export class QueryGraph {
     /** A name to identify the graph. Mostly for pretty-printing/debugging purpose. */
     readonly name: string,
     /** The vertices of the query graph. The index of each vertex in the array will be the value of its `Vertex.index` value. */
-    private readonly vertices: Vertex[],
+    readonly vertices: Vertex[],
     /**
     * For each vertex, the edges that originate from that array. This array has the same length as `vertices` and `adjacencies[i]`
     * is an array of all the edges starting at vertices[i].
@@ -339,10 +343,27 @@ export class QueryGraph {
    * @param vertex - the vertex for which to return out edges. This method _assumes_ that
    *   the provided vertex is a vertex of this query graph (and its behavior is undefined
    *   if it isn't).
+   * @param includeKeyAndRootTypeEdgesToSelf - whether key/root type edges that stay on the same
+   *  vertex should be included. This default to `false` are those are rarely useful. More
+   *   precisely, the only current use of them is for @defer where they may be needed to re-enter
+   *   the current subgraph in a deferred section.
    * @returns the list of all the edges out of this vertex.
    */
-  outEdges(vertex: Vertex): readonly Edge[] {
-    return this.adjacencies[vertex.index];
+  outEdges(vertex: Vertex, includeKeyAndRootTypeEdgesToSelf: boolean = false): readonly Edge[] {
+    const allEdges = this.adjacencies[vertex.index];
+    return includeKeyAndRootTypeEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyOrRootTypeEdgeToSelf())
+  }
+
+  /**
+   * The number of edges out of the provided vertex.
+   *
+   * This is a shortcut for `this.outEdges(vertex, true).length`, and the reason it considers
+   * edge-to-self by default while `this.outEdges` doesn't is that this method is generally
+   * used to size other arrays indexed by edges index, and so we want to consider all edges
+   * in general.
+   */
+  outEdgesCount(vertex: Vertex): number {
+    return this.adjacencies[vertex.index].length;
   }
 
   /**
@@ -365,7 +386,7 @@ export class QueryGraph {
    * @returns whether the provided vertex is terminal.
    */
   isTerminal(vertex: Vertex): boolean {
-    return this.outEdges(vertex).length == 0;
+    return this.outEdgesCount(vertex) === 0;
   }
 
   /**
@@ -442,7 +463,7 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    */
   setEdgeState(edge: Edge, state: EdgeState) {
     if (!this.adjacenciesStates[edge.head.index]) {
-      this.adjacenciesStates[edge.head.index] = new Array(this.graph.outEdges(edge.head).length);
+      this.adjacenciesStates[edge.head.index] = new Array(this.graph.outEdgesCount(edge.head));
     }
     this.adjacenciesStates[edge.head.index][edge.index] = state;
   }
@@ -584,7 +605,8 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   }
 
   // We then add the edges from supergraph roots to the subgraph ones.
-  // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs.
+  // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs
+  // (and for @defer, like for @key, we also add self-link looping on the current subgraph).
   // This essentially encode the fact that if a field return a root type, we can always query any subgraph from that point.
   for (const [i, subgraph] of subgraphs.entries()) {
     const copyPointer = copyPointers[i];
@@ -593,9 +615,6 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
       builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
 
       for (const [j, otherSubgraph] of subgraphs.entries()) {
-        if (i === j) {
-          continue;
-        }
         const otherRootVertex = otherSubgraph.root(rootKind);
         if (otherRootVertex) {
           const otherCopyPointer = copyPointers[j];
@@ -622,7 +641,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
             continue;
           }
 
-          // The @key directive creates an edge from every other subgraphs (having that type)
+          // The @key directive creates an edge from every subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
           // that the service of the current subgraph can be queried for the entity (through
           // _entities) as long as "the other side" can provide the proper field values.
@@ -635,10 +654,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
           const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
+          // Note that each subgraph has a key edge to itself (when i === j below). We usually ignore
+          // this edges, but they exists for the special case of @defer, where we technically may have
+          // to take such "edge-to-self" as a mean to "re-enter" a subgraph for a deferred section.
           for (const [j, otherSubgraph] of subgraphs.entries()) {
-            if (i == j) {
-              continue;
-            }
             const otherVertices = otherSubgraph.verticesForType(type.name);
             if (otherVertices.length == 0) {
               continue;
@@ -755,7 +774,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // We always should have an edge: otherwise it would mean we list a type condition for a type that isn't in the subgraph, but the
           // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
           // to mark a full type as @external).
-          assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v}`);
+          assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v} (edges are: [${builder.edges(v)}])`);
           const copiedTail = builder.makeCopy(existingEdge.tail);
           builder.updateEdgeTail(existingEdge, copiedTail);
           stack.push([copiedTail, selection.selectionSet!]);
@@ -839,18 +858,20 @@ class GraphBuilder {
 
   copyGraph(graph: QueryGraph): SubgraphCopyPointer {
     const offset = this.nextIndex;
-    simpleTraversal(
-      graph,
-      v => {
-        this.getOrCopyVertex(v, offset, graph);
-      },
-      e => {
-        const newHead = this.getOrCopyVertex(e.head, offset, graph);
-        const newTail = this.getOrCopyVertex(e.tail, offset, graph);
-        this.addEdge(newHead, newTail, e.transition, e.conditions);
-        return true; // Always traverse edges
+    // Note that we don't use a normal traversal to do the copying because it's possible the provided `graph`
+    // has some sub-parts that are not reachable from one of the roots but that we still want to copy those
+    // sub-parts. The reason is that, while we don't care about unreachable parts in general, at the time
+    // this method is called, we haven't added edges for @provides, and adding those edges may "connect" those
+    // currently unreachable parts. And to be connected, they need to exist/have been copied in the first
+    // place (note that this means we may copy some unreachable sub-parts that will _not_ be connected later (a subgraph
+    // can well have genuinely unreachable definitions), but that's harmless).
+    for (const vertex of graph.vertices) {
+      const newHead = this.getOrCopyVertex(vertex, offset, graph);
+      for (const edge of graph.outEdges(vertex, true)) {
+        const newTail = this.getOrCopyVertex(edge.tail, offset, graph);
+        this.addEdge(newHead, newTail, edge.transition, edge.conditions);
       }
-    );
+    }
     this.nextIndex += graph.verticesCount();
     const that = this;
     return {
@@ -889,7 +910,7 @@ class GraphBuilder {
   }
 
   /**
-   * Replaces the provided edge by an exact copy except for the tail that is said to the provide `newTail` vertex.
+   * Replaces the provided edge by a copy but with the provided new tail vertex.
    *
    * @param edge - the edge to replace.
    * @param newTail - the tail to change in `edge`.
@@ -928,7 +949,6 @@ class GraphBuilder {
  */
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
-  private readonly forceTypeExplosion: boolean;
 
   constructor(
     private readonly name: string,
@@ -938,14 +958,16 @@ class GraphBuilderFromSchema extends GraphBuilder {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
     assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
-    // The join spec 0.1 used by "fed1" does not preserve the information on where (in which subgraphs)
-    // an interface is defined, so we cannot ever safely avoid type explosion.
-    this.forceTypeExplosion = supergraph !== undefined && supergraph.isFed1;
   }
 
   private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
     const metadata = federationMetadata(this.schema);
     return !!metadata && field.hasAppliedDirective(directiveFct(metadata));
+  }
+
+  private isExternal(field: FieldDefinition<any>): boolean {
+    const metadata = federationMetadata(this.schema);
+    return !!metadata && metadata.isFieldExternal(field);
   }
 
   /**
@@ -982,13 +1004,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can
       // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exploding in practice).
       if (this.isFederatedSubgraph) {
-        if (!this.forceTypeExplosion) {
-          this.maybeAddInterfaceFieldsEdges(namedType, vertex);
-        } else {
-          // While we don't want to add edges for all the "user" fields, we should still have add one for `__typename`
-          // as that can always be asked from the interface and may be necessary in a few corner cases.
-          this.addEdgeForField(namedType.typenameField()!, vertex);
-        }
+        this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
       this.addAbstractTypeEdges(namedType, vertex);
     } else if (isUnionType(namedType)) {
@@ -1007,11 +1023,21 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // even if they are not reachable by any other user operations.
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
-      // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (field.isSchemaIntrospectionField() || this.hasDirective(field, (m) => m.externalDirective())) {
+      if (field.isSchemaIntrospectionField()) {
         continue;
       }
-      this.addEdgeForField(field, head);
+
+      // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't create actual edges.
+      // However, even if we don't add an edge, we still want to add the field type. The reason is that while we don't add
+      // a "general" edge for an external field, we may later add path-specific edges for the field due to a `@provides`. When
+      // we do so, we need the vertex corresponding to that field type to exists, and in rare cases a type could be only
+      // mentioned in this external field, so if we don't add the type here, we'll never do and get an issue later as we
+      // add @provides edges.
+      if (this.isExternal(field)) {
+        this.addTypeRecursively(field.type!)
+      } else {
+        this.addEdgeForField(field, head);
+      }
     }
   }
 
@@ -1022,13 +1048,13 @@ class GraphBuilderFromSchema extends GraphBuilder {
 
   private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {
     const field = type.field(fieldName);
-    // The field is directly provided is:
+    // The field is directly provided if:
     //   1) the type does have it.
     //   2) it is not external.
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
-    //      need to type-explode to make we handle that @require).
-    return field && !this.hasDirective(field, (m) => m.externalDirective()) && !this.hasDirective(field, (m) => m.requiresDirective());
+    //      need to type-explode to make sure we handle that @require).
+    return field && !this.isExternal(field) && !this.hasDirective(field, (m) => m.requiresDirective());
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -1052,7 +1078,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external itself, and it must be provided on every of the runtime types
-      if (this.hasDirective(field, (m) => m.externalDirective()) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      if (this.isExternal(field) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -1108,7 +1134,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    *   }
    * }
    * ```
-   * the we currently have no edge between `U` and `I1` whatsoever, so query planning would have
+   * then we currently have no edge between `U` and `I1` whatsoever, so query planning would have
    * to type-explode `U` even though that's not necessary (assuming everything is in the same
    * subgraph, we'd want to send the query "as-is").
    * Same thing for:
@@ -1116,7 +1142,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * {
    *   i1 {
    *     x
-   *     ... on U2 {
+   *     ... on I2 {
    *       y
    *     }
    *   }
@@ -1128,7 +1154,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * And so this method is about adding such edges. Essentially, every time 2 abstract types have
    * an intersection of runtime types > 1, we add an edge.
    *
-   * Do not that in practice we only add those edges when we build a query graph for query planning
+   * Do note that in practice we only add those edges when we build a query graph for query planning
    * purposes, because not type-exploding is only an optimization but type-exploding will always "work"
    * and for composition validation, we don't care about being optimal, while limiting edges make
    * validation faster by limiting the choices to explore. Also, query planning is careful, as
@@ -1136,18 +1162,46 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * later type-exploding in impossible runtime types.
    */
   addAdditionalAbstractTypeEdges() {
+    // As mentioned above, we only care about this on subgraphs query graphs and during query planning, and
+    // we'll have a supergraph when that happens. But if this ever get called in some other path, ignore this.
+    if (!this.supergraph) {
+      return;
+    }
+
     // For each abstract type in the schema, it's runtime types.
-    const abstractTypesWithTheirRuntimeTypes: [AbstractType, readonly ObjectType[]][] = [];
+    type AbstractTypeWithRuntimes = {
+      type: AbstractType,
+      runtimeTypesInSubgraph: readonly ObjectType[],
+      runtimeTypesInSupergraph: readonly ObjectType[],
+    }
+    const abstractTypesWithTheirRuntimeTypes: AbstractTypeWithRuntimes[] = [];
     for (const type of this.schema.types()) {
       if (isAbstractType(type)) {
-        abstractTypesWithTheirRuntimeTypes.push([type, possibleRuntimeTypes(type)]);
+        const typeInSupergraph = this.supergraph.apiSchema.type(type.name);
+        // All "normal" types from subgraphs should be in the supergraph API, but there is a couple exceptions:
+        // - subgraphs have the `_Entity` type, which is not in the supergraph.
+        // - inaccessible types also won't be in the supergrah.
+        // In all those cases, we don't create any additional edges for those types. For inaccessible type, we
+        // could theoretically try to add them, but we would need the full supergraph while we currently only
+        // have access to the API schema, and besides, inacessible types can only be part of the query execution in
+        // indirect ways, through some @requires for instance, and you'd need pretty weird @requires for the
+        // optimization here to ever matter.
+        if (!typeInSupergraph) {
+          continue;
+        }
+        assert(isAbstractType(typeInSupergraph), () => `${type} should not be a ${type.kind} in a subgraph but a ${typeInSupergraph.kind} in the supergraph`);
+        abstractTypesWithTheirRuntimeTypes.push({
+          type,
+          runtimeTypesInSubgraph: possibleRuntimeTypes(type),
+          runtimeTypesInSupergraph: possibleRuntimeTypes(typeInSupergraph),
+        });
       }
     }
 
     // Check every pair of abstract type that intersect on at least 2 runtime types to see if have
     // edges to add. Note that in practice, we only care about 'Union -> Interface' and 'Interface -> Interface'
     for (let i = 0; i < abstractTypesWithTheirRuntimeTypes.length - 1; i++) {
-      const [t1, t1Runtimes] = abstractTypesWithTheirRuntimeTypes[i];
+      const t1 = abstractTypesWithTheirRuntimeTypes[i];
       // Note that in general, t1 is already part of the graph `addTypeRecursively` don't really add anything, it
       // just return the existing vertex. That said, if t1 is returned by no field (at least no field reachable from
       // a root type), the type will not be part of the graph. And in that case, we do add it. And it's actually
@@ -1156,21 +1210,72 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // in the first place (we could also try to purge such subset after this method, but it's probably not worth
       // it in general) and it's not a big deal: it will just use a bit more memory than necessary, and it's probably
       // pretty rare in the first place.
-      const t1Vertex = this.addTypeRecursively(t1);
+      const t1Vertex = this.addTypeRecursively(t1.type);
       for (let j = i; j < abstractTypesWithTheirRuntimeTypes.length; j++) {
-        const [t2, t2Runtimes] = abstractTypesWithTheirRuntimeTypes[j];
+        const t2 = abstractTypesWithTheirRuntimeTypes[j];
+
         // We ignore the pair if both are interfaces and one implements the other. We'll already have appropriate
         // edges if that's the case.
-        if (isInterfaceType(t1) && isInterfaceType(t2) && (t1.implementsInterface(t2) || t2.implementsInterface(t1))) {
+        if (isInterfaceType(t1.type) && isInterfaceType(t2.type) && (t1.type.implementsInterface(t2.type) || t2.type.implementsInterface(t1.type))) {
           continue;
         }
-        // Note that as everything comes from the same subgraph schema, using reference equality is fine.
-        const intersecting = t1Runtimes.filter(o1 => t2Runtimes.includes(o1));
-        if (intersecting.length >= 2) {
+
+        let addT1ToT2 = false;
+        let addT2ToT1 = false;
+        if (t1.type === t2.type) {
+          // We always add an edge from a type to itself. This is just saying that if we're type-casting to the type we're already
+          // on, it's doing nothing, and in particular it shouldn't force us to type-explode anymore that if we didn't had the
+          // cast in the first place. Note that we only set `addT1ToT1` to true, otherwise we'd be adding the same edge twice.
+          addT1ToT2 = true;
+        } else {
+          // Otherwise, there is 2 aspects to take into account:
+          // - it's only worth adding an edge between types, meaining that we might save type-exploding into the runtime
+          //   types of the "target" one, if the local intersection (of runtime types, in the current subgraph) for the
+          //   abstract types is more than 2. If it's just 1 type, then going to that type directly is not less efficient
+          //   and is more precise in a sense. And if the intersection is empty, then no point in polluting the query graphs
+          //   with edges we'll never take.
+          // - _but_ we can only save type-exploding if that local intersection does not exclude any runtime types that
+          //   are local to the "source" type, not local to the "target" type, *but* are global to the "taget" type,
+          //   because such type should not be excluded and only type-explosion will achieve that (for some concrete
+          //   example, see the "merged abstract types handling" tests in `buildPlan.test.ts`).
+          //   In other words, we don't want to avoid the type explosion if there is a type in the intersection of
+          //   the local "source" runtimes and global "target" runtimes that are not in the purely local runtimes
+          //   intersection.
+
+          // Everything comes from the same subgraph schema, using reference equality is fine here.
+          const intersectingLocal = t1.runtimeTypesInSubgraph.filter(o1 => t2.runtimeTypesInSubgraph.includes(o1));
+          if (intersectingLocal.length >= 2) {
+            const isInLocalOtherTypeButNotLocalIntersection = (type: ObjectType, otherType: AbstractTypeWithRuntimes) => (
+              otherType.runtimeTypesInSubgraph.some((t) => t.name === type.name)
+              && !intersectingLocal.some((t) => t.name === type.name)
+            );
+            // TODO: we're currently _never_ adding the edge if the "target" is a union. We shouldn't be doing that, this
+            // will genuinely make some cases less efficient than they could be (though those cases are admittedly a bit convoluted),
+            // but this make sense *until* https://github.com/apollographql/federation/issues/2256 gets fixed. Because until
+            // then, we do not properly track unions through composition, and that means there is never a difference (in the query
+            // planner) between a local union definition and the supergraph one, even if that different actually exists.
+            // And so, never type-exploding in that case is somewhat safer, as not-type-exploding is ultimately an optimisation.
+            // Please note that this is *not* a fix for #2256, and most of the issues created by #2256 still needs fixing, but
+            // it avoids making it even worth for a few corner cases. We should remove the `isUnionType` below once the
+            // fix for #2256 is implemented.
+            if (!(isUnionType(t2.type) || t2.runtimeTypesInSupergraph.some((rt) => isInLocalOtherTypeButNotLocalIntersection(rt, t1)))) {
+              addT1ToT2 = true;
+            }
+            if (!(isUnionType(t1.type) ||t1.runtimeTypesInSupergraph.some((rt) => isInLocalOtherTypeButNotLocalIntersection(rt, t2)))) {
+              addT2ToT1 = true;
+            }
+          }
+        }
+
+        if (addT1ToT2 || addT2ToT1) {
           // Same remark as for t1 above.
-          const t2Vertex = this.addTypeRecursively(t2);
-          this.addEdge(t1Vertex, t2Vertex, new DownCast(t1, t2));
-          this.addEdge(t2Vertex, t1Vertex, new DownCast(t2, t1));
+          const t2Vertex = this.addTypeRecursively(t2.type);
+          if (addT1ToT2) {
+            this.addEdge(t1Vertex, t2Vertex, new DownCast(t1.type, t2.type));
+          }
+          if (addT2ToT1) {
+            this.addEdge(t2Vertex, t1Vertex, new DownCast(t2.type, t1.type));
+          }
         }
       }
     }

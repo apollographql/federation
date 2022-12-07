@@ -5,38 +5,61 @@ description: Upgrade your supergraph incrementally at any pace
 
 > 📣 If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
-You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even if some of your subgraphs continue using Federation 1 schemas.
+You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even while some of your subgraphs continue using Federation 1 schemas.
 
-Each individual step of moving your supergraph has its own benefits, so it's useful to complete as many steps as you're ready to complete. You can always complete the rest later.
+Each individual step of moving your supergraph has its own benefits, so it's useful to complete as many steps as you're ready to complete. You can always finish the rest later.
 
 Here are the three steps for moving to Federation 2:
 
 ```mermaid
 graph LR;
-  gateway(Update your gateway)
+  gateway(Upgrade your gateway)
   gateway --> composition(Use Federation 2 composition);
   composition --> subgrahs(Update individual subgraphs);
 ```
 
-1. Update your gateway to a version that supports Federation 2 (or swap out your gateway for the [Apollo Router](/router/)).
+1. Upgrade your gateway to support Federation 2.
+
+    You can upgrade to either of the following:
+
+    - [The Apollo Router](/router/), a high-performance precompiled executable (recommended)
+    - Version 2.x of the `@apollo/gateway` library, along with version 4.x of Apollo Server
 2. Begin composing your supergraph schema with Federation 2 composition logic.
 3. Update your individual subgraphs to use Federation 2 features and directives.
 
-Steps 1 and 2 are quick, and it's straightforward to reverse them if you need to for any reason. Step 3 requires schema changes that _remove_ backward compatibility with Federation 1. Because of this, we recommend first completing it with a test instance of your graph.
+As with all infrastructure changes, we strongly recommend completing each of these steps with a test instance of your supergraph before performing them in production.
 
 > If you encounter an issue while moving your supergraph to Federation 2, please describe the issue in the [community forums](https://community.apollographql.com/).
 
-## Step 1: Update `@apollo/gateway`
+## Step 1: Upgrade your gateway
 
-The `@apollo/gateway` library supports Federation 2 supergraph schemas in version `2.0.0` and later. You can install the latest version in your gateway project with the following command:
+For your Federation 1 supergraph to support Federation 2, you first need to upgrade its gateway to one of the following:
+
+- **The Apollo Router.** This is a high-performance, precompiled executable that provides many benefits over the Node.js-based gateway.
+    - We recommend moving to the Apollo Router _unless_ you've extended your Node.js gateway with functionality that the Apollo Router doesn't currently support (this is uncommon).
+- Version 2.x of the `@apollo/gateway` library, with version 4.x of Apollo Server
+
+> Both the Apollo Router _and_ `@apollo/gateway` v2.x support Federation 1! You can upgrade to either without making any other changes to your Federation 1 supergraph, and it will work as expected.
+
+### Moving to the Apollo Router
+
+- To get started running the Apollo Router, see the [quickstart](/router/quickstart/).
+- For guidance on moving to the Apollo Router from your Node.js-based gateway, see [this article](/router/migrating-from-gateway).
+
+### Upgrading `@apollo/gateway` and Apollo Server
+
+The `@apollo/gateway` library supports Federation 2 supergraph schemas in version `2.0.0` and later. These versions of `@apollo/gateway` require version `16.0.0` or later of the `graphql` library.
+
+You can install updated versions of these libraries in your gateway project with the following command:
 
 ```bash
-npm install @apollo/gateway
+npm install @apollo/gateway graphql
 ```
 
-Alternatively, you can _swap out_ your supergraph's gateway for the **Apollo Router**, a high-performance graph router implemented in Rust. [See the docs.](/router/migrating-from-gateway/)
+Apollo Server 3.x supports these updated library versions, however **Apollo Server 3.x is deprecated!** Therefore, we strongly recommend _also_ upgrading your gateway to Apollo Server 4.
 
-> Both `@apollo/gateway` v2.x _and_ the Apollo Router support Federation 1! You can update to either without making any other changes, and your Federation 1 supergraph will work as expected.
+- [Learn how to migrate to Apollo Server 4.](/apollo-server/migration)
+- If you're still using Apollo Server 2.x, we recommend [migrating to v3.x ](/apollo-server/v3/migration) and _then_ migrating to 4.x.
 
 ## Step 2: Configure your composition method
 
@@ -47,9 +70,9 @@ Federation 2 uses a completely new method to compose supergraph schemas. This me
 
 Follow the instructions below to configure whichever composition method(s) you currently use:
 
-<ExpansionPanel title="Managed federation with Apollo Studio">
+<ExpansionPanel title="Managed federation with GraphOS">
 
-If you're using [managed federation](../managed-federation/overview/), you move individual variants of your graph to Federation 2 in the Apollo Studio UI.
+If you're using [managed federation](../managed-federation/overview/), you move individual variants of your graph to Federation 2 via the Apollo Studio UI.
 
 Open the Settings page for the variant you want to move to Federation 2, then select the **This Variant** tab:
 
@@ -62,7 +85,7 @@ Open the Settings page for the variant you want to move to Federation 2, then se
 
 Click **Edit Configuration**. The following dialog appears:
 
-<img class="screenshot" alt="Edit supported directives in Studio" src="../images/set-federation-version.jpg" width="600"/>
+<img class="screenshot" alt="Edit supported directives in Studio" src="../images/set-federation-version.jpg" width="500"/>
 
 In the Federation Version dropdown, select **Federation 2** and click **Save**.
 
@@ -92,7 +115,7 @@ graph LR;
 
 If you perform composition with the Rover CLI, do the following:
 
-1. Install the latest version of Rover (must be `0.5.0` or later) using the appropriate command for your system:
+1. Install the latest version of Rover using the appropriate command for your system:
 
     ```bash title="MacOS / Unix-like"
     curl -sSL https://rover.apollo.dev/nix/latest | sh
@@ -144,7 +167,7 @@ To use new Federation 2 features and their associated directives, it's helpful t
     npm install @apollo/subgraph
     ```
 
-* If your subgraph uses another server library, check the [compatibility table](../other-servers/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
+* If your subgraph uses another server library, check the [compatibility table](../building-supergraphs/supported-subgraphs/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
     * If your library _doesn't_ support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
 
 ### Opt in to Federation 2
@@ -165,7 +188,7 @@ This definition identifies a schema as a Federation 2 schema, and it `import`s a
 
 ### Add directive definitions if needed
 
-Currently, not all [subgraph libraries](../other-servers/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
+Currently, not all [subgraph libraries](../building-supergraphs/supported-subgraphs/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
 
 <ExpansionPanel title="Click to expand">
 

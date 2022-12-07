@@ -1,9 +1,19 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## vNext
+
+## 2.2.0
+
+- Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
+
+## 2.1.0
+
+- Fix abnormally high memory usage when extracting subgraphs for some fed1 supergraphs (and small other memory footprint improvements) [PR #2089](https://github.com/apollographql/federation/pull/2089).
+- Fix issue when type is only reachable through a @provides [PR #2083](https://github.com/apollographql/federation/pull/2083).
+- Update peer dependency `graphql` to `^16.5.0` to use `GraphQLErrorOptions` [PR #2060](https://github.com/apollographql/federation/pull/2060)
+- Add `@defer` support [PR #1958](https://github.com/apollographql/federation/pull/1958)
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900)
-
-## 2.1.0-alpha.0
-
+- Avoid type-explosion with fed1 supergraphs using a fed2 query planner [PR #1994](https://github.com/apollographql/federation/pull/1994).
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## 2.0.5
