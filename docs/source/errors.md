@@ -44,7 +44,7 @@ The following errors might be raised during composition:
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
 | `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257) | 2.0.0 |  |
 | `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implementation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
-| `INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE` | A subgraph has a `@key` on an interface type, but that subgraph does not define all the implementation (in the supergraph) of that interface | 2.3.0 |  |
+| `INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE` | A subgraph has a `@key` on an interface type, but that subgraph does not define an implementation (in the supergraph) of that interface | 2.3.0 |  |
 | `INTERFACE_KEY_NOT_ON_IMPLEMENTATION` | A `@key` is defined on an interface type, but is not defined (or is not resolvable) on at least one of the interface implementations | 2.3.0 |  |
 | `INTERFACE_OBJECT_USAGE_ERROR` | Error in the usage of the @interfaceObject directive. | 2.3.0 |  |
 | `INVALID_FEDERATION_SUPERGRAPH` | Indicates that a schema provided for an Apollo Federation supergraph is not a valid supergraph schema. | 2.1.0 |  |
