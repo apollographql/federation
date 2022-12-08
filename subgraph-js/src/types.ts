@@ -80,17 +80,18 @@ function maybeAddTypeNameToPossibleReturn<T>(
 }
 
 /**
- * Copied from GraphQL-js.
+ * Copied and adapted from GraphQL-js to provide more tailored error messages (but the equivalent method is also not exported
+ * by `graphql-js`).
  *
  * For @key on interfaces, we need to check that we can resolve the runtime type of the object returned by the interface
  * `__resolveReference`. If we cannot, and we simply don't add any `__typename` to the result, the graphQL-js will end
  * erroring out, but the error will not be user friendly as it will say something along the lines of:
  * ```
- * Abstract type "_Entity" must resolve to an Object type at runtime for field "Query._entities". Either the "_Entity" type
- * should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.
+ *   Abstract type "_Entity" must resolve to an Object type at runtime for field "Query._entities". Either the "_Entity" type
+ *   should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.
  * ```
  * But this is ultimately incorrect, as it is only interface type the user must use "resolveType", add a __typename, or rely
- * on "isTypeOf". And so we have to somewhat copy this. As we do, we also adapt the message a bit to be more user friendly.
+ * on "isTypeOf". And so we have to somewhat copy and adapt the logic slightly (mostly to provide a more user friendly method).
  */
 function ensureValidRuntimeType(
   runtimeTypeName: unknown,

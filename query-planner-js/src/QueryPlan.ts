@@ -39,12 +39,33 @@ export interface FetchNode {
   operationName: string | undefined;
   operationKind: OperationTypeNode;
   operationDocumentNode?: DocumentNode;
-  inputRewrites?: FetchDataRewrite[];
+  // Optionally describe a number of "rewrites" that query plan executors should apply to the data that is sent as input of this fetch.
+  inputRewrites?: FetchDataInputRewrite[];
 }
 
-export interface FetchDataRewrite {
+/**
+ * The type of rewrites currently supported on the input data of fetches.
+ *
+ * A rewrite usually identifies some subpart of the input data and some action to perform on that subpart.
+ * Note that input rewrites should only impact the inputs of the fetch they are applied to (meaning that, as
+ * those inputs are collected from the current in-memory result, the rewrite should _not_ impact said in-memory
+ * results, only what is sent in the fetch).
+ */
+export type FetchDataInputRewrite = FetchDataValueSetter;
+
+/**
+ * A rewrite that sets a value at the provided path of the data it is applied to.
+ */
+export interface FetchDataValueSetter {
+  kind: 'ValueSetter',
+  // Path to the key that is set by this "rewrite". It is of the form `[ 'x', '... on A', 'y' ]`, where fragments
+  // means that the path should only match for objects whose `__typename` is he provided type.
+  // If the path does not match in the data this is applied to, then this setter should not rewrite the data.
+  // The path starts at the top of the data it is applied to. So for instance, for fetch data inputs, the path
+  // start at the root of the object representing those inputs.
   path: string[],
-  setValueTo?: any,
+  // The value to set at `path`.
+  setValueTo: any,
 }
 
 export interface FlattenNode {

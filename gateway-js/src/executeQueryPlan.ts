@@ -24,7 +24,7 @@ import {
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
   getResponseName,
-  FetchDataRewrite,
+  FetchDataInputRewrite,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -486,8 +486,8 @@ async function executeFetch(
   }
 }
 
-function updateRewrites(rewrites: FetchDataRewrite[] | undefined, pathElement: string): {
-  updated: FetchDataRewrite[],
+function updateRewrites(rewrites: FetchDataInputRewrite[] | undefined, pathElement: string): {
+  updated: FetchDataInputRewrite[],
   completeRewrite?: any,
 } | undefined {
   if (!rewrites) {
@@ -497,7 +497,7 @@ function updateRewrites(rewrites: FetchDataRewrite[] | undefined, pathElement: s
   let completeRewrite: any = undefined;
   const updated = rewrites
     .map((r) => {
-      let u: FetchDataRewrite | undefined = undefined;
+      let u: FetchDataInputRewrite | undefined = undefined;
       if (r.path[0] === pathElement) {
         const updatedPath = r.path.slice(1);
         if (updatedPath.length === 0) {
@@ -523,7 +523,7 @@ function executeSelectionSet(
   schema: GraphQLSchema,
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
-  activeRewrites?: FetchDataRewrite[],
+  activeRewrites?: FetchDataInputRewrite[],
 ): Record<string, any> | null {
 
   // If the underlying service has returned null for the parent (source)

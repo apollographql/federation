@@ -446,7 +446,7 @@ class Merger {
 
 
     // When @interfaceObject is used in a subgraph, then that subgraph essentially provides fields both
-    // to the interface but also to all it's implementation. But so far, we only merged the type definition
+    // to the interface but also to all its implementations. But so far, we only merged the type definition
     // itself, so we now need to potentially add the field to the implementations if missing.
     // Note that we do this after everything else have been merged because this method will essentially
     // copy things from interface in the merged schema into their implementation in that same schema so
@@ -761,9 +761,9 @@ class Merger {
 
       // There is either 1 join__type per-key, or if there is no key, just one for the type.
       const sourceMetadata = this.subgraphs.values()[idx].metadata();
-      // Note that mechanically we don't need to substitue `undefined` for `false` below (`false` is the
+      // Note that mechanically we don't need to substitute `undefined` for `false` below (`false` is the
       // default value), but doing so 1) yield smaller supergraph (because the parameter isn't included)
-      // and 2) this avoid needless disrepancies compared to supergraphs generated before @interfaceObject was added.
+      // and 2) this avoid needless discrepancies compared to supergraphs generated before @interfaceObject was added.
       const isInterfaceObject = sourceMetadata.isInterfaceObjectType(source) ? true : undefined;
       const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
@@ -1637,9 +1637,9 @@ class Merger {
   }
 
   private validateInterfaceKeys(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
-    // Remark: it might be ok to filter @inaccessible types in `supergraphImplementations`, but this require
-    // some more thinking (and I'm not even sure it makes a practical difference given the rules for validaty
-    // of @inacessible) and it will be backward compatible to filter them later, while the reverse wouldn't
+    // Remark: it might be ok to filter @inaccessible types in `supergraphImplementations`, but this requires
+    // some more thinking (and I'm not even sure it makes a practical difference given the rules for validity
+    // of @inaccessible) and it will be backward compatible to filter them later, while the reverse wouldn't
     // technically be, so we stay on the safe side.
     const supergraphImplementations = dest.possibleRuntimeTypes();
 

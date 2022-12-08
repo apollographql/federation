@@ -545,7 +545,7 @@ const INTERFACE_KEY_NOT_ON_IMPLEMENTATION = makeCodeDefinition(
 
 const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
   'INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE',
-  'A subgraph has a `@key` on an interface type, but that subgraph does not define all the implementation (in the supergraph) of that interface',
+  'A subgraph has a `@key` on an interface type, but that subgraph does not define an implementation (in the supergraph) of that interface',
   { addedIn: '2.3.0' },
 )
 

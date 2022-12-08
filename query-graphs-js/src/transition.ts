@@ -50,8 +50,8 @@ export type Transition =
 ;
 
 export class KeyResolution {
-  readonly kind = 'KeyResolution' as const;
-  readonly collectOperationElements = false as const;
+  readonly kind = 'KeyResolution'
+  readonly collectOperationElements = false;
 
   toString() {
     return 'key()';
@@ -59,8 +59,8 @@ export class KeyResolution {
 }
 
 export class RootTypeResolution {
-  readonly kind = 'RootTypeResolution' as const;
-  readonly collectOperationElements = false as const;
+  readonly kind = 'RootTypeResolution';
+  readonly collectOperationElements = false;
 
   constructor(readonly rootKind: SchemaRootKind) {
   }
@@ -71,8 +71,8 @@ export class RootTypeResolution {
 }
 
 export class FieldCollection {
-  readonly kind = 'FieldCollection' as const;
-  readonly collectOperationElements = true as const;
+  readonly kind = 'FieldCollection';
+  readonly collectOperationElements = true;
 
   constructor(
     readonly definition: FieldDefinition<CompositeType>,
@@ -85,8 +85,8 @@ export class FieldCollection {
 }
 
 export class DownCast {
-  readonly kind = 'DownCast' as const;
-  readonly collectOperationElements = true as const;
+  readonly kind = 'DownCast';
+  readonly collectOperationElements = true;
 
   constructor(readonly sourceType: CompositeType, readonly castedType: CompositeType) {}
 
@@ -96,8 +96,8 @@ export class DownCast {
 }
 
 export class SubgraphEnteringTransition {
-  readonly kind = 'SubgraphEnteringTransition' as const;
-  readonly collectOperationElements = false as const;
+  readonly kind = 'SubgraphEnteringTransition';
+  readonly collectOperationElements = false;
 
   toString() {
     return '∅';
@@ -105,8 +105,8 @@ export class SubgraphEnteringTransition {
 }
 
 export class InterfaceObjectFakeDownCast {
-  readonly kind = 'InterfaceObjectFakeDownCast' as const;
-  readonly collectOperationElements = true as const;
+  readonly kind = 'InterfaceObjectFakeDownCast';
+  readonly collectOperationElements = true;
 
   constructor(readonly sourceType: CompositeType, readonly castedTypeName: string) {}
 

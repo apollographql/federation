@@ -89,7 +89,7 @@ import {
   buildFederatedQueryGraph,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
-import { DeferredNode, FetchDataRewrite } from ".";
+import { DeferredNode, FetchDataInputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
@@ -658,7 +658,7 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  private readonly inputRewrites: FetchDataRewrite[] = [];
+  private readonly inputRewrites: FetchDataInputRewrite[] = [];
 
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
@@ -856,7 +856,7 @@ class FetchGroup {
     return this._children;
   }
 
-  addInputs(selection: Selection | SelectionSet, rewrites?: FetchDataRewrite[]) {
+  addInputs(selection: Selection | SelectionSet, rewrites?: FetchDataInputRewrite[]) {
     assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
     // There is subtlety here, that is due to the fact that we sometime want to merge groups that
     // are at the same mergeAt but that may currently have "incompatible" input parent types. In
@@ -3282,9 +3282,10 @@ function computeGroupsForTree(
             const inputType = dependencyGraph.typeForFetchInputs(sourceType.name);
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.mergeIn(edge.conditions!);
-            let rewrites: FetchDataRewrite[] | undefined = undefined;
+            let rewrites: FetchDataInputRewrite[] | undefined = undefined;
             if (isInterfaceObjectType(destType)) {
               rewrites = [{
+                kind: 'ValueSetter',
                 path: [ `... on ${inputType.name}`, typenameFieldName ],
                 setValueTo: destType.name,
               }];
