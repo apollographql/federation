@@ -40,7 +40,7 @@ const typeDefs = gql`
 
 </MultiCodeBlock>
 
-> We wrap our schema in the `gql` tag to convert it into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](../api/apollo-subgraph/#buildsubgraphschema) function below requires the schema we pass in to be a `DocumentNode` type.
+> We wrap our schema in the `gql` tag to convert it into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](/apollo-server/using-federation/api/apollo-subgraph/#buildsubgraphschema) function below requires the schema we pass in to be a `DocumentNode` type.
 
 Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 

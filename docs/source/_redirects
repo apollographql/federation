@@ -1,9 +1,12 @@
-/subgraphs/ /docs/federation/building-supergraphs/subgraphs-apollo-server/
+/subgraphs/ /docs/apollo-server/using-federation/apollo-subgraph-setup/
 /gateway/ /docs/federation/building-supergraphs/router/
 /router/ /docs/federation/building-supergraphs/router/
 /supported-subgraphs/ /docs/federation/building-supergraphs/supported-subgraphs/
 /other-servers/ /docs/federation/building-supergraphs/supported-subgraphs/
 /federation-spec/ /docs/federation/subgraph-spec/
+/building-supergraphs/subgraphs-apollo-server/ /docs/apollo-server/using-federation/apollo-subgraph-setup/
+/api/apollo-subgraph /docs/apollo-server/using-federation/api/apollo-subgraph/
+/api/apollo-gateway /docs/apollo-server/using-federation/api/apollo-gateway/
 
 /v2/* /docs/federation/:splat
 /workbench/* /docs/federation/v1/workbench/:splat
