@@ -412,7 +412,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
             for (const value of type.values) {
               // Before version 0.3 of the join spec (before `enumValueDirective`), we were not recording which subgraph defined which values,
               // and instead aded all values to all subgraphs (at least if the type existed there).
-              const addValue = !enumValueDirective 
+              const addValue = !enumValueDirective
                 || value.appliedDirectivesOf(enumValueDirective).some((d) =>
                   graphEnumNameToSubgraphName.get(d.arguments().graph) === subgraph.name
                 );
