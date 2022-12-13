@@ -664,7 +664,7 @@ describe('@core/@link handling', () => {
 
     directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
-    directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+    directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
     directive @federation__extends on OBJECT | INTERFACE
 

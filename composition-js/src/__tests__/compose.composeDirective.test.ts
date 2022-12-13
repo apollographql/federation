@@ -856,6 +856,7 @@ describe('composing custom core directives', () => {
         DirectiveLocation.OBJECT,
         DirectiveLocation.INTERFACE,
         DirectiveLocation.UNION,
+        DirectiveLocation.SCHEMA,
         DirectiveLocation.ARGUMENT_DEFINITION,
         DirectiveLocation.SCALAR,
         DirectiveLocation.ENUM,
@@ -907,6 +908,7 @@ describe('composing custom core directives', () => {
         DirectiveLocation.OBJECT,
         DirectiveLocation.INTERFACE,
         DirectiveLocation.UNION,
+        DirectiveLocation.SCHEMA,
         DirectiveLocation.ARGUMENT_DEFINITION,
         DirectiveLocation.SCALAR,
         DirectiveLocation.ENUM,
@@ -921,7 +923,7 @@ describe('composing custom core directives', () => {
 
     expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag' }]);
     const feature = schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/tag');
-    expect(feature?.url.toString()).toBe('https://specs.apollo.dev/tag/v0.2');
+    expect(feature?.url.toString()).toBe('https://specs.apollo.dev/tag/v0.3');
     expect(feature?.imports).toEqual([]);
     expect(feature?.nameInSchema).toEqual('mytag');
     expect(printSchema(schema)).toMatchSnapshot();

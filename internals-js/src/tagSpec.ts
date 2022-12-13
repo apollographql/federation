@@ -24,6 +24,7 @@ export class TagSpecDefinition extends FeatureDefinition {
     this.printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
     if (!this.isV01()) {
       this.tagLocations.push(
+        DirectiveLocation.SCHEMA,
         DirectiveLocation.ARGUMENT_DEFINITION,
         DirectiveLocation.SCALAR,
         DirectiveLocation.ENUM,
@@ -31,7 +32,7 @@ export class TagSpecDefinition extends FeatureDefinition {
         DirectiveLocation.INPUT_OBJECT,
         DirectiveLocation.INPUT_FIELD_DEFINITION,
       );
-      this.printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION';
+      this.printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA';
     }
     this.tagDirectiveSpec = createDirectiveSpecification({
       name:'tag',
@@ -76,6 +77,7 @@ export class TagSpecDefinition extends FeatureDefinition {
 
 export const TAG_VERSIONS = new FeatureDefinitions<TagSpecDefinition>(tagIdentity)
   .add(new TagSpecDefinition(new FeatureVersion(0, 1)))
-  .add(new TagSpecDefinition(new FeatureVersion(0, 2)));
+  .add(new TagSpecDefinition(new FeatureVersion(0, 2)))
+  .add(new TagSpecDefinition(new FeatureVersion(0, 3)));
 
 registerKnownFeature(TAG_VERSIONS);

@@ -138,7 +138,7 @@ describe('buildSubgraphSchema', () => {
 
       directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
       directive @extends on OBJECT | INTERFACE
 
@@ -411,7 +411,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
 
@@ -486,7 +486,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
 
@@ -553,7 +553,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
 
@@ -610,7 +610,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
 
@@ -679,7 +679,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
 
@@ -753,7 +753,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
 
@@ -810,7 +810,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect((data?._service as any).sdl).toMatchString(
-        (header.length === 0 
+        (header.length === 0
           ? ''
           : `
         ${header.trim()}
@@ -851,7 +851,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @extends on OBJECT | INTERFACE
       `,
@@ -889,7 +889,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @federation__extends on OBJECT | INTERFACE
 
@@ -1055,7 +1055,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @federation__extends on OBJECT | INTERFACE
 
@@ -1118,7 +1118,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @federation__extends on OBJECT | INTERFACE
 
@@ -1183,7 +1183,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | SCHEMA | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 
         directive @federation__extends on OBJECT | INTERFACE
 
