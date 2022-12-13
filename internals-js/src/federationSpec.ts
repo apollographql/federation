@@ -195,6 +195,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
 export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 2)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
