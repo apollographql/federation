@@ -3516,4 +3516,423 @@ describe('executeQueryPlan', () => {
         `);
     });
   });
+
+  describe('@interfaceObject', () => {
+    const defineSchema = ({
+      s1,
+    }: {
+      s1?: {
+        iResolversExtra?: any,
+        hasIResolveReference?: boolean,
+        iResolveReferenceExtra?: (id: string) => { [k: string]: any },
+        aResolversExtra?: any,
+        bResolversExtra?: any,
+      }
+    }) => {
+
+      // The example uses 2 entities:
+      //  - one of type A with id='idA' (x=1, y=2, z=3)
+      //  - one of type B with id='idB' (x=10, y=20, w=30)
+
+      const s1IBaseResolvers = (s1?.hasIResolveReference ?? true)
+        ? {
+          __resolveReference(ref: { id: string }) {
+          const extraFct = s1?.iResolveReferenceExtra;
+          const extraData = extraFct ? extraFct(ref.id) : {};
+          return ref.id === 'idA'
+            ? { id: ref.id, x: 1, z: 3, ...extraData }
+            : { id: ref.id, x: 10, w: 30, ...extraData };
+          }
+        }
+        : {};
+
+      const subgraph1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+          type Query {
+            iFromS1: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            z: Int
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            w: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            iFromS1() {
+              return { __typename: 'A', id: 'idA' };
+            }
+          },
+          I: {
+            ...s1IBaseResolvers,
+            ...(s1?.iResolversExtra ?? {}),
+          },
+          A: {
+            ...(s1?.aResolversExtra ?? {}),
+          },
+          B: {
+            ...(s1?.bResolversExtra ?? {}),
+          },
+        }
+      }
+
+      const subgraph2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+
+          type Query {
+            iFromS2: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            iFromS2() {
+              return {
+                __typename: 'I',
+                id: 'idB',
+                y: 20,
+              };
+            }
+          },
+          I: {
+            __resolveReference(ref: { id: string }) {
+              return {
+                id: ref.id,
+                y: ref.id === 'idA' ? 2 : 20,
+              }
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([ subgraph1, subgraph2 ]);
+      return async (op: string): Promise<{ plan: QueryPlan, response: GatewayExecutionResult }> => {
+        const operation = parseOp(op, schema);
+        const plan = buildPlan(operation, queryPlanner);
+        const response = await executePlan(plan, operation, undefined, schema, serviceMap);
+        return { plan, response };
+      };
+    }
+
+
+    test('handles __typename rewriting when using @key to @interfaceObject', async () => {
+      // We don't need extra resolving from S1 in this case.
+      const tester = defineSchema({});
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS1 {
+            __typename
+            y
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                iFromS1 {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "iFromS1") {
+              Fetch(service: "S2") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS1": Object {
+            "__typename": "A",
+            "y": 2,
+          },
+        }
+      `);
+
+      // Same, but with an explicit cast to A
+      ({ plan, response } = await tester(`
+        query {
+          iFromS1 {
+            ... on A {
+              y
+            }
+          }
+        }
+      `));
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                iFromS1 {
+                  __typename
+                  ... on A {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+            Flatten(path: "iFromS1") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS1": Object {
+            "y": 2,
+          },
+        }
+      `);
+
+      // And lastly, make sure that we explicitly cast to B, we get nothing
+      ({ plan, response } = await tester(`
+        query {
+          iFromS1 {
+            ... on B {
+              y
+            }
+          }
+        }
+      `));
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                iFromS1 {
+                  __typename
+                  ... on B {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+            Flatten(path: "iFromS1") {
+              Fetch(service: "S2") {
+                {
+                  ... on B {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS1": Object {},
+        }
+      `);
+    });
+
+    test.each([{
+      name: 'with manual __typename',
+      s1: {
+        iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }),
+      },
+    }, {
+      name: 'with __resolveType',
+      s1: {
+        iResolversExtra: {
+          __resolveType(ref: { id: string }) {
+            return ref.id === 'idA' ? 'A' : 'B';
+          }
+        },
+      },
+    }, {
+      name: 'with isTypeOf',
+      s1: {
+        aResolversExtra: {
+          __isTypeOf(ref: { id: string }) {
+            return ref.id === 'idA';
+          }
+        },
+        bResolversExtra: {
+          __isTypeOf(ref: { id: string }) {
+            // Same remark as above.
+            return ref.id === 'idB';
+          }
+        },
+      },
+    }, {
+      name: 'with only a __resolveType on the interface but per-runtime-types __resolveReference',
+      s1: {
+        hasIResolveReference: false,
+        iResolversExtra: {
+          __resolveType(ref: { id: string }) {
+            return ref.id === 'idA' ? 'A' : 'B';
+          }
+        },
+        aResolversExtra: {
+          __resolveReference(ref: { id: string }) {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : undefined;
+          }
+        },
+        bResolversExtra: {
+          __resolveReference(ref: { id: string }) {
+            return ref.id === 'idB'
+              ? { id: ref.id, x: 10, w: 30 }
+              : undefined;
+          }
+        },
+      },
+    }, {
+      name: 'errors when nothing provides the runtime type',
+      expectedErrors: [
+        'Abstract type "I" `__resolveReference` method must resolve to an Object type at runtime. '
+        + 'Either the object returned by "I.__resolveReference" must include a valid `__typename` field, '
+        + 'or the "I" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.'
+      ],
+    }])('resolving an interface @key $name', async ({s1, expectedErrors}) => {
+      const tester = defineSchema({ s1 });
+
+      const { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            __typename
+            x
+            y
+            ... on A {
+              z
+            }
+            ... on B {
+              w
+            }
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                iFromS2 {
+                  __typename
+                  id
+                  y
+                }
+              }
+            },
+            Flatten(path: "iFromS2") {
+              Fetch(service: "S1") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                    x
+                    ... on A {
+                      z
+                    }
+                    ... on B {
+                      w
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      if (expectedErrors) {
+        expect(response.errors?.map((e) => e.message)).toEqual(expectedErrors);
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "iFromS2": null,
+          }
+        `);
+      } else {
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "iFromS2": Object {
+              "__typename": "B",
+              "w": 30,
+              "x": 10,
+              "y": 20,
+            },
+          }
+        `);
+      }
+    });
+  });
 });

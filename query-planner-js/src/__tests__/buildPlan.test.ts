@@ -1,28 +1,10 @@
-import { astSerializer, queryPlanSerializer, QueryPlanner, QueryPlannerConfig } from '@apollo/query-planner';
-import { composeServices } from '@apollo/composition';
-import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { QueryPlanner } from '@apollo/query-planner';
+import { assert, buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
-
-expect.addSnapshotSerializer(astSerializer);
-expect.addSnapshotSerializer(queryPlanSerializer);
-
-export function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  return composeAndCreatePlannerWithOptions(services, {});
-}
-
-export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
-  const compositionResults = composeServices(
-    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
-  );
-  expect(compositionResults.errors).toBeUndefined();
-  return [
-    compositionResults.schema!.toAPISchema(),
-    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!), config)
-  ];
-}
+import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
 
 describe('shareable root fields', () => {
   test('can use same root operation from multiple subgraphs in parallel', () => {

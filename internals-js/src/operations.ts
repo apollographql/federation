@@ -139,7 +139,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   selects(definition: FieldDefinition<any>, assumeValid: boolean = false): boolean {
     // We've already validated that the field selects the definition on which it was built.
-    if (definition == this.definition) {
+    if (definition === this.definition) {
       return true;
     }
 
@@ -292,10 +292,18 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   }
 
   withUpdatedSourceType(newSourceType: CompositeType): FragmentElement {
+    return this.withUpdatedTypes(newSourceType, this.typeCondition);
+  }
+
+  withUpdatedCondition(newCondition: CompositeType | undefined): FragmentElement {
+    return this.withUpdatedTypes(this.sourceType, newCondition);
+  }
+
+  withUpdatedTypes(newSourceType: CompositeType, newCondition: CompositeType | undefined): FragmentElement {
     // Note that we pass the type-condition name instead of the type itself, to ensure that if `newSourceType` was from a different
     // schema (typically, the supergraph) than `this.sourceType` (typically, a subgraph), then the new condition uses the
     // definition of the proper schema (the supergraph in such cases, instead of the subgraph).
-    const newFragment = new FragmentElement(newSourceType, this.typeCondition?.name);
+    const newFragment = new FragmentElement(newSourceType, newCondition?.name);
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
@@ -311,12 +319,18 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     const fragmentParent = this.parentType;
     const typeCondition = this.typeCondition;
     if (selectionParent != fragmentParent) {
-      // As long as there an intersection between the type we cast into and the selection parent, it's ok.
-      validate(
-        !typeCondition || runtimeTypesIntersects(selectionParent, typeCondition),
-        () => `Cannot add fragment of parent type "${this.parentType}" to selection set of parent type "${selectionSet.parentType}"`
-      );
-      return this.withUpdatedSourceType(selectionParent);
+      // This usually imply that the fragment is not from the same sugraph than then selection. So we need
+      // to update the source type of the fragment, but also "rebase" the condition to the selection set
+      // schema.
+      let updatedTypeCondition: CompositeType | undefined = undefined;
+      if (typeCondition) {
+        const typeInSchema = selectionParent.schema().type(typeCondition.name);
+        validate(typeInSchema, () => `Cannot add ${this} to selection of parent type ${selectionParent}: cannot find condition type in schema of parent type`);
+        validate(isCompositeType(typeInSchema), () => `Cannot add ${this} to selection of parent type ${selectionParent}: condition type in schema is a ${typeInSchema.kind}`);
+        validate(runtimeTypesIntersects(selectionParent, typeInSchema), () => `Cannot add ${this} to selection of parent type ${selectionParent}: condition type in schema does not intersect ${selectionParent}`);
+        updatedTypeCondition = typeInSchema;
+      }
+      return this.withUpdatedTypes(selectionParent, updatedTypeCondition);
     }
     return this;
   }
@@ -1437,6 +1451,10 @@ export class FieldSelection extends Freezable<FieldSelection> {
     this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet.cloneIfFrozen() : new SelectionSet(type as CompositeType));
   }
 
+  get parentType(): CompositeType {
+    return this.field.parentType;
+  }
+
   protected us(): FieldSelection {
     return this;
   }
@@ -1710,6 +1728,10 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
   abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
 
   abstract withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FragmentSelection;
+
+  get parentType(): CompositeType {
+    return this.element().parentType;
+  }
 
   protected us(): FragmentSelection {
     return this;

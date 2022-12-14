@@ -202,3 +202,46 @@ test('remove tag on external field if found on definition', () => {
   expect(typeAInS1.field("y")?.appliedDirectivesOf('tag').map((d) => d.toString())).toStrictEqual([]);
   expect(typeAInS2.field("y")?.appliedDirectivesOf('tag').map((d) => d.toString())).toStrictEqual([ '@tag(name: "a tag")' ]);
 })
+
+test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
+  // Note that this test both validates the rejection of fed1 subgraph when @interfaceObject is used somewhere, but also
+  // illustrate why we do so: fed1 schema can use @key on interface for backward compatibility, but it is ignored and
+  // the schema upgrader removes them. Given that actual support for @key on interfaces is necesarry to make @interfaceObject
+  // work, it would be really confusing to not reject the example below right away, since it "looks" like it the @key on
+  // the interface in the 2nd subgraph should work, but it actually won't.
+
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+      x: Int
+    }
+  `;
+
+  const s2 = `
+    interface A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+
+    type X implements A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors?.map((e) => e.message)).toStrictEqual([
+    'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): '
+    + '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.'
+  ]);
+})

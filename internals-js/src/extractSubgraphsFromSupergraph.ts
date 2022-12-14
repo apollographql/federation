@@ -202,7 +202,10 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     const ownerDirective = joinSpec.ownerDirective(supergraph);
     const fieldDirective = joinSpec.fieldDirective(supergraph);
 
-    const getSubgraph = (application: Directive<any, { graph: string }>) => graphEnumNameToSubgraphName.get(application.arguments().graph);
+    const getSubgraph = (application: Directive<any, { graph?: string }>) => {
+      const graph = application.arguments().graph;
+      return graph ? graphEnumNameToSubgraphName.get(graph) : undefined;
+    };
 
     /*
      * Fed2 supergraph have "provenance" information for all types and fields, so we can faithfully extract subgraph relatively easily.
@@ -221,7 +224,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         supergraph,
         subgraphs.names(),
         (f, name) => {
-          const fieldApplications: Directive<any, { graph: string, requires?: string, provides?: string }>[] = f.appliedDirectivesOf(fieldDirective);
+          const fieldApplications: Directive<any, { graph?: string, requires?: string, provides?: string }>[] = f.appliedDirectivesOf(fieldDirective);
           if (fieldApplications.length) {
             const application = fieldApplications.find((application) => getSubgraph(application) === name);
             if (application) {
@@ -274,7 +277,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           // We can have more than one type directive for a given subgraph
           let subgraphType = schema.type(type.name);
           if (!subgraphType) {
-            subgraphType = schema.addType(newNamedType(type.kind, type.name));
+            const kind = args.isInterfaceObject ? 'ObjectType' : type.kind;
+            subgraphType = schema.addType(newNamedType(kind, type.name));
+            if (args.isInterfaceObject) {
+              subgraphType.applyDirective('interfaceObject');
+            }
           }
           if (args.key) {
             const { resolvable } = args;
@@ -353,6 +360,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
 
               for (const application of fieldApplications) {
                 const args = application.arguments();
+                // We use a @join__field with no graph to indicates when a field in the supergraph does not come
+                // directly from any subgraph and there is thus nothing to do to "extract" it.
+                if (!args.graph) {
+                  continue;
+                }
                 const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
                 const subgraphField = addSubgraphField(field, subgraph, args.type);
                 if (!subgraphField) {
