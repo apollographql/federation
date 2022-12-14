@@ -538,34 +538,6 @@ describe('root types', () => {
   });
 });
 
-it('validates all implementations of interface field have same type if any has @external', () => {
-  const subgraph = gql`
-    type Query {
-      is: [I!]!
-    }
-
-    interface I {
-      f: Int
-    }
-
-    type T1 implements I {
-      f: Int
-    }
-
-    type T2 implements I {
-      f: Int!
-    }
-
-    type T3 implements I {
-      id: ID!
-      f: Int @external
-    }
-  `;
-    expect(buildForErrors(subgraph)).toStrictEqual([
-      ['INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH', '[S] Some of the runtime implementations of interface field "I.f" are marked @external or have a @require ("T3.f") so all the implementations should use the same type (a current limitation of federation; see https://github.com/apollographql/federation/issues/1257), but "T1.f" and "T3.f" have type "Int" while "T2.f" has type "Int!".'],
-    ]);
-})
-
 describe('custom error message for misnamed directives', () => {
   it.each([
     { name: 'fed1', extraMsg: ' If so, note that it is a federation 2 directive but this schema is a federation 1 one. To be a federation 2 schema, it needs to @link to the federation specifcation v2.' },

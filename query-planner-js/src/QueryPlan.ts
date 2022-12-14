@@ -41,6 +41,8 @@ export interface FetchNode {
   operationDocumentNode?: DocumentNode;
   // Optionally describe a number of "rewrites" that query plan executors should apply to the data that is sent as input of this fetch.
   inputRewrites?: FetchDataInputRewrite[];
+  // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is apply to the current in-memory results).
+  outputRewrites?: FetchDataOutputRewrite[];
 }
 
 /**
@@ -52,6 +54,15 @@ export interface FetchNode {
  * results, only what is sent in the fetch).
  */
 export type FetchDataInputRewrite = FetchDataValueSetter;
+
+/**
+ * The type of rewrites currently supported on the output data of fetches.
+ *
+ * A rewrite usually identifies some subpart of the ouput data and some action to perform on that subpart.
+ * Note that ouput rewrites should only impact the outputs of the fetch they are applied to (meaning that
+ * the rewrites must be applied before the data from the fetch is merged to the  current in-memory result).
+ */
+export type FetchDataOutputRewrite = FetchDataKeyRenamer;
 
 /**
  * A rewrite that sets a value at the provided path of the data it is applied to.
@@ -66,6 +77,14 @@ export interface FetchDataValueSetter {
   path: string[],
   // The value to set at `path`.
   setValueTo: any,
+}
+
+export interface FetchDataKeyRenamer {
+  kind: 'KeyRenamer'
+  // Same format as in `FetchDataValueSetter`, but this renames the key at the very end of this path to the
+  // name from `renameKeyTo`.
+  path: string[],
+  renameKeyTo: string,
 }
 
 export interface FlattenNode {
