@@ -1227,20 +1227,21 @@ type SelectionSetAtPath = {
 }
 
 function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewriteCollector: FetchDataOutputRewrite[]) {
-  const seenResponseNames = new Map<string, { type: Type, selections?: SelectionSetAtPath[] }>();
+  const seenResponseNames = new Map<string, { fieldName: string, fieldType: Type, selections?: SelectionSetAtPath[] }>();
   const rebasedFieldsInSet = (s: SelectionSetAtPath) => (
     s.selections.fieldsInSet().map(({ path, field, directParent }) => ({ fieldPath: s.path.concat(path), field, directParent }))
   );
   for (const { fieldPath, field, directParent } of selections.map((s) => rebasedFieldsInSet(s)).flat()) {
+    const fieldName = field.element().name;
     const responseName = field.element().responseName();
     const fieldType = field.element().definition.type!;
     const previous = seenResponseNames.get(responseName);
     if (previous) {
-      if (typesCanBeMerged(previous.type, fieldType)) {
+      if (previous.fieldName === fieldName && typesCanBeMerged(previous.fieldType, fieldType)) {
         // If the type is non-composite, then we're all set. But if it is composite, we need to record the sub-selection to that response name
         // as we need to "recurse" on the merged of both the previous and this new field.
         if (isCompositeType(baseType(fieldType))) {
-          assert(previous.selections, () => `Should have added selections for ${previous.type}`);
+          assert(previous.selections, () => `Should have added selections for ${previous.fieldType}`);
           const selections = previous.selections.concat({ path: fieldPath.concat(responseName), selections: field.selectionSet! });
           seenResponseNames.set(responseName, { ...previous, selections });
         }
@@ -1251,7 +1252,7 @@ function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewrite
         // at the level, but it's theoretically possible. By adding the alias to the seen names, we ensure that in the remote change that
         // this ever happen, we'll avoid the conflict by giving another alias to the followup occurence.
         const selections = field.selectionSet ? [{ path: fieldPath.concat(alias), selections: field.selectionSet }] : undefined;
-        seenResponseNames.set(alias, { type: fieldType, selections });
+        seenResponseNames.set(alias, { fieldName, fieldType, selections });
         const wasRemoved = directParent.removeTopLevelField(responseName);
         assert(wasRemoved, () => `Should have found and removed ${responseName} from ${directParent}`);
         directParent.add(field.withUpdatedField(field.element().withUpdatedAlias(alias)));
@@ -1264,7 +1265,7 @@ function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewrite
       }
     } else {
       const selections = field.selectionSet ? [{ path: fieldPath.concat(responseName), selections: field.selectionSet }] : undefined;
-      seenResponseNames.set(responseName, { type: fieldType, selections });
+      seenResponseNames.set(responseName, { fieldName, fieldType, selections });
     }
   }
   for (const selections of seenResponseNames.values()) {

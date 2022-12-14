@@ -3936,7 +3936,6 @@ describe('executeQueryPlan', () => {
     });
   });
 
-
   describe('fields with conflicting types needing aliasing', () => {
     it('handles @requires of fields on union leading to conflict', async () => {
       const s1 = {
@@ -4621,6 +4620,165 @@ describe('executeQueryPlan', () => {
               },
             ],
           },
+        }
+      `);
+    });
+
+    it('handles clashes with existing aliases during alias generation on conflict', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            us: [U]
+          }
+
+          interface U {
+            id: ID!
+            x: String
+            f: String
+            y: String
+          }
+
+          type A implements U @key(fields: "id") {
+            id: ID!
+            x: String
+            f: String @external
+            g: Int
+            y: String
+          }
+
+          type B implements U @key(fields: "id") {
+            id: ID!
+            x: String
+            f: String @external
+            g: String
+            y: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            us() {
+              return [
+                { __typename: 'A', id: 'keyA', g: 1, x: 'xA', y: 'yA' },
+                { __typename: 'B', id: 'keyB', g: 'foo', x: 'xB', y: 'yB' },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: Int @external
+          }
+
+          type B @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: String @external
+          }
+        `,
+        resolvers: {
+          A: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+          B: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      // We known that `g` will need to be aliased in the 2nd occurrence on B, and by default it would be aliased
+      // as `g__alias_0`. So we query something with that exact alias to check that we avoid the conflict. We
+      // also use alias `g__alias_1` to further ensure multiple possible conflict are handled.
+      const operation = parseOp(`
+        query {
+          us {
+            g__alias_0: x
+            f
+            g__alias_1: y
+          }
+        }
+        `, schema);
+      global.console = require('console')
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                us {
+                  __typename
+                  g__alias_0: x
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g__alias_1: g
+                  }
+                  g__alias_1__alias_0: y
+                }
+              }
+            },
+            Flatten(path: "us.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g
+                  }
+                } =>
+                {
+                  ... on A {
+                    f
+                  }
+                  ... on B {
+                    f
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      // We double-check that the final aliases are the one from the query
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "us": Array [
+            Object {
+              "f": "g is type number",
+              "g__alias_0": "xA",
+              "g__alias_1": "yA",
+            },
+            Object {
+              "f": "g is type string",
+              "g__alias_0": "xB",
+              "g__alias_1": "yB",
+            },
+          ],
         }
       `);
     });
