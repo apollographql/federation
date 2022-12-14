@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+
 ## 2.2.0
 
 - __BREAKING__: composition now rejects `@shareable` on interface fields. The `@shareable` directive is about
