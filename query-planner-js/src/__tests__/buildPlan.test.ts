@@ -5170,10 +5170,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  // TODO: this test currently doesn't work due to https://github.com/apollographql/federation/issues/2256
-  // (it is not a direct test of that issue, but one of its consequence nonetheles). We should enable it
-  // with the fix of that issue.
-  test.skip('union/union interaction, but no need to type-explode', () => {
+  test('union/union interaction, but no need to type-explode', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5240,3 +5237,79 @@ describe('merged abstract types handling', () => {
     `);
   });
 });
+
+test('handles spread unions correctly', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        u: U
+      }
+
+      union U = A | B
+
+      type A @key(fields: "id") {
+        id: ID!
+        a1: Int
+      }
+
+      type B {
+        id: ID!
+        b: Int
+      }
+
+      type C  @key(fields: "id") {
+        id: ID!
+        c1: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        otherQuery: U
+      }
+
+      union U = A | C
+
+      type A @key(fields: "id") {
+        id: ID!
+        a2: Int
+      }
+
+      type C @key(fields: "id") {
+        id: ID!
+        c2: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      u {
+        ... on C {
+          c1
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  // Note: it's important that the query below DO NOT include the `... on C` part. Because in
+  // Subgraph 1, `C` is not a part of the union `U` and so a spread for `C` inside `u` is invalid
+  // GraphQL.
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Fetch(service: "Subgraph1") {
+        {
+          u {
+            __typename
+          }
+        }
+      },
+    }
+  `);
+})

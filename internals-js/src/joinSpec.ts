@@ -97,6 +97,17 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinImplements.addArgument('interface', new NonNullType(schema.stringType()));
     }
 
+    if (this.version >= (new FeatureVersion(0, 3))) {
+      const joinUnionMember = this.addDirective(schema, 'unionMember').addLocations(DirectiveLocation.UNION);
+      joinUnionMember.repeatable = true;
+      joinUnionMember.addArgument('graph', new NonNullType(graphEnum));
+      joinUnionMember.addArgument('member', new NonNullType(schema.stringType()));
+
+      const joinEnumValue = this.addDirective(schema, 'enumValue').addLocations(DirectiveLocation.ENUM_VALUE);
+      joinEnumValue.repeatable = true;
+      joinEnumValue.addArgument('graph', new NonNullType(graphEnum));
+    }
+
     if (this.isV01()) {
       const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
       joinOwner.addArgument('graph', new NonNullType(graphEnum));
@@ -181,6 +192,14 @@ export class JoinSpecDefinition extends FeatureDefinition {
     usedOverridden?: boolean,
   }> {
     return this.directive(schema, 'field')!;
+  }
+
+  unionMemberDirective(schema: Schema): DirectiveDefinition<{graph: string, member: string}> | undefined {
+    return this.directive(schema, 'unionMember');
+  }
+
+  enumValueDirective(schema: Schema): DirectiveDefinition<{graph: string}> | undefined {
+    return this.directive(schema, 'enumValue');
   }
 
   ownerDirective(schema: Schema): DirectiveDefinition<{graph: string}> | undefined {

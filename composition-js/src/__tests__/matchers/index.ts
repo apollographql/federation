@@ -1,1 +1,2 @@
 import './toMatchString';
+import './toMatchSubgraph';
