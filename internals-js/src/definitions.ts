@@ -241,6 +241,14 @@ export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): bo
   return false;
 }
 
+export function supertypes(type: CompositeType): readonly CompositeType[] {
+  switch (type.kind) {
+    case 'InterfaceType': return type.interfaces();
+    case 'UnionType': return [];
+    case 'ObjectType': return (type.interfaces() as CompositeType[]).concat(type.unionsWhereMember());
+  }
+}
+
 export function isConditionalDirective(directive: Directive<any, any> | DirectiveDefinition<any>): boolean {
   return ['include', 'skip'].includes(directive.name);
 }
@@ -2097,6 +2105,10 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
         }
         break;
     }
+  }
+
+  unionsWhereMember(): readonly UnionType[] {
+    return this._referencers?.filter<UnionType>((r): r is UnionType => r instanceof BaseNamedType && isUnionType(r)) ?? [];
   }
 }
 

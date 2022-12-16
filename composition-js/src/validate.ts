@@ -98,8 +98,12 @@ function displayReasons(reasons: Unadvanceables[]): string {
     if (reasons.length === 1) {
       msg += ' ' + reasons[0].details + '.';
     } else {
-      for (const reason of reasons) {
-        msg += '\n  - ' + reason.details + '.';
+      // We put all the reasons into a set because it's possible multiple paths of the algorithm
+      // had the same "dead end". Typically, without this, there is cases where we end up with
+      // multiple "cannot find field x" messages (for the same "x").
+      const allDetails = new Set(reasons.map((r) => r.details));
+      for (const details of allDetails) {
+        msg += '\n  - ' + details + '.';
       }
     }
     return msg;
@@ -155,7 +159,9 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
     case 'SubgraphEnteringTransition':
     case 'KeyResolution':
     case 'RootTypeResolution':
-      return subSelection;
+    case 'InterfaceObjectFakeDownCast':
+      // Witnesses are build from a path on the supergraph, so we shouldn't have any of those edges.
+      assert(false, `Invalid edge ${edge} found in supergraph path`);
   }
   // If we get here, the edge is either a downcast or a field, so the edge head must be selectable.
   const selectionSet = new SelectionSet(edge.head.type as CompositeType);

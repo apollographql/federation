@@ -11,10 +11,17 @@ import {
   isNamedType,
   isObjectType,
   GraphQLResolveInfo,
+  isInterfaceType,
+  defaultTypeResolver,
+  GraphQLError,
+  GraphQLAbstractType,
+  GraphQLSchema,
+  GraphQLInterfaceType,
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
 import { maybeCacheControlFromInfo } from '@apollo/cache-control-types';
-import { ApolloGraphQLObjectTypeExtensions } from './schemaExtensions';
+import { ApolloGraphQLInterfaceTypeExtensions, ApolloGraphQLObjectTypeExtensions, GraphQLReferenceResolver } from './schemaExtensions';
+import { inspect } from 'util';
 
 export type Maybe<T> = null | undefined | T;
 
@@ -62,6 +69,100 @@ function addTypeNameToPossibleReturn<T>(
   return maybeObject as null | (T & { __typename: string });
 }
 
+function maybeAddTypeNameToPossibleReturn<T>(
+  maybeObject: PromiseOrValue<null | T>,
+  typename: string,
+): PromiseOrValue<null | (T & { __typename?: string })> {
+  if (isPromise(maybeObject)) {
+    return maybeObject.then((x: any) => addTypeNameToPossibleReturn(x, typename));
+  }
+  return addTypeNameToPossibleReturn(maybeObject, typename);
+}
+
+/**
+ * Copied and adapted from GraphQL-js to provide more tailored error messages (but the equivalent method is also not exported
+ * by `graphql-js`).
+ *
+ * For @key on interfaces, we need to check that we can resolve the runtime type of the object returned by the interface
+ * `__resolveReference`. If we cannot, and we simply don't add any `__typename` to the result, the graphQL-js will end
+ * erroring out, but the error will not be user friendly as it will say something along the lines of:
+ * ```
+ *   Abstract type "_Entity" must resolve to an Object type at runtime for field "Query._entities". Either the "_Entity" type
+ *   should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.
+ * ```
+ * But this is ultimately incorrect, as it is only interface type the user must use "resolveType", add a __typename, or rely
+ * on "isTypeOf". And so we have to somewhat copy and adapt the logic slightly (mostly to provide a more user friendly method).
+ */
+function ensureValidRuntimeType(
+  runtimeTypeName: unknown,
+  schema: GraphQLSchema,
+  returnType: GraphQLAbstractType,
+  result: unknown,
+): GraphQLObjectType {
+  if (runtimeTypeName == null) {
+    throw new GraphQLError(
+      `Abstract type "${returnType.name}" \`__resolveReference\` method must resolve to an Object type at runtime. Either the object returned by "${returnType}.__resolveReference" must include a valid \`__typename\` field, or the "${returnType.name}" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.`,
+    );
+  }
+
+  if (typeof runtimeTypeName !== 'string') {
+    throw new GraphQLError(
+      `Abstract type "${returnType.name}" \`__resolveReference\` method must resolve to an Object type at runtime with ` +
+        `value ${inspect(result)}, received "${inspect(runtimeTypeName)}".`,
+    );
+  }
+
+  const runtimeType = schema.getType(runtimeTypeName);
+  if (runtimeType == null) {
+    throw new GraphQLError(
+      `Abstract type "${returnType.name}" \`__resolveReference\` method resolved to a type "${runtimeTypeName}" that does not exist inside the schema.`,
+    );
+  }
+
+  if (!isObjectType(runtimeType)) {
+    throw new GraphQLError(
+      `Abstract type "${returnType.name}" \`__resolveReference\` method resolved to a non-object type "${runtimeTypeName}".`,
+    );
+  }
+
+  if (!schema.isSubType(returnType, runtimeType)) {
+    throw new GraphQLError(
+      `Runtime Object type "${runtimeType.name}" \`__resolveReference\` method is not a possible type for "${returnType.name}".`,
+    );
+  }
+
+  return runtimeType;
+}
+
+function withResolvedType<T>({
+  type,
+  value,
+  context,
+  info,
+  callback,
+}: {
+  type: GraphQLInterfaceType,
+  value: any,
+  context: any,
+  info: GraphQLResolveInfo,
+  callback: (runtimeType: GraphQLObjectType) => PromiseOrValue<T>,
+}): PromiseOrValue<T> {
+  const resolveTypeFn = type.resolveType ?? defaultTypeResolver;
+  const runtimeType = resolveTypeFn(value, context, info, type);
+  if (isPromise(runtimeType)) {
+    return runtimeType.then((name) => (
+      callback(ensureValidRuntimeType(name, info.schema, type, value))
+    ));
+  }
+
+  return callback(ensureValidRuntimeType(runtimeType, info.schema, type, value));
+}
+
+function definedResolveReference(type: GraphQLObjectType | GraphQLInterfaceType): GraphQLReferenceResolver<any> | undefined {
+  const extensions: ApolloGraphQLObjectTypeExtensions | ApolloGraphQLInterfaceTypeExtensions = type.extensions;
+  return extensions.apollo?.subgraph?.resolveReference;
+}
+
 export function entitiesResolver({
   representations,
   context,
@@ -75,9 +176,9 @@ export function entitiesResolver({
     const { __typename } = reference;
 
     const type = info.schema.getType(__typename);
-    if (!type || !isObjectType(type)) {
+    if (!type || !(isObjectType(type) || isInterfaceType(type))) {
       throw new Error(
-        `The _entities resolver tried to load an entity for type "${__typename}", but no object type of that name was found in the schema`,
+        `The _entities resolver tried to load an entity for type "${__typename}", but no object or interface type of that name was found in the schema`,
       );
     }
 
@@ -96,19 +197,41 @@ export function entitiesResolver({
       }
     }
 
-    const extensions: ApolloGraphQLObjectTypeExtensions = type.extensions;
-    const resolveReference = extensions.apollo?.subgraph?.resolveReference ?? (() => reference);
+    const resolveReference = definedResolveReference(type);
 
     // FIXME somehow get this to show up special in Studio traces?
-    const result = resolveReference(reference, context, info);
+    const result = resolveReference ? resolveReference(reference, context, info) : reference;
 
-    if (isPromise(result)) {
-      return result.then((x: any) =>
-        addTypeNameToPossibleReturn(x, __typename),
-      );
+    if (isInterfaceType(type)) {
+      return withResolvedType({
+        type,
+        value: result,
+        context,
+        info,
+        callback: (runtimeType) => {
+          // If we had no interface-level __resolveReference, then we look for one on the runtime
+          // type itself, and call it if it exists. If that one also doesn't, we essentially end
+          // up using the same resolver than for object types, one that does nothing.
+          let finalResult = maybeAddTypeNameToPossibleReturn(result, runtimeType.name);
+          if (!resolveReference) {
+            const runtimeResolveReference = definedResolveReference(runtimeType);
+            if (runtimeResolveReference) {
+              // Note that we call the resolver on the reference with the "proper" __typename,
+              // and then add back the __typename again in case the resolver removed it (which
+              // ultimately is the behaviour we use with object type __resolveReference in
+              // general).
+              finalResult = isPromise(finalResult)
+                ? finalResult.then((r) => runtimeResolveReference(r, context, info))
+                : runtimeResolveReference(finalResult, context, info);
+              finalResult = maybeAddTypeNameToPossibleReturn(finalResult, runtimeType.name);
+            }
+          }
+          return finalResult;
+        },
+      });
     }
 
-    return addTypeNameToPossibleReturn(result, __typename);
+    return maybeAddTypeNameToPossibleReturn(result, __typename);
   });
 }
 

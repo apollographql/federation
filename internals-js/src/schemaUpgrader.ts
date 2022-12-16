@@ -229,9 +229,13 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
 
   const subgraphs = new Subgraphs();
   let errors: GraphQLError[] = [];
+  const subgraphsUsingInterfaceObject = [];
   for (const subgraph of inputs.values()) {
     if (subgraph.isFed2Subgraph()) {
       subgraphs.add(subgraph);
+      if (subgraph.metadata().interfaceObjectDirective().applications().length > 0) {
+        subgraphsUsingInterfaceObject.push(subgraph.name);
+      }
     } else {
       const otherSubgraphs = inputs.values().filter((s) => s.name !== subgraph.name);
       const res = new SchemaUpgrader(subgraph, otherSubgraphs).upgrade();
@@ -243,6 +247,15 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
       }
     }
   }
+  if (errors.length === 0 && subgraphsUsingInterfaceObject.length > 0) {
+    const fed1Subgraphs = inputs.values().filter((s) => !s.isFed2Subgraph()).map((s) => s.name);
+    // Note that we exit this method early if everything is a fed2 schema, so we know at least one of them wasn't.
+    errors = [ ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
+      'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): '
+      + `@interfaceObject is used in ${printSubgraphNames(subgraphsUsingInterfaceObject)} but ${printSubgraphNames(fed1Subgraphs)} ${fed1Subgraphs.length > 1 ? 'are not' : 'is not a'} federation 2 subgraph schema.`,
+    )];
+  }
+
   return errors.length === 0 ? { subgraphs, changes } : { errors };
 }
 

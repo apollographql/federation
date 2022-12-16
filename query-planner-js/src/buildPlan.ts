@@ -50,6 +50,13 @@ import {
   typenameFieldName,
   mapKeys,
   operationPathToStringPath,
+  mapValues,
+  runtimeTypesIntersects,
+  supertypes,
+  isInterfaceObjectType,
+  isInterfaceType,
+  isNonNullType,
+  Type,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -81,10 +88,11 @@ import {
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
   createInitialOptions,
+  buildFederatedQueryGraph,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
-import { DeferredNode } from ".";
-import { QueryPlannerConfig } from "./config";
+import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
+import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -383,7 +391,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
   private newDependencyGraph(): FetchDependencyGraph {
     const rootType = this.isTopLevel && this.hasDefers ? this.supergraphSchema.schemaDefinition.rootType(this.rootKind) : undefined;
-    return FetchDependencyGraph.create(this.subgraphs, this.startFetchIdGen, rootType);
+    return FetchDependencyGraph.create(this.supergraphSchema, this.subgraphs, this.startFetchIdGen, rootType);
   }
 
   // Moves the first closed branch to after any branch having more options.
@@ -594,6 +602,10 @@ class LazySelectionSet {
     assert(_computed || _toCloneOnWrite, 'Should have one of the argument');
   }
 
+  parentType(): CompositeType {
+    return this.forRead().parentType;
+  }
+
   forRead(): SelectionSet {
     return this._computed ? this._computed : this._toCloneOnWrite!;
   }
@@ -645,6 +657,11 @@ class FetchGroup {
 
   private _id: string | undefined;
 
+  // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
+  mustPreserveSelection: boolean = false;
+
+  private readonly inputRewrites: FetchDataInputRewrite[] = [];
+
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -653,31 +670,46 @@ class FetchGroup {
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
     private readonly _selection: LazySelectionSet,
-    private readonly _inputs?: LazySelectionSet,
+    private _inputs?: LazySelectionSet,
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
   ) {
   }
 
-  static create(
+  static create({
+    dependencyGraph,
+    index,
+    subgraphName,
+    rootKind,
+    parentType,
+    inputsParentType,
+    mergeAt,
+    deferRef,
+  }: {
     dependencyGraph: FetchDependencyGraph,
     index: number,
     subgraphName: string,
     rootKind: SchemaRootKind,
     parentType: CompositeType,
-    isEntityFetch: boolean,
+    inputsParentType?: CompositeType,
     mergeAt?: ResponsePath,
     deferRef?: string,
-  ): FetchGroup {
+  }): FetchGroup {
+    // Sanity checks about the types provided:
+    // - the selection parent type must belong to the schema of the subgraph we're querying.
+    // - the inputs parent type must belong to the supergrah schema (inputs essentially comes from "the current in-memory result set
+    //   maintained by the gateway/router", so it's technically not any specific subgraph, but rather the supergraph).
+    assert(parentType.schema() === dependencyGraph.subgraphSchemas.get(subgraphName), `Expected parent type ${parentType} to belong to ${subgraphName}`);
+    assert(!inputsParentType || inputsParentType.schema() === dependencyGraph.supergraphSchema, `Expected inputs parent type ${inputsParentType} to belong to the supergraph schema`);
     return new FetchGroup(
       dependencyGraph,
       index,
       subgraphName,
       rootKind,
       parentType,
-      isEntityFetch,
+      !!inputsParentType,
       new LazySelectionSet(new SelectionSet(parentType)),
-      isEntityFetch ? new LazySelectionSet(new SelectionSet(parentType)) : undefined,
+      inputsParentType ? new LazySelectionSet(new SelectionSet(inputsParentType)) : undefined,
       mergeAt,
       deferRef,
     );
@@ -721,10 +753,6 @@ class FetchGroup {
     return this._inputs?.forRead();
   }
 
-  clonedInputs(): LazySelectionSet | undefined {
-    return this._inputs?.clone();
-  }
-
   addParents(parents: readonly ParentRelation[]) {
     for (const parent of parents) {
       this.addParent(parent);
@@ -743,7 +771,7 @@ class FetchGroup {
     }
 
     assert(!parent.group.isParentOf(this), () => `Group ${parent.group} is a parent of ${this}, but the child relationship is broken`);
-    assert(!parent.group.isChildOf(this), () => `Group ${parent.group} is a child of ${this}: adding is as parent would create a cycle`);
+    assert(!parent.group.isChildOf(this), () => `Group ${parent.group} is a child of ${this}: adding it as parent would create a cycle`);
 
     this.dependencyGraph.onModification();
     this._parents.push(parent);
@@ -766,6 +794,18 @@ class FetchGroup {
 
   isChildOf(maybeParent: FetchGroup): boolean {
     return !!this.parentRelation(maybeParent);
+  }
+
+  isDescendantOf(maybeAncestor: FetchGroup): boolean {
+    const children = Array.from(maybeAncestor.children());
+    while (children.length > 0) {
+      const child = children.pop()!;
+      if (child === this) {
+        return true;
+      }
+      child.children().forEach((c) => children.push(c));
+    }
+    return false;
   }
 
   /**
@@ -818,12 +858,62 @@ class FetchGroup {
     return this._children;
   }
 
-  addInputs(selection: Selection | SelectionSet) {
+  addInputs(selection: Selection | SelectionSet, rewrites?: FetchDataInputRewrite[]) {
     assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
+    // There is subtlety here, that is due to the fact that we sometime want to merge groups that
+    // are at the same mergeAt but that may currently have "incompatible" input parent types. In
+    // that case, we still rely on the fact that they have a common "super type" (which they must
+    // have if they are at the same mergeAt), but this may mean changing `this._inputs` in this
+    // case.
+    const thisParentType = this._inputs.parentType();
+    const schema = thisParentType.schema();
+    const selectionParentType = selection.parentType;
+    // Note that we check reference inequality first just to avoid the most costly 2nd test in the common case where the parent types are
+    // already the same (we also use name comparison because if they are from different schema, we're still ok if the name matches)
+    if (thisParentType.name !== selectionParentType.name && !runtimeTypesIntersects(thisParentType, selectionParentType)) {
+      assert(this.isEntityFetch, `Cannot add ${selection} of parent type ${selectionParentType} to ${this._inputs} of parent type ${thisParentType}: no common runtime intersections and not an entity fetch`)
+      // Because it is an entity fetch, we know the top-level selections must be fragments that selects a specific object type.
+      const extractSelectedTypeName = (s: Selection) => {
+        assert(s.kind === 'FragmentSelection', () => `Expected ${s} to be a fragment when adding inputs ${selection} to ${this}`);
+        return s.element().castedType().name;
+      }
+      const typesToAccountFor = new Set<string>(
+        this._inputs.forRead().selections().map(extractSelectedTypeName).concat(
+          selection instanceof SelectionSet
+          ? selection.selections().map(extractSelectedTypeName)
+          : [extractSelectedTypeName(selection)]
+        )
+      );
+
+      const allSupertypes: (readonly CompositeType[])[] = Array.from(typesToAccountFor).map((name) => supertypes(schema.type(name) as CompositeType));
+      const first = allSupertypes[0];
+      const rest = allSupertypes.slice(1);
+      const commonType = first.find((t) => rest.every((st) => st.includes(t)));
+      assert(commonType, () => `Cannot add ${selection} of parent type ${selectionParentType} to ${this._inputs} of parent type ${thisParentType}: non common supertype`)
+
+      // Note that while there should be a common super type, there can be more than one, and it's a bit hard to find which one truly
+      // correspond to the group `mergeAt`. We pick the first one, because it works, but this is why this method actually look the
+      // fragments within the selections: this ensure that if we try to merge the inputs with some other choice later, and we've make
+      // the "wrong" choice here, it'll still work (because we won't look at the choice of parent made here, but rather the underlying
+      // object types).
+      const newInputs = new SelectionSet(commonType);
+      newInputs.mergeIn(this._inputs.forRead());
+      this._inputs = new LazySelectionSet(newInputs);
+    }
+
     if (selection instanceof SelectionSet) {
       this._inputs.forWrite().mergeIn(selection);
     } else {
       this._inputs.forWrite().add(selection);
+    }
+    if (rewrites) {
+      rewrites.forEach((r) => this.inputRewrites.push(r));
+    }
+  }
+
+  copyInputsOf(other: FetchGroup, clone: boolean = false) {
+    if (other.inputs) {
+      this.addInputs(clone ? other.inputs.clone() : other.inputs, other.inputRewrites);
     }
   }
 
@@ -858,7 +948,7 @@ class FetchGroup {
   }
 
   canMergeSiblingIn(sibling: FetchGroup): boolean {
-    // We only allow merging sibling on the same subgraph, same "mergeAt" and when our common parent is our only parent:
+    // We only allow merging sibling on the same subgraph, same "mergeAt" and when the common parent is their only parent:
     // - there is no reason merging siblings of different subgraphs could ever make sense.
     // - ensuring the same "mergeAt" makes so we can merge the inputs and selections without having to worry about those
     //   not being at the same level (hence the empty path in the call to `mergeInInternal` below). In theory, we could
@@ -885,9 +975,7 @@ class FetchGroup {
    * their _only_ parent. Further `this` and `sibling` must be on the same subgraph and have the same `mergeAt`.
    */
   mergeSiblingIn(sibling: FetchGroup) {
-    if (sibling.inputs) {
-      this.addInputs(sibling.inputs);
-    }
+    this.copyInputsOf(sibling);
     this.mergeInInternal(sibling, []);
   }
 
@@ -935,10 +1023,9 @@ class FetchGroup {
     assert(this.deferRef === other.deferRef, () => `Can only merge unrelated groups within the same @defer block: cannot merge ${this} and ${other}`);
     assert(this.subgraphName === other.subgraphName, () => `Can only merge unrelated groups to the same subraphs: cannot merge ${this} and ${other}`);
     assert(sameMergeAt(this.mergeAt, other.mergeAt), () => `Can only merge unrelated groups at the same "mergeAt": ${this} has mergeAt=${this.mergeAt}, but ${other} has mergeAt=${other.mergeAt}`);
+    assert(this.inputs?.parentType === other.inputs?.parentType, () => `Can only merge unrelated groups with the same input parent type: ${this} has input parent=${this.inputs?.parentType}, but ${other} has input parent=${other.inputs?.parentType}`);
 
-    if (other.inputs) {
-      this.addInputs(other.inputs);
-    }
+    this.copyInputsOf(other);
     this.mergeInInternal(other, [], true);
   }
 
@@ -968,6 +1055,10 @@ class FetchGroup {
     this.relocateChildrenOnMergedIn(merged, path);
     if (mergeParentDependencies) {
       this.relocateParentsOnMergedIn(merged);
+    }
+
+    if (merged.mustPreserveSelection) {
+      this.mustPreserveSelection = true;
     }
     this.dependencyGraph.remove(merged);
   }
@@ -1003,11 +1094,38 @@ class FetchGroup {
 
   private relocateParentsOnMergedIn(merged: FetchGroup) {
     for (const parent of merged.parents()) {
+      // If the parent of the merged is already a parent of ours, don't re-create the already existing relationship.
       if (parent.group.isParentOf(this)) {
+        continue;
+      }
+
+      // Further, if the parent is a descendant of `this`, we also should ignore that relationship, becuase
+      // adding it a parent of `this` would create a cycle. And assuming this method is called properly,
+      // that when `merged` can genuinely be safely merged into `this`, then this just mean the `parent` -> `merged`
+      // relationship was unecessary after all (which can happen given how groups are generated).
+      if (parent.group.isDescendantOf(this)) {
         continue;
       }
       this.addParent(parent);
     }
+  }
+
+  private finalizeSelection(): FetchDataOutputRewrite[] {
+    // Finalizing the selection involves the following:
+    // 1. we add __typename to all abstract types. This is because any follow-up fetch may need to select some of the entities fetched by this
+    //   group, and so we need to have the __typename of those.
+    // 2. we check if some selection violates `https://spec.graphql.org/draft/#FieldsInSetCanMerge()`: while the original query we plan for will
+    //   never violate this, because the planner adds some additional fields to the query (due to @key and @requires) and because type-explosion
+    //   changes the query, we could have violation of this. If that is the case, we introduce aliases to the selection to make it valid, and
+    //   then generate a rewrite on the output of the fetch so that data aliased this way is rewritten back to the original/proper response name.
+
+    addTypenameFieldForAbstractTypes(this.selection);
+
+    const rewrites: FetchDataOutputRewrite[] = [];
+    addAliasesForNonMergingFields([{ path: [], selections: this.selection }], rewrites);
+
+    this.selection.validate();
+    return rewrites;
   }
 
   toPlanNode(
@@ -1020,9 +1138,8 @@ class FetchGroup {
       return undefined;
     }
 
-    addTypenameFieldForAbstractTypes(this.selection);
+    const outputRewrites = this.finalizeSelection();
 
-    this.selection.validate();
     const inputs = this._inputs?.forRead();
     if (inputs) {
       inputs.validate();
@@ -1057,6 +1174,8 @@ class FetchGroup {
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
       operationDocumentNode: queryPlannerConfig.exposeDocumentNodeInFetchNode ? operationDocument : undefined,
+      inputRewrites: this.inputRewrites.length === 0 ? undefined : this.inputRewrites,
+      outputRewrites: outputRewrites.length === 0 ? undefined : outputRewrites,
     };
 
     return this.isTopLevel
@@ -1073,6 +1192,87 @@ class FetchGroup {
     return this.isTopLevel
       ? `${base}[${this._selection}]`
       : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function genAliasName(baseName: string, unavailableNames: Map<string, any>): string {
+  let counter = 0;
+  let candidate = `${baseName}__alias_${counter}`;
+  while (unavailableNames.has(candidate)) {
+    candidate = `${baseName}__alias_${++counter}`;
+  }
+  return candidate;
+}
+
+function typesCanBeMerged(t1: Type, t2: Type): boolean {
+  // This essentially follows the beginning of https://spec.graphql.org/draft/#SameResponseShape().
+  // That is, the types cannot be merged unless:
+  // - they have the same nullability and "list-ability", potentially recursively.
+  // - their base type is either both composite, or are the same type.
+  if (isNonNullType(t1)) {
+    return isNonNullType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
+  }
+  if (isListType(t1)) {
+    return isListType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
+  }
+  if (isCompositeType(t1)) {
+    return isCompositeType(t2);
+  }
+  return sameType(t1, t2);
+}
+
+type SelectionSetAtPath = {
+  path: string[],
+  selections: SelectionSet,
+}
+
+function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewriteCollector: FetchDataOutputRewrite[]) {
+  const seenResponseNames = new Map<string, { fieldName: string, fieldType: Type, selections?: SelectionSetAtPath[] }>();
+  const rebasedFieldsInSet = (s: SelectionSetAtPath) => (
+    s.selections.fieldsInSet().map(({ path, field, directParent }) => ({ fieldPath: s.path.concat(path), field, directParent }))
+  );
+  for (const { fieldPath, field, directParent } of selections.map((s) => rebasedFieldsInSet(s)).flat()) {
+    const fieldName = field.element().name;
+    const responseName = field.element().responseName();
+    const fieldType = field.element().definition.type!;
+    const previous = seenResponseNames.get(responseName);
+    if (previous) {
+      if (previous.fieldName === fieldName && typesCanBeMerged(previous.fieldType, fieldType)) {
+        // If the type is non-composite, then we're all set. But if it is composite, we need to record the sub-selection to that response name
+        // as we need to "recurse" on the merged of both the previous and this new field.
+        if (isCompositeType(baseType(fieldType))) {
+          assert(previous.selections, () => `Should have added selections for ${previous.fieldType}`);
+          const selections = previous.selections.concat({ path: fieldPath.concat(responseName), selections: field.selectionSet! });
+          seenResponseNames.set(responseName, { ...previous, selections });
+        }
+      } else {
+        // We need to alias the new occurence.
+        const alias = genAliasName(responseName, seenResponseNames);
+        // Given how we generate aliases, it's is very unlikely that the generated alias will conflict with any of the other response name
+        // at the level, but it's theoretically possible. By adding the alias to the seen names, we ensure that in the remote change that
+        // this ever happen, we'll avoid the conflict by giving another alias to the followup occurence.
+        const selections = field.selectionSet ? [{ path: fieldPath.concat(alias), selections: field.selectionSet }] : undefined;
+        seenResponseNames.set(alias, { fieldName, fieldType, selections });
+        const wasRemoved = directParent.removeTopLevelField(responseName);
+        assert(wasRemoved, () => `Should have found and removed ${responseName} from ${directParent}`);
+        directParent.add(field.withUpdatedField(field.element().withUpdatedAlias(alias)));
+        // Lastly, we record that the added alias need to be rewritten back to the proper response name post query.
+        rewriteCollector.push({
+          kind: 'KeyRenamer',
+          path: fieldPath.concat(alias),
+          renameKeyTo: responseName,
+        });
+      }
+    } else {
+      const selections = field.selectionSet ? [{ path: fieldPath.concat(responseName), selections: field.selectionSet }] : undefined;
+      seenResponseNames.set(responseName, { fieldName, fieldType, selections });
+    }
+  }
+  for (const selections of seenResponseNames.values()) {
+    if (!selections.selections) {
+      continue;
+    }
+    addAliasesForNonMergingFields(selections.selections, rewriteCollector);
   }
 }
 
@@ -1302,6 +1502,7 @@ class FetchDependencyGraph {
   private fetchIdGen: number;
 
   private constructor(
+    readonly supergraphSchema: Schema,
     readonly subgraphSchemas: ReadonlyMap<string, Schema>,
     readonly federatedQueryGraph: QueryGraph,
     readonly startingIdGen: number,
@@ -1312,8 +1513,9 @@ class FetchDependencyGraph {
     this.fetchIdGen = startingIdGen;
   }
 
-  static create(federatedQueryGraph: QueryGraph, startingIdGen: number, rootTypeForDefer: CompositeType | undefined) {
+  static create(supergraphSchema: Schema, federatedQueryGraph: QueryGraph, startingIdGen: number, rootTypeForDefer: CompositeType | undefined) {
     return new FetchDependencyGraph(
+      supergraphSchema,
       federatedQueryGraph.sources,
       federatedQueryGraph,
       startingIdGen,
@@ -1337,6 +1539,7 @@ class FetchDependencyGraph {
 
   clone(): FetchDependencyGraph {
     const cloned = new FetchDependencyGraph(
+      this.supergraphSchema,
       this.subgraphSchemas,
       this.federatedQueryGraph,
       this.startingIdGen,
@@ -1402,7 +1605,7 @@ class FetchDependencyGraph {
     rootKind: SchemaRootKind,
     parentType: CompositeType,
   }): FetchGroup {
-    const group = this.newFetchGroup({ subgraphName, parentType, isEntityFetch: false, rootKind });
+    const group = this.newFetchGroup({ subgraphName, parentType, rootKind });
     this.rootGroups.set(subgraphName, group);
     return group;
   }
@@ -1410,41 +1613,43 @@ class FetchDependencyGraph {
   private newFetchGroup({
     subgraphName,
     parentType,
-    isEntityFetch,
+    inputsParentType,
     rootKind, // always "query" for entity fetches
     mergeAt,
     deferRef,
   }: {
     subgraphName: string,
     parentType: CompositeType,
-    isEntityFetch: boolean,
+    inputsParentType?: CompositeType,
     rootKind: SchemaRootKind,
     mergeAt?: ResponsePath,
     deferRef?: string,
   }): FetchGroup {
     this.onModification();
-    const newGroup = FetchGroup.create(
-      this,
-      this.groups.length,
+    const newGroup = FetchGroup.create({
+      dependencyGraph: this,
+      index: this.groups.length,
       subgraphName,
       rootKind,
       parentType,
-      isEntityFetch,
+      inputsParentType,
       mergeAt,
       deferRef,
-    );
+    });
     this.groups.push(newGroup);
     return newGroup;
   }
 
   getOrCreateKeyFetchGroup({
     subgraphName,
+    inputsTypeName,
     mergeAt,
     parent,
     conditionsGroups,
     deferRef,
   }: {
     subgraphName: string,
+    inputsTypeName: string,
     mergeAt: ResponsePath,
     parent: ParentRelation,
     conditionsGroups: FetchGroup[],
@@ -1458,6 +1663,7 @@ class FetchDependencyGraph {
       if (existing.subgraphName === subgraphName
         && existing.mergeAt
         && sameMergeAt(existing.mergeAt, mergeAt)
+        && inputsTypeName === existing.inputs?.parentType?.name
         && !this.isInGroupsOrTheirAncestors(existing, conditionsGroups)
         && existing.deferRef === deferRef
       ) {
@@ -1473,7 +1679,12 @@ class FetchDependencyGraph {
         return existing;
       }
     }
-    const newGroup = this.newKeyFetchGroup({ subgraphName, mergeAt, deferRef });
+    const newGroup = this.newKeyFetchGroup({
+      subgraphName,
+      inputsTypeName,
+      mergeAt,
+      deferRef
+    });
     newGroup.addParent(parent);
     return newGroup
   }
@@ -1497,7 +1708,13 @@ class FetchDependencyGraph {
     mergeAt: ResponsePath,
     deferRef?: string,
   }): FetchGroup {
-    return this.newFetchGroup({ subgraphName, parentType, isEntityFetch: false, rootKind, mergeAt, deferRef });
+    return this.newFetchGroup({
+      subgraphName,
+      parentType,
+      rootKind,
+      mergeAt,
+      deferRef
+    });
   }
 
   // Returns true if `toCheck` is either part of `conditions`, or is one of their ancestors (potentially recursively).
@@ -1513,18 +1730,34 @@ class FetchDependencyGraph {
     return false;
   }
 
+  typeForFetchInputs(name: string): CompositeType {
+    const type = this.supergraphSchema.type(name);
+    assert(type, `Type ${name} should exist in the supergraph`)
+    assert(isCompositeType(type), `Type ${type} should be a composite, but got ${type.kind}`);
+    return type;
+  }
+
   newKeyFetchGroup({
     subgraphName,
+    inputsTypeName,
     mergeAt,
     deferRef,
   }: {
     subgraphName: string,
+    inputsTypeName: string,
     mergeAt: ResponsePath,
     deferRef?: string,
   }): FetchGroup {
     const parentType = this.federationMetadata(subgraphName).entityType();
-    assert(parentType, () => `Subgraph ${subgraphName} has not entities defined`);
-    return this.newFetchGroup({ subgraphName, parentType, isEntityFetch: true, rootKind: 'query', mergeAt, deferRef });
+    assert(parentType, () => `Subgraph ${subgraphName} has no entities defined`);
+    return this.newFetchGroup({
+      subgraphName,
+      parentType,
+      inputsParentType: this.typeForFetchInputs(inputsTypeName),
+      rootKind: 'query',
+      mergeAt,
+      deferRef
+    });
   }
 
   remove(toRemove: FetchGroup) {
@@ -1639,7 +1872,7 @@ class FetchDependencyGraph {
 
     // If a group is such that everything is fetches is already included in the inputs, then
     // this group does useless fetches and can be removed.
-    if (group.inputs && group.inputs.contains(group.selection)) {
+    if (group.inputs && !group.mustPreserveSelection && group.inputs.contains(group.selection)) {
       // In general, removing a group is a bit tricky because we need to deal with the fact
       // that the group can have multiple parents and children and no break the "path in parent"
       // in all those cases. To keep thing relatively easily, we only handle the following
@@ -2129,238 +2362,272 @@ interface FetchGroupProcessor<TProcessed, TDeferred> {
   reduceDefer(main: TProcessed, subSelection: SelectionSet, deferredBlocks: TDeferred[]): TProcessed,
 }
 
-
-/**
- * Modify the provided selection set to optimize the handling of __typename selection for query planning.
- *
- * Explicit querying of __typename can create some inefficiency for the query planning process if not
- * handled specially. More precisely, query planning performance is directly proportional to how many possible
- * plans a query has, since it compute all those options to compare them. Further, the number of possible
- * plans double for every field for which there is a choice, so miminizing the number of field for which we
- * have choices is paramount.
- *
- * And for a given type, __typename can always be provided by any subgraph having that type (it works as a
- * kind of "always @shareable" field), so it often creates theoretical choices. In practice it doesn't
- * matter which subgraph we use for __typename: we're happy to use whichever subgraph we're using for
- * the "other" fields queried for the type. But the default query planning algorithm does not know how
- * to do that.
- *
- * Let's note that this isn't an issue in most cases, because the query planning algorithm knows not to
- * consider "obviously" inefficient paths. Typically, querying the __typename of an entity is generally
- * ok because when looking at a path, the query planning algorithm always favor getting a field "locally"
- * if it can (which it always can for __typename) and ignore alternative that would jump subgraphs.
- *
- * But this can still be a performance issue when a __typename is queried after a @shareable field: in
- * that case, the algorithm would consider getting the __typename from each version of the @shareable
- * field and this would add to the options to consider. But as, again, __typename can always be fetched
- * from any subgraph, it's more efficient to ignore those options and simply get __typename from whichever
- * subgraph we get any other of the other field requested (on the type on which we request __typename).
- *
- * It is unclear how to do this cleanly with the current planning algorithm however, so this method
- * implements an alternative: to avoid the query planning spending time of exploring options for
- * __typename, we "remove" the __typename selections from the operation. But of course, we still
- * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
- * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
- * be added back eventually. The core query planning algorithm will ignore that tag, and because
- * __typename has been otherwise removed, we'll save any related work. But as we build the final
- * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
- * and when we fine one, we'll add back the request to __typename. As this only happen after the 
- * query planning algorithm has computed all choices, we achieve our goal of not considering useless 
- * choices due to __typename. Do note that if __typename is the "only" selection of some selection
- * set, then we leave it untouched, and let the query planning algorithm treat it as any other
- * field. We have no other choice in that case, and that's actually what we want.
- */
-function optimizeSiblingTypenames(selectionSet: SelectionSet): SelectionSet {
-  const selections = selectionSet.selections();
-  let updatedSelections: Selection[] | undefined = undefined;
-  let typenameSelection: Selection | undefined = undefined;
-  // We remember the first non-__typename field selection found. This is the one we'll "tag" if we do find a __typename
-  // occurrence that we want to remove. We only use for _field_ selections because at the stage where this is applied,
-  // we cannot be sure the selection set is "minimized" and so some of the inline fragments may end up being eliminated
-  // (for instance, the fragment condition could be "less precise" than the parent type, in which case query planning
-  // will ignore it) and tagging those could lose the tagging.
-  let firstFieldSelection: FieldSelection | undefined = undefined;
-  for (let i = 0; i < selections.length; i++) {
-    const selection = selections[i];
-    let updated: Selection | undefined;
-    if (!typenameSelection && selection.kind === 'FieldSelection' && selection.field.name === typenameFieldName) {
-      // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
-      // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_ 
-      // 2 selection of __typename, then we won't optimise things as much as we could, but there is no practical reason
-      // whatsoever to have 2 selection of __typename in the first place, so not being optimal is moot.
-      updated = undefined;
-      typenameSelection = selection;
-    } else {
-      const updatedSubSelection = selection.selectionSet ? optimizeSiblingTypenames(selection.selectionSet) : undefined;
-      if (updatedSubSelection === selection.selectionSet) {
-        updated = selection;
-      } else {
-        updated = selection.withUpdatedSubSelection(updatedSubSelection);
-      }
-      if (!firstFieldSelection && updated.kind === 'FieldSelection') {
-        firstFieldSelection = updated;
-      }
-    }
-
-    // As soon as we find a selection that is discarded or modified, we need to create new selection set so we
-    // first copy everything up to this selection.
-    if (updated !== selection && !updatedSelections) {
-      updatedSelections = [];
-      for (let j = 0; j < i; j++) {
-        updatedSelections.push(selections[j]);
-      }
-    }
-    // Record the (potentially updated) selection if we're creating a new selection set, and said selection is not discarded.
-    if (updatedSelections && !!updated) {
-      updatedSelections.push(updated);
-    }
-  }
-
-  if (!updatedSelections || updatedSelections.length === 0) {
-    // No selection was modified at all, or there is no other field selection than __typename one.
-    // In both case, we just return the current selectionSet unmodified.
-    return selectionSet;
-  }
-
-  // If we have some __typename selection that was removed but need to be "remembered" for later,
-  // "tag" whichever first field selection is still part of the operation.
-  if (typenameSelection) {
-    if (firstFieldSelection) {
-      // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
-      firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
-    } else {
-      // If we have no other field selection, then we can't optimize __typename and we need to add
-      // it back to the updated subselections (we add it first because that's usually where we
-      // put __typename by convention).
-      updatedSelections = [typenameSelection as Selection].concat(updatedSelections);
-    }
-  }
-  return new SelectionSet(selectionSet.parentType, selectionSet.fragments).addAll(updatedSelections)
-}
-
-/**
- * Applies `optimizeSiblingTypenames` to the provided operation selection set.
- */
-function withSiblingTypenameOptimizedAway(operation: Operation): Operation {
-  const updatedSelectionSet = optimizeSiblingTypenames(operation.selectionSet);
-  if (updatedSelectionSet === operation.selectionSet) {
-    return operation;
-  }
-  return new Operation(
-    operation.rootKind,
-    updatedSelectionSet,
-    operation.variableDefinitions,
-    operation.name
-  );
-}
-
 export type PlanningStatistics = {
   evaluatedPlanCount: number,
 }
 
-export function computeQueryPlan({
-  config,
-  supergraphSchema,
-  federatedQueryGraph,
-  operation,
-}: {
-  config: Concrete<QueryPlannerConfig>,
-  supergraphSchema: Schema,
-  federatedQueryGraph: QueryGraph,
-  operation: Operation,
-}): {
-  plan: QueryPlan,
-  statistics: PlanningStatistics,
-} {
-  if (operation.rootKind === 'subscription') {
-    throw ERRORS.UNSUPPORTED_FEATURE.err(
-      'Query planning does not currently support subscriptions.',
-      { nodes: [parse(operation.toString())] },
+export class QueryPlanner {
+  private readonly config: Concrete<QueryPlannerConfig>;
+  private readonly federatedQueryGraph: QueryGraph;
+  private _lastGeneratedPlanStatistics: PlanningStatistics | undefined;
+
+  // A set of the names of interface types for which at least one subgraph use an @interfaceObject to abstract
+  // that interface.
+  private readonly interfaceTypesWithInterfaceObjects = new Set<string>();
+
+  constructor(
+    public readonly supergraphSchema: Schema,
+    config?: QueryPlannerConfig
+  ) {
+    this.config = enforceQueryPlannerConfigDefaults(config);
+    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
+    this.collectInterfaceTypesWithInterfaceObjects();
+  }
+
+  private collectInterfaceTypesWithInterfaceObjects() {
+    const isInterfaceObject = (name: string, schema: Schema) => {
+      const typeInSchema = schema.type(name);
+      return !!typeInSchema && isInterfaceObjectType(typeInSchema);
+    }
+
+    for (const itfType of this.supergraphSchema.interfaceTypes()) {
+      if (mapValues(this.federatedQueryGraph.sources).some((s) => isInterfaceObject(itfType.name, s))) {
+        this.interfaceTypesWithInterfaceObjects.add(itfType.name);
+      }
+    }
+  }
+
+  buildQueryPlan(operation: Operation): QueryPlan {
+    if (operation.selectionSet.isEmpty()) {
+      return { kind: 'QueryPlan' };
+    }
+
+    if (operation.rootKind === 'subscription') {
+      throw ERRORS.UNSUPPORTED_FEATURE.err(
+        'Query planning does not currently support subscriptions.',
+        { nodes: [parse(operation.toString())] },
+      );
+    }
+
+    const statistics: PlanningStatistics = {
+      evaluatedPlanCount: 0,
+    };
+    this._lastGeneratedPlanStatistics = statistics;
+
+    const reuseQueryFragments = this.config.reuseQueryFragments ?? true;
+    let fragments = operation.selectionSet.fragments
+    if (fragments && reuseQueryFragments) {
+      // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
+      // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
+      fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments)
+    } else {
+      fragments = undefined;
+    }
+
+    // We expand all fragments. This might merge a number of common branches and save us some work, and we're
+    // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
+    // later if possible (which is why we saved them above before expansion).
+    operation = operation.expandAllFragments();
+    operation = withoutIntrospection(operation);
+    operation = this.withSiblingTypenameOptimizedAway(operation);
+
+    let assignedDeferLabels: Set<string> | undefined = undefined;
+    let hasDefers: boolean = false;
+    let deferConditions: SetMultiMap<string, string> | undefined = undefined;
+    if (this.config.incrementalDelivery.enableDefer) {
+      ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
+    } else {
+      // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
+      // having to guard all the code dealing with defer later, and is probably less error prone too (less likely
+      // to end up passing through a @defer to a subgraph by mistake).
+      operation = operation.withoutDefer();
+    }
+
+    debug.group(() => `Computing plan for\n${operation}`);
+    if (operation.selectionSet.isEmpty()) {
+      debug.groupEnd('Empty plan');
+      return { kind: 'QueryPlan' };
+    }
+
+    const root = this.federatedQueryGraph.root(operation.rootKind);
+    assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
+    const processor = fetchGroupToPlanProcessor({
+      config: this.config,
+      variableDefinitions: operation.variableDefinitions,
+      fragments,
+      operationName: operation.name,
+      assignedDeferLabels,
+    });
+
+
+    let rootNode: PlanNode | undefined;
+    if (deferConditions && deferConditions.size > 0) {
+      assert(hasDefers, 'Should not have defer conditions without @defer');
+      rootNode = computePlanForDeferConditionals({
+        supergraphSchema: this.supergraphSchema,
+        federatedQueryGraph: this.federatedQueryGraph,
+        operation,
+        processor,
+        root,
+        deferConditions,
+        statistics,
+      })
+    } else {
+      rootNode = computePlanInternal({
+        supergraphSchema: this.supergraphSchema,
+        federatedQueryGraph: this.federatedQueryGraph,
+        operation,
+        processor,
+        root,
+        hasDefers,
+        statistics,
+      });
+    }
+
+    debug.groupEnd('Query plan computed');
+
+    return{ kind: 'QueryPlan', node: rootNode };
+  }
+
+  /**
+   * Modifies the provided selection set to optimize the handling of __typename selection for query planning.
+   *
+   * Explicit querying of __typename can create some inefficiency for the query planning process if not
+   * handled specially. More precisely, query planning performance is directly proportional to how many possible
+   * plans a query has, since it compute all those options to compare them. Further, the number of possible
+   * plans double for every field for which there is a choice, so miminizing the number of field for which we
+   * have choices is paramount.
+   *
+   * And for a given type, __typename can always be provided by any subgraph having that type (it works as a
+   * kind of "always @shareable" field), so it often creates theoretical choices. In practice it doesn't
+   * matter which subgraph we use for __typename: we're happy to use whichever subgraph we're using for
+   * the "other" fields queried for the type. But the default query planning algorithm does not know how
+   * to do that.
+   *
+   * Let's note that this isn't an issue in most cases, because the query planning algorithm knows not to
+   * consider "obviously" inefficient paths. Typically, querying the __typename of an entity is generally
+   * ok because when looking at a path, the query planning algorithm always favor getting a field "locally"
+   * if it can (which it always can for __typename) and ignore alternative that would jump subgraphs.
+   *
+   * But this can still be a performance issue when a __typename is queried after a @shareable field: in
+   * that case, the algorithm would consider getting the __typename from each version of the @shareable
+   * field and this would add to the options to consider. But as, again, __typename can always be fetched
+   * from any subgraph, it's more efficient to ignore those options and simply get __typename from whichever
+   * subgraph we get any other of the other field requested (on the type on which we request __typename).
+   *
+   * It is unclear how to do this cleanly with the current planning algorithm however, so this method
+   * implements an alternative: to avoid the query planning spending time of exploring options for
+   * __typename, we "remove" the __typename selections from the operation. But of course, we still
+   * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
+   * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
+   * be added back eventually. The core query planning algorithm will ignore that tag, and because
+   * __typename has been otherwise removed, we'll save any related work. But as we build the final
+   * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
+   * and when we fine one, we'll add back the request to __typename. As this only happen after the 
+   * query planning algorithm has computed all choices, we achieve our goal of not considering useless 
+   * choices due to __typename. Do note that if __typename is the "only" selection of some selection
+   * set, then we leave it untouched, and let the query planning algorithm treat it as any other
+   * field. We have no other choice in that case, and that's actually what we want.
+   */
+  private optimizeSiblingTypenames(selectionSet: SelectionSet): SelectionSet {
+    const selections = selectionSet.selections();
+    const parentType = selectionSet.parentType;
+    const parentMaybeInterfaceObject = this.interfaceTypesWithInterfaceObjects.has(parentType.name);
+    let updatedSelections: Selection[] | undefined = undefined;
+    let typenameSelection: Selection | undefined = undefined;
+    // We remember the first non-__typename field selection found. This is the one we'll "tag" if we do find a __typename
+    // occurrence that we want to remove. We only use for _field_ selections because at the stage where this is applied,
+    // we cannot be sure the selection set is "minimized" and so some of the inline fragments may end up being eliminated
+    // (for instance, the fragment condition could be "less precise" than the parent type, in which case query planning
+    // will ignore it) and tagging those could lose the tagging.
+    let firstFieldSelection: FieldSelection | undefined = undefined;
+    for (let i = 0; i < selections.length; i++) {
+      const selection = selections[i];
+      let updated: Selection | undefined;
+      if (
+        !typenameSelection
+        && selection.kind === 'FieldSelection'
+        && selection.field.name === typenameFieldName
+        && !parentMaybeInterfaceObject
+      ) {
+        // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
+        // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_ 
+        // 2 selection of __typename, then we won't optimise things as much as we could, but there is no practical reason
+        // whatsoever to have 2 selection of __typename in the first place, so not being optimal is moot.
+        //
+        // Also note that we do not remove __typename if on (interface) types that are implemented by 
+        // an @interfaceObject in some subgraph: the reason is that those types are an exception to the rule
+        // that __typename can be resolved from _any_ subgraph, as the __typename of @interfaceObject is not
+        // one we should return externally and so cannot fulfill the user query.
+        updated = undefined;
+        typenameSelection = selection;
+      } else {
+        const updatedSubSelection = selection.selectionSet ? this.optimizeSiblingTypenames(selection.selectionSet) : undefined;
+        if (updatedSubSelection === selection.selectionSet) {
+          updated = selection;
+        } else {
+          updated = selection.withUpdatedSubSelection(updatedSubSelection);
+        }
+        if (!firstFieldSelection && updated.kind === 'FieldSelection') {
+          firstFieldSelection = updated;
+        }
+      }
+
+      // As soon as we find a selection that is discarded or modified, we need to create new selection set so we
+      // first copy everything up to this selection.
+      if (updated !== selection && !updatedSelections) {
+        updatedSelections = [];
+        for (let j = 0; j < i; j++) {
+          updatedSelections.push(selections[j]);
+        }
+      }
+      // Record the (potentially updated) selection if we're creating a new selection set, and said selection is not discarded.
+      if (updatedSelections && !!updated) {
+        updatedSelections.push(updated);
+      }
+    }
+
+    if (!updatedSelections || updatedSelections.length === 0) {
+      // No selection was modified at all, or there is no other field selection than __typename one.
+      // In both case, we just return the current selectionSet unmodified.
+      return selectionSet;
+    }
+
+    // If we have some __typename selection that was removed but need to be "remembered" for later,
+    // "tag" whichever first field selection is still part of the operation.
+    if (typenameSelection) {
+      if (firstFieldSelection) {
+        // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
+        firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
+      } else {
+        // If we have no other field selection, then we can't optimize __typename and we need to add
+        // it back to the updated subselections (we add it first because that's usually where we
+        // put __typename by convention).
+        updatedSelections = [typenameSelection as Selection].concat(updatedSelections);
+      }
+    }
+    return new SelectionSet(selectionSet.parentType, selectionSet.fragments).addAll(updatedSelections)
+  }
+
+  /**
+   * Applies `optimizeSiblingTypenames` to the provided operation selection set.
+   */
+  private withSiblingTypenameOptimizedAway(operation: Operation): Operation {
+    const updatedSelectionSet = this.optimizeSiblingTypenames(operation.selectionSet);
+    if (updatedSelectionSet === operation.selectionSet) {
+      return operation;
+    }
+    return new Operation(
+      operation.rootKind,
+      updatedSelectionSet,
+      operation.variableDefinitions,
+      operation.name
     );
   }
 
-  const statistics: PlanningStatistics = {
-    evaluatedPlanCount: 0,
-  };
-
-  const reuseQueryFragments = config.reuseQueryFragments ?? true;
-  let fragments = operation.selectionSet.fragments
-  if (fragments && reuseQueryFragments) {
-    // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
-    // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
-    fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments)
-  } else {
-    fragments = undefined;
+  lastGeneratedPlanStatistics(): PlanningStatistics | undefined {
+    return this._lastGeneratedPlanStatistics;
   }
-
-  // We expand all fragments. This might merge a number of common branches and save us some work, and we're
-  // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
-  // later if possible (which is why we saved them above before expansion).
-  operation = operation.expandAllFragments();
-  operation = withoutIntrospection(operation);
-  operation = withSiblingTypenameOptimizedAway(operation);
-
-  let assignedDeferLabels: Set<string> | undefined = undefined;
-  let hasDefers: boolean = false;
-  let deferConditions: SetMultiMap<string, string> | undefined = undefined;
-  if (config.incrementalDelivery.enableDefer) {
-    ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
-  } else {
-    // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
-    // having to guard all the code dealing with defer later, and is probably less error prone too (less likely
-    // to end up passing through a @defer to a subgraph by mistake).
-    operation = operation.withoutDefer();
-  }
-
-  debug.group(() => `Computing plan for\n${operation}`);
-  if (operation.selectionSet.isEmpty()) {
-    debug.groupEnd('Empty plan');
-    return {
-      plan: { kind: 'QueryPlan' },
-      statistics,
-    };
-  }
-
-  const root = federatedQueryGraph.root(operation.rootKind);
-  assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
-  const processor = fetchGroupToPlanProcessor({
-    config,
-    variableDefinitions: operation.variableDefinitions,
-    fragments,
-    operationName: operation.name,
-    assignedDeferLabels,
-  });
-
-
-  let rootNode: PlanNode | undefined;
-  if (deferConditions && deferConditions.size > 0) {
-    assert(hasDefers, 'Should not have defer conditions without @defer');
-    rootNode = computePlanForDeferConditionals({
-      supergraphSchema,
-      federatedQueryGraph,
-      operation,
-      processor,
-      root,
-      deferConditions,
-      statistics,
-    })
-  } else {
-    rootNode = computePlanInternal({
-      supergraphSchema,
-      federatedQueryGraph,
-      operation,
-      processor,
-      root,
-      hasDefers,
-      statistics,
-    });
-  }
-
-  debug.groupEnd('Query plan computed');
-  return {
-    plan: { kind: 'QueryPlan', node: rootNode },
-    statistics,
-  };
 }
 
 function computePlanInternal({
@@ -2575,15 +2842,16 @@ function computeRootParallelBestPlan(
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
   // so we just return an empty plan.
-  return plan ?? createEmptyPlan(federatedQueryGraph, root);
+  return plan ?? createEmptyPlan(supergraphSchema, federatedQueryGraph, root);
 }
 
 function createEmptyPlan(
+  supergraphSchema: Schema,
   federatedQueryGraph: QueryGraph,
   root: RootVertex
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   return [
-    FetchDependencyGraph.create(federatedQueryGraph, 0, undefined),
+    FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, 0, undefined),
     PathTree.createOp(federatedQueryGraph, root),
     0
   ];
@@ -2623,7 +2891,7 @@ function computeRootSerialDependencyGraph(
       // }
       // then we should _not_ merge the 2 `mut1` fields (contrarily to what happens on queried fields).
       prevPaths = prevPaths.concat(newPaths);
-      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(federatedQueryGraph, startingFetchId, rootType), prevPaths, root.rootKind);
+      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, startingFetchId, rootType), prevPaths, root.rootKind);
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
       graphs.push(prevDepGraph);
@@ -2955,39 +3223,56 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   return dependencyGraph;
 }
 
-function wrapEntitySelection(
-  path: GroupPath,
-  type: CompositeType,
-  selections: SelectionSet | undefined,
+function wrapInputsSelections(
+  wrappingType: CompositeType,
+  selections: SelectionSet,
   context: PathContext
-): {
-  updatedSelection: Selection,
-  newPath: GroupPath,
-}{
-  const typeCast = new FragmentElement(type, type.name);
-  let updatedSelection = selectionOfElement(typeCast, selections);
-  let newGroupContext = [typeCast];
+): SelectionSet {
+  return wrapSelectionWithTypeAndConditions<SelectionSet>(
+    wrappingType,
+    selections,
+    (fragment, currentSeletions) => selectionSetOf(fragment.parentType, selectionOfElement(fragment, currentSeletions)),
+    context
+  );
+}
+
+function createFetchInitialPath(wrappingType: CompositeType, context: PathContext): OperationPath {
+  return wrapSelectionWithTypeAndConditions<OperationPath>(
+    wrappingType,
+    [],
+    (fragment, path) => [fragment as OperationElement].concat(path),
+    context,
+  );
+}
+
+function wrapSelectionWithTypeAndConditions<TSelection>(
+  wrappingType: CompositeType,
+  initialSelection: TSelection,
+  wrapInFragment: (fragment: FragmentElement, current: TSelection) => TSelection,
+  context: PathContext
+): TSelection {
+  const typeCast = new FragmentElement(wrappingType, wrappingType.name);
+  let updatedSelection = wrapInFragment(typeCast, initialSelection);
   if (context.conditionals.length === 0) {
-    return { updatedSelection, newPath: path.forNewKeyFetch(newGroupContext) };
+    return updatedSelection;
   }
 
-  const schema = type.schema();
+  const schema = wrappingType.schema();
   // We add the first include/skip to the current typeCast and then wrap in additional type-casts for the next ones
   // if necessary. Note that we use type-casts (... on <type>), but, outside of the first one, we could well also
   // use fragments with no type-condition. We do the former mostly to preverve older behavior, but doing the latter
-  // would technically procude slightly small query plans.
+  // would technically produce slightly small query plans.
   const [name0, ifs0] = context.conditionals[0];
   typeCast.applyDirective(schema.directive(name0)!, { 'if': ifs0 });
 
   for (let i = 1; i < context.conditionals.length; i++) {
     const [name, ifs] = context.conditionals[i];
-    const fragment = new FragmentElement(type, type.name);
+    const fragment = new FragmentElement(wrappingType, wrappingType.name);
     fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
-    updatedSelection = selectionOfElement(fragment, selectionSetOf(type, updatedSelection));
-    newGroupContext = [fragment].concat(newGroupContext);
+    updatedSelection = wrapInFragment(fragment, updatedSelection);
   }
 
-  return {updatedSelection, newPath: path.forNewKeyFetch(newGroupContext) };
+  return updatedSelection;
 }
 
 function extractPathInParentForKeyFetch(type: CompositeType, path: GroupPath): OperationPath {
@@ -3058,12 +3343,24 @@ function computeGroupsForTree(
             createdGroups.push(...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
-            const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
-            const pathInParent = extractPathInParentForKeyFetch(type, path);
+            const sourceType = edge.head.type as CompositeType; // We shouldn't have a key on a non-composite type
+            const destType = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
+            const pathInParent = extractPathInParentForKeyFetch(sourceType, path);
             const updatedDeferContext = deferContextAfterSubgraphJump(deferContext);
+            // Note that we use the name of `destType` for the inputs parent type, which can seem strange, but the reason is that we
+            // 2 kind of cases:
+            //  - either sourceType == destType, which is the case for an object entity key, or for a key from an @interfaceObject
+            //    to an interface key.
+            //  - or sourceType !== destType, and that means the source is an implementation type X of some interface I, and
+            //    destType is an @interfaceObject corresponding to I. But in that case, using I as base for the inputs is a
+            //    bit more flexible as it ensure that if the query uses multiple such key for multiple implementations (so,
+            //    key from X to I, and then Y to I), then the same fetch is properly reused. Note that it is ok to do so
+            //    since 1) inputs are based on the supergraph schema, so I is going to exist there and 2) we wrap the input
+            //    selection properly against `sourceType` below anyway.
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
+              inputsTypeName: destType.name,
               parent: { group, path: pathInParent },
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
@@ -3080,19 +3377,29 @@ function computeGroupsForTree(
               }
               return { group: conditionGroup, path };
             }));
-            const inputSelections = newCompositeTypeSelectionSet(type);
+            // Note that inputs must be based on the supergraph schema, not any particular subgraph, since sometimes key conditions
+            // are fetched from multiple subgraphs (and so no one subgraph has a type definition with all the proper fields, only
+            // the supergraph does).
+            const inputType = dependencyGraph.typeForFetchInputs(sourceType.name);
+            const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.mergeIn(edge.conditions!);
-
-            const {updatedSelection, newPath} = wrapEntitySelection(path, type, inputSelections, newContext);
-            newGroup.addInputs(updatedSelection);
+            let rewrites: FetchDataInputRewrite[] | undefined = undefined;
+            if (isInterfaceObjectType(destType)) {
+              rewrites = [{
+                kind: 'ValueSetter',
+                path: [ `... on ${inputType.name}`, typenameFieldName ],
+                setValueTo: destType.name,
+              }];
+            }
+            newGroup.addInputs(wrapInputsSelections(inputType, inputSelections, newContext), rewrites);
 
             // We also ensure to get the __typename of the current type in the "original" group.
-            group.addSelection(path.inGroup().concat(new Field((edge.head.type as CompositeType).typenameField()!)));
+            group.addSelection(path.inGroup().concat(new Field(sourceType.typenameField()!)));
 
             stack.push({
               tree: child,
               group: newGroup,
-              path: newPath,
+              path: path.forNewKeyFetch(createFetchInitialPath(edge.tail.type as CompositeType, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
             });
@@ -3129,11 +3436,10 @@ function computeGroupsForTree(
               deferRef: updatedDeferContext.activeDeferRef,
             });
             newGroup.addParent({ group, path: path.inGroup() });
-            const { newPath } = wrapEntitySelection(path, type, undefined, newContext);
             stack.push({
               tree: child,
               group: newGroup,
-              path: newPath,
+              path: path.forNewKeyFetch(createFetchInitialPath(type, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
             });
@@ -3150,8 +3456,8 @@ function computeGroupsForTree(
             path,
           });
 
-          // We're now removed any @defer. If the operation contains other directives, we need to preserve those and
-          // so we add operation. Otherwise, we just skip it as a minor optimization (it makes the subgraph query
+          // We're now removed any @defer. If the operation contains other directives or a non-trivial
+          // type condition, we need to preserve it and so we add operation. Otherwise, we just skip it as a minor optimization (it makes the subgraph query
           // slighly smaller and on complex queries, it might also deduplicate similar selections).
           let newPath = path;
           if (updatedOperation && updatedOperation.appliedDirectives.length > 0) {
@@ -3213,7 +3519,45 @@ function computeGroupsForTree(
             createdGroups.push(...requireResult.createdGroups);
           }
 
-          updated.path = updated.path.add(updatedOperation);
+          if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
+            // Because of the optimization done in `QueryPlanner.optimizeSiblingTypenames`, we will rarely get an explicit `__typename`
+            // edge here. But one case where it can happen is where an @interfaceObject was involved, and we had to force jumping to
+            // another subgraph for getting the "true" `__typename`. However, this case can sometimes lead to fetch group that only
+            // exists for that `__typename` resolution and that "look" useless. That, we could have a fetch group that looks like:
+            //   Fetch(service: "Subgraph2") {
+            //     {
+            //       ... on I {
+            //         __typename
+            //         id
+            //       }
+            //     } =>
+            //     {
+            //       ... on I {
+            //         __typename
+            //       }
+            //     }
+            //   }
+            // but the trick is that the `__typename` in the input will be the name of the interface itself (`I` in this case)
+            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`). 
+            // *But* we later have optimizations that would remove such a group, on the group that the output is included
+            // in the input, which is in general the right thing to do (and genuinely ensure that some useless groups created when
+            // handling complex @require gets eliminated). So we "protect" the group in this case to ensure that later
+            // optimization doesn't kick in in this case.
+            updated.group.mustPreserveSelection = true
+          }
+
+          if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
+            // We shouldn't add the operation "as is" as it's a down-cast but we're "faking it". However,
+            // if the operation has directives, we should preserve that.
+            assert(updatedOperation.kind === 'FragmentElement', () => `Unexpected operation ${updatedOperation} for edge ${edge}`);
+            if (updatedOperation.appliedDirectives.length > 0) {
+              // We want to keep the directives, but we clear the condition since it's to a type that doesn't exists in the
+              // subgraph we're currently in.
+              updated.path = updated.path.add(updatedOperation.withUpdatedCondition(undefined));
+            }
+          } else {
+            updated.path = updated.path.add(updatedOperation);
+          }
 
           stack.push(updated);
         }
@@ -3337,10 +3681,14 @@ function handleRequires(
 
     // We start by computing the groups for the conditions. We do this using a copy of the current
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
-    const originalInputs = group.clonedInputs()!;
-    const newGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt: group.mergeAt!, deferRef: group.deferRef});
+    const newGroup = dependencyGraph.newKeyFetchGroup({
+      subgraphName: group.subgraphName,
+      inputsTypeName: group.inputs!.parentType.name,
+      mergeAt: group.mergeAt!,
+      deferRef: group.deferRef
+    });
     newGroup.addParent(parent);
-    newGroup.addInputs(originalInputs.forRead());
+    newGroup.copyInputsOf(group, true);
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
     if (createdGroups.length == 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
@@ -3448,7 +3796,7 @@ function handleRequires(
     if (unmergedGroups.length == 0) {
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, path, entityType, edge, context, false).inputs);
+      group.addInputs(inputsForRequire(dependencyGraph, entityType, edge, context, false).inputs);
       return { group, path, createdGroups: [] };
     }
 
@@ -3457,7 +3805,12 @@ function handleRequires(
     // would have been able to merge `newGroup` to `group`'s parent). So the group we should return, which
     // is the group where the "post-@require" fields will be add, needs to a be a new group that depends
     // on all those `unmergedGroups`.
-    const postRequireGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt: group.mergeAt!, deferRef: group.deferRef});
+    const postRequireGroup = dependencyGraph.newKeyFetchGroup({
+      subgraphName: group.subgraphName,
+      inputsTypeName: entityType.name,
+      mergeAt: group.mergeAt!,
+      deferRef: group.deferRef
+    });
     // Note that `postRequireGroup` cannot generally be merged in any of the `unmergedGroup` and we don't provide a `path`.
     postRequireGroup.addParents(unmergedGroups.map((group) => ({ group })));
     // That group also need, in general, to depend on the current `group`. That said, if we detected that the @require
@@ -3473,7 +3826,7 @@ function handleRequires(
     // we need the path here, so this will have to do for now, and if this ever breaks in practice, we'll at least have an example to
     // guide us toward improving/fixing.
     assert(parent.path, `Missing path-in-parent for @require on ${edge} with group ${group} and parent ${parent}`);
-    const newPath = addPostRequireInputs(
+    addPostRequireInputs(
       dependencyGraph,
       path.forParentOfGroup(parent.path),
       entityType,
@@ -3484,11 +3837,10 @@ function handleRequires(
     );
     return {
       group: postRequireGroup,
-      path: newPath,
+      path: path.forNewKeyFetch(createFetchInitialPath(entityType, context)),
       createdGroups: unmergedGroups.concat(postRequireGroup),
     };
   } else {
-
     // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
     // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
     // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
@@ -3499,12 +3851,17 @@ function handleRequires(
     if (createdGroups.length == 0) {
       return { group, path, createdGroups: []};
     }
+
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
     // Note that we know the conditions will include a key for our group so we can resume properly.
-    const newGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt: path.inResponse() });
+    const newGroup = dependencyGraph.newKeyFetchGroup({
+      subgraphName: group.subgraphName,
+      inputsTypeName: entityType.name,
+      mergeAt: path.inResponse(),
+    });
     newGroup.addParents(createdGroups.map((group) => ({ group })));
-    const newPath = addPostRequireInputs(
+    addPostRequireInputs(
       dependencyGraph,
       path,
       entityType,
@@ -3513,7 +3870,11 @@ function handleRequires(
       group,
       newGroup,
     );
-    return { group: newGroup, path: newPath, createdGroups: createdGroups.concat(newGroup) };
+    return {
+      group: newGroup,
+      path: path.forNewKeyFetch(createFetchInitialPath(entityType, context)),
+      createdGroups: createdGroups.concat(newGroup),
+    };
   }
 }
 
@@ -3525,8 +3886,8 @@ function addPostRequireInputs(
   context: PathContext,
   preRequireGroup: FetchGroup,
   postRequireGroup: FetchGroup,
-): GroupPath {
-  const { inputs, newPath, keyInputs } = inputsForRequire(dependencyGraph.federatedQueryGraph, requirePath, entityType, edge, context);
+) {
+  const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
   postRequireGroup.addInputs(inputs);
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
@@ -3536,7 +3897,6 @@ function addPostRequireInputs(
       endOfPathSet.addAll(keyInputs.selections());
     });
   }
-  return newPath;
 }
 
 function newCompositeTypeSelectionSet(type: CompositeType): SelectionSet {
@@ -3546,31 +3906,55 @@ function newCompositeTypeSelectionSet(type: CompositeType): SelectionSet {
 }
 
 function inputsForRequire(
-  graph: QueryGraph,
-  path: GroupPath,
+  dependencyGraph: FetchDependencyGraph,
   entityType: ObjectType,
   edge: Edge,
   context: PathContext,
   includeKeyInputs: boolean = true
 ): {
-  inputs: Selection,
-  newPath: GroupPath,
+  inputs: SelectionSet,
   keyInputs: SelectionSet | undefined,
 }{
-  const fullSelectionSet = newCompositeTypeSelectionSet(entityType);
+  // This method is actually called for to handle conditions of @requires, but also to fetch `__typename` in the
+  // case of "fake downcast on an @interfaceObject". In that later case, once we're fetched that `__typename`,
+  // we want to wrap the input into the "downcasted" type, not the @interfaceObject one, so that we don't end
+  // up querying some fields in the @interfaceObject subgraph for entities that we know won't match a type
+  // condition of the query.
+  const isInterfaceObjectDownCast = edge.transition.kind === 'InterfaceObjectFakeDownCast';
+  const inputTypeName = isInterfaceObjectDownCast ? edge.transition.castedTypeName : entityType.name;
+  const inputType = dependencyGraph.supergraphSchema.type(inputTypeName);
+  assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
+
+  const fullSelectionSet = newCompositeTypeSelectionSet(inputType);
   fullSelectionSet.mergeIn(edge.conditions!);
   let keyInputs: SelectionSet | undefined = undefined;
   if (includeKeyInputs) {
-    const keyCondition = getLocallySatisfiableKey(graph, edge.head);
+    const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
     assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
-    fullSelectionSet.mergeIn(keyCondition);
+    let keyConditionAsInput = keyCondition;
+    if (isInterfaceObjectDownCast) {
+      // This means that conditions parents are on the @interfaceObject type, but we actually want to select only the
+      // `inputTypeName` implementation, the `mergeIn` below will try to add fields from the interface to one of the
+      // implementationt type. Which `mergeIn` usually let us do as that's safe, but because `keyCondition` are on
+      // the @interfaceObject subgraph, the type there is not an interface. To work around this, we "rebase" the
+      // condition on the supergraph type (which is an interface) first, which lets the `mergeIn` work.
+      const supergraphItfType = dependencyGraph.supergraphSchema.type(entityType.name);
+      assert(supergraphItfType && isInterfaceType(supergraphItfType), () => `Type ${entityType} should be an interface in the supergraph`);
+      const rebasedKeyCondition = new SelectionSet(supergraphItfType);
+      rebasedKeyCondition.mergeIn(keyConditionAsInput);
+      keyConditionAsInput = rebasedKeyCondition;
+    }
+    fullSelectionSet.mergeIn(keyConditionAsInput);
+
+    // Note that `keyInputs` are used to ensure those input are fetch on the original group, the one having `edge`. In
+    // the case of an @interfaceObject downcast, that's the subgraph with said @interfaceObject, so in that case we
+    // should just use `entityType` (that @interfaceObject type), not input type which will be an implementation the
+    // subgraph does not know in that particular case.
     keyInputs = newCompositeTypeSelectionSet(entityType);
     keyInputs.mergeIn(keyCondition);
   }
-  const { updatedSelection, newPath } = wrapEntitySelection(path, entityType, fullSelectionSet, context);
   return {
-    inputs: updatedSelection,
-    newPath,
+    inputs: wrapInputsSelections(inputType, fullSelectionSet, context),
     keyInputs,
   };
 }

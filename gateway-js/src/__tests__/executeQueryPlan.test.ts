@@ -3516,4 +3516,1271 @@ describe('executeQueryPlan', () => {
         `);
     });
   });
+
+  describe('@interfaceObject', () => {
+    const defineSchema = ({
+      s1,
+    }: {
+      s1?: {
+        iResolversExtra?: any,
+        hasIResolveReference?: boolean,
+        iResolveReferenceExtra?: (id: string) => { [k: string]: any },
+        aResolversExtra?: any,
+        bResolversExtra?: any,
+      }
+    }) => {
+
+      // The example uses 2 entities:
+      //  - one of type A with id='idA' (x=1, y=2, z=3)
+      //  - one of type B with id='idB' (x=10, y=20, w=30)
+
+      const s1IBaseResolvers = (s1?.hasIResolveReference ?? true)
+        ? {
+          __resolveReference(ref: { id: string }) {
+          const extraFct = s1?.iResolveReferenceExtra;
+          const extraData = extraFct ? extraFct(ref.id) : {};
+          return ref.id === 'idA'
+            ? { id: ref.id, x: 1, z: 3, ...extraData }
+            : { id: ref.id, x: 10, w: 30, ...extraData };
+          }
+        }
+        : {};
+
+      const subgraph1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+          type Query {
+            iFromS1: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            z: Int
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            w: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            iFromS1() {
+              return { __typename: 'A', id: 'idA' };
+            }
+          },
+          I: {
+            ...s1IBaseResolvers,
+            ...(s1?.iResolversExtra ?? {}),
+          },
+          A: {
+            ...(s1?.aResolversExtra ?? {}),
+          },
+          B: {
+            ...(s1?.bResolversExtra ?? {}),
+          },
+        }
+      }
+
+      const subgraph2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+
+          type Query {
+            iFromS2: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            iFromS2() {
+              return {
+                __typename: 'I',
+                id: 'idB',
+                y: 20,
+              };
+            }
+          },
+          I: {
+            __resolveReference(ref: { id: string }) {
+              return {
+                id: ref.id,
+                y: ref.id === 'idA' ? 2 : 20,
+              }
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([ subgraph1, subgraph2 ]);
+      return async (op: string): Promise<{ plan: QueryPlan, response: GatewayExecutionResult }> => {
+        const operation = parseOp(op, schema);
+        const plan = buildPlan(operation, queryPlanner);
+        const response = await executePlan(plan, operation, undefined, schema, serviceMap);
+        return { plan, response };
+      };
+    }
+
+
+    test('handles __typename rewriting when using @key to @interfaceObject', async () => {
+      // We don't need extra resolving from S1 in this case.
+      const tester = defineSchema({});
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS1 {
+            __typename
+            y
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                iFromS1 {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "iFromS1") {
+              Fetch(service: "S2") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS1": Object {
+            "__typename": "A",
+            "y": 2,
+          },
+        }
+      `);
+
+      // Same, but with an explicit cast to A
+      ({ plan, response } = await tester(`
+        query {
+          iFromS1 {
+            ... on A {
+              y
+            }
+          }
+        }
+      `));
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                iFromS1 {
+                  __typename
+                  ... on A {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+            Flatten(path: "iFromS1") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS1": Object {
+            "y": 2,
+          },
+        }
+      `);
+
+      // And lastly, make sure that we explicitly cast to B, we get nothing
+      ({ plan, response } = await tester(`
+        query {
+          iFromS1 {
+            ... on B {
+              y
+            }
+          }
+        }
+      `));
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                iFromS1 {
+                  __typename
+                  ... on B {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+            Flatten(path: "iFromS1") {
+              Fetch(service: "S2") {
+                {
+                  ... on B {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS1": Object {},
+        }
+      `);
+    });
+
+    test.each([{
+      name: 'with manual __typename',
+      s1: {
+        iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }),
+      },
+    }, {
+      name: 'with __resolveType',
+      s1: {
+        iResolversExtra: {
+          __resolveType(ref: { id: string }) {
+            return ref.id === 'idA' ? 'A' : 'B';
+          }
+        },
+      },
+    }, {
+      name: 'with isTypeOf',
+      s1: {
+        aResolversExtra: {
+          __isTypeOf(ref: { id: string }) {
+            return ref.id === 'idA';
+          }
+        },
+        bResolversExtra: {
+          __isTypeOf(ref: { id: string }) {
+            // Same remark as above.
+            return ref.id === 'idB';
+          }
+        },
+      },
+    }, {
+      name: 'with only a __resolveType on the interface but per-runtime-types __resolveReference',
+      s1: {
+        hasIResolveReference: false,
+        iResolversExtra: {
+          __resolveType(ref: { id: string }) {
+            return ref.id === 'idA' ? 'A' : 'B';
+          }
+        },
+        aResolversExtra: {
+          __resolveReference(ref: { id: string }) {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : undefined;
+          }
+        },
+        bResolversExtra: {
+          __resolveReference(ref: { id: string }) {
+            return ref.id === 'idB'
+              ? { id: ref.id, x: 10, w: 30 }
+              : undefined;
+          }
+        },
+      },
+    }, {
+      name: 'errors when nothing provides the runtime type',
+      expectedErrors: [
+        'Abstract type "I" `__resolveReference` method must resolve to an Object type at runtime. '
+        + 'Either the object returned by "I.__resolveReference" must include a valid `__typename` field, '
+        + 'or the "I" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.'
+      ],
+    }])('resolving an interface @key $name', async ({s1, expectedErrors}) => {
+      const tester = defineSchema({ s1 });
+
+      const { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            __typename
+            x
+            y
+            ... on A {
+              z
+            }
+            ... on B {
+              w
+            }
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                iFromS2 {
+                  __typename
+                  id
+                  y
+                }
+              }
+            },
+            Flatten(path: "iFromS2") {
+              Fetch(service: "S1") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                    x
+                    ... on A {
+                      z
+                    }
+                    ... on B {
+                      w
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      if (expectedErrors) {
+        expect(response.errors?.map((e) => e.message)).toEqual(expectedErrors);
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "iFromS2": null,
+          }
+        `);
+      } else {
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "iFromS2": Object {
+              "__typename": "B",
+              "w": 30,
+              "x": 10,
+              "y": 20,
+            },
+          }
+        `);
+      }
+    });
+  });
+
+  describe('fields with conflicting types needing aliasing', () => {
+    it('handles @requires of fields on union leading to conflict', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            us: [U]
+          }
+
+          union U = A | B
+
+          type A @key(fields: "id") {
+            id: ID!
+            g: Int
+          }
+
+          type B @key(fields: "id") {
+            id: ID!
+            g: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            us() {
+              return [
+                { __typename: 'A', id: 'keyA', g: 1 },
+                { __typename: 'B', id: 'keyB', g: 'foo' },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: Int @external
+          }
+
+          type B @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: String @external
+          }
+        `,
+        resolvers: {
+          A: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+          B: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          us {
+            ... on A {
+              f
+            }
+            ... on B {
+              f
+            }
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
+      // but with different types.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                us {
+                  __typename
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g__alias_0: g
+                  }
+                }
+              }
+            },
+            Flatten(path: "us.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g
+                  }
+                } =>
+                {
+                  ... on A {
+                    f
+                  }
+                  ... on B {
+                    f
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "us": Array [
+            Object {
+              "f": "g is type number",
+            },
+            Object {
+              "f": "g is type string",
+            },
+          ],
+        }
+      `);
+    });
+
+    it('handles @requires of fields on interface leading to conflict', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            us: [U]
+          }
+
+          interface U {
+            id: ID!
+            f: String
+          }
+
+          type A implements U @key(fields: "id") {
+            id: ID!
+            f: String @external
+            g: Int
+          }
+
+          type B implements U @key(fields: "id") {
+            id: ID!
+            f: String @external
+            g: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            us() {
+              return [
+                { __typename: 'A', id: 'keyA', g: 1 },
+                { __typename: 'B', id: 'keyB', g: 'foo' },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: Int @external
+          }
+
+          type B @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: String @external
+          }
+        `,
+        resolvers: {
+          A: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+          B: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          us {
+            f
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
+      // but with different types.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                us {
+                  __typename
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g__alias_0: g
+                  }
+                }
+              }
+            },
+            Flatten(path: "us.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g
+                  }
+                } =>
+                {
+                  ... on A {
+                    f
+                  }
+                  ... on B {
+                    f
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "us": Array [
+            Object {
+              "f": "g is type number",
+            },
+            Object {
+              "f": "g is type string",
+            },
+          ],
+        }
+      `);
+    });
+
+    it('handles @key on interface leading to conflict', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            us: [U]
+          }
+
+          interface U {
+            f: String
+          }
+
+          type A implements U @key(fields: "g") {
+            f: String @external
+            g: String
+          }
+
+          type B implements U @key(fields: "g") {
+            f: String @external
+            g: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            us() {
+              return [
+                { __typename: 'A', g: 'foo' },
+                { __typename: 'B', g: 1 },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "g") {
+            g: String
+            f: String
+          }
+
+          type B @key(fields: "g") {
+            g: Int
+            f: String
+          }
+        `,
+        resolvers: {
+          A: {
+            __resolveReference(ref: { g: string }) {
+              return { __typename: 'A', g: ref.g, f: ref.g == 'foo' ? 'fA' : '<error>' };
+            },
+          },
+          B: {
+            __resolveReference(ref: { g: number }) {
+              return { __typename: 'B', g: ref.g, f: ref.g === 1 ? 'fB' : '<error>' };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          us {
+            f
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
+      // but with different types.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                us {
+                  __typename
+                  ... on A {
+                    __typename
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    g__alias_0: g
+                  }
+                }
+              }
+            },
+            Flatten(path: "us.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    g
+                  }
+                } =>
+                {
+                  ... on A {
+                    f
+                  }
+                  ... on B {
+                    f
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "us": Array [
+            Object {
+              "f": "fA",
+            },
+            Object {
+              "f": "fB",
+            },
+          ],
+        }
+      `);
+    });
+
+    it('handles field conflicting when type-exploding', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            us: [U] @provides(fields: "... on A { f }")
+          }
+
+          interface U {
+            f: String
+          }
+
+          type A implements U @key(fields: "id") {
+            id: ID!
+            f: String @external
+          }
+
+          type B implements U {
+            f: String!
+          }
+        `,
+        resolvers: {
+          Query: {
+            us() {
+              return [
+                { __typename: 'A', id: 'keyA', f: 'fA'},
+                { __typename: 'B', f: 'fB' },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            f: String
+          }
+        `,
+        resolvers: {
+          A: {
+            __resolveReference(ref: { id: string }) {
+              return { __typename: 'A', id: ref.id, f: 'fA' };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          us {
+            f
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      // Here, the presence of the @provides "forces" the query planner to check type-explosion, and as type-exploding
+      // is the most efficient solution, it is chosen. But as this result in `f` being queried twice at the same level
+      // without the same type (it is non-nullable in B, not in A, which is invalid GraphQL in that case), we must make
+      // sure the 2nd occurrence is aliased.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S1") {
+            {
+              us {
+                __typename
+                ... on A {
+                  f
+                }
+                ... on B {
+                  f__alias_0: f
+                }
+              }
+            }
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "us": Array [
+            Object {
+              "f": "fA",
+            },
+            Object {
+              "f": "fB",
+            },
+          ],
+        }
+      `);
+    });
+
+    it('handles field conflict in non-root fetches', async () => {
+      // This test is similar in spirit to the previous ones, but is simply ensures that the aliasing/rewriting logic
+      // works correctly when it doesn't happen in a root fetch (in particular, the rewriting logic takes a slightly
+      // different code path in that case, so this is what we're testing here).
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            us: [U]
+          }
+
+          interface U {
+            f: String
+          }
+
+          type A implements U @key(fields: "g") {
+            f: String @external
+            g: String
+          }
+
+          type B implements U @key(fields: "g") {
+            f: String @external
+            g: Int
+          }
+        `,
+        resolvers: {
+          T: {
+            us() {
+              return [
+                { __typename: 'A', g: 'foo' },
+                { __typename: 'B', g: 1 },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+          }
+
+          type A @key(fields: "g") {
+            g: String
+            f: String
+          }
+
+          type B @key(fields: "g") {
+            g: Int
+            f: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            t() {
+              return ({ id: 0 });
+            }
+          },
+          A: {
+            __resolveReference(ref: { g: string }) {
+              return { __typename: 'A', g: ref.g, f: ref.g == 'foo' ? 'fA' : '<error>' };
+            },
+          },
+          B: {
+            __resolveReference(ref: { g: number }) {
+              return { __typename: 'B', g: ref.g, f: ref.g === 1 ? 'fB' : '<error>' };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const operation = parseOp(`
+        query {
+          t {
+            us {
+              f
+            }
+          }
+        }
+        `, schema);
+      const queryPlan = buildPlan(operation, queryPlanner);
+      // In the 2nd fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
+      // but with different types.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                t {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "t") {
+              Fetch(service: "S1") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    us {
+                      __typename
+                      ... on A {
+                        __typename
+                        g
+                      }
+                      ... on B {
+                        __typename
+                        g__alias_0: g
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "t.us.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    g
+                  }
+                } =>
+                {
+                  ... on A {
+                    f
+                  }
+                  ... on B {
+                    f
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Object {
+            "us": Array [
+              Object {
+                "f": "fA",
+              },
+              Object {
+                "f": "fB",
+              },
+            ],
+          },
+        }
+      `);
+    });
+
+    it('handles clashes with existing aliases during alias generation on conflict', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            us: [U]
+          }
+
+          interface U {
+            id: ID!
+            x: String
+            f: String
+            y: String
+          }
+
+          type A implements U @key(fields: "id") {
+            id: ID!
+            x: String
+            f: String @external
+            g: Int
+            y: String
+          }
+
+          type B implements U @key(fields: "id") {
+            id: ID!
+            x: String
+            f: String @external
+            g: String
+            y: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            us() {
+              return [
+                { __typename: 'A', id: 'keyA', g: 1, x: 'xA', y: 'yA' },
+                { __typename: 'B', id: 'keyB', g: 'foo', x: 'xB', y: 'yB' },
+              ];
+            }
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: Int @external
+          }
+
+          type B @key(fields: "id") {
+            id: ID!
+            f: String @requires(fields: "g")
+            g: String @external
+          }
+        `,
+        resolvers: {
+          A: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+          B: {
+            __resolveReference(ref: { id: string, g: any }) {
+              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            },
+          },
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      // We known that `g` will need to be aliased in the 2nd occurrence on B, and by default it would be aliased
+      // as `g__alias_0`. So we query something with that exact alias to check that we avoid the conflict. We
+      // also use alias `g__alias_1` to further ensure multiple possible conflict are handled.
+      const operation = parseOp(`
+        query {
+          us {
+            g__alias_0: x
+            f
+            g__alias_1: y
+          }
+        }
+        `, schema);
+      global.console = require('console')
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                us {
+                  __typename
+                  g__alias_0: x
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g__alias_1: g
+                  }
+                  g__alias_1__alias_0: y
+                }
+              }
+            },
+            Flatten(path: "us.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on A {
+                    __typename
+                    id
+                    g
+                  }
+                  ... on B {
+                    __typename
+                    id
+                    g
+                  }
+                } =>
+                {
+                  ... on A {
+                    f
+                  }
+                  ... on B {
+                    f
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      // We double-check that the final aliases are the one from the query
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "us": Array [
+            Object {
+              "f": "g is type number",
+              "g__alias_0": "xA",
+              "g__alias_1": "yA",
+            },
+            Object {
+              "f": "g is type string",
+              "g__alias_0": "xB",
+              "g__alias_1": "yB",
+            },
+          ],
+        }
+      `);
+    });
+  });
 });

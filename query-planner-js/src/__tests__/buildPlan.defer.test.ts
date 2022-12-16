@@ -1,7 +1,7 @@
 import { operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { QueryPlanner } from '@apollo/query-planner';
-import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./buildPlan.test";
+import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./testHelper";
 
 function composeAndCreatePlannerWithDefer(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
   return composeAndCreatePlannerWithOptions(services, { incrementalDelivery: { enableDefer : true }});

@@ -35,6 +35,12 @@ describe('composition', () => {
         type T @key(fields: "k") {
           k: ID
         }
+
+        type S {
+          x: Int
+        }
+
+        union U = S | T
       `
     }
 
@@ -47,6 +53,11 @@ describe('composition', () => {
           a: Int
           b: String
         }
+
+        enum E {
+          V1
+          V2
+        }
       `
     }
 
@@ -56,20 +67,31 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
       {
         query: Query
       }
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
       directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      enum E
+        @join__type(graph: SUBGRAPH2)
+      {
+        V1 @join__enumValue(graph: SUBGRAPH2)
+        V2 @join__enumValue(graph: SUBGRAPH2)
+      }
 
       scalar join__FieldSet
 
@@ -99,6 +121,12 @@ describe('composition', () => {
         t: T @join__field(graph: SUBGRAPH1)
       }
 
+      type S
+        @join__type(graph: SUBGRAPH1)
+      {
+        x: Int
+      }
+
       type T
         @join__type(graph: SUBGRAPH1, key: "k")
         @join__type(graph: SUBGRAPH2, key: "k")
@@ -107,12 +135,27 @@ describe('composition', () => {
         a: Int @join__field(graph: SUBGRAPH2)
         b: String @join__field(graph: SUBGRAPH2)
       }
+
+      union U
+        @join__type(graph: SUBGRAPH1)
+        @join__unionMember(graph: SUBGRAPH1, member: "S")
+        @join__unionMember(graph: SUBGRAPH1, member: "T")
+       = S | T
     `);
 
     const [_, api] = schemas(result);
     expect(printSchema(api)).toMatchString(`
+      enum E {
+        V1
+        V2
+      }
+
       type Query {
         t: T
+      }
+
+      type S {
+        x: Int
       }
 
       type T {
@@ -120,6 +163,8 @@ describe('composition', () => {
         a: Int
         b: String
       }
+
+      union U = S | T
     `);
   })
 
@@ -2135,18 +2180,22 @@ describe('composition', () => {
     expect(printSchema(supergraph)).toMatchString(`
       schema
         @link(url: \"https://specs.apollo.dev/link/v1.0\")
-        @link(url: \"https://specs.apollo.dev/join/v0.2\", for: EXECUTION)
+        @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
       {
         query: Query
       }
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
       directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
@@ -3259,5 +3308,241 @@ describe('composition', () => {
         qux: String!
       }
     `);
+  });
+
+  describe('@interfaceObject', () => {
+    it('composes valid @interfaceObject usages correctly', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            iFromA: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            w: Int
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            z: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            iFromB: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type A implements I {
+          id: ID!
+          x: Int
+          w: Int
+          y: Int
+        }
+
+        type B implements I {
+          id: ID!
+          x: Int
+          z: Int
+          y: Int
+        }
+
+        interface I {
+          id: ID!
+          x: Int
+          y: Int
+        }
+
+        type Query {
+          iFromA: I
+          iFromB: I
+        }
+      `);
+    });
+
+    it('errors if @interfaceObject is used with no corresponding interface', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            iFromA: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            iFromB: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([[
+        'INTERFACE_OBJECT_USAGE_ERROR',
+        'Type "I" is declared with @interfaceObject in all the subgraphs in which is is defined (it is defined in subgraphs "subgraphA" and "subgraphB" but should be defined as an interface in at least one subgraph)'
+      ]]);
+    });
+
+    it('errors if @interfaceObject is missing in some subgraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            iFromA: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            iFromB: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const subgraphC = {
+        typeDefs: gql`
+          type Query {
+            iFromC: I
+          }
+
+          type I @key(fields: "id") {
+            id: ID!
+            z: Int
+          }
+        `,
+        name: 'subgraphC',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB, subgraphC]);
+      expect(result.errors).toBeDefined();
+      // Note: the error is a bit of a mouthful, but it should be clear enough and making it more compact requires
+      // a bit more special code on the error generation side and it's not clear it's worth the trouble (since again,
+      // the error should point to the problem well enough).
+      expect(errors(result)).toStrictEqual([[
+        'TYPE_KIND_MISMATCH',
+        'Type "I" has mismatched kind: it is defined as Interface Type in subgraph "subgraphA" but Interface Object Type (Object Type with @interfaceObject) in subgraph "subgraphB" and Object Type in subgraph "subgraphC"',
+      ]]);
+    });
+
+    it('errors if an interface has a @key but the subgraph do not know all implementations', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            iFromA: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            w: Int
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            z: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            iFromB: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const subgraphC = {
+        typeDefs: gql`
+          interface I {
+            id: ID!
+            x: Int
+          }
+
+          type C implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            w: Int
+          }
+        `,
+        name: 'subgraphC',
+      }
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB, subgraphC]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([[
+        'INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE',
+        '[subgraphA] Interface type "I" has a resolvable key (@key(fields: "id")) in subgraph "subgraphA" but that subgraph is missing some of the supergraph implementation types of "I". Subgraph "subgraphA" should define type "C" (and have it implement "I").',
+      ]]);
+    });
   });
 });
