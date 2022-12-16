@@ -553,7 +553,13 @@ const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
   'INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE',
   'A subgraph has a `@key` on an interface type, but that subgraph does not define an implementation (in the supergraph) of that interface',
   { addedIn: '2.3.0' },
-)
+);
+
+const FINDER_USAGE_ERROR = makeCodeDefinition(
+  'FINDER_USAGE_ERROR',
+  'Error in the usage of the @finder directive.',
+  { addedIn: '2.4.0' },
+);
 
 
 export const ERROR_CATEGORIES = {
@@ -643,6 +649,7 @@ export const ERRORS = {
   INTERFACE_OBJECT_USAGE_ERROR,
   INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
   INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
+  FINDER_USAGE_ERROR,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

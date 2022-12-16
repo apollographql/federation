@@ -69,14 +69,14 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
       {
         query: Query
       }
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -2482,14 +2482,14 @@ describe('composition', () => {
     expect(printSchema(supergraph)).toMatchString(`
       schema
         @link(url: \"https://specs.apollo.dev/link/v1.0\")
-        @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+        @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
       {
         query: Query
       }
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
