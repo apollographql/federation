@@ -437,8 +437,10 @@ async function executeFetch(
     });
 
     if (response.errors) {
+      const errorPathHelper = makeLazyErrorPathGenerator(fetch, currentCursor);
+
       const errors = response.errors.map((error) =>
-        downstreamServiceError(error, fetch.serviceName),
+        downstreamServiceError(error, fetch.serviceName, errorPathHelper),
       );
       context.errors.push(...errors);
     }
@@ -480,7 +482,9 @@ async function executeFetch(
           // to have the default names (Query, Mutation, Subscription) even
           // if the implementing services choose different names, so we override
           // whatever the implementing service reported here.
-          const rootTypeName = defaultRootName(context.operationContext.operation.operation);
+          const rootTypeName = defaultRootName(
+            context.operationContext.operation.operation,
+          );
           traceNode.trace.root?.child?.forEach((child) => {
             child.parentType = rootTypeName;
           });
@@ -490,6 +494,108 @@ async function executeFetch(
     }
 
     return response.data;
+  }
+}
+
+type ErrorPathGenerator = (
+  path: GraphQLErrorOptions['path'],
+) => GraphQLErrorOptions['path'];
+
+/**
+ * Given response data collected so far and a path such as:
+ *
+ *    ["foo", "@", "bar", "@"]
+ *
+ * the returned function generates a list of "hydrated" paths, replacing the
+ * `"@"` with array indices from the actual data. When we encounter an error in
+ * a subgraph fetch, we can use the index in the error's path (e.g.
+ * `["_entities", 2, "boom"]`) to look up the appropriate "hydrated" path
+ * prefix. The result is something like:
+ *
+ *    ["foo", 1, "bar", 2, "boom"]
+ *
+ * The returned function is lazy — if we don't encounter errors and it's never
+ * called, then we never process the response data to hydrate the paths.
+ *
+ * This approach is inspired by Apollo Router: https://github.com/apollographql/router/blob/0fd59d2e11cc09e82c876a5fee263b5658cb9539/apollo-router/src/query_planner/fetch.rs#L295-L403
+ */
+function makeLazyErrorPathGenerator(
+  fetch: FetchNode,
+  cursor: ResultCursor,
+): ErrorPathGenerator {
+  let hydratedPaths: ResponsePath[] | undefined;
+
+  return (errorPath: GraphQLErrorOptions['path']) => {
+    if (fetch.requires && typeof errorPath?.[1] === 'number') {
+      // only generate paths if we need to look them up via entity index
+      if (!hydratedPaths) {
+        hydratedPaths = [];
+        generateHydratedPaths(
+          [],
+          cursor.path,
+          cursor.fullResult,
+          hydratedPaths,
+        );
+      }
+
+      const hydratedPath = hydratedPaths[errorPath[1]] ?? [];
+      return [...hydratedPath, ...errorPath.slice(2)];
+    } else {
+      return errorPath ? [...cursor.path, ...errorPath.slice()] : undefined;
+    }
+  };
+}
+
+/**
+ * Given a deeply nested object and a path such as `["foo", "@", "bar", "@"]`,
+ * walk the path to build up a list of of "hydrated" paths that match the data,
+ * such as:
+ *
+ *    [
+ *      ["foo", 0, "bar", 0, "boom"],
+ *      ["foo", 0, "bar", 1, "boom"]
+ *      ["foo", 1, "bar", 0, "boom"],
+ *      ["foo", 1, "bar", 1, "boom"]
+ *    ]
+ */
+export function generateHydratedPaths(
+  parent: ResponsePath,
+  path: ResponsePath,
+  data: ResultMap | null,
+  result: ResponsePath[],
+) {
+  const head = path[0];
+
+  if (data == null) {
+    return;
+  }
+
+  if (head == null) { // terminate recursion
+    result.push(parent.slice());
+  } else if (head === '@') {
+    assert(Array.isArray(data), 'expected array when encountering `@`');
+    for (const [i, value] of data.entries()) {
+      parent.push(i);
+      generateHydratedPaths(parent, path.slice(1), value, result);
+      parent.pop();
+    }
+  } else if (typeof head === 'string') {
+    if (Array.isArray(data)) {
+      for (const [i, value] of data.entries()) {
+        parent.push(i);
+        generateHydratedPaths(parent, path, value, result);
+        parent.pop();
+      }
+    } else {
+      if (head in data) {
+        const value = data[head];
+        parent.push(head);
+        generateHydratedPaths(parent, path.slice(1), value, result);
+        parent.pop();
+      }
+    }
+  } else {
+    assert(false, `unknown path part "${head}"`);
   }
 }
 
@@ -709,8 +815,10 @@ function flattenResultsAtPath(value: ResultCursor['data'] | undefined | null, pa
 function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
+  generateErrorPath: ErrorPathGenerator,
 ) {
-  let { message, extensions } = originalError;
+  let { message } = originalError;
+  const { extensions } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -718,12 +826,13 @@ function downstreamServiceError(
 
   const errorOptions: GraphQLErrorOptions = {
     originalError: originalError as Error,
+    path: generateErrorPath(originalError.path),
     extensions: {
       ...extensions,
       // XXX The presence of a serviceName in extensions is used to
       // determine if this error should be captured for metrics reporting.
       serviceName,
-    }
+    },
   };
 
   const codeDef = errorCodeDef(originalError);
@@ -733,7 +842,10 @@ function downstreamServiceError(
     return new GraphQLError(message, errorOptions);
   }
   // Otherwise, we either use the code we found and know, or default to a general downstream error code.
-  return (codeDef ?? ERRORS.DOWNSTREAM_SERVICE_ERROR).err(message, errorOptions);
+  return (codeDef ?? ERRORS.DOWNSTREAM_SERVICE_ERROR).err(
+    message,
+    errorOptions,
+  );
 }
 
 export const defaultFieldResolverWithAliasSupport: GraphQLFieldResolver<
