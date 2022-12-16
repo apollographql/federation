@@ -737,6 +737,10 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.INTERFACE_OBJECT);
   }
 
+  finderDirective(): Post20FederationDirectiveDefinition<{}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.FINDER);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -760,6 +764,11 @@ export class FederationMetadata {
     const interfaceObjectDirective = this.interfaceObjectDirective();
     if (isFederationDirectiveDefinedInSchema(interfaceObjectDirective)) {
       baseDirectives.push(interfaceObjectDirective);
+    }
+
+    const finderDirective = this.finderDirective();
+    if (isFederationDirectiveDefinedInSchema(finderDirective)) {
+      baseDirectives.push(finderDirective);
     }
 
     return baseDirectives;
@@ -1116,14 +1125,14 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@finder"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
  * returns an equivalent document that `@link` to the last known federation spec.
  *
  * @param document - the document to "augment".
- * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or 
+ * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or
  *   added to the schema definition. Defaults to `true` (added as an extension), as this mimics what we tends to write manually.
  */
 export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension: boolean }): DocumentNode {

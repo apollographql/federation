@@ -810,7 +810,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect((data?._service as any).sdl).toMatchString(
-        (header.length === 0 
+        (header.length === 0
           ? ''
           : `
         ${header.trim()}

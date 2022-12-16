@@ -108,6 +108,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinEnumValue.addArgument('graph', new NonNullType(graphEnum));
     }
 
+    if (this.version >= (new FeatureVersion(0, 4))) {
+      joinField.addArgument('isFinder', schema.booleanType(), false);
+    }
+
     if (this.isV01()) {
       const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
       joinOwner.addArgument('graph', new NonNullType(graphEnum));
@@ -190,6 +194,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     type?: string,
     external?: boolean,
     usedOverridden?: boolean,
+    isFinder?: boolean,
   }> {
     return this.directive(schema, 'field')!;
   }
@@ -220,6 +225,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 3)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 3)))
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 4)));
 
 registerKnownFeature(JOIN_VERSIONS);
