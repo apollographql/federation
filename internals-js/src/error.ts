@@ -502,6 +502,11 @@ const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
 );
 
+const OVERRIDE_ON_INTERFACE = makeCodeDefinition(
+  'OVERRIDE_ON_INTERFACE',
+  'The @override directive cannot be used on the fields of an interface type.',
+);
+
 const UNSUPPORTED_FEATURE = makeCodeDefinition(
   'UNSUPPORTED_FEATURE',
   'Indicates an error due to feature currently unsupported by federation.',
@@ -620,6 +625,7 @@ export const ERRORS = {
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
+  OVERRIDE_ON_INTERFACE,
   UNSUPPORTED_FEATURE,
   INVALID_FEDERATION_SUPERGRAPH,
   DOWNSTREAM_SERVICE_ERROR,

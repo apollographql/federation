@@ -757,4 +757,112 @@ describe("composition involving @override directive", () => {
       `@override cannot be used on field "T.k" on subgraph "Subgraph1" since "T.k" on "Subgraph1" is marked with directive "@external"`,
     ]);
   });
+
+  // At the moment, we've punted on @override support when interacting with @interfaceObject, so the
+  // following tests mainly cover the various possible use and show that it currently correcly raise
+  // some validation errors. We may lift some of those limitation in the future.
+  describe('@interfaceObject', () => {
+    it("does not allow @override on @interfaceObject fields", () => {
+      // We currently rejects @override on fields of an @interfaceObject type. We could lift
+      // that limitation in the future, and that would mean such override overrides the field
+      // in _all_ the implementations of the target subtype, but that would imply generalizing
+      // the handling overriden fields and the override error messages, so we keep that for
+      // later.
+      // Note that it would be a tad simpler to support @override on an @interfaceObject if
+      // the `from` subgraph is also an @interfaceObject, as we can essentially ignore that
+      // we have @interfaceObject in such case, but it's a corner case and it's clearer for
+      // not to just always reject @override on @interfaceObject.
+      const subgraph1 = {
+        name: "Subgraph1",
+        url: "https://Subgraph1",
+        typeDefs: gql`
+          type Query {
+            i1: I
+          }
+
+          type I @interfaceObject @key(fields: "k") {
+            k: ID
+            a: Int @override(from: "Subgraph2")
+          }
+        `,
+      };
+
+      const subgraph2 = {
+        name: "Subgraph2",
+        url: "https://Subgraph2",
+        typeDefs: gql`
+          type Query {
+            i2: I
+          }
+
+          interface I @key(fields: "k") {
+            k: ID
+            a: Int
+          }
+
+          type A implements I @key(fields: "k") {
+            k: ID
+            a: Int
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toContainEqual([
+        "OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE",
+        '@override is not yet supported on fields of @interfaceObject types: cannot be used on field "I.a" on subgraph "Subgraph1".',
+      ]);
+    });
+
+    it("does not allow @override when overriden field is an @interfaceObject field", () => {
+      // We don't allow @override on a concrete type field when the `from` subgraph has
+      // an @interfaceObject field "covering" that field. In theory, this could have some
+      // use if one wanted to move a field from an @interfaceObject into all its implementations
+      // (in another subgraph) but it's also a bit hard to validate/use because we would have
+      // to check that all the implementations have an @override for it to be correct and
+      // it's unclear how useful that gets.
+      const subgraph1 = {
+        name: "Subgraph1",
+        url: "https://Subgraph1",
+        typeDefs: gql`
+          type Query {
+            i1: I
+          }
+
+          type I @interfaceObject @key(fields: "k") {
+            k: ID
+            a: Int
+          }
+        `,
+      };
+
+      const subgraph2 = {
+        name: "Subgraph2",
+        url: "https://Subgraph2",
+        typeDefs: gql`
+          type Query {
+            i2: I
+          }
+
+          interface I @key(fields: "k") {
+            k: ID
+            a: Int
+          }
+
+          type A implements I @key(fields: "k") {
+            k: ID
+            a: Int @override(from: "Subgraph1")
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toContainEqual([
+        "OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE",
+        'Invalid @override on field "A.a" of subgraph "Subgraph2": source subgraph "Subgraph1" does not have field "A.a" but abstract it in type "I" and overriding abstracted fields is not supported.',
+      ]);
+    });
+  });
 });

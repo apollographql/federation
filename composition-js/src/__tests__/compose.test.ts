@@ -2113,6 +2113,160 @@ describe('composition', () => {
       // (definition and extension) but also that it's properly taking into account.
       assertCompositionSuccess(result);
     });
+
+    describe('@interfaceObject', () => {
+      // An @interfaceObject type provides fields for all the implementation it abstracts, which should impact the shareability
+      // for those concrete impelmentations. That is, if a field is provided by both an @interfaceObject and also by one concrete
+      // implementation in another subgraph, then it needs to be marked @shareable. Those test check this as well as some
+      // variants.
+
+      it.each([
+        {
+          shareableOnConcreteType: false,
+          shareableOnInterfaceObject: false,
+          nonShareableErrorDetail: 'all of them',
+        },
+        {
+          shareableOnConcreteType: true,
+          shareableOnInterfaceObject: false,
+          nonShareableErrorDetail: 'subgraph "subgraphA" (through @interfaceObject field "I.x")',
+        },
+        {
+          shareableOnConcreteType: false,
+          shareableOnInterfaceObject: true,
+          nonShareableErrorDetail: 'subgraph "subgraphB"',
+        },
+        {
+          shareableOnConcreteType: true,
+          shareableOnInterfaceObject: true,
+        },
+      ])(
+        'enforces shareable constraints for field "abstracted" by @interfaceObject and shared (shareable on concrete type: $shareableOnConcreteType, shareable on @interfaceObject: $shareableOnInterfaceObject)',
+        ({ shareableOnConcreteType, shareableOnInterfaceObject, nonShareableErrorDetail}) => {
+          const subgraphA = {
+            typeDefs: gql`
+              type Query {
+                iFromA: I
+              }
+
+              type I @interfaceObject @key(fields: "id") {
+                id: ID!
+                x: Int${shareableOnInterfaceObject ? ' @shareable' : ''}
+              }
+            `,
+            name: 'subgraphA',
+          };
+
+          const subgraphB = {
+            typeDefs: gql`
+              type Query {
+                iFromB: I
+              }
+
+              interface I @key(fields: "id") {
+                id: ID!
+                x: Int
+              }
+
+              type A implements I @key(fields: "id") {
+                id: ID!
+                x: Int${shareableOnConcreteType ? ' @shareable' : ''}
+              }
+            `,
+            name: 'subgraphB',
+          };
+
+          const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+          if (nonShareableErrorDetail) {
+            expect(result.errors).toBeDefined();
+            expect(errors(result)).toStrictEqual([[
+              'INVALID_FIELD_SHARING',
+              `Non-shareable field "A.x" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" (through @interfaceObject field "I.x") and "subgraphB" and defined as non-shareable in ${nonShareableErrorDetail}`
+            ]]);
+          } else {
+            expect(result.errors).toBeUndefined();
+          }
+        }
+      );
+
+      it.each([
+        {
+          shareableOnI1: false,
+          shareableOnI2: false,
+          nonShareableErrorDetail: 'all of them',
+        },
+        {
+          shareableOnI1: true,
+          shareableOnI2: false,
+          nonShareableErrorDetail: 'subgraph "subgraphA" (through @interfaceObject field "I2.x")',
+        },
+        {
+          shareableOnI1: false,
+          shareableOnI2: true,
+          nonShareableErrorDetail: 'subgraph "subgraphA" (through @interfaceObject field "I1.x")',
+        },
+        {
+          shareableOnI1: true,
+          shareableOnI2: true,
+        },
+      ])(
+        'enforces shareability in a single subgraph with 2 intersecting @interfaceObject (shareable on first @interfaceObject: $shareableOnI1, shareable on second @interfaceObject: $shareableOnI2)',
+        ({ shareableOnI1, shareableOnI2, nonShareableErrorDetail}) => {
+          const subgraphA = {
+            typeDefs: gql`
+              type Query {
+                i1FromA: I1
+                i2FromA: I2
+              }
+
+              type I1 @interfaceObject @key(fields: "id") {
+                id: ID!
+                x: Int${shareableOnI1 ? ' @shareable' : ''}
+              }
+
+              type I2 @interfaceObject @key(fields: "id") {
+                id: ID!
+                x: Int${shareableOnI2 ? ' @shareable' : ''}
+              }
+            `,
+            name: 'subgraphA',
+          };
+
+          const subgraphB = {
+            typeDefs: gql`
+              type Query {
+                i1FromB: I1
+                i2FromB: I2
+              }
+
+              interface I1 @key(fields: "id") {
+                id: ID!
+              }
+
+              interface I2 @key(fields: "id") {
+                id: ID!
+              }
+
+              type A implements I1 & I2 @key(fields: "id") {
+                id: ID!
+              }
+            `,
+            name: 'subgraphB',
+          };
+
+          const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+          if (nonShareableErrorDetail) {
+            expect(result.errors).toBeDefined();
+            expect(errors(result)).toStrictEqual([[
+              'INVALID_FIELD_SHARING',
+              `Non-shareable field "A.x" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" (through @interfaceObject field "I1.x") and "subgraphA" (through @interfaceObject field "I2.x") and defined as non-shareable in ${nonShareableErrorDetail}`
+            ]]);
+          } else {
+            expect(result.errors).toBeUndefined();
+          }
+        }
+      );
+    });
   });
 
   it('handles renamed federation directives', () => {
@@ -3542,6 +3696,60 @@ describe('composition', () => {
       expect(errors(result)).toStrictEqual([[
         'INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE',
         '[subgraphA] Interface type "I" has a resolvable key (@key(fields: "id")) in subgraph "subgraphA" but that subgraph is missing some of the supergraph implementation types of "I". Subgraph "subgraphA" should define type "C" (and have it implement "I").',
+      ]]);
+    });
+
+    it('errors if a subgraph defines both an @interfaceObject and some implemenations', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            iFromA: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            w: Int
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            z: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            iFromB: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([[
+        'INTERFACE_OBJECT_USAGE_ERROR',
+        '[subgraphB] Interface type "I" is defined as an @interfaceObject in subgraph "subgraphB" so that subgraph should not define any of the implementation types of "I", but it defines type "A"',
       ]]);
     });
   });
