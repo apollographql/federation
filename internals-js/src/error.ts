@@ -505,6 +505,7 @@ const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
 const OVERRIDE_ON_INTERFACE = makeCodeDefinition(
   'OVERRIDE_ON_INTERFACE',
   'The @override directive cannot be used on the fields of an interface type.',
+  { addedIn: '2.3.0' },
 );
 
 const UNSUPPORTED_FEATURE = makeCodeDefinition(

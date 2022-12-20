@@ -7,6 +7,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 ## 2.3.0
 
 - Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+- __BREAKING__: composition now rejects `@override` on interface fields. The `@override` directive was not
+  meant to be supported on interfaces and was not having any impact whatsoever. If an existing subgraph does have a
+  `@override` on an interface field, this will now be rejected, but the `@override` can simply and safely be removed
+  since it previously was ignored.
 
 ## 2.2.0
 
