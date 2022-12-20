@@ -1,11 +1,15 @@
-import { QueryPlan, PlanNode, SubscriptionNode } from '@apollo/query-planner';
+import { QueryPlan, PlanNode, SubscriptionNode, evaluateCondition } from '@apollo/query-planner';
 import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 import prettyFormat from 'pretty-format';
+import { assert, VariableDefinitions } from '@apollo/federation-internals';
 
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toCallService(service: string): R;
+      toCallService(
+        service: string,
+        conditionVariables?: { definitions: VariableDefinitions, values: Record<string, boolean> },
+      ): R;
     }
   }
 }
@@ -29,6 +33,10 @@ function toCallService(
   this: jest.MatcherUtils,
   queryPlan: QueryPlan,
   service: string,
+  conditionVariables?: {
+    definitions: VariableDefinitions,
+    values: Record<string, boolean>,
+  },
 ): { message(): string; pass: boolean } {
   // const receivedString = print(received);
   // const expectedString = print(expected);
@@ -59,6 +67,11 @@ function toCallService(
       case 'Subscription':
         walkExecutionNode(node.primary);
         walkExecutionNode(node.rest);
+        break;
+      case 'Condition':
+        assert(conditionVariables?.definitions, 'The operation variable definitions should be provided');
+        const condition = evaluateCondition(node, conditionVariables?.definitions, conditionVariables?.values);
+        walkExecutionNode(condition ? node.ifClause : node.elseClause);
         break;
       default:
         return;
