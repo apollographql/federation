@@ -8,6 +8,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Adds support for `@interfaceObject` and keys on interfaces [PR #2279](https://github.com/apollographql/federation/pull/2279).
 - Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
 
 ## 2.2.2
 

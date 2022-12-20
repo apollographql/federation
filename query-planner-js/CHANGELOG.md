@@ -4,6 +4,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
+
 ## 2.2.2
 
 - Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
