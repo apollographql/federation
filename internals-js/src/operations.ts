@@ -44,6 +44,8 @@ import {
   isAbstractType,
   DeferDirectiveArgs,
   Variable,
+  possibleRuntimeTypes,
+  Type,
 } from "./definitions";
 import { ERRORS } from "./error";
 import { isDirectSubtype, sameType } from "./types";
@@ -214,21 +216,41 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       return this.withUpdatedDefinition(selectionParent.typenameField()!);
     }
 
-    // There is 2 valid cases were we could get here:
+    validate(
+      this.canRebaseOn(selectionParent),
+      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}"`
+    );
+    const fieldDef = selectionParent.field(this.name);
+    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}" (that does not declare that field)`);
+    return this.withUpdatedDefinition(fieldDef);
+  }
+
+  private canRebaseOn(parentType: CompositeType) {
+    // There is 2 valid cases we want to allow:
     //  1. either `selectionParent` and `fieldParent` are the same underlying type (same name) but from different underlying schema. Typically,
     //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
     //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
     //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
     //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check. 
     // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
-    validate(
-      selectionParent.name == fieldParent.name
-      || (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name)),
-      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
-    );
-    const fieldDef = selectionParent.field(this.name);
-    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}" (that does not declare that field)`);
-    return this.withUpdatedDefinition(fieldDef);
+    const fieldParentType = this.definition.parent
+    return parentType.name === fieldParentType.name
+      || (isInterfaceType(fieldParentType) && fieldParentType.allImplementations().some(i => i.name === parentType.name));
+  }
+
+  typeIfAddedTo(parentType: CompositeType): Type | undefined {
+    const fieldParentType = this.definition.parent;
+    if (parentType == fieldParentType) {
+      return this.definition.type;
+    }
+
+    if (this.name === typenameFieldName) {
+      return parentType.typenameField()?.type;
+    }
+
+    return this.canRebaseOn(parentType)
+      ? parentType.field(this.name)?.type
+      : undefined;
   }
 
   hasDefer(): boolean {
@@ -292,10 +314,14 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   }
 
   withUpdatedSourceType(newSourceType: CompositeType): FragmentElement {
+    return this.withUpdatedTypes(newSourceType, this.typeCondition);
+  }
+
+  withUpdatedTypes(newSourceType: CompositeType, newCondition: CompositeType | undefined): FragmentElement {
     // Note that we pass the type-condition name instead of the type itself, to ensure that if `newSourceType` was from a different
     // schema (typically, the supergraph) than `this.sourceType` (typically, a subgraph), then the new condition uses the
     // definition of the proper schema (the supergraph in such cases, instead of the subgraph).
-    const newFragment = new FragmentElement(newSourceType, this.typeCondition?.name);
+    const newFragment = new FragmentElement(newSourceType, newCondition?.name);
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
@@ -310,15 +336,41 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     const selectionParent = selectionSet.parentType;
     const fragmentParent = this.parentType;
     const typeCondition = this.typeCondition;
-    if (selectionParent != fragmentParent) {
-      // As long as there an intersection between the type we cast into and the selection parent, it's ok.
-      validate(
-        !typeCondition || runtimeTypesIntersects(selectionParent, typeCondition),
-        () => `Cannot add fragment of parent type "${this.parentType}" to selection set of parent type "${selectionSet.parentType}"`
-      );
-      return this.withUpdatedSourceType(selectionParent);
+    if (selectionParent === fragmentParent) {
+      return this;
     }
-    return this;
+
+    // This usually imply that the fragment is not from the same sugraph than then selection. So we need
+    // to update the source type of the fragment, but also "rebase" the condition to the selection set
+    // schema.
+    const { canRebase, rebasedCondition } = this.canRebaseOn(selectionParent);
+    validate(
+      canRebase, 
+      () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to selection set of parent type "${selectionParent}" (runtimes: ${possibleRuntimeTypes(selectionParent)})`
+    );
+    return this.withUpdatedTypes(selectionParent, rebasedCondition);
+  }
+
+  private canRebaseOn(parentType: CompositeType): { canRebase: boolean, rebasedCondition?: CompositeType } {
+    if (!this.typeCondition) {
+      return { canRebase: true, rebasedCondition: undefined };
+    }
+
+    const rebasedCondition = parentType.schema().type(this.typeCondition.name);
+    if (!rebasedCondition || !isCompositeType(rebasedCondition) || !runtimeTypesIntersects(parentType, rebasedCondition)) {
+      return { canRebase: false };
+    }
+
+    return { canRebase: true, rebasedCondition };
+  }
+
+  castedTypeIfAddedTo(parentType: CompositeType): CompositeType | undefined {
+    if (parentType == this.parentType) {
+      return this.castedType();
+    }
+
+    const { canRebase, rebasedCondition } = this.canRebaseOn(parentType);
+    return canRebase ? (rebasedCondition ? rebasedCondition : parentType) : undefined;
   }
 
   hasDefer(): boolean {
@@ -1259,6 +1311,41 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return true;
   }
 
+  /**
+   * Returns a selection set that correspond to this selection set but where any of the selections in the
+   * provided selection set have been remove.
+   */
+  minus(that: SelectionSet): SelectionSet {
+    const updated = new SelectionSet(this.parentType, this.fragments);
+    for (const [key, thisSelections] of this._selections) {
+      const thatSelections = that._selections.get(key);
+      if (!thatSelections) {
+        updated._selections.set(key, thisSelections);
+      } else {
+        for (const thisSelection  of thisSelections) {
+          const thatSelection = thatSelections.find((s) => thisSelection.element().equals(s.element()));
+          if (thatSelection) {
+            // If there is a subset, then we compute the diff of the subset and add that (if not empty).
+            // Otherwise, we just skip `thisSelection` and do nothing
+            if (thisSelection.selectionSet && thatSelection.selectionSet) {
+              const updatedSubSelectionSet = thisSelection.selectionSet.minus(thatSelection.selectionSet);
+              if (!updatedSubSelectionSet.isEmpty()) {
+                updated._selections.add(key, thisSelection.withUpdatedSubSelection(updatedSubSelectionSet));
+              }
+            }
+          } else {
+            updated._selections.add(key, thisSelection);
+          }
+        }
+      }
+    }
+    return updated;
+  }
+
+  canRebaseOn(parentTypeToTest: CompositeType): boolean {
+    return this.selections().every((selection) => selection.canAddTo(parentTypeToTest));
+  }
+
   validate() {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
@@ -1605,6 +1692,27 @@ export class FieldSelection extends Freezable<FieldSelection> {
     return new FieldSelection(updatedField, updatedSelectionSet);
   }
 
+  /**
+   * Essentially checks if `updateForAddingTo` would work on an selecion set of the provide parent type.
+   */
+  canAddTo(parentType: CompositeType): boolean {
+    if (this.field.parentType === parentType) {
+      return true;
+    }
+
+    const type = this.field.typeIfAddedTo(parentType);
+    if (!type) {
+      return false;
+    }
+
+    const base = baseType(type);
+    if (this.selectionSet && this.selectionSet.parentType !== base) {
+      assert(isCompositeType(base), () => `${this.field} should have a selection set as it's type is not a composite`);
+      return this.selectionSet.selections().every((s) => s.canAddTo(base));
+    }
+    return true;
+  }
+
   toSelectionNode(): FieldNode {
     const alias: NameNode | undefined = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
     return {
@@ -1708,6 +1816,8 @@ export abstract class FragmentSelection extends Freezable<FragmentSelection> {
    * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
    */
   abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
+
+  abstract canAddTo(parentType: CompositeType): boolean;
 
   abstract withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FragmentSelection;
 
@@ -1816,6 +1926,22 @@ class InlineFragmentSelection extends FragmentSelection {
     }
 
     return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
+  }
+
+  canAddTo(parentType: CompositeType): boolean {
+    if (this.element().parentType === parentType) {
+      return true;
+    }
+
+    const type = this.element().castedTypeIfAddedTo(parentType);
+    if (!type) {
+      return false;
+    }
+
+    if (this.selectionSet.parentType !== type) {
+      return this.selectionSet.selections().every((s) => s.canAddTo(type));
+    }
+    return true;
   }
 
 
@@ -1999,6 +2125,11 @@ class FragmentSpreadSelection extends FragmentSelection {
     // expand the spread, as that would compromise the code that optimize subgraph fetches to re-use named
     // fragments.
     return this;
+  }
+
+  canAddTo(_: CompositeType): boolean {
+    // Mimicking the logic of `updateForAddingTo`.
+    return true;
   }
 
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection | readonly Selection[] {

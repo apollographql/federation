@@ -4,6 +4,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.2.3
+
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
 
 ## 2.2.2
 

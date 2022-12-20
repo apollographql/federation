@@ -652,7 +652,7 @@ class FetchGroup {
     readonly rootKind: SchemaRootKind,
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
-    private readonly _selection: LazySelectionSet,
+    private _selection: LazySelectionSet,
     private readonly _inputs?: LazySelectionSet,
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
@@ -837,6 +837,13 @@ class FetchGroup {
 
   canMergeChildIn(child: FetchGroup): boolean {
     return this.deferRef === child.deferRef && !!child.parentRelation(this)?.path;
+  }
+
+  removeInputsFromSelection() {
+    const inputs = this.inputs;
+    if (inputs) {
+      this._selection = new LazySelectionSet(this.selection.minus(inputs));
+    }
   }
 
   /**
@@ -1440,12 +1447,14 @@ class FetchDependencyGraph {
   getOrCreateKeyFetchGroup({
     subgraphName,
     mergeAt,
+    type,
     parent,
     conditionsGroups,
     deferRef,
   }: {
     subgraphName: string,
     mergeAt: ResponsePath,
+    type: CompositeType,
     parent: ParentRelation,
     conditionsGroups: FetchGroup[],
     deferRef?: string,
@@ -1453,11 +1462,15 @@ class FetchDependencyGraph {
     // Let's look if we can reuse a group we have, that is an existing child of the parent that:
     // 1. is for the same subgraph
     // 2. has the same mergeAt
-    // 3. is not part of our conditions or our conditions ancestors (meaning that we annot reuse a group if it fetches something we take as input).
+    // 3. is for the same entity type (we don't reuse groups for different entities just yet, as this can create unecessary dependencies that
+    //   gets in the way of some optimizations; the final optimizations in `reduceAndOptimize` will however later merge groups on the same subgraph
+    //   and mergeAt when possibleA).
+    // 4. is not part of our conditions or our conditions ancestors (meaning that we annot reuse a group if it fetches something we take as input).
     for (const existing of parent.group.children()) {
       if (existing.subgraphName === subgraphName
         && existing.mergeAt
         && sameMergeAt(existing.mergeAt, mergeAt)
+        && existing.selection.selections().every((s) => s.kind === 'FragmentSelection' && s.element().castedType() === type)
         && !this.isInGroupsOrTheirAncestors(existing, conditionsGroups)
         && existing.deferRef === deferRef
       ) {
@@ -3064,6 +3077,7 @@ function computeGroupsForTree(
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
+              type,
               parent: { group, path: pathInParent },
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
@@ -3286,12 +3300,24 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
   }
 }
 
-function withoutTypename(selectionSet: SelectionSet): SelectionSet {
-  return selectionSet.filter((selection) => selection.kind !== 'FieldSelection' || selection.element().name === '__typename');
-}
-
 function pathHasOnlyFragments(path: OperationPath): boolean {
   return path.every((element) => element.kind === 'FragmentElement');
+}
+
+function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeType {
+  let type = parentType;
+  for (const element of path) {
+    if (element.kind === 'Field') {
+      const fieldType = baseType(type.field(element.name)?.type!);
+      assert(isCompositeType(fieldType), () => `Invalid call fro ${path} starting at ${parentType}: ${element.definition.coordinate} is not composite`);
+      type = fieldType;
+    } else if (element.typeCondition) {
+      const rebasedType = parentType.schema().type(element.typeCondition.name);
+      assert(rebasedType && isCompositeType(rebasedType), () => `Type condition of ${element} should be composite`);
+      type = rebasedType;
+    }
+  }
+  return type;
 }
 
 function handleRequires(
@@ -3351,23 +3377,19 @@ function handleRequires(
     }
 
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
-    // fetched from our `newGroup`. If not, then this means that `createdGroup` don't really depend on
-    // the current `group`, but can be dependencies of the parent (or even merged into this parent).
-    // To know this, we check if `newGroup` inputs contains its inputs (meaning the fetch is
-    // useless: we jump to it but didn't get anything new). Not that this isn't perfect because
-    // in the case of multiple keys between `newGroup` and its parent, we could theoretically take a
-    // different key on the way in that on the way back. In other words, `newGroup` selection may only
-    // be fetching a key that happens to not be the one in its inputs, and in that case the code below
-    // will not remove `newGroup` even though it would be more efficient to do so. Handling this properly
-    // is more complex however and it's sufficiently unlikely to happpen that we ignore that "optimization"
-    // for now. If someone run into this and notice, we can optimize then.
+    // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
+    // the current `group` and can be dependencies of the parent (or even merged into this parent).
+    //
+    // So we want to know if anything in `newGroup` selection cannot be fetched directly from the parent.
+    // For that, we first remove any of `newGroup` inputs from its selection: in most case, `newGroup`
+    // will just contain the key needed to jump back to its parent, and those would usually be the same
+    // as the inputs. And since by definition we know `newGroup`'s inputs are already fetched, we
+    // know they are not things that we need. Then, we check if what remains (often empty) can be
+    // directly fetched from the parent. If it can, then we can just merge `newGroup` into that parent.
+    // Otherwise, we will have to "keep it".
     // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
-    // Note2: `__typename` selections adds a bit of complexity. That is, if `newGroup` selection is not
-    // strictly contained in its inputs but only due to the selection of some `__typename`, then we
-    // still want to ignore that group, because `__typename` are always trivially queriable from any
-    // type in any subgraph and so that `__typename` can always be fetched from the parent. Which is
-    // what the `newGroupIsUnneeded` check ignores `__typename` in the selection.
-    const newGroupIsUnneeded = newGroup.inputs!.contains(withoutTypename(newGroup.selection)) && parent.path;
+    newGroup.removeInputsFromSelection();
+    let newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
     const unmergedGroups = [];
 
     if (newGroupIsUnneeded) {
@@ -3455,7 +3477,7 @@ function handleRequires(
     // If we get here, it means that @require needs the information from `unmergedGroups` (plus whatever has
     // been merged before) _and_ those rely on some information from the current `group` (if they hadn't, we
     // would have been able to merge `newGroup` to `group`'s parent). So the group we should return, which
-    // is the group where the "post-@require" fields will be add, needs to a be a new group that depends
+    // is the group where the "post-@require" fields will be added, needs to a be a new group that depends
     // on all those `unmergedGroups`.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup({ subgraphName: group.subgraphName, mergeAt: group.mergeAt!, deferRef: group.deferRef});
     // Note that `postRequireGroup` cannot generally be merged in any of the `unmergedGroup` and we don't provide a `path`.
