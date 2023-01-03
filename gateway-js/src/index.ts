@@ -7,6 +7,7 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
+  print
 } from 'graphql';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
@@ -59,6 +60,10 @@ import {
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
 import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
+
+function computeQueryPlanKeyHash(query: string) {
+  return createHash('sha256').update(query).digest('hex');
+}
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -754,8 +759,9 @@ export class ApolloGateway implements GatewayInterface {
       { attributes: spanAttributes },
       async (span) => {
         try {
-          const { request, document, queryHash } = requestContext;
-          const queryPlanStoreKey = queryHash + (request.operationName || '');
+          const { request, document } = requestContext;
+          const queryPlanKey = print(document) + (request.operationName || '');
+          const queryPlanStoreKey = computeQueryPlanKeyHash(queryPlanKey);
           const operationContext = buildOperationContext({
             schema: this.schema!,
             operationDocument: document,
