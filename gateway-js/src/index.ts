@@ -6,7 +6,7 @@ import {
   isObjectType,
   isIntrospectionType,
   GraphQLSchema,
-  VariableDefinitionNode,
+  VariableDefinitionNode
 } from 'graphql';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
@@ -755,7 +755,9 @@ export class ApolloGateway implements GatewayInterface {
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
-          const queryPlanStoreKey = queryHash + (request.operationName || '');
+          const queryPlanStoreKey = request.operationName ?
+            createHash('sha256').update(queryHash).update(request.operationName).digest('hex')
+            : queryHash;
           const operationContext = buildOperationContext({
             schema: this.schema!,
             operationDocument: document,
