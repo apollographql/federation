@@ -343,12 +343,27 @@ export interface Named {
 export type ExtendableElement = SchemaDefinition | NamedType;
 
 export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
-  private _appliedDirectives: Directive<T>[] | undefined;
+  readonly appliedDirectives: Directive<T>[];
 
-  constructor(private readonly _schema: Schema) {}
+  constructor(
+    private readonly _schema: Schema,
+    directives?: readonly Directive<any>[],
+  ) {
+    this.appliedDirectives = directives?.map((d) => this.attachDirective(d)) ?? [];
+  }
 
   schema(): Schema {
     return this._schema;
+  }
+
+  private attachDirective(directive: Directive<any>): Directive<T> {
+    // if the directive is not attached, we can assume we're fine just attaching it to use. Otherwise, we're "copying" it.
+    const toAdd = directive.isAttached()
+      ? new Directive(directive.name, directive.arguments())
+      : directive;
+
+    Element.prototype['setParent'].call(toAdd, this);
+    return toAdd;
   }
 
   appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(nameOrDefinition: string | DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[] {
@@ -356,39 +371,9 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
     return this.appliedDirectives.filter(d => d.name == directiveName) as Directive<T, TApplicationArgs>[];
   }
 
-  get appliedDirectives(): readonly Directive<T>[] {
-    return this._appliedDirectives ?? [];
-  }
-
   hasAppliedDirective(nameOrDefinition: string | DirectiveDefinition): boolean {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
     return this.appliedDirectives.some(d => d.name == directiveName);
-  }
-
-  applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    defOrDirective: Directive<T, TApplicationArgs> | DirectiveDefinition<TApplicationArgs>,
-    args?: TApplicationArgs
-  ): Directive<T, TApplicationArgs> {
-    let toAdd: Directive<T, TApplicationArgs>;
-    if (defOrDirective instanceof Directive) {
-      if (defOrDirective.schema() != this.schema()) {
-        throw new Error(`Cannot add directive ${defOrDirective} to ${this} as it is attached to another schema`);
-      }
-      toAdd = defOrDirective;
-      if (args) {
-        toAdd.setArguments(args);
-      }
-    } else {
-      toAdd = new Directive<T, TApplicationArgs>(defOrDirective.name, args ?? Object.create(null));
-    }
-    Element.prototype['setParent'].call(toAdd, this);
-    // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
-    if (this._appliedDirectives) {
-      this._appliedDirectives.push(toAdd);
-    } else {
-      this._appliedDirectives = [ toAdd ];
-    }
-    return toAdd;
   }
 
   appliedDirectivesToDirectiveNodes() : ConstDirectiveNode[] | undefined {

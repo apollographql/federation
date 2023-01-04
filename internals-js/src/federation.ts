@@ -48,7 +48,7 @@ import {
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { parseSelectionSet, selectionOfElement, SelectionSet } from './operations';
+import { parseSelectionSet, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./tagSpec";
 import {
   errorCodeDef,
@@ -129,7 +129,7 @@ function validateFieldSetSelections({
   allowFieldsWithArguments: boolean,
 }): void {
   for (const selection of selectionSet.selections()) {
-    const appliedDirectives = selection.element().appliedDirectives;
+    const appliedDirectives = selection.element.appliedDirectives;
     if (appliedDirectives.length > 0) {
       onError(ERROR_CATEGORIES.DIRECTIVE_IN_FIELDS_ARG.get(directiveName).err(
         `cannot have directive applications in the @${directiveName}(fields:) argument but found ${appliedDirectives.join(', ')}.`,
@@ -137,7 +137,7 @@ function validateFieldSetSelections({
     }
 
     if (selection.kind === 'FieldSelection') {
-      const field = selection.element().definition;
+      const field = selection.element.definition;
       const isExternal = metadata.isFieldExternal(field);
       if (!allowFieldsWithArguments && field.hasArguments()) {
         onError(ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
@@ -1817,12 +1817,17 @@ class ExternalTester {
   private collectProvidedFields() {
     for (const provides of this.metadata().providesDirective().applications()) {
       const parent = provides.parent as FieldDefinition<CompositeType>;
-      collectTargetFields({
-        parentType: baseType(parent.type!) as CompositeType,
-        directive: provides as Directive<any, {fields: any}>,
-        includeInterfaceFieldsImplementations: true,
-        validate: false,
-      }).forEach((f) => this.providedFields.add(f.coordinate));
+      const parentType = baseType(parent.type!);
+      // If `parentType` is not a composite, that means an invalid @provides, but we ignore such errors
+      // for now (also why we pass 'validate: false'). Proper errors will be thrown later during validation.
+      if (isCompositeType(parentType)) {
+        collectTargetFields({
+          parentType,
+          directive: provides as Directive<any, {fields: any}>,
+          includeInterfaceFieldsImplementations: true,
+          validate: false,
+        }).forEach((f) => this.providedFields.add(f.coordinate));
+      }
     }
   }
 
@@ -1854,7 +1859,7 @@ class ExternalTester {
 
   selectsAnyExternalField(selectionSet: SelectionSet): boolean {
     for (const selection of selectionSet.selections()) {
-      if (selection.kind === 'FieldSelection' && this.isExternal(selection.element().definition)) {
+      if (selection.kind === 'FieldSelection' && this.isExternal(selection.element.definition)) {
         return true;
       }
       if (selection.selectionSet) {
@@ -1966,7 +1971,7 @@ function selectsNonExternalLeafField(selection: SelectionSet): boolean {
   return selection.selections().some(s => {
     if (s.kind === 'FieldSelection') {
       // If it's external, we're good and don't need to recurse.
-      if (isExternalOrHasExternalImplementations(s.field.definition)) {
+      if (isExternalOrHasExternalImplementations(s.element.definition)) {
         return false;
       }
       // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
@@ -1978,25 +1983,24 @@ function selectsNonExternalLeafField(selection: SelectionSet): boolean {
 }
 
 function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet {
-  const newSelectionSet = new SelectionSet(selectionSet.parentType);
-  for (const selection of selectionSet.selections()) {
+  return selectionSet.lazyMap((selection) => {
     if (selection.kind === 'FieldSelection') {
-      if (isExternalOrHasExternalImplementations(selection.field.definition)) {
+      if (isExternalOrHasExternalImplementations(selection.element.definition)) {
         // That field is external, so we can add the selection back entirely.
-        newSelectionSet.add(selection);
-        continue;
+        return selection;
       }
     }
-    // Note that for fragments will always be true (and we just recurse), while
-    // for fields, we'll only get here if the field is not external, and so
-    // we want to add the selection only if it's not a leaf and even then, only
-    // the part where we've recursed.
     if (selection.selectionSet) {
+      // Note that for fragments this will always be true (and we just recurse), while
+      // for fields, we'll only get here if the field is not external, and so
+      // we want to add the selection only if it's not a leaf and even then, only
+      // the part where we've recursed.
       const updated = withoutNonExternalLeafFields(selection.selectionSet);
       if (!updated.isEmpty()) {
-        newSelectionSet.add(selectionOfElement(selection.element(), updated));
+        return selection.withUpdatedSelectionSet(updated);
       }
     }
-  }
-  return newSelectionSet;
+    // We skip that selection.
+    return undefined;
+  });
 }

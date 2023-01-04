@@ -15,7 +15,6 @@ import {
   baseType,
   SelectionSet,
   isFederationSubgraphSchema,
-  CompositeType,
   extractSubgraphsFromSupergraph,
   FieldDefinition,
   isCompositeType,
@@ -34,6 +33,7 @@ import {
   typenameFieldName,
   Field,
   selectionSetOfElement,
+  SelectionSetUpdates,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -154,15 +154,7 @@ export class Edge {
      */
     conditions?: SelectionSet,
   ) {
-    // Edges are meant to be immutable once a query graph is fully built. More precisely,
-    // the whole query graph must be immutable once constructed since the query planner reuses
-    // it for buiding multiple plans.
-    // To ensure it/avoid hard-to-find bugs, we freeze the conditions (and because the caller might
-    // not expect that this method freezes its input, we clone first), which ensure that if we add
-    // them to another selection set during query planning, they will get automatically cloned first
-    // (and thus this instance will not be modified). This fixes #1750 in particular and should
-    // avoid such issue in the future.
-    this._conditions = conditions?.clone()?.freeze();
+    this._conditions = conditions;
   }
 
   get conditions(): SelectionSet | undefined {
@@ -211,10 +203,8 @@ export class Edge {
     // edge freely). Which means we need to clone any existing conditions (so we can modify them), and need
     // to re-freeze the result afterwards.
     this._conditions = this._conditions
-      ? this._conditions.clone()
-      : new SelectionSet(this.head.type as CompositeType);
-    this._conditions.mergeIn(newConditions);
-    this._conditions.freeze();
+      ? new SelectionSetUpdates().add(this._conditions).add(newConditions).toSelectionSet(this._conditions.parentType)
+      : newConditions;
   }
 
   isKeyOrRootTypeEdgeToSelf(): boolean {
@@ -840,8 +830,8 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
   while (stack.length > 0) {
     const [v, selectionSet] = stack.pop()!;
     // We reverse the selections to cancel the reversing that the stack does.
-    for (const selection of selectionSet.selections(true)) {
-      const element = selection.element();
+    for (const selection of selectionSet.selectionsInReverseOrder()) {
+      const element = selection.element;
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
         const existingEdge = builder.edges(v).find(e => e.transition.kind === 'FieldCollection' && e.transition.definition.name === fieldDef.name);

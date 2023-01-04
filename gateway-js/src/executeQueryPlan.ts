@@ -189,7 +189,7 @@ export async function executeQueryPlan(
             operation,
             variables: requestContext.request.variables,
             input: unfilteredData,
-            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandFragments().toSelectionNode()),
+            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandAllFragments().toSelectionNode()),
           }));
 
           // If we have errors during the post-processing, we ignore them if any other errors have been thrown during

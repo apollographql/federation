@@ -1570,8 +1570,8 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
   for (const key of keys) {
     const fieldSet = parseFieldSetArgument({ parentType: type, directive: key });
     for (const selection of fieldSet.selections()) {
-      if (selection.kind === 'FieldSelection' && selection.field.definition.hasAppliedDirective(metadata.externalDirective())) {
-        const fieldName = selection.field.name;
+      if (selection.kind === 'FieldSelection' && selection.element.definition.hasAppliedDirective(metadata.externalDirective())) {
+        const fieldName = selection.element.name;
         if (!keyFieldMarkedExternal.includes(fieldName)) {
           keyFieldMarkedExternal.push(fieldName);
         }
