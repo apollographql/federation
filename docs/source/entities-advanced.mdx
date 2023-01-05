@@ -576,9 +576,11 @@ Here we're using two directives in combination: `@provides` and `@external`.
 
 Violating any of these rules causes composition to fail.
 
-## The N+1 problem
+## Handling the N+1 problem
 
-Most subgraph implementations use entity resolvers to handle the `Query._entities` field more ergonomically. Each resolver receives a single key and returns a single object in response. However, this does not match the behavior of federated queries in practice. Let's revisit an earlier example:
+Most subgraph implementations use **reference resolvers** (also known as entity resolvers) to handle the `Query._entities` field ergonomically. An entity resolver is passed a single key and returns the entity object that corresponds to that key.
+
+Although this pattern is straightforward, it can diminish performance when a client operation requests fields from _many_ entities. To illustrate this, let's revisit an earlier example:
 
 ```graphql {6}
 query GetReviewsWithProducts {
@@ -592,12 +594,12 @@ query GetReviewsWithProducts {
 }
 ```
 
-As mentioned [in the query plan](../entities#the-query-plan), the router will make two queries:
+As mentioned in [The query plan](./entities#the-query-plan), the router executes two queries on its subgraphs to resolve this operation:
 
-1. Query the Reviews subgraph for `latestReviews`
-2. Query the Products subgraph for the `price` of each `Product`
+1. It queries the Reviews subgraph to fetch all fields _except_ `Product.price`.
+2. It queries the Products subgraph to fetch the `price` of each `Product` entity.
 
-However, the reference resolver for `Product` will not take a list of keys, but rather a single key. The subgraph library will call that resolver one time _for each key_.
+In the Products subgraph, the reference resolver for `Product` doesn't take a list of keys, but rather a _single_ key. Therefore, the subgraph library calls the reference resolver _once for each key_:
 
 ```js {4-6} title="resolvers.js"
 // Products subgraph
@@ -611,6 +613,6 @@ const resolvers = {
 }
 ```
 
-Imagine a naive implementation of `fetchProductByID` that makes a database call for each product ID. If we have `N` reviews, we'll make `N` database calls. These calls are _in addition_ to the 1 call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem will cause performance problems and can even enable "Denial of Service" attacks.
+A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made _in addition to_ the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems and can even enable denial-of-service attacks.
 
-This is not only a problem with entity resolvers, it's a common problem with any GraphQL resolver—and it has a common solution: [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library has a dataloader implementation, and you should use it in **every resolver**. Even resolvers which are not for entities and do not return lists can _still_ cause N+1 issues via [batched requests](https://www.apollographql.com/docs/enterprise-guide/graph-security/#batched-requests).
+This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in **every resolver**. This is true even for resolvers that _aren't_ for entities and that _don't_ return a list. These resolvers can _still_ cause N+1 issues via [batched requests](/enterprise-guide/graph-security/#batched-requests).

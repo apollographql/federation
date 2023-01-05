@@ -93,7 +93,7 @@ Let's break this example down:
 * A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
     * In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
 
-> ⚠️ **Reference resolvers _will_ be called more than once per query. It is crucial that they account for N+1 issues (e.g., via [data loaders](https://github.com/graphql/dataloader)). See [The N+1 problem](../entities-advanced#the-n1-problem) for more details.**
+> ⚠️ **A particular reference resolver might be called _many_ times to resolve a single query!** It is crucial that reference resolvers account for "N+1" issues (e.g., via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](../entities-advanced#handling-the-n1-problem).
 
 _Every_ subgraph that contributes at least one unique field to an entity must define a reference resolver for that entity.
 
