@@ -11,6 +11,9 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   meant to be supported on interfaces and was not having any impact whatsoever. If an existing subgraph does have a
   `@override` on an interface field, this will now be rejected, but the `@override` can simply and safely be removed
   since it previously was ignored.
+- Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
+  must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
+  intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
 
 ## 2.2.0
 

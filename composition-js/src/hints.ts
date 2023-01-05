@@ -187,6 +187,12 @@ const DIRECTIVE_COMPOSITION_WARN = makeCodeDefinition({
   description: 'Indicates that an issue was detected when composing custom directives.',
 });
 
+const INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN = makeCodeDefinition({
+  code: 'INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN',
+  level: HintLevel.WARN,
+  description: 'Indicates that a @shareable field returns different sets of runtime types in the different subgraphs in which it is defined.',
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -213,6 +219,7 @@ export const HINTS = {
   INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
   DIRECTIVE_COMPOSITION_INFO,
   DIRECTIVE_COMPOSITION_WARN,
+  INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
 }
 
 export class CompositionHint {
