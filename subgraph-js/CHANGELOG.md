@@ -8,6 +8,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Adds support for the 2.3 version of the federation spec (that is, `@link(url: "https://specs.apollo.dev/federation/v2.3")`), with:
   - New `@interfaceObject` directive and support for keys on interfaces.
+  - `@tag` directive support for the `SCHEMA` location [PR #2314](https://github.com/apollographql/federation/pull/2314).
 
 ## 2.2.0
 

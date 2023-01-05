@@ -311,7 +311,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.closedBranches.push([option.paths.map(p => terminateWithNonRequestedTypenameField(p))]);
+          this.closedBranches.push(options.map((o) => o.paths.map(p => terminateWithNonRequestedTypenameField(p))));
         }
         return;
       }
