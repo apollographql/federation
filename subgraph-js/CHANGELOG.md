@@ -4,6 +4,11 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.3.0
+
+- Adds support for the 2.3 version of the federation spec (that is, `@link(url: "https://specs.apollo.dev/federation/v2.3")`), with:
+  - New `@interfaceObject` directive and support for keys on interfaces.
+
 ## 2.2.0
 
 - Adds support for the 2.2 version of the federation spec (that is, `@link(url: "https://specs.apollo.dev/federation/v2.2")`), which:

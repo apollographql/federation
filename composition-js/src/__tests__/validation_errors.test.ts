@@ -115,8 +115,6 @@ describe('@requires', () => {
 
 describe('non-resolvable keys', () => {
   it('fails if key is declared non-resolvable but would be needed', () => {
-    global.console = require('console');
-
     const subgraphA = {
       name: 'A',
       typeDefs: gql`
@@ -154,6 +152,140 @@ describe('non-resolvable keys', () => {
       - from subgraph "B":
         - cannot find field "T.f".
         - cannot move to subgraph "A", which has field "T.f", because none of the @key defined on type "T" in subgraph "A" are resolvable (they are all declared with their "resolvable" argument set to false).
+      `
+    ]);
+  });
+});
+
+describe('@interfaceObject', () => {
+  it('fails on @interfaceObject usage with missing @key on interface', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        interface I {
+          id: ID!
+          x: Int
+        }
+
+        type A implements I @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+
+        type B implements I @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          iFromB: I
+        }
+
+        type I @interfaceObject @key(fields: "id") {
+          id: ID!
+          y: Int
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      The following supergraph API query:
+      {
+        iFromB {
+          ... on A {
+            ...
+          }
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "subgraphB": no subgraph can be reached to resolve the implementation type of @interfaceObject type "I".
+      `,
+      `
+      The following supergraph API query:
+      {
+        iFromB {
+          ... on B {
+            ...
+          }
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "subgraphB": no subgraph can be reached to resolve the implementation type of @interfaceObject type "I".
+      `,
+    ]);
+  });
+
+  it('fails on @interfaceObject with some unreachable implementation', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        interface I @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+
+        type A implements I @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+
+        type B implements I @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          iFromB: I
+        }
+
+        type I @interfaceObject @key(fields: "id") {
+          id: ID!
+          y: Int
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const subgraphC = {
+      typeDefs: gql`
+        type A {
+          z: Int
+        }
+      `,
+      name: 'subgraphC',
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB, subgraphC]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      The following supergraph API query:
+      {
+        iFromB {
+          ... on A {
+            z
+          }
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "subgraphB":
+        - cannot find implementation type "A" (supergraph interface "I" is declared with @interfaceObject in "subgraphB").
+        - cannot move to subgraph "subgraphC", which has field "A.z", because interface "I" is not defined in this subgraph (to jump to "subgraphC", it would need to both define interface "I" and have a @key on it).
+      - from subgraph "subgraphA":
+        - cannot find field "A.z".
+        - cannot move to subgraph "subgraphC", which has field "A.z", because type "A" has no @key defined in subgraph "subgraphC".
       `
     ]);
   });

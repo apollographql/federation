@@ -596,7 +596,6 @@ test('preserves default values of input object fields', () => {
   expect(inputFieldA?.defaultValue).toBe(1234)
 })
 
-
 test('throw meaningful error for invalid federation directive fieldSet', () => {
   const supergraph = `
     schema
