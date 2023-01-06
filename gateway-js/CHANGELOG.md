@@ -17,6 +17,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
   intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
 - Adds support for the 0.3 version of the tag spec, which adds `@tag` directive support for the `SCHEMA` location [PR #2314](https://github.com/apollographql/federation/pull/2314).
+- Fix potential issue with nested `@defer` in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312).
 
 ## 2.2.2
 
