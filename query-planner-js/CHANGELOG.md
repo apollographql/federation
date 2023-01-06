@@ -4,6 +4,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+- Fix potential issue with nested `@defer` in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312).
 - Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
 
 ## 2.2.2
