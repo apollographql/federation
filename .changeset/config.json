@@ -3,7 +3,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "apollographql/typescript-repo-template"
+      "repo": "apollographql/federation"
     }
   ],
   "commit": false,
