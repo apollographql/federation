@@ -335,7 +335,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
               edgeConditions: withReplacedLastElement(this.props.edgeConditions, conditionsResolution.pathTree ?? null),
               edgeToTail: updatedEdge,
               runtimeTypesOfTail: runtimeTypesWithoutPreviousCast,
-              deferOnTail: defer,
+              deferOnTail: defer ?? this.props.deferOnTail,
             });
           }
         }
@@ -370,7 +370,10 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       edgeToTail: edge,
       runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
       runtimeTypesBeforeTailIfLastIsCast: edge?.transition?.kind === 'DownCast' ? this.props.runtimeTypesOfTail : undefined,
-      deferOnTail: defer,
+      // If there is no new `defer` taking precedence, and the edge is downcast, then we inherit the prior version. This
+      // is because we only try to re-enter subgraphs for @defer on concrete fields, and so as long as we add downcasts,
+      // we should remember that we still need to try re-entering the subgraph.
+      deferOnTail: defer ?? (edge && edge.transition.kind === 'DownCast' ? this.props.deferOnTail : undefined),
     });
   }
 
@@ -1586,9 +1589,10 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     let options: SimultaneousPaths<V>[] | undefined = undefined;
 
     debug.group(() => `Computing options for ${path}`);
+    const shouldReenterSubgraph = path.deferOnTail && operation.kind === 'Field';
     // If we're just entering a deferred section, then we will need to re-enter subgraphs, so we should not consider
-    // direct options and instead force and indirect path.
-    if (!path.deferOnTail) {
+    // direct options and instead force an indirect path.
+    if (!shouldReenterSubgraph) {
       debug.group(() => `Direct options`);
       options = advanceWithOperation(
         supergraphSchema,
@@ -1620,41 +1624,43 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
 
     // If there was not valid direct path (or we didn't check those because we enter a defer), that's ok, we'll just try with non-collecting edges.
     options = options ?? [];
-    debug.group(`Computing indirect paths:`);
-    // Then adds whatever options can be obtained by taking some non-collecting edges first.
-    const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
-    debug.groupEnd(() => pathsWithNonCollecting.paths.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.paths.length} indirect paths`);
-    if (pathsWithNonCollecting.paths.length > 0) {
-      debug.group('Validating indirect options:');
-      for (const pathWithNonCollecting of pathsWithNonCollecting.paths) {
-        debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
-        const pathWithOperation = advanceWithOperation(
-          supergraphSchema,
-          pathWithNonCollecting,
-          operation,
-          updatedContext,
-          subgraphSimultaneousPaths.conditionResolver
-        );
-        // If we can't advance the operation after that path, ignore it, it's just not an option.
-        if (!pathWithOperation) {
-          debug.groupEnd(() => `Ignoring: cannot be advanced with ${operation}`);
-          continue;
+    if (operation.kind === 'Field') {
+      debug.group(`Computing indirect paths:`);
+      // Then adds whatever options can be obtained by taking some non-collecting edges first.
+      const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
+      debug.groupEnd(() => pathsWithNonCollecting.paths.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.paths.length} indirect paths`);
+      if (pathsWithNonCollecting.paths.length > 0) {
+        debug.group('Validating indirect options:');
+        for (const pathWithNonCollecting of pathsWithNonCollecting.paths) {
+          debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
+          const pathWithOperation = advanceWithOperation(
+            supergraphSchema,
+            pathWithNonCollecting,
+            operation,
+            updatedContext,
+            subgraphSimultaneousPaths.conditionResolver
+          );
+          // If we can't advance the operation after that path, ignore it, it's just not an option.
+          if (!pathWithOperation) {
+            debug.groupEnd(() => `Ignoring: cannot be advanced with ${operation}`);
+            continue;
+          }
+          debug.groupEnd(() => `Adding valid option: ${pathWithOperation}`);
+          // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
+          // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
+          // had one when testing direct transitions above (in which case we have exited the method early).
+          assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
+          options = options.concat(pathWithOperation);
         }
-        debug.groupEnd(() => `Adding valid option: ${pathWithOperation}`);
-        // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
-        // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
-        // had one when testing direct transitions above (in which case we have exited the method early).
-        assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
-        options = options.concat(pathWithOperation);
+        debug.groupEnd();
       }
-      debug.groupEnd();
     }
 
     // If we were entering a @defer, we've skipped the potential "direct" options because we need an "indirect" one (a key/root query)
     // to be able to actualy defer. But in rare cases, it's possible we actually couldn't resolve the key fields needed to take a key
     // but could still find a direct path. If so, it means it's a corner case where we cannot do query-planner-based-@defer and have
     // to fall back on not deferring.
-    if (options.length === 0 && path.deferOnTail) {
+    if (options.length === 0 && shouldReenterSubgraph) {
       debug.group(() => `Cannot defer (no indirect options); falling back to direct options`);
       options = advanceWithOperation(
         supergraphSchema,

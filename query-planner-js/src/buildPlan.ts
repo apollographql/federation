@@ -268,6 +268,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
     const operation = selection.element();
+    debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
       const followupForOption = advanceSimultaneousPathsWithOperation(this.supergraphSchema, option, operation);
@@ -305,6 +306,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
         if (operation.kind === 'FragmentElement') {
           this.closedBranches.push([option.paths.map(p => terminateWithNonRequestedTypenameField(p))]);
         }
+        debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
       }
       newOptions = newOptions.concat(followupForOption);
@@ -316,13 +318,14 @@ class QueryPlanningTaversal<RV extends Vertex> {
       // This should never happen for a top-level query planning (unless the supergraph has *not* been
       // validated), but can happen when computing sub-plans for a key condition.
       if (this.isTopLevel) {
-        debug.log(`No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
+        debug.groupEnd(() => `No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
         throw new Error(`Was not able to find any options for ${selection}: This shouldn't have happened.`);
       } else {
         // We clear both open branches and closed ones as a mean to terminate the plan computation with
         // no plan
         this.stack.splice(0, this.stack.length);
         this.closedBranches.splice(0, this.closedBranches.length);
+        debug.groupEnd(() => `No possible plan for ${selection} from ${advanceOptionsToString(options)}; terminating condition`);
         return;
       }
     }
@@ -331,9 +334,11 @@ class QueryPlanningTaversal<RV extends Vertex> {
       for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
         this.stack.push(branch);
       }
+      debug.groupEnd();
     } else {
       const updated = this.maybeEliminateStrictlyMoreCostlyPaths(newOptions);
       this.closedBranches.push(updated);
+      debug.groupEnd(() => `Branch finished with ${updated.length} options`);
     }
   }
 
