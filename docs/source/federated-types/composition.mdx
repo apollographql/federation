@@ -40,9 +40,9 @@ With [managed federation](../managed-federation/overview/), Apollo performs comp
 ```mermaid
 graph LR;
   subgraph "Your infrastructure"
-  serviceA[Products<br/>subgraph];
-  serviceB[Reviews<br/>subgraph];
-  gateway([Router]);
+  serviceA[Products subgraph];
+  serviceB[Reviews subgraph];
+  gateway([Router*]);
   end
   subgraph "Apollo cloud"
     registry{{Apollo Schema<br/>Registry}};
@@ -54,6 +54,13 @@ graph LR;
   class registry secondary;
   class uplink secondary;
 ```
+
+<p><sup>
+
+
+*GraphOS can provision and host your supergraph's router if you create a [cloud supergraph](/graphos/graphs/overview/#cloud-supergraphs).
+
+</sup></p>
 
 To learn how to perform composition with managed federation, see the [quickstart](../quickstart/studio-composition/).
 
