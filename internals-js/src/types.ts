@@ -7,12 +7,10 @@ import {
   InterfaceType,
   isInterfaceType,
   isListType,
+  isNamedType,
   isNonNullType,
   isObjectType,
   isUnionType,
-  ListType,
-  NamedType,
-  NonNullType,
   ObjectType,
   Type,
   UnionType
@@ -32,26 +30,25 @@ export type SubtypingRule = typeof ALL_SUBTYPING_RULES[number];
 export const DEFAULT_SUBTYPING_RULES = ALL_SUBTYPING_RULES.filter(r => r !== "list_upgrade");
 
 /**
- * Tests whether 2 types are the same type.
+ * Tests whether 2 types are the "same" type.
  *
- * To be the same type, for this method, is defined as having the same "kind"
- * and either the same name, for named types or, for wrapper types, the same
- * wrapped type (applying this method recursively).
+ * To be the same type, for this method, is defined as having the samee name for named types
+ * or, for wrapper types, the same wrapper type and recursively same wrapped one.
  *
- * This method does not check that both types are from the same schema and does
- * not validate that the structure of named types is the same.
+ * This method does not check that both types are from the same schema and does not validate
+ * that the structure of named types is the same. Also note that it does not check the "kind"
+ * of the type, which is actually relied on due to @interfaceObject (where the "same" type 
+ * can be an interface in one subgraph but an object type in another, while fundamentally being
+ * the same type).
  */
 export function sameType(t1: Type, t2: Type): boolean {
-  if (t1.kind !== t2.kind) {
-    return false;
-  }
   switch (t1.kind) {
     case 'ListType':
-      return sameType(t1.ofType, (t2 as ListType<any>).ofType);
+      return isListType(t2) && sameType(t1.ofType, t2.ofType);
     case 'NonNullType':
-      return sameType(t1.ofType, (t2 as NonNullType<any>).ofType);
+      return isNonNullType(t2) && sameType(t1.ofType, t2.ofType);
     default:
-      return t1.name === (t2 as NamedType).name;
+      return isNamedType(t2) && t1.name === t2.name;
   }
 }
 

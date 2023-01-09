@@ -159,6 +159,8 @@ type PathProps<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | ne
   /** If the last edge (the one getting to tail) was a DownCast, the runtime types before that edge. */
   readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
 
+  readonly lastIsInterfaceObjectFakeCastAfterNonCollecting: boolean,
+
   readonly deferOnTail?: DeferDirectiveArgs,
 }
 
@@ -206,7 +208,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       edgeConditions: [],
       ownPathIds: [],
       overriddingPathIds: [],
-      runtimeTypesOfTail: runtimeTypes
+      runtimeTypesOfTail: runtimeTypes,
+      lastIsInterfaceObjectFakeCastAfterNonCollecting: false,
     });
   }
 
@@ -283,6 +286,10 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.props.runtimeTypesOfTail;
   }
 
+  lastIsIntefaceObjectFakeDownCastAfterNonCollecting(): boolean {
+    return this.props.lastIsInterfaceObjectFakeCastAfterNonCollecting;
+  }
+
   /**
    * Creates the new path corresponding to appending to this path the provided `edge`.
    *
@@ -341,6 +348,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
                 edgeConditions: withReplacedLastElement(this.props.edgeConditions, conditionsResolution.pathTree ?? null),
                 edgeToTail: updatedEdge,
                 runtimeTypesOfTail: runtimeTypesWithoutPreviousCast,
+                lastIsInterfaceObjectFakeCastAfterNonCollecting: false,
                 // We know the edge is a DownCast, so if there is no new `defer` taking precedence, we just inherit the
                 // prior version.
                 deferOnTail: defer ?? this.props.deferOnTail,
@@ -375,9 +383,11 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
             edgeTriggers: withReplacedLastElement(this.props.edgeTriggers, trigger),
             edgeIndexes: withReplacedLastElement(this.props.edgeIndexes, edge.index),
             edgeConditions: withReplacedLastElement(this.props.edgeConditions, conditionsResolution.pathTree ?? null),
+            subgraphEnteringEdge,
             edgeToTail: edge,
             runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
             runtimeTypesBeforeTailIfLastIsCast: undefined, // we know last is not a cast
+            lastIsInterfaceObjectFakeCastAfterNonCollecting: false,
             deferOnTail: defer,
           });
         }
@@ -394,6 +404,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       edgeToTail: edge,
       runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
       runtimeTypesBeforeTailIfLastIsCast: edge?.transition?.kind === 'DownCast' ? this.props.runtimeTypesOfTail : undefined,
+      lastIsInterfaceObjectFakeCastAfterNonCollecting: edge?.transition.kind === 'InterfaceObjectFakeDownCast' && !!this.props.edgeToTail?.changesSubgraph(),
       // If there is no new `defer` taking precedence, and the edge is downcast, then we inherit the prior version. This
       // is because we only try to re-enter subgraphs for @defer on concrete fields, and so as long as we add downcasts,
       // we should remember that we still need to try re-entering the subgraph.
@@ -436,7 +447,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     });
   }
 
-  checkDirectPathFomPreviousSubgraphTo(
+  checkDirectPathFromPreviousSubgraphTo(
     typeName: string,
     triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
   ): Vertex | undefined {
@@ -1116,6 +1127,25 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
 ): IndirectPaths<TTrigger, V, TNullEdge, TDeadEnds>  {
+  // If we're asked for indirect paths after an "@interfaceObject fake down cast" but that down cast comes just after a non-collecting edges, then
+  // we can ignore it (skip indirect paths from there). The reason is that the presence of the non-collecting just before the fake down-cast means
+  // we add looked at indirect paths just before that down cast, but that fake downcast really does nothing in practice with the subgraph it's on,
+  // so any indirect path from that fake down cast will have a valid indirect path _before_ it, and so will have been taken into account independently.
+  if (path.lastIsIntefaceObjectFakeDownCastAfterNonCollecting()) {
+    // Note: we need to register a dead-end for every subgraphs we "could" be going to, or the code calling this may try to infer a reason on its own
+    // and we'll run into some assertion.
+    const reachableSubgraphs = new Set(path.nextEdges().filter((e) => !e.transition.collectOperationElements && e.tail.source !== path.tail.source).map((e) => e.tail.source));
+    return {
+      paths: [],
+      deadEnds: new Unadvanceables(Array.from(reachableSubgraphs).map((s) => ({
+        sourceSubgraph: path.tail.source,
+        destSubgraph: s,
+        reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
+        details: `ignoring moving from "${path.tail.source}" to "${s}" as a more direct option exists`,
+      }))) as TDeadEnds,
+    };
+  }
+
   const isTopLevelPath = path.isOnTopLevelQueryRoot();
   const typeName = isFederatedGraphRootType(path.tail.type) ? undefined : path.tail.type.name;
   const originalSource = path.tail.source;
@@ -1251,7 +1281,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // loop when calling `hasValidDirectKeyEdge` in that case without additional care and it's not useful because this
         // very method already ensure we don't create unnecessary chains of keys for the "current type"
         if (subgraphEnteringEdge && edge.transition.kind === 'KeyResolution' && subgraphEnteringEdge.edge.tail.type.name !== typeName) {
-          const prevSubgraphVertex = toAdvance.checkDirectPathFomPreviousSubgraphTo(edge.tail.type.name, triggerToEdge);
+          const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge);
           const backToPreviousSubgraph = subgraphEnteringEdge.edge.head.source === edge.tail.source;
           const maxCost = toAdvance.subgraphEnteringEdge.cost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
           if (prevSubgraphVertex

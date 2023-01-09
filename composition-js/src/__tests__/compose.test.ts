@@ -3750,5 +3750,112 @@ describe('composition', () => {
         '[subgraphB] Interface type "I" is defined as an @interfaceObject in subgraph "subgraphB" so that subgraph should not define any of the implementation types of "I", but it defines type "A"',
       ]]);
     });
+
+    it('composes references to @interfaceObject', () => {
+      // Ensures that we have no issue merging a shared field whose is an interface in a subgraph, but an interfaceObject (so an object type)
+      // in another.
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            i: I @shareable
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            i: I @shareable
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            y: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+    });
+
+    it('do not error when optimizing unecessary loops', () => {
+      // This test is built so that reaching `t { i { ... on A { u { v } } } }` flows from `subgraphB` to `subgraphA` (for `t`),
+      // then changes types (with `i`), have a down cast to an implementation (`... A`) and then switch back subgraph (back to
+      // `subgraphB` for `u { v }`). The reason is that the underlying code will check for some optimisation in that case (more
+      // precisely, when switching back to `subgraphB` at the end, it will double-check if there wasn't a direct path in
+      // `subgraphA` achieving the same), and there was an early issue when `@interfaceObject` are involved for that optimization.
+      const subgraphA = {
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            i: I
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type A implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+            u: U
+          }
+
+          type B implements I @key(fields: "id") {
+            id: ID!
+            x: Int
+          }
+
+          type U @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+          }
+
+          type U @key(fields: "id") {
+            id: ID!
+            v: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+    });
   });
 });
