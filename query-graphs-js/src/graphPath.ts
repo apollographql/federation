@@ -159,8 +159,6 @@ type PathProps<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | ne
   /** If the last edge (the one getting to tail) was a DownCast, the runtime types before that edge. */
   readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
 
-  readonly lastIsInterfaceObjectFakeCastAfterNonCollecting: boolean,
-
   readonly deferOnTail?: DeferDirectiveArgs,
 }
 
@@ -209,7 +207,6 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       ownPathIds: [],
       overriddingPathIds: [],
       runtimeTypesOfTail: runtimeTypes,
-      lastIsInterfaceObjectFakeCastAfterNonCollecting: false,
     });
   }
 
@@ -286,8 +283,16 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.props.runtimeTypesOfTail;
   }
 
-  lastIsIntefaceObjectFakeDownCastAfterNonCollecting(): boolean {
-    return this.props.lastIsInterfaceObjectFakeCastAfterNonCollecting;
+  /**
+   * Returns `true` if the last edge of the path correspond to an @interfaceObject "fake cast" while the the previous edge was an edge that "entered" the subgraph (a key edge from another subgraph).
+   */
+  lastIsIntefaceObjectFakeDownCastAfterEnteringSubgraph(): boolean {
+    return this.lastIsInterfaceObjectFakeDownCast()
+      && this.subgraphEnteringEdge?.index === this.size - 2; // size - 1 is the last index (the fake cast), so size - 2 is the previous edge.
+  }
+
+  private lastIsInterfaceObjectFakeDownCast(): boolean {
+    return this.lastEdge()?.transition.kind === 'InterfaceObjectFakeDownCast';
   }
 
   /**
@@ -348,7 +353,6 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
                 edgeConditions: withReplacedLastElement(this.props.edgeConditions, conditionsResolution.pathTree ?? null),
                 edgeToTail: updatedEdge,
                 runtimeTypesOfTail: runtimeTypesWithoutPreviousCast,
-                lastIsInterfaceObjectFakeCastAfterNonCollecting: false,
                 // We know the edge is a DownCast, so if there is no new `defer` taking precedence, we just inherit the
                 // prior version.
                 deferOnTail: defer ?? this.props.deferOnTail,
@@ -376,7 +380,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         // type is not an @interfaceObject itself, then we can eliminate that last edge as it does nothing useful, but also,
         // it has conditions and we don't need/want the key we're following to depend on those conditions, since it doesn't have
         // to.
-        if (this.props.edgeToTail?.transition.kind === 'InterfaceObjectFakeDownCast' && isInterfaceType(edge.tail.type)) {
+        if (this.lastIsInterfaceObjectFakeDownCast() && isInterfaceType(edge.tail.type)) {
           return new GraphPath({
             ...this.props,
             tail: edge.tail,
@@ -387,7 +391,6 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
             edgeToTail: edge,
             runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
             runtimeTypesBeforeTailIfLastIsCast: undefined, // we know last is not a cast
-            lastIsInterfaceObjectFakeCastAfterNonCollecting: false,
             deferOnTail: defer,
           });
         }
@@ -404,7 +407,6 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       edgeToTail: edge,
       runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
       runtimeTypesBeforeTailIfLastIsCast: edge?.transition?.kind === 'DownCast' ? this.props.runtimeTypesOfTail : undefined,
-      lastIsInterfaceObjectFakeCastAfterNonCollecting: edge?.transition.kind === 'InterfaceObjectFakeDownCast' && !!this.props.edgeToTail?.changesSubgraph(),
       // If there is no new `defer` taking precedence, and the edge is downcast, then we inherit the prior version. This
       // is because we only try to re-enter subgraphs for @defer on concrete fields, and so as long as we add downcasts,
       // we should remember that we still need to try re-entering the subgraph.
@@ -1131,7 +1133,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   // we can ignore it (skip indirect paths from there). The reason is that the presence of the non-collecting just before the fake down-cast means
   // we add looked at indirect paths just before that down cast, but that fake downcast really does nothing in practice with the subgraph it's on,
   // so any indirect path from that fake down cast will have a valid indirect path _before_ it, and so will have been taken into account independently.
-  if (path.lastIsIntefaceObjectFakeDownCastAfterNonCollecting()) {
+  if (path.lastIsIntefaceObjectFakeDownCastAfterEnteringSubgraph()) {
     // Note: we need to register a dead-end for every subgraphs we "could" be going to, or the code calling this may try to infer a reason on its own
     // and we'll run into some assertion.
     const reachableSubgraphs = new Set(path.nextEdges().filter((e) => !e.transition.collectOperationElements && e.tail.source !== path.tail.source).map((e) => e.tail.source));
