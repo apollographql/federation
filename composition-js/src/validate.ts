@@ -182,7 +182,9 @@ function displayReasons(reasons: Unadvanceables[]): string {
 function buildWitnessOperation(witness: RootPath<Transition>): Operation {
   assert(witness.size > 0, "unsatisfiablePath should contain at least one edge/transition");
   const root = witness.root;
+  const schema = witness.graph.sources.get(root.source)!;
   return new Operation(
+    schema,
     root.rootKind,
     buildWitnessNextStep([...witness].map(e => e[0]), 0)!,
     new VariableDefinitions()

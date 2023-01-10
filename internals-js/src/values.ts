@@ -1,5 +1,6 @@
 import {
   ArgumentDefinition,
+  EnumType,
   InputFieldDefinition,
   InputObjectType,
   InputType,
@@ -15,6 +16,8 @@ import {
   isScalarType,
   isStringType,
   isVariable,
+  ScalarType,
+  Schema,
   Variable,
   VariableDefinition,
   VariableDefinitions,
@@ -504,11 +507,6 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     return true;
   }
 
-  if (isCustomScalarType(locationType)) {
-    // There is no imposition on what a custom scalar value can be.
-    return true;
-  }
-
   if (isListType(locationType)) {
     const itemType: InputType = locationType.ofType;
     if (Array.isArray(value)) {
@@ -533,30 +531,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
   // though).
-  const schema = locationType.schema();
-
-  if (typeof value === 'boolean') {
-    return locationType === schema.booleanType();
-  }
-
-  if (typeof value === 'number' && isFinite(value)) {
-    const stringNum = String(value);
-    if (locationType === schema.intType() || locationType === schema.idType()) {
-      return integerStringRegExp.test(stringNum);
-    }
-    return locationType === schema.floatType();
-  }
-
-  if (typeof value === 'string') {
-    if (isEnumType(locationType)) {
-      return locationType.value(value) !== undefined;
-    }
-    return isScalarType(locationType)
-      && locationType !== schema.booleanType()
-      && locationType !== schema.intType()
-      && locationType !== schema.floatType();
-  }
-  return false;
+  return isValidLeafValue(locationType.schema(), value, locationType);
 }
 
 export function valueFromAST(node: ValueNode, expectedType: InputType): any {
@@ -687,6 +662,35 @@ export function valueFromASTUntyped(node: ValueNode): any {
     case Kind.VARIABLE:
       return new Variable(node.name.value);
   }
+}
+
+export function isValidLeafValue(schema: Schema, value: any, type: ScalarType | EnumType): boolean {
+  if (isCustomScalarType(type)) {
+    // There is no imposition on what a custom scalar value can be.
+    return true;
+  }
+
+  if (typeof value === 'boolean') {
+    return type === schema.booleanType();
+  }
+
+  if (typeof value === 'number' && isFinite(value)) {
+    const stringNum = String(value);
+    if (type === schema.intType() || type === schema.idType()) {
+      return integerStringRegExp.test(stringNum);
+    }
+    return type === schema.floatType();
+  }
+
+  if (typeof value === 'string') {
+    if (isEnumType(type)) {
+      return type.value(value) !== undefined;
+    }
+    return type !== schema.booleanType()
+      && type !== schema.intType()
+      && type !== schema.floatType();
+  }
+  return false;
 }
 
 export function argumentsFromAST(

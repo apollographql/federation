@@ -1,6 +1,5 @@
 import { Headers } from 'node-fetch';
 import {
-  execute,
   GraphQLError,
   Kind,
   TypeNameMetaFieldDef,
@@ -11,6 +10,10 @@ import {
   isObjectType,
   isInterfaceType,
   GraphQLErrorOptions,
+  DocumentNode,
+  executeSync,
+  OperationTypeNode,
+  FieldNode,
 } from 'graphql';
 import { Trace, google } from '@apollo/usage-reporting-protobuf';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
@@ -30,8 +33,9 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
+import { computeResponse } from './resultShaping';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -66,12 +70,42 @@ interface ExecutionContext {
   errors: GraphQLError[];
 }
 
+function makeIntrospectionQueryDocument(introspectionSelection: FieldNode): DocumentNode {
+  return {
+    kind: Kind.DOCUMENT,
+    definitions: [
+      {
+        kind: Kind.OPERATION_DEFINITION,
+        operation: OperationTypeNode.QUERY,
+        selectionSet: {
+          kind: Kind.SELECTION_SET,
+          selections: [ introspectionSelection ],
+        }
+      }
+    ],
+  };
+}
+
+function executeIntrospection(
+  schema: GraphQLSchema,
+  introspectionSelection: FieldNode,
+): any {
+  const { data } = executeSync({
+    schema,
+    document: makeIntrospectionQueryDocument(introspectionSelection),
+    rootValue: {},
+  });
+  assert(data, () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed`);
+  return data[introspectionSelection.name.value];
+}
+
 export async function executeQueryPlan(
   queryPlan: QueryPlan,
   serviceMap: ServiceMap,
   requestContext: GatewayGraphQLRequestContext,
   operationContext: OperationContext,
   supergraphSchema: GraphQLSchema,
+  apiSchema: Schema,
 ): Promise<GatewayExecutionResult> {
 
   const logger = requestContext.logger || console;
@@ -112,28 +146,51 @@ export async function executeQueryPlan(
       }
 
       const result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
-
-        // FIXME: Re-executing the query is a pretty heavy handed way of making sure
-        // only explicitly requested fields are included and field ordering follows
-        // the original query.
-        // It is also used to allow execution of introspection queries though.
         let data;
         try {
-          const schema = operationContext.schema;
-          ({ data } = await execute({
-            schema,
-            document: {
+          const operation = operationFromDocument(
+            apiSchema,
+            {
               kind: Kind.DOCUMENT,
               definitions: [
                 operationContext.operation,
                 ...Object.values(operationContext.fragments),
               ],
             },
-            rootValue: unfilteredData,
-            variableValues: requestContext.request.variables,
-            // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
-            fieldResolver: defaultFieldResolverWithAliasSupport,
+            {
+              validate: false,
+            }
+          );
+
+          let postProcessingErrors: GraphQLError[];
+          ({ data, errors: postProcessingErrors } = computeResponse({
+            operation,
+            variables: requestContext.request.variables,
+            input: unfilteredData,
+            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandFragments().toSelectionNode()),
           }));
+
+          // If we have errors during the post-processing, we ignore them if any other errors have been thrown during
+          // query plan execution. That is because in many cases, errors during query plan execution will leave the
+          // internal data in a state that triggers additional post-processing errors, but that leads to 2 errors recorded
+          // for the same problem and that is unexpected by clients. See https://github.com/apollographql/federation/issues/981
+          // for additional context.
+          // If we had no errors during query plan execution, then we do ship any post-processing ones as there is little
+          // reason not to and it might genuinely help debugging (note that if subgraphs return no errors and we assume that
+          // subgraph do return graphQL valid responses, then our composition rules should guarantee no post-processing errors,
+          // so getting a post-processing error points to either 1) a bug in our code or in composition or 2) a subgraph not
+          // returning valid graphQL results, both of which are well worth surfacing (see [this comment for instance](https://github.com/apollographql/federation/pull/159#issuecomment-801132906))).
+          //
+          // That said, note that this is still not perfect in the sense that if someone does get subgraph errors, then
+          // while postProcessingErrors may duplicate those, it may also contain additional unrelated errors (again, something
+          // like a subgraph returning non-grapqlQL valid data unknowingly), and we don't surface those. In a perfect worlds
+          // we've be able to filter the post-proessing errors that duplicate errors from subgraph and still ship anything that
+          // remains, but it's unclear how to do that at all (it migth be that checking the error path helps, but not sure
+          // that's fullproof).
+          if (errors.length === 0 && postProcessingErrors.length > 0) {
+            span.setStatus({ code:SpanStatusCode.ERROR });
+            return { errors: postProcessingErrors, data };
+          }
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });
           if (error instanceof GraphQLError) {
@@ -397,6 +454,7 @@ async function executeFetch(
   async function sendOperation(
     variables: Record<string, any>,
   ): Promise<ResultMap | void | null> {
+
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
     // (This is admittedly kinda weird, since we currently do pass url and
