@@ -39,7 +39,7 @@ jobs:
     docker:
       - image: cimg/node:14.20
     steps:
-      -run: 
+      - run: 
         command: npm i -g npm@^8.5.0
       - common_test_steps
       # We will save the results of this one particular invocation to use in
