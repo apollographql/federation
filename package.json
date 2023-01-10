@@ -73,7 +73,7 @@
     "jest-config": "29.2.2",
     "jest-cucumber": "3.0.1",
     "jest-junit": "15.0.0",
-    "log4js": "6.5.2",
+    "log4js": "6.7.1",
     "mocked-env": "1.3.5",
     "nock": "13.2.9",
     "node-fetch": "2.6.7",
