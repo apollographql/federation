@@ -478,7 +478,7 @@ export class ValidationState {
 
     const updatedState = new ValidationState(newPath, newSubgraphPaths);
 
-    // When handling a @shareable field,  we also ensure compare the set of runtime types from each subgraph involves.
+    // When handling a @shareable field, we also compare the set of runtime types for each subgraphs involved.
     // If there is no common intersection between those sets, then we record an error: a @shareable field should resolve
     // the same way in all the subgraphs in which it is resolved, and there is no way this can be true if each subgraph
     // returns runtime objects that we know can never be the same.
@@ -490,6 +490,10 @@ export class ValidationState {
     // some runtime types intersection and the field resolvers only return objects of that intersection, then this
     // could be a valid implementation. And this case can in particular happen temporarily as subgraphs evolve (potentially
     // independently), but it is well worth warning in general.
+
+    // Note that we ignore any path when the type is not an abstract type, because in practice this means an @interfaceObject
+    // and this should not be considered as an implementation type. Besides @interfaceObject always "stand-in" for every
+    // implementations so they never are a problem for this check and can be ignored.
     let hint: CompositionHint | undefined = undefined;
     if (
       newSubgraphPaths.length > 1
@@ -497,44 +501,47 @@ export class ValidationState {
       && isAbstractType(newPath.tail.type)
       && context.isShareable(transition.definition)
     ) {
-      // We start our intersection by using all the supergraph types, both because it's a convenient "max" set to start our intersection,
-      // but also because that means we will ignore @inaccessible types in our checks (which is probably not very important because
-      // I believe the rules of @inacessible kind of exclude having some here, but if that ever change, it makes more sense this way).
-      const allRuntimeTypes = possibleRuntimeTypeNamesSorted(newPath);
-      let intersection = allRuntimeTypes;
+      const filteredPaths = newSubgraphPaths.map((p) => p.path).filter((p) => isAbstractType(p.tail.type));
+      if (filteredPaths.length > 1) {
+        // We start our intersection by using all the supergraph types, both because it's a convenient "max" set to start our intersection,
+        // but also because that means we will ignore @inaccessible types in our checks (which is probably not very important because
+        // I believe the rules of @inacessible kind of exclude having some here, but if that ever change, it makes more sense this way).
+        const allRuntimeTypes = possibleRuntimeTypeNamesSorted(newPath);
+        let intersection = allRuntimeTypes;
 
-      const runtimeTypesToSubgraphs = new MultiMap<string, string>();
-      const runtimeTypesPerSubgraphs = new MultiMap<string, string>();
-      let hasAllEmpty = true;
-      for (const path of newSubgraphPaths) {
-        const subgraph = path.path.tail.source;
-        const typeNames = possibleRuntimeTypeNamesSorted(path.path);
-        runtimeTypesPerSubgraphs.set(subgraph, typeNames);
-        // Note: we're formatting the elements in `runtimeTYpesToSubgraphs` because we're going to use it if we display an error. This doesn't
-        // impact our set equality though since the formatting is consistent betweeen elements and type names syntax is sufficiently restricted
-        // in graphQL to not create issues (no quote or weird character to escape in particular).
-        let typeNamesStr = 'no runtime type is defined';
-        if (typeNames.length > 0) {
-          typeNamesStr = (typeNames.length > 1 ? 'types ' : 'type ') + joinStrings(typeNames.map((n) => `"${n}"`));
-          hasAllEmpty = false;
-        }
-        runtimeTypesToSubgraphs.add(typeNamesStr, subgraph);
-        intersection = intersection.filter((t) => typeNames.includes(t));
-      }
-
-      // If `hasAllEmpty`, then it means that none of the subgraph defines any runtime types. Typically, all subgraphs defines a given interface,
-      // but none have implementations. In that case, the intersection will be empty but it's actually fine (which is why we special case). In
-      // fact, assuming valid graphQL subgraph servers (and it's not the place to sniff for non-compliant subgraph servers), the only value to
-      // which each subgraph can resolve is `null` and so that essentially guaranttes that all subgraph do resolve the same way.
-      if (!hasAllEmpty) {
-        if (intersection.length === 0) {
-          return { error: shareableFieldNonIntersectingRuntimeTypesError(updatedState, transition.definition, runtimeTypesToSubgraphs) };
+        const runtimeTypesToSubgraphs = new MultiMap<string, string>();
+        const runtimeTypesPerSubgraphs = new MultiMap<string, string>();
+        let hasAllEmpty = true;
+        for (const path of newSubgraphPaths) {
+          const subgraph = path.path.tail.source;
+          const typeNames = possibleRuntimeTypeNamesSorted(path.path);
+          runtimeTypesPerSubgraphs.set(subgraph, typeNames);
+          // Note: we're formatting the elements in `runtimeTYpesToSubgraphs` because we're going to use it if we display an error. This doesn't
+          // impact our set equality though since the formatting is consistent betweeen elements and type names syntax is sufficiently restricted
+          // in graphQL to not create issues (no quote or weird character to escape in particular).
+          let typeNamesStr = 'no runtime type is defined';
+          if (typeNames.length > 0) {
+            typeNamesStr = (typeNames.length > 1 ? 'types ' : 'type ') + joinStrings(typeNames.map((n) => `"${n}"`));
+            hasAllEmpty = false;
+          }
+          runtimeTypesToSubgraphs.add(typeNamesStr, subgraph);
+          intersection = intersection.filter((t) => typeNames.includes(t));
         }
 
-        // As said, we accept it if there is an intersection, but if the runtime types are not all the same, we still emit a warning to make it clear that
-        // the fields should not resolve any of the types not in the intersection.
-        if (runtimeTypesToSubgraphs.size > 1) {
-          hint = shareableFieldMismatchedRuntimeTypesHint(updatedState, transition.definition, intersection, runtimeTypesPerSubgraphs);
+        // If `hasAllEmpty`, then it means that none of the subgraph defines any runtime types. Typically, all subgraphs defines a given interface,
+        // but none have implementations. In that case, the intersection will be empty but it's actually fine (which is why we special case). In
+        // fact, assuming valid graphQL subgraph servers (and it's not the place to sniff for non-compliant subgraph servers), the only value to
+        // which each subgraph can resolve is `null` and so that essentially guaranttes that all subgraph do resolve the same way.
+        if (!hasAllEmpty) {
+          if (intersection.length === 0) {
+            return { error: shareableFieldNonIntersectingRuntimeTypesError(updatedState, transition.definition, runtimeTypesToSubgraphs) };
+          }
+
+          // As said, we accept it if there is an intersection, but if the runtime types are not all the same, we still emit a warning to make it clear that
+          // the fields should not resolve any of the types not in the intersection.
+          if (runtimeTypesToSubgraphs.size > 1) {
+            hint = shareableFieldMismatchedRuntimeTypesHint(updatedState, transition.definition, intersection, runtimeTypesPerSubgraphs);
+          }
         }
       }
     }
