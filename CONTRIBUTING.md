@@ -14,12 +14,18 @@ Oh, and if you haven't already, join the [Apollo community](https://community.ap
 
 Here are some ways to contribute to the project, from easiest to most difficult:
 
-- [Reporting bugs](#reporting-bugs)
-- [Improving the documentation](#improving-the-documentation)
-- [Responding to issues](#responding-to-issues)
-- [Small bug fixes](#small-bug-fixes)
-- [Suggesting features](#suggesting-features)
-- [Big changes or new features](#big-changes-or-new-features)
+- [Apollo Contributor Guide](#apollo-contributor-guide)
+  - [How to contribute](#how-to-contribute)
+    - [Reporting bugs](#reporting-bugs)
+    - [Improving the documentation](#improving-the-documentation)
+    - [Responding to issues](#responding-to-issues)
+    - [Small bug fixes](#small-bug-fixes)
+    - [Suggesting features](#suggesting-features)
+    - [Big Changes or New Features](#big-changes-or-new-features)
+  - [Developing](#developing)
+    - [Process overview](#process-overview)
+    - [Code review guidelines](#code-review-guidelines)
+  - [Pipelines](#pipelines)
 
 ### Reporting bugs
 
@@ -51,19 +57,10 @@ For significant changes to a repository, it’s important to settle on a design 
 
 1. **Open an issue** Open an issue about your bug or feature request in this repo.  Check to make sure you're targeting the federation version you want.
 1. **Reach consensus** Some contributors and community members should reach an agreement that this feature or bug is important, and that someone should work on implementing or fixing it. The discussion should include the desired behavior and implementation plan.
-1. **Make changes locally** Don't forget to add tests and a changelog entry.
+1. **Make changes locally** Don't forget to add tests and a changeset (using `npx changeset add`).
 1. **Submit PR** In the case where multiple dependent patches need to be made to implement the change, only submit one at a time. Otherwise, the others might get stale while the first is reviewed and merged. Make sure to avoid “while we’re here” type changes - if something isn’t relevant to the improvement at hand, it should be in a separate PR; this especially includes code style changes of unrelated code.
 1. **Review** At least one core contributor should sign off on the change before it’s merged. Look at the “code review” section below to learn about factors are important in the code review. If you want to expedite the code being merged, try to review your own code first!
 1. **Merge** A maintainer will merge your code once it's been approved.
-
-### Making changes
-
-1. **Fork or clone the repo**
-1. **Make code changes**
-1. **Add tests**
-1. **Generate changeset** Run `npx changeset add` and follow the prompts.
-
-This repo uses [`changesets`](https://github.com/changesets/changesets/) to manage releases and changelogs. 
 
 ### Code review guidelines
 

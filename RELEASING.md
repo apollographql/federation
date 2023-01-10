@@ -13,19 +13,15 @@ More details can be found in [the `changeset` docs for publishing](https://githu
 1. `FEDERATION_RELEASE_VERSION=X.Y.Z` (e.g. `2.0.1` or `2.0.0-beta.3` or `2.0.0-preview.99`)
 1. `git fetch origin main` to fetch the latest `main` branch
 1. `git checkout -b "release-$FEDERATION_RELEASE_VERSION" main`
+1. You will need to have a GITHUB_TOKEN set up to use changesets. Create a token with your account with permissions `read:user` and `repo:status` and make sure it is assigned to the GITHUB_TOKEN environment variable
 1. If alpha/beta/preview release:
    1. `npx changeset pre enter <alpha|beta|preview>`
    2. `npx changeset version` to bump versions, create changelog entries, etc.
    3. `npx changeset pre exit`
 1. Otherwise this is a major/minor/patch release:
    1. `npx changeset version` to bump versions, create changelog entries, etc.
-1. Review the changes to make sure they look correct. If so, add and commit them.
-1. `gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md`
-1. `echo "https://github.com/apollographql/federation/compare/main...release-$FEDERATION_RELEASE_VERSION?quick_pull=1&title=Release+$FEDERATION_RELEASE_VERSION&template=APOLLO_RELEASE_TEMPLATE.md"` and click the resulting link to open PR in Github
-    - If `gh` is installed (the command-line tool for github), create a PR thusly:
-      ```
-      gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md
-      ``` 
+2. Review the changes to make sure they look correct. Note that there may be some log entries that may have been added without changesets that may need to be merged manually. Once everything looks good, commit the changes. 
+3. `gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md`
 ~~1. Tag the commit to begin the publishing process[^publishing]
     - For alpha/beta/preview `APOLLO_DIST_TAG=next npm run release:start-ci-publish`
     - For release `APOLLO_DIST_TAG=latest npm run release:start-ci-publish`~~
@@ -34,10 +30,10 @@ More details can be found in [the `changeset` docs for publishing](https://githu
 
 Note: This will be on CircleCI eventually, but until we have it down and have seen it in action, we're going to do the npm publish locally rather than through Circle. Be careful with the next few steps as it will be modifying out published npm packages. Note that if this is an alpha release, we will now be publishing to the `alpha` tag instead of `next`. We should probably discuss whether or not to delete the `next` tag from npm.
 
-9. `npx changeset publish`
-10. `git push --follow-tags`
-11. `unset FEDERATION_RELEASE_VERSION` to ensure we don't accidentally use this variable later
-12. Run `./scripts/check-npm-packages.sh` and ensure everything looks correct.
+1. `npx changeset publish`
+2.  `git push --follow-tags`
+3.  `unset FEDERATION_RELEASE_VERSION` to ensure we don't accidentally use this variable later
+4.  Run `./scripts/check-npm-packages.sh` and ensure everything looks correct.
 
 ![celebrate](https://media.giphy.com/media/LZElUsjl1Bu6c/giphy.gif)
 
