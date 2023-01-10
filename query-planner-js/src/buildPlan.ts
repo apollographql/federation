@@ -514,17 +514,17 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
 
     const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map(b => b.map(opt => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
-    const { best, cost} = generateAllPlansAndFindBest(
-      { graph: initialDependencyGraph, tree: initialTree },
-      otherTrees,
-      (p, t) => {
+    const { best, cost} = generateAllPlansAndFindBest({
+      initial: { graph: initialDependencyGraph, tree: initialTree },
+      toAdd: otherTrees,
+      addFct: (p, t) => {
         const updatedDependencyGraph = p.graph.clone();
         this.updatedDependencyGraph(updatedDependencyGraph, t);
         const updatedTree = p.tree.merge(t);
         return { graph: updatedDependencyGraph, tree: updatedTree };
       },
-      (p) => this.cost(p.graph),
-      (p, cost, prevCost) => {
+      costFct: (p) => this.cost(p.graph),
+      onPlan: (p, cost, prevCost) => {
         debug.log(() => {
           if (!prevCost) {
             return `Computed plan with cost ${cost}: ${p.tree}`;
@@ -535,7 +535,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
           }
         });
       },
-    );
+    });
     this.bestPlan = [best.graph, best.tree, cost];
   }
 

@@ -6,6 +6,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 - Fix potential issue with nested `@defer` in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312).
 - Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
+- Improves generation of plans once all path options are computed [PR #2316](https://github.com/apollographql/federation/pull/2316).
 
 ## 2.2.2
 

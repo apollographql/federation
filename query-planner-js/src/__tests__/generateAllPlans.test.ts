@@ -4,21 +4,21 @@ import { generateAllPlansAndFindBest } from '../generateAllPlans';
 function generateTestPlans(initial: string[], choices: string[][]): { best: string[], generated: string[][], evaluated: string[][] } {
   const generated: string[][] = [];
   const evaluated: string[][] = [];
-  const { best } = generateAllPlansAndFindBest(
+  const { best } = generateAllPlansAndFindBest({
     initial,
-    choices,
-    (p, c) => {
+    toAdd: choices,
+    addFct: (p, c) => {
       const r = p.concat(c);
       if (r.length === initial.length + choices.length) {
         generated.push(r);
       }
       return r;
     },
-    (p) => {
+    costFct: (p) => {
       evaluated.push(p);
       return p.reduce((acc, v) => acc + v.length, 0);
     },
-  );
+  });
   return { best, generated, evaluated };
 }
 
