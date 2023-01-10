@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@2.0.0/schema.json",
+  "changelog": false,
+  "commit": false,
+  "fixed": [
+    [
+      "@apollo/*",
+      "apollo-*"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [],
+  "repo": "apollographql/federation"
+}
