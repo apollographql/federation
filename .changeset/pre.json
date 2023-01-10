@@ -1,0 +1,16 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@apollo/composition": "2.3.0-alpha.0",
+    "apollo-federation-integration-testsuite": "2.3.0-alpha.0",
+    "@apollo/gateway": "2.3.0-alpha.0",
+    "@apollo/federation-internals": "2.3.0-alpha.0",
+    "@apollo/query-graphs": "2.3.0-alpha.0",
+    "@apollo/query-planner": "2.3.0-alpha.0",
+    "@apollo/subgraph": "2.3.0-alpha.0"
+  },
+  "changesets": [
+    "many-rats-allow"
+  ]
+}
