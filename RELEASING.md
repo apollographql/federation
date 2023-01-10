@@ -20,8 +20,8 @@ More details can be found in [the `changeset` docs for publishing](https://githu
    3. `npx changeset pre exit`
 1. Otherwise this is a major/minor/patch release:
    1. `npx changeset version` to bump versions, create changelog entries, etc.
-2. Review the changes to make sure they look correct. Note that there may be some log entries that may have been added without changesets that may need to be merged manually. Once everything looks good, commit the changes. 
-3. `gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md`
+1. Review the changes to make sure they look correct. Note that there may be some log entries that may have been added without changesets that may need to be merged manually. Once everything looks good, commit the changes. 
+1. `gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/APOLLO_RELEASE_TEMPLATE.md`
 ~~1. Tag the commit to begin the publishing process[^publishing]
     - For alpha/beta/preview `APOLLO_DIST_TAG=next npm run release:start-ci-publish`
     - For release `APOLLO_DIST_TAG=latest npm run release:start-ci-publish`~~
