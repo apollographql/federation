@@ -39,6 +39,8 @@ jobs:
     docker:
       - image: cimg/node:14.20
     steps:
+      -run: 
+        command: npm i -g npm@^8.5.0
       - common_test_steps
       # We will save the results of this one particular invocation to use in
       # the publish step. Not only does this make the publishing step take less
