@@ -133,26 +133,6 @@ workflows:
       - Hints code Doc:
           name: "Hint code Doc (up to date)"
           <<: *common_non_publish_filters
-      - Local Registry Publish:
-          name: "JS: Package tarballs"
-          <<: *common_non_publish_filters
-          requires:
-            - "JS: Node 14"
-            - "JS: Node 16"
-            - "JS: Node 18"
-            - "GraphQL Types (up to date)"
-            - "Error code Doc (up to date)"
-          env:
-            NPM_CONFIG_REGISTRY=http://localhost:4873/
-          steps:
-            - attach_workspace:
-              at: .
-            - write_verdaccio_config
-            - start_verdaccio
-            - run:
-              name: Publish to (local) Verdaccio
-              command: |
-                echo "Registry is" $NPM_CONFIG_REGISTRY
       - oss/dry_run:
           name: "JS: Dry-run"
           <<: *common_publish_filters
