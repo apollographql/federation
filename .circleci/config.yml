@@ -133,15 +133,6 @@ workflows:
       - Hints code Doc:
           name: "Hint code Doc (up to date)"
           <<: *common_non_publish_filters
-      - oss/lerna_tarballs:
-          name: "JS: Package tarballs"
-          <<: *common_non_publish_filters
-          requires:
-            - "JS: Node 14"
-            - "JS: Node 16"
-            - "JS: Node 18"
-            - "GraphQL Types (up to date)"
-            - "Error code Doc (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
           <<: *common_publish_filters
