@@ -30,15 +30,15 @@
     "node": ">=14.15.0",
     "npm": ">=7 <9"
   },
-  "dependencies": {
-    "@apollo/composition": "file:composition-js",
-    "@apollo/federation-internals": "file:internals-js",
-    "@apollo/gateway": "file:gateway-js",
-    "@apollo/query-graphs": "file:query-graphs-js",
-    "@apollo/query-planner": "file:query-planner-js",
-    "@apollo/subgraph": "file:subgraph-js",
-    "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
-  },
+  "workspaces": [
+    "internals-js",
+    "gateway-js",
+    "composition-js",
+    "query-planner-js",
+    "query-graphs-js",
+    "subgraph-js",
+    "federation-integration-testsuite-js"
+  ],
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
     "@apollo/client": "3.6.9",
