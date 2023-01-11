@@ -30,9 +30,8 @@ jobs:
 
       - name: Create Release Pull Request
         uses: changesets/action@v1
-        inputs:
-          commit: 
-            description: ${{ steps.extract_branch.outputs.branch }} branch release
+        with:
+          commit: ${{ steps.extract_branch.outputs.branch }} branch release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
