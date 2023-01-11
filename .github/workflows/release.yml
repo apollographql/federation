@@ -22,10 +22,14 @@ jobs:
 
       - name: Install Dependencies
         run: npm i
+        
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
 
       - name: Create Release Pull Request
         uses: changesets/action@v1
         env:
-          RELEASE_VERSION=`npm pkg get version -w @apollo/composition|jq -r '.["@apollo/composition"]'`
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        commit: Release ${{ RELEASE_VERSION }}
+        commit: ${{ steps.extract_branch.outputs.branch }} branch release
