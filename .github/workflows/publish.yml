@@ -17,7 +17,7 @@ jobs:
       - uses: trstringer/manual-approval@v1
         with:
           secret: ${{ github.TOKEN }}
-          approvers: atlas
+          approvers: clenfest
           minimum-approvals: 1
           issue-title: "Deploying $RELEASE_VERSION to npm"
           exclude-workflow-initiator-as-approver: false
