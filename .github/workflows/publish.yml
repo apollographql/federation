@@ -40,6 +40,6 @@ jobs:
         run: |
           RELEASE_VERSION=`npm pkg get version -w @apollo/composition|jq -r '.["@apollo/composition"]'`
           echo "starting the publish step" $RELEASE_VERSION
-#          npx changeset publish
-#          git push --follow-tags
+          npx changeset publish
+          git push --follow-tags
         
