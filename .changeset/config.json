@@ -4,14 +4,13 @@
   "commit": false,
   "fixed": [
     [
-      "@apollo/*",
-      "apollo-*"
+      "@apollo/*"
     ]
   ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [ "apollo-federation-integration-testsuite" ],
+  "ignore": [ ],
   "repo": "apollographql/federation"
 }
