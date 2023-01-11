@@ -10,19 +10,15 @@ jobs:
     name: Publish workflow
     if: "contains(github.event.head_commit.message, 'release:')"
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
       
-      - uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: clenfest
-          minimum-approvals: 1
-          issue-title: "Deploying $RELEASE_VERSION to npm"
-          exclude-workflow-initiator-as-approver: false
       - name: Publish to npm
         run: |
           RELEASE_VERSION=`npm pkg get version -w @apollo/composition|jq -r '.["@apollo/composition"]'`
           echo "starting the publish step" $RELEASE_VERSION
+          npx changeset publish
+          git push --follow-tags
         
