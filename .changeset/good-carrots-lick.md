@@ -4,7 +4,6 @@
 "@apollo/query-graphs": patch
 "@apollo/query-planner": patch
 "@apollo/subgraph": patch
-"apollo-federation-integration-testsuite": patch
 "@apollo/federation-internals": patch
 ---
 

@@ -12,6 +12,6 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [],
+  "ignore": [ "@apollo/federation-internals" ],
   "repo": "apollographql/federation"
 }
