@@ -7,9 +7,12 @@
     "@apollo/federation-internals": "2.3.0-alpha.0",
     "@apollo/query-graphs": "2.3.0-alpha.0",
     "@apollo/query-planner": "2.3.0-alpha.0",
-    "@apollo/subgraph": "2.3.0-alpha.0"
+    "@apollo/subgraph": "2.3.0-alpha.0",
+    "apollo-federation-integration-testsuite": "2.3.0-beta.1"
   },
   "changesets": [
-    "many-rats-allow"
+    "good-carrots-lick",
+    "many-rats-allow",
+    "purple-lamps-approve"
   ]
 }
