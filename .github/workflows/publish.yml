@@ -1,28 +1,45 @@
-name: Publish packages to npm
+name: Publish
 
 on:
   push:
-    tags:
-      - 'changesets-*' #temporary, will eventually be '@apollo/composition@2*'
-
+    branches:
+      - main
+      - next
+    
 jobs:
+  slack:
+    name: Publish slack webhook notifying about approval
+    if: "contains(github.event.head_commit.message, 'release:')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send to Slack
+        env: 
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo webhook url $SLACK_WEBHOOK
+#         TODO: slack integration
+                  
   publish:
     name: Publish workflow
+    if: "contains(github.event.head_commit.message, 'release:')"
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
       
-      - uses: trstringer/manual-approval@v1
-        env:
-          RELEASE_VERSION=`npm pkg get version -w @apollo/composition|jq -r '.["@apollo/composition"]'`
+      - name: Setup Node.js 16
+        uses: actions/setup-node@v3
         with:
-          secret: ${{ github.TOKEN }}
-          approvers: apollographql/atlas
-          minimum-approvals: 1
-          issue-title: "Deploying $RELEASE_VERSION to npm"
-          exclude-workflow-initiator-as-approver: false
+          node-version: 16
+
+      - name: Install Dependencies
+        run: npm i
+
       - name: Publish to npm
         run: |
-          echo "starting the publish step"
+          RELEASE_VERSION=`npm pkg get version -w @apollo/composition|jq -r '.["@apollo/composition"]'`
+          echo "starting the publish step" $RELEASE_VERSION
+#          npx changeset publish
+#          git push --follow-tags
         
