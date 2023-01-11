@@ -32,4 +32,5 @@ jobs:
         uses: changesets/action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        commit: ${{ steps.extract_branch.outputs.branch }} branch release
+        commit: 
+          description: ${{ steps.extract_branch.outputs.branch }} branch release
