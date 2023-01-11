@@ -26,4 +26,6 @@ jobs:
       - name: Create Release Pull Request
         uses: changesets/action@v1
         env:
+          RELEASE_VERSION=`npm pkg get version -w @apollo/composition|jq -r '.["@apollo/composition"]'`
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        commit: Release ${{ RELEASE_VERSION }}
