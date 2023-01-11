@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - main
+      - junk # TODO: Change back to main/next
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
