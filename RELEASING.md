@@ -48,3 +48,5 @@ Mistakes happen. Most of these release steps are recoverable if you mess up.
 _except_ don't make any mistakes yet, because we haven't documented troubleshooting steps.
 
 [^publishing]: `npm run release:start-ci-publish` will create a `publish/timestamp-goes-here` looking tag, which starts a job in CircleCI to start the publishing process. There's a confirmation prompt in CircleCI that must be accepted before the package is fully published to NPM.
+
+dummy commit
