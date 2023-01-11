@@ -8,7 +8,7 @@ on:
 jobs:
   publish:
     name: Publish workflow
-    if: "!contains(github.event.head_commit.message, 'release:')"
+    if: "contains(github.event.head_commit.message, 'release:')"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -17,7 +17,7 @@ jobs:
       - uses: trstringer/manual-approval@v1
         with:
           secret: ${{ github.TOKEN }}
-          approvers: apollographql/atlas
+          approvers: atlas
           minimum-approvals: 1
           issue-title: "Deploying $RELEASE_VERSION to npm"
           exclude-workflow-initiator-as-approver: false
