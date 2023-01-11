@@ -11,6 +11,8 @@
     "@apollo/subgraph": "2.3.0-alpha.0"
   },
   "changesets": [
+    "good-carrots-lick",
+    "khaki-rocks-stare",
     "many-rats-allow"
   ]
 }
