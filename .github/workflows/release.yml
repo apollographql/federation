@@ -24,15 +24,10 @@ jobs:
       - name: Install Dependencies
         run: npm i
         
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
-
       - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
-          title: "release: on branch ${{ steps.extract_branch.outputs.branch }}"
+          title: "release: on branch ${{ github.ref_name }}"
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

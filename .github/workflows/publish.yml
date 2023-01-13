@@ -1,9 +1,8 @@
 name: Publish
 
 on:
-  push:
-    release:
-      types: [published]
+  release:
+    types: [published]
     
 jobs:
   slack:
