@@ -509,3 +509,29 @@ In this case, the `Color` enum is used as _both_:
 Therefore, the definition of the `Color` enum **must match exactly** in every subgraph that defines it. An exact match is the only scenario that enables union _and_ intersection to produce the same result.
 
 The subgraph schemas above _do not compose_, because their definitions of the `Color` enum differ.
+
+## Directives
+
+Composition will handle a directive differently depending on whether it is an "executable" directive or a "type system" directive.
+
+### Executable Directives
+
+Executable directives are intended to be used by the client in a query. They are defined on one or more of the [executable directive locations](http://spec.graphql.org/June2018/#ExecutableDirectiveLocation). For example, you might have a directive definition of `directive @lowercase on FIELD` which a client could use in their query like this:
+
+```graphql
+query {
+  getSomeData {
+    someField @lowercase
+  }
+}
+```
+
+These types of directives are composed into the supergraph schema only if _all_ of these conditions are met:
+
+- The directive is defined in _all_ subgraphs
+- The directive is defined in the same way in _all_ subgraphs
+- The directive _is not_ used in any [`@composeDirective`](./federated-directives#composedirective) directives
+
+### Type System Directives
+
+Type system directives help define the structure of the schema and are not intended for use by clients. They include any directive which is defined on one or more of the [type system directive locations](http://spec.graphql.org/June2018/#TypeSystemDirectiveLocation) These directives will not be composed into the supergraph schema, but can be used to provide information to the router via [`@composeDirective`](./federated-directives#composedirective) directive.
