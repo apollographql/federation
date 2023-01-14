@@ -834,7 +834,7 @@ export class ApolloGateway implements GatewayInterface {
             this.config.__exposeQueryPlanExperimental &&
             request.http &&
             request.http.headers &&
-            request.http.headers.get('Apollo-Query-Plan-Experimental');
+            request.http.headers.get('apollo-query-plan-experimental');
 
           // We only want to serialize the query plan if we're going to use it, which is
           // in two cases:
