@@ -93,6 +93,7 @@ import {
 import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
+import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -507,45 +508,35 @@ class QueryPlanningTaversal<RV extends Vertex> {
       initialDependencyGraph = this.updatedDependencyGraph(this.newDependencyGraph(), initialTree);
       if (idxFirstOfLengthOne === 0) {
         // Well, we have the only possible plan; it's also the best.
-        this.onNewPlan(initialDependencyGraph, initialTree);
+        this.bestPlan = [initialDependencyGraph, initialTree, this.cost(initialDependencyGraph)];
         return;
       }
     }
 
     const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map(b => b.map(opt => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
-    this.generateAllPlans(initialDependencyGraph, initialTree, otherTrees);
-  }
-
-  generateAllPlans(initialDependencyGraph: FetchDependencyGraph, initialTree: OpPathTree<RV>, others: OpPathTree<RV>[][]) {
-    // Track, for each element, at which index we are
-    const eltIndexes = new Array<number>(others.length);
-    let totalCombinations = 1;
-    for (let i = 0; i < others.length; ++i) {
-      const eltSize = others[i].length;
-      assert(eltSize > 0, "Got empty option: this shouldn't have happened");
-      eltIndexes[i] = 0;
-      totalCombinations *= eltSize;
-    }
-
-    for (let i = 0; i < totalCombinations; ++i){
-      const dependencyGraph = initialDependencyGraph.clone();
-      let tree = initialTree;
-      for (let j = 0; j < others.length; ++j) {
-        const t = others[j][eltIndexes[j]];
-        this.updatedDependencyGraph(dependencyGraph, t);
-        tree = tree.merge(t);
-      }
-      this.onNewPlan(dependencyGraph, tree);
-
-      for (let idx = 0; idx < others.length; ++idx) {
-        if (eltIndexes[idx] == others[idx].length - 1) {
-          eltIndexes[idx] = 0;
-        } else {
-          eltIndexes[idx] += 1;
-          break;
-        }
-      }
-    }
+    const { best, cost} = generateAllPlansAndFindBest({
+      initial: { graph: initialDependencyGraph, tree: initialTree },
+      toAdd: otherTrees,
+      addFct: (p, t) => {
+        const updatedDependencyGraph = p.graph.clone();
+        this.updatedDependencyGraph(updatedDependencyGraph, t);
+        const updatedTree = p.tree.merge(t);
+        return { graph: updatedDependencyGraph, tree: updatedTree };
+      },
+      costFct: (p) => this.cost(p.graph),
+      onPlan: (p, cost, prevCost) => {
+        debug.log(() => {
+          if (!prevCost) {
+            return `Computed plan with cost ${cost}: ${p.tree}`;
+          } else if (cost > prevCost) {
+            return `Found better with cost ${cost} (previous had cost ${prevCost}: ${p.tree}`;
+          } else {
+            return `Ignoring plan with cost ${cost} (a better plan with cost ${prevCost} exists): ${p.tree}`
+          }
+        });
+      },
+    });
+    this.bestPlan = [best.graph, best.tree, cost];
   }
 
   private cost(dependencyGraph: FetchDependencyGraph): number {
@@ -580,19 +571,6 @@ class QueryPlanningTaversal<RV extends Vertex> {
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
     return bestPlan ? { satisfied: true, cost: bestPlan[2], pathTree: bestPlan[1] } : unsatisfiedConditionsResolution;
-  }
-
-  private onNewPlan(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>) {
-    const cost = this.cost(dependencyGraph);
-    //if (isTopLevel) {
-    //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
-    //}
-    if (!this.bestPlan || cost < this.bestPlan[2]) {
-      debug.log(() => this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${tree}`: `Computed plan with cost ${cost}: ${tree}`);
-      this.bestPlan = [dependencyGraph, tree, cost];
-    } else {
-      debug.log(() => `Ignoring plan with cost ${cost} (a better plan with cost ${this.bestPlan![2]} exists): ${tree}`);
-    }
   }
 }
 
