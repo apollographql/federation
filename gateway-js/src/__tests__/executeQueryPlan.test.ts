@@ -151,7 +151,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
-      expect(response).toHaveProperty('errors.0.path', undefined);
+      expect(response).toHaveProperty('errors.0.path', ["me"]);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
@@ -162,6 +162,315 @@ describe('executeQueryPlan', () => {
       );
       expect(response).not.toHaveProperty('errors.0.extensions.query');
       expect(response).not.toHaveProperty('errors.0.extensions.variables');
+    });
+
+    it(`error paths in joins`, async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            getA: A
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            getA() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            b: Int
+            c: [D]
+            g: Int! # will return null
+          }
+
+          type D @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          A: {
+            b() {
+              throw new GraphQLError('Something went wrong');
+            },
+            c() {
+              return [{ id: 'd1' }, { id: 'd2' }];
+            },
+            g() {
+              return null;
+            },
+          },
+        },
+      };
+
+      const s3 = {
+        name: 'S3',
+        typeDefs: gql`
+          type D @key(fields: "id") {
+            id: ID!
+            e: Int
+            f: [A]
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          D: {
+            e() {
+              throw new GraphQLError('Something went wrong');
+            },
+            f() {
+              return [{ id: 'a' }];
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+        s3,
+      ]);
+
+      const operation = parseOp(
+        `
+        query {
+          getA {
+            b
+            c {
+              e
+              f {
+                g
+              }
+            }
+          }
+        }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      const errors = response?.errors?.map((e) => e.toJSON());
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "b",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S3",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "c",
+              0,
+              "e",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S3",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "c",
+              1,
+              "e",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Cannot return null for non-nullable field A.g.",
+            "path": Array [
+              "getA",
+              "c",
+              0,
+              "f",
+              0,
+              "g",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Cannot return null for non-nullable field A.g.",
+            "path": Array [
+              "getA",
+              "c",
+              1,
+              "f",
+              0,
+              "g",
+            ],
+          },
+        ]
+      `);
+    });
+
+    it(`error paths in joins, re-entering through Query`, async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            a: A
+            d: String
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            a() {
+              return { id: '1' };
+            },
+            d: () => {
+              throw new GraphQLError('d error');
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            b: String
+            q: Query
+          }
+
+          type Query {
+            c: String
+          }
+        `,
+        resolvers: {
+          A: {
+            b: () => {
+              throw new GraphQLError('b error');
+            },
+            q: () => ({}),
+          },
+          Query: {
+            c: () => {
+              throw new GraphQLError('c error');
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+
+      const operation = parseOp(
+        `
+        query {
+          a {
+            b
+            q {
+              c
+              d
+            }
+          }
+        }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      const errors = response?.errors?.map((e) => e.toJSON());
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "b error",
+            "path": Array [
+              "a",
+              "b",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "c error",
+            "path": Array [
+              "a",
+              "q",
+              "c",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S1",
+            },
+            "message": "d error",
+            "path": Array [
+              "a",
+              "q",
+              "d",
+            ],
+          },
+        ]
+      `);
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
