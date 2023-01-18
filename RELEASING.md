@@ -28,7 +28,6 @@ More details can be found in [the `changeset` docs for publishing](https://githu
 ~~1. `echo https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` and click the resulting link to approve publishing to NPM
     - There will also be a message posted to #team-atlas in slack that has a link to the approval job~~
 
-
 Note: This will be on CircleCI eventually, but until we have it down and have seen it in action, we're going to do the npm publish locally rather than through Circle. Be careful with the next few steps as it will be modifying out published npm packages. Note that if this is an alpha release, we will now be publishing to the `alpha` tag instead of `next`. We should probably discuss whether or not to delete the `next` tag from npm.
 
 1. `npx changeset publish`
