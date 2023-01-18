@@ -528,9 +528,9 @@ query {
 
 An executable directive is composed into the supergraph schema only if _all_ of the following conditions are met:
 
-- The directive is defined in _all_ subgraphs
-- The directive is defined in the same way in _all_ subgraphs
-- The directive _is not_ used in any [`@composeDirective`](./federated-directives#composedirective) directives
+- The directive is defined in _all_ subgraphs.
+- The directive is defined _identically_ in all subgraphs.
+- The directive is _not_ included in any [`@composeDirective`](./federated-directives#composedirective) directives.
 
 ### Type system directives
 
