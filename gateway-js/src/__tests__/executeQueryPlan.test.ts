@@ -50,8 +50,9 @@ describe('executeQueryPlan', () => {
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
   ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
+    const apiSchema = supergraphSchema.toAPISchema();
     const operationContext = buildOperationContext({
-      schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
+      schema: apiSchema.toGraphQLJSSchema(),
       operationDocument: gql`${operation.toString()}`,
     });
     return executeQueryPlan(
@@ -60,6 +61,7 @@ describe('executeQueryPlan', () => {
       executeRequestContext ?? buildRequestContext(),
       operationContext,
       supergraphSchema.toGraphQLJSSchema(),
+      apiSchema,
     );
   }
 
@@ -1305,42 +1307,11 @@ describe('executeQueryPlan', () => {
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);
-
-      expect(response.data).toMatchInlineSnapshot(`
-        Object {
-          "topReviews": Array [
-            Object {
-              "author": Object {
-                "username": "@ada",
-              },
-              "body": "Love it!",
-            },
-            Object {
-              "author": Object {
-                "username": "@ada",
-              },
-              "body": "Too expensive.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Could be better.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Prefer something else.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Wish I had read this before.",
-            },
-          ],
-        }
+      expect(response.data).toBeUndefined();
+      expect(response.errors).toMatchInlineSnapshot(`
+        Array [
+          [GraphQLError: Cannot query field "ssn" on type "User".],
+        ]
       `);
     });
 
@@ -1385,23 +1356,6 @@ describe('executeQueryPlan', () => {
       `);
     });
 
-    // THIS TEST SHOULD BE MODIFIED AFTER THE ISSUE OUTLINED IN
-    // https://github.com/apollographql/federation/issues/981 HAS BEEN RESOLVED.
-    // IT IS BEING LEFT HERE AS A TEST THAT WILL INTENTIONALLY FAIL WHEN
-    // IT IS RESOLVED IF IT'S NOT ADDRESSED.
-    //
-    // This test became relevant after a combination of two things:
-    //   1. when the gateway started surfacing errors from subgraphs happened in
-    //      https://github.com/apollographql/federation/pull/159
-    //   2. the idea of field redaction became necessary after
-    //      https://github.com/apollographql/federation/pull/893,
-    //      which introduced the notion of inaccessible fields.
-    //      The redaction started in
-    //      https://github.com/apollographql/federation/issues/974, which added
-    //      the following test.
-    //
-    // However, the error surfacing (first, above) needed to be reverted, thus
-    // de-necessitating this redaction logic which is no longer tested.
     it(`doesn't leak @inaccessible typenames in error messages`, async () => {
       const operationString = `#graphql
         query {
@@ -1423,13 +1377,11 @@ describe('executeQueryPlan', () => {
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
-      expect(response.errors).toBeUndefined();
-      // SEE COMMENT ABOVE THIS TEST.  SHOULD BE RE-ENABLED AFTER #981 IS FIXED!
-      // expect(response.errors).toMatchInlineSnapshot(`
-      //   Array [
-      //     [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
-      //   ]
-      // `);
+      expect(response.errors).toMatchInlineSnapshot(`
+         Array [
+           [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
+         ]
+      `);
     });
   });
 
@@ -3659,7 +3611,6 @@ describe('executeQueryPlan', () => {
       `);
 
       const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
-      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -4242,6 +4193,41 @@ describe('executeQueryPlan', () => {
           }
         `);
       }
+    });
+
+    test('handles querying only the @interfaceObject', async () => {
+      // The point of this test is that we don't want the interface to be resolved, so we don't need
+      // any specific extra resolving.
+      const tester = defineSchema({});
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            y
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S2") {
+            {
+              iFromS2 {
+                y
+              }
+            }
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS2": Object {
+            "y": 20,
+          },
+        }
+      `);
     });
   });
 
@@ -5019,7 +5005,6 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      global.console = require('console')
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {

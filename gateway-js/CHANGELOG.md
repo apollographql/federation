@@ -21,6 +21,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Fixes composition issues with `@interfaceObject` [PR #2318](https://github.com/apollographql/federation/pull/2318).
 - Improves generation of plans once all path options are computed [PR #2316](https://github.com/apollographql/federation/pull/2316).
 - Generates correct response error paths for errors thrown during entity fetches [PR #2304](https://github.com/apollographql/federation/pull/2304).
+- Rewrites gateway response post-processing to avoid `@interfaceObject` related issues [PR 2335](https://github.com/apollographql/federation/pull/2335).
 
 ## 2.2.2
 
