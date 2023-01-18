@@ -512,11 +512,11 @@ The subgraph schemas above _do not compose_, because their definitions of the `C
 
 ## Directives
 
-Composition will handle a directive differently depending on whether it is an "executable" directive or a "type system" directive.
+Composition handles a directive differently depending on whether it's an "executable" directive or a "type system" directive.
 
-### Executable Directives
+### Executable directives
 
-Executable directives are intended to be used by the client in a query. They are defined on one or more of the [executable directive locations](http://spec.graphql.org/June2018/#ExecutableDirectiveLocation). For example, you might have a directive definition of `directive @lowercase on FIELD` which a client could use in their query like this:
+Executable directives are intended to be used by clients in their queries. They are applied to one or more of the [executable directive locations](http://spec.graphql.org/June2018/#ExecutableDirectiveLocation). For example, you might have a directive definition of `directive @lowercase on FIELD`, which a client could use in their query like so:
 
 ```graphql
 query {
@@ -526,12 +526,14 @@ query {
 }
 ```
 
-These types of directives are composed into the supergraph schema only if _all_ of these conditions are met:
+An executable directive is composed into the supergraph schema only if _all_ of the following conditions are met:
 
 - The directive is defined in _all_ subgraphs
 - The directive is defined in the same way in _all_ subgraphs
 - The directive _is not_ used in any [`@composeDirective`](./federated-directives#composedirective) directives
 
-### Type System Directives
+### Type system directives
 
-Type system directives help define the structure of the schema and are not intended for use by clients. They include any directive which is defined on one or more of the [type system directive locations](http://spec.graphql.org/June2018/#TypeSystemDirectiveLocation) These directives will not be composed into the supergraph schema, but can be used to provide information to the router via [`@composeDirective`](./federated-directives#composedirective) directive.
+Type system directives help define the structure of the schema and are not intended for use by clients. They are applied to one or more of the [type system directive locations](http://spec.graphql.org/June2018/#TypeSystemDirectiveLocation).
+
+These directives are _not_ composed into the supergraph schema, but they can still provide information to the router via the [`@composeDirective`](./federated-directives#composedirective) directive.
