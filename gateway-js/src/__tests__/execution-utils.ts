@@ -76,6 +76,7 @@ export async function execute(
     },
     operationContext,
     schema.toGraphQLJSSchema(),
+    apiSchema,
   );
 
   return { ...result, queryPlan };

@@ -1137,14 +1137,16 @@ class FetchGroup {
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
+    const subgraphSchema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     let operation = this.isEntityFetch
       ? operationForEntitiesFetch(
-          this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
+          subgraphSchema,
           this.selection,
           variableDefinitions,
           operationName,
         )
       : operationForQueryFetch(
+          subgraphSchema,
           this.rootKind,
           this.selection,
           variableDefinitions,
@@ -2614,6 +2616,7 @@ export class QueryPlanner {
       return operation;
     }
     return new Operation(
+      operation.schema,
       operation.rootKind,
       updatedSelectionSet,
       operation.variableDefinitions,
@@ -2784,6 +2787,7 @@ function withoutIntrospection(operation: Operation): Operation {
 
   const newSelections = operation.selectionSet.selections().filter(s => !isIntrospectionSelection(s));
   return new Operation(
+    operation.schema,
     operation.rootKind,
     new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
     operation.variableDefinitions,
@@ -4005,14 +4009,15 @@ function operationForEntitiesFetch(
     ),
   );
 
-  return new Operation('query', entitiesCall, variableDefinitions, operationName);
+  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, operationName);
 }
 
 function operationForQueryFetch(
+  subgraphSchema: Schema,
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   operationName?: string
 ): Operation {
-  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
+  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
 }

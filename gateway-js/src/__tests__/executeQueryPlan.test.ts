@@ -50,8 +50,9 @@ describe('executeQueryPlan', () => {
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
   ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
+    const apiSchema = supergraphSchema.toAPISchema();
     const operationContext = buildOperationContext({
-      schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
+      schema: apiSchema.toGraphQLJSSchema(),
       operationDocument: gql`${operation.toString()}`,
     });
     return executeQueryPlan(
@@ -60,6 +61,7 @@ describe('executeQueryPlan', () => {
       executeRequestContext ?? buildRequestContext(),
       operationContext,
       supergraphSchema.toGraphQLJSSchema(),
+      apiSchema,
     );
   }
 
@@ -151,7 +153,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
-      expect(response).toHaveProperty('errors.0.path', undefined);
+      expect(response).toHaveProperty('errors.0.path', ["me"]);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
@@ -162,6 +164,315 @@ describe('executeQueryPlan', () => {
       );
       expect(response).not.toHaveProperty('errors.0.extensions.query');
       expect(response).not.toHaveProperty('errors.0.extensions.variables');
+    });
+
+    it(`error paths in joins`, async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            getA: A
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            getA() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            b: Int
+            c: [D]
+            g: Int! # will return null
+          }
+
+          type D @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          A: {
+            b() {
+              throw new GraphQLError('Something went wrong');
+            },
+            c() {
+              return [{ id: 'd1' }, { id: 'd2' }];
+            },
+            g() {
+              return null;
+            },
+          },
+        },
+      };
+
+      const s3 = {
+        name: 'S3',
+        typeDefs: gql`
+          type D @key(fields: "id") {
+            id: ID!
+            e: Int
+            f: [A]
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          D: {
+            e() {
+              throw new GraphQLError('Something went wrong');
+            },
+            f() {
+              return [{ id: 'a' }];
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+        s3,
+      ]);
+
+      const operation = parseOp(
+        `
+        query {
+          getA {
+            b
+            c {
+              e
+              f {
+                g
+              }
+            }
+          }
+        }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      const errors = response?.errors?.map((e) => e.toJSON());
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "b",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S3",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "c",
+              0,
+              "e",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S3",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "c",
+              1,
+              "e",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Cannot return null for non-nullable field A.g.",
+            "path": Array [
+              "getA",
+              "c",
+              0,
+              "f",
+              0,
+              "g",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Cannot return null for non-nullable field A.g.",
+            "path": Array [
+              "getA",
+              "c",
+              1,
+              "f",
+              0,
+              "g",
+            ],
+          },
+        ]
+      `);
+    });
+
+    it(`error paths in joins, re-entering through Query`, async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            a: A
+            d: String
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            a() {
+              return { id: '1' };
+            },
+            d: () => {
+              throw new GraphQLError('d error');
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            b: String
+            q: Query
+          }
+
+          type Query {
+            c: String
+          }
+        `,
+        resolvers: {
+          A: {
+            b: () => {
+              throw new GraphQLError('b error');
+            },
+            q: () => ({}),
+          },
+          Query: {
+            c: () => {
+              throw new GraphQLError('c error');
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+
+      const operation = parseOp(
+        `
+        query {
+          a {
+            b
+            q {
+              c
+              d
+            }
+          }
+        }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      const errors = response?.errors?.map((e) => e.toJSON());
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "b error",
+            "path": Array [
+              "a",
+              "b",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "c error",
+            "path": Array [
+              "a",
+              "q",
+              "c",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S1",
+            },
+            "message": "d error",
+            "path": Array [
+              "a",
+              "q",
+              "d",
+            ],
+          },
+        ]
+      `);
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
@@ -996,42 +1307,11 @@ describe('executeQueryPlan', () => {
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);
-
-      expect(response.data).toMatchInlineSnapshot(`
-        Object {
-          "topReviews": Array [
-            Object {
-              "author": Object {
-                "username": "@ada",
-              },
-              "body": "Love it!",
-            },
-            Object {
-              "author": Object {
-                "username": "@ada",
-              },
-              "body": "Too expensive.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Could be better.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Prefer something else.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Wish I had read this before.",
-            },
-          ],
-        }
+      expect(response.data).toBeUndefined();
+      expect(response.errors).toMatchInlineSnapshot(`
+        Array [
+          [GraphQLError: Cannot query field "ssn" on type "User".],
+        ]
       `);
     });
 
@@ -1076,23 +1356,6 @@ describe('executeQueryPlan', () => {
       `);
     });
 
-    // THIS TEST SHOULD BE MODIFIED AFTER THE ISSUE OUTLINED IN
-    // https://github.com/apollographql/federation/issues/981 HAS BEEN RESOLVED.
-    // IT IS BEING LEFT HERE AS A TEST THAT WILL INTENTIONALLY FAIL WHEN
-    // IT IS RESOLVED IF IT'S NOT ADDRESSED.
-    //
-    // This test became relevant after a combination of two things:
-    //   1. when the gateway started surfacing errors from subgraphs happened in
-    //      https://github.com/apollographql/federation/pull/159
-    //   2. the idea of field redaction became necessary after
-    //      https://github.com/apollographql/federation/pull/893,
-    //      which introduced the notion of inaccessible fields.
-    //      The redaction started in
-    //      https://github.com/apollographql/federation/issues/974, which added
-    //      the following test.
-    //
-    // However, the error surfacing (first, above) needed to be reverted, thus
-    // de-necessitating this redaction logic which is no longer tested.
     it(`doesn't leak @inaccessible typenames in error messages`, async () => {
       const operationString = `#graphql
         query {
@@ -1114,13 +1377,11 @@ describe('executeQueryPlan', () => {
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
-      expect(response.errors).toBeUndefined();
-      // SEE COMMENT ABOVE THIS TEST.  SHOULD BE RE-ENABLED AFTER #981 IS FIXED!
-      // expect(response.errors).toMatchInlineSnapshot(`
-      //   Array [
-      //     [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
-      //   ]
-      // `);
+      expect(response.errors).toMatchInlineSnapshot(`
+         Array [
+           [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
+         ]
+      `);
     });
   });
 
@@ -3350,7 +3611,6 @@ describe('executeQueryPlan', () => {
       `);
 
       const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
-      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -3933,6 +4193,41 @@ describe('executeQueryPlan', () => {
           }
         `);
       }
+    });
+
+    test('handles querying only the @interfaceObject', async () => {
+      // The point of this test is that we don't want the interface to be resolved, so we don't need
+      // any specific extra resolving.
+      const tester = defineSchema({});
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            y
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S2") {
+            {
+              iFromS2 {
+                y
+              }
+            }
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS2": Object {
+            "y": 20,
+          },
+        }
+      `);
     });
   });
 
@@ -4710,7 +5005,6 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      global.console = require('console')
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
