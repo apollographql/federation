@@ -12,6 +12,6 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [],
+  "ignore": ["apollo-federation-integration-testsuite"],
   "repo": "apollographql/federation"
 }
