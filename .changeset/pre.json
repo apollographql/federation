@@ -7,11 +7,14 @@
     "@apollo/federation-internals": "2.3.0-alpha.0",
     "@apollo/query-graphs": "2.3.0-alpha.0",
     "@apollo/query-planner": "2.3.0-alpha.0",
-    "@apollo/subgraph": "2.3.0-alpha.0"
+    "@apollo/subgraph": "2.3.0-alpha.0",
+    "apollo-federation-integration-testsuite": "2.3.0-beta.2"
   },
   "changesets": [
+    "fluffy-bulldogs-lay",
     "good-carrots-lick",
     "khaki-rocks-stare",
-    "many-rats-allow"
+    "many-rats-allow",
+    "nervous-cobras-rest"
   ]
 }
