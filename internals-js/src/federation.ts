@@ -577,7 +577,7 @@ export class FederationMetadata {
 
   private externalTester(): ExternalTester {
     if (!this._externalTester) {
-      this._externalTester = new ExternalTester(this.schema);
+      this._externalTester = new ExternalTester(this.schema, this.isFed2Schema());
     }
     return this._externalTester;
   }
@@ -1783,7 +1783,7 @@ class ExternalTester {
   private readonly externalDirective: DirectiveDefinition<{}>;
   private readonly externalFieldsOnType = new Set<string>();
 
-  constructor(readonly schema: Schema) {
+  constructor(readonly schema: Schema, private readonly isFed2Schema: boolean) {
     this.externalDirective = this.metadata().externalDirective();
     this.collectFakeExternals();
     this.collectProvidedFields();
@@ -1827,6 +1827,13 @@ class ExternalTester {
   }
 
   private collectExternalsOnType() {
+    // We do not collect @external on types for fed1 schema as those are ignored and will be discarded by the schema upgrader
+    // Do note however that the schema upgrader relying on the methods of this tester to figure out if a subgraph resolves
+    // a field in order to know when @shareable should be automatically added, hence the need for the short-cut here.
+    if (!this.isFed2Schema) {
+      return;
+    }
+
     for (const type of this.schema.objectTypes()) {
       if (type.hasAppliedDirective(this.externalDirective)) {
         for (const field of type.fields()) {
