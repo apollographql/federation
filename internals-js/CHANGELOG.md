@@ -4,7 +4,7 @@
 
 ## 2.3.0
 
-- Fix fed1 schema upgraded when @external is on a type [PR #2343](https://github.com/apollographql/federation/pull/2343).
+- Fix incorrect handling of `@external` on a type when dealing when adding `@shareable` during fed1 schema upgrades [PR #2343](https://github.com/apollographql/federation/pull/2343).
 
 ## 2.2.1
 

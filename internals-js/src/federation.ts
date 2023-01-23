@@ -1827,9 +1827,10 @@ class ExternalTester {
   }
 
   private collectExternalsOnType() {
-    // We do not collect @external on types for fed1 schema as those are ignored and will be discarded by the schema upgrader
-    // Do note however that the schema upgrader relying on the methods of this tester to figure out if a subgraph resolves
-    // a field in order to know when @shareable should be automatically added, hence the need for the short-cut here.
+    // We do not collect @external on types for fed1 schema since those will be discarded by the schema upgrader.
+    // The schema upgrader, through calls to `isExternal`, relies on the populated `externalFieldsOnType` object to
+    // inform when @shareable should be automatically added. In the fed1 case, if the map is populated then @shareable won't
+    // be added in places where it should have.
     if (!this.isFed2Schema) {
       return;
     }
