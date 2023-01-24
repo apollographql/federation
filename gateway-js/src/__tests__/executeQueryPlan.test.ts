@@ -103,6 +103,7 @@ describe('executeQueryPlan', () => {
       request: {
         variables: {},
       },
+      metrics: {},
     };
   }
 
