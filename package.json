@@ -24,7 +24,8 @@
     "error-code-doc:check": "npm run error-code-doc && git diff --exit-code",
     "hints-doc": "ts-node ./composition-js/src/genHintDoc.ts > ./docs/source/hints.md",
     "hints-doc:check": "npm run hints-doc && git diff --exit-code",
-    "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts"
+    "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
+    "changeset-version": "changeset version && npm i"
   },
   "engines": {
     "node": ">=14.15.0",

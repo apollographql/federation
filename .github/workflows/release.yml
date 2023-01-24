@@ -29,6 +29,8 @@ jobs:
         with:
           title: "release: on branch ${{ github.ref_name }}"
           createGithubReleases: true
+          # workaround for https://github.com/changesets/action/issues/203, includes an `npm i` after running the version command
+          version: npm run changeset-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
