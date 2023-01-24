@@ -14,6 +14,7 @@
     "Introduction": "/",
     "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
     "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md",
+    "🪵 Changelog": "/federation-2/changelog",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
