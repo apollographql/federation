@@ -16,10 +16,10 @@ More details can be found in [the `changeset` docs for publishing](https://githu
 1. You will need to have a GITHUB_TOKEN set up to use changesets. Create a token with your account with permissions `read:user` and `repo:status` and make sure it is assigned to the GITHUB_TOKEN environment variable
 1. If alpha/beta/preview release:
    1. `npx changeset pre enter <alpha|beta|preview>`
-   2. `npx changeset version` to bump versions, create changelog entries, etc.
+   2. `npm run changeset-version` to bump versions, create changelog entries, etc.
    3. `npx changeset pre exit`
 1. Otherwise this is a major/minor/patch release:
-   1. `npx changeset version` to bump versions, create changelog entries, etc.
+   1. `npm run changeset-version` to bump versions, create changelog entries, etc.
 1. Review the changes to make sure they look correct. Note that there may be some log entries that may have been added without changesets that may need to be merged manually. Once everything looks good, commit the changes. 
 1. `gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/PULL_REQUEST_TEMPLATE/APOLLO_RELEASE_TEMPLATE.md`
 ~~1. Tag the commit to begin the publishing process[^publishing]
