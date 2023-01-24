@@ -207,7 +207,7 @@ function applySelectionSet({
 
           // We're using the type pointed by our input value if there is one and it points to a genuine
           // type of the schema. Otherwise, we default to our parent type.
-          const type = inputValue !== null && typeof inputValue !== 'string'
+          const type = inputValue !== null && typeof inputValue === 'string'
             ? parameters.schema.type(inputValue) ?? parentType
             : parentType;
 
@@ -266,7 +266,6 @@ function pathLastElementDescription(path: ResponsePath, currentType: Type, paren
     ? `field ${parentType}.${element}`
     : `array element of type ${currentType} at index ${element}`;
 }
-
 
 /**
  * Given some partially computed output value (`outputValue`, possibly `undefined`) for a given `type` and the
