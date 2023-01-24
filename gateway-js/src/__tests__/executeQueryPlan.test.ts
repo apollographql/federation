@@ -4229,6 +4229,76 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test('handles __typename rewriting after forced resolution of implementation type', async () => {
+      const tester = defineSchema({
+        s1: { iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }), },
+      });
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            ... on B {
+              y
+            }
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                iFromS2 {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "iFromS2") {
+              Fetch(service: "S1") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                  }
+                }
+              },
+            },
+            Flatten(path: "iFromS2") {
+              Fetch(service: "S2") {
+                {
+                  ... on B {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS2": Object {
+            "y": 20,
+          },
+        }
+      `);
+    });
   });
 
   describe('fields with conflicting types needing aliasing', () => {
