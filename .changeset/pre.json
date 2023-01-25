@@ -11,10 +11,12 @@
     "apollo-federation-integration-testsuite": "2.3.0-beta.2"
   },
   "changesets": [
+    "flat-pandas-cross",
     "fluffy-bulldogs-lay",
     "good-carrots-lick",
     "khaki-rocks-stare",
     "many-rats-allow",
+    "metal-roses-poke",
     "nervous-cobras-rest"
   ]
 }
