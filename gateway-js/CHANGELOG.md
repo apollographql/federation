@@ -4,6 +4,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.3.0
 - Fix unexpected composition error about `@shareable` field when `@external` is on a type in a fed1 schema (one without `@link`) [PR #2343](https://github.com/apollographql/federation/pull/2343).
 - Fix issue with some `@interfaceObject` queries due to missing "input rewrites" [PR #2346](https://github.com/apollographql/federation/pull/2346).
 
