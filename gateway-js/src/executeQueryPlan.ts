@@ -501,6 +501,18 @@ async function executeFetch(
         downstreamServiceError(error, fetch.serviceName, errorPathHelper),
       );
       context.errors.push(...errors);
+
+      if (!response.extensions?.ftv1) {
+        const errorPaths = response.errors.map((error) => ({
+          subgraph: fetch.serviceName,
+          path: error.path,
+        }));
+        if (context.requestContext.metrics.nonFtv1ErrorPaths) {
+          context.requestContext.metrics.nonFtv1ErrorPaths.push(...errorPaths);
+        } else {
+          context.requestContext.metrics.nonFtv1ErrorPaths = errorPaths;
+        }
+      }
     }
 
     // If we're capturing a trace for Studio, save the received trace into the

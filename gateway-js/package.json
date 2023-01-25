@@ -28,7 +28,7 @@
     "@apollo/composition": "2.3.0",
     "@apollo/federation-internals": "2.3.0",
     "@apollo/query-planner": "2.3.0",
-    "@apollo/server-gateway-interface": "^1.0.2",
+    "@apollo/server-gateway-interface": "^1.1.0",
     "@apollo/usage-reporting-protobuf": "^4.0.0",
     "@apollo/utils.createhash": "^1.1.0",
     "@apollo/utils.fetcher": "^1.1.0",
