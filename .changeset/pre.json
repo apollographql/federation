@@ -7,8 +7,7 @@
     "@apollo/federation-internals": "2.3.0-alpha.0",
     "@apollo/query-graphs": "2.3.0-alpha.0",
     "@apollo/query-planner": "2.3.0-alpha.0",
-    "@apollo/subgraph": "2.3.0-alpha.0",
-    "apollo-federation-integration-testsuite": "2.3.0-beta.2"
+    "@apollo/subgraph": "2.3.0-alpha.0"
   },
   "changesets": [
     "fluffy-bulldogs-lay",
