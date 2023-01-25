@@ -464,4 +464,70 @@ describe('gateway post-processing', () => {
       }
     `);
   });
+
+  test('Handles __typename from subgraphs correctly', () => {
+    const schema = buildSchemaFromAST(gql`
+      type Query {
+        i: [I]
+      }
+
+      interface I {
+        x: Int
+      }
+
+      type A implements I {
+        x: Int
+      }
+
+      type B implements I {
+        x: Int
+      }
+    `);
+
+    const input = {
+      "i": [
+        {
+          "__typename": "A",
+          "x": 24,
+        },
+        {
+          "__typename": "B",
+          "x": 42,
+        },
+      ]
+    }
+
+    const operation = parseOperation(schema, `
+      {
+        i {
+          ... on I {
+            __typename
+            x
+          }
+        }
+      }
+    `);
+
+    expect(computeResponse({
+      operation,
+      input,
+      introspectionHandling,
+    })).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "i": Array [
+            Object {
+              "__typename": "A",
+              "x": 24,
+            },
+            Object {
+              "__typename": "B",
+              "x": 42,
+            },
+          ],
+        },
+        "errors": Array [],
+      }
+    `);
+  });
 })

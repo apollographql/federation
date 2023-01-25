@@ -2484,7 +2484,7 @@ export class QueryPlanner {
 
     debug.groupEnd('Query plan computed');
 
-    return{ kind: 'QueryPlan', node: rootNode };
+    return { kind: 'QueryPlan', node: rootNode };
   }
 
   /**
@@ -3384,15 +3384,10 @@ function computeGroupsForTree(
             const inputType = dependencyGraph.typeForFetchInputs(sourceType.name);
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.mergeIn(edge.conditions!);
-            let rewrites: FetchDataInputRewrite[] | undefined = undefined;
-            if (isInterfaceObjectType(destType)) {
-              rewrites = [{
-                kind: 'ValueSetter',
-                path: [ `... on ${inputType.name}`, typenameFieldName ],
-                setValueTo: destType.name,
-              }];
-            }
-            newGroup.addInputs(wrapInputsSelections(inputType, inputSelections, newContext), rewrites);
+            newGroup.addInputs(
+              wrapInputsSelections(inputType, inputSelections, newContext),
+              computeInputRewritesOnKeyFetch(inputType.name, destType),
+            );
 
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.inGroup().concat(new Field(sourceType.typenameField()!)));
@@ -3566,6 +3561,17 @@ function computeGroupsForTree(
     }
   }
   return createdGroups;
+}
+
+function computeInputRewritesOnKeyFetch(inputTypeName: string, destType: CompositeType): FetchDataInputRewrite[] | undefined {
+  if (isInterfaceObjectType(destType)) {
+    return [{
+      kind: 'ValueSetter',
+      path: [ `... on ${inputTypeName}`, typenameFieldName ],
+      setValueTo: destType.name,
+    }];
+  }
+  return undefined;
 }
 
 function extractDeferFromOperation({
@@ -3897,7 +3903,16 @@ function addPostRequireInputs(
   postRequireGroup: FetchGroup,
 ) {
   const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
-  postRequireGroup.addInputs(inputs);
+  let rewrites: FetchDataInputRewrite[] | undefined = undefined;
+  // This method is used both for "normal" user @requires, but also to handle the internally injected requirement for interface objects
+  // when the "true" __typename needs to be retrieved. In those case, the post-require group is basically resuming fetch on the
+  // @interfaceObject subgraph after we found the real __typename of objects of that interface. But that also mean we need to make
+  // sure to rewrite that "real" __typename into the interface object name for that fetch (as we do for normal key edge toward an
+  // interface object).
+  if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
+    rewrites = computeInputRewritesOnKeyFetch(edge.transition.castedTypeName, entityType);
+  }
+  postRequireGroup.addInputs(inputs, rewrites);
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
