@@ -25,6 +25,7 @@ jobs:
         run: npm i
         
       - name: Create Release Pull Request
+        id: changesets
         uses: changesets/action@v1
         with:
           title: "release: on branch ${{ github.ref_name }}"
@@ -33,4 +34,5 @@ jobs:
           version: npm run changeset-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           
