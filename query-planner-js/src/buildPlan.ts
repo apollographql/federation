@@ -40,7 +40,6 @@ import {
   directiveApplicationsSubstraction,
   conditionalDirectivesInOperationPath,
   SetMultiMap,
-  ERRORS,
   OperationElement,
   Concrete,
   DeferDirectiveArgs,
@@ -90,7 +89,7 @@ import {
   createInitialOptions,
   buildFederatedQueryGraph,
 } from "@apollo/query-graphs";
-import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
+import { stripIgnoredCharacters, print, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
@@ -1060,7 +1059,7 @@ class FetchGroup {
     assert(childPathInThis, () => `Cannot remove useless ${child} of ${this}: the path of the former into the later is unknown`);
 
     this.dependencyGraph.onModification();
-    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn". 
+    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn".
     this.relocateChildrenOnMergedIn(child, childPathInThis);
     this.dependencyGraph.remove(child);
   }
@@ -2229,7 +2228,7 @@ class FetchDependencyGraph {
     // a @defer B may be nested inside @defer A "in the query", but be such that we don't need anything fetched within
     // the deferred part of A to start the deferred part of B).
     // Long story short, we first collect the groups from `allDeferredGroups` that are _not_ in our current level, if
-    // any, and pass those to recursion call below so they can be use a their proper level of nestedness. 
+    // any, and pass those to recursion call below so they can be use a their proper level of nestedness.
     const defersInCurrent = this.deferTracking.defersInParent(currentDeferRef);
     const handledDefersInCurrent = new Set(defersInCurrent.map((d) => d.label));
     const unhandledDefersInCurrent = mapKeys(allDeferredGroups).filter((label) => !handledDefersInCurrent.has(label));
@@ -2400,13 +2399,6 @@ export class QueryPlanner {
       return { kind: 'QueryPlan' };
     }
 
-    if (operation.rootKind === 'subscription') {
-      throw ERRORS.UNSUPPORTED_FEATURE.err(
-        'Query planning does not currently support subscriptions.',
-        { nodes: [parse(operation.toString())] },
-      );
-    }
-
     const statistics: PlanningStatistics = {
       evaluatedPlanCount: 0,
     };
@@ -2521,8 +2513,8 @@ export class QueryPlanner {
    * be added back eventually. The core query planning algorithm will ignore that tag, and because
    * __typename has been otherwise removed, we'll save any related work. But as we build the final
    * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
-   * and when we fine one, we'll add back the request to __typename. As this only happen after the 
-   * query planning algorithm has computed all choices, we achieve our goal of not considering useless 
+   * and when we fine one, we'll add back the request to __typename. As this only happen after the
+   * query planning algorithm has computed all choices, we achieve our goal of not considering useless
    * choices due to __typename. Do note that if __typename is the "only" selection of some selection
    * set, then we leave it untouched, and let the query planning algorithm treat it as any other
    * field. We have no other choice in that case, and that's actually what we want.
@@ -2549,11 +2541,11 @@ export class QueryPlanner {
         && !parentMaybeInterfaceObject
       ) {
         // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
-        // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_ 
+        // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_
         // 2 selection of __typename, then we won't optimise things as much as we could, but there is no practical reason
         // whatsoever to have 2 selection of __typename in the first place, so not being optimal is moot.
         //
-        // Also note that we do not remove __typename if on (interface) types that are implemented by 
+        // Also note that we do not remove __typename if on (interface) types that are implemented by
         // an @interfaceObject in some subgraph: the reason is that those types are an exception to the rule
         // that __typename can be resolved from _any_ subgraph, as the __typename of @interfaceObject is not
         // one we should return externally and so cannot fulfill the user query.
@@ -3539,7 +3531,7 @@ function computeGroupsForTree(
             //     }
             //   }
             // but the trick is that the `__typename` in the input will be the name of the interface itself (`I` in this case)
-            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`). 
+            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`).
             // *But* we later have optimizations that would remove such a group, on the group that the output is included
             // in the input, which is in general the right thing to do (and genuinely ensure that some useless groups created when
             // handling complex @require gets eliminated). So we "protect" the group in this case to ensure that later
