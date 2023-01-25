@@ -9,7 +9,6 @@
     "compile:clean": "npm run compile -- --clean",
     "watch": "npm run compile && tsc --build tsconfig.json --watch",
     "version": "npm i --package-lock-only && git add package-lock.json",
-    "release:start-ci-publish": "node -p '`Publish (dist-tag:${process.env.APOLLO_DIST_TAG || \"latest\"})`' | git tag -F - \"publish/$(date -u '+%Y%m%d%H%M%S')\" && git push origin \"$(git describe --match='publish/*' --tags --exact-match HEAD)\"",
     "pretest": "npm run compile && tsc --build tsconfig.test.json",
     "postinstall": "npm run compile",
     "test": "jest --verbose",
@@ -25,7 +24,8 @@
     "hints-doc": "ts-node ./composition-js/src/genHintDoc.ts > ./docs/source/hints.md",
     "hints-doc:check": "npm run hints-doc && git diff --exit-code",
     "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
-    "changeset-version": "changeset version && npm i"
+    "changeset-version": "changeset version && npm i",
+    "publish": "changeset publish"
   },
   "engines": {
     "node": ">=14.15.0",
