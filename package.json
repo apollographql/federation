@@ -25,7 +25,8 @@
     "hints-doc": "ts-node ./composition-js/src/genHintDoc.ts > ./docs/source/hints.md",
     "hints-doc:check": "npm run hints-doc && git diff --exit-code",
     "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
-    "changeset-version": "changeset version && npm i"
+    "changeset-version": "changeset version && npm i",
+    "publish": "changeset publish && git push --follow-tags"
   },
   "engines": {
     "node": ">=14.15.0",
