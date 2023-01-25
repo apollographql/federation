@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.0.0/schema.json",
-  "changelog": false,
+  "changelog": ["@svitejs/changesets-changelog-github-compact", { "repo": "org/repo" }],
   "commit": false,
   "fixed": [
     [
@@ -12,6 +12,6 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["apollo-federation-integration-testsuite"],
+  "ignore": [],
   "repo": "apollographql/federation"
 }
