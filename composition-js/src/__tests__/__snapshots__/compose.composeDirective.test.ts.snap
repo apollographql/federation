@@ -4,7 +4,7 @@ exports[`composing custom core directives custom tag directive works when federa
 "schema
   @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
   @link(url: \\"https://specs.apollo.dev/join/v0.3\\", for: EXECUTION)
-  @link(url: \\"https://specs.apollo.dev/tag/v0.2\\", as: \\"mytag\\")
+  @link(url: \\"https://specs.apollo.dev/tag/v0.3\\", as: \\"mytag\\")
   @link(url: \\"https://custom.dev/tag/v1.0\\", import: [\\"@tag\\"])
 {
   query: Query
@@ -24,7 +24,7 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 
 directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-directive @mytag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+directive @mytag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
 
 directive @tag(name: String!, prop: String!) on FIELD_DEFINITION | OBJECT
 

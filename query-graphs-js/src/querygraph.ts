@@ -174,7 +174,7 @@ export class Edge {
   }
 
   matchesSupergraphTransition(otherTransition: Transition): boolean {
-    assert(otherTransition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
+    assert(otherTransition.collectOperationElements, () => `Supergraphs shouldn't have transition that don't collect elements; got ${otherTransition}"`);
     const transition = this.transition;
     switch (transition.kind) {
       case 'FieldCollection': return otherTransition.kind === 'FieldCollection' && transition.definition.name === otherTransition.definition.name;
@@ -182,6 +182,10 @@ export class Edge {
       case 'InterfaceObjectFakeDownCast': return otherTransition.kind === 'DownCast' && transition.castedTypeName === otherTransition.castedType.name;
       default: return false;
     }
+  }
+
+  changesSubgraph(): boolean {
+    return this.head.source !== this.tail.source;
   }
 
   label(): string {

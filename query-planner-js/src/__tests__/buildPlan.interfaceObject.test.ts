@@ -410,3 +410,207 @@ it('avoids buffering @interfaceObject results that may have to filtered with lis
     }
   `);
 });
+
+it('handles @requires on concrete type of field provided by interface object', () => {
+  const subgraph1 = {
+    name: 'S1',
+    typeDefs: gql`
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+        x: Int @shareable
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'S2',
+    typeDefs: gql`
+      type Query {
+        i: I
+      }
+
+      interface I @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+
+      type A implements I @key(fields: "id") {
+        id: ID!
+        x: Int @external
+        y: String @requires(fields: "x")
+      }
+
+      type B implements I @key(fields: "id") {
+        id: ID!
+        x: Int @shareable
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+
+  const operation = operationFromDocument(api, gql`
+    {
+      i {
+        ... on A {
+          y
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "S2") {
+          {
+            i {
+              __typename
+              ... on A {
+                __typename
+                id
+              }
+            }
+          }
+        },
+        Flatten(path: "i") {
+          Fetch(service: "S1") {
+            {
+              ... on A {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on I {
+                x
+              }
+            }
+          },
+        },
+        Flatten(path: "i") {
+          Fetch(service: "S2") {
+            {
+              ... on A {
+                __typename
+                x
+                id
+              }
+            } =>
+            {
+              ... on A {
+                y
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
+
+it('handles @interfaceObject in nested entity', () => {
+  const subgraph1 = {
+    name: 'S1',
+    typeDefs: gql`
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+        t: T
+      }
+
+      type T {
+        relatedIs: [I]
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'S2',
+    typeDefs: gql`
+      type Query {
+        i: I
+      }
+
+      interface I @key(fields: "id") {
+        id: ID!
+        a: Int
+      }
+
+      type A implements I @key(fields: "id") {
+        id: ID!
+        a: Int
+      }
+
+      type B implements I @key(fields: "id") {
+        id: ID!
+        a: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+
+  const operation = operationFromDocument(api, gql`
+    {
+      i {
+        t {
+          relatedIs {
+            a
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "S2") {
+          {
+            i {
+              __typename
+              id
+            }
+          }
+        },
+        Flatten(path: "i") {
+          Fetch(service: "S1") {
+            {
+              ... on I {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on I {
+                t {
+                  relatedIs {
+                    __typename
+                    id
+                  }
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "i.t.relatedIs.@") {
+          Fetch(service: "S2") {
+            {
+              ... on I {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on I {
+                a
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});

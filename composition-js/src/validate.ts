@@ -1,23 +1,35 @@
 import {
+  addSubgraphToASTNode,
   assert,
   CompositeType,
+  DirectiveDefinition,
+  ERRORS,
   Field,
   FieldDefinition,
   FieldSelection,
   FragmentElement,
   InputType,
+  isAbstractType,
+  isCompositeType,
+  isDefined,
   isLeafType,
   isNullableType,
+  isObjectType,
+  joinStrings,
   MultiMap,
   newDebugLogger,
   Operation,
   operationToDocument,
+  printHumanReadableList,
+  printSubgraphNames,
   Schema,
   SchemaRootKind,
   Selection,
   selectionOfElement,
   SelectionSet,
+  SubgraphASTNode,
   typenameFieldName,
+  validateSupergraph,
   VariableDefinitions
 } from "@apollo/federation-internals";
 import {
@@ -49,7 +61,8 @@ import {
   TransitionPathWithLazyIndirectPaths,
   RootVertex,
 } from "@apollo/query-graphs";
-import { print } from "graphql";
+import { CompositionHint, HINTS } from "./hints";
+import { ASTNode, GraphQLError, print } from "graphql";
 
 const debug = newDebugLogger('validation');
 
@@ -65,25 +78,81 @@ export class ValidationError extends Error {
   }
 }
 
-function validationError(
+function satisfiabilityError(
   unsatisfiablePath: RootPath<Transition>,
   subgraphsPaths: RootPath<Transition>[],
   subgraphsPathsUnadvanceables: Unadvanceables[]
-): ValidationError {
+): GraphQLError {
   const witness = buildWitnessOperation(unsatisfiablePath);
-
-  // TODO: we should build a more detailed error message, not just the unsatisfiable query. Doing that well is likely a tad
-  // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
-  // supergraph and the subgraphsPath, we should be able to roughly infer what's going on.
   const operation = print(operationToDocument(witness));
   const message = `The following supergraph API query:\n${operation}\n`
     + 'cannot be satisfied by the subgraphs because:\n'
     + displayReasons(subgraphsPathsUnadvanceables);
-  return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
+  const error = new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
+  return ERRORS.SATISFIABILITY_ERROR.err(error.message, {
+    originalError: error,
+  });
 }
 
-function isValidationError(e: any): e is ValidationError {
-  return e instanceof ValidationError;
+function subgraphNodes(state: ValidationState, extractNode: (schema: Schema) => ASTNode | undefined): SubgraphASTNode[] {
+  return state.currentSubgraphs().map(({name, schema}) => {
+    const node = extractNode(schema);
+    return node ? addSubgraphToASTNode(node, name) : undefined;
+  }).filter(isDefined);
+}
+
+function shareableFieldNonIntersectingRuntimeTypesError(
+  invalidState: ValidationState,
+  field: FieldDefinition<CompositeType>,
+  runtimeTypesToSubgraphs: MultiMap<string, string>,
+): GraphQLError {
+  const witness = buildWitnessOperation(invalidState.supergraphPath);
+  const operation = print(operationToDocument(witness));
+  const typeStrings = [...runtimeTypesToSubgraphs].map(([ts, subgraphs]) => ` - in ${printSubgraphNames(subgraphs)}, ${ts}`);
+  const message = `For the following supergraph API query:\n${operation}`
+    + `\nShared field "${field.coordinate}" return type "${field.type}" has a non-intersecting set of possible runtime types across subgraphs. Runtime types in subgraphs are:`
+    + `\n${typeStrings.join(';\n')}.`
+    + `\nThis is not allowed as shared fields must resolve the same way in all subgraphs, and that imply at least some common runtime types between the subgraphs.`;
+  const error = new ValidationError(message, invalidState.supergraphPath, invalidState.subgraphPaths.map((p) => p.path), witness);
+  return ERRORS.SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES.err(error.message, {
+    nodes: subgraphNodes(invalidState, (s) => (s.type(field.parent.name) as CompositeType | undefined)?.field(field.name)?.sourceAST),
+  });
+}
+
+function shareableFieldMismatchedRuntimeTypesHint(
+  state: ValidationState,
+  field: FieldDefinition<CompositeType>,
+  commonRuntimeTypes: string[],
+  runtimeTypesPerSubgraphs: MultiMap<string, string>,
+): CompositionHint {
+  const witness = buildWitnessOperation(state.supergraphPath);
+  const operation = print(operationToDocument(witness));
+  const allSubgraphs = state.currentSubgraphNames();
+  const printTypes = (ts: string[]) => printHumanReadableList(
+    ts.map((t) => '"' + t + '"'),
+    {
+      prefix: 'type',
+      prefixPlural: 'types'
+    }
+  );
+  const subgraphsWithTypeNotInIntersectionString = allSubgraphs.map((s) => {
+    const typesToNotImplement = runtimeTypesPerSubgraphs.get(s)!.filter((t) => !commonRuntimeTypes.includes(t));
+    if (typesToNotImplement.length === 0) {
+      return undefined;
+    }
+    return ` - subgraph "${s}" should never resolve "${field.coordinate}" to an object of ${printTypes(typesToNotImplement)}`;
+
+  }).filter(isDefined);
+  const message = `For the following supergraph API query:\n${operation}`
+    + `\nShared field "${field.coordinate}" return type "${field.type}" has different sets of possible runtime types across subgraphs.`
+    + `\nSince a shared field must be resolved the same way in all subgraphs, make sure that ${printSubgraphNames(allSubgraphs)} only resolve "${field.coordinate}" to objects of ${printTypes(commonRuntimeTypes)}. In particular:`
+    + `\n${subgraphsWithTypeNotInIntersectionString.join(';\n')}.`
+    + `\nOtherwise the @shareable contract will be broken.`;
+  return new CompositionHint(
+    HINTS.INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
+    message,
+    subgraphNodes(state, (s) => (s.type(field.parent.name) as CompositeType | undefined)?.field(field.name)?.sourceAST),
+  );
 }
 
 function displayReasons(reasons: Unadvanceables[]): string {
@@ -113,7 +182,9 @@ function displayReasons(reasons: Unadvanceables[]): string {
 function buildWitnessOperation(witness: RootPath<Transition>): Operation {
   assert(witness.size > 0, "unsatisfiablePath should contain at least one edge/transition");
   const root = witness.root;
+  const schema = witness.graph.sources.get(root.source)!;
   return new Operation(
+    schema,
     root.rootKind,
     buildWitnessNextStep([...witness].map(e => e[0]), 0)!,
     new VariableDefinitions()
@@ -236,10 +307,11 @@ export function validateGraphComposition(
   supergraphAPI: QueryGraph,
   subgraphs: QueryGraph
 ): {
-  errors? : ValidationError[]
+  errors? : GraphQLError[],
+  hints? : CompositionHint[],
 } {
-  const errors = new ValidationTraversal(supergraphSchema, supergraphAPI, subgraphs).validate();
-  return errors.length > 0 ? {errors} : {};
+  const { errors, hints } = new ValidationTraversal(supergraphSchema, supergraphAPI, subgraphs).validate();
+  return errors.length > 0 ? { errors, hints } : { hints };
 }
 
 export function computeSubgraphPaths(
@@ -249,28 +321,29 @@ export function computeSubgraphPaths(
 ): {
   traversal?: ValidationState,
   isComplete?: boolean,
-  error?: ValidationError
+  error?: GraphQLError
 } {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
     const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
+    const context = new ValidationContext(supergraphSchema);
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath) {
-      const updated = state.validateTransition(edge);
+      const { state: updated, error } = state.validateTransition(context, edge);
+      if (error) {
+        throw error;
+      }
       if (!updated) {
         isIncomplete = true;
         break;
-      }
-      if (isValidationError(updated)) {
-        throw updated;
       }
       state = updated;
     }
     return {traversal: state, isComplete: !isIncomplete};
   } catch (error) {
-    if (error instanceof ValidationError) {
+    if (error instanceof GraphQLError) {
       return {error};
     }
     throw error;
@@ -285,6 +358,54 @@ function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): Root
     () => `Unexpected type ${root.type} for subgraphs root type (expected ${federatedGraphRootTypeName(kind)}`);
   const initialState = GraphPath.fromGraphRoot<Transition>(subgraphs, kind)!;
   return subgraphs.outEdges(root).map(e => initialState.add(subgraphEnteringTransition, e, noConditionsResolution));
+}
+
+function possibleRuntimeTypeNamesSorted(path: RootPath<Transition>): string[] {
+  const types = path.tailPossibleRuntimeTypes().map((o) => o.name);
+  types.sort((a, b) => a.localeCompare(b));
+  return types;
+}
+
+export function extractValidationError(error: any): ValidationError | undefined {
+  if (!(error instanceof GraphQLError) || !(error.originalError instanceof ValidationError)) {
+    return undefined;
+  }
+  return error.originalError;
+}
+
+export class ValidationContext {
+  private readonly joinTypeDirective: DirectiveDefinition;
+  private readonly joinFieldDirective: DirectiveDefinition<{ external?: boolean, usedOverridden?: boolean }>;
+
+  constructor(
+    readonly supergraphSchema: Schema,
+  ) {
+    const [_, joinSpec] = validateSupergraph(supergraphSchema);
+    this.joinTypeDirective = joinSpec.typeDirective(supergraphSchema);
+    this.joinFieldDirective = joinSpec.fieldDirective(supergraphSchema);
+  }
+
+  isShareable(field: FieldDefinition<CompositeType>): boolean {
+    const typeInSupergraph = this.supergraphSchema.type(field.parent.name);
+    assert(typeInSupergraph && isCompositeType(typeInSupergraph), () => `${field.parent.name} should exists in the supergraph and be a composite`);
+    if (!isObjectType(typeInSupergraph)) {
+      return false;
+    }
+
+    const fieldInSupergraph = typeInSupergraph.field(field.name);
+    assert(fieldInSupergraph, () => `${field.coordinate} should exists in the supergraph`);
+    const joinFieldApplications = fieldInSupergraph.appliedDirectivesOf(this.joinFieldDirective);
+    // A field is shareable if either:
+    // 1) there is not join__field, but multiple join__type
+    // 2) there is more than one join__field where the field is neither external nor overriden.
+    return joinFieldApplications.length === 0
+      ? typeInSupergraph.appliedDirectivesOf(this.joinTypeDirective).length > 1
+      : (joinFieldApplications.filter((application) => {
+        const args = application.arguments();
+        return !args.external && !args.usedOverridden;
+      }).length > 1);
+  }
+
 }
 
 export class ValidationState {
@@ -313,16 +434,27 @@ export class ValidationState {
     );
   }
 
-  // Either return an error (we've found a path that cannot be validated), a new state (we've successfully handled the edge
-  // and can continue validation from this new state) or 'undefined' if we can handle that edge by returning no results
-  // as it gets us in a (valid) situation where we can guarantee there will be no results (in other words, the edge correspond
-  // to a type condition for which there cannot be any runtime types, and so no point in continuing this "branch").
-  validateTransition(supergraphEdge: Edge): ValidationState | undefined | ValidationError {
+  /**
+   * Validates that the current state can always be advanced for the provided supergraph edge, and returns the updated state if
+   * so.
+   *
+   * @param supergraphEdge - the edge to try to advance from the current state.
+   * @return an object with `error` set if the state _cannot_ be properly advanced (and if so, `state` and `hint` will be `undefined`).
+   *  If the state can be successfully advanced, then `state` contains the updated new state. This *can* be `undefined` to signal
+   *  that the state _can_ be successfully advanced (no error) but is guaranteed to yield no results (in other words, the edge corresponds
+   *  to a type condition for which there cannot be any runtime types), in which case not further validation is necessary "from that branch".
+   *  Additionally, when the state can be successfully advanced, an `hint` can be optionally returned.
+   */
+  validateTransition(context: ValidationContext, supergraphEdge: Edge): {
+    state?: ValidationState,
+    error?: GraphQLError,
+    hint?: CompositionHint,
+  } {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
-    const newSubgraphPaths = [];
+    const newSubgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[] = [];
     const deadEnds: Unadvanceables[] = [];
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
@@ -337,18 +469,89 @@ export class ValidationState {
       if (options.length === 0) {
         // This means that the edge is a type condition and that if we follow the path to this subgraph, we're guaranteed that handling that
         // type condition give us no matching results, and so we can handle whatever comes next really.
-        return undefined;
+        return { state: undefined };
       }
       newSubgraphPaths.push(...options);
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
     if (newSubgraphPaths.length === 0) {
-      return validationError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds);
+      return { error: satisfiabilityError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds) };
     }
-    return new ValidationState(newPath, newSubgraphPaths);
+
+    const updatedState = new ValidationState(newPath, newSubgraphPaths);
+
+    // When handling a @shareable field, we also compare the set of runtime types for each subgraphs involved.
+    // If there is no common intersection between those sets, then we record an error: a @shareable field should resolve
+    // the same way in all the subgraphs in which it is resolved, and there is no way this can be true if each subgraph
+    // returns runtime objects that we know can never be the same.
+    //
+    // Additionally, if those sets of runtime types are not the same, we let it compose, but we log a warning. Indeed,
+    // having different runtime types is a red flag: it would be incorrect for a subgraph to resolve to an object of a
+    // type that the other subgraph cannot possible return, so having some subgraph having types that the other
+    // don't know feels like something is worth double checking on the user side. Of course, as long as there is
+    // some runtime types intersection and the field resolvers only return objects of that intersection, then this
+    // could be a valid implementation. And this case can in particular happen temporarily as subgraphs evolve (potentially
+    // independently), but it is well worth warning in general.
+
+    // Note that we ignore any path when the type is not an abstract type, because in practice this means an @interfaceObject
+    // and this should not be considered as an implementation type. Besides @interfaceObject always "stand-in" for every
+    // implementations so they never are a problem for this check and can be ignored.
+    let hint: CompositionHint | undefined = undefined;
+    if (
+      newSubgraphPaths.length > 1
+      && transition.kind === 'FieldCollection'
+      && isAbstractType(newPath.tail.type)
+      && context.isShareable(transition.definition)
+    ) {
+      const filteredPaths = newSubgraphPaths.map((p) => p.path).filter((p) => isAbstractType(p.tail.type));
+      if (filteredPaths.length > 1) {
+        // We start our intersection by using all the supergraph types, both because it's a convenient "max" set to start our intersection,
+        // but also because that means we will ignore @inaccessible types in our checks (which is probably not very important because
+        // I believe the rules of @inacessible kind of exclude having some here, but if that ever change, it makes more sense this way).
+        const allRuntimeTypes = possibleRuntimeTypeNamesSorted(newPath);
+        let intersection = allRuntimeTypes;
+
+        const runtimeTypesToSubgraphs = new MultiMap<string, string>();
+        const runtimeTypesPerSubgraphs = new MultiMap<string, string>();
+        let hasAllEmpty = true;
+        for (const path of newSubgraphPaths) {
+          const subgraph = path.path.tail.source;
+          const typeNames = possibleRuntimeTypeNamesSorted(path.path);
+          runtimeTypesPerSubgraphs.set(subgraph, typeNames);
+          // Note: we're formatting the elements in `runtimeTYpesToSubgraphs` because we're going to use it if we display an error. This doesn't
+          // impact our set equality though since the formatting is consistent betweeen elements and type names syntax is sufficiently restricted
+          // in graphQL to not create issues (no quote or weird character to escape in particular).
+          let typeNamesStr = 'no runtime type is defined';
+          if (typeNames.length > 0) {
+            typeNamesStr = (typeNames.length > 1 ? 'types ' : 'type ') + joinStrings(typeNames.map((n) => `"${n}"`));
+            hasAllEmpty = false;
+          }
+          runtimeTypesToSubgraphs.add(typeNamesStr, subgraph);
+          intersection = intersection.filter((t) => typeNames.includes(t));
+        }
+
+        // If `hasAllEmpty`, then it means that none of the subgraph defines any runtime types. Typically, all subgraphs defines a given interface,
+        // but none have implementations. In that case, the intersection will be empty but it's actually fine (which is why we special case). In
+        // fact, assuming valid graphQL subgraph servers (and it's not the place to sniff for non-compliant subgraph servers), the only value to
+        // which each subgraph can resolve is `null` and so that essentially guaranttes that all subgraph do resolve the same way.
+        if (!hasAllEmpty) {
+          if (intersection.length === 0) {
+            return { error: shareableFieldNonIntersectingRuntimeTypesError(updatedState, transition.definition, runtimeTypesToSubgraphs) };
+          }
+
+          // As said, we accept it if there is an intersection, but if the runtime types are not all the same, we still emit a warning to make it clear that
+          // the fields should not resolve any of the types not in the intersection.
+          if (runtimeTypesToSubgraphs.size > 1) {
+            hint = shareableFieldMismatchedRuntimeTypesHint(updatedState, transition.definition, intersection, runtimeTypesPerSubgraphs);
+          }
+        }
+      }
+    }
+
+    return { state: updatedState, hint };
   }
 
-  currentSubgraphs(): string[] {
+  currentSubgraphNames(): string[] {
     const subgraphs: string[] = [];
     for (const path of this.subgraphPaths) {
       const source = path.path.tail.source;
@@ -357,6 +560,14 @@ export class ValidationState {
       }
     }
     return subgraphs;
+  }
+
+  currentSubgraphs(): { name: string, schema: Schema }[] {
+    if (this.subgraphPaths.length === 0) {
+      return [];
+    }
+    const sources = this.subgraphPaths[0].path.graph.sources;
+    return this.currentSubgraphNames().map((name) => ({ name, schema: sources.get(name)!}));
   }
 
   toString(): string {
@@ -378,7 +589,10 @@ class ValidationTraversal {
   // For a vertex, we may have multiple "sets of subgraphs", hence the double-array.
   private readonly previousVisits: QueryGraphState<string[][]>;
 
-  private readonly validationErrors: ValidationError[] = [];
+  private readonly validationErrors: GraphQLError[] = [];
+  private readonly validationHints: CompositionHint[] = [];
+
+  private readonly context: ValidationContext;
 
   constructor(
     supergraphSchema: Schema,
@@ -393,19 +607,23 @@ class ValidationTraversal {
       conditionResolver: this.conditionResolver
     })));
     this.previousVisits = new QueryGraphState(supergraphAPI);
+    this.context = new ValidationContext(supergraphSchema);
   }
 
-  validate(): ValidationError[] {
+  validate(): {
+    errors: GraphQLError[],
+    hints: CompositionHint[],
+  } {
     while (this.stack.length > 0) {
       this.handleState(this.stack.pop()!);
     }
-    return this.validationErrors;
+    return { errors: this.validationErrors, hints: this.validationHints };
   }
 
   private handleState(state: ValidationState) {
     debug.group(() => `Validation: ${this.stack.length + 1} open states. Validating ${state}`);
     const vertex = state.supergraphPath.tail;
-    const currentSources = state.currentSubgraphs();
+    const currentSources = state.currentSubgraphNames();
     const previousSeenSources = this.previousVisits.getVertexState(vertex);
     if (previousSeenSources) {
       for (const previousSources of previousSeenSources) {
@@ -434,11 +652,14 @@ class ValidationTraversal {
       }
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const newState = state.validateTransition(edge);
-      if (isValidationError(newState)) {
+      const { state: newState, error, hint } = state.validateTransition(this.context, edge);
+      if (error) {
         debug.groupEnd(`Validation error!`);
-        this.validationErrors.push(newState);
+        this.validationErrors.push(error);
         continue;
+      }
+      if (hint) {
+        this.validationHints.push(hint);
       }
 
       // The check for `isTerminal` is not strictly necessary as if we add a terminal

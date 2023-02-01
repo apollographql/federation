@@ -1,6 +1,5 @@
 import { Headers } from 'node-fetch';
 import {
-  execute,
   GraphQLError,
   Kind,
   TypeNameMetaFieldDef,
@@ -12,6 +11,9 @@ import {
   isInterfaceType,
   GraphQLErrorOptions,
   DocumentNode,
+  executeSync,
+  OperationTypeNode,
+  FieldNode,
 } from 'graphql';
 import { Trace, google } from '@apollo/usage-reporting-protobuf';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
@@ -31,14 +33,33 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
+import { computeResponse } from './resultShaping';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
 };
 
 type ResultMap = Record<string, any>;
+
+/**
+ * Represents some "cursor" within the full result, or put another way, a path into the full result and where it points to.
+ *
+ * Note that results can include lists and the the `path` considered can traverse those lists (the path will have a '@' character) so
+ * the data pointed by a cursor is not necessarily a single "branch" of the full results, but is in general a flattened list of all
+ * the sub-branches pointed by the path.
+ */
+type ResultCursor = {
+  // Path into `fullResult` this cursor is pointing at.
+  path: ResponsePath,
+
+  // The data pointed by this cursor.
+  data: ResultMap | ResultMap[],
+
+  // The full result .
+  fullResult: ResultMap,
+}
 
 interface ExecutionContext {
   queryPlan: QueryPlan;
@@ -49,12 +70,42 @@ interface ExecutionContext {
   errors: GraphQLError[];
 }
 
+function makeIntrospectionQueryDocument(introspectionSelection: FieldNode): DocumentNode {
+  return {
+    kind: Kind.DOCUMENT,
+    definitions: [
+      {
+        kind: Kind.OPERATION_DEFINITION,
+        operation: OperationTypeNode.QUERY,
+        selectionSet: {
+          kind: Kind.SELECTION_SET,
+          selections: [ introspectionSelection ],
+        }
+      }
+    ],
+  };
+}
+
+function executeIntrospection(
+  schema: GraphQLSchema,
+  introspectionSelection: FieldNode,
+): any {
+  const { data } = executeSync({
+    schema,
+    document: makeIntrospectionQueryDocument(introspectionSelection),
+    rootValue: {},
+  });
+  assert(data, () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed`);
+  return data[introspectionSelection.name.value];
+}
+
 export async function executeQueryPlan(
   queryPlan: QueryPlan,
   serviceMap: ServiceMap,
   requestContext: GatewayGraphQLRequestContext,
   operationContext: OperationContext,
   supergraphSchema: GraphQLSchema,
+  apiSchema: Schema,
 ): Promise<GatewayExecutionResult> {
 
   const logger = requestContext.logger || console;
@@ -72,7 +123,7 @@ export async function executeQueryPlan(
         errors,
       };
 
-      let data: ResultMap | undefined | null = Object.create(null);
+      const unfilteredData: ResultMap = Object.create(null);
 
       const captureTraces = !!(
           requestContext.metrics && requestContext.metrics.captureTraces
@@ -82,8 +133,11 @@ export async function executeQueryPlan(
         const traceNode = await executeNode(
           context,
           queryPlan.node,
-          data!,
-          [],
+          {
+            path: [],
+            data: unfilteredData,
+            fullResult: unfilteredData,
+          },
           captureTraces,
         );
         if (captureTraces) {
@@ -92,27 +146,51 @@ export async function executeQueryPlan(
       }
 
       const result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
-
-        // FIXME: Re-executing the query is a pretty heavy handed way of making sure
-        // only explicitly requested fields are included and field ordering follows
-        // the original query.
-        // It is also used to allow execution of introspection queries though.
+        let data;
         try {
-          const schema = operationContext.schema;
-          ({ data } = await execute({
-            schema,
-            document: {
+          const operation = operationFromDocument(
+            apiSchema,
+            {
               kind: Kind.DOCUMENT,
               definitions: [
                 operationContext.operation,
                 ...Object.values(operationContext.fragments),
               ],
             },
-            rootValue: data,
-            variableValues: requestContext.request.variables,
-            // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
-            fieldResolver: defaultFieldResolverWithAliasSupport,
+            {
+              validate: false,
+            }
+          );
+
+          let postProcessingErrors: GraphQLError[];
+          ({ data, errors: postProcessingErrors } = computeResponse({
+            operation,
+            variables: requestContext.request.variables,
+            input: unfilteredData,
+            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandFragments().toSelectionNode()),
           }));
+
+          // If we have errors during the post-processing, we ignore them if any other errors have been thrown during
+          // query plan execution. That is because in many cases, errors during query plan execution will leave the
+          // internal data in a state that triggers additional post-processing errors, but that leads to 2 errors recorded
+          // for the same problem and that is unexpected by clients. See https://github.com/apollographql/federation/issues/981
+          // for additional context.
+          // If we had no errors during query plan execution, then we do ship any post-processing ones as there is little
+          // reason not to and it might genuinely help debugging (note that if subgraphs return no errors and we assume that
+          // subgraph do return graphQL valid responses, then our composition rules should guarantee no post-processing errors,
+          // so getting a post-processing error points to either 1) a bug in our code or in composition or 2) a subgraph not
+          // returning valid graphQL results, both of which are well worth surfacing (see [this comment for instance](https://github.com/apollographql/federation/pull/159#issuecomment-801132906))).
+          //
+          // That said, note that this is still not perfect in the sense that if someone does get subgraph errors, then
+          // while postProcessingErrors may duplicate those, it may also contain additional unrelated errors (again, something
+          // like a subgraph returning non-grapqlQL valid data unknowingly), and we don't surface those. In a perfect worlds
+          // we've be able to filter the post-proessing errors that duplicate errors from subgraph and still ship anything that
+          // remains, but it's unclear how to do that at all (it migth be that checking the error path helps, but not sure
+          // that's fullproof).
+          if (errors.length === 0 && postProcessingErrors.length > 0) {
+            span.setStatus({ code:SpanStatusCode.ERROR });
+            return { errors: postProcessingErrors, data };
+          }
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });
           if (error instanceof GraphQLError) {
@@ -172,11 +250,10 @@ export async function executeQueryPlan(
 async function executeNode(
   context: ExecutionContext,
   node: PlanNode,
-  results: ResultMap | ResultMap[],
-  path: ResponsePath,
+  currentCursor: ResultCursor | undefined,
   captureTraces: boolean,
 ): Promise<Trace.QueryPlanNode> {
-  if (!results) {
+  if (!currentCursor) {
     // XXX I don't understand `results` threading well enough to understand when this happens
     //     and if this corresponds to a real query plan node that should be reported or not.
     //
@@ -193,8 +270,7 @@ async function executeNode(
         const childTraceNode = await executeNode(
           context,
           childNode,
-          results,
-          path,
+          currentCursor,
           captureTraces,
         );
         traceNode.nodes.push(childTraceNode!);
@@ -203,8 +279,13 @@ async function executeNode(
     }
     case 'Parallel': {
       const childTraceNodes = await Promise.all(
-        node.nodes.map(async childNode =>
-          executeNode(context, childNode, results, path, captureTraces),
+        node.nodes.map(async (childNode) =>
+          executeNode(
+            context,
+            childNode,
+            currentCursor,
+            captureTraces,
+          ),
         ),
       );
       return new Trace.QueryPlanNode({
@@ -225,8 +306,7 @@ async function executeNode(
           node: await executeNode(
             context,
             node.node,
-            flattenResultsAtPath(results, node.path),
-            [...path, ...node.path],
+            moveIntoCursor(currentCursor, node.path),
             captureTraces,
           ),
         }),
@@ -241,8 +321,7 @@ async function executeNode(
         await executeFetch(
           context,
           node,
-          results,
-          path,
+          currentCursor,
           captureTraces ? traceNode : null,
         );
       } catch (error) {
@@ -262,8 +341,7 @@ async function executeNode(
 async function executeFetch(
   context: ExecutionContext,
   fetch: FetchNode,
-  results: ResultMap | (ResultMap | null | undefined)[],
-  _path: ResponsePath,
+  currentCursor: ResultCursor,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
 
@@ -277,11 +355,11 @@ async function executeFetch(
       }
 
       let entities: ResultMap[];
-      if (Array.isArray(results)) {
+      if (Array.isArray(currentCursor.data)) {
         // Remove null or undefined entities from the list
-        entities = results.filter(isNotNullOrUndefined);
+        entities = currentCursor.data.filter(isNotNullOrUndefined);
       } else {
-        entities = [results];
+        entities = [currentCursor.data];
       }
 
       if (entities.length < 1) return;
@@ -300,13 +378,7 @@ async function executeFetch(
       }
 
       if (!fetch.requires) {
-        const dataReceivedFromService = await sendOperation(
-            context,
-            fetch.operation,
-            variables,
-            fetch.operationName,
-            fetch.operationDocumentNode
-        );
+        const dataReceivedFromService = await sendOperation(variables);
 
         for (const entity of entities) {
           deepMerge(entity, withFetchRewrites(dataReceivedFromService, fetch.outputRewrites));
@@ -341,13 +413,7 @@ async function executeFetch(
           throw new Error(`Variables cannot contain key "representations"`);
         }
 
-        const dataReceivedFromService = await sendOperation(
-            context,
-            fetch.operation,
-            {...variables, representations},
-            fetch.operationName,
-            fetch.operationDocumentNode
-        );
+        const dataReceivedFromService = await sendOperation({...variables, representations});
 
         if (!dataReceivedFromService) {
           return;
@@ -384,13 +450,11 @@ async function executeFetch(
       span.end();
     }
   });
+
   async function sendOperation(
-    context: ExecutionContext,
-    source: string,
     variables: Record<string, any>,
-    operationName: string | undefined,
-    operationDocumentNode?: DocumentNode
   ): Promise<ResultMap | void | null> {
+
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
     // (This is admittedly kinda weird, since we currently do pass url and
@@ -420,21 +484,35 @@ async function executeFetch(
     const response = await service.process({
       kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
       request: {
-        query: source,
+        query: fetch.operation,
         variables,
-        operationName,
+        operationName: fetch.operationName,
         http,
       },
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
-      document: operationDocumentNode
+      document: fetch.operationDocumentNode,
     });
 
     if (response.errors) {
+      const errorPathHelper = makeLazyErrorPathGenerator(fetch, currentCursor);
+
       const errors = response.errors.map((error) =>
-        downstreamServiceError(error, fetch.serviceName),
+        downstreamServiceError(error, fetch.serviceName, errorPathHelper),
       );
       context.errors.push(...errors);
+
+      if (!response.extensions?.ftv1) {
+        const errorPaths = response.errors.map((error) => ({
+          subgraph: fetch.serviceName,
+          path: error.path,
+        }));
+        if (context.requestContext.metrics.nonFtv1ErrorPaths) {
+          context.requestContext.metrics.nonFtv1ErrorPaths.push(...errorPaths);
+        } else {
+          context.requestContext.metrics.nonFtv1ErrorPaths = errorPaths;
+        }
+      }
     }
 
     // If we're capturing a trace for Studio, save the received trace into the
@@ -474,7 +552,9 @@ async function executeFetch(
           // to have the default names (Query, Mutation, Subscription) even
           // if the implementing services choose different names, so we override
           // whatever the implementing service reported here.
-          const rootTypeName = defaultRootName(context.operationContext.operation.operation);
+          const rootTypeName = defaultRootName(
+            context.operationContext.operation.operation,
+          );
           traceNode.trace.root?.child?.forEach((child) => {
             child.parentType = rootTypeName;
           });
@@ -484,6 +564,108 @@ async function executeFetch(
     }
 
     return response.data;
+  }
+}
+
+type ErrorPathGenerator = (
+  path: GraphQLErrorOptions['path'],
+) => GraphQLErrorOptions['path'];
+
+/**
+ * Given response data collected so far and a path such as:
+ *
+ *    ["foo", "@", "bar", "@"]
+ *
+ * the returned function generates a list of "hydrated" paths, replacing the
+ * `"@"` with array indices from the actual data. When we encounter an error in
+ * a subgraph fetch, we can use the index in the error's path (e.g.
+ * `["_entities", 2, "boom"]`) to look up the appropriate "hydrated" path
+ * prefix. The result is something like:
+ *
+ *    ["foo", 1, "bar", 2, "boom"]
+ *
+ * The returned function is lazy — if we don't encounter errors and it's never
+ * called, then we never process the response data to hydrate the paths.
+ *
+ * This approach is inspired by Apollo Router: https://github.com/apollographql/router/blob/0fd59d2e11cc09e82c876a5fee263b5658cb9539/apollo-router/src/query_planner/fetch.rs#L295-L403
+ */
+function makeLazyErrorPathGenerator(
+  fetch: FetchNode,
+  cursor: ResultCursor,
+): ErrorPathGenerator {
+  let hydratedPaths: ResponsePath[] | undefined;
+
+  return (errorPath: GraphQLErrorOptions['path']) => {
+    if (fetch.requires && typeof errorPath?.[1] === 'number') {
+      // only generate paths if we need to look them up via entity index
+      if (!hydratedPaths) {
+        hydratedPaths = [];
+        generateHydratedPaths(
+          [],
+          cursor.path,
+          cursor.fullResult,
+          hydratedPaths,
+        );
+      }
+
+      const hydratedPath = hydratedPaths[errorPath[1]] ?? [];
+      return [...hydratedPath, ...errorPath.slice(2)];
+    } else {
+      return errorPath ? [...cursor.path, ...errorPath.slice()] : undefined;
+    }
+  };
+}
+
+/**
+ * Given a deeply nested object and a path such as `["foo", "@", "bar", "@"]`,
+ * walk the path to build up a list of of "hydrated" paths that match the data,
+ * such as:
+ *
+ *    [
+ *      ["foo", 0, "bar", 0, "boom"],
+ *      ["foo", 0, "bar", 1, "boom"]
+ *      ["foo", 1, "bar", 0, "boom"],
+ *      ["foo", 1, "bar", 1, "boom"]
+ *    ]
+ */
+export function generateHydratedPaths(
+  parent: ResponsePath,
+  path: ResponsePath,
+  data: ResultMap | null,
+  result: ResponsePath[],
+) {
+  const head = path[0];
+
+  if (data == null) {
+    return;
+  }
+
+  if (head == null) { // terminate recursion
+    result.push(parent.slice());
+  } else if (head === '@') {
+    assert(Array.isArray(data), 'expected array when encountering `@`');
+    for (const [i, value] of data.entries()) {
+      parent.push(i);
+      generateHydratedPaths(parent, path.slice(1), value, result);
+      parent.pop();
+    }
+  } else if (typeof head === 'string') {
+    if (Array.isArray(data)) {
+      for (const [i, value] of data.entries()) {
+        parent.push(i);
+        generateHydratedPaths(parent, path, value, result);
+        parent.pop();
+      }
+    } else {
+      if (head in data) {
+        const value = data[head];
+        parent.push(head);
+        generateHydratedPaths(parent, path.slice(1), value, result);
+        parent.pop();
+      }
+    }
+  } else {
+    assert(false, `unknown path part "${head}"`);
   }
 }
 
@@ -674,7 +856,16 @@ function doesTypeConditionMatch(
   return false;
 }
 
-function flattenResultsAtPath(value: any, path: ResponsePath): any {
+function moveIntoCursor(cursor: ResultCursor, pathInCursor: ResponsePath): ResultCursor | undefined {
+  const data = flattenResultsAtPath(cursor.data, pathInCursor);
+  return data ? {
+    path: cursor.path.concat(pathInCursor),
+    data,
+    fullResult: cursor.fullResult,
+  } : undefined;
+}
+
+function flattenResultsAtPath(value: ResultCursor['data'] | undefined | null, path: ResponsePath): ResultCursor['data'] | undefined | null {
   if (path.length === 0) return value;
   if (value === undefined || value === null) return value;
 
@@ -682,6 +873,11 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
   if (current === '@') {
     return value.flatMap((element: any) => flattenResultsAtPath(element, rest));
   } else {
+    assert(typeof current === 'string', () => `Unexpected ${typeof current} found in path`);
+    assert(!Array.isArray(value), () => `Unexpected array in result for path element ${current}`);
+    // Note that this typecheck because `value[current]` is of type `any` and so the typechecker "trusts us", but in
+    // practice this only work because we use this on path that do not point to leaf types, and the `value[current]`
+    // is never a base type (non-object nor null/undefined).
     return flattenResultsAtPath(value[current], rest);
   }
 }
@@ -689,8 +885,10 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
 function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
+  generateErrorPath: ErrorPathGenerator,
 ) {
-  let { message, extensions } = originalError;
+  let { message } = originalError;
+  const { extensions } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -698,12 +896,13 @@ function downstreamServiceError(
 
   const errorOptions: GraphQLErrorOptions = {
     originalError: originalError as Error,
+    path: generateErrorPath(originalError.path),
     extensions: {
       ...extensions,
       // XXX The presence of a serviceName in extensions is used to
       // determine if this error should be captured for metrics reporting.
       serviceName,
-    }
+    },
   };
 
   const codeDef = errorCodeDef(originalError);
@@ -713,7 +912,10 @@ function downstreamServiceError(
     return new GraphQLError(message, errorOptions);
   }
   // Otherwise, we either use the code we found and know, or default to a general downstream error code.
-  return (codeDef ?? ERRORS.DOWNSTREAM_SERVICE_ERROR).err(message, errorOptions);
+  return (codeDef ?? ERRORS.DOWNSTREAM_SERVICE_ERROR).err(
+    message,
+    errorOptions,
+  );
 }
 
 export const defaultFieldResolverWithAliasSupport: GraphQLFieldResolver<

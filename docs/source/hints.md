@@ -35,6 +35,7 @@ The following hints might be generated during composition:
 | `FROM_SUBGRAPH_DOES_NOT_EXIST` | Source subgraph specified by @override directive does not exist | `WARN` |
 | `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different. | `WARN` |
 | `DIRECTIVE_COMPOSITION_WARN` | Indicates that an issue was detected when composing custom directives. | `WARN` |
+| `INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN` | Indicates that a @shareable field returns different sets of runtime types in the different subgraphs in which it is defined. | `WARN` |
 
 </div>
 

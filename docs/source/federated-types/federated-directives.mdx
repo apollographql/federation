@@ -580,7 +580,9 @@ type Employee implements User @tag(name: "team-admin") {
 directive @composeDirective(name: String!) repeatable on SCHEMA
 ```
 
-Indicates to composition that all uses of a particular custom directive in the subgraph schema should be preserved in the supergraph schema (by default, composition omits most directives from the supergraph schema).
+Indicates to composition that all uses of a particular custom [type system directive](./composition#type-system-directives) in the subgraph schema should be preserved in the supergraph schema (by default, composition omits most directives from the supergraph schema).
+
+> ⚠️ **Important:** Do not use this directive with an [executable directive](./composition#executable-directives). Executable directives have different rules for composition.
 
 ```graphql
 extend schema

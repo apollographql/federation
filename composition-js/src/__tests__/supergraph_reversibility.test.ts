@@ -90,3 +90,43 @@ it('preserves the source of enum values', () => {
 
   composeAndTestReversibility([s1, s2]);
 });
+
+describe('@interfaceObject', () => {
+  it('correctly extract external fields of concrete type only provided by an @interfaceObject', () => {
+    const s1 = {
+      typeDefs: gql`
+        type Query {
+          iFromS1: I
+        }
+
+        interface I @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+
+        type T implements I @key(fields: "id") {
+          id: ID!
+          x: Int @external
+          y: Int @requires(fields: "x")
+        }
+      `,
+      name: 'S1',
+    };
+
+    const s2 = {
+      typeDefs: gql`
+        type Query {
+          iFromS2: I
+        }
+
+        type I @interfaceObject @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+      name: 'S2',
+    };
+
+    composeAndTestReversibility([s1, s2]);
+  });
+});
