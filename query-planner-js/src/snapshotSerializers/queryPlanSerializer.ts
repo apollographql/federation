@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { DeferredNode, PlanNode, QueryPlan } from '../';
+import { DeferredNode, PlanNode, QueryPlan, QueryPlanSelectionNode } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {
@@ -53,17 +53,22 @@ function printNode(
     );
 
   switch (node.kind) {
-    case 'Fetch':
-      const idStr = node.id ? `, id: ${node.id}` : '';
+    case 'Fetch': // fallthrough intentional
+    case 'SubgraphFetch':
+      let requires: QueryPlanSelectionNode[] | undefined;
+      if (node.kind === 'Fetch') {
+        requires = node.requires;
+      }
+          const idStr = node.id ? `, id: ${node.id}` : '';
       result +=
-        `Fetch(service: "${node.serviceName}"${idStr})` +
+        `${node.kind}(service: "${node.serviceName}"${idStr})` +
         ' {' +
         config.spacingOuter +
-        (node.requires
+        (requires
           ? printer(
               // this is an array of selections, so we need to make it a proper
               // selectionSet so we can print it
-              { kind: Kind.SELECTION_SET, selections: node.requires },
+              { kind: Kind.SELECTION_SET, selections: requires },
               config,
               indentationNext,
               depth,
@@ -78,8 +83,9 @@ function printNode(
         indentation +
         '}';
       break;
-    case 'Flatten':
-      result += `Flatten(path: "${node.path.join('.')}")`;
+    case 'Flatten': // fallthrough intentional
+    case 'Mapping':
+      result += `${node.kind}(path: "${node.path.join('.')}")`;
       break;
     case 'Defer':
       const primary = node.primary;

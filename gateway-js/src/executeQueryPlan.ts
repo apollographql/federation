@@ -26,6 +26,7 @@ import {
   getResponseName,
   FetchDataInputRewrite,
   FetchDataOutputRewrite,
+  SubgraphFetchNode,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -256,17 +257,63 @@ async function executeNode(
     case 'Condition': {
       assert(false, `Condition nodes are not available in the gateway`);
     }
+    case 'SubgraphFetch': {
+      const traceNode = new Trace.QueryPlanNode.FetchNode({
+        serviceName: node.serviceName,
+        // executeFetch will fill in the other fields if desired.
+      });
+      try {
+        await executeFetch(
+          context,
+          node,
+          results,
+          path,
+          captureTraces ? traceNode : null,
+        );
+      } catch (error) {
+        context.errors.push(error);
+      }
+      return new Trace.QueryPlanNode({ fetch: traceNode });
+    }
+    case 'Mapping': {
+      return new Trace.QueryPlanNode({
+        flatten: new Trace.QueryPlanNode.FlattenNode({
+          responsePath: node.path.map(
+            id =>
+              new Trace.QueryPlanNode.ResponsePathElement(
+                typeof id === 'string' ? { fieldName: id } : { index: id },
+              ),
+          ),
+          node: await executeNode(
+            context,
+            node.node,
+            flattenResultsAtPath(results, node.path),
+            [...path, ...node.path],
+            captureTraces,
+          ),
+        }),
+      });
+    }
   }
 }
 
 async function executeFetch(
   context: ExecutionContext,
-  fetch: FetchNode,
+  fetch: FetchNode | SubgraphFetchNode,
   results: ResultMap | (ResultMap | null | undefined)[],
   _path: ResponsePath,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
-
+  let requires: QueryPlanSelectionNode[] | undefined;
+  let inputRewrites: FetchDataInputRewrite[] | undefined;
+  let outputRewrites: FetchDataOutputRewrite[] | undefined;
+  let operationDocumentNode: DocumentNode | undefined;
+  if (fetch.kind === 'Fetch') {
+    requires = fetch.requires;
+    inputRewrites = fetch.inputRewrites;
+    outputRewrites = fetch.outputRewrites;
+    operationDocumentNode = fetch.operationDocumentNode;
+  }
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
 
@@ -299,33 +346,31 @@ async function executeFetch(
         }
       }
 
-      if (!fetch.requires) {
+      if (!requires) {
         const dataReceivedFromService = await sendOperation(
             context,
             fetch.operation,
             variables,
             fetch.operationName,
-            fetch.operationDocumentNode
+            operationDocumentNode
         );
 
         for (const entity of entities) {
-          deepMerge(entity, withFetchRewrites(dataReceivedFromService, fetch.outputRewrites));
+          deepMerge(entity, withFetchRewrites(dataReceivedFromService, outputRewrites));
         }
       } else {
-        const requires = fetch.requires;
-
         const representations: ResultMap[] = [];
         const representationToEntity: number[] = [];
 
         entities.forEach((entity, index) => {
           const representation = executeSelectionSet(
-            // Note that `requires` may include references to inacessible elements, so we should "execute" it using the supergrah
+            // Note that `requires` may include references to inaccessible elements, so we should "execute" it using the supergrah
             // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
             // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
             context.supergraphSchema,
             entity,
-            requires,
-            fetch.inputRewrites,
+            requires!,
+            inputRewrites,
           );
           if (representation && representation[TypeNameMetaFieldDef.name]) {
             representations.push(representation);
@@ -346,7 +391,7 @@ async function executeFetch(
             fetch.operation,
             {...variables, representations},
             fetch.operationName,
-            fetch.operationDocumentNode
+            operationDocumentNode,
         );
 
         if (!dataReceivedFromService) {
@@ -371,7 +416,7 @@ async function executeFetch(
         }
 
         for (let i = 0; i < entities.length; i++) {
-          deepMerge(entities[representationToEntity[i]], withFetchRewrites(receivedEntities[i], filterEntityRewrites(representations[i], fetch.outputRewrites)));
+          deepMerge(entities[representationToEntity[i]], withFetchRewrites(receivedEntities[i], filterEntityRewrites(representations[i], outputRewrites)));
         }
       }
     }
