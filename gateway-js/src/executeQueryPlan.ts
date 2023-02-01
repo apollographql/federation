@@ -485,13 +485,7 @@ async function executeFetch(
         Object.entries(record ?? {}).forEach(([k,v]) => {
           varsWithInputs[k] = v;
         });
-        const dataReceivedFromService = await sendOperation(
-            context,
-            fetch.operation,
-            varsWithInputs,
-            fetch.operationName,
-            operationDocumentNode
-        );
+        const dataReceivedFromService = await sendOperation(varsWithInputs);
         let finderResult = {};
         for (const usage of fetch.variableUsages!) {
           finderResult = {
@@ -617,7 +611,7 @@ async function executeFetch(
     });
 
     if (response.errors) {
-      const errorPathHelper = makeLazyErrorPathGenerator(fetch, currentCursor);
+      const errorPathHelper = makeLazyErrorPathGenerator(currentCursor, requires);
 
       const errors = response.errors.map((error) =>
         downstreamServiceError(error, fetch.serviceName, errorPathHelper),
@@ -712,13 +706,14 @@ type ErrorPathGenerator = (
  * This approach is inspired by Apollo Router: https://github.com/apollographql/router/blob/0fd59d2e11cc09e82c876a5fee263b5658cb9539/apollo-router/src/query_planner/fetch.rs#L295-L403
  */
 function makeLazyErrorPathGenerator(
-  fetch: FetchNode,
   cursor: ResultCursor,
+  requires?: QueryPlanSelectionNode[],
 ): ErrorPathGenerator {
   let hydratedPaths: ResponsePath[] | undefined;
 
   return (errorPath: GraphQLErrorOptions['path']) => {
-    if (fetch.requires && typeof errorPath?.[1] === 'number') {
+
+    if (requires && typeof errorPath?.[1] === 'number') {
       // only generate paths if we need to look them up via entity index
       if (!hydratedPaths) {
         hydratedPaths = [];

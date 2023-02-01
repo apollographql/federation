@@ -4623,7 +4623,7 @@ function operationForFindersFetch({
     ),
   );
 
-  return new Operation('query', finderCall, variableDefinitions, operationName);
+  return new Operation(subgraphSchema, 'query', finderCall, variableDefinitions, operationName);
 }
 
 function operationForQueryFetch(
