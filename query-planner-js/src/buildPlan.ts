@@ -1373,11 +1373,9 @@ class FetchGroup {
     if (!entityName) { // TODO: Should this be an assert?
       return [];
     }
-    console.log(entityName);
     const schema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     const finders = (schema.directive(FederationDirectiveName.FINDER)?.applications() ?? [])
       .filter(directive => {
-        console.log('checking directive', directive);
         const parent = directive.parent as any; // TODO: Avoid cast
         if (parent.type?.name === entityName && parent.arguments().length === 1) {
           const inputNodes = inputs?.toSelectionSetNode();
