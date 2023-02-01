@@ -27,6 +27,7 @@ import {
   QueryPlanFieldNode,
   getResponseName,
   evaluateCondition,
+  SubgraphFetchNode,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -88,7 +89,7 @@ function makeIntrospectionQueryDocument(
   const usedVariables = collectUsedVariables(introspectionSelection);
   const usedVariableDefinitions = variableDefinitions?.filter((def) => usedVariables.has(def.variable.name.value));
   assert(
-    usedVariables.size === (usedVariableDefinitions?.length ?? 0), 
+    usedVariables.size === (usedVariableDefinitions?.length ?? 0),
     () => `Should have found all used variables ${[...usedVariables]} in definitions ${JSON.stringify(variableDefinitions)}`,
   );
   return {
@@ -381,7 +382,7 @@ async function executeNode(
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
     case 'Condition': {
-      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables); 
+      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables);
       const pickedBranch = condition ? node.ifClause : node.elseClause;
       let branchTraceNode: Trace.QueryPlanNode | undefined = undefined;
       if (pickedBranch) {
@@ -413,7 +414,16 @@ async function executeFetch(
   currentCursor: ResultCursor,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
-
+  let requires: QueryPlanSelectionNode[] | undefined;
+  let inputRewrites: FetchDataInputRewrite[] | undefined;
+  let outputRewrites: FetchDataOutputRewrite[] | undefined;
+  let operationDocumentNode: DocumentNode | undefined;
+  if (fetch.kind === 'Fetch') {
+    requires = fetch.requires;
+    inputRewrites = fetch.inputRewrites;
+    outputRewrites = fetch.outputRewrites;
+    operationDocumentNode = fetch.operationDocumentNode;
+  }
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
 
@@ -456,14 +466,12 @@ async function executeFetch(
           deepMerge(entity, dataReceivedFromService);
         }
       } else {
-        const requires = fetch.requires;
-
         const representations: ResultMap[] = [];
         const representationToEntity: number[] = [];
 
         entities.forEach((entity, index) => {
           const representation = executeSelectionSet(
-            // Note that `requires` may include references to inacessible elements, so we should "execute" it using the supergrah
+            // Note that `requires` may include references to inaccessible elements, so we should "execute" it using the supergrah
             // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
             // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
             context.supergraphSchema,
