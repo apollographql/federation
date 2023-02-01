@@ -4,8 +4,32 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## vNext
 
+## 2.3.0
+- Fix unexpected composition error about `@shareable` field when `@external` is on a type in a fed1 schema (one without `@link`) [PR #2343](https://github.com/apollographql/federation/pull/2343).
+- Fix issue with some `@interfaceObject` queries due to missing "input rewrites" [PR #2346](https://github.com/apollographql/federation/pull/2346).
+
+## 2.3.0-beta.3
+- Rewrites gateway response post-processing to avoid `@interfaceObject` related issues [PR 2335](https://github.com/apollographql/federation/pull/2335).
+- Generates correct response error paths for errors thrown during entity fetches [PR #2304](https://github.com/apollographql/federation/pull/2304).
+
+## 2.3.0-beta.2
+- Improves generation of plans once all path options are computed [PR #2316](https://github.com/apollographql/federation/pull/2316).
+- Fixes composition issues with `@interfaceObject` [PR #2318](https://github.com/apollographql/federation/pull/2318).
+- Fix potential issue with nested `@defer` in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312).
+- Adds support for the 0.3 version of the tag spec, which adds `@tag` directive support for the `SCHEMA` location [PR #2314](https://github.com/apollographql/federation/pull/2314).
+- Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
+  must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
+  intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
+
+## 2.3.0-alpha.0
+
 - Adds support for `@interfaceObject` and keys on interfaces [PR #2279](https://github.com/apollographql/federation/pull/2279).
 - Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+- __BREAKING__: composition now rejects `@override` on interface fields. The `@override` directive was not
+  meant to be supported on interfaces and was not having any impact whatsoever. If an existing subgraph does have a
+  `@override` on an interface field, this will now be rejected, but the `@override` can simply and safely be removed
+  since it previously was ignored.
 
 ## 2.2.2
 

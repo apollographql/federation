@@ -95,7 +95,9 @@ const legacyFederationDirectives = [
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
-  TAG_VERSIONS.latest().tagDirectiveSpec,
+  // This should really be v0.1 instead of v0.2, but we can't change this to
+  // v0.1 without checking whether anyone relied on the v0.2 behavior.
+  TAG_VERSIONS.find(new FeatureVersion(0, 2))!.tagDirectiveSpec,
   extendsDirectiveSpec,
 ];
 
@@ -161,6 +163,9 @@ export class FederationSpecDefinition extends FeatureDefinition {
         name: FederationDirectiveName.INTERFACE_OBJECT,
         locations: [DirectiveLocation.OBJECT],
       }));
+      this.registerDirective(
+        TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
+      );
     }
     if (version >= (new FeatureVersion(2, 4))) {
       this.registerDirective(createDirectiveSpecification({

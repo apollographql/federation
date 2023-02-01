@@ -5314,3 +5314,139 @@ test('handles spread unions correctly', () => {
     }
   `);
 })
+
+test('handles case of key chains in parallel requires', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      union T = T1 | T2
+
+      type T1 @key(fields: "id1") {
+        id1: ID!
+      }
+
+      type T2 @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T1 @key(fields: "id1")  @key(fields: "id2") {
+        id1: ID!
+        id2: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T1 @key(fields: "id2") {
+        id2: ID!
+        x: Int
+      }
+
+      type T2 @key(fields: "id") {
+        id: ID!
+        y: Int @external
+        z: Int @requires(fields: "y")
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          z
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ... on T1 {
+                __typename
+                id1
+              }
+              ... on T2 {
+                __typename
+                id
+                y
+              }
+            }
+          }
+        },
+        Parallel {
+          Sequence {
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id1
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    id2
+                  }
+                }
+              },
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on T1 {
+                    __typename
+                    id2
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    x
+                  }
+                }
+              },
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on T2 {
+                  __typename
+                  id
+                  y
+                }
+              } =>
+              {
+                ... on T2 {
+                  z
+                }
+              }
+            },
+          },
+        },
+      },
+    }
+  `);
+});

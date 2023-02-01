@@ -211,6 +211,16 @@ function isGraphQLBuiltInDirective(def: DirectiveDefinition): boolean {
   return !!def.schema().builtInDirective(def.name);
 }
 
+function printTypes<T extends NamedType>(types: T[]): string {
+  return printHumanReadableList(
+    types.map((t) => `"${t.coordinate}"`),
+    {
+      prefix: 'type',
+      prefixPlural: 'types',
+    }
+  );
+}
+
 type MergedDirectiveInfo = {
   specInSupergraph: FeatureDefinition,
   definitionInSubgraph: (subgraph: Subgraph) => DirectiveDefinition,
@@ -452,7 +462,6 @@ class Merger {
     }
 
     this.mergeAllAppliedDirectives();
-
 
     // When @interfaceObject is used in a subgraph, then that subgraph essentially provides fields both
     // to the interface but also to all its implementations. But so far, we only merged the type definition
@@ -921,6 +930,17 @@ class Merger {
             // from any particular subgraph (it comes indirectly from an @interfaceObject type,
             // but it's very much indirect so ...).
             implemField.applyDirective(joinSpec.fieldDirective(this.merged), { graph: undefined });
+
+
+            // If we had to add a field here, it means that, for this particular implementation, the
+            // field is only provided through the @interfaceObject. But because the field wasn't
+            // merged, it also mean we haven't validated field sharing for that field, and we could
+            // have field sharing concerns if the field is provided by multiple @interfaceObject.
+            // So we validate field sharing now (it's convenient to wait until now as now that
+            // the field is part of the supergraph, we can just call `validateFieldSharing` with
+            // all sources `undefined` and it wil still find and check the `@interfaceObject`).
+            const sources = new Array<undefined>(this.names.length);
+            this.validateFieldSharing(sources, implemField, new FieldMergeContext(sources));
           }
         }
       }
@@ -1058,14 +1078,17 @@ class Merger {
    * Validates whether or not the use of the @override directive is correct.
    * return value is a list of fields that has been filtered to ignore overridden fields
    */
-  private validateOverride(sources: FieldOrUndefinedArray, { coordinate }: FieldDefinition<any>): FieldMergeContext {
+  private validateOverride(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>): FieldMergeContext {
     const result = new FieldMergeContext(sources);
 
     // For any field, we can't have more than one @override directive
     type MappedValue = {
       idx: number,
       name: string,
-      overrideDirective: Directive<FieldDefinition<any>> | undefined,
+      isInterfaceField?: boolean,
+      isInterfaceObject?: boolean,
+      interfaceObjectAbstractingFields?: FieldDefinition<any>[],
+      overrideDirective?: Directive<FieldDefinition<any>>,
     };
 
     type ReduceResultType = {
@@ -1076,11 +1099,25 @@ class Merger {
     // convert sources to a map so we don't have to keep scanning through the array to find a source
     const { subgraphsWithOverride, subgraphMap } = sources.map((source, idx) => {
       if (!source) {
+        // While the subgraph may not have the field directly, it could have "stand-in" for that field
+        // through @interfaceObject, and it is those stand-ins that would be effectively overridden. 
+        const interfaceObjectAbstractingFields = this.fieldsInSourceIfAbstractedByInterfaceObject(dest, idx);
+        if (interfaceObjectAbstractingFields.length > 0) {
+          return {
+            idx,
+            name: this.names[idx],
+            interfaceObjectAbstractingFields,
+          };
+        }
+
         return undefined;
       }
+
       return {
         idx,
         name: this.names[idx],
+        isInterfaceField: isInterfaceType(source.parent),
+        isInterfaceObject: this.metadata(idx).isInterfaceObjectType(source.parent),
         overrideDirective: this.getOverrideDirective(idx, source),
       };
     }).reduce((acc: ReduceResultType, elem) => {
@@ -1095,35 +1132,63 @@ class Merger {
 
     // for each subgraph that has an @override directive, check to see if any errors or hints should be surfaced
     subgraphsWithOverride.forEach((subgraphName) => {
-      const { overrideDirective, idx } = subgraphMap[subgraphName];
-      const sourceSubgraphName = overrideDirective?.arguments()?.from;
+      const { overrideDirective, idx, isInterfaceObject, isInterfaceField } = subgraphMap[subgraphName];
       const overridingSubgraphASTNode = overrideDirective?.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
+      if (isInterfaceField) {
+        this.errors.push(ERRORS.OVERRIDE_ON_INTERFACE.err(
+          `@override cannot be used on field "${dest.coordinate}" on subgraph "${subgraphName}": @override is not supported on interface type fields.`,
+          { nodes: overridingSubgraphASTNode }
+        ));
+        return;
+      }
+
+      if (isInterfaceObject) {
+        this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
+          `@override is not yet supported on fields of @interfaceObject types: cannot be used on field "${dest.coordinate}" on subgraph "${subgraphName}".`,
+          { nodes: overridingSubgraphASTNode }
+        ));
+        return;
+      }
+
+      const sourceSubgraphName = overrideDirective?.arguments()?.from;
       if (!this.names.includes(sourceSubgraphName)) {
         result.setOverrideWithUnknownTarget(idx);
         const suggestions = suggestionList(sourceSubgraphName, this.names);
         const extraMsg = didYouMean(suggestions);
         this.hints.push(new CompositionHint(
           HINTS.FROM_SUBGRAPH_DOES_NOT_EXIST,
-          `Source subgraph "${sourceSubgraphName}" for field "${coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
+          `Source subgraph "${sourceSubgraphName}" for field "${dest.coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
           overridingSubgraphASTNode,
         ));
       } else if (sourceSubgraphName === subgraphName) {
         this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err(
-          `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${coordinate}"`,
+          `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${dest.coordinate}"`,
           { nodes: overrideDirective?.sourceAST },
         ));
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
         this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err(
-          `Field "${coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
+          `Field "${dest.coordinate}" on subgraph "${subgraphName}" is also marked with directive @override in subgraph "${sourceSubgraphName}". Only one @override directive is allowed per field.`,
           { nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective) }
         ));
       } else if (subgraphMap[sourceSubgraphName] === undefined) {
         this.hints.push(new CompositionHint(
           HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
-          `Field "${coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
+          `Field "${dest.coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
           overridingSubgraphASTNode,
         ));
       } else {
+        // For now, we don't supporting overriding a field that is not truly in the source subgraph, but is instead abstracted by
+        // one or more @interfaceObject.
+        const { interfaceObjectAbstractingFields } = subgraphMap[sourceSubgraphName];
+        if (interfaceObjectAbstractingFields) {
+          const abstractingTypes = printTypes(interfaceObjectAbstractingFields.map((f) => f.parent));
+          this.errors.push(ERRORS.OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE.err(
+            `Invalid @override on field "${dest.coordinate}" of subgraph "${subgraphName}": source subgraph "${sourceSubgraphName}" does not have field "${dest.coordinate}" but abstract it in ${abstractingTypes} and overriding abstracted fields is not supported.`,
+            { nodes: sourceASTs(overrideDirective, subgraphMap[sourceSubgraphName].overrideDirective) }
+          ));
+          return;
+        }
+
         // check to make sure that there is no conflicting @provides, @requires, or @external directives
         const fromIdx = this.names.indexOf(sourceSubgraphName);
         const fromField = sources[fromIdx];
@@ -1150,21 +1215,21 @@ class Merger {
             // removed) so the @override can be removed.
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
-              `Field "${coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
+              `Field "${dest.coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
               overridingSubgraphASTNode,
             ));
           } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
             result.setUsedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
-              `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+              `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
               overriddenSubgraphASTNode,
             ));
           } else {
             result.setUnusedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
-              `Field "${coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
+              `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
               overriddenSubgraphASTNode,
             ));
           }
@@ -1175,9 +1240,45 @@ class Merger {
     return result;
   }
 
+  /**
+   * Given a supergraph field `f` for an object type `T` and a given subgraph (identified by its index) where
+   * `T` is not defined, check if that subgraph defines one or more of the interface of `T` as @interfaceObject,
+   * and if so return any instance of `f` on those @interfaceObject.
+   */
+  private fieldsInSourceIfAbstractedByInterfaceObject(destField: FieldDefinition<any>, sourceIdx: number): FieldDefinition<any>[] {
+    const parentInSupergraph = destField.parent;
+    const schema = this.subgraphsSchema[sourceIdx];
+    if (!isObjectType(parentInSupergraph) || schema.type(parentInSupergraph.name)) {
+      return [];
+    }
+
+    return parentInSupergraph.interfaces().map((itfType) => {
+      if (!itfType.field(destField.name)) {
+        return undefined;
+      }
+      const typeInSchema = schema.type(itfType.name);
+      // Note that since the type is an interface in the supergraph, we can assume that
+      // if it is an object type in the subgraph, then it is an @interfaceObject.
+      if (!typeInSchema || !isObjectType(typeInSchema)) {
+        return undefined;
+      }
+      return typeInSchema.field(destField.name);
+    }).filter(isDefined);
+  }
+
   private mergeField(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext = new FieldMergeContext(sources)) {
-    if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
-      const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
+    if (sources.every((s, i) => s === undefined ? this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i).every((f) => this.isExternal(i, f)) : this.isExternal(i, s))) {
+      const definingSubgraphs = sources.map((source, i) => {
+        if (source) {
+          return this.names[i];
+        }
+
+        const itfObjectFields = this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i);
+        if (itfObjectFields.length === 0) {
+          return undefined;
+        }
+        return `${this.names[i]} (through @interaceObject ${printTypes(itfObjectFields.map((f) => f.parent))})`;
+      }).filter(isDefined);
       const nodes = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
       this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err(
         `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
@@ -1187,6 +1288,7 @@ class Merger {
     }
 
     const withoutExternal = this.validateAndFilterExternal(sources);
+
     // Note that we don't truly merge externals: we don't want, for instance, a field that is non-nullable everywhere to appear nullable in the
     // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
     // validate the external ones are consistent.
@@ -1197,36 +1299,88 @@ class Merger {
       const subgraphArgs = withoutExternal.map(f => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
-    const allTypesEqual = this.mergeTypeReference(withoutExternal, dest);
+    // Note that due to @interfaceObject, it's possible that `withoutExternal` is "empty" (has no
+    // non-undefined at all) but to still get here. That is, we can have:
+    // ```
+    //   # First subgraph
+    //   interface I {
+    //     id: ID!
+    //     x: Int
+    //   }
+    //
+    //   type T implements I @key(fields: "id") {
+    //     id: ID!
+    //     x: Int @external
+    //     y: Int @requires(fields: "x")
+    //   }
+    // ```
+    // and
+    // ```
+    //   # Second subgraph
+    //   type I @interfaceObject @key(fields: "id") {
+    //     id: ID!
+    //     x: Int
+    //   }
+    // ```
+    // In that case, it is valid to mark `T.x` external because it is provided by
+    // another subgraph, the second one, through the interfaceObject object on I.
+    // But because the first subgraph is the only one to have `T` and `x` is
+    // external there, `withoutExternal` will be false.
+    //
+    // Anyway, we still need to merge a type in the supergraph, so in that case
+    // we use merge the external declarations directly.
+    const allTypesEqual = withoutExternal.every((s) => !s)
+      ? this.mergeTypeReference(sources, dest)
+      : this.mergeTypeReference(withoutExternal, dest);
+
     if (this.hasExternal(sources)) {
       this.validateExternalFields(sources, dest, allTypesEqual);
     }
     this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
   }
 
-  private validateFieldSharing(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext) {
-    const shareableSources: number[] = [];
-    const nonShareableSources: number[] = [];
-    const allResolving: FieldDefinition<any>[] = [];
+  private validateFieldSharing(sources: FieldOrUndefinedArray, dest: FieldDefinition<ObjectType>, mergeContext: FieldMergeContext) {
+    const shareableSources: { subgraph: string, idx: number}[] = [];
+    const nonShareableSources: { subgraph: string, idx: number}[] = [];
+    const allResolving: { subgraph: string, field: FieldDefinition<any> }[] = [];
+
+    const categorizeField = (idx: number, subgraph: string, field: FieldDefinition<any>) => {
+      if (!this.isFullyExternal(idx, field)) {
+        allResolving.push({ subgraph, field });
+        if (this.isShareable(idx, field)) {
+          shareableSources.push({subgraph, idx});
+        } else {
+          nonShareableSources.push({subgraph, idx});
+        }
+      }
+    };
+
     for (const [i, source] of sources.entries()) {
-      const overridden = mergeContext.isUsedOverridden(i) || mergeContext.isUnusedOverridden(i);
-      if (!source || this.isFullyExternal(i, source) || overridden) {
+      const subgraph = '"' + this.names[i] + '"';
+      if (!source) {
+        const itfObjectFields = this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i);
+        // In theory, a type can implement multiple interfaces and all of them could be a @interfaceObject in
+        // the source and provide the field. If so, we want to consider each as a different source of the
+        // field.
+        itfObjectFields.forEach((field) => categorizeField(i, subgraph + ` (through @interfaceObject field "${field.coordinate}")`, field));
         continue;
       }
 
-      allResolving.push(source);
-      if (this.isShareable(i, source)) {
-        shareableSources.push(i);
-      } else {
-        nonShareableSources.push(i);
+      if (mergeContext.isUsedOverridden(i) || mergeContext.isUnusedOverridden(i)) {
+        continue;
       }
+
+      categorizeField(i, subgraph, source);
     }
 
     if (nonShareableSources.length > 0 && (shareableSources.length > 0 || nonShareableSources.length > 1)) {
-      const resolvingSubgraphs = nonShareableSources.concat(shareableSources).map((s) => this.names[s]);
-      const nonShareables = shareableSources.length > 0
-        ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
-        : 'all of them';
+      const printSubgraphs = (l: {subgraph: string}[]) => printHumanReadableList(
+        l.map(({subgraph}) => subgraph),
+        // When @interfaceObject is involved, the strings we print can be somewhat long, so we increase the cutoff size somewhat.
+        { prefix: 'subgraph', prefixPlural: 'subgraphs', cutoff_output_length: 500 }
+      );
+      const resolvingSubgraphs = printSubgraphs(allResolving);
+      const nonShareables = shareableSources.length > 0 ? printSubgraphs(nonShareableSources) : 'all of them';
 
       // An easy-to-make error that can lead here is the mispelling of the `from` argument of an @override. Because in that case, the
       // @override will essentially be ignored (we'll have logged a warning, but the error we're about to log will overshadow it) and
@@ -1237,14 +1391,14 @@ class Merger {
       // case the shareable error is legit; so keep the shareabilty error with a strong hint is hopefully good enough in practice).
       // Note: if there is multiple non-shareable fields with "target-less overrides", we only hint about one of them, because that's
       // easier and almost surely good enough to bring the attention of the user to potential typo in @override usage.
-      const subgraphWithTargetlessOverride = nonShareableSources.find((s) => mergeContext.hasOverrideWithUnknownTarget(s));
+      const subgraphWithTargetlessOverride = nonShareableSources.find(({idx}) => mergeContext.hasOverrideWithUnknownTarget(idx));
       let extraHint = '';
       if (subgraphWithTargetlessOverride !== undefined) {
-        extraHint = ` (please note that "${dest.coordinate}" has an @override directive in "${this.names[subgraphWithTargetlessOverride]}" that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)`;
+        extraHint = ` (please note that "${dest.coordinate}" has an @override directive in ${subgraphWithTargetlessOverride.subgraph} that targets an unknown subgraph so this could be due to misspelling the @override(from:) argument)`;
       }
       this.errors.push(ERRORS.INVALID_FIELD_SHARING.err(
-        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}${extraHint}`,
-        { nodes: sourceASTs(...allResolving) },
+        `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${resolvingSubgraphs} and defined as non-shareable in ${nonShareables}${extraHint}`,
+        { nodes: sourceASTs(...allResolving.map(({field}) => field)) },
       ));
     }
   }
@@ -1661,12 +1815,14 @@ class Merger {
 
   private mergeInterface(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
     this.validateInterfaceKeys(sources, dest);
+    this.validateInterfaceObjects(sources, dest);
 
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
       this.hintOnInconsistentValueTypeField(sources, dest, destField);
       const subgraphFields = sources.map(t => t?.field(destField.name));
-      this.mergeField(subgraphFields, destField);
+      const mergeContext = this.validateOverride(subgraphFields, destField);
+      this.mergeField(subgraphFields, destField, mergeContext);
     }
   }
 
@@ -1692,20 +1848,42 @@ class Merger {
       const implementationsInSubgraph = source.possibleRuntimeTypes();
       if (implementationsInSubgraph.length < supergraphImplementations.length) {
         const missingImplementations = supergraphImplementations.filter((superImpl) => !implementationsInSubgraph.some((subgImpl) => superImpl.name === subgImpl.name));
-        const typesString = printHumanReadableList(
-          missingImplementations.map((i) => `"${i.coordinate}"`),
-          {
-            prefix: 'type',
-            prefixPlural: 'types',
-          }
-        );
         this.errors.push(addSubgraphToError(
           ERRORS.INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE.err(
             `Interface type "${source.coordinate}" has a resolvable key (${resolvableKey}) in subgraph "${this.names[idx]}" but that subgraph is missing some of the supergraph implementation types of "${dest.coordinate}". `
-            + `Subgraph "${this.names[idx]}" should define ${typesString} (and have ${missingImplementations.length > 1 ? 'them' : 'it'} implement "${source.coordinate}").`,
+            + `Subgraph "${this.names[idx]}" should define ${printTypes(missingImplementations)} (and have ${missingImplementations.length > 1 ? 'them' : 'it'} implement "${source.coordinate}").`,
             { nodes: resolvableKey.sourceAST},
           ),
           this.names[idx],
+        ));
+      }
+    }
+  }
+
+  private validateInterfaceObjects(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
+    const supergraphImplementations = dest.possibleRuntimeTypes();
+
+    // Validates that if a source defines the interface as an @interfaceObject, then it doesn't define any
+    // of the implementations. We can discuss if there is ways to lift that limitation later, but an
+    // @interfaceObject already "provides" fields for all the underlying impelmentations, so also defining
+    // one those implementation would require additional care for shareability and more. This also feel
+    // like this can get easily be done by mistake and gets rather confusing, so it's worth some additional
+    // consideration before allowing.
+    for (const [idx, source] of sources.entries()) {
+      if (!source || !this.metadata(idx).isInterfaceObjectType(source)) {
+        continue;
+      }
+
+      const subgraphName = this.names[idx];
+      const schema = source.schema();
+      const definedImplementations = supergraphImplementations.map((i) => schema.type(i.name)).filter(isDefined);
+      if (definedImplementations.length > 0) {
+        this.errors.push(addSubgraphToError(
+          ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
+            `Interface type "${dest.coordinate}" is defined as an @interfaceObject in subgraph "${subgraphName}" so that subgraph should not define any of the implementation types of "${dest.coordinate}", but it defines ${printTypes(definedImplementations)}`,
+            { nodes: sourceASTs(source, ...definedImplementations) },
+          ),
+          subgraphName,
         ));
       }
     }

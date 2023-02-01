@@ -482,6 +482,11 @@ const EMPTY_MERGED_ENUM_TYPE = makeCodeDefinition(
   'An enum type has no value common to all the subgraphs that define the type. Merging that type would result in an invalid empty enum type.'
 );
 
+const SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES = makeCodeDefinition(
+  'SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES',
+  'A shareable field return type has mismatched possible runtime types in the subgraphs in which the field is declared. As shared fields must resolve the same way in all subgraphs, this is almost surely a mistake.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -500,6 +505,12 @@ const OVERRIDE_SOURCE_HAS_OVERRIDE = makeCodeDefinition(
 const OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE = makeCodeDefinition(
   'OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE',
   'The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires.',
+);
+
+const OVERRIDE_ON_INTERFACE = makeCodeDefinition(
+  'OVERRIDE_ON_INTERFACE',
+  'The @override directive cannot be used on the fields of an interface type.',
+  { addedIn: '2.3.0' },
 );
 
 const UNSUPPORTED_FEATURE = makeCodeDefinition(
@@ -622,10 +633,12 @@ export const ERRORS = {
   EMPTY_MERGED_INPUT_TYPE,
   ENUM_VALUE_MISMATCH,
   EMPTY_MERGED_ENUM_TYPE,
+  SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES,
   SATISFIABILITY_ERROR,
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
+  OVERRIDE_ON_INTERFACE,
   UNSUPPORTED_FEATURE,
   INVALID_FEDERATION_SUPERGRAPH,
   DOWNSTREAM_SERVICE_ERROR,

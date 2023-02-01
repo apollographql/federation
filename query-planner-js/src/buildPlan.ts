@@ -98,6 +98,7 @@ import {
 import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
+import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubgraphFetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -281,6 +282,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
     const operation = selection.element();
+    debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
       const followupForOption = advanceSimultaneousPathsWithOperation(this.supergraphSchema, option, operation);
@@ -316,8 +318,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.closedBranches.push([option.paths.map(p => terminateWithNonRequestedTypenameField(p))]);
+          this.closedBranches.push(options.map((o) => o.paths.map(p => terminateWithNonRequestedTypenameField(p))));
         }
+        debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
       }
       newOptions = newOptions.concat(followupForOption);
@@ -329,13 +332,14 @@ class QueryPlanningTraversal<RV extends Vertex> {
       // This should never happen for a top-level query planning (unless the supergraph has *not* been
       // validated), but can happen when computing sub-plans for a key condition.
       if (this.isTopLevel) {
-        debug.log(`No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
+        debug.groupEnd(() => `No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
         throw new Error(`Was not able to find any options for ${selection}: This shouldn't have happened.`);
       } else {
         // We clear both open branches and closed ones as a mean to terminate the plan computation with
         // no plan
         this.stack.splice(0, this.stack.length);
         this.closedBranches.splice(0, this.closedBranches.length);
+        debug.groupEnd(() => `No possible plan for ${selection} from ${advanceOptionsToString(options)}; terminating condition`);
         return;
       }
     }
@@ -344,9 +348,11 @@ class QueryPlanningTraversal<RV extends Vertex> {
       for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
         this.stack.push(branch);
       }
+      debug.groupEnd();
     } else {
       const updated = this.maybeEliminateStrictlyMoreCostlyPaths(newOptions);
       this.closedBranches.push(updated);
+      debug.groupEnd(() => `Branch finished with ${updated.length} options`);
     }
   }
 
@@ -507,45 +513,35 @@ class QueryPlanningTraversal<RV extends Vertex> {
       initialDependencyGraph = this.updatedDependencyGraph(this.newDependencyGraph(), initialTree);
       if (idxFirstOfLengthOne === 0) {
         // Well, we have the only possible plan; it's also the best.
-        this.onNewPlan(initialDependencyGraph, initialTree);
+        this.bestPlan = [initialDependencyGraph, initialTree, this.cost(initialDependencyGraph)];
         return;
       }
     }
 
     const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map(b => b.map(opt => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
-    this.generateAllPlans(initialDependencyGraph, initialTree, otherTrees);
-  }
-
-  generateAllPlans(initialDependencyGraph: FetchDependencyGraph, initialTree: OpPathTree<RV>, others: OpPathTree<RV>[][]) {
-    // Track, for each element, at which index we are
-    const eltIndexes = new Array<number>(others.length);
-    let totalCombinations = 1;
-    for (let i = 0; i < others.length; ++i) {
-      const eltSize = others[i].length;
-      assert(eltSize > 0, "Got empty option: this shouldn't have happened");
-      eltIndexes[i] = 0;
-      totalCombinations *= eltSize;
-    }
-
-    for (let i = 0; i < totalCombinations; ++i){
-      const dependencyGraph = initialDependencyGraph.clone();
-      let tree = initialTree;
-      for (let j = 0; j < others.length; ++j) {
-        const t = others[j][eltIndexes[j]];
-        this.updatedDependencyGraph(dependencyGraph, t);
-        tree = tree.merge(t);
-      }
-      this.onNewPlan(dependencyGraph, tree);
-
-      for (let idx = 0; idx < others.length; ++idx) {
-        if (eltIndexes[idx] == others[idx].length - 1) {
-          eltIndexes[idx] = 0;
-        } else {
-          eltIndexes[idx] += 1;
-          break;
-        }
-      }
-    }
+    const { best, cost} = generateAllPlansAndFindBest({
+      initial: { graph: initialDependencyGraph, tree: initialTree },
+      toAdd: otherTrees,
+      addFct: (p, t) => {
+        const updatedDependencyGraph = p.graph.clone();
+        this.updatedDependencyGraph(updatedDependencyGraph, t);
+        const updatedTree = p.tree.merge(t);
+        return { graph: updatedDependencyGraph, tree: updatedTree };
+      },
+      costFct: (p) => this.cost(p.graph),
+      onPlan: (p, cost, prevCost) => {
+        debug.log(() => {
+          if (!prevCost) {
+            return `Computed plan with cost ${cost}: ${p.tree}`;
+          } else if (cost > prevCost) {
+            return `Found better with cost ${cost} (previous had cost ${prevCost}: ${p.tree}`;
+          } else {
+            return `Ignoring plan with cost ${cost} (a better plan with cost ${prevCost} exists): ${p.tree}`
+          }
+        });
+      },
+    });
+    this.bestPlan = [best.graph, best.tree, cost];
   }
 
   private cost(dependencyGraph: FetchDependencyGraph): number {
@@ -580,19 +576,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
     return bestPlan ? { satisfied: true, cost: bestPlan[2], pathTree: bestPlan[1] } : unsatisfiedConditionsResolution;
-  }
-
-  private onNewPlan(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>) {
-    const cost = this.cost(dependencyGraph);
-    //if (isTopLevel) {
-    //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
-    //}
-    if (!this.bestPlan || cost < this.bestPlan[2]) {
-      debug.log(() => this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${tree}`: `Computed plan with cost ${cost}: ${tree}`);
-      this.bestPlan = [dependencyGraph, tree, cost];
-    } else {
-      debug.log(() => `Ignoring plan with cost ${cost} (a better plan with cost ${this.bestPlan![2]} exists): ${tree}`);
-    }
   }
 }
 
@@ -674,7 +657,7 @@ class FetchGroup {
     readonly rootKind: SchemaRootKind,
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
-    private readonly _selection: LazySelectionSet,
+    private _selection: LazySelectionSet,
     private _inputs?: LazySelectionSet,
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
@@ -934,6 +917,13 @@ class FetchGroup {
     return this.deferRef === child.deferRef && !!child.parentRelation(this)?.path;
   }
 
+  removeInputsFromSelection() {
+    const inputs = this.inputs;
+    if (inputs) {
+      this._selection = new LazySelectionSet(this.selection.minus(inputs));
+    }
+  }
+
   /**
    * Merges a child of `this` group into it.
    *
@@ -1183,6 +1173,7 @@ class FetchGroup {
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
+    const subgraphSchema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     let operation: Operation;
     const finders = this.isEntityFetch ? this.getFindersForInput(inputs) : [];
 
@@ -1191,7 +1182,7 @@ class FetchGroup {
       const finder = finders[0];
       assert(finder, 'operationForFindersFetch called without a finder');
       const operation = operationForFindersFetch({
-        subgraphSchema: this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
+        subgraphSchema: subgraphSchema,
         selectionSet: this.selection,
         allVariableDefinitions: variableDefinitions,
         operationName,
@@ -1227,6 +1218,7 @@ class FetchGroup {
           operationName,
       })
       : operationForQueryFetch(
+          subgraphSchema,
           this.rootKind,
           this.selection,
           variableDefinitions,
@@ -1717,6 +1709,7 @@ class FetchDependencyGraph {
     subgraphName,
     inputsTypeName,
     mergeAt,
+    type,
     parent,
     conditionsGroups,
     deferRef,
@@ -1724,6 +1717,7 @@ class FetchDependencyGraph {
     subgraphName: string,
     inputsTypeName: string,
     mergeAt: ResponsePath,
+    type: CompositeType,
     parent: ParentRelation,
     conditionsGroups: FetchGroup[],
     deferRef?: string,
@@ -1731,12 +1725,16 @@ class FetchDependencyGraph {
     // Let's look if we can reuse a group we have, that is an existing child of the parent that:
     // 1. is for the same subgraph
     // 2. has the same mergeAt
-    // 3. is not part of our conditions or our conditions ancestors (meaning that we annot reuse a group if it fetches something we take as input).
+    // 3. is for the same entity type (we don't reuse groups for different entities just yet, as this can create unecessary dependencies that
+    //   gets in the way of some optimizations; the final optimizations in `reduceAndOptimize` will however later merge groups on the same subgraph
+    //   and mergeAt when possibleA).
+    // 4. is not part of our conditions or our conditions ancestors (meaning that we annot reuse a group if it fetches something we take as input).
     for (const existing of parent.group.children()) {
       if (existing.subgraphName === subgraphName
         && existing.mergeAt
         && sameMergeAt(existing.mergeAt, mergeAt)
         && inputsTypeName === existing.inputs?.parentType?.name
+        && existing.selection.selections().every((s) => s.kind === 'FragmentSelection' && s.element().castedType() === type)
         && !this.isInGroupsOrTheirAncestors(existing, conditionsGroups)
         && existing.deferRef === deferRef
       ) {
@@ -2559,7 +2557,7 @@ export class QueryPlanner {
 
     debug.groupEnd('Query plan computed');
 
-    return{ kind: 'QueryPlan', node: rootNode };
+    return { kind: 'QueryPlan', node: rootNode };
   }
 
   /**
@@ -2691,6 +2689,7 @@ export class QueryPlanner {
       return operation;
     }
     return new Operation(
+      operation.schema,
       operation.rootKind,
       updatedSelectionSet,
       operation.variableDefinitions,
@@ -2861,6 +2860,7 @@ function withoutIntrospection(operation: Operation): Operation {
 
   const newSelections = operation.selectionSet.selections().filter(s => !isIntrospectionSelection(s));
   return new Operation(
+    operation.schema,
     operation.rootKind,
     new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
     operation.variableDefinitions,
@@ -3434,6 +3434,7 @@ function computeGroupsForTree(
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
               inputsTypeName: destType.name,
+              type: destType,
               parent: { group, path: pathInParent },
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
@@ -3456,15 +3457,10 @@ function computeGroupsForTree(
             const inputType = dependencyGraph.typeForFetchInputs(sourceType.name);
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.mergeIn(edge.conditions!);
-            let rewrites: FetchDataInputRewrite[] | undefined = undefined;
-            if (isInterfaceObjectType(destType)) {
-              rewrites = [{
-                kind: 'ValueSetter',
-                path: [ `... on ${inputType.name}`, typenameFieldName ],
-                setValueTo: destType.name,
-              }];
-            }
-            newGroup.addInputs(wrapInputsSelections(inputType, inputSelections, newContext), rewrites);
+            newGroup.addInputs(
+              wrapInputsSelections(inputType, inputSelections, newContext),
+              computeInputRewritesOnKeyFetch(inputType.name, destType),
+            );
 
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.inGroup().concat(new Field(sourceType.typenameField()!)));
@@ -3640,6 +3636,17 @@ function computeGroupsForTree(
   return createdGroups;
 }
 
+function computeInputRewritesOnKeyFetch(inputTypeName: string, destType: CompositeType): FetchDataInputRewrite[] | undefined {
+  if (isInterfaceObjectType(destType)) {
+    return [{
+      kind: 'ValueSetter',
+      path: [ `... on ${inputTypeName}`, typenameFieldName ],
+      setValueTo: destType.name,
+    }];
+  }
+  return undefined;
+}
+
 function extractDeferFromOperation({
   dependencyGraph,
   operation,
@@ -3703,12 +3710,24 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
   }
 }
 
-function withoutTypename(selectionSet: SelectionSet): SelectionSet {
-  return selectionSet.filter((selection) => selection.kind !== 'FieldSelection' || selection.element().name === '__typename');
-}
-
 function pathHasOnlyFragments(path: OperationPath): boolean {
   return path.every((element) => element.kind === 'FragmentElement');
+}
+
+function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeType {
+  let type = parentType;
+  for (const element of path) {
+    if (element.kind === 'Field') {
+      const fieldType = baseType(type.field(element.name)?.type!);
+      assert(isCompositeType(fieldType), () => `Invalid call fro ${path} starting at ${parentType}: ${element.definition.coordinate} is not composite`);
+      type = fieldType;
+    } else if (element.typeCondition) {
+      const rebasedType = parentType.schema().type(element.typeCondition.name);
+      assert(rebasedType && isCompositeType(rebasedType), () => `Type condition of ${element} should be composite`);
+      type = rebasedType;
+    }
+  }
+  return type;
 }
 
 function handleRequires(
@@ -3772,23 +3791,19 @@ function handleRequires(
     }
 
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
-    // fetched from our `newGroup`. If not, then this means that `createdGroup` don't really depend on
-    // the current `group`, but can be dependencies of the parent (or even merged into this parent).
-    // To know this, we check if `newGroup` inputs contains its inputs (meaning the fetch is
-    // useless: we jump to it but didn't get anything new). Not that this isn't perfect because
-    // in the case of multiple keys between `newGroup` and its parent, we could theoretically take a
-    // different key on the way in that on the way back. In other words, `newGroup` selection may only
-    // be fetching a key that happens to not be the one in its inputs, and in that case the code below
-    // will not remove `newGroup` even though it would be more efficient to do so. Handling this properly
-    // is more complex however and it's sufficiently unlikely to happpen that we ignore that "optimization"
-    // for now. If someone run into this and notice, we can optimize then.
+    // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
+    // the current `group` and can be dependencies of the parent (or even merged into this parent).
+    //
+    // So we want to know if anything in `newGroup` selection cannot be fetched directly from the parent.
+    // For that, we first remove any of `newGroup` inputs from its selection: in most case, `newGroup`
+    // will just contain the key needed to jump back to its parent, and those would usually be the same
+    // as the inputs. And since by definition we know `newGroup`'s inputs are already fetched, we
+    // know they are not things that we need. Then, we check if what remains (often empty) can be
+    // directly fetched from the parent. If it can, then we can just merge `newGroup` into that parent.
+    // Otherwise, we will have to "keep it".
     // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
-    // Note2: `__typename` selections adds a bit of complexity. That is, if `newGroup` selection is not
-    // strictly contained in its inputs but only due to the selection of some `__typename`, then we
-    // still want to ignore that group, because `__typename` are always trivially queriable from any
-    // type in any subgraph and so that `__typename` can always be fetched from the parent. Which is
-    // what the `newGroupIsUnneeded` check ignores `__typename` in the selection.
-    const newGroupIsUnneeded = newGroup.inputs!.contains(withoutTypename(newGroup.selection)) && parent.path;
+    newGroup.removeInputsFromSelection();
+    let newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
     const unmergedGroups = [];
 
     if (newGroupIsUnneeded) {
@@ -3876,7 +3891,7 @@ function handleRequires(
     // If we get here, it means that @require needs the information from `unmergedGroups` (plus whatever has
     // been merged before) _and_ those rely on some information from the current `group` (if they hadn't, we
     // would have been able to merge `newGroup` to `group`'s parent). So the group we should return, which
-    // is the group where the "post-@require" fields will be add, needs to a be a new group that depends
+    // is the group where the "post-@require" fields will be added, needs to a be a new group that depends
     // on all those `unmergedGroups`.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
@@ -3961,7 +3976,16 @@ function addPostRequireInputs(
   postRequireGroup: FetchGroup,
 ) {
   const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
-  postRequireGroup.addInputs(inputs);
+  let rewrites: FetchDataInputRewrite[] | undefined = undefined;
+  // This method is used both for "normal" user @requires, but also to handle the internally injected requirement for interface objects
+  // when the "true" __typename needs to be retrieved. In those case, the post-require group is basically resuming fetch on the
+  // @interfaceObject subgraph after we found the real __typename of objects of that interface. But that also mean we need to make
+  // sure to rewrite that "real" __typename into the interface object name for that fetch (as we do for normal key edge toward an
+  // interface object).
+  if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
+    rewrites = computeInputRewritesOnKeyFetch(edge.transition.castedTypeName, entityType);
+  }
+  postRequireGroup.addInputs(inputs, rewrites);
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
@@ -4157,10 +4181,11 @@ function operationForFindersFetch({
 }
 
 function operationForQueryFetch(
+  subgraphSchema: Schema,
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   operationName?: string
 ): Operation {
-  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
+  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
 }

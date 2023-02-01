@@ -2,6 +2,10 @@
 
 ## vNext
 
+## 2.3.0
+
+- Fix incorrect handling of `@external` on a type when dealing when adding `@shareable` during fed1 schema upgrades [PR #2343](https://github.com/apollographql/federation/pull/2343).
+
 ## 2.2.1
 
 - Fix federation spec always being expanded to the last version [PR #2274](https://github.com/apollographql/federation/pull/2274).
