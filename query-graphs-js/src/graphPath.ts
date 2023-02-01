@@ -2130,6 +2130,12 @@ function advanceWithOperation<V extends Vertex>(
         );
         return { options: pathAsOptions(fieldPath) };
       case 'InterfaceType':
+        // Due to @interfaceObject, we could be in a case where the field asked is not on the interface but
+        // rather on one of it's implementation. This can happen if we just entered the subgraph on an interface @key
+        // and coming from an @interfaceObject. In that case, we'll skip checking for an interface direct edge and
+        // simply cast into that implementation below.
+        const fieldIsOfAnImplementation = field.parent.name !== currentType.name;
+
         // First, we check if there is a direct edge from the interface (which only happens if we're in a subgraph that knows all of the
         // implementations of that interface globally and all of them resolve the field).
         // If there is one, then we have 2 options:
@@ -2141,7 +2147,7 @@ function advanceWithOperation<V extends Vertex>(
         // - either type-exploding cannot work unless taking the interface edge also do (the `anImplementationIsEntityWithFieldShareable`)
         // - or that type-exploding cannot be more efficient than the direct path (when no @provides are involved; if a provide is involved
         //   in one of the implementation, then type-exploding may lead to a shorter overall plan thanks to that @provides)
-        const itfEdge = nextEdgeForField(path, operation);
+        const itfEdge = fieldIsOfAnImplementation ? undefined : nextEdgeForField(path, operation);
         let itfPath: OpGraphPath<V> | undefined = undefined;
         let directPathOverrideTypeExplosion = false;
         if (itfEdge) {
@@ -2174,12 +2180,11 @@ function advanceWithOperation<V extends Vertex>(
         // - the most common is that it's a field of the interface that is queried, and
         //   so we should type-explode because either didn't had a direct edge, or @provides
         //   makes it potentially worthwile to check with type explosion.
-        // - but we could also have the case where the field queried is actually of one
-        //   of the implementation of the interface: this happens if we just entered the
-        //   subgraph on an interface @key. In that case, we only want to consider that one
+        // - but, as mentionned earlier, we could be in the case where the field queried is actually of one
+        //   of the implementation of the interface. In that case, we only want to consider that one
         //   implementation.
         let implementations: readonly ObjectType[];
-        if (field.parent.name !== currentType.name) {
+        if (fieldIsOfAnImplementation) {
           assert(
             isObjectType(field.parent) && path.tailPossibleRuntimeTypes().some((t) => t.name === field.parent.name),
             () => `${field.coordinate} requested on ${currentType}, but ${field.parent} is not an implementation`
