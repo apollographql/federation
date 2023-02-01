@@ -60,8 +60,6 @@ export interface FetchInput {
   selectedType: string;
   selections: QueryPlanSelectionNode[];
   variableName: string;
-  // Allows to handle "mapped" resolvers, the ones not having an input type.
-  mappedField?: string;
 }
 
 // Like a `FlattenNode`, but the path must point to a list.

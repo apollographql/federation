@@ -1208,7 +1208,7 @@ class FetchGroup {
         inputs: [{
           selectedType: finder.argument(0).inputType.toString(),
           selections: inputNodes ? trimSelectionNodes(inputNodes.selections) : [],
-          variableName: finder.fieldName(),
+          variableName: finder.argument(0).name,
         }],
       };
       return this.isTopLevel ? subgraphFetchNode

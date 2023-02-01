@@ -27,6 +27,7 @@ import {
   FetchDataInputRewrite,
   FetchDataOutputRewrite,
   SubgraphFetchNode,
+  FetchInput,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -308,11 +309,16 @@ async function executeFetch(
   let inputRewrites: FetchDataInputRewrite[] | undefined;
   let outputRewrites: FetchDataOutputRewrite[] | undefined;
   let operationDocumentNode: DocumentNode | undefined;
+  let inputs: QueryPlanSelectionNode[] | undefined;
   if (fetch.kind === 'Fetch') {
     requires = fetch.requires;
     inputRewrites = fetch.inputRewrites;
     outputRewrites = fetch.outputRewrites;
     operationDocumentNode = fetch.operationDocumentNode;
+  } else if (fetch.kind === 'SubgraphFetch') {
+    inputs = fetch.inputs.reduce((acc: QueryPlanSelectionNode[], node: FetchInput): QueryPlanSelectionNode[] => {
+      return acc.concat(node.selections);
+    }, []);
   }
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
@@ -345,8 +351,7 @@ async function executeFetch(
           }
         }
       }
-
-      if (!requires) {
+      if (!requires && !inputs) {
         const dataReceivedFromService = await sendOperation(
             context,
             fetch.operation,
@@ -357,6 +362,38 @@ async function executeFetch(
 
         for (const entity of entities) {
           deepMerge(entity, withFetchRewrites(dataReceivedFromService, outputRewrites));
+        }
+      } else if (inputs) {
+        const varsWithInputs = { ...variables };
+        const record = executeSelectionSet(
+          // Note that `requires` may include references to inaccessible elements, so we should "execute" it using the supergrah
+          // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
+          // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
+          context.supergraphSchema,
+          entities[0],
+          inputs,
+          inputRewrites,
+        );
+        Object.entries(record ?? {}).forEach(([k,v]) => {
+          varsWithInputs[k] = v;
+        });
+        const dataReceivedFromService = await sendOperation(
+            context,
+            fetch.operation,
+            varsWithInputs,
+            fetch.operationName,
+            operationDocumentNode
+        );
+        let finderResult = {};
+        for (const usage of fetch.variableUsages!) {
+          finderResult = {
+            ...finderResult,
+            ...dataReceivedFromService?.[usage],
+          };
+        }
+
+        for (const entity of entities) {
+          deepMerge(entity, withFetchRewrites(finderResult, outputRewrites));
         }
       } else {
         const representations: ResultMap[] = [];
