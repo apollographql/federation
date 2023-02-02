@@ -36,4 +36,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          
+      
+      - name: Set env
+        run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
+        
+      - name: Kick off release in federation-rs
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: release.yml
+          repo: apollographql/federation-rs
+          inputs: '{ "version": "${{ FEDERATION_VERSION }}" }'
+            uses: actions/github-script@v6
