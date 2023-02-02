@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.0.0/schema.json",
-  "changelog": ["@svitejs/changesets-changelog-github-compact", { "repo": "apollographql/federation" }],
+  "changelog": ["@changesets/changelog-github", { "repo": "apollographql/federation" }],
   "commit": false,
   "fixed": [
     [
