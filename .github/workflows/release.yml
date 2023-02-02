@@ -28,10 +28,6 @@ jobs:
       - name: Set env
         run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
 
-      - name: temporary
-        run: echo "FEDERATION_VERSION" $FEDERATION_VERSION
-        
-
       - name: Create Release Pull Request
         id: changesets
         uses: changesets/action@v1
@@ -47,11 +43,10 @@ jobs:
       
         
       - name: Kick off release in federation-rs
-        run: echo "hasChangesets" ${{ steps.changesets.outputs.hasChangesets }}
-      #   if: steps.changesets.outputs.hasChangesets == 'false'
-      #   uses: benc-uk/workflow-dispatch@v1
-      #   with:
-      #     workflow: release.yml
-      #     repo: apollographql/federation-rs
-      #     inputs: '{ "version": "${{ FEDERATION_VERSION }}" }'
-      #       uses: actions/github-script@v6
+        # if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: release.yml
+          repo: apollographql/federation-rs
+          inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
+            uses: actions/github-script@v6
