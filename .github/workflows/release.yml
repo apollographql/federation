@@ -47,7 +47,7 @@ jobs:
         uses: benc-uk/workflow-dispatch@v1
         with:
           token: ${{ secrets.ACTION_PAT }}
-          workflow: release.yml
+          workflow: Release Components
           repo: apollographql/federation-rs
           inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
           ref: main
