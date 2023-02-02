@@ -122,6 +122,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
               } =>
               {
                 ... on I {
+                  __typename
                   x
                 }
               }
@@ -347,6 +348,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
               } =>
               {
                 ... on I {
+                  __typename
                   ... on A {
                     x
                   }
@@ -651,6 +653,7 @@ it('handles @interfaceObject in nested entity', () => {
             } =>
             {
               ... on I {
+                __typename
                 a
               }
             }

@@ -4300,6 +4300,287 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test('handles querying fields of an implementation type coming from an @interfaceObject subgraph', async () => {
+      const products = [
+        {
+          id: "1",
+          title: "Jane Eyre",
+          price: 12.99,
+          author: "Charlotte Bronte",
+          ISBN: "9780743273565",
+        },
+        {
+          id: "2",
+          title: "Good Will Hunting",
+          price: 14.99,
+          director: "Gus Van Sant",
+          duration: 126,
+        },
+      ];
+
+      const s1 = {
+        name: 'products',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+          type Query {
+            products: [Product!]!
+          }
+
+          interface Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+          }
+
+          type Book implements Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+            pages: Int
+            ISBN: String!
+          }
+
+          type Movie implements Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+            duration: Int
+          }
+        `,
+        resolvers: {
+          Product: {
+            __resolveType(product: any) {
+              if (product.author) {
+                return "Book";
+              } else if (product.director) {
+                return "Movie";
+              } else {
+                return null;
+              }
+            },
+            __resolveReference(reference: any) {
+              return products.find((obj) => obj.id === reference.id);
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'reviews',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+
+          type Query {
+            allReviewedProducts: [Product!]!
+          }
+
+          type Product @key(fields: "id") @interfaceObject {
+            id: ID!
+            reviews: [Review!]!
+          }
+
+          type Review {
+            author: String
+            text: String
+            rating: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            allReviewedProducts: () => products,
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      let operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      // We're going check again with almost the query but requesting the `id` field. And the
+      // plan should be exactly the same since `id` gets queried here anyway as a by-product already.
+      const expectedPlan = `
+        QueryPlan {
+          Sequence {
+            Fetch(service: "reviews") {
+              {
+                allReviewedProducts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "allReviewedProducts.@") {
+              Fetch(service: "products") {
+                {
+                  ... on Product {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Product {
+                    __typename
+                    ... on Book {
+                      ISBN
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `;
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // Note that the 2nd product is a Movie, so we should get an empty object
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              id
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // As said above, we should get the same plan as the previous time.
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // But now we should have the "id" of the book (and still nothing for the movie).
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "id": "1",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      // Now with __typename just for the book
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              __typename
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // The plan is almost the exact same as the previous one, but in this case we do end up asking for __typename
+      // within `... on Book` on the 2nd fetch. Which is not really necessary since we already have the __typename
+      // above, and we could optimise it, but unclear it's even worth the effort.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "reviews") {
+              {
+                allReviewedProducts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "allReviewedProducts.@") {
+              Fetch(service: "products") {
+                {
+                  ... on Product {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Product {
+                    __typename
+                    ... on Book {
+                      __typename
+                      ISBN
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "__typename": "Book",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      // And lastly with __typename but for all products
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            __typename
+            ... on Book {
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // As said above, we should get the same plan as the previous time.
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "__typename": "Book",
+            },
+            Object {
+              "__typename": "Movie",
+            },
+          ],
+        }
+      `);
+    });
   });
 
   describe('fields with conflicting types needing aliasing', () => {
