@@ -41,13 +41,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       
-        
       - name: Kick off release in federation-rs
-        # if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.hasChangesets == 'false'
         uses: benc-uk/workflow-dispatch@v1
         with:
           token: ${{ secrets.ACTION_PAT }}
           workflow: Release Components
           repo: apollographql/federation-rs
           inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
-          ref: clenfest/automate_create_release
+          ref: main
