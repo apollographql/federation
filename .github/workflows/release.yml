@@ -46,6 +46,7 @@ jobs:
         # if: steps.changesets.outputs.hasChangesets == 'false'
         uses: benc-uk/workflow-dispatch@v1
         with:
+          token: ${{ secrets.ACTION_PAT }}
           workflow: release.yml
           repo: apollographql/federation-rs
           inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
