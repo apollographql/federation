@@ -308,7 +308,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
 
     const fetchNode = findFetchNodes('S2', plan.node)[0];
     assert(fetchNode.kind === 'Fetch', 'Expected FetchNode');
-    const rewrites = fetchNode.inputRewrites;
+    const rewrites = (fetchNode as any).inputRewrites; // TODO: I don't understand why this is necessary given the above assert
     expect(rewrites).toBeDefined();
     expect(rewrites?.length).toBe(1);
     const rewrite = rewrites![0];
