@@ -312,6 +312,52 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     expect(rewrite.path).toEqual(['... on A', '__typename']);
     expect(rewrite.setValueTo).toBe('I');
   });
+
+  test('handles query of an interface field (that is not on the `@interfaceObject`) for a specific implementation when query starts on the @interfaceObject', () => {
+    // Here, we start on S2, but `x` is only in S1. Further, while `x` is on the `I` interface, we only query it for `A`.
+    const operation = operationFromDocument(api, gql`
+      {
+        iFromS2 {
+          ... on A {
+            x
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S2") {
+            {
+              iFromS2 {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "iFromS2") {
+            Fetch(service: "S1") {
+              {
+                ... on I {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on I {
+                  ... on A {
+                    x
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 it('avoids buffering @interfaceObject results that may have to filtered with lists', () => {
