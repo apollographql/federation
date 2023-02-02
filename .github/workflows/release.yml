@@ -50,4 +50,4 @@ jobs:
           workflow: release.yml
           repo: apollographql/federation-rs
           inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
-          uses: actions/github-script@v6
+          ref: main
