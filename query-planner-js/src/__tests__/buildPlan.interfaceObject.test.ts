@@ -1,4 +1,5 @@
 import { operationFromDocument } from '@apollo/federation-internals';
+import { assert } from 'console';
 import gql from 'graphql-tag';
 import { composeAndCreatePlanner, findFetchNodes } from "./testHelper";
 
@@ -305,7 +306,9 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const rewrites = findFetchNodes('S2', plan.node)[0].inputRewrites;
+    const fetchNode = findFetchNodes('S2', plan.node)[0];
+    assert(fetchNode.kind === 'Fetch', 'Expected FetchNode');
+    const rewrites = fetchNode.inputRewrites;
     expect(rewrites).toBeDefined();
     expect(rewrites?.length).toBe(1);
     const rewrite = rewrites![0];
