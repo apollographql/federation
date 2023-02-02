@@ -24,6 +24,9 @@ jobs:
       - name: Install Dependencies
         run: npm i
         
+      - name: Set env
+        run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
+
       - name: Create Release Pull Request
         id: changesets
         uses: changesets/action@v1
@@ -36,4 +39,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          
+      
+      - name: Kick off release in federation-rs
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          token: ${{ secrets.ACTION_PAT }}
+          workflow: Release Components
+          repo: apollographql/federation-rs
+          inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
+          ref: main
