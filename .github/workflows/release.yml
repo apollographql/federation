@@ -50,4 +50,4 @@ jobs:
           workflow: Release Components
           repo: apollographql/federation-rs
           inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
-          ref: main
+          ref: clenfest/automate_create_release
