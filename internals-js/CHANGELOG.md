@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.3.1
+
 ## vNext
 
 ## 2.3.0

@@ -1,5 +1,22 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.3.1
+### Patch Changes
+
+
+
+- [#2242](https://github.com/apollographql/federation/pull/2242) [`de897085`](https://github.com/apollographql/federation/commit/de8970852cf7922ae05ce2c9ba4eb0bbffe7c707) Thanks [@trevor-scheer](https://github.com/trevor-scheer)! - Capture non-ftv1 error information in metrics data. This
+  error information allows the inline trace plugin to correctly
+  aggregate stats about errors (where no federated trace data
+  is available) and stop reporting incomplete traces which
+  are missing unavailable error information.
+  
+  This PR is a precursor to apollographql/apollo-server#7136
+- Updated dependencies []:
+  - @apollo/composition@2.3.1
+  - @apollo/federation-internals@2.3.1
+  - @apollo/query-planner@2.3.1
+
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
 ## vNext
