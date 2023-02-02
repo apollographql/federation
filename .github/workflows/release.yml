@@ -29,7 +29,8 @@ jobs:
         run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
 
       - name: temporary
-        run: echo "FEDERATION_VERSION" ${{ FEDERATION_VERSION }}
+        run: echo "FEDERATION_VERSION" $FEDERATION_VERSION
+        
 
       - name: Create Release Pull Request
         id: changesets
