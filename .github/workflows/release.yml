@@ -50,7 +50,7 @@ jobs:
               owner: 'apollographql',
               repo: 'federation-rs',
               workflow_id: '.github/workflows/release.yml',
-              ref: 'clenfest/automate_create_release',
+              ref: 'main',
               inputs: { 
                 version: "${{ env.FEDERATION_VERSION }}"
               }
