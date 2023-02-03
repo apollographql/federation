@@ -46,13 +46,13 @@ jobs:
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.ACTION_PAT }}
-        script: |
-          await github.rest.actions.createWorkflowDispatch({
-            owner: 'apollographql',
-            repo: 'federation-rs',
-            workflow_id: 'Release Components',
-            ref: 'master',
-            inputs: { 
-              version: "${{ env.FEDERATION_VERSION }}"
-            }
-          })
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'apollographql',
+              repo: 'federation-rs',
+              workflow_id: 'Release Components',
+              ref: 'clenfest/automate_create_release',
+              inputs: { 
+                version: "${{ env.FEDERATION_VERSION }}"
+              }
+            })
