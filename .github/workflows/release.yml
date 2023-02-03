@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - next
+      - clenfest/federation-rs-build-step
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -41,11 +42,17 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       
       - name: Kick off release in federation-rs
-        if: steps.changesets.outputs.hasChangesets == 'false'
-        uses: benc-uk/workflow-dispatch@v1
+        # if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: actions/github-script@v6
         with:
-          token: ${{ secrets.ACTION_PAT }}
-          workflow: Release Components
-          repo: apollographql/federation-rs
-          inputs: '{ "version": "${{ env.FEDERATION_VERSION }}" }'
-          ref: main
+          github-token: ${{ secrets.ACTION_PAT }}
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: 'apollographql',
+            repo: 'federation-rs',
+            workflow_id: 'Release Components',
+            ref: 'master',
+            inputs: { 
+              version: "${{ env.FEDERATION_VERSION }}"
+            }
+          })
