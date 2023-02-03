@@ -50,7 +50,7 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: 'apollographql',
               repo: 'federation-rs',
-              workflow_id: 'Release Components',
+              workflow_id: '.github/workflows/release.yml',
               ref: 'clenfest/automate_create_release',
               inputs: { 
                 version: "${{ env.FEDERATION_VERSION }}"
