@@ -1,6 +1,13 @@
 # CHANGELOG for `@apollo/query-graphs`
 
-## vNext
+## 2.3.1
+### Patch Changes
+
+
+- Fix assertion errors thrown by the query planner when querying fields for a specific interface implementation in some cases where `@interfaceObject` is involved ([#2362](https://github.com/apollographql/federation/pull/2362))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.1
 
 ## 2.2.0
 
