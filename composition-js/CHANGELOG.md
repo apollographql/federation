@@ -9,8 +9,6 @@
 
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNext
-
 ## 2.3.0-beta.2
 - Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
   must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no

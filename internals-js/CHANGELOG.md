@@ -2,8 +2,6 @@
 
 ## 2.3.1
 
-## vNext
-
 ## 2.3.0
 
 - Fix incorrect handling of `@external` on a type when dealing when adding `@shareable` during fed1 schema upgrades [PR #2343](https://github.com/apollographql/federation/pull/2343).

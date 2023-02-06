@@ -9,8 +9,6 @@
 - Updated dependencies []:
   - @apollo/federation-internals@2.3.1
 
-## vNext
-
 ## 2.2.0
 
 - Drop support for node12 [PR #2202](https://github.com/apollographql/federation/pull/2202)
