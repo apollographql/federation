@@ -1,5 +1,4 @@
-import { operationFromDocument } from '@apollo/federation-internals';
-import { assert } from 'console';
+import { operationFromDocument, assert } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { composeAndCreatePlanner, findFetchNodes } from "./testHelper";
 

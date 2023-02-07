@@ -1228,7 +1228,6 @@ class FetchGroup {
     operation = operation.optimize(fragments);
 
     const operationDocument = operationToDocument(operation);
-
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       id: this.id,
