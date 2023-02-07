@@ -1,5 +1,5 @@
 import { buildSupergraphSchema, extractSubgraphsFromSupergraph, InputObjectType } from "..";
-
+import { FieldDefinition } from '../definitions';
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
   /*
@@ -746,3 +746,75 @@ test('throw meaningful error for type erased from supergraph due to extending an
     + 'Error: Cannot find type "T" in subgraph "serviceB"'
   );
 })
+
+it('handles isFinder=true correctly', () => {
+  const supergraph = `
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
+    {
+      query: Query
+    }
+
+    directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+    directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+    directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+    directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+    scalar join__FieldSet
+
+    enum join__Graph {
+      SUBGRAPHA @join__graph(name: "subgraphA", url: "")
+      SUBGRAPHB @join__graph(name: "subgraphB", url: "")
+    }
+
+    scalar link__Import
+
+    enum link__Purpose {
+      """
+      \`SECURITY\` features provide metadata necessary to securely resolve fields.
+      """
+      SECURITY
+
+      """
+      \`EXECUTION\` features provide metadata necessary for operation execution.
+      """
+      EXECUTION
+    }
+
+    type Query
+      @join__type(graph: SUBGRAPHA)
+      @join__type(graph: SUBGRAPHB)
+    {
+      user(id: ID!): User @join__field(graph: SUBGRAPHA, isFinder: true)
+      getInt: Int @join__field(graph: SUBGRAPHB)
+    }
+
+    type User
+      @join__type(graph: SUBGRAPHA, key: "id")
+    {
+      id: ID!
+      name: String!
+    }
+  `;
+
+  const schema = buildSupergraphSchema(supergraph)[0];
+  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  expect(subgraphs.size()).toBe(2);
+  const [a, b] = subgraphs.values().map((s) => s.schema);
+  expect(a.type('User')).toBeDefined();
+  expect(b.type('User')).toBeUndefined();
+  const finderApplications = a.directive('finder')?.applications();
+  expect(finderApplications?.length).toBe(1);
+  console.log(finderApplications?.[0].parent);
+  expect((finderApplications?.[0].parent as FieldDefinition<any>).coordinate).toBe('Query.user');
+});

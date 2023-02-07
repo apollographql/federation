@@ -38,7 +38,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { errorCauses, printErrors } from ".";
+import { errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -394,6 +394,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 }
                 if (isShareable && !args.external && !args.usedOverridden) {
                   subgraphField.applyDirective(subgraph.metadata().shareableDirective());
+                }
+                if (args.isFinder) {
+                  const finderDirective = subgraph.metadata().finderDirective();
+                  assert(isFederationDirectiveDefinedInSchema(finderDirective), 'Finder directive does not exist');
+                  subgraphField.applyDirective(finderDirective);
                 }
               }
             }

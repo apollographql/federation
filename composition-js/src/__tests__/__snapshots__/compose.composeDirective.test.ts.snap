@@ -3,7 +3,7 @@
 exports[`composing custom core directives custom tag directive works when federation tag is renamed 1`] = `
 "schema
   @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-  @link(url: \\"https://specs.apollo.dev/join/v0.3\\", for: EXECUTION)
+  @link(url: \\"https://specs.apollo.dev/join/v0.4\\", for: EXECUTION)
   @link(url: \\"https://specs.apollo.dev/tag/v0.3\\", as: \\"mytag\\")
   @link(url: \\"https://custom.dev/tag/v1.0\\", import: [\\"@tag\\"])
 {
@@ -16,7 +16,7 @@ directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
 directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
 directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 

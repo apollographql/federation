@@ -36,6 +36,7 @@ export enum FederationDirectiveName {
   INACCESSIBLE = 'inaccessible',
   COMPOSE_DIRECTIVE = 'composeDirective',
   INTERFACE_OBJECT = 'interfaceObject',
+  FINDER = 'finder',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -166,6 +167,12 @@ export class FederationSpecDefinition extends FeatureDefinition {
         TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
       );
     }
+    if (version >= (new FeatureVersion(2, 4))) {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.FINDER,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+      }))
+    }
   }
 
   private registerDirective(spec: DirectiveSpecification) {
@@ -209,6 +216,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

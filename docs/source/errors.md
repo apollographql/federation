@@ -40,6 +40,7 @@ The following errors might be raised during composition:
 | `FIELD_ARGUMENT_DEFAULT_MISMATCH` | An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 |  |
 | `FIELD_ARGUMENT_TYPE_MISMATCH` | An argument (of a field/directive) has a type that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_INPUT_VALUE_MISMATCH` |
 | `FIELD_TYPE_MISMATCH` | A field has a type that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_FIELD_TYPE_MISMATCH` |
+| `FINDER_USAGE_ERROR` | Error in the usage of the @finder directive. | 2.4.0 |  |
 | `IMPLEMENTED_BY_INACCESSIBLE` | An element is marked as @inaccessible but implements an element visible in the API schema. | 2.0.0 |  |
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
 | `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implementation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |

@@ -28,6 +28,8 @@ import {
   getResponseName,
   FetchDataInputRewrite,
   FetchDataOutputRewrite,
+  SubgraphFetchNode,
+  FetchInput,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -335,16 +337,65 @@ async function executeNode(
     case 'Condition': {
       assert(false, `Condition nodes are not available in the gateway`);
     }
+    case 'SubgraphFetch': {
+      const traceNode = new Trace.QueryPlanNode.FetchNode({
+        serviceName: node.serviceName,
+        // executeFetch will fill in the other fields if desired.
+      });
+      try {
+        await executeFetch(
+          context,
+          node,
+          currentCursor,
+          captureTraces ? traceNode : null,
+        );
+      } catch (error) {
+        context.errors.push(error);
+      }
+      return new Trace.QueryPlanNode({ fetch: traceNode });
+    }
+    case 'Mapping': {
+      return new Trace.QueryPlanNode({
+        flatten: new Trace.QueryPlanNode.FlattenNode({
+          responsePath: node.path.map(
+            id =>
+              new Trace.QueryPlanNode.ResponsePathElement(
+                typeof id === 'string' ? { fieldName: id } : { index: id },
+              ),
+          ),
+          node: await executeNode(
+            context,
+            node.node,
+            moveIntoCursor(currentCursor, node.path),
+            captureTraces,
+          ),
+        }),
+      });
+    }
   }
 }
 
 async function executeFetch(
   context: ExecutionContext,
-  fetch: FetchNode,
+  fetch: FetchNode | SubgraphFetchNode,
   currentCursor: ResultCursor,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
-
+  let requires: QueryPlanSelectionNode[] | undefined;
+  let inputRewrites: FetchDataInputRewrite[] | undefined;
+  let outputRewrites: FetchDataOutputRewrite[] | undefined;
+  let operationDocumentNode: DocumentNode | undefined;
+  let inputs: QueryPlanSelectionNode[] | undefined;
+  if (fetch.kind === 'Fetch') {
+    requires = fetch.requires;
+    inputRewrites = fetch.inputRewrites;
+    outputRewrites = fetch.outputRewrites;
+    operationDocumentNode = fetch.operationDocumentNode;
+  } else if (fetch.kind === 'SubgraphFetch') {
+    inputs = fetch.inputs.reduce((acc: QueryPlanSelectionNode[], node: FetchInput): QueryPlanSelectionNode[] => {
+      return acc.concat(node.selections);
+    }, []);
+  }
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
 
@@ -377,27 +428,51 @@ async function executeFetch(
         }
       }
 
-      if (!fetch.requires) {
+      if (!requires && !inputs) {
         const dataReceivedFromService = await sendOperation(variables);
 
         for (const entity of entities) {
-          deepMerge(entity, withFetchRewrites(dataReceivedFromService, fetch.outputRewrites));
+          deepMerge(entity, withFetchRewrites(dataReceivedFromService, outputRewrites));
+        }
+      } else if (inputs) {
+        const varsWithInputs = { ...variables };
+        const record = executeSelectionSet(
+          // Note that `requires` may include references to inaccessible elements, so we should "execute" it using the supergrah
+          // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
+          // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
+          context.supergraphSchema,
+          entities[0],
+          inputs,
+          inputRewrites,
+        );
+        Object.entries(record ?? {}).forEach(([k,v]) => {
+          varsWithInputs[k] = v;
+        });
+        const dataReceivedFromService = await sendOperation(varsWithInputs);
+        let finderResult = {};
+        for (const usage of fetch.variableUsages!) {
+          finderResult = {
+            ...finderResult,
+            ...dataReceivedFromService?.[usage],
+          };
+        }
+
+        for (const entity of entities) {
+          deepMerge(entity, withFetchRewrites(finderResult, outputRewrites));
         }
       } else {
-        const requires = fetch.requires;
-
         const representations: ResultMap[] = [];
         const representationToEntity: number[] = [];
 
         entities.forEach((entity, index) => {
           const representation = executeSelectionSet(
-            // Note that `requires` may include references to inacessible elements, so we should "execute" it using the supergrah
+            // Note that `requires` may include references to inaccessible elements, so we should "execute" it using the supergrah
             // schema, _not_ the API schema (the one in `context.operationContext.schema`). And this is not a security risk since
             // what we're extracting here is what is sent to subgraphs, and subgraphs knows `@inacessible` elements.
             context.supergraphSchema,
             entity,
-            requires,
-            fetch.inputRewrites,
+            requires!,
+            inputRewrites,
           );
           if (representation && representation[TypeNameMetaFieldDef.name]) {
             representations.push(representation);
@@ -437,7 +512,7 @@ async function executeFetch(
         }
 
         for (let i = 0; i < entities.length; i++) {
-          deepMerge(entities[representationToEntity[i]], withFetchRewrites(receivedEntities[i], filterEntityRewrites(representations[i], fetch.outputRewrites)));
+          deepMerge(entities[representationToEntity[i]], withFetchRewrites(receivedEntities[i], filterEntityRewrites(representations[i], outputRewrites)));
         }
       }
     }
@@ -491,11 +566,11 @@ async function executeFetch(
       },
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
-      document: fetch.operationDocumentNode,
+      document: operationDocumentNode,
     });
 
     if (response.errors) {
-      const errorPathHelper = makeLazyErrorPathGenerator(fetch, currentCursor);
+      const errorPathHelper = makeLazyErrorPathGenerator(currentCursor, requires);
 
       const errors = response.errors.map((error) =>
         downstreamServiceError(error, fetch.serviceName, errorPathHelper),
@@ -590,13 +665,14 @@ type ErrorPathGenerator = (
  * This approach is inspired by Apollo Router: https://github.com/apollographql/router/blob/0fd59d2e11cc09e82c876a5fee263b5658cb9539/apollo-router/src/query_planner/fetch.rs#L295-L403
  */
 function makeLazyErrorPathGenerator(
-  fetch: FetchNode,
   cursor: ResultCursor,
+  requires?: QueryPlanSelectionNode[],
 ): ErrorPathGenerator {
   let hydratedPaths: ResponsePath[] | undefined;
 
   return (errorPath: GraphQLErrorOptions['path']) => {
-    if (fetch.requires && typeof errorPath?.[1] === 'number') {
+
+    if (requires && typeof errorPath?.[1] === 'number') {
       // only generate paths if we need to look them up via entity index
       if (!hydratedPaths) {
         hydratedPaths = [];

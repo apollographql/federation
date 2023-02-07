@@ -14,7 +14,7 @@ export interface QueryPlan {
   node?: PlanNode;
 }
 
-export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode;
+export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode | SubgraphFetchNode | MappingNode;
 
 export interface SequenceNode {
   kind: 'Sequence';
@@ -43,6 +43,31 @@ export interface FetchNode {
   inputRewrites?: FetchDataInputRewrite[];
   // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is apply to the current in-memory results).
   outputRewrites?: FetchDataOutputRewrite[];
+}
+
+export interface SubgraphFetchNode {
+  kind: 'SubgraphFetch';
+  serviceName: string;
+  id?: string;         // For `@defer`
+  hasDefers?: boolean; // For `@defer`
+  variableUsages: string[];
+  inputs: FetchInput[];
+  operationName: string;
+  operation: string;
+}
+
+export interface FetchInput {
+  selectedType: string;
+  selections: QueryPlanSelectionNode[];
+  variableName: string;
+}
+
+// Like a `FlattenNode`, but the path must point to a list.
+// It then call the inner node on every element of the list.
+export interface MappingNode {
+  kind: 'Mapping';
+  path: ResponsePath;
+  node: PlanNode;
 }
 
 /**
