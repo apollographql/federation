@@ -1378,10 +1378,16 @@ describe('executeQueryPlan', () => {
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
-      expect(response.errors).toMatchInlineSnapshot(`
-         Array [
-           [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
-         ]
+      // This kind of error is only found by the post-processing of the gateway, and post-processing errors are currently not returned
+      // as normal errors. Instead they are return as `extension`. See discussion on #2374 for details.
+      expect(response.errors).toBeUndefined();
+      // This message should not include `Car` in it.
+      expect(response.extensions).toMatchInlineSnapshot(`
+        Object {
+          "valueCompletion": Array [
+            [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
+          ],
+        }
       `);
     });
   });
@@ -5428,5 +5434,113 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+  });
+
+  it(`surface post-processing errors as extensions in the response`, async () => {
+    // This test is such that the first subgraph return some object with a key, but
+    // then the 2nd one is queried for additional field `x`, but the reference resolver
+    // returns `null`, so that response is ignored, and the data internally to the
+    // gateway after the plan execution is the object from the 1st subgraph with
+    // just the key but no value for `x` (so effectively, `x` is `null`).
+    // However, because `x` is non-nullable, the gateway has to propagate that null
+    // to the whole `t` object, and it generates an appropriate message.
+    // But, for backward compatibility reasonse, we don't want that error to surface
+    // as a normal graphQL error: instead, it should be send in the response as
+    // an "extension" (see #2374 for details). This is what is tested here.
+
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+      resolvers: {
+        Query: {
+          t() {
+            return { "__typename": "T", "id": 0 };
+          }
+        }
+      }
+    }
+
+    const s2 = {
+      name: 'S2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int!
+        }
+      `,
+      resolvers: {
+        T: {
+          __resolveReference() {
+            return null;
+          }
+        }
+      }
+    }
+
+    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+    const operation = parseOp(`
+      {
+       t {
+         id
+         x
+       }
+      }
+      `, schema);
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "S2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "t": null,
+      }
+    `);
+
+    // As described above, we should _not_ have a "normal" error ...
+    expect(response.errors).toBeUndefined();
+    // ... but we should still have a trace of the underlying problem in the extensions.
+    expect(response.extensions).toMatchInlineSnapshot(`
+      Object {
+        "valueCompletion": Array [
+          [GraphQLError: Cannot return null for non-nullable field T.x.],
+        ],
+      }
+    `);
   });
 });
