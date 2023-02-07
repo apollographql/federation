@@ -1431,7 +1431,6 @@ class FetchGroup {
     operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
 
     const operationDocument = operationToDocument(operation);
-
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       id: this.id,
