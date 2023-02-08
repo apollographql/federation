@@ -189,6 +189,9 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
+    if(this.config.queryPlannerConfig?.cache){
+      return this.config.queryPlannerConfig?.cache
+    }
     // Create ~about~ a 30MiB InMemoryLRUCache (or 50MiB if the full operation ASTs are
     // enabled in query plans as this requires plans to use more memory). This is
     // less than precise since the technique to calculate the size of a DocumentNode is

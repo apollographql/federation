@@ -1,4 +1,7 @@
 import { Concrete } from "@apollo/federation-internals";
+import { QueryPlan } from ".";
+import LRUCache from '@apollo/gateway/node_modules/lru-cache';
+
 
 export type QueryPlannerConfig = {
   /**
@@ -45,6 +48,7 @@ export type QueryPlannerConfig = {
      */
     enableDefer?: boolean,
   }
+  cache?: LRUCache<string, QueryPlan>,
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -56,6 +60,7 @@ export function enforceQueryPlannerConfigDefaults(
     incrementalDelivery: {
       enableDefer: false,
     },
+    cache: new LRUCache<string, QueryPlan>({maxSize: Math.pow(2, 20) * 50}),
     ...config,
   };
 }

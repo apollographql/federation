@@ -8,6 +8,13 @@ import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 import { buildSchema, ObjectType, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { printSchema } from 'graphql';
+import LRUCache from 'lru-cache';
+import { QueryPlan } from '@apollo/query-planner';
+import { createHash } from '@apollo/utils.createhash';
+
+function approximateObjectSize<T>(obj: T): number {
+  return Buffer.byteLength(JSON.stringify(obj), 'utf8');
+}
 
 async function startFederatedServer(modules: GraphQLSchemaModule[]) {
   const schema = buildSubgraphSchema(modules);
@@ -25,7 +32,7 @@ let gateway: ApolloGateway;
 let gatewayServer: ApolloServer;
 let gatewayUrl: string;
 
-async function startServicesAndGateway(servicesDefs: ServiceDefinition[]) {
+async function startServicesAndGateway(servicesDefs: ServiceDefinition[], cache?: LRUCache<string, QueryPlan>) {
   backendServers = [];
   const serviceList = [];
   for (const serviceDef of servicesDefs) {
@@ -34,7 +41,11 @@ async function startServicesAndGateway(servicesDefs: ServiceDefinition[]) {
     serviceList.push({ name: serviceDef.name, url });
   }
 
-  gateway = new ApolloGateway({ serviceList });
+  gateway = new ApolloGateway({
+    serviceList,
+    queryPlannerConfig: cache ? { cache } : undefined,
+  });
+
   gatewayServer = new ApolloServer({
     gateway,
   });
@@ -60,9 +71,31 @@ afterEach(async () => {
   }
 });
 
+
 describe('caching', () => {
+  const cache = new LRUCache<string, QueryPlan>({maxSize: Math.pow(2, 20) * (30), sizeCalculation: approximateObjectSize});
   beforeEach(async () => {
-    await startServicesAndGateway(fixtures);
+    await startServicesAndGateway(fixtures, cache);
+  });
+
+  it(`cached query plan`, async () => {
+    const query = `
+      query {
+        me {
+          name {
+            first
+            last
+          }
+        }
+        topProducts {
+          name
+        }
+      }
+    `;
+
+    await queryGateway(query);
+    const queryHash:string = createHash('sha256').update(query).digest('hex');
+    expect(cache.has(queryHash)).toBe(true);
   });
 
   it(`cache control`, async () => {
