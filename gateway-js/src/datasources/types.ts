@@ -1,3 +1,4 @@
+import { ResponsePath } from '@apollo/query-planner';
 import { GatewayGraphQLResponse, GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 
 export interface GraphQLDataSource<
@@ -20,7 +21,7 @@ export type GraphQLDataSourceProcessOptions<
   /**
    * The request to send to the subgraph.
    */
-  request: GatewayGraphQLRequestContext<TContext>['request'];
+	 request: GatewayGraphQLRequestContext<TContext>['request'] & { graphPath?: ResponsePath };
 } & (
   | {
       kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION;
