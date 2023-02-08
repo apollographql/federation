@@ -38,6 +38,7 @@
       "Sharing types (value types)": "/federated-types/sharing-types",
       "Entities (basics)": "/entities",
       "Entities (advanced)": "/entities-advanced",
+      "Interfaces with federation": "/federated-types/interfaces",
       "Migrating from schema stitching": "/migrating-from-stitching"
     },
     "Managed Federation": {

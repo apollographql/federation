@@ -1,0 +1,263 @@
+---
+title: Interfaces in Apollo Federation
+---
+
+>  ⚠️ The `@interfaceObject` directive and the ability to apply `@key` to an interface definition are supported in Apollo Federation 2.3 and above. For information about using interfaces for entities in previous Federation versions, see [this section](#).
+
+A GraphQL [interface](/apollo-server/schema/unions-interfaces/#interface-type) specifies a set of fields that one or more object types can define in order to **implement** that interface:
+
+```graphql
+interface Book {
+  title: String!
+  author: Author!
+}
+
+type TextBook implements Book {
+  title: String!
+  author: Author!
+  courses: [Course!]!
+}
+```
+
+
+Because interfaces were originally designed for a monolithic graph architecture, Apollo Federation provides functionality for reusing and adding fields to interfaces of entities. This functionality includes:
+
+ `@interfaceObject`, a directive that allows you to abstract an interface in isolation by declaring it locally as an object type. This enables you to contribute fields without needing to redefine all the interface's concrete implementation types.
+
+ `@key` on interface definitions, in order to resolve the implementation type of the abstracted objects returned by the subgraphs using `@interfaceObject`.
+
+Both support for `@key` on interfaces and `@interfaceObject` are supported in Federation 2.3 and above. For more information regarding why these features are necessary, as well as an alternative for using interfaces for entities in Federation, please see [this section](#).
+
+## `@interfaceObject`
+
+`@interfaceObject` is a directive that allows a subgraph to locally abstract an interface by declaring it locally as an object type.
+
+For a concrete example, let's say that a `products` subgraph defines a `Product` interface, which is implemented by several object types. The `Product` interface definition has defined a key with the `@key`directive (as described in this section), which enables other subgraphs to use `@interfaceObject`. Here's what the `Product` interface definition looks like in the `products` subgraph:
+
+```graphql title="Products subgraph"
+interface Product @key(fields: "id") {
+  id: ID!
+  description: String
+  price: Float
+}
+```
+
+Now, let’s say we are defining a separate `reviews` subgraph, and we'd like to add a `reviews` field to the `Product` interface, along with a new query that returns all the highest rated products. Here's what our query looks like:
+
+```graphql
+type Query {
+  bestRatedProducts(limit: Int): [Product!]!
+}
+```
+
+We also want to attach this new `reviews` field to every object that implements the `Product` interface, without requiring us to know what those concrete objects are.
+
+In order to achieve this, we’ll do the following:
+
+1. Instead of defining `Product` as an interface, we’ll define it as an object type along with the following:
+    - The interface’s primary key, using `@key`. The `@key` directive defines the interface’s primary key, which consists of one or more of the type's fields. In this example, the `Product` interface’s key is its `id` field. If using `@interfaceObject`, every instance of an interface must be uniquely identifiable by its `@key` fields. This is what enables your router to associate field data from different subgraphs with the same interface instance.
+    - The `@interfaceObject` directive, which tells both composition and human readers that "I know `Product` is truly an interface in the composed API, but I do not care about its implementations and want to treat it as an object type locally.”
+2. We’ll also add our new `reviews` field to `Product`.
+
+    ```graphql title="Reviews subgraph"
+    type Query {
+      bestRatedProducts(limit: Int): [Product!]!
+    }
+
+    # interface is declared as an object type locally
+    type Product @key(fields: "id") @interfaceObject {
+      id: ID!
+      reviews: [Review!]!
+    }
+
+    type Review {
+      author: String
+      text: String
+      rating: Int
+    }
+    ```
+
+3. Lastly, we'll implement our resolver for the query `bestRatedProducts`, in the same manner we do for all resolvers. From the point of view of our `reviews` subgraph, `Product` is a “normal” object type — so the resolver for `bestRatedProducts` will return objects whose __typename is "Product". This also allows us to easily test in isolation.
+
+Once the above steps have been completed, our query can be fulfilled and the `reviews` field will be added to each object that implements the `Product` interface. This is also true at the schema level – the `reviews` field will be added to the definition of each type implementing `Product` in the supergraph API.
+
+## `@key` on interfaces
+
+In our previous example, the `products` subgraph had already defined `Product` as an interface, and declared its key using the `@key` directive:
+
+```graphql title="Products subgraph"
+interface Product @key(fields: "id") {
+  id: ID!
+  description: String
+  price: Float
+}
+```
+
+Many Apollo Federation users are already familiar with using @key on object types for entities, as a way to declare that a given subgraph can resolve an instance of that object if given its key. This is exactly what we want to specify in our `products` subgraph, but for an interface. Below we’ll outline the steps we took to achieve this:
+
+1. In our `products` subgraph schema, we declared a `@key` on the `Product` interface. This means that the `products` subgraph can resolve all `Product` references generated by the `reviews` subgraph (as well as other subgraphs using `@interfaceObject`). Put all together, our `products` subgraph looks like: 
+
+    ```graphql
+    type Query {
+      products: [Product!]!
+    }
+
+    interface Product @key(fields: "id") {
+      id: ID!
+      description: String
+      price: Float
+    }
+
+    type Book implements Product @key(fields: "id") {
+      id: ID!
+      description: String
+      price: Float
+      pages: Int
+    }
+
+
+    type Movie implements Product @key(fields: "id") {
+      id: ID!
+      description: String
+      price: Float
+      duration: Int
+    }
+    ```
+
+2. Next, we'll need to implement a reference resolver for `Product` , (using `__resolveReference` or `__resolveType` for the interface if using @apollo/subgraph). The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this interface if you provide its primary key." In order for this to be true, the `products`  subgraph needs to define a reference resolver for the interface.
+
+    For `Product`, the reference resolver might look like this:
+
+    ```js
+    Product: {
+      __resolveReference(representation) {
+        return allProducts.find((obj) => obj.id === representation.id);
+      },
+    },
+
+    // ....other resolvers ...
+    ```
+
+    In this example, the hypothetical variable `allProducts` contains all of our `Product` data, including each object’s `id`.
+
+Declaring an interface's `@key` and implementing its corresponding reference resolver are important dependencies for using `@interfaceObject`. If a subgraph (like `reviews`), is able to abstract the implementations of an interface, then this implies that another subgraph must not only know those concrete implementations, but is also able to resolve a `@key` on the interface into the proper concrete implementation.
+
+Once the above steps are completed, our work is done. There are additional rules and requirements to using `@interfaceObject` and `@key` on interfaces, which are detailed in the next section.
+
+## Rules for using `@interfaceObject` and `@key` on interfaces
+
+There are few rules and requirements to using `@interfaceObject` and `@key` on interfaces, which are detailed below:
+
+- The `@interfaceObject` directive requires importing the directive from the Apollo Federation 2.3+ specification via the `@link` directive:
+
+    ```
+    extend schema
+      @link(
+      url: "https://specs.apollo.dev/federation/v2.3"
+      import: ["@key", "@interfaceObject"]
+      )
+    ```
+
+- Putting a `@key` on an interface type declares that this subgraph can determine the runtime type of an instance of that interface given the key, and thus requires the definition of a corresponding resolver (`__resolveReference` or `__resolveType` for the interface if using @apollo/subgraph).
+
+- Using our previous example, if `@interfaceObject` is used on an object type named `Product` in the `reviews` subgraph, then:
+
+    - `Product`must either be an interface or another `interfaceObject`-marked object type in all other subgraphs that define `Product` .
+    - `Product` must also have an attached `@key` in the `reviews` subgraph.
+    - At least one other subgraph must define `Product` as an interface with a `@key`.
+    - The `reviews` subgraph cannot define any of the types that implement `Product` in the supergraph. This is because `Product` already abstracts all the types implementing the `Product` interface in our `reviews` subgraph. Independent declarations of those same types are not currently supported.
+    - `@shareable` checks/rules on fields of   `Product` are performed “as if” the fields provided by `Product` in `reviews` were provided by all the types implementing `Product` in the supergraph.
+
+- No subgraph can be a Federation 1 subgraph (one that does not `@link` against Federation 2.0+)
+- If our `products` subgraph declares `@key(fields: id)` on an interface `Product`, then:
+    - The `products` subgraph must declare all the implementations of `Product` across all subgraphs (or, said another way, all the implementations of the supergraph). Put more simply, the subgraph that defines an interface and its primary key must “own” all the implementations of that interface.
+    - Every `@key` put on an interface should also be put on every implementation type of that interface. However, implementation types can declare additional keys that are not on the interface.
+
+        For example, the following is valid:
+
+        ```graphql
+        type Book implements Product @key(fields: "id") @key(fields: "isbn") {
+          id: ID!
+          description: String
+          price: Float
+          pages: Int
+        }
+        ```
+
+        Wherein only the Book type includes an isbn key.
+
+## Why do I need to use `@interfaceObject` and `@key` on interfaces?
+
+Prior to Federation 2.3, there were a few challenges in reusing interfaces of entities across subgraphs. More specifically, if an interface and all its concrete implementations are defined in subgraphA , subgraphB couldn’t easily reuse and add fields to the interface without duplicating all its concrete implementations. This problem could often negate the abstraction benefits that interfaces provide, as now subgraphB needs to know everything about the interface. As examples are often easier to illustrate a problem space, let’s reuse our previous example: 
+
+- We have our `products` subgraph that defines a `Product` interface. We then have two object types (Book and Movie) that implement `Product`: 
+
+    ```graphql
+    type Query {
+      products: [Product!]!
+    } 
+
+    interface Product {
+      id: ID!
+      description: String
+      price: Float
+    }
+
+
+    type Book implements Product @key(fields: "id") {
+      id: ID!
+      description: String
+      price: Float
+      pages: Int
+    }
+
+
+    type Movie implements Product @key(fields: "id") {
+      id: ID!
+      description: String
+      price: Float
+      duration: Int
+    }
+    ```
+
+- We also have a  reviews subgraph, which enables users to leave reviews on any product. In this example, we want to be able to get all the best reviewed products that are not tied to a specific product type. Ideally, we’d want then for the reviews subgraph to know about the `Product` interface, but not all its concrete implementations. This would ensure that if a new object is added in the  `products` subgraph and implements the `Product` interface, we would not need to modify our reviews subgraph.
+
+Unfortunately, this was not possible prior to Federation 2.3. Rather, our reviews subgraph would need to look like this:
+
+```graphql
+type Query {
+  bestRatedProducts(limit: Int): [Product!]!
+}
+
+interface Product {
+  id: ID!
+  reviews: [Review!]!
+}
+
+type Review {
+  author: String
+  text: String
+  rating: Int
+}
+
+
+type Book implements Product @key(fields: "id") {
+  id: ID!
+  reviews: [Review!]!
+}
+
+
+type Movie implements Product @key(fields: "id"){
+  id: ID!
+  reviews: [Review!]!
+}
+```
+
+There are a couple of problems with this workflow:
+
+- The reviews subgraph needs to define all the types that implement the `Product` interface (Book and Movie), which is a lot of repetition, as well as negates the key abstraction benefits of interfaces. However, we can’t remove the `Book` and `Movie` type definitions in our `reviews` subgraph without making our subgraph an invalid GraphQL service.
+- Adding new object types that implement the `Product` interface to the `products` subgraph requires adding the same implementation to the `reviews` subgraph — which calls for lockstep coordination between teams. For example, if we were to add a type `Magazine` that implements the `Product` interface in our `products` subgraph, our `reviews` subgraph would also need to be updated.
+
+### Are there any alternatives to using `@interfaceObject` and `@key` on interfaces?
+
+The primary alternative to using `@interfaceObject` and `@key` on interfaces is to follow the steps outlined above. This means duplicating all the concrete implementations of a given interface in each subgraph that wants to use the interface.
