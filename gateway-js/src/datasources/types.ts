@@ -21,12 +21,12 @@ export type GraphQLDataSourceProcessOptions<
   /**
    * The request to send to the subgraph.
    */
-	 request: GatewayGraphQLRequestContext<TContext>['request'];
+  request: GatewayGraphQLRequestContext<TContext>['request'];
 
   /**
    * The path to the current processed node within the graph query
    */
-	 nodeGraphPath?: ResponsePath;
+  nodeGraphPath?: ResponsePath;
 } & (
   | {
       kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION;

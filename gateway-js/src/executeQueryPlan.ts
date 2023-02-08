@@ -484,12 +484,12 @@ async function executeFetch(
         query: fetch.operation,
         variables,
         operationName: fetch.operationName,
-        http
+        http,
       },
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
       document: fetch.operationDocumentNode,
-			nodeGraphPath: currentCursor.path
+      nodeGraphPath: currentCursor.path
     });
 
     if (response.errors) {

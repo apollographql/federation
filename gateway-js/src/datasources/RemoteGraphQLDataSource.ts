@@ -143,7 +143,7 @@ export class RemoteGraphQLDataSource<
           request: requestWithoutQuery,
           context,
           overallCachePolicy,
-					nodeGraphPath
+          nodeGraphPath
         });
       }
     }
@@ -161,7 +161,7 @@ export class RemoteGraphQLDataSource<
       request: requestWithQuery,
       context,
       overallCachePolicy,
-			nodeGraphPath
+      nodeGraphPath
     });
   }
 
@@ -228,13 +228,13 @@ export class RemoteGraphQLDataSource<
     request,
     context,
     overallCachePolicy,
-		nodeGraphPath
+    nodeGraphPath
   }: {
     response: GatewayGraphQLResponse;
     request: GatewayGraphQLRequest;
     context: TContext;
     overallCachePolicy: GatewayCachePolicy | null;
-		nodeGraphPath: GraphQLDataSourceProcessOptions<TContext>['nodeGraphPath']
+    nodeGraphPath: GraphQLDataSourceProcessOptions<TContext>['nodeGraphPath']
   }): Promise<GatewayGraphQLResponse> {
     const processedResponse =
       typeof this.didReceiveResponse === 'function'
