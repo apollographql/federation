@@ -46,7 +46,10 @@ For details on these directives as defined in Federation 2, see [Federation-spec
 Added optional `resolvable` argument.
 
 ```graphql
-directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+directive @key(
+  fields: FieldSet!,
+  resolvable: Boolean = true
+) repeatable on OBJECT | INTERFACE
 ```
 
 </td>
@@ -124,7 +127,12 @@ directive @override(from: String!) on FIELD_DEFINITION
 Introduced.
 
 ```graphql
-directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+directive @link(
+  url: String,
+  as: String,
+  for: link__Purpose,
+  import: [link__Import]
+) repeatable on SCHEMA
 ```
 
 </td>
