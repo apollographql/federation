@@ -484,8 +484,7 @@ async function executeFetch(
         query: fetch.operation,
         variables,
         operationName: fetch.operationName,
-        http,
-				graphPath: currentCursor.path,
+        http
       },
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
