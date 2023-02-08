@@ -9,7 +9,7 @@
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/subgraph-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
 ## 2.3.0-beta.2
-- `@tag` directive support for the `SCHEMA` location. This has been added to the 2.3 version of the federation spec, and you must declare usage of this spec version in your subgraph to use this functionality. [PR #2314](https://github.com/apollographql/federation/pull/2314).
+- `@tag` directive support for the `SCHEMA` location. This has been added to the 2.3 version of the federation spec, so to access this functionality you must bump your federation spec version to 2.3 by using `@link(url: "https://specs.apollo.dev/federation/v2.3", ...)` on your `schema` element. [PR #2314](https://github.com/apollographql/federation/pull/2314).
 
 ## 2.3.0
 
