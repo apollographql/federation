@@ -489,6 +489,7 @@ async function executeFetch(
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
       document: fetch.operationDocumentNode,
+			nodeGraphPath: currentCursor.path
     });
 
     if (response.errors) {

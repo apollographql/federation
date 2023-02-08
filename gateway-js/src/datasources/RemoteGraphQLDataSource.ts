@@ -66,7 +66,7 @@ export class RemoteGraphQLDataSource<
   async process(
     options: GraphQLDataSourceProcessOptions<TContext>,
   ): Promise<GatewayGraphQLResponse> {
-    const { request, context: originalContext } = options;
+    const { request, context: originalContext, nodeGraphPath } = options;
     // Deal with a bit of a hairy situation in typings: when doing health checks
     // and schema checks we always pass in `{}` as the context even though it's
     // not really guaranteed to be a `TContext`, and then we pass it to various
@@ -143,6 +143,7 @@ export class RemoteGraphQLDataSource<
           request: requestWithoutQuery,
           context,
           overallCachePolicy,
+					nodeGraphPath
         });
       }
     }
@@ -160,6 +161,7 @@ export class RemoteGraphQLDataSource<
       request: requestWithQuery,
       context,
       overallCachePolicy,
+			nodeGraphPath
     });
   }
 
@@ -226,15 +228,17 @@ export class RemoteGraphQLDataSource<
     request,
     context,
     overallCachePolicy,
+		nodeGraphPath
   }: {
     response: GatewayGraphQLResponse;
     request: GatewayGraphQLRequest;
     context: TContext;
     overallCachePolicy: GatewayCachePolicy | null;
+		nodeGraphPath: GraphQLDataSourceProcessOptions<TContext>['nodeGraphPath']
   }): Promise<GatewayGraphQLResponse> {
     const processedResponse =
       typeof this.didReceiveResponse === 'function'
-        ? await this.didReceiveResponse({ response, request, context })
+        ? await this.didReceiveResponse({ response, request, context, nodeGraphPath })
         : response;
 
     if (overallCachePolicy) {
@@ -266,7 +270,7 @@ export class RemoteGraphQLDataSource<
   public didReceiveResponse?(
     requestContext: Required<
       Pick<GatewayGraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
-    >,
+    > & Pick<GraphQLDataSourceProcessOptions<TContext>, 'nodeGraphPath'>
   ): GatewayGraphQLResponse | Promise<GatewayGraphQLResponse>;
 
   public didEncounterError(
