@@ -195,6 +195,7 @@ export function addResolversToSchema(
         field.resolve = fieldConfig;
       } else {
         field.resolve = fieldConfig.resolve;
+        field.subscribe = fieldConfig.subscribe;
       }
     }
   }
