@@ -1,17 +1,61 @@
 ---
 title: Interfaces in Apollo Federation
+description: Define polymorphic entity relationships
 ---
 
 >  ⚠️ The `@interfaceObject` directive and the ability to apply `@key` to an interface definition are supported in Apollo Federation 2.3 and above. For information about using interfaces for entities in previous Federation versions, see [this section](#).
 
-A GraphQL [interface](/apollo-server/schema/unions-interfaces/#interface-type) specifies a set of fields that one or more object types can define in order to **implement** that interface:
+---
 
-```graphql
+In a federated graph, it's challenging to share [interface types](/apollo-server/schema/unions-interfaces/#interface-type) across subgraphs.
+
+Let's look at an example `Media` interface to understand why:
+
+<p style="margin-bottom: 0">✅</p>
+<CodeColumns>
+
+```graphql title="Subgraph A"
+interface Media {
+  id: ID!
+  title: String!
+}
+
+type Book implements Media {
+  id: ID!
+  title: String!
+}
+```
+
+```graphql title="Subgraph B"
+interface Media {
+  id: ID!
+  title: String!
+}
+
+type Movie implements Media {
+  id: ID!
+  title: String!
+}
+```
+
+</CodeColumns>
+
+- If Subgraph A adds a field to an interface
+
+---
+
+In a GraphQL schema, an [interface](/apollo-server/schema/unions-interfaces/#interface-type) defines a set of object fields:
+
+```graphql title="schema.graphql"
 interface Book {
   title: String!
   author: Author!
 }
+```
 
+Object types can **implement** an interface, which requires that they _also_ define the interface's fields:
+
+```graphql title="schema.graphql"
 type TextBook implements Book {
   title: String!
   author: Author!
@@ -203,14 +247,12 @@ Prior to Federation 2.3, there were a few challenges in reusing interfaces of en
       price: Float
     }
 
-
     type Book implements Product @key(fields: "id") {
       id: ID!
       description: String
       price: Float
       pages: Int
     }
-
 
     type Movie implements Product @key(fields: "id") {
       id: ID!
