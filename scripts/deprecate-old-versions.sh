@@ -12,20 +12,27 @@
 
 set -e
 
-# List of packages to deprecate
-packages=("@apollo/gateway" "@apollo/federation" "@apollo/query-planner" "@apollo/subgraph")
+deprecate_all_v0_of_package_with_message() {
+  local package_name=$1
+  local deprecation_message=$2
 
-for package_name in "${packages[@]}"
-do
   # Get all the versions of the package, trim double quotes
   versions=$(npm view $package_name versions --json | tr -d '[],"')
   for version in $versions; do
-    # Filter for versions starting with 0.x only
+    # Filter for versions starting with 0. only
     if [[ $version == 0.* ]]; then
       # Print the version
-      echo "Deprecating version: $version of package $package_name"
+      echo "Deprecating version: $package_name@$version"
       # Deprecate the version
-      npm deprecate "$package_name@$version" "The `$package_name` package is part of Federation v1, which is now deprecated (end-of-life September 22nd 2023). Please upgrade your package to its latest counterpart. See announcement blog for details (https://www.apollographql.com/blog/announcement/backend/announcing-the-end-of-life-schedule-for-apollo-gateway-v0-x/)."
+      npm deprecate "$package_name@$version" "$deprecation_message"
     fi
   done
-done
+}
+
+deprecate_all_v0_of_package_with_message "@apollo/gateway" "All v0.x versions of @apollo/gateway are now deprecated (end-of-life September 22, 2023). Apollo recommends upgrading to v2.x or migrating to the Apollo Router as soon as possible. See our announcement blog (https://www.apollographql.com/blog/announcement/backend/announcing-the-end-of-life-schedule-for-apollo-gateway-v0-x/) or documentation (https://www.apollographql.com/docs/federation/federation-2/backward-compatibility/#is-official-support-ending-for-apollogateway-v0x) for more details."
+
+deprecate_all_v0_of_package_with_message "@apollo/federation" "The @apollo/federation package contains outdated utilities for both running a subgraph as well as supergraph composition. Please migrate to the appropriate package for your use case (@apollo/subgraph or @apollo/composition). This package is deprecated and will reach end-of-life September 22, 2023. See our announcement blog (https://www.apollographql.com/blog/announcement/backend/announcing-the-end-of-life-schedule-for-apollo-gateway-v0-x/) or documentation (https://www.apollographql.com/docs/federation/federation-2/backward-compatibility/#is-official-support-ending-for-apollogateway-v0x) for more details."
+
+deprecate_all_v0_of_package_with_message "@apollo/query-planner" "The @apollo/query-planner package is an internal, undocumented package for use in @apollo/gateway. The v0.x versions of this package are now deprecated with an end-of-life date of September 22, 2023. Apollo recommends upgrading to v2.x as soon as possible. See our announcement blog (https://www.apollographql.com/blog/announcement/backend/announcing-the-end-of-life-schedule-for-apollo-gateway-v0-x/) or documentation (https://www.apollographql.com/docs/federation/federation-2/backward-compatibility/#is-official-support-ending-for-apollogateway-v0x) for more details."
+
+deprecate_all_v0_of_package_with_message "@apollo/subgraph" "All v0.x versions of @apollo/subgraph are now deprecated with an end-of-life date of September 22, 2023. Apollo recommends upgrading to v2.x as soon as possible. See our announcement blog (https://www.apollographql.com/blog/announcement/backend/announcing-the-end-of-life-schedule-for-apollo-gateway-v0-x/) or documentation (https://www.apollographql.com/docs/federation/federation-2/backward-compatibility/#is-official-support-ending-for-apollogateway-v0x) for more details."
