@@ -57,6 +57,8 @@ import {
   isInterfaceType,
   isNonNullType,
   Type,
+  FragmentSelection,
+  InterfaceType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -917,6 +919,86 @@ class FetchGroup {
     if (inputs) {
       this._selection = new LazySelectionSet(this.selection.minus(inputs));
     }
+  }
+
+  // If a group is such that everything is fetches is already included in the inputs, then
+  // this group does useless fetches.
+  isUseless(): boolean {
+    if (!this.inputs || this.mustPreserveSelection) {
+      return false;
+    }
+
+    // For groups that fetches from an @interfaceObject, we can sometimes have something like
+    //   { ... on Book { id } } => { ... on Product { id } }
+    // where `Book` is an implementation of interface `Product`.
+    // And that is because while only "books" are concerned by this fetch, the `Book` type is unknown
+    // of the queried subgraph (in that example, it defines `Product` as an @interfaceObject) and
+    // so we have to "cast" into `Product` instead of `Book`.
+    // But the fetch above _is_ useless, it does only fetch its inputs, and we wouldn't catch this
+    // if we do a raw inclusion check of `selection` into `inputs`
+    //
+    // We only care about this problem at the top-level of the selections however, so we does that
+    // top-level check manually (instead of just calling `this.inputs.contains(this.selection)`)
+    // but fallback on `contains` for anything deeper.
+
+    const conditionInSupergraphIfInterfaceObject = (selection: Selection): InterfaceType | undefined => {
+      if (selection.kind === 'FragmentSelection') {
+        const condition = selection.element().typeCondition;
+        if (condition && isObjectType(condition)) {
+          const conditionInSupergraph = this.dependencyGraph.supergraphSchema.type(condition.name);
+          // Note that we're checking the true supergraph, not the API schema, so even @inaccessible types will be found.
+          assert(conditionInSupergraph, () => `Type ${condition.name} should exists in the supergraph`)
+          if (isInterfaceType(conditionInSupergraph)) {
+            return conditionInSupergraph;
+          }
+        }
+      }
+      return undefined;
+    }
+
+    const inputSelections = this.inputs.selections();
+    // Checks that every selection is contained in the input selections.
+    return this.selection.selections().every((selection) => {
+      const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
+      if (!conditionInSupergraph) {
+        // We're not in the @interfaceObject case described above. We just check that an input selection contains the
+        // one we check.
+        return inputSelections.some((input) => input.contains(selection));
+      }
+
+      const implemTypeNames = conditionInSupergraph.possibleRuntimeTypes().map((t) => t.name);
+      // Find all the input selections that selects object for this interface, that is selection on
+      // either the interface directly or on one of it's implementation type (we keep both kind separate).
+      const interfaceInputSelections: FragmentSelection[] = [];
+      const implementationInputSelections: FragmentSelection[] = [];
+      for (const inputSelection of inputSelections) {
+        // We know that fetch inputs are wrapped in fragments whose condition is an entity type:
+        // that's how we build them and we couldn't select inputs correctly otherwise.
+        assert(inputSelection.kind === 'FragmentSelection', () => `Unexpecting input selection ${inputSelection} on ${this}`);
+        const inputCondition = inputSelection.element().typeCondition;
+        assert(inputCondition, () => `Unexpecting input selection ${inputSelection} on ${this} (missing condition)`);
+        if (inputCondition.name == conditionInSupergraph.name) {
+          interfaceInputSelections.push(inputSelection);
+        } else if (implemTypeNames.includes(inputCondition.name)) {
+          implementationInputSelections.push(inputSelection);
+        }
+      }
+
+      const subSelectionSet = selection.selectionSet;
+      // we're only here if `conditionInSupergraphIfInterfaceObject` returned something, we imply that selection is a fragment
+      // selection and so has a sub-selectionSet.
+      assert(subSelectionSet, () => `Should not be here for ${selection}`);
+
+      // If there is some selections on the interface, then the selection needs to be contained in those.
+      // Otherwise, if there is implementation selections, it must be contained in _each_ of them (we
+      // shouldn't have the case where there is neither interface nor implementation selections, but
+      // we just return false if that's the case as a "safe" default).
+      if (interfaceInputSelections.length > 0) {
+        return interfaceInputSelections.some((input) => input.selectionSet.contains(subSelectionSet));
+      }
+      return implementationInputSelections.length > 0 
+        && implementationInputSelections.every((input) => input.selectionSet.contains(subSelectionSet));
+    });
   }
 
   /**
@@ -1868,9 +1950,7 @@ class FetchDependencyGraph {
       this.removeUselessGroups(child);
     }
 
-    // If a group is such that everything is fetches is already included in the inputs, then
-    // this group does useless fetches and can be removed.
-    if (group.inputs && !group.mustPreserveSelection && group.inputs.contains(group.selection)) {
+    if (group.isUseless()) {
       // In general, removing a group is a bit tricky because we need to deal with the fact
       // that the group can have multiple parents and children and no break the "path in parent"
       // in all those cases. To keep thing relatively easily, we only handle the following
@@ -3632,6 +3712,10 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
         addTypenameFieldForAbstractTypes(selection.selectionSet);
       }
     } else {
+      const conditionType = selection.element().typeCondition;
+      if (conditionType && isAbstractType(conditionType)) {
+        selection.selectionSet!.add(new FieldSelection(new Field(conditionType.typenameField()!)));
+      }
       addTypenameFieldForAbstractTypes(selection.selectionSet);
     }
   }

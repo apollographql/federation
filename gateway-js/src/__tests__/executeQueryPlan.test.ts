@@ -1378,10 +1378,16 @@ describe('executeQueryPlan', () => {
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
-      expect(response.errors).toMatchInlineSnapshot(`
-         Array [
-           [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
-         ]
+      // This kind of error is only found by the post-processing of the gateway, and post-processing errors are currently not returned
+      // as normal errors. Instead they are return as `extension`. See discussion on #2374 for details.
+      expect(response.errors).toBeUndefined();
+      // This message should not include `Car` in it.
+      expect(response.extensions).toMatchInlineSnapshot(`
+        Object {
+          "valueCompletion": Array [
+            [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
+          ],
+        }
       `);
     });
   });
@@ -4300,6 +4306,287 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test('handles querying fields of an implementation type coming from an @interfaceObject subgraph', async () => {
+      const products = [
+        {
+          id: "1",
+          title: "Jane Eyre",
+          price: 12.99,
+          author: "Charlotte Bronte",
+          ISBN: "9780743273565",
+        },
+        {
+          id: "2",
+          title: "Good Will Hunting",
+          price: 14.99,
+          director: "Gus Van Sant",
+          duration: 126,
+        },
+      ];
+
+      const s1 = {
+        name: 'products',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+          type Query {
+            products: [Product!]!
+          }
+
+          interface Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+          }
+
+          type Book implements Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+            pages: Int
+            ISBN: String!
+          }
+
+          type Movie implements Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+            duration: Int
+          }
+        `,
+        resolvers: {
+          Product: {
+            __resolveType(product: any) {
+              if (product.author) {
+                return "Book";
+              } else if (product.director) {
+                return "Movie";
+              } else {
+                return null;
+              }
+            },
+            __resolveReference(reference: any) {
+              return products.find((obj) => obj.id === reference.id);
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'reviews',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+
+          type Query {
+            allReviewedProducts: [Product!]!
+          }
+
+          type Product @key(fields: "id") @interfaceObject {
+            id: ID!
+            reviews: [Review!]!
+          }
+
+          type Review {
+            author: String
+            text: String
+            rating: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            allReviewedProducts: () => products,
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      let operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      // We're going check again with almost the query but requesting the `id` field. And the
+      // plan should be exactly the same since `id` gets queried here anyway as a by-product already.
+      const expectedPlan = `
+        QueryPlan {
+          Sequence {
+            Fetch(service: "reviews") {
+              {
+                allReviewedProducts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "allReviewedProducts.@") {
+              Fetch(service: "products") {
+                {
+                  ... on Product {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Product {
+                    __typename
+                    ... on Book {
+                      ISBN
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `;
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // Note that the 2nd product is a Movie, so we should get an empty object
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              id
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // As said above, we should get the same plan as the previous time.
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // But now we should have the "id" of the book (and still nothing for the movie).
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "id": "1",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      // Now with __typename just for the book
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              __typename
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // The plan is almost the exact same as the previous one, but in this case we do end up asking for __typename
+      // within `... on Book` on the 2nd fetch. Which is not really necessary since we already have the __typename
+      // above, and we could optimise it, but unclear it's even worth the effort.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "reviews") {
+              {
+                allReviewedProducts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "allReviewedProducts.@") {
+              Fetch(service: "products") {
+                {
+                  ... on Product {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Product {
+                    __typename
+                    ... on Book {
+                      __typename
+                      ISBN
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "__typename": "Book",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      // And lastly with __typename but for all products
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            __typename
+            ... on Book {
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // As said above, we should get the same plan as the previous time.
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "__typename": "Book",
+            },
+            Object {
+              "__typename": "Movie",
+            },
+          ],
+        }
+      `);
+    });
   });
 
   describe('fields with conflicting types needing aliasing', () => {
@@ -5147,5 +5434,113 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+  });
+
+  it(`surface post-processing errors as extensions in the response`, async () => {
+    // This test is such that the first subgraph return some object with a key, but
+    // then the 2nd one is queried for additional field `x`, but the reference resolver
+    // returns `null`, so that response is ignored, and the data internally to the
+    // gateway after the plan execution is the object from the 1st subgraph with
+    // just the key but no value for `x` (so effectively, `x` is `null`).
+    // However, because `x` is non-nullable, the gateway has to propagate that null
+    // to the whole `t` object, and it generates an appropriate message.
+    // But, for backward compatibility reasonse, we don't want that error to surface
+    // as a normal graphQL error: instead, it should be send in the response as
+    // an "extension" (see #2374 for details). This is what is tested here.
+
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+      resolvers: {
+        Query: {
+          t() {
+            return { "__typename": "T", "id": 0 };
+          }
+        }
+      }
+    }
+
+    const s2 = {
+      name: 'S2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int!
+        }
+      `,
+      resolvers: {
+        T: {
+          __resolveReference() {
+            return null;
+          }
+        }
+      }
+    }
+
+    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+    const operation = parseOp(`
+      {
+       t {
+         id
+         x
+       }
+      }
+      `, schema);
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "S2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "t": null,
+      }
+    `);
+
+    // As described above, we should _not_ have a "normal" error ...
+    expect(response.errors).toBeUndefined();
+    // ... but we should still have a trace of the underlying problem in the extensions.
+    expect(response.extensions).toMatchInlineSnapshot(`
+      Object {
+        "valueCompletion": Array [
+          [GraphQLError: Cannot return null for non-nullable field T.x.],
+        ],
+      }
+    `);
   });
 });
