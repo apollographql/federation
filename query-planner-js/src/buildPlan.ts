@@ -40,7 +40,6 @@ import {
   directiveApplicationsSubstraction,
   conditionalDirectivesInOperationPath,
   SetMultiMap,
-  ERRORS,
   OperationElement,
   Concrete,
   DeferDirectiveArgs,
@@ -90,11 +89,11 @@ import {
   createInitialOptions,
   buildFederatedQueryGraph,
 } from "@apollo/query-graphs";
-import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
+import { stripIgnoredCharacters, print, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
-import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
+import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionPlanNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
 
@@ -1060,7 +1059,7 @@ class FetchGroup {
     assert(childPathInThis, () => `Cannot remove useless ${child} of ${this}: the path of the former into the later is unknown`);
 
     this.dependencyGraph.onModification();
-    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn". 
+    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn".
     this.relocateChildrenOnMergedIn(child, childPathInThis);
     this.dependencyGraph.remove(child);
   }
@@ -1122,7 +1121,7 @@ class FetchGroup {
     queryPlannerConfig: QueryPlannerConfig,
     variableDefinitions: VariableDefinitions,
     fragments?: NamedFragments,
-    operationName?: string
+    operationName?: string,
   ) : PlanNode | undefined {
     if (this.selection.isEmpty()) {
       return undefined;
@@ -2229,7 +2228,7 @@ class FetchDependencyGraph {
     // a @defer B may be nested inside @defer A "in the query", but be such that we don't need anything fetched within
     // the deferred part of A to start the deferred part of B).
     // Long story short, we first collect the groups from `allDeferredGroups` that are _not_ in our current level, if
-    // any, and pass those to recursion call below so they can be use a their proper level of nestedness. 
+    // any, and pass those to recursion call below so they can be use a their proper level of nestedness.
     const defersInCurrent = this.deferTracking.defersInParent(currentDeferRef);
     const handledDefersInCurrent = new Set(defersInCurrent.map((d) => d.label));
     const unhandledDefersInCurrent = mapKeys(allDeferredGroups).filter((label) => !handledDefersInCurrent.has(label));
@@ -2400,12 +2399,7 @@ export class QueryPlanner {
       return { kind: 'QueryPlan' };
     }
 
-    if (operation.rootKind === 'subscription') {
-      throw ERRORS.UNSUPPORTED_FEATURE.err(
-        'Query planning does not currently support subscriptions.',
-        { nodes: [parse(operation.toString())] },
-      );
-    }
+    const isSubscription = operation.rootKind === 'subscription';
 
     const statistics: PlanningStatistics = {
       evaluatedPlanCount: 0,
@@ -2430,9 +2424,9 @@ export class QueryPlanner {
     operation = this.withSiblingTypenameOptimizedAway(operation);
 
     let assignedDeferLabels: Set<string> | undefined = undefined;
-    let hasDefers: boolean = false;
+    let hasDefers = false;
     let deferConditions: SetMultiMap<string, string> | undefined = undefined;
-    if (this.config.incrementalDelivery.enableDefer) {
+    if (!isSubscription && this.config.incrementalDelivery.enableDefer) {
       ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
     } else {
       // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
@@ -2458,7 +2452,7 @@ export class QueryPlanner {
     });
 
 
-    let rootNode: PlanNode | undefined;
+    let rootNode: PlanNode | SubscriptionPlanNode | undefined;
     if (deferConditions && deferConditions.size > 0) {
       assert(hasDefers, 'Should not have defer conditions without @defer');
       rootNode = computePlanForDeferConditionals({
@@ -2521,8 +2515,8 @@ export class QueryPlanner {
    * be added back eventually. The core query planning algorithm will ignore that tag, and because
    * __typename has been otherwise removed, we'll save any related work. But as we build the final
    * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
-   * and when we fine one, we'll add back the request to __typename. As this only happen after the 
-   * query planning algorithm has computed all choices, we achieve our goal of not considering useless 
+   * and when we fine one, we'll add back the request to __typename. As this only happen after the
+   * query planning algorithm has computed all choices, we achieve our goal of not considering useless
    * choices due to __typename. Do note that if __typename is the "only" selection of some selection
    * set, then we leave it untouched, and let the query planning algorithm treat it as any other
    * field. We have no other choice in that case, and that's actually what we want.
@@ -2549,11 +2543,11 @@ export class QueryPlanner {
         && !parentMaybeInterfaceObject
       ) {
         // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
-        // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_ 
+        // in theory, and so this will only kick in on the first one. This is fine in practice: it only means that if there _is_
         // 2 selection of __typename, then we won't optimise things as much as we could, but there is no practical reason
         // whatsoever to have 2 selection of __typename in the first place, so not being optimal is moot.
         //
-        // Also note that we do not remove __typename if on (interface) types that are implemented by 
+        // Also note that we do not remove __typename if on (interface) types that are implemented by
         // an @interfaceObject in some subgraph: the reason is that those types are an exception to the rule
         // that __typename can be resolved from _any_ subgraph, as the __typename of @interfaceObject is not
         // one we should return externally and so cannot fulfill the user query.
@@ -2645,7 +2639,7 @@ function computePlanInternal({
   root: RootVertex,
   hasDefers: boolean,
   statistics: PlanningStatistics,
-}): PlanNode | undefined {
+}): PlanNode | SubscriptionPlanNode | undefined {
   let main: PlanNode | undefined = undefined;
   let primarySelection: SelectionSet | undefined = undefined;
   let deferred: DeferredNode[] = [];
@@ -2671,6 +2665,42 @@ function computePlanInternal({
     ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
     primarySelection = dependencyGraph.deferTracking.primarySelection;
 
+    // If this is a subscription, we want to make sure that we return a SubscriptionPlanNode rather than a PlanNode
+    // We potentially will need to separate "primary" from "rest"
+    // Note that if it is a subscription, we are guaranteed that nothing is deferred.
+    if (main && operation.rootKind === 'subscription') {
+      switch (main.kind) {
+        case 'Fetch': {
+          // remove hasDefers from the FetchNode
+          const { hasDefers: _hasDefers, ...subscriptionNode } = main;
+          return {
+            kind: 'SubscriptionPlan',
+            primary: {
+              ...subscriptionNode,
+              kind: 'Subscription',
+            }
+          };
+        }
+        case 'Sequence': {
+          const [primary, ...rest] = main.nodes;
+          assert(primary.kind === 'Fetch', 'Primary node of a subscription is a Fetch');
+          const { hasDefers: _hasDefers, ...subscriptionNode } = primary;
+          return {
+            kind: 'SubscriptionPlan',
+            primary: {
+              ...subscriptionNode,
+              kind: 'Subscription',
+            },
+            rest: {
+              kind: 'Sequence',
+              nodes: rest,
+            },
+          };
+        }
+        default:
+          throw new Error(`Unexpected top level PlanNode kind: '${main.kind}' when processing subscription`);
+      }
+    }
   }
   if (deferred.length > 0) {
     assert(primarySelection, 'Should have had a primary selection created');
@@ -2695,20 +2725,26 @@ function computePlanForDeferConditionals({
   root: RootVertex,
   deferConditions: SetMultiMap<string, string>,
   statistics: PlanningStatistics,
-}): PlanNode | undefined {
+}): PlanNode | SubscriptionPlanNode | undefined {
   return generateConditionNodes(
     operation,
     Array.from(deferConditions.entries()),
     0,
-    (op) => computePlanInternal({
-      supergraphSchema,
-      federatedQueryGraph,
-      operation: op,
-      processor,
-      root,
-      hasDefers: true,
-      statistics,
-    }),
+    (op) => {
+      const plan = computePlanInternal({
+        supergraphSchema,
+        federatedQueryGraph,
+        operation: op,
+        processor,
+        root,
+        hasDefers: true,
+        statistics,
+      });
+      if (plan && plan.kind === 'SubscriptionPlan') {
+        throw new Error('Subscription plan not valid for deferred conditionals');
+      }
+      return plan;
+    }
   );
 }
 
@@ -2875,7 +2911,7 @@ function computeRootSerialDependencyGraph(
   // We have to serially compute a plan for each top-level selection.
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
-  let startingFetchId: number = 0;
+  let startingFetchId = 0;
   let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root, startingFetchId, hasDefers, statistics);
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
@@ -3492,7 +3528,7 @@ function computeGroupsForTree(
           });
           assert(updatedOperation, `Extracting @defer from ${operation} should not have resulted in no operation`);
 
-          let updated = {
+          const updated = {
             tree: child,
             group,
             path,
@@ -3534,7 +3570,7 @@ function computeGroupsForTree(
             //     }
             //   }
             // but the trick is that the `__typename` in the input will be the name of the interface itself (`I` in this case)
-            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`). 
+            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`).
             // *But* we later have optimizations that would remove such a group, on the group that the output is included
             // in the input, which is in general the right thing to do (and genuinely ensure that some useless groups created when
             // handling complex @require gets eliminated). So we "protect" the group in this case to ensure that later
@@ -3730,7 +3766,7 @@ function handleRequires(
     // Otherwise, we will have to "keep it".
     // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
     newGroup.removeInputsFromSelection();
-    let newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
+    const newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
     const unmergedGroups = [];
 
     if (newGroupIsUnneeded) {

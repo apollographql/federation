@@ -2091,6 +2091,14 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
     return schema.schemaDefinition.root('query')?.type === this;
   }
 
+  /**
+   *  Whether this type is the "subscription" root type of the schema (will return false if the type is detached).
+   */
+  isSubscriptionRootType(): boolean {
+    const schema = this.schema();
+    return schema.schemaDefinition.root('subscription')?.type === this;
+  }
+
   protected removeReferenceRecursive(ref: ObjectTypeReferencer): void {
     // Note that the ref can also be a`SchemaDefinition`, but don't have anything to do then.
     switch (ref.kind) {

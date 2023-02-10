@@ -129,6 +129,10 @@ export async function executeQueryPlan(
           requestContext.metrics && requestContext.metrics.captureTraces
       );
 
+      if (queryPlan.node?.kind === 'SubscriptionPlan') {
+        throw new Error('Execution of subscriptions not supported by gateway');
+      }
+
       if (queryPlan.node) {
         const traceNode = await executeNode(
           context,
@@ -334,6 +338,9 @@ async function executeNode(
     }
     case 'Condition': {
       assert(false, `Condition nodes are not available in the gateway`);
+    }
+    case 'Subscription': {
+      assert(false, `Subscription support is not available in the gateway`);
     }
   }
 }

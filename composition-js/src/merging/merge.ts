@@ -791,6 +791,7 @@ class Merger {
   private mergeObject(sources: (ObjectType | undefined)[], dest: ObjectType) {
     const isEntity = this.hintOnInconsistentEntity(sources, dest);
     const isValueType = !isEntity && !dest.isRootType();
+    const isSubscription = dest.isSubscriptionRootType();
 
     this.addFieldsShallow(sources, dest);
     if (!dest.hasFields()) {
@@ -806,7 +807,12 @@ class Merger {
         const subgraphFields = sources.map(t => t?.field(destField.name));
         const mergeContext = this.validateOverride(subgraphFields, destField);
 
-        this.mergeField(subgraphFields, destField, mergeContext);
+        this.mergeField({
+          sources: subgraphFields,
+          dest: destField,
+          mergeContext,
+          isParentSubscription: isSubscription,
+        });
         this.validateFieldSharing(subgraphFields, destField, mergeContext);
       }
     }
@@ -1085,7 +1091,7 @@ class Merger {
     const { subgraphsWithOverride, subgraphMap } = sources.map((source, idx) => {
       if (!source) {
         // While the subgraph may not have the field directly, it could have "stand-in" for that field
-        // through @interfaceObject, and it is those stand-ins that would be effectively overridden. 
+        // through @interfaceObject, and it is those stand-ins that would be effectively overridden.
         const interfaceObjectAbstractingFields = this.fieldsInSourceIfAbstractedByInterfaceObject(dest, idx);
         if (interfaceObjectAbstractingFields.length > 0) {
           return {
@@ -1251,7 +1257,21 @@ class Merger {
     }).filter(isDefined);
   }
 
-  private mergeField(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext = new FieldMergeContext(sources)) {
+  private mergeField({
+    sources,
+    dest,
+    mergeContext = new FieldMergeContext(sources),
+    isParentSubscription,
+  }: {
+    sources: FieldOrUndefinedArray,
+    dest: FieldDefinition<any>,
+    mergeContext: FieldMergeContext,
+    isParentSubscription: boolean,
+  }) {
+    if (isParentSubscription) {
+      this.validateSubscriptionField(sources);
+    }
+
     if (sources.every((s, i) => s === undefined ? this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i).every((f) => this.isExternal(i, f)) : this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => {
         if (source) {
@@ -1788,7 +1808,12 @@ class Merger {
       this.hintOnInconsistentValueTypeField(sources, dest, destField);
       const subgraphFields = sources.map(t => t?.field(destField.name));
       const mergeContext = this.validateOverride(subgraphFields, destField);
-      this.mergeField(subgraphFields, destField, mergeContext);
+      this.mergeField({
+        sources: subgraphFields,
+        dest: destField,
+        mergeContext,
+        isParentSubscription: false,
+      });
     }
   }
 
@@ -2797,5 +2822,17 @@ class Merger {
         ? withModifiedErrorNodes(err, errorNodes)
         : err;
     });
+  }
+
+  private validateSubscriptionField(sources: FieldOrUndefinedArray) {
+    // no subgraph marks field as @shareable
+    const fieldsWithShareable = sources.filter((src, idx) => src && src.appliedDirectivesOf(this.metadata(idx).shareableDirective()).length > 0);
+    if (fieldsWithShareable.length > 0) {
+      const nodes = sourceASTs(...fieldsWithShareable);
+      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err(
+        `Fields on root level subscription object cannot be marked as shareable`,
+        { nodes},
+      ));
+    }
   }
 }

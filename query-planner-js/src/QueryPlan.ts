@@ -11,10 +11,10 @@ export type ResponsePath = (string | number)[];
 
 export interface QueryPlan {
   kind: 'QueryPlan';
-  node?: PlanNode;
+  node?: PlanNode | SubscriptionPlanNode;
 }
 
-export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode;
+export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode | SubscriptionNode;
 
 export interface SequenceNode {
   kind: 'Sequence';
@@ -24,6 +24,12 @@ export interface SequenceNode {
 export interface ParallelNode {
   kind: 'Parallel';
   nodes: PlanNode[];
+}
+
+export interface SubscriptionPlanNode {
+  kind: 'SubscriptionPlan';
+  primary: SubscriptionNode;
+  rest?: PlanNode;
 }
 
 export interface FetchNode {
@@ -43,6 +49,10 @@ export interface FetchNode {
   inputRewrites?: FetchDataInputRewrite[];
   // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is apply to the current in-memory results).
   outputRewrites?: FetchDataOutputRewrite[];
+}
+
+export interface SubscriptionNode extends Omit<FetchNode, 'kind' | 'hasDefers'> {
+  kind: 'Subscription';
 }
 
 /**
@@ -229,3 +239,7 @@ export const trimSelectionNodes = (
 
   return remapped;
 };
+
+export const isPlanNode = (node: PlanNode | SubscriptionPlanNode | undefined): node is PlanNode => {
+  return !!node && node.kind !== 'SubscriptionPlan';
+}
