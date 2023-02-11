@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@apollo/federation-internals": "2.3.2",
-    "@types/uuid": "^8.3.4",
+    "@types/uuid": "^9.0.0",
     "deep-equal": "^2.0.5",
     "ts-graphviz": "^0.16.0",
     "uuid": "^9.0.0"
