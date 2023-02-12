@@ -168,6 +168,18 @@ The default value is `true`.
 </tbody>
 </table>
 
+### `@interfaceObject`
+
+> **⚠️ This directive is available in Apollo Federation v2.3 and later.**
+
+```graphql
+directive @interfaceObject on OBJECT
+```
+
+Indicates that an object definition serves as an extension of another subgraph's **entity interface**. This enables a subgraph to polymorphically contribute fields to _all_ entities that implement a particular entity interface.
+
+> [Learn more about entity interfaces.](./interfaces/)
+
 ### `@extends`
 
 ```graphql
