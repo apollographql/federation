@@ -44,7 +44,7 @@
     "@apollo/cache-control-types": "1.0.2",
     "@apollo/client": "3.6.9",
     "@apollo/utils.fetcher": "1.1.0",
-    "@changesets/changelog-github": "0.4.5",
+    "@changesets/changelog-github": "0.4.8",
     "@changesets/cli": "2.23.0",
     "@graphql-codegen/cli": "3.0.0",
     "@graphql-codegen/typescript": "3.0.0",
