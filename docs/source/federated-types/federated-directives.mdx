@@ -176,7 +176,9 @@ The default value is `true`.
 directive @interfaceObject on OBJECT
 ```
 
-Indicates that an object definition serves as an extension of another subgraph's **entity interface**. This enables a subgraph to polymorphically contribute fields to _all_ entities that implement a particular entity interface.
+Indicates that an object definition serves as an abstraction of another subgraph's **entity interface**. This abstraction enables a subgraph to automatically contribute fields to _all_ entities that implement a particular entity interface.
+
+During composition, the fields of every `@interfaceObject` are added both to their corresponding `interface` definition _and_ to all entity types that _implement_ that interface.
 
 > [Learn more about entity interfaces.](./interfaces/)
 
