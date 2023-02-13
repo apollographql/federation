@@ -64,6 +64,7 @@
     "@types/nock": "10.0.3",
     "@types/node": "12.20.55",
     "@types/node-fetch": "2.6.2",
+    "@types/uuid": "9.0.0",
     "@types/whatwg-url": "8.2.2",
     "@typescript-eslint/eslint-plugin": "5.36.0",
     "apollo-server": "3.10.2",
