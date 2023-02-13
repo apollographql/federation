@@ -12,18 +12,18 @@
   ],
   "sidebar": {
     "Introduction": "/",
-    "Federation 2 Updates": {
-      "☀️ New in Federation 2": "/federation-2/new-in-federation-2",
-      "🚚 Moving from Federation 1": "/federation-2/moving-to-federation-2",
-      "⬅️ Backward compatibility": "/federation-2/backward-compatibility",
-      "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
-      "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md"
-    },
+    "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
+    "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
       "3️⃣ Local composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
+    },
+    "Moving from Federation 1": {
+      "☀️ Changes from Federation 1": "/federation-2/new-in-federation-2",
+      "🚚 Steps to move": "/federation-2/moving-to-federation-2",
+      "⬅️ Backward compatibility": "/federation-2/backward-compatibility"
     },
     "Building Your Supergraph": {
       "Subgraphs": "/building-supergraphs/subgraphs-overview",

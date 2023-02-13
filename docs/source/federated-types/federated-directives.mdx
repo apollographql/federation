@@ -110,7 +110,7 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
 
-> ⚠️ **Do not apply `@key` to interface definitions.** The `INTERFACE` location is included in this definition for backward compatibility with Federation 1 subgraphs. Currently, applying `@key` to an interface has no effect in _any_ version of federation, and Federation 2 subgraphs produce a composition error to emphasize this.
+**In Apollo Federation 2.3 and later,** you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in _earlier_ versions of Federation 2, a composition error occurs.
 
 #### Arguments
 
@@ -170,7 +170,7 @@ The default value is `true`.
 
 ### `@interfaceObject`
 
-> **⚠️ This directive is available in Apollo Federation v2.3 and later.**
+> **⚠️ This directive is available in Apollo Federation 2.3 and later.**
 
 ```graphql
 directive @interfaceObject on OBJECT
