@@ -62,6 +62,11 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Adds support for `@interfaceObject` and keys on interfaces [PR #2279](https://github.com/apollographql/federation/pull/2279).
 - Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
 
+## 2.2.3
+
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299)
+- Fix potential issue with nested @defer in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312)
+
 ## 2.2.2
 
 - Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
