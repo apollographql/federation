@@ -179,21 +179,18 @@ export async function executeQueryPlan(
           // internal data in a state that triggers additional post-processing errors, but that leads to 2 errors recorded
           // for the same problem and that is unexpected by clients. See https://github.com/apollographql/federation/issues/981
           // for additional context.
-          // If we had no errors during query plan execution, then we do ship any post-processing ones as there is little
-          // reason not to and it might genuinely help debugging (note that if subgraphs return no errors and we assume that
-          // subgraph do return graphQL valid responses, then our composition rules should guarantee no post-processing errors,
-          // so getting a post-processing error points to either 1) a bug in our code or in composition or 2) a subgraph not
-          // returning valid graphQL results, both of which are well worth surfacing (see [this comment for instance](https://github.com/apollographql/federation/pull/159#issuecomment-801132906))).
+          // If we had no errors during query plan execution, then we do ship any post-processing ones, but not as "normal"
+          // errors, as "extensions". The reason is that we used to completely ignore those post-processing errors, and as a
+          // result some users have been relying on not getting errors in some nullability related cases that post-processing
+          // cover, and switching to returning errors in those case is problematic. Putting these error messages in `extensions`
+          // is a compromise in that the errors are still part of the reponse, which may help users debug an issue, but are
+          // not "normal graphQL errors", so clients and tooling will mostly ignore them.
           //
-          // That said, note that this is still not perfect in the sense that if someone does get subgraph errors, then
-          // while postProcessingErrors may duplicate those, it may also contain additional unrelated errors (again, something
-          // like a subgraph returning non-grapqlQL valid data unknowingly), and we don't surface those. In a perfect worlds
-          // we've be able to filter the post-proessing errors that duplicate errors from subgraph and still ship anything that
-          // remains, but it's unclear how to do that at all (it migth be that checking the error path helps, but not sure
-          // that's fullproof).
+          // Note that this behavior is also what the router does (and in fact, the exact name of the `extensions` we use,
+          // "valueCompletion", comes from the router and we use it for alignment.
           if (errors.length === 0 && postProcessingErrors.length > 0) {
             span.setStatus({ code:SpanStatusCode.ERROR });
-            return { errors: postProcessingErrors, data };
+            return { extensions: { "valueCompletion":  postProcessingErrors }, data };
           }
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });

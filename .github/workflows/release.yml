@@ -24,6 +24,9 @@ jobs:
       - name: Install Dependencies
         run: npm i
         
+      - name: Set env
+        run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
+
       - name: Create Release Pull Request
         id: changesets
         uses: changesets/action@v1
@@ -36,4 +39,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          
+      
+      - name: Kick off release in federation-rs
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.ACTION_PAT }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'apollographql',
+              repo: 'federation-rs',
+              workflow_id: '.github/workflows/release.yml',
+              ref: 'main',
+              inputs: { 
+                version: "${{ env.FEDERATION_VERSION }}"
+              }
+            })

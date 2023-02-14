@@ -881,6 +881,7 @@ describe('buildQueryPlan', () => {
                         __typename
                         ... on Image {
                           ... on NamedObject @include(if: $b) {
+                            __typename
                             name
                           }
                         }
