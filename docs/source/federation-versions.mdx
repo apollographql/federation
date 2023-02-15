@@ -56,17 +56,19 @@ extend schema
     # highlight-start
     @composeDirective(name: "@myDirective")
     @composeDirective(name: "@hello")
+    # highlight-end
 
+# highlight-start
 directive @myDirective(a: String!) on FIELD_DEFINITION
 directive @hello on FIELD_DEFINITION
-    # highlight-end
+# highlight-end
 ```
 
-## v2
+## v2.0
 
 **Directive changes**
 
-Subgraph schemas "opt in" to Federation 2 by applying the `@link` directive to the `schema` type, like so:
+Subgraph schemas "opt in" to Federation 2 features by applying the `@link` directive to the `schema` type, like so:
 
 ```graphql
 extend schema
@@ -100,7 +102,7 @@ Added optional `resolvable` argument.
 ```graphql
 directive @key(
   fields: FieldSet!,
-  resolvable: Boolean = true
+  resolvable: Boolean = true # highlight-line
 ) repeatable on OBJECT | INTERFACE
 ```
 
@@ -303,7 +305,7 @@ directive @tag(name: String!) repeatable on
 </tbody>
 </table>
 
-## v1
+## v1.0
 
 
 **Directive changes**
