@@ -91,6 +91,8 @@ export type Query = {
   _empty?: Maybe<Scalars['String']>;
   /** Fetch the configuration for a router. If a valid configuration is available, it will be readable as cSDL. */
   routerConfig: RouterConfigResponse;
+  /** Fetch the current entitlements for a router. */
+  routerEntitlements: RouterEntitlementsResponse;
 };
 
 
@@ -98,6 +100,13 @@ export type QueryRouterConfigArgs = {
   apiKey: Scalars['String'];
   ifAfterId?: InputMaybe<Scalars['ID']>;
   ref: Scalars['String'];
+};
+
+
+export type QueryRouterEntitlementsArgs = {
+  apiKey: Scalars['String'];
+  ref: Scalars['String'];
+  unlessId?: InputMaybe<Scalars['ID']>;
 };
 
 export type Request = {
@@ -126,7 +135,37 @@ export type RouterConfigResult = {
   supergraphSDL: Scalars['String'];
 };
 
-/** Response indicating the router configuration available is not newer than the one passed in `ifAfterId`. */
+export type RouterEntitlement = {
+  __typename?: 'RouterEntitlement';
+  /** Which audiences this entitlemnt applies to. Cloud and on-premise routers each require the presence of their own audience. */
+  audience: Array<RouterEntitlementAudience>;
+  /** Router should stop serving requests after this time if commercial features are in use. */
+  haltAt?: Maybe<Scalars['Timestamp']>;
+  /** RFC 8037 Ed25519 JWT signed representation of sibling fields. */
+  jwt: Scalars['String'];
+  subject: Scalars['String'];
+  /** Router should warn users after this time if commercial features are in use. */
+  warnAt?: Maybe<Scalars['Timestamp']>;
+};
+
+export enum RouterEntitlementAudience {
+  Cloud = 'CLOUD',
+  SelfHosted = 'SELF_HOSTED'
+}
+
+export type RouterEntitlementsResponse = FetchError | RouterEntitlementsResult | Unchanged;
+
+export type RouterEntitlementsResult = {
+  __typename?: 'RouterEntitlementsResult';
+  /** The best available entitlement if any. May have expired already. */
+  entitlement?: Maybe<RouterEntitlement>;
+  /** Unique identifier for this result, to be passed in as `entitlements(unlessId:)`. */
+  id: Scalars['ID'];
+  /** Minimum delay before the next fetch should occur, in seconds. */
+  minDelaySeconds: Scalars['Float'];
+};
+
+/** Response indicating the router configuration available is not newer than the one passed in `ifAfterId`, or the router entitlements currently match `unlessId`. */
 export type Unchanged = {
   __typename?: 'Unchanged';
   /** Variant-unique identifier for the configuration that remains in place. */

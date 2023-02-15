@@ -50,8 +50,9 @@ describe('executeQueryPlan', () => {
     executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
   ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
+    const apiSchema = supergraphSchema.toAPISchema();
     const operationContext = buildOperationContext({
-      schema: supergraphSchema.toAPISchema().toGraphQLJSSchema(),
+      schema: apiSchema.toGraphQLJSSchema(),
       operationDocument: gql`${operation.toString()}`,
     });
     return executeQueryPlan(
@@ -60,6 +61,7 @@ describe('executeQueryPlan', () => {
       executeRequestContext ?? buildRequestContext(),
       operationContext,
       supergraphSchema.toGraphQLJSSchema(),
+      apiSchema,
     );
   }
 
@@ -101,6 +103,7 @@ describe('executeQueryPlan', () => {
       request: {
         variables: {},
       },
+      metrics: {},
     };
   }
 
@@ -151,7 +154,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
-      expect(response).toHaveProperty('errors.0.path', undefined);
+      expect(response).toHaveProperty('errors.0.path', ["me"]);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
@@ -162,6 +165,315 @@ describe('executeQueryPlan', () => {
       );
       expect(response).not.toHaveProperty('errors.0.extensions.query');
       expect(response).not.toHaveProperty('errors.0.extensions.variables');
+    });
+
+    it(`error paths in joins`, async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            getA: A
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            getA() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            b: Int
+            c: [D]
+            g: Int! # will return null
+          }
+
+          type D @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          A: {
+            b() {
+              throw new GraphQLError('Something went wrong');
+            },
+            c() {
+              return [{ id: 'd1' }, { id: 'd2' }];
+            },
+            g() {
+              return null;
+            },
+          },
+        },
+      };
+
+      const s3 = {
+        name: 'S3',
+        typeDefs: gql`
+          type D @key(fields: "id") {
+            id: ID!
+            e: Int
+            f: [A]
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          D: {
+            e() {
+              throw new GraphQLError('Something went wrong');
+            },
+            f() {
+              return [{ id: 'a' }];
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+        s3,
+      ]);
+
+      const operation = parseOp(
+        `
+        query {
+          getA {
+            b
+            c {
+              e
+              f {
+                g
+              }
+            }
+          }
+        }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      const errors = response?.errors?.map((e) => e.toJSON());
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "b",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S3",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "c",
+              0,
+              "e",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S3",
+            },
+            "message": "Something went wrong",
+            "path": Array [
+              "getA",
+              "c",
+              1,
+              "e",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Cannot return null for non-nullable field A.g.",
+            "path": Array [
+              "getA",
+              "c",
+              0,
+              "f",
+              0,
+              "g",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "Cannot return null for non-nullable field A.g.",
+            "path": Array [
+              "getA",
+              "c",
+              1,
+              "f",
+              0,
+              "g",
+            ],
+          },
+        ]
+      `);
+    });
+
+    it(`error paths in joins, re-entering through Query`, async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            a: A
+            d: String
+          }
+
+          type A @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            a() {
+              return { id: '1' };
+            },
+            d: () => {
+              throw new GraphQLError('d error');
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: ID!
+            b: String
+            q: Query
+          }
+
+          type Query {
+            c: String
+          }
+        `,
+        resolvers: {
+          A: {
+            b: () => {
+              throw new GraphQLError('b error');
+            },
+            q: () => ({}),
+          },
+          Query: {
+            c: () => {
+              throw new GraphQLError('c error');
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+
+      const operation = parseOp(
+        `
+        query {
+          a {
+            b
+            q {
+              c
+              d
+            }
+          }
+        }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      const errors = response?.errors?.map((e) => e.toJSON());
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "b error",
+            "path": Array [
+              "a",
+              "b",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S2",
+            },
+            "message": "c error",
+            "path": Array [
+              "a",
+              "q",
+              "c",
+            ],
+          },
+          Object {
+            "extensions": Object {
+              "code": "DOWNSTREAM_SERVICE_ERROR",
+              "serviceName": "S1",
+            },
+            "message": "d error",
+            "path": Array [
+              "a",
+              "q",
+              "d",
+            ],
+          },
+        ]
+      `);
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
@@ -996,42 +1308,11 @@ describe('executeQueryPlan', () => {
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);
-
-      expect(response.data).toMatchInlineSnapshot(`
-        Object {
-          "topReviews": Array [
-            Object {
-              "author": Object {
-                "username": "@ada",
-              },
-              "body": "Love it!",
-            },
-            Object {
-              "author": Object {
-                "username": "@ada",
-              },
-              "body": "Too expensive.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Could be better.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Prefer something else.",
-            },
-            Object {
-              "author": Object {
-                "username": "@complete",
-              },
-              "body": "Wish I had read this before.",
-            },
-          ],
-        }
+      expect(response.data).toBeUndefined();
+      expect(response.errors).toMatchInlineSnapshot(`
+        Array [
+          [GraphQLError: Cannot query field "ssn" on type "User".],
+        ]
       `);
     });
 
@@ -1076,23 +1357,6 @@ describe('executeQueryPlan', () => {
       `);
     });
 
-    // THIS TEST SHOULD BE MODIFIED AFTER THE ISSUE OUTLINED IN
-    // https://github.com/apollographql/federation/issues/981 HAS BEEN RESOLVED.
-    // IT IS BEING LEFT HERE AS A TEST THAT WILL INTENTIONALLY FAIL WHEN
-    // IT IS RESOLVED IF IT'S NOT ADDRESSED.
-    //
-    // This test became relevant after a combination of two things:
-    //   1. when the gateway started surfacing errors from subgraphs happened in
-    //      https://github.com/apollographql/federation/pull/159
-    //   2. the idea of field redaction became necessary after
-    //      https://github.com/apollographql/federation/pull/893,
-    //      which introduced the notion of inaccessible fields.
-    //      The redaction started in
-    //      https://github.com/apollographql/federation/issues/974, which added
-    //      the following test.
-    //
-    // However, the error surfacing (first, above) needed to be reverted, thus
-    // de-necessitating this redaction logic which is no longer tested.
     it(`doesn't leak @inaccessible typenames in error messages`, async () => {
       const operationString = `#graphql
         query {
@@ -1114,13 +1378,17 @@ describe('executeQueryPlan', () => {
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
+      // This kind of error is only found by the post-processing of the gateway, and post-processing errors are currently not returned
+      // as normal errors. Instead they are return as `extension`. See discussion on #2374 for details.
       expect(response.errors).toBeUndefined();
-      // SEE COMMENT ABOVE THIS TEST.  SHOULD BE RE-ENABLED AFTER #981 IS FIXED!
-      // expect(response.errors).toMatchInlineSnapshot(`
-      //   Array [
-      //     [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
-      //   ]
-      // `);
+      // This message should not include `Car` in it.
+      expect(response.extensions).toMatchInlineSnapshot(`
+        Object {
+          "valueCompletion": Array [
+            [GraphQLError: Invalid __typename found for object at field Query.vehicle.],
+          ],
+        }
+      `);
     });
   });
 
@@ -3350,7 +3618,6 @@ describe('executeQueryPlan', () => {
       `);
 
       const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
-      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -3933,6 +4200,392 @@ describe('executeQueryPlan', () => {
           }
         `);
       }
+    });
+
+    test('handles querying only the @interfaceObject', async () => {
+      // The point of this test is that we don't want the interface to be resolved, so we don't need
+      // any specific extra resolving.
+      const tester = defineSchema({});
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            y
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S2") {
+            {
+              iFromS2 {
+                y
+              }
+            }
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS2": Object {
+            "y": 20,
+          },
+        }
+      `);
+    });
+
+    test('handles __typename rewriting after forced resolution of implementation type', async () => {
+      const tester = defineSchema({
+        s1: { iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }), },
+      });
+
+      let { plan, response } = await tester(`
+        query {
+          iFromS2 {
+            ... on B {
+              y
+            }
+          }
+        }
+      `);
+
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                iFromS2 {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "iFromS2") {
+              Fetch(service: "S1") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                  }
+                }
+              },
+            },
+            Flatten(path: "iFromS2") {
+              Fetch(service: "S2") {
+                {
+                  ... on B {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    y
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "iFromS2": Object {
+            "y": 20,
+          },
+        }
+      `);
+    });
+
+    test('handles querying fields of an implementation type coming from an @interfaceObject subgraph', async () => {
+      const products = [
+        {
+          id: "1",
+          title: "Jane Eyre",
+          price: 12.99,
+          author: "Charlotte Bronte",
+          ISBN: "9780743273565",
+        },
+        {
+          id: "2",
+          title: "Good Will Hunting",
+          price: 14.99,
+          director: "Gus Van Sant",
+          duration: 126,
+        },
+      ];
+
+      const s1 = {
+        name: 'products',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+          type Query {
+            products: [Product!]!
+          }
+
+          interface Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+          }
+
+          type Book implements Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+            pages: Int
+            ISBN: String!
+          }
+
+          type Movie implements Product @key(fields: "id") {
+            id: ID!
+            description: String
+            price: Float
+            duration: Int
+          }
+        `,
+        resolvers: {
+          Product: {
+            __resolveType(product: any) {
+              if (product.author) {
+                return "Book";
+              } else if (product.director) {
+                return "Movie";
+              } else {
+                return null;
+              }
+            },
+            __resolveReference(reference: any) {
+              return products.find((obj) => obj.id === reference.id);
+            },
+          },
+        }
+      }
+
+      const s2 = {
+        name: 'reviews',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+
+          type Query {
+            allReviewedProducts: [Product!]!
+          }
+
+          type Product @key(fields: "id") @interfaceObject {
+            id: ID!
+            reviews: [Review!]!
+          }
+
+          type Review {
+            author: String
+            text: String
+            rating: Int
+          }
+        `,
+        resolvers: {
+          Query: {
+            allReviewedProducts: () => products,
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      let operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      // We're going check again with almost the query but requesting the `id` field. And the
+      // plan should be exactly the same since `id` gets queried here anyway as a by-product already.
+      const expectedPlan = `
+        QueryPlan {
+          Sequence {
+            Fetch(service: "reviews") {
+              {
+                allReviewedProducts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "allReviewedProducts.@") {
+              Fetch(service: "products") {
+                {
+                  ... on Product {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Product {
+                    __typename
+                    ... on Book {
+                      ISBN
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `;
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // Note that the 2nd product is a Movie, so we should get an empty object
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              id
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // As said above, we should get the same plan as the previous time.
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      // But now we should have the "id" of the book (and still nothing for the movie).
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "id": "1",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      // Now with __typename just for the book
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            ... on Book {
+              __typename
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // The plan is almost the exact same as the previous one, but in this case we do end up asking for __typename
+      // within `... on Book` on the 2nd fetch. Which is not really necessary since we already have the __typename
+      // above, and we could optimise it, but unclear it's even worth the effort.
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "reviews") {
+              {
+                allReviewedProducts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "allReviewedProducts.@") {
+              Fetch(service: "products") {
+                {
+                  ... on Product {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Product {
+                    __typename
+                    ... on Book {
+                      __typename
+                      ISBN
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "__typename": "Book",
+            },
+            Object {},
+          ],
+        }
+      `);
+
+      // And lastly with __typename but for all products
+      operation = parseOp(`
+        {
+          allReviewedProducts {
+            __typename
+            ... on Book {
+              ISBN
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      // As said above, we should get the same plan as the previous time.
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allReviewedProducts": Array [
+            Object {
+              "ISBN": "9780743273565",
+              "__typename": "Book",
+            },
+            Object {
+              "__typename": "Movie",
+            },
+          ],
+        }
+      `);
     });
   });
 
@@ -4710,7 +5363,6 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      global.console = require('console')
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -4782,5 +5434,113 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+  });
+
+  it(`surface post-processing errors as extensions in the response`, async () => {
+    // This test is such that the first subgraph return some object with a key, but
+    // then the 2nd one is queried for additional field `x`, but the reference resolver
+    // returns `null`, so that response is ignored, and the data internally to the
+    // gateway after the plan execution is the object from the 1st subgraph with
+    // just the key but no value for `x` (so effectively, `x` is `null`).
+    // However, because `x` is non-nullable, the gateway has to propagate that null
+    // to the whole `t` object, and it generates an appropriate message.
+    // But, for backward compatibility reasonse, we don't want that error to surface
+    // as a normal graphQL error: instead, it should be send in the response as
+    // an "extension" (see #2374 for details). This is what is tested here.
+
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+      resolvers: {
+        Query: {
+          t() {
+            return { "__typename": "T", "id": 0 };
+          }
+        }
+      }
+    }
+
+    const s2 = {
+      name: 'S2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          x: Int!
+        }
+      `,
+      resolvers: {
+        T: {
+          __resolveReference() {
+            return null;
+          }
+        }
+      }
+    }
+
+    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+    const operation = parseOp(`
+      {
+       t {
+         id
+         x
+       }
+      }
+      `, schema);
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "S2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "t": null,
+      }
+    `);
+
+    // As described above, we should _not_ have a "normal" error ...
+    expect(response.errors).toBeUndefined();
+    // ... but we should still have a trace of the underlying problem in the extensions.
+    expect(response.extensions).toMatchInlineSnapshot(`
+      Object {
+        "valueCompletion": Array [
+          [GraphQLError: Cannot return null for non-nullable field T.x.],
+        ],
+      }
+    `);
   });
 });

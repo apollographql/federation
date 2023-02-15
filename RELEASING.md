@@ -10,30 +10,16 @@ This is a quick and opinionated set of commands for building and releasing a new
 
 More details can be found in [the `changeset` docs for publishing](https://github.com/changesets/changesets/blob/main/docs/intro-to-using-changesets.md#versioning-and-publishing)
 
-1. `FEDERATION_RELEASE_VERSION=X.Y.Z` (e.g. `2.0.1` or `2.0.0-beta.3` or `2.0.0-preview.99`)
-1. `git fetch origin main` to fetch the latest `main` branch
-1. `git checkout -b "release-$FEDERATION_RELEASE_VERSION" main`
-1. You will need to have a GITHUB_TOKEN set up to use changesets. Create a token with your account with permissions `read:user` and `repo:status` and make sure it is assigned to the GITHUB_TOKEN environment variable
-1. If alpha/beta/preview release:
-   1. `npx changeset pre enter <alpha|beta|preview>`
-   2. `npx changeset version` to bump versions, create changelog entries, etc.
-   3. `npx changeset pre exit`
-1. Otherwise this is a major/minor/patch release:
-   1. `npx changeset version` to bump versions, create changelog entries, etc.
-1. Review the changes to make sure they look correct. Note that there may be some log entries that may have been added without changesets that may need to be merged manually. Once everything looks good, commit the changes. 
-1. `gh pr create --title "Release $FEDERATION_RELEASE_VERSION" --body-file ./.github/PULL_REQUEST_TEMPLATE/APOLLO_RELEASE_TEMPLATE.md`
-~~1. Tag the commit to begin the publishing process[^publishing]
-    - For alpha/beta/preview `APOLLO_DIST_TAG=next npm run release:start-ci-publish`
-    - For release `APOLLO_DIST_TAG=latest npm run release:start-ci-publish`~~
-~~1. `echo https://app.circleci.com/pipelines/github/apollographql/federation?filter=mine` and click the resulting link to approve publishing to NPM
-    - There will also be a message posted to #team-atlas in slack that has a link to the approval job~~
-
-Note: This will be on CircleCI eventually, but until we have it down and have seen it in action, we're going to do the npm publish locally rather than through Circle. Be careful with the next few steps as it will be modifying out published npm packages. Note that if this is an alpha release, we will now be publishing to the `alpha` tag instead of `next`. We should probably discuss whether or not to delete the `next` tag from npm.
-
-1. `npx changeset publish`
-2.  `git push --follow-tags`
-3.  `unset FEDERATION_RELEASE_VERSION` to ensure we don't accidentally use this variable later
-4.  Run `./scripts/check-npm-packages.sh` and ensure everything looks correct.
+1. Find the `changesets` PR on the `main` or `next` branch.
+   a. If releasing from `next`, ensure that the branch is up to date with main 
+1. Look at the PR and ensure that it looks good. If the version is not correct, you may need to create a new PR that does one of the following:
+   a. If the version is alpha/beta/rc and you prefer a new major/minor/patch, you'll need to run `npx changeset pre exit`. 
+   b. If the version is not alpha/beta/rc and you want it to be, you'll need to run `npx changeset pre enter <alpha|beta|rc|preview>`. 
+   c. If the version is a patch release, and you want it to be a minor, you'll need to make sure that you've committed a `npx changeset add` that has release notes for a minor release.
+1. Once you've merged this to main, the existing PR should be updated to have the intended version.
+1. Once everything looks good, approve the PR and merge. This should create a new release and publish the packages to npm and https://github.com/apollographql/federation/releases.
+1. For now, we may need to do some manual massaging of the npm tags. Run `./scripts/check-npm-packages.sh` and ensure all tags look correct. If (when) they don't, you'll need to manually run `npm dist-tag` to ensure all tags are set to the correct release.
+1. As part of publishing the release, two PRs will be created in `federation-rs`, one for the harmonizer, and the other for the `router-bridge`. If all tests pass and everything looks good, merge `harmonizer` first, then once the Github action is complete, merge the `router-bridge`. 
 
 ![celebrate](https://media.giphy.com/media/LZElUsjl1Bu6c/giphy.gif)
 

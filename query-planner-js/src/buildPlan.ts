@@ -57,6 +57,8 @@ import {
   isInterfaceType,
   isNonNullType,
   Type,
+  FragmentSelection,
+  InterfaceType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -919,6 +921,86 @@ class FetchGroup {
     }
   }
 
+  // If a group is such that everything is fetches is already included in the inputs, then
+  // this group does useless fetches.
+  isUseless(): boolean {
+    if (!this.inputs || this.mustPreserveSelection) {
+      return false;
+    }
+
+    // For groups that fetches from an @interfaceObject, we can sometimes have something like
+    //   { ... on Book { id } } => { ... on Product { id } }
+    // where `Book` is an implementation of interface `Product`.
+    // And that is because while only "books" are concerned by this fetch, the `Book` type is unknown
+    // of the queried subgraph (in that example, it defines `Product` as an @interfaceObject) and
+    // so we have to "cast" into `Product` instead of `Book`.
+    // But the fetch above _is_ useless, it does only fetch its inputs, and we wouldn't catch this
+    // if we do a raw inclusion check of `selection` into `inputs`
+    //
+    // We only care about this problem at the top-level of the selections however, so we does that
+    // top-level check manually (instead of just calling `this.inputs.contains(this.selection)`)
+    // but fallback on `contains` for anything deeper.
+
+    const conditionInSupergraphIfInterfaceObject = (selection: Selection): InterfaceType | undefined => {
+      if (selection.kind === 'FragmentSelection') {
+        const condition = selection.element().typeCondition;
+        if (condition && isObjectType(condition)) {
+          const conditionInSupergraph = this.dependencyGraph.supergraphSchema.type(condition.name);
+          // Note that we're checking the true supergraph, not the API schema, so even @inaccessible types will be found.
+          assert(conditionInSupergraph, () => `Type ${condition.name} should exists in the supergraph`)
+          if (isInterfaceType(conditionInSupergraph)) {
+            return conditionInSupergraph;
+          }
+        }
+      }
+      return undefined;
+    }
+
+    const inputSelections = this.inputs.selections();
+    // Checks that every selection is contained in the input selections.
+    return this.selection.selections().every((selection) => {
+      const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
+      if (!conditionInSupergraph) {
+        // We're not in the @interfaceObject case described above. We just check that an input selection contains the
+        // one we check.
+        return inputSelections.some((input) => input.contains(selection));
+      }
+
+      const implemTypeNames = conditionInSupergraph.possibleRuntimeTypes().map((t) => t.name);
+      // Find all the input selections that selects object for this interface, that is selection on
+      // either the interface directly or on one of it's implementation type (we keep both kind separate).
+      const interfaceInputSelections: FragmentSelection[] = [];
+      const implementationInputSelections: FragmentSelection[] = [];
+      for (const inputSelection of inputSelections) {
+        // We know that fetch inputs are wrapped in fragments whose condition is an entity type:
+        // that's how we build them and we couldn't select inputs correctly otherwise.
+        assert(inputSelection.kind === 'FragmentSelection', () => `Unexpecting input selection ${inputSelection} on ${this}`);
+        const inputCondition = inputSelection.element().typeCondition;
+        assert(inputCondition, () => `Unexpecting input selection ${inputSelection} on ${this} (missing condition)`);
+        if (inputCondition.name == conditionInSupergraph.name) {
+          interfaceInputSelections.push(inputSelection);
+        } else if (implemTypeNames.includes(inputCondition.name)) {
+          implementationInputSelections.push(inputSelection);
+        }
+      }
+
+      const subSelectionSet = selection.selectionSet;
+      // we're only here if `conditionInSupergraphIfInterfaceObject` returned something, we imply that selection is a fragment
+      // selection and so has a sub-selectionSet.
+      assert(subSelectionSet, () => `Should not be here for ${selection}`);
+
+      // If there is some selections on the interface, then the selection needs to be contained in those.
+      // Otherwise, if there is implementation selections, it must be contained in _each_ of them (we
+      // shouldn't have the case where there is neither interface nor implementation selections, but
+      // we just return false if that's the case as a "safe" default).
+      if (interfaceInputSelections.length > 0) {
+        return interfaceInputSelections.some((input) => input.selectionSet.contains(subSelectionSet));
+      }
+      return implementationInputSelections.length > 0 
+        && implementationInputSelections.every((input) => input.selectionSet.contains(subSelectionSet));
+    });
+  }
+
   /**
    * Merges a child of `this` group into it.
    *
@@ -1137,14 +1219,16 @@ class FetchGroup {
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
+    const subgraphSchema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     let operation = this.isEntityFetch
       ? operationForEntitiesFetch(
-          this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!,
+          subgraphSchema,
           this.selection,
           variableDefinitions,
           operationName,
         )
       : operationForQueryFetch(
+          subgraphSchema,
           this.rootKind,
           this.selection,
           variableDefinitions,
@@ -1866,9 +1950,7 @@ class FetchDependencyGraph {
       this.removeUselessGroups(child);
     }
 
-    // If a group is such that everything is fetches is already included in the inputs, then
-    // this group does useless fetches and can be removed.
-    if (group.inputs && !group.mustPreserveSelection && group.inputs.contains(group.selection)) {
+    if (group.isUseless()) {
       // In general, removing a group is a bit tricky because we need to deal with the fact
       // that the group can have multiple parents and children and no break the "path in parent"
       // in all those cases. To keep thing relatively easily, we only handle the following
@@ -2482,7 +2564,7 @@ export class QueryPlanner {
 
     debug.groupEnd('Query plan computed');
 
-    return{ kind: 'QueryPlan', node: rootNode };
+    return { kind: 'QueryPlan', node: rootNode };
   }
 
   /**
@@ -2614,6 +2696,7 @@ export class QueryPlanner {
       return operation;
     }
     return new Operation(
+      operation.schema,
       operation.rootKind,
       updatedSelectionSet,
       operation.variableDefinitions,
@@ -2784,6 +2867,7 @@ function withoutIntrospection(operation: Operation): Operation {
 
   const newSelections = operation.selectionSet.selections().filter(s => !isIntrospectionSelection(s));
   return new Operation(
+    operation.schema,
     operation.rootKind,
     new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
     operation.variableDefinitions,
@@ -3380,15 +3464,10 @@ function computeGroupsForTree(
             const inputType = dependencyGraph.typeForFetchInputs(sourceType.name);
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.mergeIn(edge.conditions!);
-            let rewrites: FetchDataInputRewrite[] | undefined = undefined;
-            if (isInterfaceObjectType(destType)) {
-              rewrites = [{
-                kind: 'ValueSetter',
-                path: [ `... on ${inputType.name}`, typenameFieldName ],
-                setValueTo: destType.name,
-              }];
-            }
-            newGroup.addInputs(wrapInputsSelections(inputType, inputSelections, newContext), rewrites);
+            newGroup.addInputs(
+              wrapInputsSelections(inputType, inputSelections, newContext),
+              computeInputRewritesOnKeyFetch(inputType.name, destType),
+            );
 
             // We also ensure to get the __typename of the current type in the "original" group.
             group.addSelection(path.inGroup().concat(new Field(sourceType.typenameField()!)));
@@ -3564,6 +3643,17 @@ function computeGroupsForTree(
   return createdGroups;
 }
 
+function computeInputRewritesOnKeyFetch(inputTypeName: string, destType: CompositeType): FetchDataInputRewrite[] | undefined {
+  if (isInterfaceObjectType(destType)) {
+    return [{
+      kind: 'ValueSetter',
+      path: [ `... on ${inputTypeName}`, typenameFieldName ],
+      setValueTo: destType.name,
+    }];
+  }
+  return undefined;
+}
+
 function extractDeferFromOperation({
   dependencyGraph,
   operation,
@@ -3622,6 +3712,10 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
         addTypenameFieldForAbstractTypes(selection.selectionSet);
       }
     } else {
+      const conditionType = selection.element().typeCondition;
+      if (conditionType && isAbstractType(conditionType)) {
+        selection.selectionSet!.add(new FieldSelection(new Field(conditionType.typenameField()!)));
+      }
       addTypenameFieldForAbstractTypes(selection.selectionSet);
     }
   }
@@ -3893,7 +3987,16 @@ function addPostRequireInputs(
   postRequireGroup: FetchGroup,
 ) {
   const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
-  postRequireGroup.addInputs(inputs);
+  let rewrites: FetchDataInputRewrite[] | undefined = undefined;
+  // This method is used both for "normal" user @requires, but also to handle the internally injected requirement for interface objects
+  // when the "true" __typename needs to be retrieved. In those case, the post-require group is basically resuming fetch on the
+  // @interfaceObject subgraph after we found the real __typename of objects of that interface. But that also mean we need to make
+  // sure to rewrite that "real" __typename into the interface object name for that fetch (as we do for normal key edge toward an
+  // interface object).
+  if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
+    rewrites = computeInputRewritesOnKeyFetch(edge.transition.castedTypeName, entityType);
+  }
+  postRequireGroup.addInputs(inputs, rewrites);
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
@@ -4005,14 +4108,15 @@ function operationForEntitiesFetch(
     ),
   );
 
-  return new Operation('query', entitiesCall, variableDefinitions, operationName);
+  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, operationName);
 }
 
 function operationForQueryFetch(
+  subgraphSchema: Schema,
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   operationName?: string
 ): Operation {
-  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
+  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
 }
