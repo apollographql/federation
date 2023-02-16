@@ -7,7 +7,7 @@ description: Understand changes between federation versions
 
 **Additions**
 
-[`@interfaceObject`](https://www.apollographql.com/docs/federation/federated-types/interfaces) a directive that allows you to abstract an interface in isolation by declaring it locally as an object type. This enables you to contribute fields without needing to redefine all the interface’s concrete implementation types.
+* introduce [`@interfaceObject`](https://www.apollographql.com/docs/federation/federated-types/interfaces) directive - a directive that allows you to abstract an interface in isolation by declaring it locally as an object type. This enables you to contribute fields without needing to redefine all the interface’s concrete implementation types.
 
 ```graphql
 directive @interfaceObject on OBJECT
