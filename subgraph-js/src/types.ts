@@ -40,7 +40,12 @@ export const AnyType = new GraphQLScalarType({
 });
 
 function isPromise<T>(value: PromiseOrValue<T>): value is Promise<T> {
-  return Boolean(value && 'then' in value && typeof value.then === 'function');
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      'then' in value &&
+      typeof value.then === 'function',
+  );
 }
 
 function addTypeNameToPossibleReturn<T>(
