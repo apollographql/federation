@@ -1,0 +1,329 @@
+---
+title: Entity interfaces
+description: Add entity fields polymorphically
+---
+
+>  ⚠️ **The functionality described in this article is available in Apollo Federation 2.3 and later.**
+>
+> For information about using interfaces with entities in previous federation versions, see [this section](#).
+
+Apollo Federation provides powerful extensions to GraphQL interfaces, specifically for use with your supergraph's [entities](../entities/):
+
+1. Apply the `@key` directive to an `interface` definition to make it an **entity interface**.
+2. In other subgraphs, use the `@interfaceObject` directive to automatically add fields to _every_ entity that implements your entity interface.
+
+With these extensions, your subgraphs can quickly contribute sets of fields to _multiple_ entities, _without_ needing to duplicate any existing (or future) entity definitions.
+
+## Example schemas
+
+Let's look at a supergraph that defines a `Media` entity interface, along with a `Book` entity that implements it:
+
+<CodeColumns>
+
+```graphql title="Subgraph A"
+interface Media @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+
+type Book implements Media @key(fields: "id"){
+  id: ID!
+  title: String!
+}
+```
+
+```graphql title="Subgraph B"
+type Media @key(fields: "id") @interfaceObject {
+  id: ID!
+  reviews: [Review!]!
+}
+
+type Review {
+  score: Int!
+}
+
+type Query {
+  topRatedMedia: [Media!]!
+}
+```
+
+</CodeColumns>
+
+This example is short, but there's a lot to it! Let's break it down:
+
+- **Subgraph A** defines the `Media` interface, along with the implementing `Book` entity.
+    - The `Media` interface uses the `@key` directive, which makes it an **entity interface**.
+    - This usage requires that all objects implementing `Media` are entities, _and_ that those entities _all_ use the specified `@key`(s).
+    - As shown, `Book` _is_ an entity and it _does_ use the single specified `@key`.
+- **Subgraph B** wants to add a `reviews` field to _every_ entity that implements `Media`.
+    - To achieve this, Subgraph B _also_ defines `Media`, **but as an object type!** [Learn why this is necessary](#why-is-interfaceobject-necessary).
+    - Subgraph B applies the `@interfaceObject` directive to `Media`, which indicates that the object corresponds to _another_ subgraph's entity interface.
+    - Subgraph B applies the exact same `@key`(s) to `Media` that Subgraph A does, and it also defines all `@key` fields (in this case, just `id`).
+    - Subgraph B defines the new `Media.reviews` field.
+    - Subgraph B will also be responsible for _resolving_ the `reviews` field. To learn how, see [Resolving an `@interfaceObject`](#resolving-an-interfaceobject).
+
+When [composition](./composition/) runs for the above subgraph schemas, it identifies Subgraph B's `@interfaceObject`. It adds the new `reviews` field to the supergraph schema's `Media` interface, and it _also_ adds that field to the implementing `Book` entity (along with any others):
+
+```graphql title="Supergraph schema (simplified)"
+interface Media @key(fields: "id") {
+  id: ID!
+  title: String!
+  reviews: [Review!]! #highlight-line
+}
+
+type Book implements Media @key(fields: "id"){
+  id: ID!
+  title: String!
+  reviews: [Review!]! #highlight-line
+}
+
+type Review {
+  score: Int!
+}
+```
+
+> Subgraph B _could_ have added `Book.reviews` by [contributing the field](../entities#contributing-entity-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a _hundred_ different entity implementations of `Media`?
+>
+> By instead adding entity fields via `@interfaceObject`, we can avoid redefining a hundred entities in Subgraph B (not to mention adding _more_ definitions whenever a new implementing entity is created). [Learn more.](#why-is-interfaceobject-necessary)
+
+## Requirements
+
+To use entity interfaces and `@interfaceObject`, your supergraph must adhere to _all_ of the following requirements. Otherwise, composition will fail.
+
+### Enabling support
+
+- If they don't already, _all_ of your subgraph schemas **must** use the [`@link` directive](./federated-directives/#importing-directives) to enable Federation 2 features.
+- Any subgraph schema that uses the `@interfaceObject` directive _or_ applies `@key` to an `interface` **must** target `v2.3` or later of the Apollo Federation specfication:
+
+    ```graphql
+    extend schema
+      @link(
+      #highlight-start
+      url: "https://specs.apollo.dev/federation/v2.3"
+      import: ["@key", "@interfaceObject"]
+      #highlight-end
+      )
+    ```
+
+    Additionally, schemas that use `@interfaceObject` must include it in the [`@link` directive's](./federated-directives/#importing-directives) `import` array as shown above.
+
+### Usage rules
+
+#### The `interface` definition
+
+Let's say Subgraph A defines the `MyInterface` type as an entity interface so that _other_ subgraphs can add fields to it:
+
+```graphql title="Subgraph A"
+interface MyInterface @key(fields: "id") {
+  id: ID!
+  originalField: String!
+}
+
+type MyObject implements MyInterface @key(fields: "id") {
+  id: ID!
+  originalField: String!
+}
+```
+
+**In this case:**
+
+- Subgraph A **must** include at least one `@key` directive in its `MyInterface` definition.
+    - It **may** include multiple `@key`s.
+- Subgraph A **must** define _every_ entity type in your _entire supergraph_ that implements `MyInterface`.
+    - Certain other subgraphs can _also_ define these entities, but Subgraph A **must** define **all** of them.
+    - You can think of a subgraph that defines an entity interface as also  _owning_ every entity that implements that interface.
+- Subgraph A **must** be able to uniquely identify _any_ instance of _any_ entity that implements `MyInterface`, using _only_ the `@key` fields defined by `MyInterface`.
+    - In other words, if `EntityA` and `EntityB` both implement `MyInterface`, no instance of `EntityA` can have the exact same values for its `@key` fields as any instance of `EntityB`.
+    - This uniqueness requirement is _always_ true among instances of a _single_ entity. With entity interfaces, this requirement extends across instances of _all_ implementing entities.
+    - This is required to support deterministically [resolving the interface](#required-resolvers) in Subgraph A.
+- Every entity that implements `MyInterface` **must** include **all** `@key`s from the `MyInterface` definition.
+    - These entities can _optionally_ define _additional_ `@key`s as needed.
+
+#### `@interfaceObject` definitions
+
+Let's say Subgraph B applies `@interfaceObject` to an object type named `MyInterface`:
+
+```graphql title="Subgraph B"
+type MyInterface @key(fields: "id") @interfaceObject {
+  id: ID!
+  addedField: Int!
+}
+```
+
+**In this case:**
+
+- At least one _other_ subgraph **must** define an _interface_ type named `MyInterface` with the `@key` directive applied to it (e.g., [Subgraph A above](#the-interface-definition))
+
+    ```graphql title="Subgraph A"
+    interface MyInterface @key(fields: "id") {
+      id: ID!
+      originalField: String!
+    }
+    ```
+
+- _Every_ subgraph that defines `MyInterface` as an object type **must**:
+    - Apply `@interfaceObject` to its definition
+    - Include the exact same `@key`(s) as the _interface_ type's definition
+- Subgraph B **must not** _also_ define `MyInterface` as an _interface_ type.
+- Subgraph B **must not** define _any_ entity that _implements_ `MyInterface`.
+    - If a subgraph contributes entity fields via `@interfaceObject`, it "gives up" the ability to contribute fields to any _individual_ entity that implements that interface.
+
+### Required resolvers
+
+#### `interface` reference resolver
+
+In [the example schemas above](#example-schemas), Subgraph A defines `Media` as an entity interface, which includes applying the `@key` directive to it:
+
+```graphql title="Subgraph A"
+interface Media @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+As it does with any [standard entity](../entities/#1-define-a-key), `@key` indicates "this subgraph can resolve any instance of this type if provided its `@key` fields." This means Subgraph A needs to define a **reference resolver** for `Media`, just as it would for any other entity.
+
+> The method for defining a reference resolver depends on which [subgraph library](../building-supergraphs/supported-subgraphs/) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
+
+Here's an example reference resolver for `Media` if using Apollo Server with the `@apollo/subgraph` library:
+
+```js
+Media: {
+  __resolveReference(representation) {
+    return allMedia.find((obj) => obj.id === representation.id);
+  },
+},
+
+// ....other resolvers ...
+```
+
+In this example, the hypothetical variable `allMedia` contains all `Media` data, including each object's `id`.
+
+
+#### `@interfaceObject` resolvers
+
+##### Field resolvers
+
+In [the example schemas above](#example-schemas), Subgraph B defines `Media` as an object type and applies `@interfaceObject` to it. It also defines a `Query.topRatedMedia` field:
+
+```graphql title="Subgraph B"
+type Media @key(fields: "id") @interfaceObject {
+  id: ID!
+  reviews: [Review!]!
+}
+
+type Review {
+  score: Int!
+}
+
+type Query {
+  topRatedMedia: [Media!]!
+}
+```
+
+Subgraph B needs to define a resolver for the new `topRatedMedia` field, along with any _other_ fields that return the `Media` type.
+
+Remember: from the perspective of Subgraph B, `Media` _is an object!_ Therefore, you create resolvers for it using the same sort of logic that you would use for any other object. Subgraph B only needs to be able to resolve the `Media` fields that it knows about (`id` and `reviews`).
+
+##### Reference resolver
+
+Notice that in Subgraph B, `Media` is an object type with `@key` applied. Therefore, it's a standard entity! As with any entity definition, it _also_ requires a corresponding reference resolver:
+
+```js
+Media: {
+  __resolveReference(representation) {
+    return allMedia.find((obj) => obj.id === representation.id);
+  },
+},
+
+// ....other resolvers ...
+```
+
+## Why is `@interfaceObject` necessary?
+
+Without the `@interfaceObject` directive and its associated composition logic, distributing an interface type's definition across subgraphs can impose continual maintenance requirements on your subgraph teams.
+
+Let's look at an example that _doesn't_ use `@interfaceObject`. Here, Subgraph A defines the `Media` interface, along with two implementing entities:
+
+```graphql title="Subgraph A"
+interface Media {
+  id: ID!
+  title: String!
+}
+
+type Book implements Media @key(fields: "id") {
+  id: ID!
+  title: String!
+  author: String!
+}
+
+type Movie implements Media @key(fields: "id") {
+  id: ID!
+  title: String!
+  director: String!
+}
+```
+
+Now, if Subgraph B wants to add a `reviews` field to the `Media` interface, it can't _just_ define that field:
+
+<p style="margin-bottom: 0">❌</p>
+
+```graphql title="Subgraph B"
+interface Media {
+  reviews: [Review!]!
+}
+
+type Review {
+  score: Int!
+}
+
+type Query {
+  topRatedMedia: [Media!]!
+}
+```
+
+**This addition breaks composition.** In the supergraph schema, the `Media` interface now defines the `reviews` field, but neither `Book` nor `Movie` does!
+
+For this to work, Subgraph B _also_ needs to add the `reviews` field to _every entity_ that implements `Media`:
+
+<p style="margin-bottom: 0">⚠️</p>
+
+```graphql
+interface Media {
+  reviews: [Review!]!
+}
+
+type Review {
+  score: Int!
+}
+
+type Book implements Media @key(fields: "id") {
+  id: ID!
+  reviews: [Review!]!
+}
+
+type Movie implements Media @key(fields: "id") {
+  id: ID!
+  reviews: [Review!]!
+}
+```
+
+This resolves our _current_ composition error, but composition will break _again_ whenever Subgraph A defines a _new_ entity that implements `Media`:
+
+```graphql title="Subgraph A"
+type Podcast implements Media @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+To prevent these composition errors, the teams maintaining Subgraph A and Subgraph B need to coordinate their schema changes _every time_ a new implementation of `Media` is created. Imagine how complex that coordination becomes if the definition of `Media` is instead distributed across _ten_ subgraphs!
+
+In summary, Subgraph B shouldn't need to know every possible _kind_ of `Media` that exists in your supergraph. Instead, it should generically know how to fetch reviews for _any_ kind of `Media`. _This_ is the relationship that entity interfaces and `@interfaceObject` provide, as demonstrated in the [example above](#example-schemas).
+
+
+### Are there alternatives to using `@interfaceObject`?
+
+The primary alternative to using `@interfaceObject` is to use the discouraged strategy described in the [previous section](#why-is-interfaceobject-necessary). This requires duplicating _all_ implementations of a given interface in each subgraph that contributes fields to that interface.
+
+Note that this alternative _also_ requires that each subgraph can resolve the type of any object that implements the interface. In many cases, a particular subgraph _can't_ do this, which means this alternative is not feasible.
