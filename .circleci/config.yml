@@ -50,6 +50,19 @@ jobs:
           paths:
             - ./**
 
+  # Renovate seems to be capable of updating packages / making lockfile updates
+  # for package versions with incompatible `engines.node` fields. This means
+  # that CI will pass, but users will end up with engine warnings (failures if
+  # they use engine-strict). This little "project" installs all of the repo's
+  # packages on a node 12 machine using `engine-strict=true` in order to
+  # validate there are no `engines.node` incompatibilities.
+  NodeJS 12 Engine Compatibility:
+    docker:
+      - image: cimg/node:12.22
+    steps:
+      - checkout
+      - run: cd v12-node-compatibility && npm i
+
   NodeJS 14:
     docker:
       - image: cimg/node:14.19
@@ -126,6 +139,9 @@ workflows:
     jobs:
       - NodeJS 12:
           name: "JS: Node 12"
+          <<: *common_non_publish_filters
+      - NodeJS 12 Engine Compatibility:
+          name: "JS: Node 12 Engine Compatibility"
           <<: *common_non_publish_filters
       - NodeJS 14:
           name: "JS: Node 14"

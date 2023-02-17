@@ -1,0 +1,22 @@
+{
+  "name": "smoke-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "volta": {
+    "node": "12.22.12"
+  },
+  "dependencies": {
+    "@apollo/gateway": "file:../gateway-js",
+    "@apollo/federation": "file:../federation-js",
+    "@apollo/query-planner": "file:../query-planner-js",
+    "@apollo/subgraph": "file:../subgraph-js",
+    "graphql": "^16.6.0"
+  }
+}
