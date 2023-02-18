@@ -8,9 +8,10 @@ import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 import { buildSchema, ObjectType, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { printSchema } from 'graphql';
-import LRUCache from 'lru-cache';
+import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import { QueryPlan } from '@apollo/query-planner';
 import { createHash } from '@apollo/utils.createhash';
+import { QueryPlanCache } from '@apollo/query-planner'
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
@@ -32,7 +33,7 @@ let gateway: ApolloGateway;
 let gatewayServer: ApolloServer;
 let gatewayUrl: string;
 
-async function startServicesAndGateway(servicesDefs: ServiceDefinition[], cache?: LRUCache<string, QueryPlan>) {
+async function startServicesAndGateway(servicesDefs: ServiceDefinition[], cache?: QueryPlanCache) {
   backendServers = [];
   const serviceList = [];
   for (const serviceDef of servicesDefs) {
@@ -73,7 +74,7 @@ afterEach(async () => {
 
 
 describe('caching', () => {
-  const cache = new LRUCache<string, QueryPlan>({maxSize: Math.pow(2, 20) * (30), sizeCalculation: approximateObjectSize});
+  const cache = new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * (30), sizeCalculation: approximateObjectSize});
   beforeEach(async () => {
     await startServicesAndGateway(fixtures, cache);
   });
@@ -95,7 +96,7 @@ describe('caching', () => {
 
     await queryGateway(query);
     const queryHash:string = createHash('sha256').update(query).digest('hex');
-    expect(cache.has(queryHash)).toBe(true);
+    expect(await cache.get(queryHash)).toBeTruthy();
   });
 
   it(`cache control`, async () => {
