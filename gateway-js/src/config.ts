@@ -1,6 +1,6 @@
 import { GraphQLError, GraphQLSchema } from 'graphql';
 import { HeadersInit } from 'node-fetch';
-import { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import { GatewayGraphQLRequestContext } from './typings/serverGatewayInterface';
 import type { Logger } from '@apollo/utils.logger';
 import { ServiceDefinition } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
