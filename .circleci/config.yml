@@ -50,19 +50,6 @@ jobs:
           paths:
             - ./**
 
-  # Renovate seems to be capable of updating packages / making lockfile updates
-  # for package versions with incompatible `engines.node` fields. This means
-  # that CI will pass, but users will end up with engine warnings (failures if
-  # they use engine-strict). This little "project" installs all of the repo's
-  # packages on a node 12 machine using `engine-strict=true` in order to
-  # validate there are no `engines.node` incompatibilities.
-  NodeJS 12 Engine Compatibility:
-    docker:
-      - image: cimg/node:12.22
-    steps:
-      - checkout
-      - run: cd v12-node-compatibility && npm i
-
   NodeJS 14:
     docker:
       - image: cimg/node:14.19
@@ -111,6 +98,21 @@ jobs:
       - run:
           command: npm run codegen:check
 
+  # Renovate seems to be capable of updating packages / making lockfile updates
+  # for package versions with incompatible `engines.node` fields. This means
+  # that CI will pass, but users will end up with engine warnings (failures if
+  # they use engine-strict). This little "project" installs all of the repo's
+  # packages on a node 12 machine using `engine-strict=true` in order to
+  # validate there are no `engines.node` incompatibilities.
+  NodeJS 12 Engine Compatibility:
+    docker:
+      - image: cimg/node:12.22
+    steps:
+      - attach_workspace:
+          at: .
+      # Grab each of the generated tarballs and install it into the dummy project
+      - run: cd v12-node-compatibility && find ../.verdaccio-storage -type f -name "*.tgz" | xargs npm i 
+
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
 #     to do this!
@@ -140,9 +142,6 @@ workflows:
       - NodeJS 12:
           name: "JS: Node 12"
           <<: *common_non_publish_filters
-      - NodeJS 12 Engine Compatibility:
-          name: "JS: Node 12 Engine Compatibility"
-          <<: *common_non_publish_filters
       - NodeJS 14:
           name: "JS: Node 14"
           <<: *common_non_publish_filters
@@ -168,6 +167,11 @@ workflows:
             - "JS: Node 18"
             - "Backcompat support: graphql@15"
             - "GraphQL Types (up to date)"
+      - NodeJS 12 Engine Compatibility:
+          name: "JS: Node 12 Engine Compatibility"
+          <<: *common_non_publish_filters
+          requires:
+            - "JS: Package tarballs"
       - oss/dry_run:
           name: "JS: Dry-run"
           <<: *common_publish_filters
@@ -178,6 +182,7 @@ workflows:
             - "JS: Node 18"
             - "Backcompat support: graphql@15"
             - "GraphQL Types (up to date)"
+            - "JS: Node 12 Engine Compatibility"
       - oss/confirmation:
           name: "JS: Confirmation"
           type: approval
