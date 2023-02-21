@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
-    "@apollo/client": "3.7.8",
+    "@apollo/client": "3.7.9",
     "@apollo/utils.fetcher": "1.1.1",
     "@graphql-codegen/cli": "3.0.0",
     "@graphql-codegen/typescript": "3.0.0",
@@ -61,7 +61,7 @@
     "jest-cucumber": "3.0.1",
     "jest-junit": "15.0.0",
     "lerna": "4.0.0",
-    "log4js": "6.7.1",
+    "log4js": "6.8.0",
     "mocked-env": "1.3.5",
     "nock": "13.3.0",
     "node-fetch": "2.6.9",
