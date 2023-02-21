@@ -71,7 +71,7 @@ export class RemoteGraphQLDataSource<
     const pathInIncomingRequest =
       options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
         ? options.pathInIncomingRequest
-        : null;
+        : undefined;
 
     // Deal with a bit of a hairy situation in typings: when doing health checks
     // and schema checks we always pass in `{}` as the context even though it's
@@ -240,7 +240,7 @@ export class RemoteGraphQLDataSource<
     request: GatewayGraphQLRequest;
     context: TContext;
     overallCachePolicy: GatewayCachePolicy | null;
-    pathInIncomingRequest?: ResponsePath | null
+    pathInIncomingRequest?: ResponsePath
   }): Promise<GatewayGraphQLResponse> {
     const processedResponse =
       typeof this.didReceiveResponse === 'function'
@@ -276,7 +276,7 @@ export class RemoteGraphQLDataSource<
   public didReceiveResponse?(
     requestContext: Required<
       Pick<GatewayGraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
-    > & { pathInIncomingRequest?: ResponsePath | null }
+    > & { pathInIncomingRequest?: ResponsePath }
   ): GatewayGraphQLResponse | Promise<GatewayGraphQLResponse>;
 
   public didEncounterError(
