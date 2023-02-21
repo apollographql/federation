@@ -1,6 +1,7 @@
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import { createHash } from '@apollo/utils.createhash';
+import { ResponsePath } from '@apollo/query-planner';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
 import fetcher from 'make-fetch-happen';
 import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-fetch';
@@ -66,7 +67,12 @@ export class RemoteGraphQLDataSource<
   async process(
     options: GraphQLDataSourceProcessOptions<TContext>,
   ): Promise<GatewayGraphQLResponse> {
-    const { request, context: originalContext, nodeGraphPath } = options;
+    const { request, context: originalContext } = options;
+    const pathInIncomingRequest =
+      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
+        ? options.pathInIncomingRequest
+        : null;
+
     // Deal with a bit of a hairy situation in typings: when doing health checks
     // and schema checks we always pass in `{}` as the context even though it's
     // not really guaranteed to be a `TContext`, and then we pass it to various
@@ -143,7 +149,7 @@ export class RemoteGraphQLDataSource<
           request: requestWithoutQuery,
           context,
           overallCachePolicy,
-          nodeGraphPath
+          pathInIncomingRequest
         });
       }
     }
@@ -161,7 +167,7 @@ export class RemoteGraphQLDataSource<
       request: requestWithQuery,
       context,
       overallCachePolicy,
-      nodeGraphPath
+      pathInIncomingRequest
     });
   }
 
@@ -228,17 +234,17 @@ export class RemoteGraphQLDataSource<
     request,
     context,
     overallCachePolicy,
-    nodeGraphPath
+    pathInIncomingRequest
   }: {
     response: GatewayGraphQLResponse;
     request: GatewayGraphQLRequest;
     context: TContext;
     overallCachePolicy: GatewayCachePolicy | null;
-    nodeGraphPath: GraphQLDataSourceProcessOptions<TContext>['nodeGraphPath']
+    pathInIncomingRequest?: ResponsePath | null
   }): Promise<GatewayGraphQLResponse> {
     const processedResponse =
       typeof this.didReceiveResponse === 'function'
-        ? await this.didReceiveResponse({ response, request, context, nodeGraphPath })
+        ? await this.didReceiveResponse({ response, request, context, pathInIncomingRequest })
         : response;
 
     if (overallCachePolicy) {
@@ -270,7 +276,7 @@ export class RemoteGraphQLDataSource<
   public didReceiveResponse?(
     requestContext: Required<
       Pick<GatewayGraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
-    > & Pick<GraphQLDataSourceProcessOptions<TContext>, 'nodeGraphPath'>
+    > & { pathInIncomingRequest?: ResponsePath | null }
   ): GatewayGraphQLResponse | Promise<GatewayGraphQLResponse>;
 
   public didEncounterError(
