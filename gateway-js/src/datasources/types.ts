@@ -51,9 +51,9 @@ export type GraphQLDataSourceProcessOptions<
 
       /**
       * The path in the overall gateway operation at which that subgraph request gets inserted.
-			* Please note that this could be set to `undefined` when the path is not available, or set to `null` for top-level fetch operations.
+      * Please note that this could be set to `undefined` when the path is not available, or set to `null` for top-level fetch operations.
       */
-			pathInIncomingRequest?: ResponsePath | null;
+      pathInIncomingRequest?: ResponsePath | null;
     }
   | {
       kind:
