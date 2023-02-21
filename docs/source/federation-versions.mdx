@@ -5,46 +5,160 @@ description: Understand changes between federation versions
 
 ## v2.3
 
-**Additions**
+**Directive changes**
 
-* introduce [`@interfaceObject`](https://www.apollographql.com/docs/federation/federated-types/interfaces) directive - a directive that allows you to abstract an interface in isolation by declaring it locally as an object type. This enables you to contribute fields without needing to redefine all the interface’s concrete implementation types.
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@interfaceObject`
+
+</td>
+<td>
 
 ```graphql
 directive @interfaceObject on OBJECT
 ```
 
-* support `@key` on interface definitions - while `@key` directive definition already defined `INTERFACE` as a valid location, this information wasn't used during composition. With introduction of `@interfaceObject` we now need to specify matching `@key` on abstract interfaces
-**Note:** This directive was already available in earlier versions of federation, but it wasn't used during composition.
+</td>
+</tr>
+
+</tbody>
+</table>
+
+**Subgraph changes**
+
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Interfaces
+
+</td>
+<td>
+
+`@key` directive can now be used on interface definitions.
+
+</td>
+</tr>
+
+</tbody>
+</table>
 
 
 ## v2.2
 
-**Changes**
+**Directive changes**
 
-Composition now rejects `@shareable` on interface fields. The @shareable directive is about controlling if
-multiple subgraphs can resolve a particular field, and as interface field are never directly resolved (it's their implementation that are), having @shareable on interface fields is not completely meaningful and was never meant to be supported.
-If an existing subgraph does have a @shareable on an interface field, this will now be rejected,
-but the @shareable can simply and safely be removed since it previously was ignored.
 
-The `@shareable` directive has been [updated to be repeatable](https://github.com/apollographql/federation/pull/2175). This allows you to use in a type definition and in an extension of that type definition.
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@shareable`
+
+</td>
+<td>
+
+Added `repeatable` to the directive definition.
 
 ```graphql
 directive @shareable repeatable on OBJECT | FIELD_DEFINITION
 ```
 
+</td>
+</tr>
+
+</tbody>
+</table>
+
+**Subgraph changes**
+
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Interfaces
+
+</td>
+<td>
+
+Composition now rejects `@shareable` on interface fields.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
 
 ## v2.1
 
-**Additions**
+**Directive changes**
 
-* introduce new [`@composeDirective`](https://www.apollographql.com/docs/federation/federated-types/federated-directives/#composedirective) -
-directive indicates to composition that all uses
-of a particular custom type system directive in the subgraph schema should be preserved
-in the supergraph schema (by default, composition omits most directives from the supergraph schema).
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@composeDirective`
+
+</td>
+<td>
+
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
 ```
+
+</td>
+</tr>
+
+</tbody>
+</table>
 
 ## v2.0
 
