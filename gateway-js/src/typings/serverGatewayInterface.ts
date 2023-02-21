@@ -1,8 +1,9 @@
-// NOTE: Once Apollo Server 4 is released, move this package into the
-// apollo-server repo. We're placing it in the apollo-utils repo for now to
-// enable us to make non-alpha releases that can be used on the apollo-server
-// version-4 branch.
-
+// Copied from
+// https://github.com/apollographql/apollo-server/blob/f05d12ac6d72cdf1107c3f8596e2586a9c648c7a/packages/server-gateway-interface/src/index.ts
+// The referenced commit is from the git tag
+// @apollo/server-gateway-interface@1.0.2, which gateway previously depended on.
+// Unfortunately, that package only supports v14+ of node which creates an
+// incompatibility with this package.
 import type { KeyValueCache } from "@apollo/utils.keyvaluecache";
 import type {
   DocumentNode,
