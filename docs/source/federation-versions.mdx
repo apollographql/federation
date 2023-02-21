@@ -37,7 +37,7 @@ directive @shareable repeatable on OBJECT | FIELD_DEFINITION
 
 **Additions**
 
-* introduce new [`@composeDirective`](https://www.apollographql.com/docs/federation/federated-types/federated-directives/#composedirective) - 
+* introduce new [`@composeDirective`](https://www.apollographql.com/docs/federation/federated-types/federated-directives/#composedirective) -
 directive indicates to composition that all uses
 of a particular custom type system directive in the subgraph schema should be preserved
 in the supergraph schema (by default, composition omits most directives from the supergraph schema).
@@ -45,26 +45,6 @@ in the supergraph schema (by default, composition omits most directives from the
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
 ```
-
-Here's an example of how to use `@composeDirective`:
-
-```graphql
-extend schema
-    @link(url: "https://specs.apollo.dev/link/v1.0")
-    @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@composeDirective"])
-    @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
-    # highlight-start
-    @composeDirective(name: "@myDirective")
-    @composeDirective(name: "@hello")
-    # highlight-end
-
-# highlight-start
-directive @myDirective(a: String!) on FIELD_DEFINITION
-directive @hello on FIELD_DEFINITION
-# highlight-end
-```
-
-**Note:** like for federation directives, make sure to include the `@composeDirective` directive in the `import` list of the `@link` directive that points to the spec that defines the directive. You can see in our example above that, in addition to importing the federation directives, we are also importing `@myDirective` from `"https://myspecs.dev/myDirective/v1.0"`
 
 ## v2.0
 
