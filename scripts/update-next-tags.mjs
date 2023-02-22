@@ -17,9 +17,15 @@ console.log(`Current \`test\` tag version of ${pkg}: ${testVersion}`);
 if (testVersion !== mostRecentVersion) {
   console.log(`\`test\` tag is behind, updating...`);
   exec(`npm dist-tag add ${pkg}@${mostRecentVersion} test`, (e) => {
-    console.error(e);
-    console.error('Error occurred while updating `test` tag!');
-    process.exit(1);
+    if (e) {
+
+      console.error(e);
+      console.error('Error occurred while updating `test` tag!');
+      process.exit(1);
+    } else {
+      console.log('`next` tag updated successfully!');
+      process.exit(0);
+    }
   });
 } else {
   console.log('No action needed, `test` tag is pointed to most recent version');
