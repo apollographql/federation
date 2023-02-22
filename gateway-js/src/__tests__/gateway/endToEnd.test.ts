@@ -11,7 +11,7 @@ import { printSchema } from 'graphql';
 import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import { QueryPlan } from '@apollo/query-planner';
 import { createHash } from '@apollo/utils.createhash';
-import { QueryPlanCache } from '@apollo/query-planner'
+import { QueryPlanCache } from '@apollo/query-planner';
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
