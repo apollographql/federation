@@ -1780,19 +1780,22 @@ class Merger {
   }
 
   private mergeInterface(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
-    this.validateInterfaceKeys(sources, dest);
+    const hasKey = this.validateInterfaceKeys(sources, dest);
     this.validateInterfaceObjects(sources, dest);
 
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
-      this.hintOnInconsistentValueTypeField(sources, dest, destField);
+      if (!hasKey) {
+        this.hintOnInconsistentValueTypeField(sources, dest, destField);
+      }
       const subgraphFields = sources.map(t => t?.field(destField.name));
       const mergeContext = this.validateOverride(subgraphFields, destField);
       this.mergeField(subgraphFields, destField, mergeContext);
     }
   }
 
-  private validateInterfaceKeys(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
+  // Returns whether the interface has a key (even a non-resolvable one) in any subgraph.
+  private validateInterfaceKeys(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType): boolean {
     // Remark: it might be ok to filter @inaccessible types in `supergraphImplementations`, but this requires
     // some more thinking (and I'm not even sure it makes a practical difference given the rules for validity
     // of @inaccessible) and it will be backward compatible to filter them later, while the reverse wouldn't
@@ -1801,12 +1804,15 @@ class Merger {
 
     // Validate that if a source defines a (resolvable) @key on an interface, then that subgraph defines
     // all the implementations of that interface in the supergraph.
+    let hasKey = false;
     for (const [idx, source] of sources.entries()) {
       if (!source || !isInterfaceType(source)) {
         continue;
       }
       const sourceMetadata = this.subgraphs.values()[idx].metadata();
-      const resolvableKey = source.appliedDirectivesOf(sourceMetadata.keyDirective()).find((k) => k.arguments().resolvable !== false);
+      const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
+      hasKey ||= keys.length > 0;
+      const resolvableKey = keys.find((k) => k.arguments().resolvable !== false);
       if (!resolvableKey) {
         continue;
       }
@@ -1824,6 +1830,7 @@ class Merger {
         ));
       }
     }
+    return hasKey;
   }
 
   private validateInterfaceObjects(sources: (InterfaceType | ObjectType | undefined)[], dest: InterfaceType) {
