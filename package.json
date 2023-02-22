@@ -42,13 +42,13 @@
   ],
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
-    "@apollo/client": "3.7.8",
+    "@apollo/client": "3.7.9",
     "@apollo/utils.fetcher": "2.0.0",
     "@changesets/changelog-github": "0.4.8",
     "@changesets/cli": "2.26.0",
-    "@graphql-codegen/cli": "3.0.0",
-    "@graphql-codegen/typescript": "3.0.0",
-    "@graphql-codegen/typescript-operations": "3.0.0",
+    "@graphql-codegen/cli": "3.1.0",
+    "@graphql-codegen/typescript": "3.0.1",
+    "@graphql-codegen/typescript-operations": "3.0.1",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
     "@svitejs/changesets-changelog-github-compact": "1.1.0",
@@ -63,7 +63,7 @@
     "@types/node": "14.18.36",
     "@types/node-fetch": "2.6.2",
     "@types/uuid": "9.0.0",
-    "@typescript-eslint/eslint-plugin": "5.52.0",
+    "@typescript-eslint/eslint-plugin": "5.53.0",
     "apollo-server": "3.11.1",
     "bunyan": "1.8.15",
     "graphql": "16.6.0",
@@ -72,7 +72,7 @@
     "jest-config": "29.4.3",
     "jest-cucumber": "3.0.1",
     "jest-junit": "15.0.0",
-    "log4js": "6.7.1",
+    "log4js": "6.8.0",
     "mocked-env": "1.3.5",
     "nock": "13.3.0",
     "node-fetch": "2.6.9",
@@ -95,7 +95,7 @@
     ]
   },
   "volta": {
-    "node": "18.14.1",
+    "node": "18.14.2",
     "npm": "9.5.0"
   }
 }
