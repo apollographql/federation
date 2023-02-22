@@ -4,7 +4,7 @@
 ---
 
 This change introduces a configurable query plan cache. This option allows
-developers to configure their query plan cache like so:
+developers to provide their own query plan cache like so:
 
 ```
 new ApolloGateway({
