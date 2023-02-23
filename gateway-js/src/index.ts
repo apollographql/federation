@@ -1,7 +1,8 @@
 import { deprecate } from 'util';
 import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
-import LRUCache from 'lru-cache';
+import { QueryPlanCache } from '@apollo/query-planner'
+import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import {
   GraphQLSchema,
   VariableDefinitionNode,
@@ -123,7 +124,7 @@ export class ApolloGateway implements GatewayInterface {
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
-  private queryPlanStore: LRUCache<string, QueryPlan>;
+  private queryPlanStore: QueryPlanCache;
   private apolloConfig?: ApolloConfigFromAS3;
   private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
   private onSchemaLoadOrUpdateListeners = new Set<
@@ -189,6 +190,9 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
+    if(this.config.queryPlannerConfig?.cache){
+      return this.config.queryPlannerConfig?.cache
+    }
     // Create ~about~ a 30MiB InMemoryLRUCache (or 50MiB if the full operation ASTs are
     // enabled in query plans as this requires plans to use more memory). This is
     // less than precise since the technique to calculate the size of a DocumentNode is
@@ -196,7 +200,7 @@ export class ApolloGateway implements GatewayInterface {
     // for unicode characters, etc.), but it should do a reasonable job at
     // providing a caching document store for most operations.
     const defaultSize = this.config.queryPlannerConfig?.exposeDocumentNodeInFetchNode ? 50 : 30;
-    return new LRUCache<string, QueryPlan>({
+    return new InMemoryLRUCache<QueryPlan>({
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || defaultSize),
       sizeCalculation: approximateObjectSize,
     });
@@ -768,7 +772,7 @@ export class ApolloGateway implements GatewayInterface {
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
-          let queryPlan = this.queryPlanStore.get(queryPlanStoreKey);
+          let queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
 
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
@@ -792,7 +796,7 @@ export class ApolloGateway implements GatewayInterface {
             );
 
             try {
-              this.queryPlanStore.set(queryPlanStoreKey, queryPlan);
+              await this.queryPlanStore.set(queryPlanStoreKey, queryPlan);
             } catch (err) {
               this.logger.warn(
                 'Could not store queryPlan' + ((err && err.message) || err),
