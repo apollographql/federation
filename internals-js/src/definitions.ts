@@ -351,11 +351,9 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
     return this._schema;
   }
 
-  appliedDirectivesOf(name: string): Directive<T>[];
-  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(definition: DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[];
-  appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive<T>[] {
+  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(nameOrDefinition: string | DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[] {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
-    return this.appliedDirectives.filter(d => d.name == directiveName);
+    return this.appliedDirectives.filter(d => d.name == directiveName) as Directive<T, TApplicationArgs>[];
   }
 
   get appliedDirectives(): readonly Directive<T>[] {
@@ -1620,11 +1618,11 @@ export class Schema {
     return directive as DirectiveDefinition<TApplicationArgs>;
   }
 
-  includeDirective(): DirectiveDefinition<{if: boolean}> {
+  includeDirective(): DirectiveDefinition<{if: boolean | Variable}> {
     return this.getBuiltInDirective('include');
   }
 
-  skipDirective(): DirectiveDefinition<{if: boolean}> {
+  skipDirective(): DirectiveDefinition<{if: boolean | Variable}> {
     return this.getBuiltInDirective('skip');
   }
 

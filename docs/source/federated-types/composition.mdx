@@ -17,25 +17,15 @@ graph TB;
   class composition tertiary;
 ```
 
-The supergraph schema includes all of the type and field definitions from your subgraph schemas. It also includes metadata that enables your graph router to intelligently route incoming GraphQL operations across all of your different subgraphs.
+The supergraph schema includes all of the type and field definitions from your subgraph schemas. It also includes metadata that enables your router to intelligently route incoming GraphQL operations across all of your different subgraphs.
 
 ## Supported methods
 
 You can perform schema composition with any of the following methods:
 
-### Manually with the Rover CLI
-
-The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
-
-```bash
-rover supergraph compose --config ./supergraph-config.yaml
-```
-
-To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#install-the-rover-cli).
-
 ### Automatically with managed federation
 
-With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its published schema. This enables your running graph router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
+With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its published schema. This enables your running router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
 
 ```mermaid
 graph LR;
@@ -56,6 +46,16 @@ graph LR;
 ```
 
 To learn how to perform composition with managed federation, see the [quickstart](../quickstart/studio-composition/).
+
+### Manually with the Rover CLI
+
+The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
+
+```bash
+rover supergraph compose --config ./supergraph-config.yaml
+```
+
+To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#install-the-rover-cli).
 
 ## Breaking composition
 
@@ -509,3 +509,31 @@ In this case, the `Color` enum is used as _both_:
 Therefore, the definition of the `Color` enum **must match exactly** in every subgraph that defines it. An exact match is the only scenario that enables union _and_ intersection to produce the same result.
 
 The subgraph schemas above _do not compose_, because their definitions of the `Color` enum differ.
+
+## Directives
+
+Composition handles a directive differently depending on whether it's an "executable" directive or a "type system" directive.
+
+### Executable directives
+
+Executable directives are intended to be used by clients in their queries. They are applied to one or more of the [executable directive locations](http://spec.graphql.org/June2018/#ExecutableDirectiveLocation). For example, you might have a directive definition of `directive @lowercase on FIELD`, which a client could use in their query like so:
+
+```graphql
+query {
+  getSomeData {
+    someField @lowercase
+  }
+}
+```
+
+An executable directive is composed into the supergraph schema only if _all_ of the following conditions are met:
+
+- The directive is defined in _all_ subgraphs.
+- The directive is defined _identically_ in all subgraphs.
+- The directive is _not_ included in any [`@composeDirective`](./federated-directives#composedirective) directives.
+
+### Type system directives
+
+Type system directives help define the structure of the schema and are not intended for use by clients. They are applied to one or more of the [type system directive locations](http://spec.graphql.org/June2018/#TypeSystemDirectiveLocation).
+
+These directives are _not_ composed into the supergraph schema, but they can still provide information to the router via the [`@composeDirective`](./federated-directives#composedirective) directive.

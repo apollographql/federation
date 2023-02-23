@@ -1,6 +1,6 @@
 {
   "name": "@apollo/composition",
-  "version": "2.3.0-alpha.0",
+  "version": "2.3.2",
   "description": "Apollo Federation composition utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,8 +27,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@apollo/federation-internals": "file:../internals-js",
-    "@apollo/query-graphs": "file:../query-graphs-js"
+    "@apollo/federation-internals": "2.3.2",
+    "@apollo/query-graphs": "2.3.2"
   },
   "peerDependencies": {
     "graphql": "^16.5.0"

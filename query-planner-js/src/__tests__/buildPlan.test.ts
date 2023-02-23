@@ -4797,6 +4797,7 @@ describe('merged abstract types handling', () => {
             u {
               __typename
               ... on I {
+                __typename
                 v
               }
             }
@@ -5094,6 +5095,7 @@ describe('merged abstract types handling', () => {
             i1 {
               __typename
               ... on I2 {
+                __typename
                 v
               }
             }

@@ -810,7 +810,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect((data?._service as any).sdl).toMatchString(
-        (header.length === 0 
+        (header.length === 0
           ? ''
           : `
         ${header.trim()}
@@ -1226,6 +1226,7 @@ describe('buildSubgraphSchema', () => {
     it('expands federation 2.3 correctly', async () => {
       // For 2.3, we expect in everything from 2.2 plus:
       // - the @interfaceObject directive
+      // - the @tag directive to additionally have the SCHEMA location
       await testVersion('2.3', `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
@@ -1246,7 +1247,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
 
-        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
 
         directive @federation__extends on OBJECT | INTERFACE
 

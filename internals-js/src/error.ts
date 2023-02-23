@@ -482,6 +482,11 @@ const EMPTY_MERGED_ENUM_TYPE = makeCodeDefinition(
   'An enum type has no value common to all the subgraphs that define the type. Merging that type would result in an invalid empty enum type.'
 );
 
+const SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES = makeCodeDefinition(
+  'SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES',
+  'A shareable field return type has mismatched possible runtime types in the subgraphs in which the field is declared. As shared fields must resolve the same way in all subgraphs, this is almost surely a mistake.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -622,6 +627,7 @@ export const ERRORS = {
   EMPTY_MERGED_INPUT_TYPE,
   ENUM_VALUE_MISMATCH,
   EMPTY_MERGED_ENUM_TYPE,
+  SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES,
   SATISFIABILITY_ERROR,
   OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE,
   OVERRIDE_FROM_SELF_ERROR,

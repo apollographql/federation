@@ -32,6 +32,10 @@ export class TagSpecDefinition extends FeatureDefinition {
         DirectiveLocation.INPUT_FIELD_DEFINITION,
       );
       this.printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION';
+      if (!this.isV02()) {
+        this.tagLocations.push(DirectiveLocation.SCHEMA);
+        this.printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA';
+      }
     }
     this.tagDirectiveSpec = createDirectiveSpecification({
       name:'tag',
@@ -46,6 +50,10 @@ export class TagSpecDefinition extends FeatureDefinition {
 
   private isV01() {
     return this.version.equals(new FeatureVersion(0, 1));
+  }
+
+  private isV02() {
+    return this.version.equals(new FeatureVersion(0, 2))
   }
 
   addElementsToSchema(schema: Schema): GraphQLError[] {
@@ -76,6 +84,7 @@ export class TagSpecDefinition extends FeatureDefinition {
 
 export const TAG_VERSIONS = new FeatureDefinitions<TagSpecDefinition>(tagIdentity)
   .add(new TagSpecDefinition(new FeatureVersion(0, 1)))
-  .add(new TagSpecDefinition(new FeatureVersion(0, 2)));
+  .add(new TagSpecDefinition(new FeatureVersion(0, 2)))
+  .add(new TagSpecDefinition(new FeatureVersion(0, 3)));
 
 registerKnownFeature(TAG_VERSIONS);

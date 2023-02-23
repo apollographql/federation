@@ -6,7 +6,6 @@ import {
   orderPrintedDefinitions,
   ServiceDefinition,
   subgraphsFromServiceList,
-  ERRORS,
   upgradeSubgraphsIfNecessary,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
@@ -51,9 +50,9 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   const supergraphSchema = mergeResult.supergraph;
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraphSchema);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
-  const validationResult = validateGraphComposition(supergraphSchema, supergraphQueryGraph, federatedQueryGraph);
-  if (validationResult.errors) {
-    return { errors: validationResult.errors.map(e => ERRORS.SATISFIABILITY_ERROR.err(e.message)) };
+  const { errors, hints } = validateGraphComposition(supergraphSchema, supergraphQueryGraph, federatedQueryGraph);
+  if (errors) {
+    return { errors };
   }
 
   // printSchema calls validateOptions, which can throw
@@ -70,7 +69,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   return {
     schema: supergraphSchema,
     supergraphSdl,
-    hints: mergeResult.hints
+    hints: mergeResult.hints.concat(hints ?? []),
   };
 }
 
