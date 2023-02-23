@@ -92,8 +92,23 @@ import {
   createInitialOptions,
   buildFederatedQueryGraph,
 } from "@apollo/query-graphs";
-import { stripIgnoredCharacters, print, parse, OperationTypeNode } from "graphql";
-import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
+import {
+  stripIgnoredCharacters,
+  print,
+  parse,
+  OperationTypeNode,
+  DirectiveNode,
+  SelectionNode,
+  //ArgumentNode,
+  BooleanValueNode,
+  VariableNode,
+  //ValueNode,
+} from "graphql";
+import {
+  DeferredNode,
+  FetchDataInputRewrite,
+  FetchDataOutputRewrite
+} from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -1252,12 +1267,27 @@ class FetchGroup {
       outputRewrites: outputRewrites.length === 0 ? undefined : outputRewrites,
     };
 
+    // Here selectionSet has an array of selections, but it always has only one seletion
+    const selectionSetNode = this.selection.toSelectionSetNode()
+    const selections = selectionSetNode.selections
+    const selectionNode = selections[0]
+    const conditions = collectConditionalValues(selectionNode)
+
+    const wrappedFetchNode = conditions.reduce<PlanNode>((planNode: PlanNode, condition: DirectiveCondition) => {
+      return {
+        kind: 'Condition',
+        condition: condition.variable,
+        ifClause: condition.directiveName === 'include' ? planNode : undefined,
+        elseClause: condition.directiveName === 'skip' ? planNode : undefined,
+      };
+    }, fetchNode);
+
     return this.isTopLevel
-      ? fetchNode
+      ? wrappedFetchNode
       : {
         kind: 'Flatten',
         path: this.mergeAt!,
-        node: fetchNode,
+        node: wrappedFetchNode,
       };
   }
 
@@ -1267,6 +1297,53 @@ class FetchGroup {
       ? `${base}[${this._selection}]`
       : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
   }
+}
+
+type DirectiveCondition = {
+  variable: string;
+  directiveName: 'skip' | 'include';
+}
+
+export function findDirectivesOnNode<
+    T extends { directives?: readonly DirectiveNode[] },
+>(node: T, directiveName: string) {
+  return (
+      node.directives?.filter(
+          (directive) => directive.name.value === directiveName,
+      ) ?? []
+  );
+}
+
+function collectConditionalValues(selection: SelectionNode): DirectiveCondition[] {
+
+  const skips = findDirectivesOnNode(selection, 'skip');
+  const includes = findDirectivesOnNode(selection, 'include');
+
+  const directiveConditions: DirectiveCondition[] = [];
+
+  // every query is only allowed one single @include and @skip directives
+  const skip = skips.length > 0 ? extractConditionalValue(skips[0]) : null;
+  if (typeof(skip) == 'string') {
+    directiveConditions.push({ variable: skip, directiveName: 'skip' });
+  }
+
+  const include = includes.length > 0 ? extractConditionalValue(includes[0]) : null;
+  if (typeof(include) == 'string') {
+    directiveConditions.push({ variable: include, directiveName: 'include' });
+  }
+
+  return directiveConditions;
+}
+
+function extractConditionalValue(conditionalDirective: DirectiveNode) {
+  // conditional directives are only allowed to have one single variable
+  const conditionalArg = conditionalDirective.arguments![0].value as
+      | BooleanValueNode
+      | VariableNode;
+
+  return 'name' in conditionalArg
+      ? conditionalArg.name.value
+      : conditionalArg.value;
 }
 
 function genAliasName(baseName: string, unavailableNames: Map<string, any>): string {
@@ -2507,6 +2584,8 @@ export class QueryPlanner {
     // later if possible (which is why we saved them above before expansion).
     operation = operation.expandAllFragments();
     operation = withoutIntrospection(operation);
+    // This removes the hardcoded @include and @skip where they result in exclusion condition i.e. when include = false or skip = true.
+    operation = withoutTopLevelHarcodedSkipAndInclude(operation);
     operation = this.withSiblingTypenameOptimizedAway(operation);
 
     let assignedDeferLabels: Set<string> | undefined = undefined;
@@ -2707,6 +2786,60 @@ export class QueryPlanner {
   lastGeneratedPlanStatistics(): PlanningStatistics | undefined {
     return this._lastGeneratedPlanStatistics;
   }
+}
+
+type BooleanDirectiveCondition = {
+  directivevalue: boolean;
+  directiveName: 'skip' | 'include';
+}
+
+function withoutTopLevelHarcodedSkipAndInclude(operation: Operation): Operation {
+  if (!operation.selectionSet.selections().some(hasHardcodedTopLevelSkipAndInclude)) {
+    return operation
+  }
+
+  const newSelections = operation.selectionSet.selections().filter(s => !hasHardcodedTopLevelSkipAndInclude(s));
+  return new Operation(
+      operation.rootKind,
+      new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
+      operation.variableDefinitions,
+      operation.name
+  );
+}
+
+
+function hasHardcodedTopLevelSkipAndInclude(selection: Selection): boolean {
+  const selectionNode = selection.toSelectionNode()
+  const booleanDirectiveConditions = collectBooleanConditionalValuesOfSkipAndInclude(selectionNode)
+  for (let i=0;i<booleanDirectiveConditions.length;i+=1) {
+    if (booleanDirectiveConditions[i].directiveName == 'skip' && booleanDirectiveConditions[i].directivevalue == true) {
+      return true
+    }
+    else if (booleanDirectiveConditions[i].directiveName == 'include' && booleanDirectiveConditions[i].directivevalue == false) {
+      return true
+    }
+  }
+  return false
+}
+
+function collectBooleanConditionalValuesOfSkipAndInclude(selection: SelectionNode): BooleanDirectiveCondition[] {
+
+  const skips = findDirectivesOnNode(selection, 'skip');
+  const includes = findDirectivesOnNode(selection, 'include');
+
+  const booleanDirectiveConditions: BooleanDirectiveCondition[] = [];
+
+  const skip = skips.length > 0 ? extractConditionalValue(skips[0]) : null;
+  if (typeof(skip) == 'boolean') {
+    booleanDirectiveConditions.push({ directivevalue: skip, directiveName: 'skip' });
+  }
+
+  const include = includes.length > 0 ? extractConditionalValue(includes[0]) : null;
+  if (typeof(include) == 'boolean') {
+    booleanDirectiveConditions.push({ directivevalue: include, directiveName: 'include' });
+  }
+
+  return booleanDirectiveConditions
 }
 
 function computePlanInternal({
