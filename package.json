@@ -46,7 +46,7 @@
     "@apollo/utils.fetcher": "2.0.0",
     "@changesets/changelog-github": "0.4.8",
     "@changesets/cli": "2.26.0",
-    "@graphql-codegen/cli": "3.1.0",
+    "@graphql-codegen/cli": "3.2.0",
     "@graphql-codegen/typescript": "3.0.1",
     "@graphql-codegen/typescript-operations": "3.0.1",
     "@josephg/resolvable": "1.0.1",
@@ -96,6 +96,6 @@
   },
   "volta": {
     "node": "18.14.2",
-    "npm": "9.5.0"
+    "npm": "9.5.1"
   }
 }
