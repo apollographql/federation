@@ -312,6 +312,30 @@ test('hints on field of interface value type not being in all subgraphs', () => 
   );
 })
 
+test('*No* hint on field of interface _with @key_ not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
+    interface T @key(fields: "id") {
+      id: ID!
+      a: Int
+      b: Int
+    }
+  `;
+
+  const subgraph2 = gql`
+    type T @interfaceObject @key(fields: "id") {
+      id: ID!
+      a: Int
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toNotRaiseHints();
+})
+
 test('hints on field of input object value type not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
