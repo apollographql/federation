@@ -39,6 +39,8 @@ jobs:
     docker:
       - image: cimg/node:14.20
     steps:
+      - run: 
+          command: sudo npm i -g npm@^8.5.0
       - common_test_steps
       # We will save the results of this one particular invocation to use in
       # the publish step. Not only does this make the publishing step take less
@@ -133,15 +135,6 @@ workflows:
       - Hints code Doc:
           name: "Hint code Doc (up to date)"
           <<: *common_non_publish_filters
-      - oss/lerna_tarballs:
-          name: "JS: Package tarballs"
-          <<: *common_non_publish_filters
-          requires:
-            - "JS: Node 14"
-            - "JS: Node 16"
-            - "JS: Node 18"
-            - "GraphQL Types (up to date)"
-            - "Error code Doc (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
           <<: *common_publish_filters

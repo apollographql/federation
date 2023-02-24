@@ -245,3 +245,43 @@ test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
     + '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.'
   ]);
 })
+
+test('handles the addition of @shareable when an @external is used on a type', () => {
+  const s1 = `
+    type Query {
+      t1: T
+    }
+
+    type T @key(fields: "id") {
+      id: String
+      x: Int
+    }
+  `;
+
+  const s2 = `
+    type Query {
+      t2: T
+    }
+
+    type T @external {
+      x: Int
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors).toBeUndefined();
+
+  // 2 things must happen here:
+  // 1. the @external on type `T` in s2 should be removed, as @external on types were no-ops in fed1 (but not in fed2 anymore, hence the removal)
+  // 2. field `T.x` in s1 must be marked @shareable since it is resolved by s2 (since again, it's @external annotation is ignored).
+
+  const s2Upgraded = res.subgraphs?.get('s2')!;
+  expect(s2Upgraded.schema.type('T')?.hasAppliedDirective('external')).toBe(false);
+
+  const s1Upgraded = res.subgraphs?.get('s1')!;
+  expect((s1Upgraded.schema.type('T') as ObjectType).field('x')?.hasAppliedDirective('shareable')).toBe(true);
+
+})

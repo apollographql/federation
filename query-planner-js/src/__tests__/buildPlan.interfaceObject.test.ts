@@ -122,6 +122,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
               } =>
               {
                 ... on I {
+                  __typename
                   x
                 }
               }
@@ -312,6 +313,53 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     expect(rewrite.path).toEqual(['... on A', '__typename']);
     expect(rewrite.setValueTo).toBe('I');
   });
+
+  test('handles query of an interface field (that is not on the `@interfaceObject`) for a specific implementation when query starts on the @interfaceObject', () => {
+    // Here, we start on S2, but `x` is only in S1. Further, while `x` is on the `I` interface, we only query it for `A`.
+    const operation = operationFromDocument(api, gql`
+      {
+        iFromS2 {
+          ... on A {
+            x
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S2") {
+            {
+              iFromS2 {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "iFromS2") {
+            Fetch(service: "S1") {
+              {
+                ... on I {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on I {
+                  __typename
+                  ... on A {
+                    x
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 it('avoids buffering @interfaceObject results that may have to filtered with lists', () => {
@@ -501,6 +549,112 @@ it('handles @requires on concrete type of field provided by interface object', (
             {
               ... on A {
                 y
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
+
+it('handles @interfaceObject in nested entity', () => {
+  const subgraph1 = {
+    name: 'S1',
+    typeDefs: gql`
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+        t: T
+      }
+
+      type T {
+        relatedIs: [I]
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'S2',
+    typeDefs: gql`
+      type Query {
+        i: I
+      }
+
+      interface I @key(fields: "id") {
+        id: ID!
+        a: Int
+      }
+
+      type A implements I @key(fields: "id") {
+        id: ID!
+        a: Int
+      }
+
+      type B implements I @key(fields: "id") {
+        id: ID!
+        a: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+
+  const operation = operationFromDocument(api, gql`
+    {
+      i {
+        t {
+          relatedIs {
+            a
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "S2") {
+          {
+            i {
+              __typename
+              id
+            }
+          }
+        },
+        Flatten(path: "i") {
+          Fetch(service: "S1") {
+            {
+              ... on I {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on I {
+                t {
+                  relatedIs {
+                    __typename
+                    id
+                  }
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "i.t.relatedIs.@") {
+          Fetch(service: "S2") {
+            {
+              ... on I {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on I {
+                __typename
+                a
               }
             }
           },

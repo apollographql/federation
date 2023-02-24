@@ -581,6 +581,7 @@ export type RootOperationPath = {
 // TODO Operations can also have directives
 export class Operation {
   constructor(
+    readonly schema: Schema,
     readonly rootKind: SchemaRootKind,
     readonly selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
@@ -619,7 +620,7 @@ export class Operation {
     const toDeoptimize = mapEntries(usages).filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
     optimizedSelection = optimizedSelection.expandFragments(toDeoptimize);
 
-    return new Operation(this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
+    return new Operation(this.schema, this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
   }
 
   expandAllFragments(): Operation {
@@ -629,6 +630,7 @@ export class Operation {
     }
 
     return new Operation(
+      this.schema,
       this.rootKind,
       expandedSelections,
       this.variableDefinitions,
@@ -651,7 +653,7 @@ export class Operation {
     const updated = this.selectionSet.withoutDefer(labelsToRemove);
     return updated == this.selectionSet
       ? this
-      : new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
+      : new Operation(this.schema, this.rootKind, updated, this.variableDefinitions, this.name);
   }
 
   /**
@@ -681,7 +683,7 @@ export class Operation {
     let updatedOperation: Operation = this;
     if (hasNonLabelledOrConditionalDefers) {
       const updated = this.selectionSet.withNormalizedDefer(normalizer);
-      updatedOperation = new Operation(this.rootKind, updated, this.variableDefinitions, this.name);
+      updatedOperation = new Operation(this.schema, this.rootKind, updated, this.variableDefinitions, this.name);
     }
     return {
       operation: updatedOperation,
@@ -2306,6 +2308,7 @@ function operationFromAST({
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
   return new Operation(
+    schema,
     operation.operation,
     parseSelectionSet({
       parentType: rootType.type,

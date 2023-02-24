@@ -290,3 +290,126 @@ describe('@interfaceObject', () => {
     ]);
   });
 });
+
+describe('when shared field has non-intersecting runtime types in different subgraphs', () => {
+  it('errors for interfaces', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          a: A @shareable
+        }
+
+        interface A {
+          x: Int
+        }
+
+        type I1 implements A {
+          x: Int
+          i1: Int
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Query {
+          a: A @shareable
+        }
+
+        interface A {
+          x: Int
+        }
+
+        type I2 implements A {
+          x: Int
+          i2: Int
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      For the following supergraph API query:
+      {
+        a {
+          ...
+        }
+      }
+      Shared field "Query.a" return type "A" has a non-intersecting set of possible runtime types across subgraphs. Runtime types in subgraphs are:
+       - in subgraph "A", type "I1";
+       - in subgraph "B", type "I2".
+      This is not allowed as shared fields must resolve the same way in all subgraphs, and that imply at least some common runtime types between the subgraphs.
+      `
+    ]);
+  });
+
+  it('errors for unions', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          e: E! @shareable
+        }
+
+        type E @key(fields: "id") {
+          id: ID!
+          s: U! @shareable
+        }
+
+        union U = A | B
+
+        type A {
+          a: Int
+        }
+
+        type B {
+          b: Int
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type E @key(fields: "id") {
+          id: ID!
+          s: U! @shareable
+        }
+
+        union U = C | D
+
+        type C {
+          c: Int
+        }
+
+        type D {
+          d: Int
+        }
+
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      For the following supergraph API query:
+      {
+        e {
+          s {
+            ...
+          }
+        }
+      }
+      Shared field "E.s" return type "U!" has a non-intersecting set of possible runtime types across subgraphs. Runtime types in subgraphs are:
+       - in subgraph "A", types "A" and "B";
+       - in subgraph "B", types "C" and "D".
+      This is not allowed as shared fields must resolve the same way in all subgraphs, and that imply at least some common runtime types between the subgraphs.
+      `
+    ]);
+  });
+});

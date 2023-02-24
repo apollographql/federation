@@ -3,8 +3,6 @@ import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
 import LRUCache from 'lru-cache';
 import {
-  isObjectType,
-  isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode
 } from 'graphql';
@@ -12,7 +10,6 @@ import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
   ServiceMap,
-  defaultFieldResolverWithAliasSupport,
 } from './executeQueryPlan';
 import {
   GraphQLDataSource,
@@ -118,8 +115,8 @@ export class ApolloGateway implements GatewayInterface {
   public schema?: GraphQLSchema;
   // Same as a `schema` but as a `Schema` to avoid reconverting when we need it.
   // TODO(sylvain): if we add caching in `Schema.toGraphQLJSSchema`, we could maybe only keep `apiSchema`
-  // and make `schema` a getter (though `schema` does rely on `wrapSchemaWithAliasResolver` so this should
-  // be accounted for and this may look ugly). Unsure if moving from a member to a getter could break anyone externally however
+  // and make `schema` a getter (though `schema` does add some extension and this should
+  // be accounted for). Unsure if moving from a member to a getter could break anyone externally however
   // (also unclear why we expose a mutable member public in the first place; don't everything break if the
   // use manually assigns `schema`?).
   private apiSchema?: Schema;
@@ -559,9 +556,7 @@ export class ApolloGateway implements GatewayInterface {
   ): void {
     this.queryPlanStore.clear();
     this.apiSchema = coreSchema.toAPISchema();
-    this.schema = addExtensions(
-      wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
-    );
+    this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
     this.queryPlanner = new QueryPlanner(coreSchema, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema
@@ -830,6 +825,7 @@ export class ApolloGateway implements GatewayInterface {
             requestContext,
             operationContext,
             this.supergraphSchema!,
+            this.apiSchema!,
           );
 
           const shouldShowQueryPlan =
@@ -984,26 +980,6 @@ ApolloGateway.prototype.onSchemaChange = deprecate(
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
-}
-
-// We can't use transformSchema here because the extension data for query
-// planning would be lost. Instead we set a resolver for each field
-// in order to counteract GraphQLExtensions preventing a defaultFieldResolver
-// from doing the same job
-function wrapSchemaWithAliasResolver(schema: GraphQLSchema): GraphQLSchema {
-  const typeMap = schema.getTypeMap();
-  Object.keys(typeMap).forEach((typeName) => {
-    const type = typeMap[typeName];
-
-    if (isObjectType(type) && !isIntrospectionType(type)) {
-      const fields = type.getFields();
-      Object.keys(fields).forEach((fieldName) => {
-        const field = fields[fieldName];
-        field.resolve = defaultFieldResolverWithAliasSupport;
-      });
-    }
-  });
-  return schema;
 }
 
 // Throw this in places that should be unreachable (because all other cases have
