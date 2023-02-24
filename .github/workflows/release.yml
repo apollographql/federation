@@ -56,3 +56,9 @@ jobs:
                 version: "${{ env.FEDERATION_VERSION }}"
               }
             })
+      - name: Write token to the NPM rc file (login)
+        if: steps.changesets.outputs.published == 'true'
+        # write token to the NPM rc file (npm login)
+        run: echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > ~/.npmrc
+      - name: Update next tags if appropriate
+        run: node scripts/update-next-tags.mjs
