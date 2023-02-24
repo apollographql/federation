@@ -19,7 +19,7 @@ const publishedPackages = workspaces
   })
   .filter(Boolean);
 
-for (const pkg in publishedPackages) {
+for (const pkg of publishedPackages) {
   const response = await fetch(
     `https://registry.npmjs.org/${encodeURIComponent(pkg)}`
   );
