@@ -37,16 +37,13 @@ for (const pkg of publishedPackages) {
       if (e) {
         console.error(e);
         console.error("Error occurred while updating `next` tag!");
-        process.exit(1);
       } else {
         console.log("`next` tag updated successfully!");
-        process.exit(0);
       }
     });
   } else {
     console.log(
       "No action needed, `next` tag is pointed to most recent version"
     );
-    process.exit(0);
   }
 }
