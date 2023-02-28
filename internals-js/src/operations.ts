@@ -46,6 +46,7 @@ import {
   sameDirectiveApplication,
   isLeafType,
   Variables,
+  isObjectType,
 } from "./definitions";
 import { ERRORS } from "./error";
 import { isDirectSubtype, sameType } from "./types";
@@ -750,6 +751,21 @@ export class Operation {
     );
   }
 
+  trimUnsatisfiableBranches(): Operation {
+    const trimmedSelections = this.selectionSet.trimUnsatisfiableBranches(this.selectionSet.parentType);
+    if (trimmedSelections === this.selectionSet) {
+      return this;
+    }
+
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      trimmedSelections,
+      this.variableDefinitions,
+      this.name
+    );
+  }
+
   /**
    * Returns this operation but potentially modified so all/some of the @defer applications have been removed.
    *
@@ -971,6 +987,14 @@ export class NamedFragments {
     return this.fragments.values();
   }
 
+  map(mapper: (def: NamedFragmentDefinition) => NamedFragmentDefinition): NamedFragments {
+    const mapped = new NamedFragments();
+    for (const def of this.fragments.values()) {
+      mapped.fragments.set(def.name, mapper(def));
+    }
+    return mapped;
+  }
+
   validate(variableDefinitions: VariableDefinitions) {
     for (const fragment of this.fragments.values()) {
       fragment.selectionSet.validate(variableDefinitions);
@@ -1125,11 +1149,11 @@ export class SelectionSet {
     // without any fragments, we don't bother handling this more complex case.
     assert(!this.fragments || this.fragments.isEmpty(), `Should not be called on selection that already has named fragments, but got ${this.fragments}`)
 
-    return this.lazyMap((selection) => selection.optimize(fragments), fragments);
+    return this.lazyMap((selection) => selection.optimize(fragments), { fragments });
   }
 
   expandAllFragments(): SelectionSet {
-    return this.lazyMap((selection) => selection.expandAllFragments(), null);
+    return this.lazyMap((selection) => selection.expandAllFragments(), { fragments: null });
   }
 
   expandFragments(names: string[], updatedFragments: NamedFragments | undefined): SelectionSet {
@@ -1137,7 +1161,11 @@ export class SelectionSet {
       return this;
     }
 
-    return this.lazyMap((selection) => selection.expandFragments(names, updatedFragments), updatedFragments ?? null);
+    return this.lazyMap((selection) => selection.expandFragments(names, updatedFragments), { fragments: updatedFragments ?? null });
+  }
+
+  trimUnsatisfiableBranches(parentType: CompositeType): SelectionSet {
+    return this.lazyMap((selection) => selection.trimUnsatisfiableBranches(parentType), { parentType });
   }
 
   /**
@@ -1150,9 +1178,13 @@ export class SelectionSet {
    */
   lazyMap(
     mapper: (selection: Selection) => Selection | readonly Selection[] | SelectionSet | undefined,
-    updatedFragments?: NamedFragments | null,
+    options?: {
+      fragments?: NamedFragments | null,
+      parentType?: CompositeType,
+    }
   ): SelectionSet {
     const selections = this.selections();
+    const updatedFragments = options?.fragments;
     const newFragments = updatedFragments === undefined ? this.fragments : (updatedFragments ?? undefined);
 
     let updatedSelections: SelectionSetUpdates | undefined = undefined;
@@ -1172,7 +1204,7 @@ export class SelectionSet {
     if (!updatedSelections) {
       return this.withUpdatedFragments(newFragments);
     }
-    return updatedSelections.toSelectionSet(this.parentType, newFragments);
+    return updatedSelections.toSelectionSet(options?.parentType ?? this.parentType, newFragments);
   }
 
   private withUpdatedFragments(newFragments: NamedFragments | undefined): SelectionSet {
@@ -1187,6 +1219,10 @@ export class SelectionSet {
   withNormalizedDefer(normalizer: DeferNormalizer): SelectionSet {
     assert(!this.fragments, 'Not yet supported');
     return this.lazyMap((selection) => selection.withNormalizedDefer(normalizer));
+  }
+
+  hasDefer(): boolean {
+    return this.selections().some((s) => s.hasDefer());
   }
 
   /**
@@ -1353,6 +1389,18 @@ export class SelectionSet {
       callback(selection.element);
       selection.selectionSet?.selectionsInReverseOrder().forEach((s) => stack.push(s));
     }
+  }
+
+  /**
+   * Returns true if any of the element in this selection set matches the provided predicate.
+   */
+  some(predicate: (elt: OperationElement) => boolean): boolean {
+    for (const selection of this.selections()) {
+      if (predicate(selection.element) || (selection.selectionSet && selection.selectionSet.some(predicate))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   toOperationString(
@@ -1766,7 +1814,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     return this.withUpdatedComponents(element, this.selectionSet);
   }
 
-  protected mapToSelectionSet(mapper: (s: SelectionSet) => SelectionSet): TOwnType {
+  mapToSelectionSet(mapper: (s: SelectionSet) => SelectionSet): TOwnType {
     if (!this.selectionSet) {
       return this.us();
     }
@@ -1781,9 +1829,13 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract withNormalizedDefer(normalizer: DeferNormalizer): TOwnType | SelectionSet;
 
+  abstract hasDefer(): boolean;
+
   abstract expandAllFragments(): TOwnType | readonly Selection[];
 
   abstract expandFragments(names: string[], updatedFragments: NamedFragments | undefined): TOwnType | readonly Selection[];
+
+  abstract trimUnsatisfiableBranches(parentType: CompositeType): TOwnType | SelectionSet | undefined;
 }
 
 export class FieldSelection extends AbstractSelection<Field<any>, undefined, FieldSelection> {
@@ -1953,8 +2005,37 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return this.mapToSelectionSet((s) => s.withNormalizedDefer(normalizer));
   }
 
+  hasDefer(): boolean {
+    return !!this.selectionSet?.hasDefer();
+  }
+
   expandAllFragments(): FieldSelection {
     return this.mapToSelectionSet((s) => s.expandAllFragments());
+  }
+
+  trimUnsatisfiableBranches(_: CompositeType): FieldSelection {
+    if (!this.selectionSet) {
+      return this;
+    }
+
+    const base = baseType(this.element.definition.type!)
+    assert(isCompositeType(base), () => `Field ${this.element} should not have a sub-selection`);
+    const trimmed = this.mapToSelectionSet((s) => s.trimUnsatisfiableBranches(base));
+    // In rare caes, it's possible that everything in the sub-selection was trimmed away and so the
+    // sub-selection is empty. Which suggest something may be wrong with this part of the query
+    // intent, but the query was valid while keeping an empty sub-selection isn't. So in that
+    // case, we just add some "non-included" __typename field just to keep the query valid.
+    if (trimmed.selectionSet?.isEmpty()) {
+      return trimmed.withUpdatedSelectionSet(selectionSetOfElement(
+        new Field(
+          base.typenameField()!,
+          undefined,
+          [new Directive('include', { 'if': false })],
+        )
+      ));
+    } else {
+      return trimmed;
+    }
   }
 
   expandFragments(names: string[], updatedFragments: NamedFragments | undefined): FieldSelection {
@@ -2020,6 +2101,10 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
       : new InlineFragmentSelection(this.element, updatedSelectionSet);
 
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
+  }
+ 
+  hasDefer(): boolean {
+    return this.element.hasDefer() || this.selectionSet.hasDefer();
   }
 
   equals(that: Selection): boolean {
@@ -2179,6 +2264,87 @@ class InlineFragmentSelection extends FragmentSelection {
       : this.withUpdatedComponents(newElement, newSelection);
   }
 
+  trimUnsatisfiableBranches(currentType: CompositeType): FragmentSelection | SelectionSet | undefined {
+    const thisCondition = this.element.typeCondition;
+    // Note that if the condition has directives, we preserve the fragment no matter what.
+    if (this.element.appliedDirectives.length === 0) {
+      if (!thisCondition || currentType === this.element.typeCondition) {
+        const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType);
+        return trimmed.isEmpty() ? undefined : trimmed;
+      }
+
+      // If the current type is an object, then we never need to keep the current fragment because:
+      // - either the fragment is also an object, but we've eliminated the case where the 2 types are the same,
+      //   so this is just an unsatisfiable branch.
+      // - or it's not an object, but then the current type is more precise and no poitn in "casting" to a
+      //   less precise interface/union.
+      if (isObjectType(currentType)) {
+        if (isObjectType(thisCondition)) {
+          return undefined;
+        } else {
+          const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType);
+          return trimmed.isEmpty() ? undefined : trimmed;
+        }
+      }
+    }
+
+    // In all other cases, we first recurse on the sub-selection.
+    const trimmedSelectionSet = this.selectionSet.trimUnsatisfiableBranches(this.element.typeCondition ?? this.parentType);
+
+    // First, could be that everything was unsatisfiable.
+    if (trimmedSelectionSet.isEmpty()) {
+      if (this.element.appliedDirectives.length === 0) {
+        return undefined;
+      } else {
+        return this.withUpdatedSelectionSet(selectionSetOfElement(
+          new Field(
+            (this.element.typeCondition ?? this.parentType).typenameField()!,
+            undefined,
+            [new Directive('include', { 'if': false })],
+          )
+        ));
+      }
+    }
+
+    // Second, we check if some of the sub-selection fragments can be "lifted" outside of this fragment. This can happen if:
+    // 1. the current fragment is an abstract type,
+    // 2. the sub-fragment is an object type,
+    // 3. the sub-fragment type is a valid runtime of the current type.
+    if (this.element.appliedDirectives.length === 0 && isAbstractType(thisCondition!)) {
+      assert(!isObjectType(currentType), () => `Should not have got here if ${currentType} is an object type`);
+      const currentRuntimes = possibleRuntimeTypes(currentType);
+      const liftableSelections: Selection[] = [];
+      for (const selection of trimmedSelectionSet.selections()) {
+        if (selection.kind === 'FragmentSelection'
+          && selection.element.typeCondition
+          && isObjectType(selection.element.typeCondition)
+          && currentRuntimes.includes(selection.element.typeCondition)
+        ) {
+          liftableSelections.push(selection);
+        }
+      }
+
+      // If we can lift all selections, then that just mean we can get rid of the current fragment altogether
+      if (liftableSelections.length === trimmedSelectionSet.selections().length) {
+        return trimmedSelectionSet;
+      }
+
+      // Otherwise, if there is "liftable" selections, we must return a set comprised of those lifted selection,
+      // and the current fragment _without_ those lifted selections.
+      if (liftableSelections.length > 0) {
+        const newSet = new SelectionSetUpdates();
+        newSet.add(liftableSelections);
+        newSet.add(this.withUpdatedSelectionSet(
+          trimmedSelectionSet.filter((s) => !liftableSelections.includes(s)),
+        ));
+        return newSet.toSelectionSet(this.parentType);
+      }
+    }
+
+    return this.selectionSet === trimmedSelectionSet ? this : this.withUpdatedSelectionSet(trimmedSelectionSet);
+  }
+
+
   expandAllFragments(): FragmentSelection {
     return this.mapToSelectionSet((s) => s.expandAllFragments());
   }
@@ -2225,6 +2391,10 @@ class FragmentSpreadSelection extends FragmentSelection {
 
   withUpdatedComponents(_fragment: FragmentElement, _selectionSet: SelectionSet): InlineFragmentSelection {
     assert(false, `Unsupported`);
+  }
+
+  trimUnsatisfiableBranches(_: CompositeType): FragmentSelection  {
+    return this;
   }
 
   namedFragments(): NamedFragments | undefined {

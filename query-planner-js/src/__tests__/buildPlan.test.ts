@@ -4428,6 +4428,7 @@ describe('__typename handling', () => {
               } =>
               {
                 ... on S {
+                  __typename
                   t {
                     __typename
                     x
@@ -4939,10 +4940,8 @@ describe('merged abstract types handling', () => {
       `);
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    // While `A` is a `I` in the supergraph while not in `Subgraph1`, since the `i` operation is resolved by
-    // `Subgraph1`, it cannot ever return a A, and so we should skip the whole `v` selection; or at the very
-    // least, we should not send a query with `... on U { ... on A { <stuff> }}` to `Subgraph1` since it
-    // would reject it as invalid.
+    // Here, `A` is a `I` in the supergraph while not in `Subgraph1`, and since the `i` operation is resolved by
+    // `Subgraph1`, it cannot ever return a A. And so we can skip the whole `... on U` sub-selection.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -5229,10 +5228,8 @@ describe('merged abstract types handling', () => {
       `);
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    // While `A` is a `U1` in the supergraph while not in `Subgraph1`, since the `u1` operation is resolved by
-    // `Subgraph1`, it cannot ever return a A, and so we should skip the whole `v` selection; or at the very
-    // least, we should not send a query with `u1 { ... on A { <stuff> }}` to `Subgraph1` since it
-    // would reject it as invalid.
+    // Similar case than in the `interface/union` case: the whole `... on U2` sub-selection happens to be
+    // unsatisfiable in practice.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {

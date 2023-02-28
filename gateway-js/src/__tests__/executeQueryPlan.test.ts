@@ -3165,7 +3165,8 @@ describe('executeQueryPlan', () => {
                     data {
                       __typename
                       foo
-                      ... on Data {
+                      ... on Bar {
+                        __typename
                         bar
                       }
                     }

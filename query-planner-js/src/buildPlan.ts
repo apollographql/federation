@@ -62,6 +62,7 @@ import {
   isDefined,
   InterfaceType,
   FragmentSelection,
+  possibleRuntimeTypes,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -227,37 +228,96 @@ function sequenceCost(stages: number[]): number {
   return stages.reduceRight((acc, stage, idx) => (acc + (Math.max(1, idx * pipeliningCost) * stage)), 0);
 }
 
-class QueryPlanningTaversal<RV extends Vertex> {
+type ClosedPath<RV extends Vertex> = {
+  paths: SimultaneousPaths<RV>,
+  selection?: SelectionSet,
+}
+
+function closedPathToString(p: ClosedPath<any>): string {
+  const pathStr = simultaneousPathsToString(p.paths);
+  return p.selection ? `${pathStr} -> ${p.selection}` : pathStr;
+}
+
+function flattenClosedPath<RV extends Vertex>(
+  p: ClosedPath<RV>
+): { path: OpGraphPath<RV>, selection?: SelectionSet }[] {
+  return p.paths.map((path) => ({ path, selection: p.selection}));
+}
+
+type ClosedBranch<RV extends Vertex> = ClosedPath<RV>[];
+
+function allTailVertices(options: SimultaneousPathsWithLazyIndirectPaths<any>[]): Set<Vertex> {
+  const vertices = new Set<Vertex>();
+  for (const option of options) {
+    for (const path of option.paths) {
+      vertices.add(path.tail);
+    }
+  }
+  return vertices;
+}
+
+function selectionIsFullyLocalFromAllVertices(
+  selection: SelectionSet,
+  vertices: Set<Vertex>,
+  inconsistentAbstractTypesRuntimes: Set<string>,
+): boolean {
+  let _useInconsistentAbstractTypes: boolean | undefined = undefined;
+  const useInconsistentAbstractTypes = (): boolean => {
+    if (_useInconsistentAbstractTypes === undefined) {
+      _useInconsistentAbstractTypes = selection.some((elt) =>
+        elt.kind === 'FragmentElement' && !!elt.typeCondition && inconsistentAbstractTypesRuntimes.has(elt.typeCondition.name)
+      );
+    }
+    return _useInconsistentAbstractTypes;
+  }
+  for (const vertex of vertices) {
+    // To guarantee that the selection is fully local from the provided vertex/type, we must have:
+    // - no edge crossing subgraphs from that vertex.
+    // - the type must be compositeType (mostly just ensuring the selection make sense).
+    // - everything in the selection must be avaiable in the type (which `rebaseOn` essentially validates).
+    // - the selection must not "type-cast" into any abstract type that has inconsistent runtimes acrosse subgraphs. The reason for the
+    //   later condition is that `selection` is originally a supergraph selection, but that we're looking to apply "as-is" to a subgraph.
+    //   But suppose it has a `... on I` where `I` is an interface. Then it's possible that `I` includes "more" types in the supergraph
+    //   than in the subgraph, and so we might have to type-explode it. If so, we cannot use the selection "as-is".
+    if (vertex.hasReachableCrossSubgraphEdges
+      || !isCompositeType(vertex.type)
+      || !selection.canRebaseOn(vertex.type)
+      || useInconsistentAbstractTypes()
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+class QueryPlanningTraversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
   private readonly isTopLevel: boolean;
   private conditionResolver: ConditionResolver;
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
-  private readonly closedBranches: SimultaneousPaths<RV>[][] = [];
+  private readonly closedBranches: ClosedBranch<RV>[] = [];
 
   constructor(
-    readonly supergraphSchema: Schema,
-    readonly subgraphs: QueryGraph,
+    readonly parameters: PlanningParameters<RV>,
     selectionSet: SelectionSet,
     readonly startFetchIdGen: number,
     readonly hasDefers: boolean,
-    readonly variableDefinitions: VariableDefinitions,
-    private readonly statistics: PlanningStatistics | undefined,
-    private readonly startVertex: RV,
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
     excludedEdges: ExcludedEdges = [],
     excludedConditions: ExcludedConditions = [],
   ) {
-    this.isTopLevel = isRootVertex(startVertex);
+    const { root, federatedQueryGraph } = parameters;
+    this.isTopLevel = isRootVertex(root);
     this.conditionResolver = cachingConditionResolver(
-      subgraphs,
+      federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
     );
 
-    const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
+    const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
@@ -293,7 +353,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const followupForOption = advanceSimultaneousPathsWithOperation(this.supergraphSchema, option, operation);
+      const followupForOption = advanceSimultaneousPathsWithOperation(this.parameters.supergraphSchema, option, operation);
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
         // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
@@ -326,7 +386,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.closedBranches.push(options.map((o) => o.paths.map(p => terminateWithNonRequestedTypenameField(p))));
+          this.closedBranches.push(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
@@ -353,8 +413,26 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
 
     if (selection.selectionSet) {
-      for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
-        this.stack.push(branch);
+      const allTails = allTailVertices(newOptions);
+      if (selectionIsFullyLocalFromAllVertices(selection.selectionSet, allTails, this.parameters.inconsistentAbstractTypesRuntimes)
+        && !selection.hasDefer()
+      ) {
+        // We known the rest of the selection is local to whichever subgraph the current options are in, and so we're
+        // going to keep that selection around and add it "as-is" to the `FetchNode` when needed, saving a bunch of
+        // work (created `GraphPath`, merging `PathTree`, ...). However, as we're skipping the "normal path" for that
+        // sub-selection, there is a few things that are handled in said "normal path" that we need to still handle.
+        // More precisely:
+        // - we have this "attachment" trick that removes requested `__typename` temporarily, so we should add it back.
+        // - we still need to add the selection of `__typename` for abstract types. It is not really necessary for the
+        //   execution per-se, but if we don't do it, then we will not be able to reuse named fragments as often
+        //   as we should (we add `__typename` for abstract types on the "normal path" and so we add them too to
+        //   named fragments; as such, we need them here too).
+        const selectionSet = addTypenameFieldForAbstractTypes(addBackTypenameInAttachments(selection.selectionSet));
+        this.closedBranches.push(newOptions.map((opt) => ({ paths: opt.paths, selection: selectionSet })));
+      } else {
+        for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
+          this.stack.push(branch);
+        }
       }
       debug.groupEnd();
     } else {
@@ -374,26 +452,29 @@ class QueryPlanningTaversal<RV extends Vertex> {
   // not be _more_ efficient).
   // Anyway, while the implementation does handle this case, I believe it's a bit over-generic and can
   // eliminiate options we could want to keep. Double-check that and fix.
-  private maybeEliminateStrictlyMoreCostlyPaths(options: SimultaneousPathsWithLazyIndirectPaths<RV>[]): SimultaneousPaths<RV>[] {
+  private maybeEliminateStrictlyMoreCostlyPaths(
+    options: SimultaneousPathsWithLazyIndirectPaths<RV>[]
+  ): ClosedBranch<RV> {
     if (options.length === 1) {
-      return [options[0].paths];
+      return [{ paths: options[0].paths }];
     }
 
     const singlePathOptions = options.filter(opt => opt.paths.length === 1);
     if (singlePathOptions.length === 0) {
       // we can't easily compare multi-path options
-      return options.map(opt => opt.paths);
+      return options.map(opt => ({ paths: opt.paths }));
     }
 
     let minJumps = Number.MAX_SAFE_INTEGER;
-    let withMinJumps: SimultaneousPaths<RV>[] = [];
+    let withMinJumps: ClosedBranch<RV> = [];
     for (const option of singlePathOptions) {
       const jumps = option.paths[0].subgraphJumps();
+      const closedBranch = { paths: option.paths };
       if (jumps < minJumps) {
         minJumps = jumps;
-        withMinJumps = [option.paths];
+        withMinJumps = [closedBranch];
       } else if (jumps === minJumps) {
-        withMinJumps.push(option.paths);
+        withMinJumps.push(closedBranch);
       }
     }
 
@@ -402,15 +483,16 @@ class QueryPlanningTaversal<RV extends Vertex> {
     for (const option of singlePathOptions.filter(opt => opt.paths.length > 1)) {
       const jumps = option.paths.reduce((acc, p) => Math.min(acc, p.subgraphJumps()), Number.MAX_SAFE_INTEGER);
       if (jumps <= minJumps) {
-        withMinJumps.push(option.paths);
+        withMinJumps.push({ paths: option.paths });
       }
     }
     return withMinJumps;
   }
 
   private newDependencyGraph(): FetchDependencyGraph {
-    const rootType = this.isTopLevel && this.hasDefers ? this.supergraphSchema.schemaDefinition.rootType(this.rootKind) : undefined;
-    return FetchDependencyGraph.create(this.supergraphSchema, this.subgraphs, this.startFetchIdGen, rootType);
+    const { supergraphSchema, federatedQueryGraph } = this.parameters;
+    const rootType = this.isTopLevel && this.hasDefers ? supergraphSchema.schemaDefinition.rootType(this.rootKind) : undefined;
+    return FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, this.startFetchIdGen, rootType);
   }
 
   // Moves the first closed branch to after any branch having more options.
@@ -428,6 +510,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     this.closedBranches[i - 1] = firstBranch;
   }
 
+  // Remove closed branches that are known to be overridden by others.
   private pruneClosedBranches() {
     for (let i = 0; i < this.closedBranches.length; i++) {
       const branch = this.closedBranches[i];
@@ -435,9 +518,9 @@ class QueryPlanningTaversal<RV extends Vertex> {
         continue;
       }
 
-      const pruned: SimultaneousPaths<RV>[] = [];
+      const pruned: ClosedBranch<RV> = [];
       for (const toCheck of branch) {
-        if (!this.optionIsOverriden(toCheck, branch)) {
+        if (!this.optionIsOverriden(toCheck.paths, branch)) {
           pruned.push(toCheck);
         }
       }
@@ -445,12 +528,12 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
   }
 
-  private optionIsOverriden(toCheck: SimultaneousPaths<RV>, allOptions: SimultaneousPaths<RV>[]): boolean {
-    for (const option of allOptions) {
-      if (toCheck === option) {
+  private optionIsOverriden(toCheck: SimultaneousPaths<RV>, allOptions: ClosedBranch<RV>): boolean {
+    for (const { paths } of allOptions) {
+      if (toCheck === paths) {
         continue;
       }
-      if (toCheck.every((p) => option.some((o) => p.isOverriddenBy(o)))) {
+      if (toCheck.every((p) => paths.some((o) => p.isOverriddenBy(o)))) {
         return true;
       }
     }
@@ -497,11 +580,13 @@ class QueryPlanningTaversal<RV extends Vertex> {
       debug.log(() => `Reduced plans to consider to ${planCount} plans`);
     }
 
-    if (this.statistics) {
-      this.statistics.evaluatedPlanCount += planCount;
+    // Note that if `!this.isTopLevel`, then this means we're resolving a sub-plan for an edge condition, and we
+    // don't want to count those as "evaluated plans".
+    if (this.parameters.statistics && this.isTopLevel) {
+      this.parameters.statistics.evaluatedPlanCount += planCount;
     }
 
-    debug.log(() => `All branches:${this.closedBranches.map((opts, i) => `\n${i}:${opts.map((opt => `\n - ${simultaneousPathsToString(opt)}`))}`)}`);
+    debug.log(() => `All branches:${this.closedBranches.map((opts, i) => `\n${i}:${opts.map((opt => `\n - ${closedPathToString(opt)}`))}`)}`);
 
     // Note that usually, we'll have a majority of branches with just one option. We can group them in
     // a PathTree first with no fuss. When then need to do a cartesian product between this created
@@ -513,11 +598,18 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
     let initialTree: OpPathTree<RV>;
     let initialDependencyGraph: FetchDependencyGraph;
+    const { federatedQueryGraph, root } = this.parameters;
     if (idxFirstOfLengthOne === this.closedBranches.length) {
-      initialTree = PathTree.createOp(this.subgraphs, this.startVertex);
+      initialTree = PathTree.createOp(federatedQueryGraph, root);
       initialDependencyGraph = this.newDependencyGraph();
     } else {
-      initialTree = PathTree.createFromOpPaths(this.subgraphs, this.startVertex, this.closedBranches.slice(idxFirstOfLengthOne).flat(2));
+      const singleChoiceBranches = this
+        .closedBranches
+        .slice(idxFirstOfLengthOne)
+        .flat()
+        .map((cp) => flattenClosedPath(cp))
+        .flat();
+      initialTree = PathTree.createFromOpPaths(federatedQueryGraph, root, singleChoiceBranches);
       initialDependencyGraph = this.updatedDependencyGraph(this.newDependencyGraph(), initialTree);
       if (idxFirstOfLengthOne === 0) {
         // Well, we have the only possible plan; it's also the best.
@@ -526,7 +618,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
       }
     }
 
-    const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map(b => b.map(opt => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
+    const otherTrees = this
+      .closedBranches
+      .slice(0, idxFirstOfLengthOne)
+      .map(b => b.map(opt => PathTree.createFromOpPaths(federatedQueryGraph, root, flattenClosedPath(opt))));
     const { best, cost} = generateAllPlansAndFindBest({
       initial: { graph: initialDependencyGraph, tree: initialTree },
       toAdd: otherTrees,
@@ -566,15 +661,14 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private resolveConditionPlan(edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionResolution {
-    const bestPlan = new QueryPlanningTaversal(
-      this.supergraphSchema,
-      this.subgraphs,
+    const bestPlan = new QueryPlanningTraversal(
+      {
+        ...this.parameters,
+        root: edge.head,
+      },
       edge.conditions!,
       0,
       false,
-      this.variableDefinitions,
-      undefined,
-      edge.head,
       'query',
       this.costFunction,
       context,
@@ -1596,19 +1690,21 @@ class DeferTracking {
     }
   }
 
-  updateSubselection(deferContext: DeferContext): void {
+  updateSubselection(deferContext: DeferContext, selection?: SelectionSet): void {
     if (!this.primarySelection || !deferContext.isPartOfQuery) {
       return;
     }
 
     const parentRef = deferContext.currentDeferRef;
+    let updates: SelectionSetUpdates;
     if (parentRef) {
       const info = this.deferred.get(parentRef);
       assert(info, () => `Cannot find info for label ${parentRef}`);
-      info.subselection.updates().addAtPath(deferContext.pathToDeferParent);
+      updates = info.subselection.updates();
     } else {
-      this.primarySelection.updates().addAtPath(deferContext.pathToDeferParent);
+      updates = this.primarySelection.updates();
     }
+    updates.addAtPath(deferContext.pathToDeferParent, selection);
   }
 
   getBlock(label: string): DeferredInfo | undefined {
@@ -2523,6 +2619,16 @@ export type PlanningStatistics = {
   evaluatedPlanCount: number,
 }
 
+type PlanningParameters<RV extends Vertex> = {
+  supergraphSchema: Schema,
+  federatedQueryGraph: QueryGraph,
+  operation: Operation,
+  statistics?: PlanningStatistics,
+  processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
+  root: RV,
+  inconsistentAbstractTypesRuntimes: Set<string>,
+}
+
 export class QueryPlanner {
   private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
@@ -2532,6 +2638,9 @@ export class QueryPlanner {
   // that interface.
   private readonly interfaceTypesWithInterfaceObjects = new Set<string>();
 
+  // A set of the names of interface or union types that have inconsistent "runtime types" across subgraphs.
+  private readonly inconsistentAbstractTypesRuntimes = new Set<string>();
+
   constructor(
     public readonly supergraphSchema: Schema,
     config?: QueryPlannerConfig
@@ -2539,6 +2648,7 @@ export class QueryPlanner {
     this.config = enforceQueryPlannerConfigDefaults(config);
     this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
     this.collectInterfaceTypesWithInterfaceObjects();
+    this.collectInconsistentAbstractTypesRuntimes();
 
     if (this.config.debug.bypassPlannerForSingleSubgraph && this.config.incrementalDelivery.enableDefer) {
       throw new Error(`Cannot use the "debug.bypassPlannerForSingleSubgraph" query planner option when @defer support is enabled`);
@@ -2554,6 +2664,44 @@ export class QueryPlanner {
     for (const itfType of this.supergraphSchema.interfaceTypes()) {
       if (mapValues(this.federatedQueryGraph.sources).some((s) => isInterfaceObject(itfType.name, s))) {
         this.interfaceTypesWithInterfaceObjects.add(itfType.name);
+      }
+    }
+  }
+
+  private collectInconsistentAbstractTypesRuntimes() {
+    const subgraphs = mapValues(this.federatedQueryGraph.sources);
+    const isInconsistent = (name: string) => {
+      // Note that we use type names since we're comparing types from different subgraphs (and so the objects themselves
+      // will not be equal).
+      let expectedRuntimes: Set<string> | undefined = undefined;
+      for (const subgraph of subgraphs) {
+        const typeInSubgraph = subgraph.type(name);
+        // This is only called for type name that are abstract in the supergraph, so it
+        // can only be an object in a subgraph if it is an @interfaceObject. And as @interfaceObject
+        // "stand-in" for all possible runtimes, they don't create inconsistencies by themselves
+        // and we can ignore them.
+        if (!typeInSubgraph || isObjectType(typeInSubgraph)) {
+          continue;
+        }
+
+        assert(isAbstractType(typeInSubgraph), () => `Expected type ${typeInSubgraph} to be abstract but is ${typeInSubgraph.kind}`);
+        const runtimes = possibleRuntimeTypes(typeInSubgraph);
+        if (!expectedRuntimes) {
+          expectedRuntimes = new Set(runtimes.map((t) => t.name));
+        } else if (runtimes.length !== expectedRuntimes.size || runtimes.some((t) => !expectedRuntimes?.has(t.name))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    for (const type of this.supergraphSchema.types()) {
+      if (!isAbstractType(type)) {
+        continue;
+      }
+
+      if (isAbstractType(type) && isInconsistent(type.name)) {
+        this.inconsistentAbstractTypesRuntimes.add(type.name);
       }
     }
   }
@@ -2594,7 +2742,7 @@ export class QueryPlanner {
     if (fragments && reuseQueryFragments) {
       // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
       // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
-      fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments)
+      fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments).map((def) => def.withUpdatedSelectionSet(def.selectionSet.trimUnsatisfiableBranches(def.selectionSet.parentType)));
     } else {
       fragments = undefined;
     }
@@ -2603,6 +2751,7 @@ export class QueryPlanner {
     // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
     // later if possible (which is why we saved them above before expansion).
     operation = operation.expandAllFragments();
+    operation = operation.trimUnsatisfiableBranches();
     operation = withoutIntrospection(operation);
     operation = this.withSiblingTypenameOptimizedAway(operation);
 
@@ -2637,28 +2786,27 @@ export class QueryPlanner {
       assignedDeferLabels,
     });
 
+    const parameters: PlanningParameters<RootVertex> = {
+      supergraphSchema: this.supergraphSchema,
+      federatedQueryGraph: this.federatedQueryGraph,
+      operation,
+      processor,
+      root,
+      statistics,
+      inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
+    }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
     if (deferConditions && deferConditions.size > 0) {
       assert(hasDefers, 'Should not have defer conditions without @defer');
       rootNode = computePlanForDeferConditionals({
-        supergraphSchema: this.supergraphSchema,
-        federatedQueryGraph: this.federatedQueryGraph,
-        operation,
-        processor,
-        root,
+        parameters,
         deferConditions,
-        statistics,
       })
     } else {
       rootNode = computePlanInternal({
-        supergraphSchema: this.supergraphSchema,
-        federatedQueryGraph: this.federatedQueryGraph,
-        operation,
-        processor,
-        root,
+        parameters,
         hasDefers,
-        statistics,
       });
     }
 
@@ -2843,28 +2991,19 @@ export class QueryPlanner {
 }
 
 function computePlanInternal({
-  supergraphSchema,
-  federatedQueryGraph,
-  operation,
-  processor,
-  root,
+  parameters,
   hasDefers,
-  statistics,
 }: {
-  supergraphSchema: Schema,
-  federatedQueryGraph: QueryGraph,
-  operation: Operation,
-  processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
-  root: RootVertex,
+  parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
-  statistics: PlanningStatistics,
 }): PlanNode | undefined {
   let main: PlanNode | undefined = undefined;
   let primarySelection: MutableSelectionSet | undefined = undefined;
   let deferred: DeferredNode[] = [];
 
+  const { operation, processor } = parameters;
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, hasDefers, statistics);
+    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers);
     for (const dependencyGraph of dependencyGraphs) {
       const { main: localMain, deferred: localDeferred } = dependencyGraph.process(processor, operation.rootKind);
       // Note that `reduceSequence` "flatten" sequence if needs be.
@@ -2880,7 +3019,11 @@ function computePlanInternal({
       }
     }
   } else {
-    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers, statistics);
+    const dependencyGraph =  computeRootParallelDependencyGraph(
+      parameters,
+      0,
+      hasDefers,
+    );
     ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
     primarySelection = dependencyGraph.deferTracking.primarySelection;
   }
@@ -2892,34 +3035,22 @@ function computePlanInternal({
 }
 
 function computePlanForDeferConditionals({
-  supergraphSchema,
-  federatedQueryGraph,
-  operation,
-  processor,
-  root,
+  parameters,
   deferConditions,
-  statistics,
 }: {
-  supergraphSchema: Schema,
-  federatedQueryGraph: QueryGraph,
-  operation: Operation,
-  processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
-  root: RootVertex,
+  parameters: PlanningParameters<RootVertex>,
   deferConditions: SetMultiMap<string, string>,
-  statistics: PlanningStatistics,
 }): PlanNode | undefined {
   return generateConditionNodes(
-    operation,
+    parameters.operation,
     Array.from(deferConditions.entries()),
     0,
     (op) => computePlanInternal({
-      supergraphSchema,
-      federatedQueryGraph,
-      operation: op,
-      processor,
-      root,
+      parameters: {
+        ...parameters,
+        operation: op,
+      },
       hasDefers: true,
-      statistics,
     }),
   );
 }
@@ -2961,7 +3092,7 @@ function mapOptionsToSelections<RV extends Vertex>(
   return selectionSet.selectionsInReverseOrder().map(node => [node, options]);
 }
 
-function possiblePlans(closedBranches: SimultaneousPaths<any>[][]): number {
+function possiblePlans(closedBranches: ClosedBranch<any>[]): number {
   let totalCombinations = 1;
   for (let i = 0; i < closedBranches.length; ++i){
     const eltSize = closedBranches[i].length;
@@ -3008,60 +3139,43 @@ function withoutIntrospection(operation: Operation): Operation {
 }
 
 function computeRootParallelDependencyGraph(
-  supergraphSchema: Schema,
-  operation: Operation,
-  federatedQueryGraph: QueryGraph,
-  root: RootVertex,
+  parameters: PlanningParameters<RootVertex>,
   startFetchIdGen: number,
   hasDefer: boolean,
-  statistics: PlanningStatistics,
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(
-    supergraphSchema,
-    operation.selectionSet,
-    operation.variableDefinitions,
-    federatedQueryGraph,
-    root,
+    parameters,
+    parameters.operation.selectionSet,
     startFetchIdGen,
     hasDefer,
-    statistics,
   )[0];
 }
 
 function computeRootParallelBestPlan(
-  supergraphSchema: Schema,
+  parameters: PlanningParameters<RootVertex>,
   selection: SelectionSet,
-  variables: VariableDefinitions,
-  federatedQueryGraph: QueryGraph,
-  root: RootVertex,
   startFetchIdGen: number,
   hasDefers: boolean,
-  statistics: PlanningStatistics,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
-  const planningTraversal = new QueryPlanningTaversal(
-    supergraphSchema,
-    federatedQueryGraph,
+  const planningTraversal = new QueryPlanningTraversal(
+    parameters,
     selection,
     startFetchIdGen,
     hasDefers,
-    variables,
-    statistics,
-    root,
-    root.rootKind,
+    parameters.root.rootKind,
     defaultCostFunction,
     emptyContext,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
   // so we just return an empty plan.
-  return plan ?? createEmptyPlan(supergraphSchema, federatedQueryGraph, root);
+  return plan ?? createEmptyPlan(parameters);
 }
 
 function createEmptyPlan(
-  supergraphSchema: Schema,
-  federatedQueryGraph: QueryGraph,
-  root: RootVertex
+  parameters: PlanningParameters<RootVertex>,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
+  const { supergraphSchema, federatedQueryGraph, root } = parameters;
   return [
     FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, 0, undefined),
     PathTree.createOp(federatedQueryGraph, root),
@@ -3076,22 +3190,19 @@ function onlyRootSubgraph(graph: FetchDependencyGraph): string {
 }
 
 function computeRootSerialDependencyGraph(
-  supergraphSchema: Schema,
-  operation: Operation,
-  federatedQueryGraph: QueryGraph,
-  root: RootVertex,
+  parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
-  statistics: PlanningStatistics,
 ): FetchDependencyGraph[] {
+  const { supergraphSchema, federatedQueryGraph, operation, root } = parameters;
   const rootType = hasDefers ? supergraphSchema.schemaDefinition.rootType(root.rootKind) : undefined;
   // We have to serially compute a plan for each top-level selection.
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root, startingFetchId, hasDefers, statistics);
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(parameters, splittedRoots[0], startingFetchId, hasDefers);
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[i], operation.variableDefinitions, federatedQueryGraph, root, prevDepGraph.nextFetchId(), hasDefers, statistics);
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(parameters, splittedRoots[i], prevDepGraph.nextFetchId(), hasDefers);
     const newSubgraph = onlyRootSubgraph(newDepGraph);
     if (prevSubgraph === newSubgraph) {
       // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can concat them in a single fetch
@@ -3521,6 +3632,12 @@ function computeGroupsForTree(
   const createdGroups = [ ];
   while (stack.length > 0) {
     const { tree, group, path, context, deferContext } = stack.pop()!;
+    if (tree.localSelections) {
+      for (const selection of tree.localSelections) {
+        group.addAtPath(path.inGroup(), selection);
+        dependencyGraph.deferTracking.updateSubselection(deferContext, selection);
+      }
+    }
     if (tree.isLeaf()) {
       group.addAtPath(path.inGroup());
       dependencyGraph.deferTracking.updateSubselection(deferContext);
@@ -3852,6 +3969,25 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentType
   updates.add(new FieldSelection(new Field(parentTypeIfAbstract.typenameField()!)));
   selectionSet.selections().forEach((selection) => updates.add(handleSelection(selection)))
   return updates.toSelectionSet(selectionSet.parentType);
+}
+
+function addBackTypenameInAttachments(selectionSet: SelectionSet): SelectionSet {
+  return selectionSet.lazyMap((s) => {
+    const updated = s.mapToSelectionSet((ss) => addBackTypenameInAttachments(ss));
+    const typenameAttachment = s.element.getAttachement(SIBLING_TYPENAME_KEY);
+    if (typenameAttachment === undefined) {
+      return updated;
+    } else {
+      // We need to add the query __typename for the current type in the current group.
+      // Note that the value of the "attachement" is the alias or '' if there is no alias
+      const alias = typenameAttachment === '' ? undefined : typenameAttachment;
+      const typenameField = new Field(s.element.parentType.typenameField()!, undefined, undefined, alias);
+      return [
+        selectionOfElement(typenameField),
+        updated,
+      ];
+    }
+  });
 }
 
 function pathHasOnlyFragments(path: OperationPath): boolean {
