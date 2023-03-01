@@ -35,7 +35,7 @@
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
     "@apollo/client": "3.7.9",
-    "@apollo/utils.fetcher": "1.1.1",
+    "@apollo/utils.fetcher": "2.0.0",
     "@graphql-codegen/cli": "3.2.1",
     "@graphql-codegen/typescript": "3.0.1",
     "@graphql-codegen/typescript-operations": "3.0.1",
