@@ -63,7 +63,7 @@ import {
   LocalCompose,
 } from './supergraphManagers';
 import { Fetcher } from '@apollo/utils.fetcher';
-import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
+import { GatewayExecutionResult, GatewayGraphQLRequestContext, GatewayInterface, GatewayUnsubscriber } from './typings/serverGatewayInterface';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };

@@ -21,7 +21,10 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { parse } from 'graphql';
-import { GatewayExecutionResult, GatewayGraphQLRequest } from '@apollo/server-gateway-interface';
+import {
+  GatewayExecutionResult,
+  GatewayGraphQLRequest,
+} from '../typings/serverGatewayInterface';
 
 const prettyFormat = require('pretty-format');
 

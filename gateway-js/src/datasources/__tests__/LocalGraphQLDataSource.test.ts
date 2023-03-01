@@ -3,7 +3,7 @@ import { buildSubgraphSchema } from '@apollo/subgraph';
 import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '@apollo/subgraph/src/schema-helper';
 import { GraphQLDataSourceRequestKind } from '../types';
-import { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import { GatewayGraphQLRequestContext } from '../../typings/serverGatewayInterface';
 
 describe('constructing requests', () => {
   it('accepts context', async () => {

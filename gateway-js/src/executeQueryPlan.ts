@@ -29,7 +29,10 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
+import {
+  GatewayGraphQLRequestContext,
+  GatewayExecutionResult,
+} from './typings/serverGatewayInterface';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;

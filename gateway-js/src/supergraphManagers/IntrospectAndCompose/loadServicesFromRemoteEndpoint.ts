@@ -4,7 +4,7 @@ import { GraphQLDataSource, GraphQLDataSourceRequestKind } from '../../datasourc
 import { SERVICE_DEFINITION_QUERY } from '../..';
 import { ServiceDefinitionUpdate, ServiceEndpointDefinition } from '../../config';
 import { ServiceDefinition } from '@apollo/federation';
-import { GatewayGraphQLRequest } from '@apollo/server-gateway-interface';
+import { GatewayGraphQLRequest } from '../../typings/serverGatewayInterface';
 
 export type Service = ServiceEndpointDefinition & {
   dataSource: GraphQLDataSource;

@@ -4,7 +4,7 @@ import { GraphQLDataSourceRequestKind } from '../types';
 import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import nock from 'nock';
 import { GraphQLError } from 'graphql';
-import { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import { GatewayGraphQLRequestContext } from '../../typings/serverGatewayInterface';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);

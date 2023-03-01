@@ -1,4 +1,3 @@
-import { GatewayGraphQLResponse } from '@apollo/server-gateway-interface';
 import {
   GraphQLSchema,
   graphql,
@@ -6,6 +5,7 @@ import {
   DocumentNode,
   parse,
 } from 'graphql';
+import { GatewayGraphQLResponse } from '../typings/serverGatewayInterface';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
 
 export class LocalGraphQLDataSource<

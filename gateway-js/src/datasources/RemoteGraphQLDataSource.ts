@@ -6,7 +6,13 @@ import fetcher from 'make-fetch-happen';
 import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-fetch';
 import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
 import { GraphQLError, GraphQLErrorExtensions } from 'graphql';
-import { GatewayCacheHint, GatewayCachePolicy, GatewayGraphQLRequest, GatewayGraphQLRequestContext, GatewayGraphQLResponse } from '@apollo/server-gateway-interface';
+import {
+  GatewayCacheHint,
+  GatewayCachePolicy,
+  GatewayGraphQLRequest,
+  GatewayGraphQLRequestContext,
+  GatewayGraphQLResponse,
+} from '../typings/serverGatewayInterface';
 
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
