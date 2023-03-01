@@ -44,7 +44,7 @@
     "@types/async-retry": "1.4.5",
     "@types/bunyan": "1.8.8",
     "@types/deep-equal": "1.0.1",
-    "@types/jest": "28.1.8",
+    "@types/jest": "29.4.0",
     "@types/lodash.xorby": "4.7.7",
     "@types/loglevel": "1.5.4",
     "@types/make-fetch-happen": "9.0.2",
