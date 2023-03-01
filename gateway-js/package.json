@@ -29,7 +29,7 @@
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@apollo/usage-reporting-protobuf": "^4.0.2",
-    "@apollo/utils.createhash": "^1.0.0",
+    "@apollo/utils.createhash": "^2.0.0",
     "@apollo/utils.fetcher": "^1.0.0",
     "@apollo/utils.keyvaluecache": "^1.0.0",
     "@apollo/utils.logger": "^1.0.0",
