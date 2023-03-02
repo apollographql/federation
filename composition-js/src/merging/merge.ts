@@ -70,6 +70,8 @@ import {
   isDefined,
   addSubgraphToError,
   printHumanReadableList,
+  FederationDirectiveCompositionManager,
+  FEDERATION_COMPOSITION_ENTRIES,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -294,6 +296,8 @@ class Merger {
   readonly mergedFederationDirectiveInSupergraph = new Map<string, DirectiveDefinition>();
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
+  private federationDirectiveComposition: FederationDirectiveCompositionManager;
+
   private mismatchReporter: MismatchReporter;
   private appliedDirectivesToMerge: {
     names: Set<string>,
@@ -316,6 +320,7 @@ class Merger {
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
+    this.federationDirectiveComposition = new FederationDirectiveCompositionManager(this.subgraphsSchema, FEDERATION_COMPOSITION_ENTRIES);
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -793,6 +798,8 @@ class Merger {
     const isValueType = !isEntity && !dest.isRootType();
 
     this.addFieldsShallow(sources, dest);
+    this.federationDirectiveComposition.mergeObject(sources, dest);
+
     if (!dest.hasFields()) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
       // (currently, this can only be the 'Query' type, in the rare case where the federated schema
@@ -1085,7 +1092,7 @@ class Merger {
     const { subgraphsWithOverride, subgraphMap } = sources.map((source, idx) => {
       if (!source) {
         // While the subgraph may not have the field directly, it could have "stand-in" for that field
-        // through @interfaceObject, and it is those stand-ins that would be effectively overridden. 
+        // through @interfaceObject, and it is those stand-ins that would be effectively overridden.
         const interfaceObjectAbstractingFields = this.fieldsInSourceIfAbstractedByInterfaceObject(dest, idx);
         if (interfaceObjectAbstractingFields.length > 0) {
           return {
@@ -1252,6 +1259,7 @@ class Merger {
   }
 
   private mergeField(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext = new FieldMergeContext(sources)) {
+    this.federationDirectiveComposition.mergeField(sources, dest);
     if (sources.every((s, i) => s === undefined ? this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i).every((f) => this.isExternal(i, f)) : this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => {
         if (source) {

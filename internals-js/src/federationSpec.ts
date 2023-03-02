@@ -17,6 +17,7 @@ import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
+import { DirectiveCompositionEntry } from './directiveCompositionRules';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -212,3 +213,5 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
+
+export const FEDERATION_COMPOSITION_ENTRIES: DirectiveCompositionEntry[] = [];
