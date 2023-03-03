@@ -1006,8 +1006,10 @@ describe('buildSubgraphSchema', () => {
   });
 
   it('correctly attaches the provided subscribe function to the schema object', () => {
-    function subscribeFn() {
-      return 'world';
+    async function* subscribeFn () {
+      for await (const word of ['Hello', 'Bonjour', 'Ciao']) {
+        yield word;
+      }
     }
     const schema = buildSubgraphSchema([
       {
