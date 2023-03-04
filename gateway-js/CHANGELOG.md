@@ -51,7 +51,6 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
   must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
   intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
-- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
 
 ## 2.3.0-alpha.0
 
@@ -61,6 +60,11 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   since it previously was ignored.
 - Adds support for `@interfaceObject` and keys on interfaces [PR #2279](https://github.com/apollographql/federation/pull/2279).
 - Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+
+## 2.2.3
+
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299)
+- Fix potential issue with nested @defer in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312)
 
 ## 2.2.2
 
