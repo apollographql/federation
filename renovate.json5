@@ -102,8 +102,7 @@
     },
     {
       "matchBaseBranches": ["version-0.x"],
-      // this covers make-fetch-happen and its types
-      "matchPackagePatterns": ["make-fetch-happen"],
+      "matchPackageNames": ["make-fetch-happen", "@types/make-fetch-happen"],
       "allowedVersions": "10.x"
     },
     {
@@ -113,8 +112,19 @@
     },
     {
       "matchBaseBranches": ["version-0.x"],
-      "matchPackagePatterns": ["jest"],
+      "matchPackagePatterns": ["jest", "pretty-format"],
       "allowedVersions": "28.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackagePatterns": ["@apollo/core-schema"],
+      "allowedVersions": "0.2.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["node"],
+      "matchPaths": ["v12-node-compatibility/package.json"],
+      "allowedVersions": "12.x",
     },
   ]
 }
