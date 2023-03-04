@@ -88,5 +88,33 @@
       automerge: false,
       matchManagers: [ "npm" ],
     },
+    // v0.x is stuck on the following major package versions due to node 12 support
+    // the packages listed below have dropped support for node 12 in current major versions
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "12.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackagePatterns": ["^@apollo/utils"],
+      "allowedVersions": "1.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      // this covers make-fetch-happen and its types
+      "matchPackagePatterns": ["make-fetch-happen"],
+      "allowedVersions": "10.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["lerna"],
+      "allowedVersions": "4.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackagePatterns": ["jest"],
+      "allowedVersions": "28.x"
+    },
   ]
 }
