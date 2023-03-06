@@ -10,7 +10,7 @@ To use federated directives in a Federation 2 subgraph schema, apply the `@link`
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key", "@shareable"])
 ```
 
@@ -26,7 +26,7 @@ If an imported directive's default name matches one of your own custom directive
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: [{ name: "@key", as: "@primaryKey"}, "@shareable"])
 ```
 
@@ -38,7 +38,7 @@ If you _don't_ [import a particular directive](#importing-directives) from a lin
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key"])
 
 type Book @federation__shareable {
@@ -54,7 +54,7 @@ You can customize a particular specification's namespace prefix by providing the
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         as: "fed")
 
 type Book @fed__shareable {
@@ -530,7 +530,7 @@ Applies arbitrary string metadata to a schema location. Custom tooling can use t
 
 ```graphql
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+    @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@tag"])
 
 type Query {
   customer(id: String!): Customer @tag(name: "team-customers")
@@ -601,7 +601,7 @@ Indicates to composition that all uses of a particular custom [type system direc
 ```graphql
 extend schema
     @link(url: "https://specs.apollo.dev/link/v1.0")
-    @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@composeDirective"])
+    @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@composeDirective"])
     @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
     # highlight-start
     @composeDirective(name: "@myDirective")

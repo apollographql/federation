@@ -59,7 +59,7 @@ To use `@shareable` in a subgraph schema, you first need to add the following sn
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key", "@shareable"])
 ```
 
@@ -132,7 +132,7 @@ To make `Position.z` shareable, you can do one of the following:
 
     ```graphql
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.2", import: ["@shareable"]) #highlight-line
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@shareable"]) #highlight-line
 
     extend type Position @shareable { #highlight-line
       z: Int!
@@ -424,7 +424,7 @@ To use `@inaccessible` in a subgraph, first make sure you include it in the `imp
 
 ```graphql {3} title="Subgraph A"
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key", "@shareable", "@inaccessible"])
 ```
 
