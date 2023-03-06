@@ -3,6 +3,24 @@ title: Federation version changelog
 description: Understand changes between federation versions
 ---
 
+This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](./federated-types/federated-directives/).
+
+> For a _comprehensive_ changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
+
+- **To use a feature introduced in a particular federation version,** make sure your subgraph schema's `@link` directive targets that version (or higher):
+
+    ```graphql
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", #highlight-line
+            import: ["@key", "@shareable", "@interfaceObject"])
+    ```
+
+    The example above must target at least Federation v2.3, because the `@interfaceObject` directive was introduced in that version.
+
+    > ⚠️ **Before you increment a subgraph's federation version, update your router and build pipeline!** For details, see [Updating your graph safely](/graphos/graphs/updating/).
+
+- **If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/),** consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
+
 ## v2.3
 
 **Directive changes**
@@ -25,7 +43,7 @@ description: Understand changes between federation versions
 </td>
 <td>
 
-Introduced. [Learn more.](/federation/federated-types/interfaces)
+Introduced. [Learn more.](./federated-types/interfaces)
 
 ```graphql
 directive @interfaceObject on OBJECT
@@ -34,37 +52,23 @@ directive @interfaceObject on OBJECT
 </td>
 </tr>
 
-</tbody>
-</table>
-
-**Subgraph changes**
-
-
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
 <tr>
 <td>
 
-Interfaces
+##### `@key`
 
 </td>
 <td>
 
-`@key` directive can now be used on interface definitions.
+Can now be applied to interface definitions to support [entity interfaces](./federated-types/interfaces/).
+
+(Previous versions of composition threw an error if `@key` was applied to an interface definition.)
 
 </td>
 </tr>
 
 </tbody>
 </table>
-
 
 ## v2.2
 
@@ -94,41 +98,13 @@ Added `repeatable` to the directive definition.
 directive @shareable repeatable on OBJECT | FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-</tbody>
-</table>
-
-**Subgraph changes**
-
-
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
-Interfaces
-
-</td>
-<td>
-
-Composition now rejects `@shareable` on interface fields.
+Additionally, composition now throws an error if `@shareable` is applied to fields of an `interface` definition.
 
 </td>
 </tr>
 
 </tbody>
 </table>
-
-
 
 ## v2.1
 
@@ -151,7 +127,7 @@ Composition now rejects `@shareable` on interface fields.
 </td>
 <td>
 
-Introduced. [Learn more.](/federation/federated-types/federated-directives#composedirective)
+Introduced. [Learn more.](./federated-types/federated-directives#composedirective)
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
