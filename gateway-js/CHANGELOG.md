@@ -1,5 +1,32 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.3.3
+### Patch Changes
+
+
+- Update @apollo/utils.logger typings dependency ([#2269](https://github.com/apollographql/federation/pull/2269))
+
+
+- Exposes, for each subgraph request, the path in the overall gateway operation at which that subgraph request gets inserted. This path is now available as the pathInIncomingRequest field in the arguments of RemoteGraphQLDataSource.willSendRequest and RemoteGraphQLDataSource.didReceiveResponse. ([#2384](https://github.com/apollographql/federation/pull/2384))
+
+
+- Previously the `queryPlanStoreKey` was a hash of the query concatenated with an unhashed `operationName` if it was present. This resulted in variable length cache keys that could become unnecessarily long, occupying additional space in the query plan cache. ([#2310](https://github.com/apollographql/federation/pull/2310))
+  
+  This change incorporates the `operationName` _into_ the hash itself (if `operationName` is present).
+
+- Update @apollo/utils.createhash package, which drops support for node 12 ([#2266](https://github.com/apollographql/federation/pull/2266))
+
+
+- Update @apollo/utils.isnodelike package, which dropped support for node 12 ([#2268](https://github.com/apollographql/federation/pull/2268))
+
+
+- Update @apollo/utils.fetcher package, which drops support for node 12 ([#2267](https://github.com/apollographql/federation/pull/2267))
+
+- Updated dependencies [[`71a07f30`](https://github.com/apollographql/federation/commit/71a07f3006e6152bb47e258546c2af717ceb687e)]:
+  - @apollo/composition@2.3.3
+  - @apollo/query-planner@2.3.3
+  - @apollo/federation-internals@2.3.3
+
 ## 2.3.2
 ### Patch Changes
 
