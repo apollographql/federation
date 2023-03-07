@@ -12,8 +12,8 @@
   ],
   "sidebar": {
     "Introduction": "/",
-    "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
-    "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md",
+    "Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
+    "Changelog": "/federation-versions",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
@@ -28,7 +28,7 @@
     "Building Your Supergraph": {
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
       "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
-      "Router/gateway": "/building-supergraphs/router",
+      "Router / Gateway": "/building-supergraphs/router",
       "Apollo Server subgraphs": "https://apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup"
     },
     "Federated Schemas": {

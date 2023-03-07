@@ -13,7 +13,8 @@ export interface GraphQLResolverMap<TContext = {}> {
           | GraphQLFieldResolver<any, TContext>
           | {
               requires?: string;
-              resolve: GraphQLFieldResolver<any, TContext>;
+              resolve?: GraphQLFieldResolver<any, TContext>;
+              subscribe?: GraphQLFieldResolver<any, TContext>;
             };
       }
     | GraphQLScalarType

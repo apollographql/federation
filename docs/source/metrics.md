@@ -3,16 +3,16 @@ title: Federated trace data
 description: How federated tracing works
 ---
 
-One of the many benefits of using GraphQL as an API layer is that it enables fine-grained [tracing](/studio/metrics/usage-reporting) of every API call. The Apollo platform supports consuming and aggregating these traces to provide detailed insights into your GraphQL layer's performance and usage.
+One of the many benefits of using GraphQL as an API layer is that it enables fine-grained [tracing](/graphos/metrics/usage-reporting/) of every API call. The Apollo platform supports consuming and aggregating these traces to provide detailed insights into your GraphQL layer's performance and usage.
 
-Apollo Federation supports sending **federated traces** from your graph router, which are constructed from timing and error information provided by your subgraphs. These federated traces capture the subgraph-level details in the shape of the query plan, which is sent to Apollo's [metrics ingress](/studio/metrics/usage-reporting) by default, and aggregated into query-level stats and field-level stats. The overall flow of a federated trace is as follows:
+Apollo Federation supports sending **federated traces** from your graph router, which are constructed from timing and error information provided by your subgraphs. These federated traces capture the subgraph-level details in the shape of the query plan, which is sent to Apollo's [metrics ingress](/graphos/metrics/usage-reporting) by default, and aggregated into query-level stats and field-level stats. The overall flow of a federated trace is as follows:
 
 1. The router receives an operation from a client.
 2. The router constructs a query plan for the operation, delegating sub-queries to subgraphs.
 3. For each fetch to a subgraph, a response is received.
 4. The [`extensions`](/resources/graphql-glossary/#extensions) of each response includes a trace from the sub-query.
 5. The router collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
-6. The federated trace is sent to the Apollo [metrics ingress](/studio/metrics/usage-reporting/) for processing.
+6. The federated trace is sent to the Apollo [metrics ingress](/graphos/metrics/usage-reporting/) for processing.
 
 In summary, subgraphs report timing and error information to the router, and the router is responsible for reporting those metrics to Apollo.
 

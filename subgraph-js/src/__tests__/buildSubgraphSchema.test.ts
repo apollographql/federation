@@ -1005,6 +1005,38 @@ describe('buildSubgraphSchema', () => {
     expect(() => buildSubgraphSchema(doc)).not.toThrow();
   });
 
+  it('correctly attaches the provided subscribe function to the schema object', () => {
+    async function* subscribeFn () {
+      for await (const word of ['Hello', 'Bonjour', 'Ciao']) {
+        yield word;
+      }
+    }
+    const schema = buildSubgraphSchema([
+      {
+        typeDefs: gql`
+          type Query {
+            hello: String!
+          }
+
+          type Subscription {
+            hello: String!
+          }
+        `,
+        resolvers: {
+          Subscription: {
+            hello: {
+              subscribe: subscribeFn,
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(schema.getSubscriptionType()?.getFields()['hello'].subscribe).toBe(
+      subscribeFn,
+    );
+  });
+
   // Those tests ensures that we expand older federation specification to their proper definitions,
   // so they explicitely link to older spec and should not be changed.
   describe('federation specification backward compatibility', () => {

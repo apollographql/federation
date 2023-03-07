@@ -121,7 +121,7 @@ graph LR;
 **The router** is one of the following:
 
 - [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
-    - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/studio/getting-started) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages routing for you!
+    - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages routing for you!
 - An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library
 
 **Subgraphs** can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/).
@@ -347,7 +347,7 @@ These resulting schemas provide the best of both worlds:
 
 ### Managed federation
 
-Your router can operate in **managed federation** mode, where [Apollo GraphOS](/studio/) acts as the source of truth for your supergraph's configuration:
+Your router can operate in **managed federation** mode, where [Apollo GraphOS](/graphos/) acts as the source of truth for your supergraph's configuration:
 
 ```mermaid
 graph LR;

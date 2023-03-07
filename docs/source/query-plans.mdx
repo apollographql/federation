@@ -440,13 +440,13 @@ Now that you've learned about each query plan node, take another look at the exa
 
 You can view the query plan for a particular operation in any of the following ways:
 
-* [In the Apollo Studio Explorer](/studio/explorer/additional-features/#query-plans-for-supergraphs)
-    * Note that you must [register your federated graph](./managed-federation/setup/) with Apollo Studio to view query plans in the Explorer.
+* [In the Apollo Studio Explorer](/graphos/explorer/additional-features#query-plans-for-supergraphs)
+    * Note that you must [register your federated graph](./managed-federation/setup/) with GraphOS to view query plans in the Explorer.
 * As direct output from the `@apollo/gateway` library (see below)
 
 ### Outputting query plans with `@apollo/gateway`
 
-Your gateway can output the query plan for each incoming operation as it's calculated.  To do so, add the following to the file where you initalize your `ApolloGateway` instance:
+Your gateway can output the query plan for each incoming operation as it's calculated. To do so, add the following to the file where you initalize your `ApolloGateway` instance:
 
 1. Import the `serializeQueryPlan` function from the `@apollo/query-planner` library:
 
