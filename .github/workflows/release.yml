@@ -56,6 +56,9 @@ jobs:
                 version: "${{ env.FEDERATION_VERSION }}"
               }
             })
+      - name: Sleep for 20 seconds (arbitrary, give NPM time to populate new `latest` versions)
+        run: sleep 20
+        shell: bash
       - name: Write token to the NPM rc file (login)
         if: steps.changesets.outputs.published == 'true'
         # write token to the NPM rc file (npm login)
