@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.3.3
+### Patch Changes
+
+
+- Update ts-graphviz dependency ([#2395](https://github.com/apollographql/federation/pull/2395))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.3
+
 ## 2.3.2
 ### Patch Changes
 

@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.3.3
+### Patch Changes
+
+
+- Correctly attach provided subscription resolvers to the schema object ([#2388](https://github.com/apollographql/federation/pull/2388))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.3
+
 ## 2.3.2
 ### Patch Changes
 
