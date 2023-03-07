@@ -539,27 +539,67 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "hello": "world"
-    }
+      skipped: 'world',
+      included: 'world',
+    };
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(schema, `#graphql
       query DefaultedIfCondition($if: Boolean = true) {
-        hello @skip(if: $if)
+        skipped: hello @skip(if: $if)
+        included: hello @include(if: $if)
       }
     `);
 
-    expect(() => computeResponse({
-      operation,
-      input,
-      introspectionHandling,
-    })).toThrowErrorMatchingInlineSnapshot(
-      `"Unexpected value undefined for variable $if of @skip(if: $if)"`,
-    );
+    expect(
+      computeResponse({
+        operation,
+        input,
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "included": "world",
+        },
+        "errors": Array [],
+      }
+    `);
+  });
 
-    // expect(computeResponse({
-    //   operation,
-    //   input,
-    //   introspectionHandling,
-    // })).toMatchInlineSnapshot();
+  test('Provided variables overwrite defaulted variable values', () => {
+    const schema = buildSchemaFromAST(gql`
+      type Query {
+        hello: String!
+      }
+    `);
+
+    const input = {
+      skipped: 'world',
+      included: 'world',
+    };
+
+    const operation = parseOperation(schema, `#graphql
+        # note that the default conditional is inverted from the previous test
+      query DefaultedIfCondition($if: Boolean = false) {
+        skipped: hello @skip(if: $if)
+        included: hello @include(if: $if)
+      }
+    `);
+
+    expect(
+      computeResponse({
+        operation,
+        input,
+        variables: { if: true },
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "included": "world",
+        },
+        "errors": Array [],
+      }
+    `);
   });
 })
