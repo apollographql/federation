@@ -249,7 +249,7 @@ describe('gateway post-processing', () => {
         }
       `);
 
-      let res = computeResponse({
+      const res = computeResponse({
         operation: operationNonNullable,
         input,
         introspectionHandling,
@@ -280,7 +280,7 @@ describe('gateway post-processing', () => {
         }
       `);
 
-      let res = computeResponse({
+      const res = computeResponse({
         operation: operationNonNullable,
         input,
         introspectionHandling,
@@ -365,7 +365,7 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "x": 'foo', 
+      "x": 'foo',
     }
 
     const operation = parseOperation(schema, `
@@ -529,5 +529,37 @@ describe('gateway post-processing', () => {
         "errors": Array [],
       }
     `);
+  });
+
+  test('Handles defaulted `if` conditions', () => {
+    const schema = buildSchemaFromAST(gql`
+      type Query {
+        hello: String!
+      }
+    `);
+
+    const input = {
+      "hello": "world"
+    }
+
+    const operation = parseOperation(schema, `
+      query DefaultedIfCondition($if: Boolean = true) {
+        hello @skip(if: $if)
+      }
+    `);
+
+    expect(() => computeResponse({
+      operation,
+      input,
+      introspectionHandling,
+    })).toThrowErrorMatchingInlineSnapshot(
+      `"Unexpected value undefined for variable $if of @skip(if: $if)"`,
+    );
+
+    // expect(computeResponse({
+    //   operation,
+    //   input,
+    //   introspectionHandling,
+    // })).toMatchInlineSnapshot();
   });
 })
