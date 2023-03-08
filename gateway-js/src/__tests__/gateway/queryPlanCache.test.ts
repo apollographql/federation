@@ -1,11 +1,12 @@
 import gql from 'graphql-tag';
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { QueryPlanner } from '@apollo/query-planner';
+import assert from 'assert';
 
 it('caches the query plan for a request', async () => {
   const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');
@@ -23,9 +24,8 @@ it('caches the query plan for a request', async () => {
     },
   });
 
-  const { schema, executor } = await gateway.load();
-
-  const server = new ApolloServer({ schema, executor });
+  const server = new ApolloServer({ gateway });
+  await server.start();
 
   const upc = '1';
 
@@ -42,7 +42,8 @@ it('caches the query plan for a request', async () => {
     variables: { upc },
   });
 
-  expect(result.data).toEqual({
+  assert(result.body.kind === 'single');
+  expect(result.body.singleResult.data).toEqual({
     product: {
       name: 'Table',
     },
@@ -53,7 +54,10 @@ it('caches the query plan for a request', async () => {
     variables: { upc },
   });
 
-  expect(result.data).toEqual(secondResult.data);
+  assert(secondResult.body.kind === 'single');
+  expect(result.body.singleResult.data).toEqual(
+    secondResult.body.singleResult.data,
+  );
   expect(buildQueryPlanSpy).toHaveBeenCalledTimes(1);
 });
 
@@ -85,24 +89,25 @@ it('supports multiple operations and operationName', async () => {
     },
   });
 
-  const { schema, executor } = await gateway.load();
+  const server = new ApolloServer({ gateway });
+  await server.start();
 
-  const server = new ApolloServer({ schema, executor });
-
-  const { data: userData } = await server.executeOperation({
+  const userResult = await server.executeOperation({
     query,
     operationName: 'GetUser',
   });
 
-  const { data: reviewsData } = await server.executeOperation({
+  const reviewsResult = await server.executeOperation({
     query,
     operationName: 'GetReviews',
   });
 
-  expect(userData).toEqual({
+  assert(userResult.body.kind === 'single');
+  expect(userResult.body.singleResult.data).toEqual({
     me: { username: '@ada' },
   });
-  expect(reviewsData).toEqual({
+  assert(reviewsResult.body.kind === 'single');
+  expect(reviewsResult.body.singleResult.data).toEqual({
     topReviews: [
       { body: 'Love it!' },
       { body: 'Too expensive.' },
@@ -194,9 +199,8 @@ it('does not corrupt cached queryplan data across requests', async () => {
     },
   });
 
-  const { schema, executor } = await gateway.load();
-
-  const server = new ApolloServer({ schema, executor });
+  const server = new ApolloServer({ gateway });
+  await server.start();
 
   const query1 = `#graphql
     query UserFavoriteColor {
@@ -225,8 +229,12 @@ it('does not corrupt cached queryplan data across requests', async () => {
     query: query1,
   });
 
-  expect(result1.errors).toEqual(undefined);
-  expect(result2.errors).toEqual(undefined);
-  expect(result3.errors).toEqual(undefined);
+  assert(result1.body.kind === 'single');
+  assert(result2.body.kind === 'single');
+  assert(result3.body.kind === 'single');
+
+  expect(result1.body.singleResult.errors).toEqual(undefined);
+  expect(result2.body.singleResult.errors).toEqual(undefined);
+  expect(result3.body.singleResult.errors).toEqual(undefined);
   expect(result1).toEqual(result3);
 });

@@ -1,9 +1,10 @@
 import { execute } from '../execution-utils';
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
+import assert from 'assert';
 
 it('supports simple aliases', async () => {
   const query = `#graphql
@@ -155,9 +156,8 @@ it('supports aliases when using ApolloServer', async () => {
     },
   });
 
-  const { schema, executor } = await gateway.load();
-
-  const server = new ApolloServer({ schema, executor });
+  const server = new ApolloServer({ gateway });
+  await server.start();
 
   const upc = '1';
 
@@ -172,7 +172,8 @@ it('supports aliases when using ApolloServer', async () => {
     variables: { upc },
   });
 
-  expect(result.data).toEqual({
+  assert(result.body.kind === 'single');
+  expect(result.body.singleResult.data).toEqual({
     product: {
       title: 'Table',
     },

@@ -1,12 +1,13 @@
 import nock from 'nock';
 
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
 
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';
 import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { GraphQLDataSourceRequestKind } from '../../datasources/types';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import assert from 'assert';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);
@@ -62,15 +63,10 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     },
   });
 
-  const { schema, executor } = await gateway.load();
-
   const server = new ApolloServer({
-    schema,
-    executor,
-    context: () => ({
-      userId: '1234',
-    }),
+    gateway,
   });
+  await server.start();
 
   const query = `#graphql
     {
@@ -97,12 +93,21 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
       replyHeaders,
     );
 
-  const result = await server.executeOperation({
-    query,
-  });
+  const result = await server.executeOperation(
+    {
+      query,
+    },
+    {
+      contextValue: {
+        userId: '1234',
+      },
+    },
+  );
 
-  expect(result.errors).toBeUndefined();
-  expect(result.data).toEqual({
+  assert(result.body.kind === 'single');
+  const { data, errors } = result.body.singleResult;
+  expect(errors).toBeUndefined();
+  expect(data).toEqual({
     me: { username: '@jbaxleyiii' },
   });
 });

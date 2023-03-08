@@ -1,7 +1,7 @@
 import { gunzipSync } from 'zlib';
 import nock from 'nock';
 import gql from 'graphql-tag';
-import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
+import { ApolloServerPluginUsageReporting } from '@apollo/server/plugin/usageReporting';
 import { execute } from '@apollo/client/link/core';
 import { toPromise } from '@apollo/client/link/utils';
 import { createHttpLink } from '@apollo/client/link/http';
@@ -11,7 +11,7 @@ import { Report, Trace } from '@apollo/usage-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import resolvable, { Resolvable } from '@josephg/resolvable';
-import { startSubgraphsAndGateway, Services } from './testUtils'
+import { startSubgraphsAndGateway, Services } from './testUtils';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -609,6 +609,7 @@ describe('reporting', () => {
             ],
           },
         },
+        "tracesPreAggregated": false,
       }
     `);
   });

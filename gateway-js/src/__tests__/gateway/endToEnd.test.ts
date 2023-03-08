@@ -148,7 +148,7 @@ describe('caching', () => {
         },
       }
     `);
-    expect(response.headers.get('cache-control')).toBe(null);
+    expect(response.headers.get('cache-control')).toBe('no-store');
   });
 });
 
@@ -166,8 +166,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", { name: "@tag", as: "@federationTag"} ]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", { name: "@tag", as: "@federationTag" }]
           )
 
         type Query {
@@ -183,10 +183,10 @@ describe('end-to-end features', () => {
         Query: {
           t: () => ({
             k: 42,
-            x: 1
+            x: 1,
           }),
-        }
-      }
+        },
+      },
     };
 
     const subgraphB = {
@@ -195,8 +195,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", { name: "@tag", as: "@federationTag"} ]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", { name: "@tag", as: "@federationTag" }]
           )
 
         type T @key(fields: "k") {
@@ -207,10 +207,10 @@ describe('end-to-end features', () => {
       resolvers: {
         T: {
           __resolveReference: ({ k }: { k: string }) => {
-            return k === '42' ? ({ y: 2 }) : undefined;
+            return k === '42' ? { y: 2 } : undefined;
           },
-        }
-      }
+        },
+      },
     };
 
     services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
@@ -241,8 +241,12 @@ describe('end-to-end features', () => {
     expect(supergraphSdl).toBeDefined();
     const supergraph = buildSchema(supergraphSdl!);
     const typeT = supergraph.type('T') as ObjectType;
-    expect(typeT.field('x')?.appliedDirectivesOf('federationTag').toString()).toStrictEqual('@federationTag(name: "Important")');
-    expect(typeT.field('y')?.appliedDirectivesOf('federationTag').toString()).toStrictEqual('@federationTag(name: "Less Important")');
+    expect(
+      typeT.field('x')?.appliedDirectivesOf('federationTag').toString(),
+    ).toStrictEqual('@federationTag(name: "Important")');
+    expect(
+      typeT.field('y')?.appliedDirectivesOf('federationTag').toString(),
+    ).toStrictEqual('@federationTag(name: "Less Important")');
   });
 
   it('handles fed1 schema', async () => {
@@ -263,10 +267,10 @@ describe('end-to-end features', () => {
         Query: {
           t: () => ({
             k: 42,
-            x: 1
+            x: 1,
           }),
-        }
-      }
+        },
+      },
     };
 
     const subgraphB = {
@@ -281,10 +285,10 @@ describe('end-to-end features', () => {
       resolvers: {
         T: {
           __resolveReference: ({ k }: { k: string }) => {
-            return k === '42' ? ({ y: 2 }) : undefined;
+            return k === '42' ? { y: 2 } : undefined;
           },
-        }
-      }
+        },
+      },
     };
 
     services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
@@ -319,8 +323,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", "@shareable", "@inaccessible"]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", "@shareable", "@inaccessible"]
           )
 
         type Query {
@@ -350,9 +354,9 @@ describe('end-to-end features', () => {
           }),
           f: (_: any, args: any) => {
             return args.e === 'FOO' ? 0 : 1;
-          }
-        }
-      }
+          },
+        },
+      },
     };
 
     const subgraphB = {
@@ -361,8 +365,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", "@shareable", "@inaccessible" ]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", "@shareable", "@inaccessible"]
           )
 
         type T @key(fields: "k") {
@@ -374,10 +378,10 @@ describe('end-to-end features', () => {
       resolvers: {
         T: {
           __resolveReference: ({ k }: { k: string }) => {
-            return k === '42' ? ({ c: 'foo', d: 'bar' }) : undefined;
+            return k === '42' ? { c: 'foo', d: 'bar' } : undefined;
           },
-        }
-      }
+        },
+      },
     };
 
     services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
@@ -439,6 +443,12 @@ describe('end-to-end features', () => {
             "extensions": Object {
               "code": "GRAPHQL_VALIDATION_FAILED",
             },
+            "locations": Array [
+              Object {
+                "column": 14,
+                "line": 3,
+              },
+            ],
             "message": "Value \\"BAR\\" does not exist in \\"E\\" enum.",
           },
         ],
@@ -461,10 +471,16 @@ describe('end-to-end features', () => {
             "extensions": Object {
               "code": "GRAPHQL_VALIDATION_FAILED",
             },
+            "locations": Array [
+              Object {
+                "column": 11,
+                "line": 4,
+              },
+            ],
             "message": "Cannot query field \\"a\\" on type \\"T\\". Did you mean \\"b\\", \\"d\\", or \\"k\\"?",
           },
         ],
       }
     `);
   });
-})
+});
