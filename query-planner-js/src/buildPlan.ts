@@ -2506,7 +2506,7 @@ export class QueryPlanner {
         const node: FetchNode = {
           kind: 'Fetch',
           serviceName: subgraphs[0],
-          variableUsages: operation.selectionSet.usedVariables().map(v => v.name),
+          variableUsages: operation.variableDefinitions.definitions().map(v => v.variable.name),
           operation: stripIgnoredCharacters(print(operationDocument)),
           operationKind: schemaRootKindToOperationKind(operation.rootKind),
           operationName: operation.name,
