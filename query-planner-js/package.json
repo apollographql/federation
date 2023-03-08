@@ -27,6 +27,7 @@
   "dependencies": {
     "@apollo/federation-internals": "2.3.3",
     "@apollo/query-graphs": "2.3.3",
+    "@apollo/utils.keyvaluecache": "^2.1.0",
     "chalk": "^4.1.0",
     "deep-equal": "^2.0.5",
     "pretty-format": "^29.0.0"
