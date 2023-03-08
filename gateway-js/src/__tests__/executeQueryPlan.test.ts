@@ -24,7 +24,7 @@ import {
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
 import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
-import assert from 'assert';
+import { unwrapSingleResultKind } from './testUtils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -1349,11 +1349,24 @@ describe('executeQueryPlan', () => {
         query,
       });
 
-      assert(response.body.kind === 'single');
-      expect(response.body.singleResult.data).toBeUndefined();
-      expect(response.body.singleResult.errors?.[0].message).toMatch(
-        `Cannot query field "ssn" on type "User".`,
-      );
+      const { errors, data } = unwrapSingleResultKind(response);
+      expect(data).toBeUndefined();
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "extensions": Object {
+              "code": "GRAPHQL_VALIDATION_FAILED",
+            },
+            "locations": Array [
+              Object {
+                "column": 15,
+                "line": 7,
+              },
+            ],
+            "message": "Cannot query field \\"ssn\\" on type \\"User\\".",
+          },
+        ]
+      `);
     });
 
     it(`doesn't leak @inaccessible typenames in error messages`, async () => {

@@ -6,7 +6,7 @@ import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { QueryPlanner } from '@apollo/query-planner';
-import assert from 'assert';
+import { unwrapSingleResultKind } from '../testUtils';
 
 it('caches the query plan for a request', async () => {
   const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');
@@ -42,8 +42,8 @@ it('caches the query plan for a request', async () => {
     variables: { upc },
   });
 
-  assert(result.body.kind === 'single');
-  expect(result.body.singleResult.data).toEqual({
+  const { data: result1Data } = unwrapSingleResultKind(result);
+  expect(result1Data).toEqual({
     product: {
       name: 'Table',
     },
@@ -54,10 +54,7 @@ it('caches the query plan for a request', async () => {
     variables: { upc },
   });
 
-  assert(secondResult.body.kind === 'single');
-  expect(result.body.singleResult.data).toEqual(
-    secondResult.body.singleResult.data,
-  );
+  expect(unwrapSingleResultKind(secondResult).data).toEqual(result1Data);
   expect(buildQueryPlanSpy).toHaveBeenCalledTimes(1);
 });
 
@@ -102,12 +99,10 @@ it('supports multiple operations and operationName', async () => {
     operationName: 'GetReviews',
   });
 
-  assert(userResult.body.kind === 'single');
-  expect(userResult.body.singleResult.data).toEqual({
+  expect(unwrapSingleResultKind(userResult).data).toEqual({
     me: { username: '@ada' },
   });
-  assert(reviewsResult.body.kind === 'single');
-  expect(reviewsResult.body.singleResult.data).toEqual({
+  expect(unwrapSingleResultKind(reviewsResult).data).toEqual({
     topReviews: [
       { body: 'Love it!' },
       { body: 'Too expensive.' },
@@ -229,12 +224,8 @@ it('does not corrupt cached queryplan data across requests', async () => {
     query: query1,
   });
 
-  assert(result1.body.kind === 'single');
-  assert(result2.body.kind === 'single');
-  assert(result3.body.kind === 'single');
-
-  expect(result1.body.singleResult.errors).toEqual(undefined);
-  expect(result2.body.singleResult.errors).toEqual(undefined);
-  expect(result3.body.singleResult.errors).toEqual(undefined);
+  expect(unwrapSingleResultKind(result1).errors).toEqual(undefined);
+  expect(unwrapSingleResultKind(result2).errors).toEqual(undefined);
+  expect(unwrapSingleResultKind(result3).errors).toEqual(undefined);
   expect(result1).toEqual(result3);
 });

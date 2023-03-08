@@ -4,7 +4,7 @@ import { buildSubgraphSchema } from '@apollo/subgraph';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import assert from 'assert';
+import { unwrapSingleResultKind } from '../testUtils';
 
 it('supports simple aliases', async () => {
   const query = `#graphql
@@ -172,8 +172,7 @@ it('supports aliases when using ApolloServer', async () => {
     variables: { upc },
   });
 
-  assert(result.body.kind === 'single');
-  expect(result.body.singleResult.data).toEqual({
+  expect(unwrapSingleResultKind(result).data).toEqual({
     product: {
       title: 'Table',
     },

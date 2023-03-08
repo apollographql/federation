@@ -14,7 +14,7 @@ import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 import resolvable from '@josephg/resolvable';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import nock from 'nock';
-import assert from 'assert';
+import { unwrapSingleResultKind } from '../testUtils';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
@@ -69,8 +69,7 @@ describe('Using supergraphSdl static configuration', () => {
       query: '{ me { username } }',
     });
 
-    assert(result.body.kind === 'single');
-    expect(result.body.singleResult.data).toMatchInlineSnapshot(`
+    expect(unwrapSingleResultKind(result).data).toMatchInlineSnapshot(`
       Object {
         "me": Object {
           "username": "@jbaxleyiii",

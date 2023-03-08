@@ -7,7 +7,7 @@ import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { GraphQLDataSourceRequestKind } from '../../datasources/types';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
-import assert from 'assert';
+import { unwrapSingleResultKind } from '../testUtils';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);
@@ -104,8 +104,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     },
   );
 
-  assert(result.body.kind === 'single');
-  const { data, errors } = result.body.singleResult;
+  const { data, errors } = unwrapSingleResultKind(result);
   expect(errors).toBeUndefined();
   expect(data).toEqual({
     me: { username: '@jbaxleyiii' },
