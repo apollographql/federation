@@ -1,6 +1,8 @@
 import {
   assert,
+  isNonEmptyArray,
   isVariable,
+  NonEmptyArray,
   OperationElement,
   Selection,
   SelectionSet,
@@ -20,7 +22,7 @@ export type Condition = VariableCondition | boolean;
 // The invariant maintained on this type are that if is an array of variable conditions, then:
 // 1. that array is not empty (it has at least one condition).
 // 2. that array has at most one condition for any given variable name.
-export type Conditions = VariableCondition[] | boolean;
+export type Conditions = NonEmptyArray<VariableCondition> | boolean;
 
 export function isConstantCondition(cond: Condition | Conditions): cond is boolean {
   return typeof cond === 'boolean';
@@ -38,7 +40,7 @@ export function mergeConditions(conditions1: Conditions, conditions2: Conditions
   // So we start with `conditions1`, and then adds all of `conditions2` but for condition that are already in `conditions1`. For
   // those, if the negation is the same, then we just ignore the condition from `conditions2` (keeping only the one from `conditions1`).
   // But if the negation is opposite, then it means the whole conditions are impossible and we just return false.
-  const merged = conditions1.concat();
+  const merged: NonEmptyArray<VariableCondition> = [...conditions1];
   for (const cond2 of conditions2) {
     const cond1 = conditions1.find((c1) => c1.variable.name === cond2.variable.name);
     if (cond1) {
@@ -132,19 +134,21 @@ function conditionsOfElement(element: OperationElement): Conditions {
       });
     }
   }
-  if (conditions.length === 0) {
-    return true;
+
+  if (isNonEmptyArray(conditions)) {
+    // Technically, users are not forbidden to write something useless like:
+    //   ... on X @include(if: $x) @skip(if: $x)
+    // so if we want to maintain our invariant on `Conditions` that a variable only appear once, we need to check for
+    // that case manually.
+    if (conditions.length === 2 && conditions[0].variable.name === conditions[1].variable.name) {
+      // Note that neither @include or @skip are repeatable, so this is necessarily a @skip and an @include on the
+      // same variable, and this mean this element is always excluded.
+      return false;
+    }
+    return conditions;
   }
-  // Technically, users are not forbidden to write something useless like:
-  //   ... on X @include(if: $x) @skip(if: $x)
-  // so if we want to maintain our invariant on `Conditions` that a variable only appear once, we need to check for
-  // that case manually.
-  if (conditions.length === 2 && conditions[0].variable.name === conditions[1].variable.name) {
-    // Note that neither @include or @skip are repeatable, so this is necessarily a @skip and an @include on the
-    // same variable, and this mean this element is always excluded.
-    return false;
-  }
-  return conditions;
+
+  return true;
 }
 
 export function updatedConditions(newConditions: Conditions, handledConditions: Conditions): Conditions {
@@ -166,7 +170,7 @@ export function updatedConditions(newConditions: Conditions, handledConditions: 
       filtered.push(cond);
     }
   }
-  return filtered.length === 0 ? true : filtered;
+  return isNonEmptyArray(filtered) ? filtered : true;
 }
 
 export function removeConditionsFromSelectionSet(selectionSet: SelectionSet, conditions: Conditions) {
