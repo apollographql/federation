@@ -24,7 +24,7 @@ import {
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
 import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
-import { unwrapSingleResultKind } from './testUtils';
+import { unwrapSingleResultKind } from './gateway/testUtils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);

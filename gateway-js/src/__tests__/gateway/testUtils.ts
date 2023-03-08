@@ -1,11 +1,17 @@
 import { buildSubgraphSchema } from '@apollo/subgraph';
-import { ApolloServer, ApolloServerOptionsWithGateway, BaseContext } from '@apollo/server';
+import {
+  ApolloServer,
+  ApolloServerOptionsWithGateway,
+  BaseContext,
+  GraphQLResponse,
+} from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
 import { ApolloServerPluginInlineTrace } from '@apollo/server/plugin/inlineTrace';
 import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 import { ApolloGateway, GatewayConfig } from '../..';
 import { ServiceDefinition } from '@apollo/federation-internals';
 import fetch, { Response } from 'node-fetch';
+import { assert } from '@apollo/federation-internals';
 
 export class Services {
   constructor(
@@ -72,4 +78,12 @@ export async function startSubgraphsAndGateway(
     listen: { port: 0 },
   });
   return new Services(backendServers, gateway, gatewayServer, gatewayUrl);
+}
+
+export function unwrapSingleResultKind(response: GraphQLResponse) {
+  assert(
+    response.body.kind === 'single',
+    `Expected single result, got ${response.body.kind}`,
+  );
+  return response.body.singleResult;
 }

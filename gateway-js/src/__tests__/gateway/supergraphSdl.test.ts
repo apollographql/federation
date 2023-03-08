@@ -14,7 +14,7 @@ import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 import resolvable from '@josephg/resolvable';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import nock from 'nock';
-import { unwrapSingleResultKind } from '../testUtils';
+import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({

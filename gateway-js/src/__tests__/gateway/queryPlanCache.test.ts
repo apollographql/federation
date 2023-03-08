@@ -6,7 +6,7 @@ import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { QueryPlanner } from '@apollo/query-planner';
-import { unwrapSingleResultKind } from '../testUtils';
+import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 it('caches the query plan for a request', async () => {
   const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');

@@ -4,7 +4,7 @@ import { buildSubgraphSchema } from '@apollo/subgraph';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { unwrapSingleResultKind } from '../testUtils';
+import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 it('supports simple aliases', async () => {
   const query = `#graphql

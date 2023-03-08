@@ -7,7 +7,7 @@ import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { GraphQLDataSourceRequestKind } from '../../datasources/types';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
-import { unwrapSingleResultKind } from '../testUtils';
+import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);
