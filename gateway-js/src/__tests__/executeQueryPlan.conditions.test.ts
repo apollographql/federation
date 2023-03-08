@@ -28,7 +28,7 @@ describe('Execution tests for @include/@skip', () => {
     };
   }
 
-  const s2Queries: {id : number}[] = [];
+  let s2Queries: {id : number}[] = [];
   /**
    * Simple subgraph schemas reused by a number of tests. This declares a simple interface `T` with 2 implems `T1` and `T2`.
    * There is a simple operation that returns a list of 3 simple objects:
@@ -538,7 +538,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       // No variables: the default (not included) should be used.
       let response = await executePlan(queryPlan, operation, schema, serviceMap);
       expect(response.errors).toBeUndefined();
@@ -557,10 +557,9 @@ describe('Execution tests for @include/@skip', () => {
           ],
         }
       `);
-      // Since we include the fields, S2 should have been asked to resolve the `b` field of our 3 entities.
-      expect(s2Queries).toHaveLength(3);
+      expect(s2Queries).toHaveLength(0);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       // Checks that the overriding of the default does work.
       response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
       expect(response.errors).toBeUndefined();
@@ -568,20 +567,209 @@ describe('Execution tests for @include/@skip', () => {
         Object {
           "t": Array [
             Object {
+              "b1": 100,
               "id": "1",
-              "b1": "100",
+            },
+            Object {
+              "id": "2",
+            },
+            Object {
+              "b1": 300,
+              "id": "3",
+            },
+          ],
+        }
+      `);
+      expect(s2Queries).toHaveLength(2);
+    });
+
+    it('handles condition on named fragments', async () => {
+      const operation = parseOperation(schema, `
+        query ($if: Boolean!){
+          t {
+            id
+            ... GetB1
+          }
+        }
+
+        fragment GetB1 on T1 @include(if: $if) {
+          b1
+        }
+      `);
+
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T1 @include(if: $if) {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+            Include(if: $if) {
+              Flatten(path: "t.@") {
+                Fetch(service: "S2") {
+                  {
+                    ... on T1 {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T1 {
+                      b1
+                    }
+                  }
+                },
+              }
+            },
+          },
+        }
+      `);
+
+      s2Queries = [];
+      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Array [
+            Object {
+              "b1": 100,
+              "id": "1",
+            },
+            Object {
+              "id": "2",
+            },
+            Object {
+              "b1": 300,
+              "id": "3",
+            },
+          ],
+        }
+      `);
+      expect(s2Queries).toHaveLength(2);
+
+      s2Queries = [];
+      // Checks that the overriding of the default does work.
+      response = await executePlan(queryPlan, operation, schema, serviceMap, { if: false });
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Array [
+            Object {
+              "id": "1",
             },
             Object {
               "id": "2",
             },
             Object {
               "id": "3",
-              "b1": "300",
             },
           ],
         }
       `);
-      // But make sure we indeed do not query S2 if we don't need to.
+      expect(s2Queries).toHaveLength(0);
+    });
+
+    it('handles condition inside named fragments', async () => {
+      const operation = parseOperation(schema, `
+        query ($if: Boolean!){
+          t {
+            id
+            ... OtherGetB1
+          }
+        }
+
+        fragment OtherGetB1 on T1 {
+          b1 @include(if: $if)
+        }
+      `);
+
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+            Include(if: $if) {
+              Flatten(path: "t.@") {
+                Fetch(service: "S2") {
+                  {
+                    ... on T1 {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on T1 {
+                      b1
+                    }
+                  }
+                },
+              }
+            },
+          },
+        }
+      `);
+
+      s2Queries = [];
+      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Array [
+            Object {
+              "b1": 100,
+              "id": "1",
+            },
+            Object {
+              "id": "2",
+            },
+            Object {
+              "b1": 300,
+              "id": "3",
+            },
+          ],
+        }
+      `);
+      expect(s2Queries).toHaveLength(2);
+
+      s2Queries = [];
+      // Checks that the overriding of the default does work.
+      response = await executePlan(queryPlan, operation, schema, serviceMap, { if: false });
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Array [
+            Object {
+              "id": "1",
+            },
+            Object {
+              "id": "2",
+            },
+            Object {
+              "id": "3",
+            },
+          ],
+        }
+      `);
       expect(s2Queries).toHaveLength(0);
     });
   })
@@ -653,7 +841,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       let response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -677,7 +865,7 @@ describe('Execution tests for @include/@skip', () => {
       // Since we include the fields, S2 should have been asked to resolve the `b` field of our 3 entities.
       expect(s2Queries).toHaveLength(3);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       response = await executePlan(queryPlan, operation, schema, serviceMap, { if: false });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -761,7 +949,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       let response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: true });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -785,7 +973,7 @@ describe('Execution tests for @include/@skip', () => {
       // Since we include the fields, S2 should have been asked to resolve the `b` field of our 3 entities.
       expect(s2Queries).toHaveLength(3);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: false, if2: false });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -810,7 +998,7 @@ describe('Execution tests for @include/@skip', () => {
       // having a `ConditionNode`, but tons better than sending a useless fetch.
       expect(s2Queries).toHaveLength(3);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: false, if2: true });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -901,7 +1089,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       let response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: true });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -925,7 +1113,7 @@ describe('Execution tests for @include/@skip', () => {
       // Since we include the fields, S2 should have been asked to resolve the `b` field of our 3 entities.
       expect(s2Queries).toHaveLength(3);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: false, if2: true });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -946,7 +1134,7 @@ describe('Execution tests for @include/@skip', () => {
       // If any one of the 2 condition is false, then we shouldn't query S2 at all (even if the other is true).
       expect(s2Queries).toHaveLength(0);
 
-      s2Queries.length = 0;
+      s2Queries = [];
       response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: false });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
@@ -966,5 +1154,335 @@ describe('Execution tests for @include/@skip', () => {
       `);
       expect(s2Queries).toHaveLength(0);
     });
+
+    describe('same element having both @skip and @include', () => {
+      it('with constant conditions, neither excluding', async () => {
+        const operation = parseOperation(schema, `
+          {
+            t {
+              id
+              ... on T1 @include(if: true) @skip(if: false) {
+                b1
+              }
+            }
+          }
+        `);
+
+        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  t {
+                    __typename
+                    id
+                    ... on T1 @include(if: true) @skip(if: false) {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              },
+              Flatten(path: "t.@") {
+                Fetch(service: "S2") {
+                  {
+                    ... on T1 {
+                      ... on T1 {
+                        __typename
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on T1 @include(if: true) {
+                      ... on T1 @skip(if: false) {
+                        b1
+                      }
+                    }
+                  }
+                },
+              },
+            },
+          }
+        `);
+
+        s2Queries = [];
+        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "t": Array [
+              Object {
+                "b1": 100,
+                "id": "1",
+              },
+              Object {
+                "id": "2",
+              },
+              Object {
+                "b1": 300,
+                "id": "3",
+              },
+            ],
+          }
+        `);
+        expect(s2Queries).toHaveLength(2);
+      });
+
+      it('with constant conditions, both excluding', async () => {
+        const operation = parseOperation(schema, `
+          {
+            t {
+              id
+              ... on T1 @include(if: false) @skip(if: true) {
+                b1
+              }
+            }
+          }
+        `);
+
+        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T1 @include(if: false) @skip(if: true) {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+          }
+        `);
+
+        s2Queries = [];
+        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "t": Array [
+              Object {
+                "id": "1",
+              },
+              Object {
+                "id": "2",
+              },
+              Object {
+                "id": "3",
+              },
+            ],
+          }
+        `);
+        expect(s2Queries).toHaveLength(0);
+      });
+
+      it('with constant conditions, first excluding', async () => {
+        const operation = parseOperation(schema, `
+          {
+            t {
+              id
+              ... on T1 @include(if: false) @skip(if: false) {
+                b1
+              }
+            }
+          }
+        `);
+
+        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T1 @include(if: false) @skip(if: false) {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+          }
+        `);
+
+        s2Queries = [];
+        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "t": Array [
+              Object {
+                "id": "1",
+              },
+              Object {
+                "id": "2",
+              },
+              Object {
+                "id": "3",
+              },
+            ],
+          }
+        `);
+        expect(s2Queries).toHaveLength(0);
+      });
+
+      it('with constant conditions, second excluding', async () => {
+        const operation = parseOperation(schema, `
+          {
+            t {
+              id
+              ... on T1 @include(if: true) @skip(if: true) {
+                b1
+              }
+            }
+          }
+        `);
+
+        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Fetch(service: "S1") {
+              {
+                t {
+                  __typename
+                  id
+                  ... on T1 @include(if: true) @skip(if: true) {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+          }
+        `);
+
+        s2Queries = [];
+        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "t": Array [
+              Object {
+                "id": "1",
+              },
+              Object {
+                "id": "2",
+              },
+              Object {
+                "id": "3",
+              },
+            ],
+          }
+        `);
+        expect(s2Queries).toHaveLength(0);
+      });
+
+      it('with variable conditions', async () => {
+        const operation = parseOperation(schema, `
+          query ($if1: Boolean!, $if2: Boolean!) {
+            t {
+              id
+              ... on T1 @include(if: $if1) @skip(if: $if2) {
+                b1
+              }
+            }
+          }
+        `);
+
+        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        // Ensures both @skip and @include have condition nodes.
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  t {
+                    __typename
+                    id
+                    ... on T1 @include(if: $if1) @skip(if: $if2) {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              },
+              Skip(if: $if2) {
+                Include(if: $if1) {
+                  Flatten(path: "t.@") {
+                    Fetch(service: "S2") {
+                      {
+                        ... on T1 {
+                          ... on T1 {
+                            __typename
+                            id
+                          }
+                        }
+                      } =>
+                      {
+                        ... on T1 {
+                          ... on T1 {
+                            b1
+                          }
+                        }
+                      }
+                    },
+                  }
+                }
+              },
+            },
+          }
+        `);
+
+        s2Queries = [];
+        // With data included by both conditions
+        let response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: false });
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "t": Array [
+              Object {
+                "b1": 100,
+                "id": "1",
+              },
+              Object {
+                "id": "2",
+              },
+              Object {
+                "b1": 300,
+                "id": "3",
+              },
+            ],
+          }
+        `);
+        expect(s2Queries).toHaveLength(2);
+
+        s2Queries = [];
+        // With data excluded by one condition
+        response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: true });
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "t": Array [
+              Object {
+                "id": "1",
+              },
+              Object {
+                "id": "2",
+              },
+              Object {
+                "id": "3",
+              },
+            ],
+          }
+        `);
+        expect(s2Queries).toHaveLength(0);
+      });
+    })
   })
 });
