@@ -995,7 +995,7 @@ class FetchGroup {
       if (interfaceInputSelections.length > 0) {
         return interfaceInputSelections.some((input) => input.selectionSet.contains(subSelectionSet));
       }
-      return implementationInputSelections.length > 0 
+      return implementationInputSelections.length > 0
         && implementationInputSelections.every((input) => input.selectionSet.contains(subSelectionSet));
     });
   }
@@ -2554,6 +2554,36 @@ export class QueryPlanner {
         hasDefers,
         statistics,
       });
+
+      // If this is a subscription, we want to make sure that we return a SubscriptionPlanNode rather than a PlanNode
+      // We potentially will need to separate "primary" from "rest"
+      // Note that if it is a subscription, we are guaranteed that nothing is deferred.
+      if (rootNode && operation.rootKind === 'subscription') {
+        switch (rootNode.kind) {
+          case 'Fetch': {
+            rootNode = {
+              kind: 'SubscriptionPlan',
+              primary: rootNode,
+            };
+          }
+          break;
+          case 'Sequence': {
+            const [primary, ...rest] = rootNode.nodes;
+            assert(primary.kind === 'Fetch', 'Primary node of a subscription is a Fetch');
+            rootNode = {
+              kind: 'SubscriptionPlan',
+              primary,
+              rest: {
+                kind: 'Sequence',
+                nodes: rest,
+              },
+            };
+          }
+          break;
+          default:
+            throw new Error(`Unexpected top level PlanNode kind: '${rootNode.kind}' when processing subscription`);
+        }
+      }
     }
 
     debug.groupEnd('Query plan computed');
@@ -2719,7 +2749,7 @@ function computePlanInternal({
   root: RootVertex,
   hasDefers: boolean,
   statistics: PlanningStatistics,
-}): PlanNode | SubscriptionPlanNode | undefined {
+}): PlanNode | undefined {
   let main: PlanNode | undefined = undefined;
   let primarySelection: SelectionSet | undefined = undefined;
   let deferred: DeferredNode[] = [];
@@ -2744,43 +2774,6 @@ function computePlanInternal({
     const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root, 0, hasDefers, statistics);
     ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
     primarySelection = dependencyGraph.deferTracking.primarySelection;
-
-    // If this is a subscription, we want to make sure that we return a SubscriptionPlanNode rather than a PlanNode
-    // We potentially will need to separate "primary" from "rest"
-    // Note that if it is a subscription, we are guaranteed that nothing is deferred.
-    if (main && operation.rootKind === 'subscription') {
-      switch (main.kind) {
-        case 'Fetch': {
-          // remove hasDefers from the FetchNode
-          const { hasDefers: _hasDefers, ...subscriptionNode } = main;
-          return {
-            kind: 'SubscriptionPlan',
-            primary: {
-              ...subscriptionNode,
-              kind: 'Subscription',
-            }
-          };
-        }
-        case 'Sequence': {
-          const [primary, ...rest] = main.nodes;
-          assert(primary.kind === 'Fetch', 'Primary node of a subscription is a Fetch');
-          const { hasDefers: _hasDefers, ...subscriptionNode } = primary;
-          return {
-            kind: 'SubscriptionPlan',
-            primary: {
-              ...subscriptionNode,
-              kind: 'Subscription',
-            },
-            rest: {
-              kind: 'Sequence',
-              nodes: rest,
-            },
-          };
-        }
-        default:
-          throw new Error(`Unexpected top level PlanNode kind: '${main.kind}' when processing subscription`);
-      }
-    }
   }
   if (deferred.length > 0) {
     assert(primarySelection, 'Should have had a primary selection created');
@@ -2805,26 +2798,20 @@ function computePlanForDeferConditionals({
   root: RootVertex,
   deferConditions: SetMultiMap<string, string>,
   statistics: PlanningStatistics,
-}): PlanNode | SubscriptionPlanNode | undefined {
+}): PlanNode | undefined {
   return generateConditionNodes(
     operation,
     Array.from(deferConditions.entries()),
     0,
-    (op) => {
-      const plan = computePlanInternal({
-        supergraphSchema,
-        federatedQueryGraph,
-        operation: op,
-        processor,
-        root,
-        hasDefers: true,
-        statistics,
-      });
-      if (plan && plan.kind === 'SubscriptionPlan') {
-        throw new Error('Subscription plan not valid for deferred conditionals');
-      }
-      return plan;
-    }
+    (op) => computePlanInternal({
+      supergraphSchema,
+      federatedQueryGraph,
+      operation: op,
+      processor,
+      root,
+      hasDefers: true,
+      statistics,
+    }),
   );
 }
 

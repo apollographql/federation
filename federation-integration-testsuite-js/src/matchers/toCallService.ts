@@ -43,7 +43,7 @@ function toCallService(
   // recurse the node, find first match of service name, return
   function walkExecutionNode(node?: PlanNode | SubscriptionPlanNode) {
     if (!node) return;
-    if ((node.kind === 'Fetch' || node.kind === 'Subscription') && node.serviceName === service) {
+    if ((node.kind === 'Fetch') && node.serviceName === service) {
       pass = true;
       // initialServiceCall = node;
       return;
@@ -60,7 +60,6 @@ function toCallService(
         walkExecutionNode(node.primary);
         walkExecutionNode(node.rest);
         break;
-      case 'Subscription':
       default:
         return;
     }

@@ -51,14 +51,11 @@ describe('subscription query plan tests', () => {
     );
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    // Note that even though we have keys, it is faster to query both
-    // subgraphs in parallel for each property than querying one first
-    // and then using the key.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         SubscriptionPlan {
           Primary: {
-            Subscription(service: "subgraphA") {
+            Fetch(service: "subgraphA") {
               {
                 onNewUser {
                   __typename
@@ -138,14 +135,11 @@ describe('subscription query plan tests', () => {
     );
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    // Note that even though we have keys, it is faster to query both
-    // subgraphs in parallel for each property than querying one first
-    // and then using the key.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         SubscriptionPlan {
           Primary: {
-            Subscription(service: "subgraphA") {
+            Fetch(service: "subgraphA") {
               {
                 onNewUser {
                   id

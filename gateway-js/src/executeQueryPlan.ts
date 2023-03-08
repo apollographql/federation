@@ -336,9 +336,6 @@ async function executeNode(
     case 'Condition': {
       assert(false, `Condition nodes are not available in the gateway`);
     }
-    case 'Subscription': {
-      assert(false, `Subscription support is not available in the gateway`);
-    }
   }
 }
 

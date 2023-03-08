@@ -1,4 +1,4 @@
-import { astSerializer, FetchNode, PlanNode, queryPlanSerializer, QueryPlanner, QueryPlannerConfig, SubscriptionNode } from '@apollo/query-planner';
+import { astSerializer, FetchNode, PlanNode, queryPlanSerializer, QueryPlanner, QueryPlannerConfig } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
 import { asFed2SubgraphDocument, buildSchema, Schema, ServiceDefinition } from '@apollo/federation-internals';
 
@@ -20,14 +20,13 @@ export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[]
   ];
 }
 
-export function findFetchNodes(subgraphName: string, node: PlanNode | undefined): (FetchNode | SubscriptionNode)[] {
+export function findFetchNodes(subgraphName: string, node: PlanNode | undefined): (FetchNode)[] {
   if (!node) {
     return [];
   }
 
   switch (node.kind) {
     case 'Fetch':
-    case 'Subscription':
       return node.serviceName === subgraphName ? [node] : [];
     case 'Flatten':
       return findFetchNodes(subgraphName, node.node);

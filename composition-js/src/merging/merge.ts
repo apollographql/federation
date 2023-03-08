@@ -807,11 +807,14 @@ class Merger {
         const subgraphFields = sources.map(t => t?.field(destField.name));
         const mergeContext = this.validateOverride(subgraphFields, destField);
 
+        if (isSubscription) {
+          this.validateSubscriptionField(subgraphFields);
+        }
+
         this.mergeField({
           sources: subgraphFields,
           dest: destField,
           mergeContext,
-          isParentSubscription: isSubscription,
         });
         this.validateFieldSharing(subgraphFields, destField, mergeContext);
       }
@@ -1261,17 +1264,11 @@ class Merger {
     sources,
     dest,
     mergeContext = new FieldMergeContext(sources),
-    isParentSubscription,
   }: {
     sources: FieldOrUndefinedArray,
     dest: FieldDefinition<any>,
     mergeContext: FieldMergeContext,
-    isParentSubscription: boolean,
   }) {
-    if (isParentSubscription) {
-      this.validateSubscriptionField(sources);
-    }
-
     if (sources.every((s, i) => s === undefined ? this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i).every((f) => this.isExternal(i, f)) : this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => {
         if (source) {
@@ -1812,7 +1809,6 @@ class Merger {
         sources: subgraphFields,
         dest: destField,
         mergeContext,
-        isParentSubscription: false,
       });
     }
   }

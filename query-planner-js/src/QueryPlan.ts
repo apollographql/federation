@@ -14,7 +14,7 @@ export interface QueryPlan {
   node?: PlanNode | SubscriptionPlanNode;
 }
 
-export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode | SubscriptionNode;
+export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode;
 
 export interface SequenceNode {
   kind: 'Sequence';
@@ -28,7 +28,7 @@ export interface ParallelNode {
 
 export interface SubscriptionPlanNode {
   kind: 'SubscriptionPlan';
-  primary: SubscriptionNode;
+  primary: FetchNode;
   rest?: PlanNode;
 }
 
@@ -49,10 +49,6 @@ export interface FetchNode {
   inputRewrites?: FetchDataInputRewrite[];
   // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is apply to the current in-memory results).
   outputRewrites?: FetchDataOutputRewrite[];
-}
-
-export interface SubscriptionNode extends Omit<FetchNode, 'kind' | 'hasDefers'> {
-  kind: 'Subscription';
 }
 
 /**

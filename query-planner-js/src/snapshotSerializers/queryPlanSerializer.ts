@@ -54,7 +54,6 @@ function printNode(
 
   switch (node.kind) {
     case 'Fetch':
-    case 'Subscription':
       const idStr = node.id ? `, id: ${node.id}` : '';
       result +=
         `${node.kind}(service: "${node.serviceName}"${idStr})` +
