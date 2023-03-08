@@ -17,25 +17,15 @@ graph TB;
   class composition tertiary;
 ```
 
-The supergraph schema includes all of the type and field definitions from your subgraph schemas. It also includes metadata that enables your graph router to intelligently route incoming GraphQL operations across all of your different subgraphs.
+The supergraph schema includes all of the type and field definitions from your subgraph schemas. It also includes metadata that enables your router to intelligently route incoming GraphQL operations across all of your different subgraphs.
 
 ## Supported methods
 
 You can perform schema composition with any of the following methods:
 
-### Manually with the Rover CLI
-
-The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
-
-```bash
-rover supergraph compose --config ./supergraph-config.yaml
-```
-
-To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#install-the-rover-cli).
-
 ### Automatically with managed federation
 
-With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its published schema. This enables your running graph router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
+With [managed federation](../managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs updates its published schema. This enables your running router to dynamically fetch an updated supergraph schema from Apollo as soon as it's available:
 
 ```mermaid
 graph LR;
@@ -56,6 +46,16 @@ graph LR;
 ```
 
 To learn how to perform composition with managed federation, see the [quickstart](../quickstart/studio-composition/).
+
+### Manually with the Rover CLI
+
+The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
+
+```bash
+rover supergraph compose --config ./supergraph-config.yaml
+```
+
+To learn how to install Rover and use this command, see the [quickstart](../quickstart/setup/#install-the-rover-cli).
 
 ## Breaking composition
 
@@ -353,7 +353,7 @@ input UserInput {
 }
 
 type Library {
-  findBook(title: String): Book
+  book(title: String): Book
 }
 ```
 

@@ -20,7 +20,7 @@ rover subgraph publish my-supergraph@my-variant \
 
 ## Pushing configuration updates safely
 
-Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. As suggested above, the best way to do this is to run `rover subgraph check` before updating. You should also generally seek to minimize the number of [breaking changes](/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
+Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. As suggested above, the best way to do this is to run `rover subgraph check` before updating. You should also generally seek to minimize the number of [breaking changes](/graphos/delivery/schema-checks/#potentially-breaking-changes) you make to your schemas.
 
 Additionally, **call `rover subgraph publish` for a subgraph only after all replicas of that subgraph are deployed**. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
 
@@ -119,7 +119,7 @@ The next time it starts up or polls, your router obtains an updated configuratio
 
 With managed federation, you can control which version of your graph a fleet of routers are using. In the majority of cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
 
-However, changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](/studio/org/graphs/#variants) to manage different fleets of routers running with different configurations.
+However, changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](/graphos/graphs/overview/#variants) to manage different fleets of routers running with different configurations.
 
 ### Example
 
@@ -143,7 +143,7 @@ To configure a canary deployment, you might maintain two production graph varian
     rover subgraph publish my-supergraph@prod --name=launches --schema ./launches/schema.graphql
     ```
 
-If your canary variant [reports metrics to GraphOS](/studio/metrics/usage-reporting/), you can use [Apollo Studio](https://studio.apollographql.com) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
+If your canary variant [reports metrics to GraphOS](/graphos/metrics/usage-reporting/), you can use [Apollo Studio](https://studio.apollographql.com) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
 
 ## Modifying query-planning logic
 

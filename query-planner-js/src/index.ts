@@ -3,5 +3,5 @@ export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
 
 export * from './QueryPlan';
 export { QueryPlanner } from './buildPlan';
-export { QueryPlannerConfig } from './config';
+export { QueryPlanCache, QueryPlannerConfig } from './config';
 
