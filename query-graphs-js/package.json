@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-graphs",
-  "version": "2.3.1",
+  "version": "2.3.3",
   "description": "Apollo Federation library to work with 'query graphs'",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,10 +23,9 @@
     "node": ">=14.15.0"
   },
   "dependencies": {
-    "@apollo/federation-internals": "2.3.1",
-    "@types/uuid": "^8.3.4",
+    "@apollo/federation-internals": "2.3.3",
     "deep-equal": "^2.0.5",
-    "ts-graphviz": "^0.16.0",
+    "ts-graphviz": "^1.5.4",
     "uuid": "^9.0.0"
   },
   "publishConfig": {

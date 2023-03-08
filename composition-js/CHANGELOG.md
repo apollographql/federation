@@ -1,5 +1,22 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.3.3
+### Patch Changes
+
+
+- Stop generating misleading "hint" regarding value type fields for interface types that are entity interfaces (they have a `@key` defined). ([#2412](https://github.com/apollographql/federation/pull/2412))
+
+- Updated dependencies [[`de89e504`](https://github.com/apollographql/federation/commit/de89e5044d1a2500505a9269bcec7709aa1dcdf4)]:
+  - @apollo/query-graphs@2.3.3
+  - @apollo/federation-internals@2.3.3
+
+## 2.3.2
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.2
+  - @apollo/query-graphs@2.3.2
+
 ## 2.3.1
 ### Patch Changes
 

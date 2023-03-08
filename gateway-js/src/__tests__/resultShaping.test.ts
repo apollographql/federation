@@ -249,7 +249,7 @@ describe('gateway post-processing', () => {
         }
       `);
 
-      let res = computeResponse({
+      const res = computeResponse({
         operation: operationNonNullable,
         input,
         introspectionHandling,
@@ -280,7 +280,7 @@ describe('gateway post-processing', () => {
         }
       `);
 
-      let res = computeResponse({
+      const res = computeResponse({
         operation: operationNonNullable,
         input,
         introspectionHandling,
@@ -365,7 +365,7 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "x": 'foo', 
+      "x": 'foo',
     }
 
     const operation = parseOperation(schema, `
@@ -525,6 +525,78 @@ describe('gateway post-processing', () => {
               "x": 42,
             },
           ],
+        },
+        "errors": Array [],
+      }
+    `);
+  });
+
+  test('Handles defaulted `if` conditions', () => {
+    const schema = buildSchemaFromAST(gql`
+      type Query {
+        hello: String!
+      }
+    `);
+
+    const input = {
+      skipped: 'world',
+      included: 'world',
+    };
+
+    const operation = parseOperation(schema, `#graphql
+      query DefaultedIfCondition($if: Boolean = true) {
+        skipped: hello @skip(if: $if)
+        included: hello @include(if: $if)
+      }
+    `);
+
+    expect(
+      computeResponse({
+        operation,
+        input,
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "included": "world",
+        },
+        "errors": Array [],
+      }
+    `);
+  });
+
+  test('Provided variables overwrite defaulted variable values', () => {
+    const schema = buildSchemaFromAST(gql`
+      type Query {
+        hello: String!
+      }
+    `);
+
+    const input = {
+      skipped: 'world',
+      included: 'world',
+    };
+
+    const operation = parseOperation(schema, `#graphql
+        # note that the default conditional is inverted from the previous test
+      query DefaultedIfCondition($if: Boolean = false) {
+        skipped: hello @skip(if: $if)
+        included: hello @include(if: $if)
+      }
+    `);
+
+    expect(
+      computeResponse({
+        operation,
+        input,
+        variables: { if: true },
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "included": "world",
         },
         "errors": Array [],
       }

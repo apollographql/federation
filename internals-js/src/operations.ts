@@ -240,7 +240,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
     //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
     //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
-    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check. 
+    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check.
     // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
     const fieldParentType = this.definition.parent
     return parentType.name === fieldParentType.name
@@ -358,7 +358,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     // schema.
     const { canRebase, rebasedCondition } = this.canRebaseOn(selectionParent);
     validate(
-      canRebase, 
+      canRebase,
       () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to selection set of parent type "${selectionParent}" (runtimes: ${possibleRuntimeTypes(selectionParent)})`
     );
     return this.withUpdatedTypes(selectionParent, rebasedCondition);
@@ -691,6 +691,16 @@ export class Operation {
       assignedDeferLabels: normalizer.assignedLabels,
       deferConditions: normalizer.deferConditions,
     };
+  }
+
+  collectDefaultedVariableValues(): Record<string, any> {
+    const defaultedVariableValues: Record<string, any> = {};
+    for (const { variable, defaultValue } of this.variableDefinitions.definitions()) {
+      if (defaultValue !== undefined) {
+        defaultedVariableValues[variable.name] = defaultValue;
+      }
+    }
+    return defaultedVariableValues;
   }
 
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {

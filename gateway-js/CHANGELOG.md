@@ -1,5 +1,46 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.3.3
+### Patch Changes
+
+
+- Update @apollo/utils.logger typings dependency ([#2269](https://github.com/apollographql/federation/pull/2269))
+
+
+- Exposes, for each subgraph request, the path in the overall gateway operation at which that subgraph request gets inserted. This path is now available as the pathInIncomingRequest field in the arguments of RemoteGraphQLDataSource.willSendRequest and RemoteGraphQLDataSource.didReceiveResponse. ([#2384](https://github.com/apollographql/federation/pull/2384))
+
+
+- Previously the `queryPlanStoreKey` was a hash of the query concatenated with an unhashed `operationName` if it was present. This resulted in variable length cache keys that could become unnecessarily long, occupying additional space in the query plan cache. ([#2310](https://github.com/apollographql/federation/pull/2310))
+  
+  This change incorporates the `operationName` _into_ the hash itself (if `operationName` is present).
+
+- Update @apollo/utils.createhash package, which drops support for node 12 ([#2266](https://github.com/apollographql/federation/pull/2266))
+
+
+- Update @apollo/utils.isnodelike package, which dropped support for node 12 ([#2268](https://github.com/apollographql/federation/pull/2268))
+
+
+- Update @apollo/utils.fetcher package, which drops support for node 12 ([#2267](https://github.com/apollographql/federation/pull/2267))
+
+- Updated dependencies [[`71a07f30`](https://github.com/apollographql/federation/commit/71a07f3006e6152bb47e258546c2af717ceb687e)]:
+  - @apollo/composition@2.3.3
+  - @apollo/query-planner@2.3.3
+  - @apollo/federation-internals@2.3.3
+
+## 2.3.2
+### Patch Changes
+
+
+- Move gateway post-processing errors from `errors` into `extensions.valueCompletion` of the response ([#2380](https://github.com/apollographql/federation/pull/2380))
+  
+  [https://github.com/apollographql/federation/pull/2335](PR #2335) introduced a breaking change that broke existing usages with respect to nullability and gateway error handling. In response to [https://github.com/apollographql/federation/issues/2374](Issue #2374), we are reverting the breaking portion of this change by continuing to swallow post processing errors as the gateway did prior to v2.3.0. Instead, those errors will now be included on the `extensions.valueCompletion` object in the response object.
+  
+  Gateway v2.3.0 and v2.3.1 are both affected by this change in behavior.
+- Updated dependencies []:
+  - @apollo/composition@2.3.2
+  - @apollo/federation-internals@2.3.2
+  - @apollo/query-planner@2.3.2
+
 ## 2.3.1
 ### Patch Changes
 
@@ -37,7 +78,6 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
   must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
   intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
-- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
 
 ## 2.3.0-alpha.0
 
@@ -47,6 +87,11 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
   since it previously was ignored.
 - Adds support for `@interfaceObject` and keys on interfaces [PR #2279](https://github.com/apollographql/federation/pull/2279).
 - Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+
+## 2.2.3
+
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299)
+- Fix potential issue with nested @defer in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312)
 
 ## 2.2.2
 
