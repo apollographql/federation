@@ -72,7 +72,7 @@ export function computeResponse({
     schema: operation.schema,
     variables: {
       ...operation.collectDefaultedVariableValues(),
-      // overwrite and defaulted variables if they are provided
+      // overwrite any defaulted variables if they are provided
       ...variables,
     },
     errors: [],
