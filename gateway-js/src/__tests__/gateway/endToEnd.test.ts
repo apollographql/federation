@@ -1,74 +1,21 @@
-import { buildSubgraphSchema } from '@apollo/subgraph';
-import { ApolloServer } from 'apollo-server';
-import fetch, { Response } from 'node-fetch';
-import { ApolloGateway } from '../..';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
-import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
-import { buildSchema, ObjectType, ServiceDefinition } from '@apollo/federation-internals';
+import { buildSchema, ObjectType } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { printSchema } from 'graphql';
+import { startSubgraphsAndGateway, Services } from './testUtils'
 import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import { QueryPlan } from '@apollo/query-planner';
 import { createHash } from '@apollo/utils.createhash';
-import { QueryPlanCache } from '@apollo/query-planner';
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
 }
 
-async function startFederatedServer(modules: GraphQLSchemaModule[]) {
-  const schema = buildSubgraphSchema(modules);
-  const server = new ApolloServer({
-    schema,
-    // Manually installing the inline trace plugin means it doesn't log a message.
-    plugins: [ApolloServerPluginInlineTrace()],
-  });
-  const { url } = await server.listen({ port: 0 });
-  return { url, server };
-}
-
-let backendServers: ApolloServer[];
-let gateway: ApolloGateway;
-let gatewayServer: ApolloServer;
-let gatewayUrl: string;
-
-async function startServicesAndGateway(servicesDefs: ServiceDefinition[], cache?: QueryPlanCache) {
-  backendServers = [];
-  const serviceList = [];
-  for (const serviceDef of servicesDefs) {
-    const { server, url } = await startFederatedServer([serviceDef]);
-    backendServers.push(server);
-    serviceList.push({ name: serviceDef.name, url });
-  }
-
-  gateway = new ApolloGateway({
-    serviceList,
-    queryPlannerConfig: cache ? { cache } : undefined,
-  });
-
-  gatewayServer = new ApolloServer({
-    gateway,
-  });
-  ({ url: gatewayUrl } = await gatewayServer.listen({ port: 0 }));
-}
-
-async function queryGateway(query: string): Promise<Response> {
-  return fetch(gatewayUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  });
-}
+let services: Services;
 
 afterEach(async () => {
-  for (const server of backendServers) {
-    await server.stop();
-  }
-  if (gatewayServer) {
-    await gatewayServer.stop();
+  if (services) {
+    await services.stop();
   }
 });
 
@@ -76,7 +23,7 @@ afterEach(async () => {
 describe('caching', () => {
   const cache = new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * (30), sizeCalculation: approximateObjectSize});
   beforeEach(async () => {
-    await startServicesAndGateway(fixtures, cache);
+    services = await startSubgraphsAndGateway(fixtures, { gatewayConfig: { queryPlannerConfig: { cache } } });
   });
 
   it(`cached query plan`, async () => {
@@ -94,7 +41,7 @@ describe('caching', () => {
       }
     `;
 
-    await queryGateway(query);
+    await services.queryGateway(query);
     const queryHash:string = createHash('sha256').update(query).digest('hex');
     expect(await cache.get(queryHash)).toBeTruthy();
   });
@@ -114,7 +61,7 @@ describe('caching', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -168,7 +115,7 @@ describe('caching', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -266,7 +213,7 @@ describe('end-to-end features', () => {
       }
     };
 
-    await startServicesAndGateway([subgraphA, subgraphB]);
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
 
     const query = `
       {
@@ -277,7 +224,7 @@ describe('end-to-end features', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -290,7 +237,7 @@ describe('end-to-end features', () => {
       }
     `);
 
-    const supergraphSdl = gateway.__testing().supergraphSdl;
+    const supergraphSdl = services.gateway.__testing().supergraphSdl;
     expect(supergraphSdl).toBeDefined();
     const supergraph = buildSchema(supergraphSdl!);
     const typeT = supergraph.type('T') as ObjectType;
@@ -340,7 +287,7 @@ describe('end-to-end features', () => {
       }
     };
 
-    await startServicesAndGateway([subgraphA, subgraphB]);
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
 
     const query = `
       {
@@ -351,7 +298,7 @@ describe('end-to-end features', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -433,7 +380,7 @@ describe('end-to-end features', () => {
       }
     };
 
-    await startServicesAndGateway([subgraphA, subgraphB]);
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
 
     const q1 = `
       {
@@ -445,7 +392,7 @@ describe('end-to-end features', () => {
       }
     `;
 
-    const resp1 = await queryGateway(q1);
+    const resp1 = await services.queryGateway(q1);
     const res1 = await resp1.json();
     expect(res1).toMatchInlineSnapshot(`
       Object {
@@ -460,7 +407,7 @@ describe('end-to-end features', () => {
     `);
 
     // Make sure the exposed API doesn't have any @inaccessible elements.
-    expect(printSchema(gateway.schema!)).toMatchInlineSnapshot(`
+    expect(printSchema(services.gateway.schema!)).toMatchInlineSnapshot(`
       "enum E {
         FOO
       }
@@ -483,7 +430,7 @@ describe('end-to-end features', () => {
         f(e: BAR)
       }
     `;
-    const resp2 = await queryGateway(q2);
+    const resp2 = await services.queryGateway(q2);
     const res2 = await resp2.json();
     expect(res2).toMatchInlineSnapshot(`
       Object {
@@ -505,7 +452,7 @@ describe('end-to-end features', () => {
         }
       }
     `;
-    const resp3 = await queryGateway(q3);
+    const resp3 = await services.queryGateway(q3);
     const res3 = await resp3.json();
     expect(res3).toMatchInlineSnapshot(`
       Object {

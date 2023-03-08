@@ -973,6 +973,7 @@ export class ApolloGateway implements GatewayInterface {
       state: this.state,
       compositionId: this.compositionId,
       supergraphSdl: this.supergraphSdl,
+      queryPlanner: this.queryPlanner,
     };
   }
 }

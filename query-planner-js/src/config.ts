@@ -49,7 +49,21 @@ export type QueryPlannerConfig = {
      */
     enableDefer?: boolean,
   }
+
   cache?: QueryPlanCache,
+
+  /**
+   * A sub-set of configurations that are meant for debugging or testing. All the configurations in this
+   * sub-set are provided without guarantees of stability (they may be dangerous) or continued support (they
+   * may be removed without warning).
+   */
+  debug?: {
+    /**
+     * If used and the supergraph is built from a single subgraph, then user queries do not go through the
+     * normal query planning and instead a fetch to the one subgraph is built directly from the input query. 
+     */
+    bypassPlannerForSingleSubgraph?: boolean,
+  },
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -58,10 +72,15 @@ export function enforceQueryPlannerConfigDefaults(
   return {
     exposeDocumentNodeInFetchNode: false,
     reuseQueryFragments: true,
-    incrementalDelivery: {
-      enableDefer: false,
-    },
     cache: new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * 50 }),
     ...config,
+    incrementalDelivery: {
+      enableDefer: false,
+      ...config?.incrementalDelivery,
+    },
+    debug: {
+      bypassPlannerForSingleSubgraph: false,
+      ...config?.debug,
+    },
   };
 }
