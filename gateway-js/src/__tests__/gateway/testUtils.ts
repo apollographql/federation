@@ -1,11 +1,17 @@
 import { buildSubgraphSchema } from '@apollo/subgraph';
-import { ApolloServer } from 'apollo-server';
+import {
+  ApolloServer,
+  ApolloServerOptionsWithGateway,
+  BaseContext,
+  GraphQLResponse,
+} from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloServerPluginInlineTrace } from '@apollo/server/plugin/inlineTrace';
 import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
-import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
 import { ApolloGateway, GatewayConfig } from '../..';
 import { ServiceDefinition } from '@apollo/federation-internals';
-import { ApolloServerExpressConfig, } from 'apollo-server-express';
 import fetch, { Response } from 'node-fetch';
+import { assert } from '@apollo/federation-internals';
 
 export class Services {
   constructor(
@@ -41,16 +47,16 @@ async function startFederatedServer(modules: GraphQLSchemaModule[]) {
     // Manually installing the inline trace plugin means it doesn't log a message.
     plugins: [ApolloServerPluginInlineTrace()],
   });
-  const { url } = await server.listen({ port: 0 });
+  const { url } = await startStandaloneServer(server, { listen: { port: 0 } });
   return { url, server };
 }
 
 export async function startSubgraphsAndGateway(
   servicesDefs: ServiceDefinition[],
   config?: {
-    gatewayConfig?: GatewayConfig,
-    gatewayServerConfig?: ApolloServerExpressConfig,
-  }
+    gatewayConfig?: GatewayConfig;
+    gatewayServerConfig?: Partial<ApolloServerOptionsWithGateway<BaseContext>>;
+  },
 ): Promise<Services> {
   const backendServers = [];
   const serviceList = [];
@@ -60,7 +66,7 @@ export async function startSubgraphsAndGateway(
     serviceList.push({ name: serviceDef.name, url });
   }
 
-  const gateway = new ApolloGateway({ 
+  const gateway = new ApolloGateway({
     serviceList,
     ...config?.gatewayConfig,
   });
@@ -68,6 +74,16 @@ export async function startSubgraphsAndGateway(
     gateway,
     ...config?.gatewayServerConfig,
   });
-  const { url: gatewayUrl } = await gatewayServer.listen({ port: 0 });
+  const { url: gatewayUrl } = await startStandaloneServer(gatewayServer, {
+    listen: { port: 0 },
+  });
   return new Services(backendServers, gateway, gatewayServer, gatewayUrl);
+}
+
+export function unwrapSingleResultKind(response: GraphQLResponse) {
+  assert(
+    response.body.kind === 'single',
+    `Expected single result, got ${response.body.kind}`,
+  );
+  return response.body.singleResult;
 }
