@@ -29,7 +29,8 @@
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
       "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
       "Router / Gateway": "/building-supergraphs/router",
-      "Apollo Server subgraphs": "https://apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup"
+      "Apollo Server subgraphs": "https://apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup",
+      "JetBrains IDE Support": "/building-supergraphs/jetbrains-ide-support"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
