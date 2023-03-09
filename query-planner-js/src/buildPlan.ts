@@ -90,6 +90,7 @@ import {
   getLocallySatisfiableKey,
   createInitialOptions,
   buildFederatedQueryGraph,
+  FEDERATED_GRAPH_ROOT_SOURCE,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
@@ -2459,6 +2460,10 @@ export class QueryPlanner {
     this.config = enforceQueryPlannerConfigDefaults(config);
     this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
     this.collectInterfaceTypesWithInterfaceObjects();
+
+    if (this.config.debug.bypassPlannerForSingleSubgraph && this.config.incrementalDelivery.enableDefer) {
+      throw new Error(`Cannot use the "debug.bypassPlannerForSingleSubgraph" query planner option when @defer support is enabled`);
+    }
   }
 
   private collectInterfaceTypesWithInterfaceObjects() {
@@ -2485,6 +2490,25 @@ export class QueryPlanner {
       evaluatedPlanCount: 0,
     };
     this._lastGeneratedPlanStatistics = statistics;
+
+    if (this.config.debug.bypassPlannerForSingleSubgraph) {
+      // A federated query graph always have 1 more sources than there is subgraph, because the root vertices
+      // belong to no subgraphs and use a special source named '_'. So we skip that "fake" source.
+      const subgraphs = mapKeys(this.federatedQueryGraph.sources).filter((name) => name !== FEDERATED_GRAPH_ROOT_SOURCE);
+      if (subgraphs.length === 1) {
+        const operationDocument = operationToDocument(operation);
+        const node: FetchNode = {
+          kind: 'Fetch',
+          serviceName: subgraphs[0],
+          variableUsages: operation.variableDefinitions.definitions().map(v => v.variable.name),
+          operation: stripIgnoredCharacters(print(operationDocument)),
+          operationKind: schemaRootKindToOperationKind(operation.rootKind),
+          operationName: operation.name,
+          operationDocumentNode: this.config.exposeDocumentNodeInFetchNode ? operationDocument : undefined,
+        };
+        return { kind: 'QueryPlan', node  };
+      }
+    }
 
     const reuseQueryFragments = this.config.reuseQueryFragments ?? true;
     let fragments = operation.selectionSet.fragments

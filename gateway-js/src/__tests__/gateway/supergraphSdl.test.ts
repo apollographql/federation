@@ -6,13 +6,15 @@ import {
 } from '@apollo/gateway';
 import { accounts, fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from '@apollo/utils.createhash';
-import { ApolloServer } from 'apollo-server';
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
 import type { Logger } from '@apollo/utils.logger';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 import resolvable from '@josephg/resolvable';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import nock from 'nock';
+import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
@@ -26,7 +28,7 @@ async function getSupergraphSdlGatewayServer() {
     }),
   });
 
-  await server.listen({ port: 0 });
+  await startStandaloneServer(server, { listen: { port: 0 } });
   return server;
 }
 
@@ -67,7 +69,7 @@ describe('Using supergraphSdl static configuration', () => {
       query: '{ me { username } }',
     });
 
-    expect(result.data).toMatchInlineSnapshot(`
+    expect(unwrapSingleResultKind(result).data).toMatchInlineSnapshot(`
       Object {
         "me": Object {
           "username": "@jbaxleyiii",

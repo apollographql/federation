@@ -26,7 +26,7 @@ import { GraphQLError } from "graphql";
  * Performs post-query plan execution processing of internally fetched data to produce the final query response.
  *
  * The reason for this post-processing are the following ones:
- * 1. executing the query plan will usually query more fields that are strictly requested. That is because key, required 
+ * 1. executing the query plan will usually query more fields that are strictly requested. That is because key, required
  *   and __typename fields must often be requested to subgraphs even when they are not part of the query. So this method
  *   will filter out anything that has been fetched but isn't part of the user query.
  * 2. query plan execution does not guarantee that in the data fetched, the fields will respect the ordering that the
@@ -60,7 +60,7 @@ export function computeResponse({
   variables?: Record<string, any>,
   input: Record<string, any> | null | undefined,
   introspectionHandling: (introspectionSelection: FieldSelection) => any,
-}): { 
+}): {
   data: Record<string, any> | null | undefined,
   errors: GraphQLError[],
 } {
@@ -70,7 +70,11 @@ export function computeResponse({
 
   const parameters = {
     schema: operation.schema,
-    variables: variables ?? {},
+    variables: {
+      ...operation.collectDefaultedVariableValues(),
+      // overwrite any defaulted variables if they are provided
+      ...variables,
+    },
     errors: [],
     introspectionHandling,
   };
@@ -119,7 +123,7 @@ function ifValue(directive: Directive<any, { if: boolean | Variable }>, variable
   }
 }
 
-enum ApplyResult { OK, NULL_BUBBLE_UP };
+enum ApplyResult { OK, NULL_BUBBLE_UP }
 
 function typeConditionApplies(
   schema: Schema,

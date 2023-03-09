@@ -2,8 +2,9 @@ import mockedEnv from 'mocked-env';
 import fetcher from 'make-fetch-happen';
 
 import { ApolloGateway, UplinkSupergraphManager } from '@apollo/gateway';
-import { ApolloServer } from 'apollo-server';
-import { ApolloServerPluginUsageReportingDisabled } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloServerPluginUsageReportingDisabled } from '@apollo/server/plugin/disabled';
 import type { FetcherRequestInit } from '@apollo/utils.fetcher';
 
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
@@ -62,7 +63,7 @@ describe('minimal gateway', () => {
       gateway,
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
-    await server.listen({ port: 0 });
+    await startStandaloneServer(server, { listen: { port: 0 } });
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
   });
 
@@ -80,7 +81,7 @@ describe('minimal gateway', () => {
       gateway,
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
-    await server.listen({ port: 0 });
+    await startStandaloneServer(server, { listen: { port: 0 } });
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
     const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
     expect(uplinkManager.uplinkEndpoints).toEqual([uplinkEndpoint]);
@@ -100,7 +101,7 @@ describe('minimal gateway', () => {
       gateway,
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
-    await server.listen({ port: 0 });
+    await startStandaloneServer(server, { listen: { port: 0 } });
     expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
     const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
     expect(uplinkManager.uplinkEndpoints).toEqual([
@@ -127,7 +128,7 @@ describe('minimal gateway', () => {
       gateway,
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
-    await server.listen({ port: 0 });
+    await startStandaloneServer(server, { listen: { port: 0 } });
 
     expect(calls).toEqual(1);
   });
@@ -180,7 +181,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
 
     const supergraphSchema = getTestingSupergraphSdl();
     let hasFired;
-    let uplinkManager = new UplinkSupergraphManager({
+    const uplinkManager = new UplinkSupergraphManager({
       apiKey,
       graphRef,
       logger,
@@ -246,7 +247,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         .reply(500);
 
       let hasFired;
-      let uplinkManager = new UplinkSupergraphManager({
+      const uplinkManager = new UplinkSupergraphManager({
         apiKey,
         graphRef,
         logger,
@@ -285,7 +286,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
         .reply(500);
 
       let hasFired;
-      let uplinkManager = new UplinkSupergraphManager({
+      const uplinkManager = new UplinkSupergraphManager({
         apiKey,
         graphRef,
         logger,
