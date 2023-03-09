@@ -1,5 +1,6 @@
-import { operationFromDocument } from '@apollo/federation-internals';
+import { assert, operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
+import { isPlanNode } from '../QueryPlan';
 import { composeAndCreatePlanner, findFetchNodes } from "./testHelper";
 
 describe('basic @key on interface/@interfaceObject handling', () => {
@@ -306,6 +307,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
+    assert(isPlanNode(plan.node), 'buildQueryPlan should return QueryPlan');
     const rewrites = findFetchNodes('S2', plan.node)[0].inputRewrites;
     expect(rewrites).toBeDefined();
     expect(rewrites?.length).toBe(1);

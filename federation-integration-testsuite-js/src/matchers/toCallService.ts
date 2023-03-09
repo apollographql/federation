@@ -1,4 +1,4 @@
-import { QueryPlan, PlanNode } from '@apollo/query-planner';
+import { QueryPlan, PlanNode, SubscriptionNode } from '@apollo/query-planner';
 import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 import prettyFormat from 'pretty-format';
 
@@ -41,9 +41,9 @@ function toCallService(
   let pass = false;
   // let initialServiceCall = null;
   // recurse the node, find first match of service name, return
-  function walkExecutionNode(node?: PlanNode) {
+  function walkExecutionNode(node?: PlanNode | SubscriptionNode) {
     if (!node) return;
-    if (node.kind === 'Fetch' && node.serviceName === service) {
+    if ((node.kind === 'Fetch') && node.serviceName === service) {
       pass = true;
       // initialServiceCall = node;
       return;
@@ -55,6 +55,10 @@ function toCallService(
       case 'Parallel':
       case 'Sequence':
         node.nodes.forEach(walkExecutionNode);
+        break;
+      case 'Subscription':
+        walkExecutionNode(node.primary);
+        walkExecutionNode(node.rest);
         break;
       default:
         return;
