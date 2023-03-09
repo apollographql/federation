@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { DeferredNode, PlanNode, QueryPlan, SubscriptionPlanNode } from '../';
+import { DeferredNode, PlanNode, QueryPlan, SubscriptionNode } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {
@@ -31,7 +31,7 @@ export default {
 } as Plugin;
 
 function printNode(
-  node: PlanNode | SubscriptionPlanNode,
+  node: PlanNode | SubscriptionNode,
   config: Config,
   indentation: string,
   depth: number,
@@ -119,14 +119,11 @@ function printNode(
           indentation + '}'
       }
       break;
-    case 'SubscriptionPlan': {
+    case 'Subscription': {
       const primary = node.primary;
       const rest = node.rest;
       const indentationInner = indentationNext + config.indent;
-      // result +=
-      //   'SubscriptionPlan {' + config.spacingOuter +
-      //   indentationNext + `Primary: {` + indentationInner + printNode(primary, config, indentationInner, depth, refs, printer) + config.spacingOuter + '}';
-      result += 'SubscriptionPlan {'
+      result += 'Subscription {'
         + config.spacingOuter + indentationNext + 'Primary: {' + config.spacingOuter + indentationInner + printNode(primary, config, indentationInner, depth, refs, printer)
         + config.spacingOuter + indentationNext + '},'
         + (rest ? (config.spacingOuter + indentationNext + 'Rest: {' + config.spacingOuter + indentationInner + printNode(rest, config, indentationInner, depth, refs, printer)) : '')
@@ -150,7 +147,7 @@ function printNode(
 }
 
 function printNodes(
-  nodes: (SubscriptionPlanNode | PlanNode)[] | undefined,
+  nodes: (SubscriptionNode | PlanNode)[] | undefined,
   config: Config,
   indentation: string,
   depth: number,

@@ -96,7 +96,7 @@ import { stripIgnoredCharacters, print, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
-import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionPlanNode, trimSelectionNodes } from "./QueryPlan";
+import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
 
@@ -2530,8 +2530,11 @@ export class QueryPlanner {
     let assignedDeferLabels: Set<string> | undefined = undefined;
     let hasDefers = false;
     let deferConditions: SetMultiMap<string, string> | undefined = undefined;
-    if (!isSubscription && this.config.incrementalDelivery.enableDefer) {
+    if (this.config.incrementalDelivery.enableDefer) {
       ({ operation, hasDefers, assignedDeferLabels, deferConditions } = operation.withNormalizedDefer());
+      if (isSubscription && hasDefers) {
+        throw new Error(`@defer is not supported on subscriptions`);
+      }
     } else {
       // If defer is not enabled, we remove all @defer from the query. This feels cleaner do this once here than
       // having to guard all the code dealing with defer later, and is probably less error prone too (less likely
@@ -2556,7 +2559,7 @@ export class QueryPlanner {
     });
 
 
-    let rootNode: PlanNode | SubscriptionPlanNode | undefined;
+    let rootNode: PlanNode | SubscriptionNode | undefined;
     if (deferConditions && deferConditions.size > 0) {
       assert(hasDefers, 'Should not have defer conditions without @defer');
       rootNode = computePlanForDeferConditionals({
@@ -2578,35 +2581,35 @@ export class QueryPlanner {
         hasDefers,
         statistics,
       });
+    }
 
-      // If this is a subscription, we want to make sure that we return a SubscriptionPlanNode rather than a PlanNode
-      // We potentially will need to separate "primary" from "rest"
-      // Note that if it is a subscription, we are guaranteed that nothing is deferred.
-      if (rootNode && operation.rootKind === 'subscription') {
-        switch (rootNode.kind) {
-          case 'Fetch': {
-            rootNode = {
-              kind: 'SubscriptionPlan',
-              primary: rootNode,
-            };
-          }
-          break;
-          case 'Sequence': {
-            const [primary, ...rest] = rootNode.nodes;
-            assert(primary.kind === 'Fetch', 'Primary node of a subscription is a Fetch');
-            rootNode = {
-              kind: 'SubscriptionPlan',
-              primary,
-              rest: {
-                kind: 'Sequence',
-                nodes: rest,
-              },
-            };
-          }
-          break;
-          default:
-            throw new Error(`Unexpected top level PlanNode kind: '${rootNode.kind}' when processing subscription`);
+    // If this is a subscription, we want to make sure that we return a SubscriptionNode rather than a PlanNode
+    // We potentially will need to separate "primary" from "rest"
+    // Note that if it is a subscription, we are guaranteed that nothing is deferred.
+    if (rootNode && isSubscription) {
+      switch (rootNode.kind) {
+        case 'Fetch': {
+          rootNode = {
+            kind: 'Subscription',
+            primary: rootNode,
+          };
         }
+        break;
+        case 'Sequence': {
+          const [primary, ...rest] = rootNode.nodes;
+          assert(primary.kind === 'Fetch', 'Primary node of a subscription is not a Fetch');
+          rootNode = {
+            kind: 'Subscription',
+            primary,
+            rest: {
+              kind: 'Sequence',
+              nodes: rest,
+            },
+          };
+        }
+        break;
+        default:
+          throw new Error(`Unexpected top level PlanNode kind: '${rootNode.kind}' when processing subscription`);
       }
     }
 

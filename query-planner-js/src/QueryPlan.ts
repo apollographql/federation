@@ -11,7 +11,7 @@ export type ResponsePath = (string | number)[];
 
 export interface QueryPlan {
   kind: 'QueryPlan';
-  node?: PlanNode | SubscriptionPlanNode;
+  node?: PlanNode | SubscriptionNode;
 }
 
 export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode;
@@ -26,8 +26,8 @@ export interface ParallelNode {
   nodes: PlanNode[];
 }
 
-export interface SubscriptionPlanNode {
-  kind: 'SubscriptionPlan';
+export interface SubscriptionNode {
+  kind: 'Subscription';
   primary: FetchNode;
   rest?: PlanNode;
 }
@@ -236,6 +236,6 @@ export const trimSelectionNodes = (
   return remapped;
 };
 
-export const isPlanNode = (node: PlanNode | SubscriptionPlanNode | undefined): node is PlanNode => {
-  return !!node && node.kind !== 'SubscriptionPlan';
+export const isPlanNode = (node: PlanNode | SubscriptionNode | undefined): node is PlanNode => {
+  return !!node && node.kind !== 'Subscription';
 }

@@ -1,6 +1,6 @@
 import { operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import { composeAndCreatePlanner } from './testHelper';
+import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
 
 describe('subscription query plan tests', () => {
   it('basic subscription query plan', () => {
@@ -53,7 +53,7 @@ describe('subscription query plan tests', () => {
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
-        SubscriptionPlan {
+        Subscription {
           Primary: {
             Fetch(service: "subgraphA") {
               {
@@ -137,7 +137,7 @@ describe('subscription query plan tests', () => {
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
-        SubscriptionPlan {
+        Subscription {
           Primary: {
             Fetch(service: "subgraphA") {
               {
@@ -152,5 +152,56 @@ describe('subscription query plan tests', () => {
         },
       }
     `);
+  });
+
+  it('trying to use @defer with a description results in an error', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        type Query {
+          me: User!
+        }
+
+        type Subscription {
+          onNewUser: User!
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          name: String!
+        }
+      `,
+    };
+
+    const subgraphB = {
+      name: 'subgraphB',
+      typeDefs: gql`
+        type Query {
+          foo: Int
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          address: String!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraphA, subgraphB], { incrementalDelivery: { enableDefer: true } });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        subscription MySubscription {
+          onNewUser {
+            id
+            ... @defer {
+              name
+            }
+            address
+          }
+        }
+      `,
+    );
+    expect(() => queryPlanner.buildQueryPlan(operation)).toThrow('@defer is not supported on subscriptions');
   });
 });
