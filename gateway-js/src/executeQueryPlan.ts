@@ -11,7 +11,7 @@ import {
   isInterfaceType,
   GraphQLSchema,
 } from 'graphql';
-import { Trace, google } from 'apollo-reporting-protobuf';
+import { Trace, google } from '@apollo/usage-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { OperationContext } from './operationContext';

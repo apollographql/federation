@@ -34,11 +34,11 @@
   },
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
-    "@apollo/client": "3.7.9",
+    "@apollo/client": "3.7.10",
     "@apollo/utils.fetcher": "1.1.1",
-    "@graphql-codegen/cli": "3.2.1",
-    "@graphql-codegen/typescript": "3.0.1",
-    "@graphql-codegen/typescript-operations": "3.0.1",
+    "@graphql-codegen/cli": "3.2.2",
+    "@graphql-codegen/typescript": "3.0.2",
+    "@graphql-codegen/typescript-operations": "3.0.2",
     "@josephg/resolvable": "1.0.1",
     "@opentelemetry/node": "0.24.0",
     "@types/async-retry": "1.4.5",
@@ -51,7 +51,7 @@
     "@types/nock": "10.0.3",
     "@types/node": "12.20.55",
     "@types/node-fetch": "2.6.2",
-    "apollo-server": "3.11.1",
+    "apollo-server": "3.12.0",
     "bunyan": "1.8.15",
     "graphql": "16.6.0",
     "graphql-tag": "2.12.6",
@@ -60,7 +60,7 @@
     "jest-cucumber": "3.0.1",
     "jest-junit": "15.0.0",
     "lerna": "4.0.0",
-    "log4js": "6.8.0",
+    "log4js": "6.9.1",
     "mocked-env": "1.3.5",
     "nock": "13.3.0",
     "node-fetch": "2.6.9",
@@ -82,6 +82,6 @@
     ]
   },
   "volta": {
-    "node": "18.14.2"
+    "node": "18.15.0"
   }
 }
