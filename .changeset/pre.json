@@ -11,6 +11,7 @@
     "@apollo/subgraph": "2.3.3"
   },
   "changesets": [
+    "dirty-phones-refuse",
     "forty-gifts-burn",
     "forty-hairs-flow",
     "gentle-rockets-roll",
