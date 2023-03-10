@@ -583,16 +583,16 @@ describe('Execution tests for @include/@skip', () => {
       expect(s2Queries).toHaveLength(2);
     });
 
-    it('handles condition on named fragments', async () => {
+    it('handles condition on named fragments spread', async () => {
       const operation = parseOperation(schema, `
         query ($if: Boolean!){
           t {
             id
-            ... GetB1
+            ... GetB1 @include(if: $if)
           }
         }
 
-        fragment GetB1 on T1 @include(if: $if) {
+        fragment GetB1 on T1 {
           b1
         }
       `);
