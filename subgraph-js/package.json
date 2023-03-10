@@ -1,6 +1,6 @@
 {
   "name": "@apollo/subgraph",
-  "version": "2.4.0-alpha.0",
+  "version": "2.4.0-alpha.1",
   "description": "Apollo Subgraph Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@apollo/cache-control-types": "^1.0.2",
-    "@apollo/federation-internals": "2.4.0-alpha.0"
+    "@apollo/federation-internals": "2.4.0-alpha.1"
   },
   "peerDependencies": {
     "graphql": "^16.5.0"

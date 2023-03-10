@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.0-alpha.1
+### Patch Changes
+
+
+- Revert #2293. Removing URL import causes a problem when running under deno. ([#2451](https://github.com/apollographql/federation/pull/2451))
+
 ## 2.4.0-alpha.0
 ### Patch Changes
 
