@@ -3370,7 +3370,7 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
 
   toString() {
     let base = this.variable + ': ' + this.type;
-    if (this.defaultValue) {
+    if (this.defaultValue !== undefined) {
       base = base + ' = ' + valueToString(this.defaultValue, this.type);
     }
     return base + this.appliedDirectivesToString();

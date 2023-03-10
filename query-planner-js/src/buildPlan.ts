@@ -94,6 +94,7 @@ import {
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
+import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
@@ -163,7 +164,13 @@ const defaultCostFunction: CostFunction = {
    * plus some constant "premium" to account for the fact than doing each fetch is costly (and that fetch cost often
    * dwarfted the actual cost of fields resolution).
    */
-  onFetchGroup: (group: FetchGroup) => (fetchCost + selectionCost(group.selection)),
+  onFetchGroup: (group: FetchGroup, _: Conditions) => (fetchCost + selectionCost(group.selection)),
+
+  /**
+   * We don't take conditions into account in costing for now as they don't really know anything on the condition
+   * and this shouldn't really play a role in picking a plan over another.
+   */
+  onConditions: (_: Conditions, value: number) => value,
 
   /**
    * We sum the cost of fetch groups in parallel. Note that if we were only concerned about expected latency,
@@ -580,8 +587,10 @@ type UnhandledGroups = [FetchGroup, UnhandledParentRelations][];
 type UnhandledParentRelations = ParentRelation[];
 
 class LazySelectionSet {
+
   constructor(
     private _computed?: SelectionSet,
+    private _conditions?: Conditions,
     private readonly _toCloneOnWrite?: SelectionSet
   ) {
     assert(_computed || _toCloneOnWrite, 'Should have one of the argument');
@@ -596,15 +605,24 @@ class LazySelectionSet {
   }
 
   forWrite(): SelectionSet {
+    // Since we're going to write the set, we should make sure we recompute conditions when we need them.
+    this._conditions = undefined;
     if (!this._computed) {
       this._computed = this._toCloneOnWrite!.clone();
     }
     return this._computed;
   }
 
+  conditions(): Conditions {
+    if (!this._conditions) {
+      this._conditions = conditionsOfSelectionSet(this.forRead());
+    }
+    return this._conditions;
+  }
+
   clone(): LazySelectionSet {
     if (this._computed) {
-      return new LazySelectionSet(undefined, this._computed);
+      return new LazySelectionSet(undefined, this._conditions, this._computed);
     } else {
       return this;
     }
@@ -1182,14 +1200,18 @@ class FetchGroup {
     }
   }
 
-  private finalizeSelection(): FetchDataOutputRewrite[] {
+  private finalizeSelection(handledConditions: Conditions): FetchDataOutputRewrite[] {
     // Finalizing the selection involves the following:
-    // 1. we add __typename to all abstract types. This is because any follow-up fetch may need to select some of the entities fetched by this
+    // 1. removing any @include/@skip that are not necessary because they are already handled earlier in the query plan by
+    //    some `ConditionNode`.
+    // 2. adding __typename to all abstract types. This is because any follow-up fetch may need to select some of the entities fetched by this
     //   group, and so we need to have the __typename of those.
-    // 2. we check if some selection violates `https://spec.graphql.org/draft/#FieldsInSetCanMerge()`: while the original query we plan for will
+    // 3. checking if some selection violates `https://spec.graphql.org/draft/#FieldsInSetCanMerge()`: while the original query we plan for will
     //   never violate this, because the planner adds some additional fields to the query (due to @key and @requires) and because type-explosion
     //   changes the query, we could have violation of this. If that is the case, we introduce aliases to the selection to make it valid, and
     //   then generate a rewrite on the output of the fetch so that data aliased this way is rewritten back to the original/proper response name.
+
+    removeConditionsFromSelectionSet(this.selection, handledConditions);
 
     addTypenameFieldForAbstractTypes(this.selection);
 
@@ -1200,8 +1222,20 @@ class FetchGroup {
     return rewrites;
   }
 
+  /**
+   * Returns the conditions (in the sense of @include/@skip) necessary for actually fetching ("including") that group.
+   *
+   * Note that in most cases, this will just return `true`, meaning that the group always need to be executed (which does not mean
+   * that there isn't any @include/@skip in the group selection, only that those are either not top-level, or they do not include
+   * the whole group selection).
+   */
+  conditions(): Conditions {
+    return this._selection.conditions();
+  }
+
   toPlanNode(
     queryPlannerConfig: QueryPlannerConfig,
+    handledConditions: Conditions,
     variableDefinitions: VariableDefinitions,
     fragments?: NamedFragments,
     operationName?: string,
@@ -1210,10 +1244,11 @@ class FetchGroup {
       return undefined;
     }
 
-    const outputRewrites = this.finalizeSelection();
+    const outputRewrites = this.finalizeSelection(handledConditions);
 
-    const inputs = this._inputs?.forRead();
+    const inputs = this.inputs;
     if (inputs) {
+      removeConditionsFromSelectionSet(inputs, handledConditions);
       inputs.validate();
     }
 
@@ -2131,15 +2166,18 @@ class FetchDependencyGraph {
   private processGroup<TProcessed, TDeferred>(
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     group: FetchGroup,
+    handledConditions: Conditions,
   ): {
     main: TProcessed,
     unhandled: UnhandledGroups,
     deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
+    const conditions = updatedConditions(group.conditions(), handledConditions);
+    const newHandledConditions = mergeConditions(conditions, handledConditions);
     const { children, deferredGroups } = this.extractChildrenAndDeferredDependencies(group);
-    const processed = processor.onFetchGroup(group);
+    const processed = processor.onFetchGroup(group, newHandledConditions);
     if (children.length == 0) {
-      return { main: processed, unhandled: [], deferredGroups };
+      return { main: processor.onConditions(conditions, processed), unhandled: [], deferredGroups };
     }
 
     const groupIsOnlyParentOfAllChildren = children.every(g => g.parents().length === 1);
@@ -2155,9 +2193,10 @@ class FetchDependencyGraph {
         rootGroups: children,
         rootsAreParallel: true,
         initialDeferredGroups: deferredGroups,
+        handledConditions: newHandledConditions,
       });
       return {
-        main: processor.reduceSequence([processed].concat(mainSequence)),
+        main: processor.onConditions(conditions, processor.reduceSequence([processed].concat(mainSequence))),
         unhandled,
         deferredGroups: allDeferredGroups,
       };
@@ -2165,7 +2204,7 @@ class FetchDependencyGraph {
       // We return just the group, with all other groups to be handled after, but remembering that
       // this group edge has been handled.
       return {
-        main: processed,
+        main: processor.onConditions(conditions, processed),
         unhandled: children.map(g => [g, g.parents().filter((p) => p.group !== group)]),
         deferredGroups,
       };
@@ -2176,7 +2215,8 @@ class FetchDependencyGraph {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     groups: readonly FetchGroup[],
     processInParallel: boolean,
-    remaining: UnhandledGroups
+    remaining: UnhandledGroups,
+    handledConditions: Conditions,
   ): {
     processed: TProcessed,
     next: FetchGroup[],
@@ -2188,7 +2228,7 @@ class FetchDependencyGraph {
     let remainingNext = remaining;
     let toHandleNext: FetchGroup[] = [];
     for (const group of groups) {
-      const { main, deferredGroups, unhandled } = this.processGroup(processor, group);
+      const { main, deferredGroups, unhandled } = this.processGroup(processor, group, handledConditions);
       processedNodes.push(main);
       allDeferredGroups.addAll(deferredGroups);
       const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
@@ -2239,11 +2279,13 @@ class FetchDependencyGraph {
     rootGroups,
     rootsAreParallel,
     initialDeferredGroups,
+    handledConditions,
   }: {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     rootGroups: readonly FetchGroup[]
     rootsAreParallel: boolean,
     initialDeferredGroups?: SetMultiMap<string, FetchGroup>,
+    handledConditions: Conditions,
   }): {
     mainSequence: TProcessed[],
     unhandled: UnhandledGroups,
@@ -2257,7 +2299,7 @@ class FetchDependencyGraph {
       : new SetMultiMap<string, FetchGroup>();
     let processInParallel = rootsAreParallel;
     while (nextGroups.length > 0) {
-      const { processed, next, unhandled, deferredGroups } = this.processGroups(processor, nextGroups, processInParallel, remainingNext);
+      const { processed, next, unhandled, deferredGroups } = this.processGroups(processor, nextGroups, processInParallel, remainingNext, handledConditions);
       // After the root groups, handled on the first iteration, we can process everything in parallel.
       processInParallel = true;
       mainSequence.push(processed);
@@ -2279,6 +2321,7 @@ class FetchDependencyGraph {
     rootsAreParallel = true,
     currentDeferRef,
     otherDeferGroups = undefined,
+    handledConditions,
   }: {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
     rootGroups: readonly FetchGroup[],
@@ -2286,6 +2329,7 @@ class FetchDependencyGraph {
     unhandledGroups?: UnhandledGroups,
     currentDeferRef?: string,
     otherDeferGroups?: SetMultiMap<string, FetchGroup>,
+    handledConditions: Conditions,
   }): {
     mainSequence: TProcessed[],
     deferred: TDeferred[],
@@ -2294,7 +2338,7 @@ class FetchDependencyGraph {
       mainSequence,
       unhandled,
       deferredGroups,
-    } = this.processRootMainGroups({ processor, rootsAreParallel, rootGroups });
+    } = this.processRootMainGroups({ processor, rootsAreParallel, rootGroups, handledConditions });
     assert(unhandled.length == 0, () => `Root groups ${rootGroups} should have no remaining groups unhandled, but got ${unhandled}`);
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     if (otherDeferGroups) {
@@ -2334,6 +2378,7 @@ class FetchDependencyGraph {
         rootsAreParallel: true,
         currentDeferRef: defer.label,
         otherDeferGroups: unhandledDeferGroups,
+        handledConditions,
       });
       const mainReduced = processor.reduceSequence(mainSequenceOfDefer);
       const processed = deferredOfDefer.length === 0
@@ -2362,6 +2407,7 @@ class FetchDependencyGraph {
       processor,
       rootGroups: this.rootGroups.values(),
       rootsAreParallel: rootKind === 'query',
+      handledConditions: true,
     });
     // Note that the return of `processRootGroups` should always be reduced as a sequence, regardless of `rootKind`.
     // For queries, it just happens in that the majority of cases, `mainSequence` will be an array of a single element
@@ -2433,7 +2479,8 @@ class FetchDependencyGraph {
  * or a `mutation`), and the processor will be called on groups in such a way.
  */
 interface FetchGroupProcessor<TProcessed, TDeferred> {
-  onFetchGroup(group: FetchGroup): TProcessed;
+  onFetchGroup(group: FetchGroup, handledConditions: Conditions): TProcessed;
+  onConditions(conditions: Conditions, value: TProcessed): TProcessed;
   reduceParallel(values: TProcessed[]): TProcessed;
   reduceSequence(values: TProcessed[]): TProcessed;
   reduceDeferred(deferInfo: DeferredInfo, value: TProcessed): TDeferred;
@@ -3077,7 +3124,30 @@ function fetchGroupToPlanProcessor({
 }): FetchGroupProcessor<PlanNode | undefined, DeferredNode> {
   let counter = 0;
   return {
-    onFetchGroup: (group: FetchGroup) => group.toPlanNode(config, variableDefinitions, fragments, operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined),
+    onFetchGroup: (group: FetchGroup, handledConditions: Conditions) => {
+      const opName = operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined;
+      return group.toPlanNode(config, handledConditions, variableDefinitions, fragments, opName);
+    },
+    onConditions: (conditions: Conditions, value: PlanNode | undefined) => {
+      if (!value) {
+        return undefined;
+      }
+      if (isConstantCondition(conditions)) {
+        // Note that currently `ConditionNode` only works for variables (`ConditionNode.condition` is expected to be a variable name
+        // and nothing else). We could change that, but really, why have a trivial `ConditionNode` when we can optimise things righ away.
+        return conditions ? value : undefined;
+      } else {
+        return conditions.reduce<PlanNode>(
+          (node, condition) => ({
+            kind: 'Condition',
+            condition: condition.variable.name,
+            ifClause: condition.negated ? undefined : node,
+            elseClause: condition.negated ? node : undefined,
+          }),
+          value,
+        );
+      }
+    },
     reduceParallel: (values: (PlanNode | undefined)[]) => flatWrapNodes('Parallel', values),
     reduceSequence: (values: (PlanNode | undefined)[]) => flatWrapNodes('Sequence', values),
     reduceDeferred: (deferInfo: DeferredInfo, value: PlanNode | undefined): DeferredNode => ({
@@ -3392,11 +3462,11 @@ function wrapSelectionWithTypeAndConditions<TSelection>(
   // if necessary. Note that we use type-casts (... on <type>), but, outside of the first one, we could well also
   // use fragments with no type-condition. We do the former mostly to preverve older behavior, but doing the latter
   // would technically produce slightly small query plans.
-  const [name0, ifs0] = context.conditionals[0];
+  const { kind: name0, value: ifs0 } = context.conditionals[0];
   typeCast.applyDirective(schema.directive(name0)!, { 'if': ifs0 });
 
   for (let i = 1; i < context.conditionals.length; i++) {
-    const [name, ifs] = context.conditionals[i];
+    const { kind: name, value: ifs } = context.conditionals[i];
     const fragment = new FragmentElement(wrappingType, wrappingType.name);
     fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
     updatedSelection = wrapInFragment(fragment, updatedSelection);

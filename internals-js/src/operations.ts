@@ -1128,7 +1128,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * objects when that is the case. This does mean that the resulting selection set may be `this`
    * directly, or may alias some of the sub-selection in `this`.
    */
-  private lazyMap(mapper: (selection: Selection) => Selection | SelectionSet | undefined): SelectionSet {
+  lazyMap(mapper: (selection: Selection) => Selection | SelectionSet | undefined): SelectionSet {
     let updatedSelections: Selection[] | undefined = undefined;
     const selections = this.selections();
     for (let i = 0; i < selections.length; i++) {
@@ -2300,23 +2300,24 @@ export function operationFromDocument(
     }
   });
   fragments.validate();
-  return operationFromAST({schema, operation, fragments, validateInput: options?.validate});
+  return operationFromAST({schema, operation, variableDefinitions, fragments, validateInput: options?.validate});
 }
 
 function operationFromAST({
   schema,
   operation,
+  variableDefinitions,
   fragments,
   validateInput,
 }:{
   schema: Schema,
   operation: OperationDefinitionNode,
+  variableDefinitions: VariableDefinitions,
   fragments: NamedFragments,
   validateInput?: boolean,
 }) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
-  const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
   return new Operation(
     schema,
     operation.operation,
