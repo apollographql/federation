@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.3.4
+### Patch Changes
+
+
+- Handle defaulted variables correctly during post-processing. ([#2443](https://github.com/apollographql/federation/pull/2443))
+  
+  Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
+  
+  With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
+  - @apollo/federation-internals@2.3.4
+  - @apollo/composition@2.3.4
+  - @apollo/query-planner@2.3.4
+
 ## 2.3.3
 ### Patch Changes
 
