@@ -3829,7 +3829,7 @@ describe('executeQueryPlan', () => {
         name: 'S1',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
 
           type Query {
             iFromS1: I
@@ -3875,7 +3875,7 @@ describe('executeQueryPlan', () => {
         name: 'S2',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject"])
 
           type Query {
             iFromS2: I
@@ -4341,7 +4341,7 @@ describe('executeQueryPlan', () => {
         name: 'products',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
 
           type Query {
             products: [Product!]!
@@ -4390,7 +4390,7 @@ describe('executeQueryPlan', () => {
         name: 'reviews',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject"])
 
           type Query {
             allReviewedProducts: [Product!]!
