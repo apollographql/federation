@@ -644,6 +644,7 @@ describe('reporting', () => {
             ],
           },
         },
+        "tracesPreAggregated": false,
       }
     `);
   });
