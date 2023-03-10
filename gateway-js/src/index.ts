@@ -1,18 +1,16 @@
 import { deprecate } from 'util';
 import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
-import LRUCache from 'lru-cache';
+import { QueryPlanCache } from '@apollo/query-planner'
+import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import {
-  isObjectType,
-  isIntrospectionType,
   GraphQLSchema,
-  VariableDefinitionNode,
+  VariableDefinitionNode
 } from 'graphql';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
   ServiceMap,
-  defaultFieldResolverWithAliasSupport,
 } from './executeQueryPlan';
 import {
   GraphQLDataSource,
@@ -118,15 +116,15 @@ export class ApolloGateway implements GatewayInterface {
   public schema?: GraphQLSchema;
   // Same as a `schema` but as a `Schema` to avoid reconverting when we need it.
   // TODO(sylvain): if we add caching in `Schema.toGraphQLJSSchema`, we could maybe only keep `apiSchema`
-  // and make `schema` a getter (though `schema` does rely on `wrapSchemaWithAliasResolver` so this should
-  // be accounted for and this may look ugly). Unsure if moving from a member to a getter could break anyone externally however
+  // and make `schema` a getter (though `schema` does add some extension and this should
+  // be accounted for). Unsure if moving from a member to a getter could break anyone externally however
   // (also unclear why we expose a mutable member public in the first place; don't everything break if the
   // use manually assigns `schema`?).
   private apiSchema?: Schema;
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
-  private queryPlanStore: LRUCache<string, QueryPlan>;
+  private queryPlanStore: QueryPlanCache;
   private apolloConfig?: ApolloConfigFromAS3;
   private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
   private onSchemaLoadOrUpdateListeners = new Set<
@@ -192,6 +190,9 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
+    if(this.config.queryPlannerConfig?.cache){
+      return this.config.queryPlannerConfig?.cache
+    }
     // Create ~about~ a 30MiB InMemoryLRUCache (or 50MiB if the full operation ASTs are
     // enabled in query plans as this requires plans to use more memory). This is
     // less than precise since the technique to calculate the size of a DocumentNode is
@@ -199,7 +200,7 @@ export class ApolloGateway implements GatewayInterface {
     // for unicode characters, etc.), but it should do a reasonable job at
     // providing a caching document store for most operations.
     const defaultSize = this.config.queryPlannerConfig?.exposeDocumentNodeInFetchNode ? 50 : 30;
-    return new LRUCache<string, QueryPlan>({
+    return new InMemoryLRUCache<QueryPlan>({
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || defaultSize),
       sizeCalculation: approximateObjectSize,
     });
@@ -559,9 +560,7 @@ export class ApolloGateway implements GatewayInterface {
   ): void {
     this.queryPlanStore.clear();
     this.apiSchema = coreSchema.toAPISchema();
-    this.schema = addExtensions(
-      wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema()),
-    );
+    this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
     this.queryPlanner = new QueryPlanner(coreSchema, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema
@@ -755,7 +754,9 @@ export class ApolloGateway implements GatewayInterface {
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
-          const queryPlanStoreKey = queryHash + (request.operationName || '');
+          const queryPlanStoreKey = request.operationName ?
+            createHash('sha256').update(queryHash).update(request.operationName).digest('hex')
+            : queryHash;
           const operationContext = buildOperationContext({
             schema: this.schema!,
             operationDocument: document,
@@ -773,7 +774,7 @@ export class ApolloGateway implements GatewayInterface {
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
-          let queryPlan = this.queryPlanStore.get(queryPlanStoreKey);
+          let queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
 
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
@@ -797,7 +798,7 @@ export class ApolloGateway implements GatewayInterface {
             );
 
             try {
-              this.queryPlanStore.set(queryPlanStoreKey, queryPlan);
+              await this.queryPlanStore.set(queryPlanStoreKey, queryPlan);
             } catch (err) {
               this.logger.warn(
                 'Could not store queryPlan' + ((err && err.message) || err),
@@ -828,6 +829,7 @@ export class ApolloGateway implements GatewayInterface {
             requestContext,
             operationContext,
             this.supergraphSchema!,
+            this.apiSchema!,
           );
 
           const shouldShowQueryPlan =
@@ -971,6 +973,7 @@ export class ApolloGateway implements GatewayInterface {
       state: this.state,
       compositionId: this.compositionId,
       supergraphSdl: this.supergraphSdl,
+      queryPlanner: this.queryPlanner,
     };
   }
 }
@@ -982,26 +985,6 @@ ApolloGateway.prototype.onSchemaChange = deprecate(
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
-}
-
-// We can't use transformSchema here because the extension data for query
-// planning would be lost. Instead we set a resolver for each field
-// in order to counteract GraphQLExtensions preventing a defaultFieldResolver
-// from doing the same job
-function wrapSchemaWithAliasResolver(schema: GraphQLSchema): GraphQLSchema {
-  const typeMap = schema.getTypeMap();
-  Object.keys(typeMap).forEach((typeName) => {
-    const type = typeMap[typeName];
-
-    if (isObjectType(type) && !isIntrospectionType(type)) {
-      const fields = type.getFields();
-      Object.keys(fields).forEach((fieldName) => {
-        const field = fields[fieldName];
-        field.resolve = defaultFieldResolverWithAliasSupport;
-      });
-    }
-  });
-  return schema;
 }
 
 // Throw this in places that should be unreachable (because all other cases have

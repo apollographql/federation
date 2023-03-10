@@ -334,7 +334,7 @@ export function joinStrings(toJoin: string[], sep: string = ', ', firstSep?: str
   if (toJoin.length == 2) {
     return first + (firstSep ? firstSep : lastSep) + last;
   }
-  return first + (firstSep ? firstSep : sep) + toJoin.slice(1, toJoin.length - 1) + lastSep + last;
+  return first + (firstSep ? firstSep : sep) + toJoin.slice(1, toJoin.length - 1).join(sep) + lastSep + last;
 }
 
 // When displaying a list of something in a human readable form, after what size (in
@@ -424,3 +424,10 @@ export function removeArrayElement<T>(element: T, array: T[]): boolean {
     return false;
   }
 }
+
+export type NonEmptyArray<T> = [T, ...T[]];
+
+export function isNonEmptyArray<T>(array: T[]): array is NonEmptyArray<T> {
+  return array.length > 0;
+}
+

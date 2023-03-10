@@ -1,0 +1,135 @@
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+{
+  query: Query
+}
+
+directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+type Book implements Product
+  @join__implements(graph: PRODUCTS, interface: "Product")
+  @join__implements(graph: REVIEWS, interface: "Product")
+  @join__type(graph: PRODUCTS, key: "id")
+  @join__type(graph: REVIEWS, key: "id")
+{
+  id: ID!
+  price: Price @join__field(graph: PRODUCTS)
+  title: String @join__field(graph: PRODUCTS)
+  vendor: User @join__field(graph: PRODUCTS)
+  pages: Int @join__field(graph: PRODUCTS)
+  avg_rating: Int @join__field(graph: PRODUCTS, requires: "reviews { rating }")
+  reviews: [Review] @join__field(graph: PRODUCTS, external: true) @join__field(graph: REVIEWS)
+}
+
+enum Currency
+  @join__type(graph: PRODUCTS)
+{
+  USD
+  EUR
+}
+
+scalar join__FieldSet
+
+enum join__Graph {
+  ACCOUNTS @join__graph(name: "accounts", url: "")
+  PRODUCTS @join__graph(name: "products", url: "")
+  REVIEWS @join__graph(name: "reviews", url: "")
+}
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+type Movie implements Product
+  @join__implements(graph: PRODUCTS, interface: "Product")
+  @join__implements(graph: REVIEWS, interface: "Product")
+  @join__type(graph: PRODUCTS, key: "id")
+  @join__type(graph: REVIEWS, key: "id")
+{
+  id: ID!
+  price: Price @join__field(graph: PRODUCTS)
+  title: String @join__field(graph: PRODUCTS)
+  vendor: User @join__field(graph: PRODUCTS)
+  length_minutes: Int @join__field(graph: PRODUCTS)
+  avg_rating: Int @join__field(graph: PRODUCTS, requires: "reviews { rating }")
+  reviews: [Review] @join__field(graph: PRODUCTS, external: true) @join__field(graph: REVIEWS)
+}
+
+type Price
+  @join__type(graph: PRODUCTS)
+{
+  value: Int
+  currency: Currency
+}
+
+interface Product
+  @join__type(graph: PRODUCTS)
+  @join__type(graph: REVIEWS)
+{
+  id: ID!
+  price: Price @join__field(graph: PRODUCTS)
+  vendor: User @join__field(graph: PRODUCTS)
+  avg_rating: Int @join__field(graph: PRODUCTS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+}
+
+type Query
+  @join__type(graph: ACCOUNTS)
+  @join__type(graph: PRODUCTS)
+  @join__type(graph: REVIEWS)
+{
+  userById(id: ID!): User @join__field(graph: ACCOUNTS)
+  me: User! @join__field(graph: ACCOUNTS) @join__field(graph: REVIEWS)
+  productById(id: ID!): Product @join__field(graph: PRODUCTS)
+  search(filter: SearchFilter): [Product] @join__field(graph: PRODUCTS)
+  bestRatedProducts(limit: Int): [Product] @join__field(graph: REVIEWS)
+}
+
+type Review
+  @join__type(graph: PRODUCTS)
+  @join__type(graph: REVIEWS)
+{
+  rating: Int @join__field(graph: PRODUCTS, external: true) @join__field(graph: REVIEWS)
+  product: Product @join__field(graph: REVIEWS)
+  author: User @join__field(graph: REVIEWS)
+  text: String @join__field(graph: REVIEWS)
+}
+
+input SearchFilter
+  @join__type(graph: PRODUCTS)
+{
+  pattern: String!
+  vendorName: String
+}
+
+type User
+  @join__type(graph: ACCOUNTS, key: "id")
+  @join__type(graph: PRODUCTS, key: "id", resolvable: false)
+  @join__type(graph: REVIEWS, key: "id")
+{
+  id: ID!
+  name: String @join__field(graph: ACCOUNTS)
+  email: String @join__field(graph: ACCOUNTS)
+  password: String @join__field(graph: ACCOUNTS)
+  nickname: String @join__field(graph: ACCOUNTS, override: "reviews")
+  reviews: [Review] @join__field(graph: REVIEWS)
+}

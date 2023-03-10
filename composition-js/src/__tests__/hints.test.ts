@@ -6,6 +6,8 @@ import {
   HINTS,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
+import { composeAsFed2Subgraphs } from './testHelper';
+import { formatExpectedToMatchReceived } from './matchers/toMatchString';
 
 function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   const subgraphs = new Subgraphs();
@@ -31,7 +33,7 @@ declare global {
 }
 
 expect.extend({
-  toRaiseHint(mergeResult: MergeResult, expectedDefinition: HintCodeDefinition, message: string) {
+  toRaiseHint(mergeResult: MergeResult, expectedDefinition: HintCodeDefinition, expectedMessage: string) {
     if (mergeResult.errors) {
       return {
         message: () => `Expected subgraphs to merge but got errors: [${mergeResult.errors.map(e => e.message).join(', ')}]`,
@@ -52,17 +54,43 @@ expect.extend({
       };
     }
     for (const hint of matchingHints) {
-      if (hint.message === message) {
+      const received = hint.message;
+      const expected = formatExpectedToMatchReceived(expectedMessage, received);
+      if (this.equals(expected, received)) {
         return {
-          message: () => `Expected subgraphs merging to not raise hint ${expectedCode} with message '${message}', but it did`,
-          pass: true
+          message: () => `Expected subgraphs merging to not raise hint ${expectedCode} with message '${expected}', but it did`,
+          pass: true,
         }
       }
     }
+
+    if (matchingHints.length === 1) {
+      const received = matchingHints[0].message;
+      const expected = formatExpectedToMatchReceived(expectedMessage, received);
+      return {
+        message: () => (
+          this.utils.matcherHint('toRaiseHint', undefined, undefined,)
+          + '\n\n'
+          + `Found hint matching code ${expectedCode}, but messages don't match:\n`
+          + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true)
+        ),
+        pass: false,
+      };
+    }
+
     return {
-      message: () => `Subgraphs merging did raise ${matchingHints.length} hint(s) with code ${expectedCode}, but none had the expected message:\n  ${message}\n`
-         + `Instead, received messages:\n  ${matchingHints.map(h => h.message).join('\n  ')}`,
-      pass: false
+      message: () => (
+        this.utils.matcherHint('toRaiseHint', undefined, undefined,)
+        + '\n\n'
+        + `Found ${matchingHints.length} hint(s) matching code ${expectedCode}, but none had the expected message:\n`
+        + matchingHints.map((h, i) => {
+          const received = h.message;
+          const expected = formatExpectedToMatchReceived(expectedMessage, received);
+          return `Hint ${i}:\n`
+            + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true)
+        }).join('\n\n')
+      ),
+      pass: false,
     }
   },
 
@@ -124,6 +152,10 @@ test('hints on merging field with subtype types', () => {
       v: Int
     }
 
+    type Impl implements I @shareable {
+      v: Int
+    }
+
     type T @shareable {
       f: I
     }
@@ -134,7 +166,7 @@ test('hints on merging field with subtype types', () => {
       v: Int
     }
 
-    type Impl implements I {
+    type Impl implements I @shareable {
       v: Int
     }
 
@@ -278,6 +310,30 @@ test('hints on field of interface value type not being in all subgraphs', () => 
     'Field "T.b" of interface type "T" is defined in some but not all subgraphs that define "T": '
     + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
+})
+
+test('*No* hint on field of interface _with @key_ not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
+    interface T @key(fields: "id") {
+      id: ID!
+      a: Int
+      b: Int
+    }
+  `;
+
+  const subgraph2 = gql`
+    type T @interfaceObject @key(fields: "id") {
+      id: ID!
+      a: Int
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toNotRaiseHints();
 })
 
 test('hints on field of input object value type not being in all subgraphs', () => {
@@ -934,6 +990,147 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
       'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments. '
       + 'The supergraph will use arguments {reason: "Replaced by field \'b\'"} (from subgraphs "Subgraph2" and "Subgraph4"), '
       + 'but found arguments {reason: "because"} in subgraph "Subgraph1" and no arguments in subgraph "Subgraph3".',
+    );
+  });
+});
+
+describe('when shared field has intersecting but non equal runtime types in different subgraphs', () => {
+  it('hints for interfaces', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          a: A @shareable
+        }
+
+        interface A {
+          x: Int
+        }
+
+        type I1 implements A {
+          x: Int
+          i1: Int
+        }
+
+        type I2 implements A @shareable {
+          x: Int
+          i1: Int
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Query {
+          a: A @shareable
+        }
+
+        interface A {
+          x: Int
+        }
+
+        type I2 implements A @shareable {
+          x: Int
+          i2: Int
+        }
+
+        type I3 implements A @shareable {
+          x: Int
+          i3: Int
+        }
+      `
+    };
+
+    // Note that hints in this case are generate by the post-merge validation, so we need to full-compose, not just merge.
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeUndefined();
+    expect(result).toRaiseHint(
+      HINTS.INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
+      `
+      For the following supergraph API query:
+      {
+        a {
+          ...
+        }
+      }
+      Shared field "Query.a" return type "A" has different sets of possible runtime types across subgraphs.
+      Since a shared field must be resolved the same way in all subgraphs, make sure that subgraphs "A" and "B" only resolve "Query.a" to objects of type "I2". In particular:
+       - subgraph "A" should never resolve "Query.a" to an object of type "I1";
+       - subgraph "B" should never resolve "Query.a" to an object of type "I3".
+      Otherwise the @shareable contract will be broken.
+      `,
+    );
+  });
+
+  it('hints for unions', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          e: E! @shareable
+        }
+
+        type E @key(fields: "id") {
+          id: ID!
+          s: U! @shareable
+        }
+
+        union U = A | B
+
+        type A @shareable {
+          a: Int
+        }
+
+        type B @shareable {
+          b: Int
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type E @key(fields: "id") {
+          id: ID!
+          s: U! @shareable
+        }
+
+        union U = A | B | C
+
+        type A @shareable {
+          a: Int
+        }
+
+        type B @shareable {
+          b: Int
+        }
+
+        type C {
+          c: Int
+        }
+      `
+    };
+
+    // Note that hints in this case are generate by the post-merge validation, so we need to full-compose, not just merge.
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeUndefined();
+    expect(result).toRaiseHint(
+      HINTS.INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
+      `
+      For the following supergraph API query:
+      {
+        e {
+          s {
+            ...
+          }
+        }
+      }
+      Shared field "E.s" return type "U!" has different sets of possible runtime types across subgraphs.
+      Since a shared field must be resolved the same way in all subgraphs, make sure that subgraphs "A" and "B" only resolve "E.s" to objects of types "A" and "B". In particular:
+       - subgraph "B" should never resolve "E.s" to an object of type "C".
+      Otherwise the @shareable contract will be broken.
+      `,
     );
   });
 });

@@ -63,7 +63,11 @@ expect.extend({
     const messages: string[] = [];
     for (let i = 0; i < expected.length; i++) {
       const exp = expected[i];
-      const rec = deIndent(received[i]);
+      let rec = deIndent(received[i]);
+      // If the expected string as a trailing '\n', add one since we removed it.
+      if (exp.charAt(exp.length - 1) === '\n') {
+        rec = rec + '\n';
+      }
       if (!this.equals(exp, rec)) {
         pass = false;
         messages.push(

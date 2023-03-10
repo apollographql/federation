@@ -1,7 +1,7 @@
 import { operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { QueryPlanner } from '@apollo/query-planner';
-import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./buildPlan.test";
+import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./testHelper";
 
 function composeAndCreatePlannerWithDefer(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
   return composeAndCreatePlannerWithOptions(services, { incrementalDelivery: { enableDefer : true }});
@@ -1304,6 +1304,84 @@ describe('nested @defer', () => {
                   Deferred(depends: [], path: "me") {
                     {
                       address
+                    }:
+                  },
+                ]
+              }
+            },
+          ]
+        },
+      }
+    `);
+  });
+
+  test('on entity but with unuseful key', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type T {
+          id: ID! @shareable
+          a: Int
+          b: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          ... @defer {
+            a
+            ... @defer {
+              b
+            }
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // Note that nothing can effectively be deferred, so everything is fetched in the very first fetch, but
+    // we then have deferred sections that just sub-select what each defer should return to "simulate" the
+    // deferred responses.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Defer {
+          Primary {
+            :
+            Fetch(service: "Subgraph1") {
+              {
+                t {
+                  a
+                  b
+                }
+              }
+            }
+          }, [
+            Deferred(depends: [], path: "t") {
+              Defer {
+                Primary {
+                  {
+                    a
+                  }:
+                }, [
+                  Deferred(depends: [], path: "t") {
+                    {
+                      b
                     }:
                   },
                 ]

@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+      - next
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: github.repository == 'apollographql/federation'
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Install Dependencies
+        run: npm i
+        
+      - name: Set env
+        run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
+
+      - name: Create Release Pull Request
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          title: "release: on branch ${{ github.ref_name }}"
+          createGithubReleases: true
+          publish: npm run publish
+          # workaround for https://github.com/changesets/action/issues/203, includes an `npm i` after running the version command
+          version: npm run changeset-version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Kick off release in federation-rs
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.ACTION_PAT }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'apollographql',
+              repo: 'federation-rs',
+              workflow_id: '.github/workflows/release.yml',
+              ref: 'main',
+              inputs: { 
+                version: "${{ env.FEDERATION_VERSION }}"
+              }
+            })
+      - name: Sleep for 20 seconds (arbitrary, give NPM time to populate new `latest` versions)
+        run: sleep 20
+        shell: bash
+      - name: Write token to the NPM rc file (login)
+        if: steps.changesets.outputs.published == 'true'
+        # write token to the NPM rc file (npm login)
+        run: echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > ~/.npmrc
+      - name: Update next tags if appropriate
+        run: node scripts/update-next-tags.mjs

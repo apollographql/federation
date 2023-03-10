@@ -28,7 +28,7 @@ Cache hints can also be set [dynamically in subgraph resolvers](/apollo-server/p
 
 ### Setting entity cache hints
 
-Subgraph schemas contain an `_entities` root field on the `Query` type, so all query plans that require entity resolution have a [`maxAge` of `0` set by default](/apollo-server/performance/caching/#default-maxagee). To override this default behavior, you can add a `@cacheControl` directive to an entity's definition:
+Subgraph schemas define an `_entities` root field on the `Query` type, so all query plans that require entity resolution have a [`maxAge` of `0` set by default](/apollo-server/performance/caching/#default-maxage). To override this default behavior, you can add a `@cacheControl` directive to an entity's definition:
 
 ```graphql
 type Book @key(fields: "isbn") @cacheControl(maxAge: 30) {

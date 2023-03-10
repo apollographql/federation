@@ -1,36 +1,36 @@
 ---
-title: The graph router
-description: The entry point to your federated supergraph
+title: The router
+description: The entry point to your supergraph
 ---
 
 import FederationArchitecture from '../../shared/diagrams/federation-architecture.mdx';
 
-After you set up at least one federation-ready [subgraph](./subgraphs-overview/), you can configure a **graph router** (also known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
+After you set up at least one federation-ready [subgraph](./subgraphs-overview/), you can configure a **router** (formerly known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
 
 <FederationArchitecture />
 
 ## Choosing a router library
 
-Apollo actively supports the following options for your graph router:
+Apollo actively supports the following options for your router:
 
 - **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
 
-    If you're getting started with federation, we recommend [creating a **cloud supergraph**](/studio/getting-started) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages Apollo Router instances for you!
+    > If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages routing for you!
 
     You can also host your own Apollo Router instances:
 
     - [Go to the Apollo Router docs.](/router/quickstart/)
     - [See the federation quickstart](../quickstart/setup/) (which uses the Apollo Router).
-- **Apollo Server:** Apollo Server can act as your graph router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library. 
+- **Apollo Server:** Apollo Server can act as your router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
     - [See how to set up Apollo Gateway](/apollo-server/using-federation/apollo-gateway-setup).
 
 **We recommend starting with the Apollo Router.** It's faster to configure, it's more performant (especially with high request loads), and it rarely requires writing custom code.
 
 <ExpansionPanel title="When should I use Apollo Server?">
 
-You might need to use Apollo Server for your graph router if your subgraphs use a custom authentication method that it's currently difficult to configure with the Apollo Router. Note that teams unfamiliar with Rust can still customize the Apollo Router's behavior using the [Rhai scripting language](/router/customizations/rhai).
+You might need to use Apollo Server for your router if your subgraphs use a custom authentication method that it's currently difficult to configure with the Apollo Router. Note that teams unfamiliar with Rust can still customize the Apollo Router's behavior using the [Rhai scripting language](/router/customizations/rhai).
 
-Regardless of which graph router library you start with, you can swap to the other without making any changes to other parts of your supergraph.
+Regardless of which library you start with, you can swap to the other without making any changes to other parts of your supergraph.
 
 </ExpansionPanel>
 

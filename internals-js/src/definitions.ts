@@ -241,6 +241,14 @@ export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): bo
   return false;
 }
 
+export function supertypes(type: CompositeType): readonly CompositeType[] {
+  switch (type.kind) {
+    case 'InterfaceType': return type.interfaces();
+    case 'UnionType': return [];
+    case 'ObjectType': return (type.interfaces() as CompositeType[]).concat(type.unionsWhereMember());
+  }
+}
+
 export function isConditionalDirective(directive: Directive<any, any> | DirectiveDefinition<any>): boolean {
   return ['include', 'skip'].includes(directive.name);
 }
@@ -343,11 +351,9 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
     return this._schema;
   }
 
-  appliedDirectivesOf(name: string): Directive<T>[];
-  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(definition: DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[];
-  appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive<T>[] {
+  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(nameOrDefinition: string | DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[] {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
-    return this.appliedDirectives.filter(d => d.name == directiveName);
+    return this.appliedDirectives.filter(d => d.name == directiveName) as Directive<T, TApplicationArgs>[];
   }
 
   get appliedDirectives(): readonly Directive<T>[] {
@@ -1612,11 +1618,11 @@ export class Schema {
     return directive as DirectiveDefinition<TApplicationArgs>;
   }
 
-  includeDirective(): DirectiveDefinition<{if: boolean}> {
+  includeDirective(): DirectiveDefinition<{if: boolean | Variable}> {
     return this.getBuiltInDirective('include');
   }
 
-  skipDirective(): DirectiveDefinition<{if: boolean}> {
+  skipDirective(): DirectiveDefinition<{if: boolean | Variable}> {
     return this.getBuiltInDirective('skip');
   }
 
@@ -2085,6 +2091,14 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
     return schema.schemaDefinition.root('query')?.type === this;
   }
 
+  /**
+   *  Whether this type is the "subscription" root type of the schema (will return false if the type is detached).
+   */
+  isSubscriptionRootType(): boolean {
+    const schema = this.schema();
+    return schema.schemaDefinition.root('subscription')?.type === this;
+  }
+
   protected removeReferenceRecursive(ref: ObjectTypeReferencer): void {
     // Note that the ref can also be a`SchemaDefinition`, but don't have anything to do then.
     switch (ref.kind) {
@@ -2097,6 +2111,10 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
         }
         break;
     }
+  }
+
+  unionsWhereMember(): readonly UnionType[] {
+    return this._referencers?.filter<UnionType>((r): r is UnionType => r instanceof BaseNamedType && isUnionType(r)) ?? [];
   }
 }
 
@@ -3352,7 +3370,7 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
 
   toString() {
     let base = this.variable + ': ' + this.type;
-    if (this.defaultValue) {
+    if (this.defaultValue !== undefined) {
       base = base + ' = ' + valueToString(this.defaultValue, this.type);
     }
     return base + this.appliedDirectivesToString();

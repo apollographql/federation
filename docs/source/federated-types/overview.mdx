@@ -48,7 +48,7 @@ type User @key(fields: "id") {
 # this to opt in to
 # Federation 2 features.)
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.4",
         import: ["@key", "@shareable"])
 ```
 
@@ -64,7 +64,7 @@ type Product @key(fields: "upc") {
 }
 
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.4",
         import: ["@key", "@shareable"])
 ```
 
@@ -89,7 +89,7 @@ type Product @key(fields: "upc") {
 # (This subgraph uses additional
 # federated directives)
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.4",
         import: ["@key", "@shareable", "@provides", "@external"])
 ```
 

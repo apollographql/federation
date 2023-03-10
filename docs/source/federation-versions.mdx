@@ -1,0 +1,544 @@
+---
+title: Federation version changelog
+description: Understand changes between federation versions
+---
+
+This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](./federated-types/federated-directives/).
+
+> For a _comprehensive_ changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
+
+- **To use a feature introduced in a particular federation version,** make sure your subgraph schema's `@link` directive targets that version (or higher):
+
+    ```graphql
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.4", #highlight-line
+            import: ["@key", "@shareable", "@interfaceObject"])
+    ```
+
+    The example above must target at least Federation v2.3, because the `@interfaceObject` directive was introduced in that version.
+
+    > ⚠️ **Before you increment a subgraph's federation version, update your router and build pipeline!** For details, see [Updating your graph safely](/graphos/graphs/updating/).
+
+- **If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/),** consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
+
+## v2.3
+
+**Directive changes**
+
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@interfaceObject`
+
+</td>
+<td>
+
+Introduced. [Learn more.](./federated-types/interfaces)
+
+```graphql
+directive @interfaceObject on OBJECT
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@key`
+
+</td>
+<td>
+
+Can now be applied to interface definitions to support [entity interfaces](./federated-types/interfaces/).
+
+(Previous versions of composition threw an error if `@key` was applied to an interface definition.)
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## v2.2
+
+**Directive changes**
+
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@shareable`
+
+</td>
+<td>
+
+Added `repeatable` to the directive definition.
+
+```graphql
+directive @shareable repeatable on OBJECT | FIELD_DEFINITION
+```
+
+Additionally, composition now throws an error if `@shareable` is applied to fields of an `interface` definition.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## v2.1
+
+**Directive changes**
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@composeDirective`
+
+</td>
+<td>
+
+Introduced. [Learn more.](./federated-types/federated-directives#composedirective)
+
+```graphql
+directive @composeDirective(name: String!) repeatable on SCHEMA
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## v2.0
+
+**Directive changes**
+
+Subgraph schemas "opt in" to Federation 2 features by applying the `@link` directive to the `schema` type, like so:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
+```
+
+The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example above, the schema uses `@key` and `@shareable`.
+
+For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](./federated-types/federated-directives/).
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@key`
+
+</td>
+<td>
+
+Added optional `resolvable` argument.
+
+```graphql
+directive @key(
+  fields: FieldSet!,
+  resolvable: Boolean = true # highlight-line
+) repeatable on OBJECT | INTERFACE
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@shareable`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @shareable on OBJECT | FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@inaccessible`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @inaccessible on
+  | FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | UNION
+  | ARGUMENT_DEFINITION
+  | SCALAR
+  | ENUM
+  | ENUM_VALUE
+  | INPUT_OBJECT
+  | INPUT_FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@override`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @override(from: String!) on FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@link`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @link(
+  url: String,
+  as: String,
+  for: link__Purpose,
+  import: [link__Import]
+) repeatable on SCHEMA
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@extends`, `@external`, `@provides`, `@requires`, `@tag`
+
+</td>
+<td>
+
+No changes.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+**Subgraph changes**
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Entities
+
+</td>
+<td>
+
+* Entities no longer _originate_ in a subgraph. Instead, any number of subgraphs can define the same entity and _contribute fields_ to it.
+* Multiple subgraphs _can_ contribute the same field to an entity, _if_ that field is marked as `@shareable` in every subgraph that defines it.
+* Subgraphs no longer need to `extend` (or `@extends`) an entity whenever another subgraph already defines that entity.
+* Each subgraph can apply any number of `@key` directives to an entity.
+* Subgraphs _must_ no longer apply the `@external` directive to their `@key` fields.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+Value types
+
+</td>
+<td>
+
+* To define a value type with shared fields across multiple subgraphs, those shared fields must be marked as `@shareable` in every subgraph that defines them.
+* Value type fields _can_ differ across subgraphs (in certain ways). For details, see [Differing shared fields](./federated-types/sharing-types#differing-shared-fields).
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`Query` and `Mutation`
+
+</td>
+<td>
+
+* More than one subgraph _can_ define the same field of the `Query` or `Mutation` type, _if_ that field is marked as `@shareable` in every subgraph that defines it.
+* Subgraphs no longer need to apply the `extend` keyword (or the `@extends` directive) to the `Query` and `Mutation` types.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+## v1.1
+
+**Directive changes**
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@tag`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @tag(name: String!) repeatable on
+  | FIELD_DEFINITION
+  | INTERFACE
+  | OBJECT
+  | UNION
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## v1.0
+
+
+**Directive changes**
+
+For details on these directives as defined in Federation 1, see the [Federation 1 subgraph spec](/federation/v1/federation-spec).
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@key`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@external`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @external on FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@requires`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@provides`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@extends`
+
+</td>
+<td>
+
+Introduced.
+
+```graphql
+directive @extends on OBJECT | INTERFACE
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+**Subgraph changes**
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Entities
+
+</td>
+<td>
+
+* Each entity _originates_ in exactly one subgraph and can be _extended_ in other subgraphs.
+* An entity's originating subgraph _must_ apply _at least one_ `@key` directive to the entity definition.
+* An extending subgraph must use the `extend` keyword (or the `@extends` directive) when defining another subgraph's entity.
+* An extending subgraph must apply exactly one `@key` directive to any entity it extends. The `fields` of that `@key` must match a `@key` that's defined by the entity's originating subgraph.
+* An extending subgraph must apply the `@external` directive to all `@key` fields of an entity it extends.
+* If an entity field is defined in more than one subgraph, it must be marked as `@external` in all but _one_ subgraph.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+Value types
+
+</td>
+<td>
+
+* Each subgraph that defines a value type _must_ define that value type _identically_.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`Query` and `Mutation`
+
+</td>
+<td>
+
+* More than one subgraph _cannot_ define the same field of the `Query` or `Mutation` type.
+* Every subgraph must apply the `extend` keyword (or the `@extends` directive) to the `Query` and `Mutation` types.
+
+</td>
+</tr>
+
+</tbody>
+</table>

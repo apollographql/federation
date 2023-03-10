@@ -810,7 +810,7 @@ describe('buildSubgraphSchema', () => {
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect((data?._service as any).sdl).toMatchString(
-        (header.length === 0 
+        (header.length === 0
           ? ''
           : `
         ${header.trim()}
@@ -1005,6 +1005,38 @@ describe('buildSubgraphSchema', () => {
     expect(() => buildSubgraphSchema(doc)).not.toThrow();
   });
 
+  it('correctly attaches the provided subscribe function to the schema object', () => {
+    async function* subscribeFn () {
+      for await (const word of ['Hello', 'Bonjour', 'Ciao']) {
+        yield word;
+      }
+    }
+    const schema = buildSubgraphSchema([
+      {
+        typeDefs: gql`
+          type Query {
+            hello: String!
+          }
+
+          type Subscription {
+            hello: String!
+          }
+        `,
+        resolvers: {
+          Subscription: {
+            hello: {
+              subscribe: subscribeFn,
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(schema.getSubscriptionType()?.getFields()['hello'].subscribe).toBe(
+      subscribeFn,
+    );
+  });
+
   // Those tests ensures that we expand older federation specification to their proper definitions,
   // so they explicitely link to older spec and should not be changed.
   describe('federation specification backward compatibility', () => {
@@ -1160,8 +1192,7 @@ describe('buildSubgraphSchema', () => {
     });
 
     it('expands federation 2.2 correctly', async () => {
-      // For 2.2, we expect in particular that:
-      // - the @composeDirective directive to exists
+      // For 2.2, we expect everything from 2.1 plus:
       // - the @shareable directive to be repeatable
       await testVersion('2.2', `
         schema
@@ -1194,6 +1225,140 @@ describe('buildSubgraphSchema', () => {
         directive @federation__override(from: String!) on FIELD_DEFINITION
 
         directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
+        type Query {
+          x: Int
+          _service: _Service!
+        }
+
+        enum link__Purpose {
+          """
+          \`SECURITY\` features provide metadata necessary to securely resolve fields.
+          """
+          SECURITY
+
+          """
+          \`EXECUTION\` features provide metadata necessary for operation execution.
+          """
+          EXECUTION
+        }
+
+        scalar link__Import
+
+        scalar federation__FieldSet
+
+        scalar _Any
+
+        type _Service {
+          sdl: String
+        }
+      `);
+    });
+
+    it('expands federation 2.3 correctly', async () => {
+      // For 2.3, we expect in everything from 2.2 plus:
+      // - the @interfaceObject directive
+      // - the @tag directive to additionally have the SCHEMA location
+      await testVersion('2.3', `
+        schema
+          @link(url: \"https://specs.apollo.dev/link/v1.0\")
+        {
+          query: Query
+        }
+
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+        directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+        directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
+
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
+
+        directive @federation__extends on OBJECT | INTERFACE
+
+        directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
+
+        directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+        directive @federation__override(from: String!) on FIELD_DEFINITION
+
+        directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
+        directive @federation__interfaceObject on OBJECT
+
+        type Query {
+          x: Int
+          _service: _Service!
+        }
+
+        enum link__Purpose {
+          """
+          \`SECURITY\` features provide metadata necessary to securely resolve fields.
+          """
+          SECURITY
+
+          """
+          \`EXECUTION\` features provide metadata necessary for operation execution.
+          """
+          EXECUTION
+        }
+
+        scalar link__Import
+
+        scalar federation__FieldSet
+
+        scalar _Any
+
+        type _Service {
+          sdl: String
+        }
+      `);
+    });
+
+    it('expands federation 2.4 correctly', async () => {
+      // For 2.3, we expect in everything from 2.2 plus:
+      // - the @interfaceObject directive
+      // - the @tag directive to additionally have the SCHEMA location
+      await testVersion('2.4', `
+        schema
+          @link(url: \"https://specs.apollo.dev/link/v1.0\")
+        {
+          query: Query
+        }
+
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+
+        directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+        directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
+
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
+
+        directive @federation__extends on OBJECT | INTERFACE
+
+        directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
+
+        directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+        directive @federation__override(from: String!) on FIELD_DEFINITION
+
+        directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
+        directive @federation__interfaceObject on OBJECT
 
         type Query {
           x: Int
