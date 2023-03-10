@@ -10,5 +10,11 @@
     "@apollo/query-planner": "2.3.3",
     "@apollo/subgraph": "2.3.3"
   },
-  "changesets": []
+  "changesets": [
+    "forty-gifts-burn",
+    "forty-hairs-flow",
+    "gentle-rockets-roll",
+    "old-humans-try",
+    "shaggy-knives-exercise"
+  ]
 }
