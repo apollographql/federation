@@ -1,5 +1,4 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
-import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
 import { assert, firstOf } from './utils';
