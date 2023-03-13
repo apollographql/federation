@@ -122,6 +122,11 @@
     },
     {
       "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["lru-cache"],
+      "allowedVersions": "7.x",
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
       "matchPackageNames": ["node"],
       "matchPaths": ["v12-node-compatibility/package.json"],
       "allowedVersions": "12.x",
