@@ -347,9 +347,9 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
 
   constructor(
     private readonly _schema: Schema,
-    directives?: readonly Directive<any>[],
+    directives: readonly Directive<any>[] = [],
   ) {
-    this.appliedDirectives = directives?.map((d) => this.attachDirective(d)) ?? [];
+    this.appliedDirectives = directives.map((d) => this.attachDirective(d));
   }
 
   schema(): Schema {
