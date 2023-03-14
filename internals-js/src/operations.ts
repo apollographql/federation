@@ -338,8 +338,8 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 }
 
 /**
- * Computes a string key representing a directive application, so that if 2 directive applications have the same key, they they
- * represents the same application.
+ * Computes a string key representing a directive application, so that if 2 directive applications have the same key, then they
+ * represent the same application.
  *
  * Note that this is mostly just the `toString` representation of the directive, but for 2 subtlety:
  * 1. for a handful of directives (really just `@defer` for now), we never want to consider directive applications the same, no
@@ -348,7 +348,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
  * 2. we sort the argument (by their name) before converting them to string, since argument order does not matter in graphQL.
  */
 function keyForDirective(
-  directive: Directive<any>,
+  directive: Directive<OperationElement>,
   directivesNeverEqualToThemselves: string[] = [ 'defer' ],
 ): string {
   if (directivesNeverEqualToThemselves.includes(directive.name)) {
@@ -387,7 +387,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       // The key is such that 2 fragments with the same key within a selection set gets merged together. So the type-condition
       // is include, but so are the directives.
       const keyForDirectives = this.appliedDirectives.map((d) => keyForDirective(d)).join(' ');
-      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition?.name : '') + keyForDirectives;
+      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition.name : '') + keyForDirectives;
     }
     return this.computedKey;
   }
@@ -556,9 +556,9 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     }
 
     const deferDirective = this.schema().deferDirective();
-    const updatedDirectives = (this.appliedDirectives as Directive<any>[])
+    const updatedDirectives = this.appliedDirectives
       .filter((d) => d.name !== deferDirective.name)
-      .concat(new Directive(deferDirective.name, newDeferArgs));
+      .concat(new Directive<FragmentElement>(deferDirective.name, newDeferArgs));
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition, updatedDirectives);
     this.copyAttachementsTo(updated);
@@ -794,7 +794,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     schema: Schema,
     readonly name: string,
     readonly typeCondition: CompositeType,
-    directives?: Directive<any>[],
+    directives?: Directive<NamedFragmentDefinition>[],
   ) {
     super(schema, directives);
   }
@@ -1033,15 +1033,11 @@ export class SelectionSet {
 
   constructor(
     readonly parentType: CompositeType,
-    keyedSelections: Map<string, Selection>,
+    keyedSelections: Map<string, Selection> = new Map(),
     readonly fragments?: NamedFragments,
   ) {
     this._keyedSelections = keyedSelections;
     this._selections = mapValues(keyedSelections);
-  }
-
-  static empty(parentType: CompositeType): SelectionSet {
-    return new SelectionSet(parentType, new Map());
   }
 
   selectionsInReverseOrder(): readonly Selection[] {
@@ -2339,13 +2335,13 @@ function selectionSetOfNode(
   return selections.toSelectionSet(parentType, fragments);
 }
 
-function directiveOfNode(schema: Schema, node: DirectiveNode): Directive {
+function directiveOfNode<T extends DirectiveTargetElement<T>>(schema: Schema, node: DirectiveNode): Directive<T> {
   const directiveDef = schema.directive(node.name.value);
   validate(directiveDef, () => `Unknown directive "@${node.name.value}"`)
   return new Directive(directiveDef.name, argumentsFromAST(directiveDef.coordinate, node.arguments, directiveDef));
 }
 
-function directivesOfNodes(schema: Schema, nodes: readonly DirectiveNode[] | undefined): Directive[] {
+function directivesOfNodes<T extends DirectiveTargetElement<T>>(schema: Schema, nodes: readonly DirectiveNode[] | undefined): Directive<T>[] {
   return nodes?.map((n) => directiveOfNode(schema, n)) ?? [];
 }
 

@@ -210,7 +210,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
     // ellipsis instead make it immediately clear after which part of the query there is an issue.
     const lastType = edges[edges.length -1].tail.type;
     // Note that vertex types are named type and output ones, so if it's not a leaf it is guaranteed to be selectable.
-    return isLeafType(lastType) ? undefined : SelectionSet.empty(lastType as CompositeType);
+    return isLeafType(lastType) ? undefined : new SelectionSet(lastType as CompositeType);
   }
 
   const edge = edges[index];
