@@ -41,8 +41,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       
+      - name: Sleep for 20 seconds (arbitrary, give NPM time to populate new `latest` versions)
+        if: steps.changesets.outputs.published == 'true'
+        run: sleep 20
+        shell: bash
+
       - name: Kick off release in federation-rs
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.published == 'true'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.ACTION_PAT }}
@@ -56,12 +61,11 @@ jobs:
                 version: "${{ env.FEDERATION_VERSION }}"
               }
             })
-      - name: Sleep for 20 seconds (arbitrary, give NPM time to populate new `latest` versions)
-        run: sleep 20
-        shell: bash
       - name: Write token to the NPM rc file (login)
         if: steps.changesets.outputs.published == 'true'
         # write token to the NPM rc file (npm login)
         run: echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > ~/.npmrc
+        
       - name: Update next tags if appropriate
+        if: steps.changesets.outputs.published == 'true'
         run: node scripts/update-next-tags.mjs
