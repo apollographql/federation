@@ -341,7 +341,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
  * Computes a string key representing a directive application, so that if 2 directive applications have the same key, they they
  * represents the same application.
  *
- * Note that this is mostly just the `toString` representation of the directive, but for 2 subtlelty:
+ * Note that this is mostly just the `toString` representation of the directive, but for 2 subtlety:
  * 1. for a handful of directives (really just `@defer` for now), we never want to consider directive applications the same, no
  *    matter that the arguments of the directive match, and this for the same reason as documented on the `sameDirectiveApplications`
  *    method in `definitions.ts`.
