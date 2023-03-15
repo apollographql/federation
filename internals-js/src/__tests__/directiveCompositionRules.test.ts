@@ -10,7 +10,6 @@ describe('directive composition entry tests', () => {
   it.each([
     DirectiveLocation.INTERFACE,
     DirectiveLocation.SCHEMA,
-    DirectiveLocation.SCALAR,
     DirectiveLocation.INTERFACE,
     DirectiveLocation.UNION,
     DirectiveLocation.ENUM_VALUE,
@@ -288,7 +287,7 @@ describe('test with full federated schemas', () => {
     );
 
     const mgr = new FederationDirectiveCompositionManager([subgraph1.schema, subgraph2.schema], [entry])
-    mgr.mergeField([
+    mgr.mergeSchemaElements([
       subgraph1.schema.elementByCoordinate('Query.a') as FieldDefinition<any>,
       subgraph2.schema.elementByCoordinate('Query.a') as FieldDefinition<any>,
     ], supergraph.schema.elementByCoordinate('Query.a') as FieldDefinition<any>);
@@ -358,7 +357,7 @@ describe('test with full federated schemas', () => {
     );
 
     const mgr = new FederationDirectiveCompositionManager([subgraph1.schema, subgraph2.schema], [entry])
-    mgr.mergeObject([
+    mgr.mergeSchemaElements([
       subgraph1.schema.elementByCoordinate('Query') as ObjectType,
       subgraph2.schema.elementByCoordinate('Query') as ObjectType,
     ], supergraph.schema.elementByCoordinate('Query') as ObjectType);
