@@ -5452,3 +5452,118 @@ test('handles case of key chains in parallel requires', () => {
     }
   `);
 });
+
+test('handles types with no common supertype at the same "mergeAt"', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      union T = T1 | T2
+
+      type T1 @key(fields: "id") {
+        id: ID!
+        sub: Foo
+      }
+
+      type Foo @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+
+      type T2 @key(fields: "id") {
+        id: ID!
+        sub: Bar
+      }
+
+      type Bar @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Foo @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+
+      type Bar @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        ... on T1 {
+          sub {
+            y
+          }
+        }
+        ... on T2 {
+          sub {
+            y
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ... on T1 {
+                sub {
+                  __typename
+                  id
+                }
+              }
+              ... on T2 {
+                sub {
+                  __typename
+                  id
+                }
+              }
+            }
+          }
+        },
+        Flatten(path: "t.sub") {
+          Fetch(service: "Subgraph2") {
+            {
+              ... on Foo {
+                __typename
+                id
+              }
+              ... on Bar {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on Foo {
+                y
+              }
+              ... on Bar {
+                y
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
