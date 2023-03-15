@@ -273,6 +273,12 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     return this.merge(other);
   }
 
+  private mergeLocalSelectionsWith(other: PathTree<TTrigger, RV, TNullEdge>): readonly SelectionSet[] | undefined {
+    return this.localSelections
+      ? (other.localSelections ? this.localSelections.concat(other.localSelections) : this.localSelections)
+      : other.localSelections;
+  }
+
   merge(other: PathTree<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
     // If we somehow end up trying to merge a tree with itself, let's not waste work on it.
     if (this === other) {
@@ -288,9 +294,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       return other;
     }
 
-    const localSelections = this.localSelections
-      ? (other.localSelections ? this.localSelections.concat(other.localSelections) : this.localSelections)
-      : other.localSelections;
+    const localSelections = this.mergeLocalSelectionsWith(other);
 
     const mergeIndexes: number[] = new Array(other.childs.length);
     let countToAdd = 0;
@@ -346,9 +350,8 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     if (!this.childs.length) {
       return other;
     }
-    const localSelections = this.localSelections
-      ? (other.localSelections ? this.localSelections.concat(other.localSelections) : this.localSelections)
-      : other.localSelections;
+
+    const localSelections = this.mergeLocalSelectionsWith(other);
     const newChilds = this.childs.concat(other.childs);
     return new PathTree(this.graph, this.vertex, localSelections, this.triggerEquality, newChilds);
   }
