@@ -16,6 +16,10 @@
   
   With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
 
+
+## 2.3.4
+### Patch Changes
+
 - Use globally available URL object instead of node builtin "url" module ([#2293](https://github.com/apollographql/federation/pull/2293))
 
 ## 2.3.3

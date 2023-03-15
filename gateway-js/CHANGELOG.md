@@ -51,16 +51,27 @@
 
 ### Patch Changes
 
+- Updated dependencies [[`d4426ff9`](https://github.com/apollographql/federation/commit/d4426ff9ea86273c145351f80d8d18eb56ebab38), [`a9385bdb`](https://github.com/apollographql/federation/commit/a9385bdb0d6f5e9b03f9c143bbc7f34e5b5bf166), [`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e), [`ade7ceb8`](https://github.com/apollographql/federation/commit/ade7ceb8093f3c6ad01362d4aec4d806bff4e4fd)]:
+  - @apollo/query-planner@2.4.0-alpha.0
+  - @apollo/composition@2.4.0-alpha.0
+  - @apollo/federation-internals@2.4.0-alpha.0
+
+
+## 2.3.4
+### Patch Changes
+
 
 - Handle defaulted variables correctly during post-processing. ([#2443](https://github.com/apollographql/federation/pull/2443))
   
   Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
   
   With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
-- Updated dependencies [[`d4426ff9`](https://github.com/apollographql/federation/commit/d4426ff9ea86273c145351f80d8d18eb56ebab38), [`a9385bdb`](https://github.com/apollographql/federation/commit/a9385bdb0d6f5e9b03f9c143bbc7f34e5b5bf166), [`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e), [`ade7ceb8`](https://github.com/apollographql/federation/commit/ade7ceb8093f3c6ad01362d4aec4d806bff4e4fd)]:
-  - @apollo/query-planner@2.4.0-alpha.0
-  - @apollo/composition@2.4.0-alpha.0
-  - @apollo/federation-internals@2.4.0-alpha.0
+
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
+  - @apollo/federation-internals@2.3.4
+  - @apollo/composition@2.3.4
+  - @apollo/query-planner@2.3.4
+
 
 ## 2.3.3
 ### Patch Changes
