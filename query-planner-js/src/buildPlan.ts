@@ -50,8 +50,6 @@ import {
   mapKeys,
   operationPathToStringPath,
   mapValues,
-  runtimeTypesIntersects,
-  supertypes,
   isInterfaceObjectType,
   isInterfaceType,
   isNonNullType,
@@ -97,7 +95,7 @@ import {
   buildFederatedQueryGraph,
   FEDERATED_GRAPH_ROOT_SOURCE,
 } from "@apollo/query-graphs";
-import { stripIgnoredCharacters, print, OperationTypeNode } from "graphql";
+import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
 import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
@@ -703,6 +701,81 @@ type ParentRelation = {
 
 const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: conditionsOfSelectionSet(selectionSet) });
 
+class GroupInputs {
+  private readonly perType = new Map<string, MutableSelectionSet>();
+
+  constructor(
+    readonly supergraphSchema: Schema,
+  ) {
+  }
+
+  add(selection: Selection | SelectionSet) {
+    assert(selection.parentType.schema() === this.supergraphSchema, 'Inputs selections must be based on the supergraph schema');
+
+    const typeName = selection.parentType.name;
+    let typeSelection = this.perType.get(typeName);
+    if (!typeSelection) {
+      typeSelection = MutableSelectionSet.empty(selection.parentType);
+      this.perType.set(typeName, typeSelection);
+    }
+    typeSelection.updates().add(selection);
+  }
+
+  addAll(other: GroupInputs) {
+    for (const otherSelection of other.perType.values()) {
+      this.add(otherSelection.get());
+    }
+  }
+
+  selectionSets(): SelectionSet[] {
+    return mapValues(this.perType).map((s) => s.get());
+  }
+
+  toSelectionSetNode(variablesDefinitions: VariableDefinitions, handledConditions: Conditions): SelectionSetNode {
+
+    const selectionSets = mapValues(this.perType).map((s) => removeConditionsFromSelectionSet(s.get(), handledConditions));
+    // Making sure we're not generating something invalid.
+    selectionSets.forEach((s) => s.validate(variablesDefinitions));
+    const selections = selectionSets.flatMap((sSet) => sSet.selections().map((s) => s.toSelectionNode()));
+    return {
+      kind: Kind.SELECTION_SET,
+      selections,
+    }
+  }
+
+  contains(other: GroupInputs): boolean {
+    for (const [type, otherSelection] of other.perType) {
+      const thisSelection = this.perType.get(type);
+      if (!thisSelection || !thisSelection.get().contains(otherSelection.get())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  equals(other: GroupInputs): boolean {
+    if (this.perType.size !== other.perType.size) {
+      return false;
+    }
+
+    for (const [type, thisSelection] of this.perType) {
+      const otherSelection = other.perType.get(type);
+      if (!otherSelection || !thisSelection.get().equals(otherSelection.get())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  clone(): GroupInputs {
+    const cloned = new GroupInputs(this.supergraphSchema);
+    for (const [type, selection] of this.perType.entries()) {
+      cloned.perType.set(type, selection.clone());
+    }
+    return cloned;
+  }
+}
+
 /**
  * Represents a subgraph fetch of a query plan, and is a vertex of a `FetchDependencyGraph` (and as such provides links to
  * its parent and children in that dependency graph).
@@ -726,7 +799,7 @@ class FetchGroup {
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
     private _selection: MutableSelectionSet<{ conditions: Conditions}>,
-    private _inputs?: MutableSelectionSet,
+    private _inputs?: GroupInputs,
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
     // Some of the processing on the dependency graph checks for groups to the same subgraph and same mergeAt, and we use this
@@ -742,7 +815,7 @@ class FetchGroup {
     subgraphName,
     rootKind,
     parentType,
-    inputsParentType,
+    hasInputs,
     mergeAt,
     deferRef,
   }: {
@@ -751,28 +824,24 @@ class FetchGroup {
     subgraphName: string,
     rootKind: SchemaRootKind,
     parentType: CompositeType,
-    inputsParentType?: CompositeType,
+    hasInputs: boolean,
     mergeAt?: ResponsePath,
     deferRef?: string,
   }): FetchGroup {
-    // Sanity checks about the types provided:
-    // - the selection parent type must belong to the schema of the subgraph we're querying.
-    // - the inputs parent type must belong to the supergrah schema (inputs essentially comes from "the current in-memory result set
-    //   maintained by the gateway/router", so it's technically not any specific subgraph, but rather the supergraph).
+    // Sanity checks that the selection parent type belongs to the schema of the subgraph we're querying.
     assert(parentType.schema() === dependencyGraph.subgraphSchemas.get(subgraphName), `Expected parent type ${parentType} to belong to ${subgraphName}`);
-    assert(!inputsParentType || inputsParentType.schema() === dependencyGraph.supergraphSchema, `Expected inputs parent type ${inputsParentType} to belong to the supergraph schema`);
     return new FetchGroup(
       dependencyGraph,
       index,
       subgraphName,
       rootKind,
       parentType,
-      !!inputsParentType,
+      hasInputs,
       MutableSelectionSet.emptyWithMemoized(parentType, conditionsMemoizer),
-      inputsParentType ? MutableSelectionSet.empty(inputsParentType) : undefined,
+      hasInputs ? new GroupInputs(dependencyGraph.supergraphSchema) : undefined,
       mergeAt,
       deferRef,
-      inputsParentType ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined
+      hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined
     );
   }
 
@@ -822,8 +891,8 @@ class FetchGroup {
     return this._selection.updates();
   }
 
-  get inputs(): SelectionSet | undefined {
-    return this._inputs?.get();
+  get inputs(): GroupInputs | undefined {
+    return this._inputs;
   }
 
   addParents(parents: readonly ParentRelation[]) {
@@ -933,46 +1002,9 @@ class FetchGroup {
 
   addInputs(selection: Selection | SelectionSet, rewrites?: FetchDataInputRewrite[]) {
     assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
-    // There is subtlety here, that is due to the fact that we sometime want to merge groups that
-    // are at the same mergeAt but that may currently have "incompatible" input parent types. In
-    // that case, we still rely on the fact that they have a common "super type" (which they must
-    // have if they are at the same mergeAt), but this may mean changing `this._inputs` in this
-    // case.
-    const thisParentType = this._inputs.parentType;
-    const schema = thisParentType.schema();
-    const selectionParentType = selection.parentType;
-    // Note that we check reference inequality first just to avoid the most costly 2nd test in the common case where the parent types are
-    // already the same (we also use name comparison because if they are from different schema, we're still ok if the name matches)
-    if (thisParentType.name !== selectionParentType.name && !runtimeTypesIntersects(thisParentType, selectionParentType)) {
-      assert(this.isEntityFetch, `Cannot add ${selection} of parent type ${selectionParentType} to ${this._inputs} of parent type ${thisParentType}: no common runtime intersections and not an entity fetch`)
-      // Because it is an entity fetch, we know the top-level selections must be fragments that selects a specific object type.
-      const extractSelectedTypeName = (s: Selection) => {
-        assert(s.kind === 'FragmentSelection', () => `Expected ${s} to be a fragment when adding inputs ${selection} to ${this}`);
-        return s.element.castedType().name;
-      }
-      const typesToAccountFor = new Set<string>(
-        this._inputs.get().selections().map(extractSelectedTypeName).concat(
-          selection instanceof SelectionSet
-          ? selection.selections().map(extractSelectedTypeName)
-          : [extractSelectedTypeName(selection)]
-        )
-      );
 
-      const allSupertypes: (readonly CompositeType[])[] = Array.from(typesToAccountFor).map((name) => supertypes(schema.type(name) as CompositeType));
-      const first = allSupertypes[0];
-      const rest = allSupertypes.slice(1);
-      const commonType = first.find((t) => rest.every((st) => st.includes(t)));
-      assert(commonType, () => `Cannot add ${selection} of parent type ${selectionParentType} to ${this._inputs} of parent type ${thisParentType}: non common supertype`)
+    this._inputs.add(selection);
 
-      // Note that while there should be a common super type, there can be more than one, and it's a bit hard to find which one truly
-      // correspond to the group `mergeAt`. We pick the first one, because it works, but this is why this method actually look the
-      // fragments within the selections: this ensure that if we try to merge the inputs with some other choice later, and we've make
-      // the "wrong" choice here, it'll still work (because we won't look at the choice of parent made here, but rather the underlying
-      // object types).
-      this._inputs = this._inputs.rebaseOn(commonType);
-    }
-
-    this._inputs.updates().add(selection);
     if (rewrites) {
       rewrites.forEach((r) => this.inputRewrites.push(r));
     }
@@ -980,7 +1012,11 @@ class FetchGroup {
 
   copyInputsOf(other: FetchGroup) {
     if (other.inputs) {
-      this.addInputs(other.inputs, other.inputRewrites);
+      this.inputs?.addAll(other.inputs);
+
+      if (other.inputRewrites) {
+        other.inputRewrites.forEach((r) => this.inputRewrites.push(r));
+      }
     }
   }
 
@@ -1000,7 +1036,8 @@ class FetchGroup {
     const inputs = this.inputs;
     if (inputs) {
       this.cachedCost = undefined;
-      this._selection = MutableSelectionSet.ofWithMemoized(this.selection.minus(inputs), conditionsMemoizer);
+      const updated = inputs.selectionSets().reduce((prev, value) => prev.minus(value), this.selection);
+      this._selection = MutableSelectionSet.ofWithMemoized(this.selection.minus(updated), conditionsMemoizer);
     }
   }
 
@@ -1039,7 +1076,7 @@ class FetchGroup {
       return undefined;
     }
 
-    const inputSelections = this.inputs.selections();
+    const inputSelections = this.inputs.selectionSets().flatMap((s) => s.selections());
     // Checks that every selection is contained in the input selections.
     return this.selection.selections().every((selection) => {
       const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
@@ -1178,7 +1215,6 @@ class FetchGroup {
     assert(this.deferRef === other.deferRef, () => `Can only merge unrelated groups within the same @defer block: cannot merge ${this} and ${other}`);
     assert(this.subgraphName === other.subgraphName, () => `Can only merge unrelated groups to the same subraphs: cannot merge ${this} and ${other}`);
     assert(sameMergeAt(this.mergeAt, other.mergeAt), () => `Can only merge unrelated groups at the same "mergeAt": ${this} has mergeAt=${this.mergeAt}, but ${other} has mergeAt=${other.mergeAt}`);
-    assert(this.inputs?.parentType === other.inputs?.parentType, () => `Can only merge unrelated groups with the same input parent type: ${this} has input parent=${this.inputs?.parentType}, but ${other} has input parent=${other.inputs?.parentType}`);
 
     this.copyInputsOf(other);
     this.mergeInInternal(other, [], true);
@@ -1302,13 +1338,7 @@ class FetchGroup {
 
     const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
 
-    let inputs = this._inputs?.get();
-    if (inputs) {
-      inputs = removeConditionsFromSelectionSet(inputs, handledConditions);
-      inputs.validate(variableDefinitions);
-    }
-
-    const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
+    const inputNodes = this._inputs ? this._inputs.toSelectionSetNode(variableDefinitions, handledConditions) : undefined;
 
     const subgraphSchema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     let operation = this.isEntityFetch
@@ -1844,7 +1874,7 @@ class FetchDependencyGraph {
     rootKind: SchemaRootKind,
     parentType: CompositeType,
   }): FetchGroup {
-    const group = this.newFetchGroup({ subgraphName, parentType, rootKind });
+    const group = this.newFetchGroup({ subgraphName, parentType, rootKind, hasInputs: false });
     this.rootGroups.set(subgraphName, group);
     return group;
   }
@@ -1852,14 +1882,14 @@ class FetchDependencyGraph {
   private newFetchGroup({
     subgraphName,
     parentType,
-    inputsParentType,
+    hasInputs,
     rootKind, // always "query" for entity fetches
     mergeAt,
     deferRef,
   }: {
     subgraphName: string,
     parentType: CompositeType,
-    inputsParentType?: CompositeType,
+    hasInputs: boolean,
     rootKind: SchemaRootKind,
     mergeAt?: ResponsePath,
     deferRef?: string,
@@ -1871,7 +1901,7 @@ class FetchDependencyGraph {
       subgraphName,
       rootKind,
       parentType,
-      inputsParentType,
+      hasInputs,
       mergeAt,
       deferRef,
     });
@@ -1881,7 +1911,6 @@ class FetchDependencyGraph {
 
   getOrCreateKeyFetchGroup({
     subgraphName,
-    inputsTypeName,
     mergeAt,
     type,
     parent,
@@ -1889,7 +1918,6 @@ class FetchDependencyGraph {
     deferRef,
   }: {
     subgraphName: string,
-    inputsTypeName: string,
     mergeAt: ResponsePath,
     type: CompositeType,
     parent: ParentRelation,
@@ -1907,7 +1935,6 @@ class FetchDependencyGraph {
       if (existing.subgraphName === subgraphName
         && existing.mergeAt
         && sameMergeAt(existing.mergeAt, mergeAt)
-        && inputsTypeName === existing.inputs?.parentType?.name
         && existing.selection.selections().every((s) => s.kind === 'FragmentSelection' && s.element.castedType() === type)
         && !this.isInGroupsOrTheirAncestors(existing, conditionsGroups)
         && existing.deferRef === deferRef
@@ -1926,7 +1953,6 @@ class FetchDependencyGraph {
     }
     const newGroup = this.newKeyFetchGroup({
       subgraphName,
-      inputsTypeName,
       mergeAt,
       deferRef
     });
@@ -1957,6 +1983,7 @@ class FetchDependencyGraph {
       subgraphName,
       parentType,
       rootKind,
+      hasInputs: false,
       mergeAt,
       deferRef
     });
@@ -1984,12 +2011,10 @@ class FetchDependencyGraph {
 
   newKeyFetchGroup({
     subgraphName,
-    inputsTypeName,
     mergeAt,
     deferRef,
   }: {
     subgraphName: string,
-    inputsTypeName: string,
     mergeAt: ResponsePath,
     deferRef?: string,
   }): FetchGroup {
@@ -1998,7 +2023,7 @@ class FetchDependencyGraph {
     return this.newFetchGroup({
       subgraphName,
       parentType,
-      inputsParentType: this.typeForFetchInputs(inputsTypeName),
+      hasInputs: true,
       rootKind: 'query',
       mergeAt,
       deferRef
@@ -3675,7 +3700,6 @@ function computeGroupsForTree(
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
-              inputsTypeName: destType.name,
               type: destType,
               parent: { group, path: pathInParent },
               conditionsGroups,
@@ -4055,7 +4079,6 @@ function handleRequires(
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
     const newGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
-      inputsTypeName: group.inputs!.parentType.name,
       mergeAt: group.mergeAt!,
       deferRef: group.deferRef
     });
@@ -4175,7 +4198,6 @@ function handleRequires(
     // on all those `unmergedGroups`.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
-      inputsTypeName: entityType.name,
       mergeAt: group.mergeAt!,
       deferRef: group.deferRef
     });
@@ -4225,7 +4247,6 @@ function handleRequires(
     // Note that we know the conditions will include a key for our group so we can resume properly.
     const newGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
-      inputsTypeName: entityType.name,
       mergeAt: path.inResponse(),
     });
     newGroup.addParents(createdGroups.map((group) => ({ group })));
