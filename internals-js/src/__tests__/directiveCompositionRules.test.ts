@@ -298,4 +298,74 @@ describe('test with full federated schemas', () => {
     const appliedDirectives = (supergraph.schema.elementByCoordinate('Query.a') as FieldDefinition<any>).appliedDirectives;
     expect(appliedDirectives.toString()).toBe('@foo(value: 3, otherValue: 7)');
   });
+
+  it('test through composition manager with red herring renamed directive on OBJECT', () => {
+    const subgraph1 = buildSubgraph(
+      'Subgraph1',
+      'https://Subgraph1',
+      gql`
+        extend schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(
+          url: "https://specs.apollo.dev/foo/v0.1"
+          import: ["@foo"]
+        )
+
+        directive @foo(value: Int!, otherValue: Int!) on OBJECT
+
+        type Query @foo(value: 1, otherValue: 1) {
+          a: Int
+        }
+      `);
+
+    const subgraph2 = buildSubgraph(
+      'Subgraph2',
+      'https://Subgraph2',
+      gql`
+        extend schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(
+          url: "https://specs.apollo.dev/foo/v0.1"
+          import: [{ name: "@foo", as: "@bar" }]
+        )
+
+        directive @bar(value: Int!, otherValue: Int!) on OBJECT
+        directive @foo(value: Int!) on OBJECT
+
+        type Query @bar(value: 2, otherValue: 7) @foo(value: 3) {
+          a: Int
+        }
+      `);
+
+      const supergraph = buildSubgraph(
+        'Supergraph',
+        'https://Supergraph',
+        gql`
+          extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(
+            url: "https://specs.apollo.dev/foo/v0.1"
+            import: ["@foo"]
+          )
+
+          directive @foo(value: Int!, otherValue: Int!) on OBJECT
+
+          type Query {
+            a: Int
+          }
+        `);
+
+    const entry = new DirectiveCompositionEntry(
+      supergraph.schema.directive('foo') as any,
+      new Map([['value', FieldPropagationStrategy.SUM], ['otherValue', FieldPropagationStrategy.MAX]]),
+    );
+
+    const mgr = new FederationDirectiveCompositionManager([subgraph1.schema, subgraph2.schema], [entry])
+    mgr.mergeObject([
+      subgraph1.schema.elementByCoordinate('Query') as ObjectType,
+      subgraph2.schema.elementByCoordinate('Query') as ObjectType,
+    ], supergraph.schema.elementByCoordinate('Query') as ObjectType);
+    const appliedDirectives = (supergraph.schema.elementByCoordinate('Query') as ObjectType).appliedDirectives;
+    expect(appliedDirectives.toString()).toBe('@foo(value: 3, otherValue: 7)');
+  });
 });

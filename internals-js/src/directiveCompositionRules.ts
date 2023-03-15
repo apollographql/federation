@@ -51,7 +51,7 @@ export class FederationDirectiveCompositionManager {
         if (source === undefined) {
           return undefined;
         }
-        console.log(entry.definition.name, 'is name');
+
         const directiveName = this.getDirectiveNameInSchema(entry.definition.name, idx);
         if (directiveName) {
           return source?.appliedDirectivesOf(directiveName);
@@ -82,11 +82,6 @@ export class FederationDirectiveCompositionManager {
   }
 
   mergeObject(sources: (ObjectType | undefined)[], target: ObjectType) {
-    sources.forEach((source) => {
-      if (source === undefined) {
-        return;
-      }
-    });
     this.entries.forEach(entry => {
       this.mergeSchemaElement(sources, target, entry);
     });
