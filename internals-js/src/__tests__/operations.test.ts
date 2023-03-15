@@ -159,6 +159,184 @@ describe('fragments optimization', () => {
     `);
   });
 
+  test('Reuse fragment if possible else auto re-fragment', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T1
+      }
+
+      type T1 {
+        a: Int
+        b: Int
+        c: String
+        d: T2
+      }
+
+      type T2 {
+        x: String
+        y: String
+        u: String
+        t: String
+        s: String
+        r: String
+        q: String
+        p: String
+        o: String
+        z: Int
+        v: String
+        w: T1
+      }
+
+    `);
+
+    const operation = parseOperation(schema, `
+
+      fragment OnSubT2 on T2 {
+        x
+        y
+        u
+        t
+        s
+        r
+        q
+        p
+      }
+
+      query {
+        t {
+          d {
+            ...OnSubT2
+            z
+            w {
+              d {
+                ...OnSubT2
+                v
+              }
+            }
+          }
+        }
+
+        duplicate: t {
+          d {
+            ...OnSubT2
+            z
+            w {
+              d {
+                ...OnSubT2
+                v
+              }
+            }
+          }
+        }
+
+      }
+    `);
+    const expandedOperationForQP = operation.expandAllFragments();
+    const resultantOperationWithoutFragments = expandedOperationForQP.optimize(operation.selectionSet.fragments!, {autoFragmetize: false});
+    expect(resultantOperationWithoutFragments.toString()).toMatchString(`
+    {
+      t {
+        d {
+          x
+          y
+          u
+          t
+          s
+          r
+          q
+          p
+          z
+          w {
+            d {
+              x
+              y
+              u
+              t
+              s
+              r
+              q
+              p
+              v
+            }
+          }
+        }
+      }
+      duplicate: t {
+        d {
+          x
+          y
+          u
+          t
+          s
+          r
+          q
+          p
+          z
+          w {
+            d {
+              x
+              y
+              u
+              t
+              s
+              r
+              q
+              p
+              v
+            }
+          }
+        }
+      }
+    }
+    `);
+    const optimized = expandedOperationForQP.optimize(operation.selectionSet.fragments!, {autoFragmetize: true});
+    // Note that since auto refragment is set to true we were able to fragment the composite types
+    // and thus reduce the number of lines
+    // even if we could not re use the query fragment "OnSubT2"
+    expect(optimized.toString()).toMatchString(`
+    fragment T2faf847f657ff07731304c59df2e2a5defda79a55c30b12812b6321434294a78d on T2 {
+      x
+      y
+      u
+      t
+      s
+      r
+      q
+      p
+      v
+    }
+
+    fragment T2af4d8ff6a139c0b02b7fc2178dac7a3546b9082109233035d0c6a826eac159ad on T2 {
+      x
+      y
+      u
+      t
+      s
+      r
+      q
+      p
+      z
+      w {
+        d {
+          ...T2faf847f657ff07731304c59df2e2a5defda79a55c30b12812b6321434294a78d
+        }
+      }
+    }
+
+    {
+      t {
+        d {
+          ...T2af4d8ff6a139c0b02b7fc2178dac7a3546b9082109233035d0c6a826eac159ad
+        }
+      }
+      duplicate: t {
+        d {
+          ...T2af4d8ff6a139c0b02b7fc2178dac7a3546b9082109233035d0c6a826eac159ad
+        }
+      }
+    }`);
+  });
+
   test('handles fragments with nested selections', () => {
     const schema = parseSchema(`
       type Query {

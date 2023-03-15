@@ -30,6 +30,12 @@ export type QueryPlannerConfig = {
    */
   reuseQueryFragments?: boolean,
 
+  /**
+   * Whether the query planner should try to automatically fragment queries that
+   * are expanded during query to minimize the query size sent to subgraphs.
+   */
+  experimental_autoFragmentQuery?: boolean,
+
   // Side-note: implemented as an object instead of single boolean because we expect to add more to this soon
   // enough. In particular, once defer-passthrough to subgraphs is implemented, the idea would be to add a
   // new `passthroughSubgraphs` option that is the list of subgraph to which we can pass-through some @defer
@@ -53,6 +59,7 @@ export function enforceQueryPlannerConfigDefaults(
   return {
     exposeDocumentNodeInFetchNode: false,
     reuseQueryFragments: true,
+    experimental_autoFragmentQuery: false,
     incrementalDelivery: {
       enableDefer: false,
     },

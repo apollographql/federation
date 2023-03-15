@@ -48,9 +48,16 @@ import {
   Type,
 } from "./definitions";
 import { ERRORS } from "./error";
-import { isDirectSubtype, sameType } from "./types";
+import { isDirectSubtype, isSubtype, sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
+import { createHash } from '@apollo/utils.createhash';
+
+export interface OptimizeOptions {
+  minUsagesToOptimize?: number
+  autoFragmetize?: boolean
+  schema?: Schema
+}
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
@@ -240,7 +247,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
     //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
     //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
-    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check. 
+    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check.
     // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
     const fieldParentType = this.definition.parent
     return parentType.name === fieldParentType.name
@@ -358,7 +365,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     // schema.
     const { canRebase, rebasedCondition } = this.canRebaseOn(selectionParent);
     validate(
-      canRebase, 
+      canRebase,
       () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to selection set of parent type "${selectionParent}" (runtimes: ${possibleRuntimeTypes(selectionParent)})`
     );
     return this.withUpdatedTypes(selectionParent, rebasedCondition);
@@ -588,19 +595,23 @@ export class Operation {
     readonly name?: string) {
   }
 
-  optimize(fragments?: NamedFragments, minUsagesToOptimize: number = 2): Operation {
+  optimize(fragments?: NamedFragments, options: OptimizeOptions = {}, minUsagesToOptimize: number = 2): Operation {
     assert(minUsagesToOptimize >= 1, `Expected 'minUsagesToOptimize' to be at least 1, but got ${minUsagesToOptimize}`)
-    if (!fragments || fragments.isEmpty()) {
+    if (!fragments || (!options.autoFragmetize && fragments.isEmpty())){
       return this;
     }
 
-    let optimizedSelection = this.selectionSet.optimize(fragments);
+    let optimizedSelection = this.selectionSet.optimize(fragments,
+      { ...options,
+        schema: options.autoFragmetize? this.schema : undefined
+      });
     if (optimizedSelection === this.selectionSet) {
       return this;
     }
 
     const usages = new Map<string, number>();
     optimizedSelection.collectUsedFragmentNames(usages);
+    // fragments.
     for (const fragment of fragments.names()) {
       if (!usages.has(fragment)) {
         usages.set(fragment, 0);
@@ -1071,8 +1082,8 @@ export class SelectionSet extends Freezable<SelectionSet> {
     }
   }
 
-  optimize(fragments?: NamedFragments): SelectionSet {
-    if (!fragments || fragments.isEmpty()) {
+  optimize(fragments?: NamedFragments, options: OptimizeOptions = {}): SelectionSet {
+    if (!fragments || (!options.autoFragmetize && fragments.isEmpty())) {
       return this;
     }
 
@@ -1086,7 +1097,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
 
     const optimized = new SelectionSet(this.parentType, fragments);
     for (const selection of this.selections()) {
-      optimized.add(selection.optimize(fragments));
+      optimized.add(selection.optimize(fragments, options));
     }
     return optimized;
   }
@@ -1562,6 +1573,7 @@ export class FieldSelection extends Freezable<FieldSelection> {
   readonly kind = 'FieldSelection' as const;
   readonly selectionSet?: SelectionSet;
 
+
   constructor(
     readonly field: Field<any>,
     initialSelectionSet? : SelectionSet
@@ -1598,8 +1610,8 @@ export class FieldSelection extends Freezable<FieldSelection> {
     }
   }
 
-  optimize(fragments: NamedFragments): Selection {
-    const optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments) : undefined;
+  optimize(fragments: NamedFragments, options: OptimizeOptions = {}): Selection {
+    let optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments, options) : undefined;
     const fieldBaseType = baseType(this.field.definition.type!);
     if (isCompositeType(fieldBaseType) && optimizedSelection) {
       for (const candidate of fragments.maybeApplyingAtType(fieldBaseType)) {
@@ -1629,13 +1641,36 @@ export class FieldSelection extends Freezable<FieldSelection> {
         //   }
         // To do that, we can change that `equals` to `contains`, but then we should also "extract" the remainder
         // of `optimizedSelection` that isn't covered by the fragment, and that is the part slighly more involved.
-        if (optimizedSelection.equals(candidate.selectionSet)) {
+        if (optimizedSelection && optimizedSelection.equals(candidate.selectionSet)) {
           const fragmentSelection = new FragmentSpreadSelection(fieldBaseType, fragments, candidate.name);
           return new FieldSelection(this.field, selectionSetOf(fieldBaseType, fragmentSelection));
+        } else if(optimizedSelection && optimizedSelection.contains(candidate.selectionSet)) {
+          const fragmentedSelection = new FragmentSpreadSelection(fieldBaseType, fragments, candidate.name);
+          const selectionSetNotFragmented = optimizedSelection.minus(candidate.selectionSet);
+          const modifiedSelection = new SelectionSet(fieldBaseType, fragments);
+          modifiedSelection.add(fragmentedSelection);
+          if(!selectionSetNotFragmented.isEmpty()) {
+            for(const selection of selectionSetNotFragmented.selections()) {
+              modifiedSelection.add(selection);
+            }
+          }
+          if(modifiedSelection)
+            optimizedSelection = modifiedSelection;
         }
       }
+      // Create a new named fragment with exact selection set.
+      // Incase we see this same pattern in another part of the query,
+      // this will help reduce query expansion when sending requests to subgraphs.
+      // If we don't see the same pattern the final pass of optimizer will re-expand it.
+      const schema = options?.schema;
+      if(options?.autoFragmetize && schema && optimizedSelection.selections().length > 1) {
+        const hash = createHash('sha256').update(optimizedSelection.toString()).digest('hex');
+        const newFragment = new NamedFragmentDefinition(schema, fieldBaseType + hash, fieldBaseType, optimizedSelection);
+        fragments.addIfNotExist(newFragment);
+        const newFragmentSelection = new FragmentSpreadSelection(fieldBaseType, fragments, newFragment.name);
+        return new FieldSelection(this.field, selectionSetOf(fieldBaseType, newFragmentSelection));
+      }
     }
-
     return this.selectionSet === optimizedSelection
       ? this
       : new FieldSelection(this.field, optimizedSelection);
@@ -2035,8 +2070,8 @@ class InlineFragmentSelection extends FragmentSelection {
     };
   }
 
-  optimize(fragments: NamedFragments): FragmentSelection {
-    let optimizedSelection = this.selectionSet.optimize(fragments);
+  optimize(fragments: NamedFragments, options: OptimizeOptions ={}): FragmentSelection {
+    let optimizedSelection = this.selectionSet.optimize(fragments, options);
     const typeCondition = this.element().typeCondition;
     if (typeCondition) {
       for (const candidate of fragments.maybeApplyingAtType(typeCondition)) {
@@ -2056,7 +2091,32 @@ class InlineFragmentSelection extends FragmentSelection {
           }
           optimizedSelection = selectionSetOf(spread.element().parentType, spread);
           break;
+        } else if(optimizedSelection.contains(candidate.selectionSet)) {
+          if (isSubtype(typeCondition, candidate.typeCondition)) {
+            const fragmentedSelection = new FragmentSpreadSelection(candidate.typeCondition, fragments, candidate.name);
+            const selectionSetNotFragmented = optimizedSelection.minus(candidate.selectionSet);
+            const modifiedSelection = new SelectionSet(typeCondition, fragments);
+            modifiedSelection.add(fragmentedSelection);
+            if(!selectionSetNotFragmented.isEmpty()) {
+              for(const selection of selectionSetNotFragmented.selections()) {
+                modifiedSelection.add(selection);
+              }
+            }
+            if(modifiedSelection)
+              optimizedSelection = modifiedSelection;
+          }
         }
+      }
+      // Create a new named fragment with exact selection set.
+      // Incase we see this same pattern in another part of the query,
+      // this will help reduce query expansion when sending requests to subgraphs.
+      // If we don't see the same pattern the final pass of optimizer will re-expand it.
+      const schema = options?.schema;
+      if (options?.autoFragmetize && schema && optimizedSelection.selections().length > 1) {
+        const hash = createHash('sha256').update(optimizedSelection.toString()).digest('hex');
+        const newFragment = new NamedFragmentDefinition(schema, typeCondition + hash, typeCondition, optimizedSelection);
+        fragments.addIfNotExist(newFragment);
+        return new FragmentSpreadSelection(this.element().parentType, fragments, newFragment.name);
       }
     }
     return this.selectionSet === optimizedSelection
@@ -2173,7 +2233,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     };
   }
 
-  optimize(_: NamedFragments): FragmentSelection {
+  optimize(_: NamedFragments, _options: OptimizeOptions = {}): FragmentSelection {
     return this;
   }
 
