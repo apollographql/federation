@@ -409,7 +409,7 @@ export type Concrete<Type> = {
 //   const x = [1,2,undefined];
 //   const y: number[] = x.filter(isDefined);
 export const isDefined = <T>(t: T | undefined): t is T => t === undefined ? false : true;
-export const isNotNull = <T>(t: T | null): t is T => t === null ? false : true;
+
 /**
  * Removes the first occurrence of the provided element in the provided array, if said array contains said elements.
  *

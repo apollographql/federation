@@ -11,13 +11,10 @@ describe('directive composition entry tests', () => {
     DirectiveLocation.INTERFACE,
     DirectiveLocation.SCHEMA,
     DirectiveLocation.SCALAR,
-    DirectiveLocation.ARGUMENT_DEFINITION,
     DirectiveLocation.INTERFACE,
     DirectiveLocation.UNION,
-    DirectiveLocation.ENUM,
     DirectiveLocation.ENUM_VALUE,
     DirectiveLocation.INPUT_OBJECT,
-    DirectiveLocation.INPUT_FIELD_DEFINITION,
   ])('directive has invalid locations', (location) => {
     const definition = new DirectiveDefinition('foo');
     definition.addLocations(location);

@@ -714,7 +714,7 @@ class Merger {
     this.recordAppliedDirectivesToMerge(sources, dest);
     switch (dest.kind) {
       case 'ScalarType':
-        // Since we don't handle applied directives yet, we have nothing specific to do for scalars.
+        this.federationDirectiveComposition.mergeSchemaElements(sources, dest);
         break;
       case 'ObjectType':
         this.mergeObject(sources as (ObjectType | undefined)[], dest);
@@ -798,7 +798,7 @@ class Merger {
     const isValueType = !isEntity && !dest.isRootType();
 
     this.addFieldsShallow(sources, dest);
-    this.federationDirectiveComposition.mergeObject(sources, dest);
+    this.federationDirectiveComposition.mergeSchemaElements(sources, dest);
 
     if (!dest.hasFields()) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
@@ -1259,7 +1259,7 @@ class Merger {
   }
 
   private mergeField(sources: FieldOrUndefinedArray, dest: FieldDefinition<any>, mergeContext: FieldMergeContext = new FieldMergeContext(sources)) {
-    this.federationDirectiveComposition.mergeField(sources, dest);
+    this.federationDirectiveComposition.mergeSchemaElements(sources, dest);
     if (sources.every((s, i) => s === undefined ? this.fieldsInSourceIfAbstractedByInterfaceObject(dest, i).every((f) => this.isExternal(i, f)) : this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => {
         if (source) {
@@ -1717,6 +1717,7 @@ class Merger {
   }
 
   private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>) {
+    this.federationDirectiveComposition.mergeSchemaElements(sources, dest);
     this.mergeDescription(sources, dest);
     this.recordAppliedDirectivesToMerge(sources, dest);
     this.mergeTypeReference(sources, dest, true);
@@ -1931,6 +1932,7 @@ class Merger {
   }
 
   private mergeEnum(sources: (EnumType | undefined)[], dest: EnumType) {
+    this.federationDirectiveComposition.mergeSchemaElements(sources, dest);
     let usage = this.enumUsages.get(dest.name);
     if (!usage) {
       // If the enum is unused, we have a choice to make. We could skip the enum entirely (after all, exposing an unreferenced type mostly "pollutes" the supergraph API), but
@@ -2129,6 +2131,7 @@ class Merger {
   }
 
   private mergeInputField(sources: (InputFieldDefinition | undefined)[], dest: InputFieldDefinition) {
+    this.federationDirectiveComposition.mergeSchemaElements(sources, dest);
     this.mergeDescription(sources, dest);
     this.recordAppliedDirectivesToMerge(sources, dest);
     const allTypesEqual = this.mergeTypeReference(sources, dest, true);

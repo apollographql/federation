@@ -1,6 +1,6 @@
 import { DirectiveLocation } from 'graphql';
-import { Directive, DirectiveDefinition, FieldDefinition, NamedSchemaElement, ObjectType, Schema } from './definitions'
-import { assert, assertUnreachable, isDefined, isNotNull } from './utils';
+import { Directive, DirectiveDefinition, NamedSchemaElement, Schema } from './definitions'
+import { assert, assertUnreachable, isDefined } from './utils';
 
 export enum FieldPropagationStrategy {
   MAX = 'max',
@@ -13,8 +13,12 @@ export enum FieldPropagationStrategy {
 }
 
 const SUPPORTED_LOCATIONS = [
+  DirectiveLocation.ARGUMENT_DEFINITION,
+  DirectiveLocation.ENUM,
   DirectiveLocation.FIELD_DEFINITION,
+  DirectiveLocation.INPUT_FIELD_DEFINITION,
   DirectiveLocation.OBJECT,
+  DirectiveLocation.SCALAR,
 ];
 
 export class FederationDirectiveCompositionManager {
@@ -37,26 +41,16 @@ export class FederationDirectiveCompositionManager {
     }
   }
 
-
-  private getDirectiveNameInSchema(directiveName: string, schemaIndex: number) {
-    return this.directiveNameLookup[schemaIndex].get(directiveName);
-  }
-
   private mergeSchemaElement(sources: (NamedSchemaElement<any,any,any> | undefined)[], target: NamedSchemaElement<any,any,any>, entry: DirectiveCompositionEntry) {
     // get all directives from sources, then filter out sources where the
-    // field isn't defined. If the directive is null, that means it does not exist on that field
-    // for the given subgraph
+    // field isn't defined.
     const directives = sources
       .map((source, idx) => {
-        if (source === undefined) {
-          return undefined;
-        }
-
-        const directiveName = this.getDirectiveNameInSchema(entry.definition.name, idx);
+        const directiveName = this.directiveNameLookup[idx].get(entry.definition.name);
         if (directiveName) {
           return source?.appliedDirectivesOf(directiveName);
         }
-        return null;
+        return undefined;
       })
       .filter(isDefined);
 
@@ -66,22 +60,16 @@ export class FederationDirectiveCompositionManager {
 
     // next we need to flatten the directives into a single array
     const flattenedDirectives = directives
-      .filter(isNotNull)
       .reduce((acc, val) => acc.concat(val), []);
 
     const argArrays = entry.processFieldDirectives(flattenedDirectives);
+    assert(argArrays.length <= 1, 'Directive cannot be repeatable, so we shouldn\'t have more than one array of arguments.');
     argArrays.forEach(args => {
       target.applyDirective(entry.definition, args);
     });
   }
 
-  mergeField(sources: (FieldDefinition<any> | undefined)[], target: FieldDefinition<any>) {
-    this.entries.forEach(entry => {
-      this.mergeSchemaElement(sources, target, entry);
-    });
-  }
-
-  mergeObject(sources: (ObjectType | undefined)[], target: ObjectType) {
+  mergeSchemaElements(sources: (NamedSchemaElement<any,any,any> | undefined)[], target: NamedSchemaElement<any,any,any>) {
     this.entries.forEach(entry => {
       this.mergeSchemaElement(sources, target, entry);
     });
