@@ -1,8 +1,10 @@
 // write a jest test for directiveCompositionRules.ts
 
 import { DirectiveLocation } from 'graphql';
-import { Directive, DirectiveDefinition, ListType, NonNullType, ObjectType, Schema } from '../definitions';
-import { DirectiveCompositionEntry, DirectiveCompositionStrategy, DirectivePropagationStrategy, FederationDirectiveCompositionManager, FieldPropagationStrategy } from '../directiveCompositionRules';
+import gql from 'graphql-tag';
+import { Directive, DirectiveDefinition, FieldDefinition, ListType, NonNullType, ObjectType, Schema } from '../definitions';
+import { DirectiveCompositionEntry, FederationDirectiveCompositionManager, FieldPropagationStrategy } from '../directiveCompositionRules';
+import { buildSubgraph } from '../federation';
 
 describe('directive composition entry tests', () => {
   it.each([
@@ -22,39 +24,19 @@ describe('directive composition entry tests', () => {
     expect(() => {
       new DirectiveCompositionEntry(
         definition,
-        DirectiveCompositionStrategy.COLLAPSE,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT
       );
     }).toThrowError(`Directive @foo has unsupported locations: ${location}.`);
   });
 
-  it.each([
-    DirectiveCompositionStrategy.COLLAPSE,
-    DirectiveCompositionStrategy.COLLAPSE_FROM_ALL,
-  ])('collapse directive is repeatable', (strategy) => {
+  it('collapse directive is repeatable', () => {
     const definition = new DirectiveDefinition('foo');
     definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
     definition.repeatable = true;
     expect(() => {
       new DirectiveCompositionEntry(
         definition,
-        strategy,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT
       );
-    }).toThrowError(`Directive @foo is repeatable, but its composition strategy is ${strategy}.`);
-  });
-
-  it(('propagation strategy is inherit from object and directive is repeatable'), () => {
-    const definition = new DirectiveDefinition('foo');
-    definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
-    definition.repeatable = true;
-    expect(() => {
-      new DirectiveCompositionEntry(
-        definition,
-        DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT
-      );
-    }).toThrowError(`Directive @foo is repeatable, but its propagation strategy is inheritFromObject.`);
+    }).toThrowError(`Directive @foo is repeatable. Repeatable directives are not supported yet.`);
   });
 
   it('composition entry specifies unknown arguments', () => {
@@ -63,8 +45,6 @@ describe('directive composition entry tests', () => {
     expect(() => {
       new DirectiveCompositionEntry(
         definition,
-        DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT,
         new Map([['value', FieldPropagationStrategy.MAX]]),
       );
     }).toThrowError(`Directive @foo does not have an argument named value.`);
@@ -79,8 +59,6 @@ describe('directive composition entry tests', () => {
     expect(() => {
       new DirectiveCompositionEntry(
         definition,
-        DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT,
       );
     }).toThrowError(`Directive @foo has arguments that are not in the field strategies map.`);
   });
@@ -94,8 +72,6 @@ describe('directive composition entry tests', () => {
     expect(() => {
       new DirectiveCompositionEntry(
         definition,
-        DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT,
         new Map([['value', FieldPropagationStrategy.MAX]]),
       );
     }).toThrowError(`Directive @foo has one or more optional arguments. Optional arguments are not supported yet.`);
@@ -105,7 +81,6 @@ describe('directive composition entry tests', () => {
     [FieldPropagationStrategy.MAX, (schema: Schema) => schema.stringType(), 'Int!'],
     [FieldPropagationStrategy.MIN, (schema: Schema) => schema.stringType(), 'Int!'],
     [FieldPropagationStrategy.SUM, (schema: Schema) => schema.stringType(), 'Int!'],
-    [FieldPropagationStrategy.AVERAGE, (schema: Schema) => schema.stringType(), 'Int!'],
     [FieldPropagationStrategy.AND, (schema: Schema) => schema.intType(), 'Boolean!'],
     [FieldPropagationStrategy.OR, (schema: Schema) => schema.intType(), 'Boolean!'],
     [FieldPropagationStrategy.INTERSECTION, (schema: Schema) => schema.intType(), '[T]!'],
@@ -119,84 +94,50 @@ describe('directive composition entry tests', () => {
     expect(() => {
       new DirectiveCompositionEntry(
         definition,
-        DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT,
         new Map([['value', strategy]]),
       );
     }).toThrowError(`Directive @foo has a field strategy of ${strategy} for argument value, but the argument is not of type ${typeAsString}`);
   });
-
-  it('make sure that FIELD_DEFINITION is a valid location if INHERIT_FROM_OBJECT is used', () => {
-    const schema = new Schema();
-    const definition = new DirectiveDefinition('foo');
-    schema.addDirectiveDefinition(definition);
-    definition.addLocations(DirectiveLocation.OBJECT);
-    expect(() => {
-      new DirectiveCompositionEntry(
-        definition,
-        DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-        DirectivePropagationStrategy.INHERIT_FROM_OBJECT,
-      );
-    }).toThrowError(`Directive @foo is marked as inheritFromObject, but FIELD_DEFINITION is not one of its locations.`);
-  });
-
 });
 
 describe('field directive processing tests', () => {
+  const getPrimitiveType = (schema: Schema, type: string) => {
+    if (type === 'int') {
+      return schema.intType();
+    } else if (type === 'float') {
+      return schema.floatType();
+    } else if (type === 'string') {
+      return schema.stringType();
+    }
+    throw new Error('getPrimitiveType: unknown type');
+  }
+
   it.each([
-    [FieldPropagationStrategy.EXACT, [ { value: 1 }, { value: 2 } ]],
-  ])('match exact should not combine directives', (strategy, expectedResult) => {
+    [FieldPropagationStrategy.SUM, 1, 3, [ { value: 4 } ], 'int'],
+    [FieldPropagationStrategy.MAX, 1, 3, [ { value: 3 } ], 'int'],
+    [FieldPropagationStrategy.MIN, 1, 3, [ { value: 1 } ], 'int'],
+    [FieldPropagationStrategy.SUM, 0.5, 3.5, [ { value: 4 } ], 'float'],
+    [FieldPropagationStrategy.MAX, 0.5, 3.5, [ { value: 3.5 } ], 'float'],
+    [FieldPropagationStrategy.MIN, 0.5, 3.5, [ { value: 0.5 } ], 'float'],
+  ])('combination of directives (int/float)', (strategy, a, b, expectedResult, type) => {
     const schema = new Schema();
     const query = new ObjectType('Query');
     schema.addType(query);
-    query.addField('a', schema.intType());
+    query.addField('a', getPrimitiveType(schema, type));
 
     const definition = new DirectiveDefinition('foo');
     schema.addDirectiveDefinition(definition);
     definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
     definition.addArgument('value', new NonNullType(schema.intType()));
-    definition.repeatable = true;
+    definition.repeatable = false;
 
     const entry = new DirectiveCompositionEntry(
       definition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
       new Map([['value', strategy]]),
     );
 
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1 });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 2 });
-    const directives = query.fields()[0].appliedDirectives;
-
-    expect(entry.processFieldDirectives(directives as Directive<any>[])).toEqual(expectedResult);
-  });
-
-  it.each([
-    [FieldPropagationStrategy.SUM, [ { value: 4 } ]],
-    [FieldPropagationStrategy.MAX, [ { value: 3 } ]],
-    [FieldPropagationStrategy.MIN, [ { value: 1 } ]],
-    [FieldPropagationStrategy.AVERAGE, [ { value: 2 } ]],
-  ])('combination of directives (int)', (strategy, expectedResult) => {
-    const schema = new Schema();
-    const query = new ObjectType('Query');
-    schema.addType(query);
-    query.addField('a', schema.intType());
-
-    const definition = new DirectiveDefinition('foo');
-    schema.addDirectiveDefinition(definition);
-    definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
-    definition.addArgument('value', new NonNullType(schema.intType()));
-    definition.repeatable = true;
-
-    const entry = new DirectiveCompositionEntry(
-      definition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
-      new Map([['value', strategy]]),
-    );
-
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1 });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 3 });
+    query.fields()[0].applyDirective(definition, { name: 'value', value: a });
+    query.fields()[0].applyDirective(definition, { name: 'value', value: b });
     const directives = query.fields()[0].appliedDirectives;
 
     expect(entry.processFieldDirectives(directives as Directive<any>[])).toEqual(expectedResult);
@@ -217,12 +158,10 @@ describe('field directive processing tests', () => {
     schema.addDirectiveDefinition(definition);
     definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
     definition.addArgument('value', new NonNullType(schema.booleanType()));
-    definition.repeatable = true;
+    definition.repeatable = false;
 
     const entry = new DirectiveCompositionEntry(
       definition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
       new Map([['value', strategy]]),
     );
 
@@ -232,45 +171,6 @@ describe('field directive processing tests', () => {
     const directives = query.fields()[0].appliedDirectives;
 
     expect(entry.processFieldDirectives(directives as Directive<any>[])).toEqual(expectedResult);
-  });
-
-  it('more complicated example of combinations', () => {
-    const schema = new Schema();
-    const query = new ObjectType('Query');
-    schema.addType(query);
-    query.addField('a', schema.intType());
-
-    const definition = new DirectiveDefinition('foo');
-    schema.addDirectiveDefinition(definition);
-    definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
-    definition.addArgument('value', new NonNullType(schema.intType()));
-    definition.addArgument('otherValue', new NonNullType(schema.intType()));
-    definition.addArgument('label', new NonNullType(schema.stringType()));
-    definition.repeatable = true;
-
-    const entry = new DirectiveCompositionEntry(
-      definition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
-      new Map([['value', FieldPropagationStrategy.SUM], ['otherValue', FieldPropagationStrategy.MAX], ['label', FieldPropagationStrategy.EXACT]]),
-    );
-
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 1, label: 'a' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 2, label: 'b' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 3, label: 'c' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 4, label: 'a' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 5, label: 'a' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 6, label: 'b' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 7, label: 'c' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 8, label: 'c' });
-    query.fields()[0].applyDirective(definition, { name: 'value', value: 1, otherValue: 9, label: 'c' });
-    const directives = query.fields()[0].appliedDirectives;
-
-    expect(entry.processFieldDirectives(directives as Directive<any>[])).toEqual([
-      { value: 3, otherValue: 5, label: 'a'},
-      { value: 2, otherValue: 6, label: 'b'},
-      { value: 4, otherValue: 9, label: 'c'},
-    ]);
   });
 
   it('union field propagation strategy', () => {
@@ -283,12 +183,10 @@ describe('field directive processing tests', () => {
     schema.addDirectiveDefinition(definition);
     definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
     definition.addArgument('value', new NonNullType(new ListType(schema.intType())));
-    definition.repeatable = true;
+    definition.repeatable = false;
 
     const entry = new DirectiveCompositionEntry(
       definition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
       new Map([['value', FieldPropagationStrategy.UNION]]),
     );
 
@@ -312,12 +210,10 @@ describe('field directive processing tests', () => {
     schema.addDirectiveDefinition(definition);
     definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
     definition.addArgument('value', new NonNullType(new ListType(schema.intType())));
-    definition.repeatable = true;
+    definition.repeatable = false;
 
     const entry = new DirectiveCompositionEntry(
       definition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
       new Map([['value', FieldPropagationStrategy.INTERSECTION]]),
     );
 
@@ -333,146 +229,73 @@ describe('field directive processing tests', () => {
 });
 
 describe('test with full federated schemas', () => {
-  it('test through composition manager', () => {
-    const schema1 = new Schema();
-    const query1 = new ObjectType('Query');
-    schema1.addType(query1);
-    query1.addField('a', schema1.intType());
+  it('test through composition manager with red herring renamed directive', () => {
+    const subgraph1 = buildSubgraph(
+      'Subgraph1',
+      'https://Subgraph1',
+      gql`
+        extend schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(
+          url: "https://specs.apollo.dev/foo/v0.1"
+          import: ["@foo"]
+        )
 
-    const schema2 = new Schema();
-    const query2 = new ObjectType('Query');
-    schema2.addType(query2);
-    query2.addField('a', schema2.intType());
+        directive @foo(value: Int!, otherValue: Int!) on FIELD_DEFINITION
 
-    const supergraphSchema = new Schema();
-    const supergraphQuery = new ObjectType('Query');
-    supergraphSchema.addType(supergraphQuery);
-    supergraphQuery.addField('a', supergraphSchema.intType());
+        type Query {
+          a: Int @foo(value: 1, otherValue: 1)
+        }
+      `);
 
-    const generateFooDirectiveDefinitionForSchema = (schema: Schema) => {
-      const definition = new DirectiveDefinition('foo');
-      schema.addDirectiveDefinition(definition);
-      definition.addLocations(DirectiveLocation.FIELD_DEFINITION);
-      definition.addArgument('value', new NonNullType(schema.intType()));
-      definition.addArgument('otherValue', new NonNullType(schema.intType()));
-      definition.addArgument('label', new NonNullType(schema.stringType()));
-      definition.repeatable = true;
-      return definition;
-    };
+    const subgraph2 = buildSubgraph(
+      'Subgraph2',
+      'https://Subgraph2',
+      gql`
+        extend schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(
+          url: "https://specs.apollo.dev/foo/v0.1"
+          import: [{ name: "@foo", as: "@bar" }]
+        )
 
-    const definition1 = generateFooDirectiveDefinitionForSchema(schema1);
-    const definition2 = generateFooDirectiveDefinitionForSchema(schema2);
-    const supergraphDefinition = generateFooDirectiveDefinitionForSchema(supergraphSchema);
+        directive @bar(value: Int!, otherValue: Int!) on FIELD_DEFINITION
+        directive @foo(value: Int!) on FIELD_DEFINITION
 
-    query1.fields()[0].applyDirective(definition1, { name: 'value', value: 1, otherValue: 1, label: 'a' });
-    query2.fields()[0].applyDirective(definition2, { name: 'value', value: 2, otherValue: 7, label: 'a' });
-    query2.fields()[0].applyDirective(definition2, { name: 'value', value: 4, otherValue: 4, label: 'b' });
+        type Query {
+          a: Int @bar(value: 2, otherValue: 7) @foo(value: 3)
+        }
+      `);
 
-    const entry = new DirectiveCompositionEntry(
-      supergraphDefinition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
-      new Map([['value', FieldPropagationStrategy.SUM], ['otherValue', FieldPropagationStrategy.MAX], ['label', FieldPropagationStrategy.EXACT]]),
-    );
+      const supergraph = buildSubgraph(
+        'Supergraph',
+        'https://Supergraph',
+        gql`
+          extend schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(
+            url: "https://specs.apollo.dev/foo/v0.1"
+            import: ["@foo"]
+          )
 
-    const mgr = new FederationDirectiveCompositionManager([schema1, schema2], [entry])
-    mgr.mergeField([query1.fields()[0], query2.fields()[0]], supergraphQuery.fields()[0]);
-    const appliedDirectives = supergraphQuery.fields()[0].appliedDirectives;
-    expect(appliedDirectives.toString()).toBe('@foo(value: 3, otherValue: 7, label: "a"),@foo(value: 4, otherValue: 4, label: "b")');
-  });
+          directive @foo(value: Int!, otherValue: Int!) on FIELD_DEFINITION
 
-  it('mergeObject without propagation to fields', () => {
-    const schema1 = new Schema();
-    const query1 = new ObjectType('Query');
-    schema1.addType(query1);
-    query1.addField('a', schema1.intType());
-
-    const schema2 = new Schema();
-    const query2 = new ObjectType('Query');
-    schema2.addType(query2);
-    query2.addField('a', schema2.intType());
-
-    const supergraphSchema = new Schema();
-    const supergraphQuery = new ObjectType('Query');
-    supergraphSchema.addType(supergraphQuery);
-    supergraphQuery.addField('a', supergraphSchema.intType());
-
-    const generateFooDirectiveDefinitionForSchema = (schema: Schema) => {
-      const definition = new DirectiveDefinition('foo');
-      schema.addDirectiveDefinition(definition);
-      definition.addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT);
-      definition.addArgument('label', new NonNullType(schema.stringType()));
-      definition.repeatable = true;
-      return definition;
-    };
-
-    const definition1 = generateFooDirectiveDefinitionForSchema(schema1);
-    const definition2 = generateFooDirectiveDefinitionForSchema(schema2);
-    const supergraphDefinition = generateFooDirectiveDefinitionForSchema(supergraphSchema);
-
-    query1.applyDirective(definition1, { label: 'a' });
-    query2.applyDirective(definition2, { label: 'b' });
+          type Query {
+            a: Int
+          }
+        `);
 
     const entry = new DirectiveCompositionEntry(
-      supergraphDefinition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.CONSISTENT_LOCATION,
-      new Map([['label', FieldPropagationStrategy.EXACT]]),
+      supergraph.schema.directive('foo') as any,
+      new Map([['value', FieldPropagationStrategy.SUM], ['otherValue', FieldPropagationStrategy.MAX]]),
     );
 
-    const mgr = new FederationDirectiveCompositionManager([schema1, schema2], [entry])
-    mgr.mergeObject([query1, query2], supergraphQuery);
-    const appliedDirectives = supergraphQuery.appliedDirectives;
-    expect(appliedDirectives.toString()).toBe('@foo(label: "a"),@foo(label: "b")');
-    expect(supergraphQuery.fields()[0].appliedDirectives.toString()).toBe('');
-  });
-
-  it('mergeObject with propagation to fields', () => {
-    const schema1 = new Schema();
-    const query1 = new ObjectType('Query');
-    schema1.addType(query1);
-    query1.addField('a', schema1.intType());
-
-    const schema2 = new Schema();
-    const query2 = new ObjectType('Query');
-    schema2.addType(query2);
-    query2.addField('a', schema2.intType());
-
-    const supergraphSchema = new Schema();
-    const supergraphQuery = new ObjectType('Query');
-    supergraphSchema.addType(supergraphQuery);
-    supergraphQuery.addField('a', supergraphSchema.intType());
-
-    const generateFooDirectiveDefinitionForSchema = (schema: Schema) => {
-      const definition = new DirectiveDefinition('foo');
-      schema.addDirectiveDefinition(definition);
-      definition.addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT);
-      definition.addArgument('value', new NonNullType(schema.intType()));
-      return definition;
-    };
-
-    const definition1 = generateFooDirectiveDefinitionForSchema(schema1);
-    const definition2 = generateFooDirectiveDefinitionForSchema(schema2);
-    const supergraphDefinition = generateFooDirectiveDefinitionForSchema(supergraphSchema);
-
-    query1.applyDirective(definition1, { value: 1 });
-    query1.fields()[0].applyDirective(definition1, { value: 6 });
-    query2.applyDirective(definition2, { value: 2 });
-
-    const entry = new DirectiveCompositionEntry(
-      supergraphDefinition,
-      DirectiveCompositionStrategy.REMOVE_DUPLICATES,
-      DirectivePropagationStrategy.INHERIT_FROM_OBJECT,
-      new Map([['value', FieldPropagationStrategy.SUM]]),
-    );
-
-    const mgr = new FederationDirectiveCompositionManager([schema1, schema2], [entry])
-    mgr.mergeObject([query1, query2], supergraphQuery);
-    const appliedDirectives = supergraphQuery.appliedDirectives;
-    expect(appliedDirectives.toString()).toBe('@foo(value: 3)');
-
-    mgr.mergeField([query1.fields()[0], query2.fields()[0]], supergraphQuery.fields()[0]);
-
-    expect(supergraphQuery.fields()[0].appliedDirectives.toString()).toBe('@foo(value: 8)');
+    const mgr = new FederationDirectiveCompositionManager([subgraph1.schema, subgraph2.schema], [entry])
+    mgr.mergeField([
+      subgraph1.schema.elementByCoordinate('Query.a') as FieldDefinition<any>,
+      subgraph2.schema.elementByCoordinate('Query.a') as FieldDefinition<any>,
+    ], supergraph.schema.elementByCoordinate('Query.a') as FieldDefinition<any>);
+    const appliedDirectives = (supergraph.schema.elementByCoordinate('Query.a') as FieldDefinition<any>).appliedDirectives;
+    expect(appliedDirectives.toString()).toBe('@foo(value: 3, otherValue: 7)');
   });
 });
