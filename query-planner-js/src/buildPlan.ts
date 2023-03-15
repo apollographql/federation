@@ -1161,7 +1161,10 @@ class FetchGroup {
     }
   }
 
-  private finalizeSelection(handledConditions: Conditions): { selection: SelectionSet, outputRewrites: FetchDataOutputRewrite[] } {
+  private finalizeSelection(
+    variableDefinitions: VariableDefinitions,
+    handledConditions: Conditions,
+  ): { selection: SelectionSet, outputRewrites: FetchDataOutputRewrite[] } {
     // Finalizing the selection involves the following:
     // 1. removing any @include/@skip that are not necessary because they are already handled earlier in the query plan by
     //    some `ConditionNode`.
@@ -1177,7 +1180,7 @@ class FetchGroup {
 
     const { updated: selection, outputRewrites } = addAliasesForNonMergingFields(selectionWithTypenames);
 
-    selection.validate();
+    selection.validate(variableDefinitions);
     return { selection, outputRewrites };
   }
 
@@ -1203,12 +1206,12 @@ class FetchGroup {
       return undefined;
     }
 
-    const { selection, outputRewrites } = this.finalizeSelection(handledConditions);
+    const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
 
     let inputs = this._inputs?.get();
     if (inputs) {
       inputs = removeConditionsFromSelectionSet(inputs, handledConditions);
-      inputs.validate();
+      inputs.validate(variableDefinitions);
     }
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
@@ -2982,7 +2985,7 @@ function selectionCost(selection?: SelectionSet, depth: number = 1): number {
   // The cost is essentially the number of elements in the selection, but we make deeped element cost a tiny bit more, mostly to make things a tad more
   // deterministic (typically, if we have an interface with a single implementation, then we can have a choice between a query plan that type-explode a
   // field of the interface and one that doesn't, and both will be almost identical, except that the type-exploded field will be a different depth; by
-  // favoring lesser depth in that case, we favor not type-expoding).
+  // favoring lesser depth in that case, we favor not type-exploding).
   //return selection ? 10 + depth : 0;
   return selection ? selection.selections().reduce((prev, curr) => prev + depth + selectionCost(curr.selectionSet, depth + 1), 0) : 0;
 }
@@ -3671,7 +3674,7 @@ function computeGroupsForTree(
             // We need to add the query __typename for the current type in the current group.
             // Note that the value of the "attachement" is the alias or '' if there is no alias
             const alias = typenameAttachment === '' ? undefined : typenameAttachment;
-            const typenameField = new Field(operation.parentType.typenameField()!, {}, new VariableDefinitions(), undefined, alias);
+            const typenameField = new Field(operation.parentType.typenameField()!, undefined, undefined, alias);
             group.addAtPath(path.inGroup().concat(typenameField));
             dependencyGraph.deferTracking.updateSubselection({
               ...deferContext,
@@ -3826,7 +3829,7 @@ function subselectionTypeIfAbstract(selection: Selection): AbstractType | undefi
   }
 }
 
-function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentTypeIfAbstact?: AbstractType): SelectionSet {
+function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentTypeIfAbstract?: AbstractType): SelectionSet {
   const handleSelection = (selection: Selection): Selection => {
       if (!selection.selectionSet) {
         return selection;
@@ -3841,12 +3844,12 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentType
       }
   }
 
-  if (!parentTypeIfAbstact || selectionSet.hasTopLevelTypenameField()) {
+  if (!parentTypeIfAbstract || selectionSet.hasTopLevelTypenameField()) {
     return selectionSet.lazyMap((selection) => handleSelection(selection));
   }
 
   const updates = new SelectionSetUpdates();
-  updates.add(new FieldSelection(new Field(parentTypeIfAbstact.typenameField()!)));
+  updates.add(new FieldSelection(new Field(parentTypeIfAbstract.typenameField()!)));
   selectionSet.selections().forEach((selection) => updates.add(handleSelection(selection)))
   return updates.toSelectionSet(selectionSet.parentType);
 }
@@ -4225,7 +4228,6 @@ function operationForEntitiesFetch(
     new Field(
       entities,
       { representations: representationsVariable },
-      variableDefinitions,
     ),
     selectionSet,
   );

@@ -30,9 +30,7 @@ import {
   runtimeTypesIntersects,
   Schema,
   SchemaRootKind,
-  mergeVariables,
-  Variables,
-  variablesInArguments,
+  VariableCollector,
   VariableDefinitions,
   variableDefinitionsFromAST,
   CompositeType,
@@ -47,6 +45,7 @@ import {
   Type,
   sameDirectiveApplication,
   isLeafType,
+  Variables,
 } from "./definitions";
 import { ERRORS } from "./error";
 import { isDirectSubtype, sameType } from "./types";
@@ -69,15 +68,14 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
 
   constructor(
     schema: Schema,
-    protected readonly variablesInElement: Variables,
     directives?: readonly Directive<any>[],
   ) {
     super(schema, directives);
   }
 
-
-  variables(): Variables {
-    return mergeVariables(this.variablesInElement, this.variablesInAppliedDirectives());
+  collectVariables(collector: VariableCollector) {
+    this.collectVariablesInElement(collector);
+    this.collectVariablesInAppliedDirectives(collector);
   }
 
   abstract key(): string;
@@ -87,6 +85,8 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
   abstract rebaseOn(parentType: CompositeType): T;
 
   abstract withUpdatedDirectives(newDirectives: readonly Directive<any>[]): T;
+
+  protected abstract collectVariablesInElement(collector: VariableCollector): void;
 
   addAttachement(key: string, value: string) {
     if (!this.attachements) {
@@ -113,18 +113,25 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   constructor(
     readonly definition: FieldDefinition<CompositeType>,
-    readonly args: TArgs = Object.create(null),
-    readonly variableDefinitions: VariableDefinitions = new VariableDefinitions(),
+    private readonly args?: TArgs,
     directives?: readonly Directive<any>[],
     readonly alias?: string,
-    variables?: Variables,
   ) {
-    super(definition.schema(), variables ?? variablesInArguments(args), directives);
+    super(definition.schema(), directives);
   }
 
+  protected collectVariablesInElement(collector: VariableCollector): void {
+    if (this.args) {
+      collector.collectInArguments(this.args);
+    }
+  }
 
   get name(): string {
     return this.definition.name;
+  }
+
+  argumentValue(name: string): any {
+    return this.args ? this.args[name] : undefined;
   }
 
   responseName(): string {
@@ -151,10 +158,8 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const newField = new Field<TArgs>(
       newDefinition,
       this.args,
-      this.variableDefinitions,
       this.appliedDirectives,
       this.alias,
-      this.variablesInElement,
     );
     this.copyAttachementsTo(newField);
     return newField;
@@ -164,10 +169,8 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const newField = new Field<TArgs>(
       this.definition,
       this.args,
-      this.variableDefinitions,
       this.appliedDirectives,
       newAlias,
-      this.variablesInElement,
     );
     this.copyAttachementsTo(newField);
     return newField;
@@ -177,21 +180,45 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const newField = new Field<TArgs>(
       this.definition,
       this.args,
-      this.variableDefinitions,
       newDirectives,
       this.alias,
-      this.variablesInElement,
     );
     this.copyAttachementsTo(newField);
     return newField;
   }
+
+  argumentsToNodes(): ArgumentNode[] | undefined {
+    if (!this.args) {
+      return undefined;
+    }
+
+    const entries = Object.entries(this.args);
+    if (entries.length === 0) {
+      return undefined;
+    }
+
+    return entries.map(([n, v]) => {
+      return {
+        kind: Kind.ARGUMENT,
+        name: { kind: Kind.NAME, value: n },
+        value: valueToAST(v, this.definition.argument(n)!.type!)!,
+      };
+    });
+  }
+
 
   appliesTo(type: ObjectType | InterfaceType): boolean {
     const definition = type.field(this.name);
     return !!definition && this.selects(definition);
   }
 
-  selects(definition: FieldDefinition<any>, assumeValid: boolean = false): boolean {
+  selects(
+    definition: FieldDefinition<any>,
+    assumeValid: boolean = false,
+    variableDefinitions?: VariableDefinitions,
+  ): boolean {
+    assert(assumeValid || variableDefinitions, 'Must provide variable definitions if validation is needed');
+
     // We've already validated that the field selects the definition on which it was built.
     if (definition === this.definition) {
       return true;
@@ -206,20 +233,20 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of definition.arguments()) {
-      const appliedValue = this.args[argDef.name];
+      const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
         if (argDef.defaultValue === undefined && !isNullableType(argDef.type!)) {
           return false;
         }
       } else {
-        if (!assumeValid && !isValidValue(appliedValue, argDef, this.variableDefinitions)) {
+        if (!assumeValid && !isValidValue(appliedValue, argDef, variableDefinitions!)) {
           return false;
         }
       }
     }
 
     // We also make sure the field application does not have non-null values for field that are not part of the definition.
-    if (!assumeValid) {
+    if (!assumeValid && this.args) {
       for (const [name, value] of Object.entries(this.args)) {
         if (value !== null && definition.argument(name) === undefined) {
           return false
@@ -229,28 +256,30 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return true;
   }
 
-  validate() {
+  validate(variableDefinitions: VariableDefinitions) {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
-      const appliedValue = this.args[argDef.name];
+      const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!),
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef, this.variableDefinitions),
+          isValidValue(appliedValue, argDef, variableDefinitions),
           () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
 
     // We also make sure the field application does not have non-null values for field that are not part of the definition.
-    for (const [name, value] of Object.entries(this.args)) {
-      validate(
-        value === null || this.definition.argument(name) !== undefined,
-        () => `Unknown argument "${name}" in field application of "${this.name}"`);
+    if (this.args) {
+      for (const [name, value] of Object.entries(this.args)) {
+        validate(
+          value === null || this.definition.argument(name) !== undefined,
+          () => `Unknown argument "${name}" in field application of "${this.name}"`);
+      }
     }
   }
 
@@ -323,14 +352,14 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return that.kind === 'Field'
       && this.name === that.name
       && this.alias === that.alias
-      && argumentsEquals(this.args, that.args)
+      && (this.args ? that.args && argumentsEquals(this.args, that.args) : !that.args)
       && haveSameDirectives(this, that);
   }
 
   toString(): string {
     const alias = this.alias ? this.alias + ': ' : '';
-    const entries = Object.entries(this.args);
-    const args = entries.length == 0
+    const entries = this.args ? Object.entries(this.args) : [];
+    const args = entries.length === 0
       ? ''
       : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.definition.argument(n)?.type)}`).join(', ') + ')';
     return alias + this.name + args + this.appliedDirectivesToString();
@@ -372,10 +401,14 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   ) {
     // TODO: we should do some validation here (remove the ! with proper error, and ensure we have some intersection between
     // the source type and the type condition)
-    super(sourceType.schema(), [], directives);
+    super(sourceType.schema(), directives);
     this.typeCondition = typeCondition !== undefined && typeof typeCondition === 'string'
       ? this.schema().type(typeCondition)! as CompositeType
       : typeCondition;
+  }
+
+  protected collectVariablesInElement(_: VariableCollector): void {
+    // Cannot have variables in fragments
   }
 
   get parentType(): CompositeType {
@@ -814,10 +847,6 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return new NamedFragmentDefinition(this.schema(), this.name, this.typeCondition).setSelectionSet(newSelectionSet);
   }
 
-  variables(): Variables {
-    return mergeVariables(this.variablesInAppliedDirectives(), this.selectionSet.usedVariables());
-  }
-
   collectUsedFragmentNames(collector: Map<string, number>) {
     this.selectionSet.collectUsedFragmentNames(collector);
   }
@@ -889,14 +918,6 @@ export class NamedFragments {
     return this.fragments.size === 0;
   }
 
-  variables(): Variables {
-    let variables: Variables = [];
-    for (const fragment of this.fragments.values()) {
-      variables = mergeVariables(variables, fragment.variables());
-    }
-    return variables;
-  }
-
   names(): readonly string[] {
     return this.fragments.keys();
   }
@@ -950,9 +971,9 @@ export class NamedFragments {
     return this.fragments.values();
   }
 
-  validate() {
+  validate(variableDefinitions: VariableDefinitions) {
     for (const fragment of this.fragments.values()) {
-      fragment.selectionSet.validate();
+      fragment.selectionSet.validate(variableDefinitions);
     }
   }
 
@@ -1075,14 +1096,15 @@ export class SelectionSet {
   }
 
   usedVariables(): Variables {
-    let variables: Variables = [];
+    const collector = new VariableCollector();
+    this.collectVariables(collector);
+    return collector.variables();
+  }
+
+  collectVariables(collector: VariableCollector) {
     for (const selection of this.selections()) {
-      variables = mergeVariables(variables, selection.usedVariables());
+      selection.collectVariables(collector);
     }
-    if (this.fragments) {
-      variables = mergeVariables(variables, this.fragments.variables());
-    }
-    return variables;
   }
 
   collectUsedFragmentNames(collector: Map<string, number>) {
@@ -1131,9 +1153,7 @@ export class SelectionSet {
     updatedFragments?: NamedFragments | null,
   ): SelectionSet {
     const selections = this.selections();
-    const newFragments = updatedFragments === undefined
-      ? this.fragments
-      : (updatedFragments === null ? undefined : updatedFragments);
+    const newFragments = updatedFragments === undefined ? this.fragments : (updatedFragments ?? undefined);
 
     let updatedSelections: SelectionSetUpdates | undefined = undefined;
     for (let i = 0; i < selections.length; i++) {
@@ -1258,10 +1278,10 @@ export class SelectionSet {
     return this.selections().every((selection) => selection.canAddTo(parentTypeToTest));
   }
 
-  validate() {
+  validate(variableDefinitions: VariableDefinitions) {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
-      selection.validate();
+      selection.validate(variableDefinitions);
     }
   }
 
@@ -1519,7 +1539,7 @@ function withUnecessaryFragmentsRemoved(
 }
 
 function makeSelection(parentType: CompositeType, updates: SelectionUpdate[], fragments?: NamedFragments): Selection {
-  assert(updates.length > 0, 'Sould not be called without any updates');
+  assert(updates.length > 0, 'Should not be called without any updates');
   const first = updates[0];
 
   // Optimize for the simple case of a single selection, as we don't have to do anything complex to merge the sub-selections.
@@ -1715,7 +1735,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract toSelectionNode(): SelectionNode;
 
-  abstract validate(): void;
+  abstract validate(variableDefinitions: VariableDefinitions): void;
 
   abstract rebaseOn(parentType: CompositeType): TOwnType;
 
@@ -1723,8 +1743,9 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     return this.element.parentType;
   }
 
-  usedVariables(): Variables {
-    return mergeVariables(this.element.variables(), this.selectionSet?.usedVariables() ?? []);
+  collectVariables(collector: VariableCollector) {
+    this.element.collectVariables(collector);
+    this.selectionSet?.collectVariables(collector)
   }
 
   collectUsedFragmentNames(collector: Map<string, number>) {
@@ -1850,23 +1871,8 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
-  private fieldArgumentsToAST(): ArgumentNode[] | undefined {
-    const entries = Object.entries(this.element.args);
-    if (entries.length === 0) {
-      return undefined;
-    }
-
-    return entries.map(([n, v]) => {
-      return {
-        kind: Kind.ARGUMENT,
-        name: { kind: Kind.NAME, value: n },
-        value: valueToAST(v, this.element.definition.argument(n)!.type!)!,
-      };
-    });
-  }
-
-  validate() {
-    this.element.validate();
+  validate(variableDefinitions: VariableDefinitions) {
+    this.element.validate(variableDefinitions);
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -1874,7 +1880,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
       () => `Invalid empty selection set for field "${this.element.definition.coordinate}" of non-leaf type ${this.element.definition.type}`,
       this.element.definition.sourceAST
     );
-    this.selectionSet?.validate();
+    this.selectionSet?.validate(variableDefinitions);
   }
 
   /**
@@ -1933,7 +1939,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
         value: this.element.name,
       },
       alias,
-      arguments: this.fieldArgumentsToAST(),
+      arguments: this.element.argumentsToNodes(),
       directives: this.element.appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet?.toSelectionSetNode()
     };
@@ -2052,7 +2058,7 @@ class InlineFragmentSelection extends FragmentSelection {
     return new InlineFragmentSelection(fragment, selectionSet);
   }
 
-  validate() {
+  validate(variableDefinitions: VariableDefinitions) {
     this.validateDeferAndStream();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
@@ -2060,7 +2066,7 @@ class InlineFragmentSelection extends FragmentSelection {
       !this.selectionSet.isEmpty(),
       () => `Invalid empty selection set for fragment "${this.element}"`
     );
-    this.selectionSet.validate();
+    this.selectionSet.validate(variableDefinitions);
   }
 
   rebaseOn(parentType: CompositeType): FragmentSelection {
@@ -2364,7 +2370,7 @@ function selectionOfNode(
         : undefined;
 
       selection = new FieldSelection(
-        new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, directives, node.alias?.value),
+        new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), directives, node.alias?.value),
         selectionSet,
       );
       break;
@@ -2437,7 +2443,7 @@ export function operationFromDocument(
         break;
     }
   });
-  fragments.validate();
+  fragments.validate(variableDefinitions);
   return operationFromAST({schema, operation, variableDefinitions, fragments, validateInput: options?.validate});
 }
 
@@ -2485,7 +2491,7 @@ export function parseOperation(
 export function parseSelectionSet({
   parentType,
   source,
-  variableDefinitions,
+  variableDefinitions = new VariableDefinitions(),
   fragments,
   fieldAccessor,
   validate = true,
@@ -2503,7 +2509,7 @@ export function parseSelectionSet({
     : source;
   const selectionSet = selectionSetOfNode(parentType, node, variableDefinitions ?? new VariableDefinitions(), fragments, fieldAccessor);
   if (validate)
-    selectionSet.validate();
+    selectionSet.validate(variableDefinitions);
   return selectionSet;
 }
 

@@ -198,10 +198,6 @@ export class Edge {
   }
 
   addToConditions(newConditions: SelectionSet) {
-    // As mentioned in the ctor, we freeze the conditions to avoid unexpected modifications once a query
-    // graph has bee fully built (this method is called _during_ the building, so can still mutate the
-    // edge freely). Which means we need to clone any existing conditions (so we can modify them), and need
-    // to re-freeze the result afterwards.
     this._conditions = this._conditions
       ? new SelectionSetUpdates().add(this._conditions).add(newConditions).toSelectionSet(this._conditions.parentType)
       : newConditions;
