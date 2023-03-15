@@ -5452,3 +5452,116 @@ test('handles case of key chains in parallel requires', () => {
     }
   `);
 });
+
+test('Query.node pattern', () => {
+  const subgraph1 = {
+    name: 'Authors',
+    typeDefs: gql`
+      type Query {
+        author(authorId: String!): Author
+      }
+
+      type Author @key(fields: "authorId") {
+        authorId: String!
+        name: String @shareable
+      }
+    `,
+  };
+
+  const subgraph2 = {
+    name: 'Books',
+    typeDefs: gql`
+      type Query {
+        book(bookId: String!): Book
+      }
+
+      type Book @key(fields: "bookId author { name }") {
+        bookId: String!
+        author: Author
+      }
+
+      type Author @key(fields: "authorId") {
+        authorId: String!
+        name: String @external
+      }
+    `,
+  };
+
+  const subgraph3 = {
+    name: 'node-relay',
+    typeDefs: gql`
+      type Query {
+        node(id: ID!): Node
+          @provides(
+            fields: """
+            ... on Author {
+              authorId
+            }
+            ... on Book {
+              bookId
+              author { name }
+            }
+            """
+          )
+      }
+
+      interface Node {
+        id: ID!
+      }
+
+      type Author implements Node @key(fields: "authorId") {
+        id: ID! @requires(fields: "authorId")
+        authorId: String! @external
+        name: String @external @shareable
+      }
+
+      type Book implements Node @key(fields: "bookId author { name }") {
+        id: ID! @requires(fields: "bookId author { name }")
+        bookId: String! @external
+        author: Author @external
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+
+  const nodeOperation = operationFromDocument(
+    api,
+    gql`
+      {
+        node(id: "base64encodedjsonstring") {
+          ... on Book {
+            bookId
+            author {
+              name
+            }
+          }
+        }
+      }
+    `,
+  );
+
+  const nodePlan = queryPlanner.buildQueryPlan(nodeOperation);
+  expect(nodePlan).toMatchInlineSnapshot();
+
+  const joinOperation = operationFromDocument(
+    api,
+    gql`
+      {
+        book(bookId: "book") {
+          id
+          author {
+            id
+          }
+        }
+      }
+    `,
+  );
+
+  const joinPlan = queryPlanner.buildQueryPlan(joinOperation);
+  expect(joinPlan).toMatchInlineSnapshot();
+});
