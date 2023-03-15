@@ -56,8 +56,12 @@ import {
   isInterfaceType,
   isNonNullType,
   Type,
-  FragmentSelection,
+  MutableSelectionSet,
+  SelectionSetUpdates,
+  AbstractType,
+  isDefined,
   InterfaceType,
+  FragmentSelection,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -164,7 +168,7 @@ const defaultCostFunction: CostFunction = {
    * plus some constant "premium" to account for the fact than doing each fetch is costly (and that fetch cost often
    * dwarfted the actual cost of fields resolution).
    */
-  onFetchGroup: (group: FetchGroup, _: Conditions) => (fetchCost + selectionCost(group.selection)),
+  onFetchGroup: (group: FetchGroup) => (fetchCost + group.cost()),
 
   /**
    * We don't take conditions into account in costing for now as they don't really know anything on the condition
@@ -285,7 +289,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
-    const operation = selection.element();
+    const operation = selection.element;
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
@@ -552,7 +556,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     const { main, deferred } = dependencyGraph.process(this.costFunction, this.rootKind);
     return deferred.length === 0
       ? main
-      : this.costFunction.reduceDefer(main, dependencyGraph.deferTracking.primarySelection!, deferred);
+      : this.costFunction.reduceDefer(main, dependencyGraph.deferTracking.primarySelection!.get(), deferred);
   }
 
   private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
@@ -586,53 +590,6 @@ class QueryPlanningTaversal<RV extends Vertex> {
 type UnhandledGroups = [FetchGroup, UnhandledParentRelations][];
 type UnhandledParentRelations = ParentRelation[];
 
-class LazySelectionSet {
-
-  constructor(
-    private _computed?: SelectionSet,
-    private _conditions?: Conditions,
-    private readonly _toCloneOnWrite?: SelectionSet
-  ) {
-    assert(_computed || _toCloneOnWrite, 'Should have one of the argument');
-  }
-
-  parentType(): CompositeType {
-    return this.forRead().parentType;
-  }
-
-  forRead(): SelectionSet {
-    return this._computed ? this._computed : this._toCloneOnWrite!;
-  }
-
-  forWrite(): SelectionSet {
-    // Since we're going to write the set, we should make sure we recompute conditions when we need them.
-    this._conditions = undefined;
-    if (!this._computed) {
-      this._computed = this._toCloneOnWrite!.clone();
-    }
-    return this._computed;
-  }
-
-  conditions(): Conditions {
-    if (!this._conditions) {
-      this._conditions = conditionsOfSelectionSet(this.forRead());
-    }
-    return this._conditions;
-  }
-
-  clone(): LazySelectionSet {
-    if (this._computed) {
-      return new LazySelectionSet(undefined, this._conditions, this._computed);
-    } else {
-      return this;
-    }
-  }
-
-  toString() {
-    return this.forRead().toString();
-  }
-}
-
 /**
  * Used in `FetchDependencyGraph` to store, for a given group, information about one of its parent.
  * Namely, this structure stores:
@@ -649,6 +606,8 @@ type ParentRelation = {
   group: FetchGroup,
   path?: OperationPath,
 }
+
+const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: conditionsOfSelectionSet(selectionSet) });
 
 /**
  * Represents a subgraph fetch of a query plan, and is a vertex of a `FetchDependencyGraph` (and as such provides links to
@@ -672,10 +631,14 @@ class FetchGroup {
     readonly rootKind: SchemaRootKind,
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
-    private _selection: LazySelectionSet,
-    private _inputs?: LazySelectionSet,
+    private _selection: MutableSelectionSet<{ conditions: Conditions}>,
+    private _inputs?: MutableSelectionSet,
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
+    // Some of the processing on the dependency graph checks for groups to the same subgraph and same mergeAt, and we use this
+    // key for that. Having it here saves us from re-computing it more than once.
+    readonly subgraphAndMergeAtKey?: string,
+    private cachedCost?: number,
   ) {
   }
 
@@ -711,10 +674,11 @@ class FetchGroup {
       rootKind,
       parentType,
       !!inputsParentType,
-      new LazySelectionSet(new SelectionSet(parentType)),
-      inputsParentType ? new LazySelectionSet(new SelectionSet(inputsParentType)) : undefined,
+      MutableSelectionSet.emptyWithMemoized(parentType, conditionsMemoizer),
+      inputsParentType ? MutableSelectionSet.empty(inputsParentType) : undefined,
       mergeAt,
       deferRef,
+      inputsParentType ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined
     );
   }
 
@@ -730,7 +694,16 @@ class FetchGroup {
       this._inputs?.clone(),
       this.mergeAt,
       this.deferRef,
+      this.subgraphAndMergeAtKey,
+      this.cachedCost,
     );
+  }
+
+  cost(): number {
+    if (!this.cachedCost) {
+      this.cachedCost = selectionCost(this.selection);
+    }
+    return this.cachedCost;
   }
 
   set id(id: string | undefined) {
@@ -746,14 +719,17 @@ class FetchGroup {
     return !this.mergeAt;
   }
 
-  // It's important that the returned selection is never modified. Use the other modification methods of this method instead!
   get selection(): SelectionSet {
-    return this._selection.forRead();
+    return this._selection.get();
   }
 
-  // It's important that the returned selection is never modified. Use the other modification methods of this method instead!
+  private selectionUpdates(): SelectionSetUpdates {
+    this.cachedCost = undefined;
+    return this._selection.updates();
+  }
+
   get inputs(): SelectionSet | undefined {
-    return this._inputs?.forRead();
+    return this._inputs?.get();
   }
 
   addParents(parents: readonly ParentRelation[]) {
@@ -868,7 +844,7 @@ class FetchGroup {
     // that case, we still rely on the fact that they have a common "super type" (which they must
     // have if they are at the same mergeAt), but this may mean changing `this._inputs` in this
     // case.
-    const thisParentType = this._inputs.parentType();
+    const thisParentType = this._inputs.parentType;
     const schema = thisParentType.schema();
     const selectionParentType = selection.parentType;
     // Note that we check reference inequality first just to avoid the most costly 2nd test in the common case where the parent types are
@@ -878,10 +854,10 @@ class FetchGroup {
       // Because it is an entity fetch, we know the top-level selections must be fragments that selects a specific object type.
       const extractSelectedTypeName = (s: Selection) => {
         assert(s.kind === 'FragmentSelection', () => `Expected ${s} to be a fragment when adding inputs ${selection} to ${this}`);
-        return s.element().castedType().name;
+        return s.element.castedType().name;
       }
       const typesToAccountFor = new Set<string>(
-        this._inputs.forRead().selections().map(extractSelectedTypeName).concat(
+        this._inputs.get().selections().map(extractSelectedTypeName).concat(
           selection instanceof SelectionSet
           ? selection.selections().map(extractSelectedTypeName)
           : [extractSelectedTypeName(selection)]
@@ -899,33 +875,27 @@ class FetchGroup {
       // fragments within the selections: this ensure that if we try to merge the inputs with some other choice later, and we've make
       // the "wrong" choice here, it'll still work (because we won't look at the choice of parent made here, but rather the underlying
       // object types).
-      const newInputs = new SelectionSet(commonType);
-      newInputs.mergeIn(this._inputs.forRead());
-      this._inputs = new LazySelectionSet(newInputs);
+      this._inputs = this._inputs.rebaseOn(commonType);
     }
 
-    if (selection instanceof SelectionSet) {
-      this._inputs.forWrite().mergeIn(selection);
-    } else {
-      this._inputs.forWrite().add(selection);
-    }
+    this._inputs.updates().add(selection);
     if (rewrites) {
       rewrites.forEach((r) => this.inputRewrites.push(r));
     }
   }
 
-  copyInputsOf(other: FetchGroup, clone: boolean = false) {
+  copyInputsOf(other: FetchGroup) {
     if (other.inputs) {
-      this.addInputs(clone ? other.inputs.clone() : other.inputs, other.inputRewrites);
+      this.addInputs(other.inputs, other.inputRewrites);
     }
   }
 
-  addSelection(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
-    this._selection.forWrite().addPath(path, onPathEnd);
+  addAtPath(path: OperationPath, selection?: Selection | SelectionSet | readonly Selection[]) {
+    this.selectionUpdates().addAtPath(path, selection);
   }
 
   addSelections(selection: SelectionSet) {
-    this._selection.forWrite().mergeIn(selection);
+    this.selectionUpdates().add(selection);
   }
 
   canMergeChildIn(child: FetchGroup): boolean {
@@ -935,7 +905,8 @@ class FetchGroup {
   removeInputsFromSelection() {
     const inputs = this.inputs;
     if (inputs) {
-      this._selection = new LazySelectionSet(this.selection.minus(inputs));
+      this.cachedCost = undefined;
+      this._selection = MutableSelectionSet.ofWithMemoized(this.selection.minus(inputs), conditionsMemoizer);
     }
   }
 
@@ -961,7 +932,7 @@ class FetchGroup {
 
     const conditionInSupergraphIfInterfaceObject = (selection: Selection): InterfaceType | undefined => {
       if (selection.kind === 'FragmentSelection') {
-        const condition = selection.element().typeCondition;
+        const condition = selection.element.typeCondition;
         if (condition && isObjectType(condition)) {
           const conditionInSupergraph = this.dependencyGraph.supergraphSchema.type(condition.name);
           // Note that we're checking the true supergraph, not the API schema, so even @inaccessible types will be found.
@@ -993,7 +964,7 @@ class FetchGroup {
         // We know that fetch inputs are wrapped in fragments whose condition is an entity type:
         // that's how we build them and we couldn't select inputs correctly otherwise.
         assert(inputSelection.kind === 'FragmentSelection', () => `Unexpecting input selection ${inputSelection} on ${this}`);
-        const inputCondition = inputSelection.element().typeCondition;
+        const inputCondition = inputSelection.element.typeCondition;
         assert(inputCondition, () => `Unexpecting input selection ${inputSelection} on ${this} (missing condition)`);
         if (inputCondition.name == conditionInSupergraph.name) {
           interfaceInputSelections.push(inputSelection);
@@ -1122,24 +1093,14 @@ class FetchGroup {
   private mergeInInternal(merged: FetchGroup, path: OperationPath, mergeParentDependencies: boolean = false) {
     assert(!merged.isTopLevel, "Shouldn't remove top level groups");
 
-    // We merge the selection of `merged` into our own selection, but need to "rebase" it according to `path` first. As we do,
-    // we ignore redundant fragments. Typically, `merged` selection will always start by a type-cast into the entity type because
-    // that's what `_entities()` require, but that cast is probably useless when merging.
-    const mergePathConditionalDirectives = conditionalDirectivesInOperationPath(path);
-    let selectionSet: SelectionSet;
     if (path.length === 0) {
-      selectionSet = merged.selection;
+      this.addSelections(merged.selection);
     } else {
-      selectionSet = new SelectionSet(this.selection.parentType);
-      selectionSet.addPath(path, (endOfPathSet) => {
-        assert(endOfPathSet, () => `Merge path ${path} ends on a non-selectable type`);
-        for (const selection of merged.selection.selections()) {
-          const withoutUneededFragments = removeRedundantFragments(selection, endOfPathSet.parentType, mergePathConditionalDirectives);
-          addSelectionOrSelectionSet(endOfPathSet, withoutUneededFragments);
-        }
-      });
+      // The merged groups might have some @include/@skip at top-level that are already part of the path. If so,
+      // we clean things up a bit.
+      const mergePathConditionalDirectives = conditionalDirectivesInOperationPath(path);
+      this.addAtPath(path, removeUnneededTopLevelFragmentDirectives(merged.selection, mergePathConditionalDirectives));
     }
-    this._selection.forWrite().mergeIn(selectionSet);
 
     this.dependencyGraph.onModification();
     this.relocateChildrenOnMergedIn(merged, path);
@@ -1200,7 +1161,10 @@ class FetchGroup {
     }
   }
 
-  private finalizeSelection(handledConditions: Conditions): FetchDataOutputRewrite[] {
+  private finalizeSelection(
+    variableDefinitions: VariableDefinitions,
+    handledConditions: Conditions,
+  ): { selection: SelectionSet, outputRewrites: FetchDataOutputRewrite[] } {
     // Finalizing the selection involves the following:
     // 1. removing any @include/@skip that are not necessary because they are already handled earlier in the query plan by
     //    some `ConditionNode`.
@@ -1211,15 +1175,13 @@ class FetchGroup {
     //   changes the query, we could have violation of this. If that is the case, we introduce aliases to the selection to make it valid, and
     //   then generate a rewrite on the output of the fetch so that data aliased this way is rewritten back to the original/proper response name.
 
-    removeConditionsFromSelectionSet(this.selection, handledConditions);
+    const selectionWithoutConditions = removeConditionsFromSelectionSet(this.selection, handledConditions);
+    const selectionWithTypenames = addTypenameFieldForAbstractTypes(selectionWithoutConditions);
 
-    addTypenameFieldForAbstractTypes(this.selection);
+    const { updated: selection, outputRewrites } = addAliasesForNonMergingFields(selectionWithTypenames);
 
-    const rewrites: FetchDataOutputRewrite[] = [];
-    addAliasesForNonMergingFields([{ path: [], selections: this.selection }], rewrites);
-
-    this.selection.validate();
-    return rewrites;
+    selection.validate(variableDefinitions);
+    return { selection, outputRewrites };
   }
 
   /**
@@ -1230,7 +1192,7 @@ class FetchGroup {
    * the whole group selection).
    */
   conditions(): Conditions {
-    return this._selection.conditions();
+    return this._selection.memoized().conditions;
   }
 
   toPlanNode(
@@ -1244,12 +1206,12 @@ class FetchGroup {
       return undefined;
     }
 
-    const outputRewrites = this.finalizeSelection(handledConditions);
+    const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
 
-    const inputs = this.inputs;
+    let inputs = this._inputs?.get();
     if (inputs) {
-      removeConditionsFromSelectionSet(inputs, handledConditions);
-      inputs.validate();
+      inputs = removeConditionsFromSelectionSet(inputs, handledConditions);
+      inputs.validate(variableDefinitions);
     }
 
     const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
@@ -1258,14 +1220,14 @@ class FetchGroup {
     let operation = this.isEntityFetch
       ? operationForEntitiesFetch(
           subgraphSchema,
-          this.selection,
+          selection,
           variableDefinitions,
           operationName,
         )
       : operationForQueryFetch(
           subgraphSchema,
           this.rootKind,
-          this.selection,
+          selection,
           variableDefinitions,
           operationName,
         );
@@ -1278,7 +1240,7 @@ class FetchGroup {
       id: this.id,
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: this.selection.usedVariables().map(v => v.name),
+      variableUsages: selection.usedVariables().map(v => v.name),
       operation: stripIgnoredCharacters(print(operationDocument)),
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
@@ -1335,15 +1297,21 @@ type SelectionSetAtPath = {
   selections: SelectionSet,
 }
 
-function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewriteCollector: FetchDataOutputRewrite[]) {
+type FieldToAlias = {
+  path: string[],
+  responseName: string,
+  alias: string,
+}
+
+function computeAliasesForNonMergingFields(selections: SelectionSetAtPath[], aliasCollector: FieldToAlias[]) {
   const seenResponseNames = new Map<string, { fieldName: string, fieldType: Type, selections?: SelectionSetAtPath[] }>();
   const rebasedFieldsInSet = (s: SelectionSetAtPath) => (
-    s.selections.fieldsInSet().map(({ path, field, directParent }) => ({ fieldPath: s.path.concat(path), field, directParent }))
+    s.selections.fieldsInSet().map(({ path, field }) => ({ fieldPath: s.path.concat(path), field }))
   );
-  for (const { fieldPath, field, directParent } of selections.map((s) => rebasedFieldsInSet(s)).flat()) {
-    const fieldName = field.element().name;
-    const responseName = field.element().responseName();
-    const fieldType = field.element().definition.type!;
+  for (const { fieldPath, field } of selections.map((s) => rebasedFieldsInSet(s)).flat()) {
+    const fieldName = field.element.name;
+    const responseName = field.element.responseName();
+    const fieldType = field.element.definition.type!;
     const previous = seenResponseNames.get(responseName);
     if (previous) {
       if (previous.fieldName === fieldName && typesCanBeMerged(previous.fieldType, fieldType)) {
@@ -1361,15 +1329,14 @@ function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewrite
         // at the level, but it's theoretically possible. By adding the alias to the seen names, we ensure that in the remote change that
         // this ever happen, we'll avoid the conflict by giving another alias to the followup occurence.
         const selections = field.selectionSet ? [{ path: fieldPath.concat(alias), selections: field.selectionSet }] : undefined;
+
         seenResponseNames.set(alias, { fieldName, fieldType, selections });
-        const wasRemoved = directParent.removeTopLevelField(responseName);
-        assert(wasRemoved, () => `Should have found and removed ${responseName} from ${directParent}`);
-        directParent.add(field.withUpdatedField(field.element().withUpdatedAlias(alias)));
+
         // Lastly, we record that the added alias need to be rewritten back to the proper response name post query.
-        rewriteCollector.push({
-          kind: 'KeyRenamer',
-          path: fieldPath.concat(alias),
-          renameKeyTo: responseName,
+        aliasCollector.push({
+          path: fieldPath,
+          responseName,
+          alias
         });
       }
     } else {
@@ -1381,21 +1348,94 @@ function addAliasesForNonMergingFields(selections: SelectionSetAtPath[], rewrite
     if (!selections.selections) {
       continue;
     }
-    addAliasesForNonMergingFields(selections.selections, rewriteCollector);
+    computeAliasesForNonMergingFields(selections.selections, aliasCollector);
   }
 }
 
-class DeferredInfo {
-  readonly subselection: SelectionSet;
+function addAliasesForNonMergingFields(selectionSet: SelectionSet): { updated: SelectionSet, outputRewrites: FetchDataOutputRewrite[] } {
+  const aliases: FieldToAlias[] = [];
+  computeAliasesForNonMergingFields([{ path: [], selections: selectionSet}], aliases);
+  const updated = withFieldAliased(selectionSet, aliases);
+  const outputRewrites = aliases.map<FetchDataOutputRewrite>(({path, responseName, alias}) => ({
+    kind: 'KeyRenamer',
+    path: path.concat(alias),
+    renameKeyTo: responseName,
+  }));
+  return { updated, outputRewrites };
+}
 
-  constructor(
+function withFieldAliased(selectionSet: SelectionSet, aliases: FieldToAlias[]): SelectionSet {
+  if (aliases.length === 0) {
+    return selectionSet;
+  }
+
+  const atCurrentLevel = new Map<string, FieldToAlias>();
+  const remaining = new Array<FieldToAlias>();
+  for (const alias of aliases) {
+    if (alias.path.length > 0) {
+      remaining.push(alias);
+    } else {
+      atCurrentLevel.set(alias.responseName, alias);
+    }
+  }
+
+  return selectionSet.lazyMap((selection) => {
+    const pathElement = selection.element.asPathElement();
+    const subselectionAliases = remaining.map((alias) => {
+      if (alias.path[0] === pathElement) {
+        return {
+          ...alias,
+          path: alias.path.slice(1),
+        };
+      } else {
+        return undefined;
+      }
+    }).filter(isDefined);
+    const updatedSelectionSet = selection.selectionSet
+      ? withFieldAliased(selection.selectionSet, subselectionAliases)
+      : undefined;
+
+    if (selection.kind === 'FieldSelection') {
+      const field = selection.element;
+      const alias = pathElement && atCurrentLevel.get(pathElement);
+      return !alias && selection.selectionSet === updatedSelectionSet
+        ? selection 
+        : selection.withUpdatedComponents(alias ? field.withUpdatedAlias(alias.alias) : field, updatedSelectionSet);
+    } else {
+      return selection.selectionSet === updatedSelectionSet
+        ? selection
+        : selection.withUpdatedSelectionSet(updatedSelectionSet!);
+    }
+  });
+}
+
+class DeferredInfo {
+
+  private constructor(
     readonly label: string,
     readonly path: GroupPath,
-    readonly parentType: CompositeType,
+    readonly subselection: MutableSelectionSet,
     readonly deferred = new Set<string>(),
     readonly dependencies = new Set<string>(),
   ) {
-    this.subselection = new SelectionSet(parentType);
+  }
+
+  static empty(label: string, path: GroupPath, parentType: CompositeType): DeferredInfo {
+    return new DeferredInfo(
+      label,
+      path,
+      MutableSelectionSet.empty(parentType),
+    );
+  }
+
+  clone(): DeferredInfo {
+    return new DeferredInfo(
+      this.label,
+      this.path,
+      this.subselection.clone(),
+      new Set(this.deferred),
+      new Set(this.dependencies),
+    );
   }
 }
 
@@ -1501,28 +1541,22 @@ class GroupPath {
 
 class DeferTracking {
   private readonly topLevelDeferred = new Set<string>();
-  readonly primarySelection: SelectionSet | undefined;
   private readonly deferred = new MapWithCachedArrays<string, DeferredInfo>();
 
-  constructor(rootType: CompositeType | undefined) {
-    this.primarySelection = rootType ? new SelectionSet(rootType) : undefined;
+  private constructor(
+    readonly primarySelection: MutableSelectionSet | undefined
+  ) {
+  }
+
+  static empty(rootType: CompositeType | undefined): DeferTracking {
+    return new DeferTracking(rootType ? MutableSelectionSet.empty(rootType) : undefined);
   }
 
   clone(): DeferTracking {
-    const cloned = new DeferTracking(this.primarySelection?.parentType);
+    const cloned = new DeferTracking(this.primarySelection?.clone());
     this.topLevelDeferred.forEach((label) => cloned.topLevelDeferred.add(label));
-    if (this.primarySelection) {
-      cloned.primarySelection?.mergeIn(this.primarySelection.clone());
-    }
     for (const deferredBlock of this.deferred.values()) {
-      const clonedInfo = new DeferredInfo(
-        deferredBlock.label,
-        deferredBlock.path,
-        deferredBlock.parentType,
-        new Set(deferredBlock.deferred),
-      );
-      clonedInfo.subselection.mergeIn(deferredBlock.subselection.clone());
-      cloned.deferred.set(deferredBlock.label, clonedInfo);
+      cloned.deferred.set(deferredBlock.label, deferredBlock.clone());
     }
     return cloned;
   }
@@ -1546,19 +1580,19 @@ class DeferTracking {
     assert(deferArgs.label, 'All @defer should have be labelled at this point');
     let deferredBlock = this.deferred.get(deferArgs.label);
     if (!deferredBlock) {
-      deferredBlock = new DeferredInfo(deferArgs.label, path, parentType);
+      deferredBlock = DeferredInfo.empty(deferArgs.label, path, parentType);
       this.deferred.set(deferArgs.label, deferredBlock);
     }
 
     const parentRef = deferContext.currentDeferRef;
     if (!parentRef) {
       this.topLevelDeferred.add(deferArgs.label);
-      this.primarySelection.addPath(deferContext.pathToDeferParent);
+      this.primarySelection.updates().addAtPath(deferContext.pathToDeferParent);
     } else {
       const parentInfo = this.deferred.get(parentRef);
       assert(parentInfo, `Cannot find info for parent ${parentRef} or ${deferArgs.label}`);
       parentInfo.deferred.add(deferArgs.label);
-      parentInfo.subselection.addPath(deferContext.pathToDeferParent);
+      parentInfo.subselection.updates().addAtPath(deferContext.pathToDeferParent);
     }
   }
 
@@ -1571,9 +1605,9 @@ class DeferTracking {
     if (parentRef) {
       const info = this.deferred.get(parentRef);
       assert(info, () => `Cannot find info for label ${parentRef}`);
-      info.subselection.addPath(deferContext.pathToDeferParent);
+      info.subselection.updates().addAtPath(deferContext.pathToDeferParent);
     } else {
-      this.primarySelection.addPath(deferContext.pathToDeferParent);
+      this.primarySelection.updates().addAtPath(deferContext.pathToDeferParent);
     }
   }
 
@@ -1630,7 +1664,7 @@ class FetchDependencyGraph {
       startingIdGen,
       new MapWithCachedArrays(),
       [],
-      new DeferTracking(rootTypeForDefer),
+      DeferTracking.empty(rootTypeForDefer),
     );
   }
 
@@ -1778,7 +1812,7 @@ class FetchDependencyGraph {
         && existing.mergeAt
         && sameMergeAt(existing.mergeAt, mergeAt)
         && inputsTypeName === existing.inputs?.parentType?.name
-        && existing.selection.selections().every((s) => s.kind === 'FragmentSelection' && s.element().castedType() === type)
+        && existing.selection.selections().every((s) => s.kind === 'FragmentSelection' && s.element.castedType() === type)
         && !this.isInGroupsOrTheirAncestors(existing, conditionsGroups)
         && existing.deferRef === deferRef
       ) {
@@ -1944,7 +1978,6 @@ class FetchDependencyGraph {
     if (this.isOptimized) {
       return;
     }
-
     this.reduce();
 
     for (const group of this.rootGroups.values()) {
@@ -2066,13 +2099,12 @@ class FetchDependencyGraph {
     // To find which groups are to the same subgraph and mergeAt somewhat efficient, we generate a simple string key from each
     // group subgraph name and mergeAt. We do "sanitize" subgraph name, but have no worries for `mergeAt` since it contains either
     // number of field names, and the later is restricted by graphQL so as to not be an issue.
-    const makeKey = (g: FetchGroup): string => `${toValidGraphQLName(g.subgraphName)}-${g.mergeAt?.join('::') ?? ''}`;
     const bySubgraphs = new MultiMap<string, FetchGroup>();
     for (const group of this.groups) {
       // we exclude groups without inputs because that's what we look for. In practice, this mostly just exclude
       // root groups, which we don't really want to bother with anyway.
       if (group.inputs) {
-        bySubgraphs.add(makeKey(group), group);
+        bySubgraphs.add(group.subgraphAndMergeAtKey!, group);
       }
     }
     for (const groups of bySubgraphs.values()) {
@@ -2383,7 +2415,7 @@ class FetchDependencyGraph {
       const mainReduced = processor.reduceSequence(mainSequenceOfDefer);
       const processed = deferredOfDefer.length === 0
         ? mainReduced
-        : processor.reduceDefer(mainReduced, defer.subselection, deferredOfDefer);
+        : processor.reduceDefer(mainReduced, defer.subselection.get(), deferredOfDefer);
       allDeferred.push(processor.reduceDeferred(defer, processed));
     }
     return { mainSequence, deferred: allDeferred };
@@ -2723,7 +2755,7 @@ export class QueryPlanner {
       if (
         !typenameSelection
         && selection.kind === 'FieldSelection'
-        && selection.field.name === typenameFieldName
+        && selection.element.name === typenameFieldName
         && !parentMaybeInterfaceObject
       ) {
         // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
@@ -2742,7 +2774,10 @@ export class QueryPlanner {
         if (updatedSubSelection === selection.selectionSet) {
           updated = selection;
         } else {
-          updated = selection.withUpdatedSubSelection(updatedSubSelection);
+          // Note that updateSubSelection can genuinely be undefined for leaf fields, but the type system can track it properly
+          // so we force it to accept it with `!` (to avoid it, we would have to duplicate the code for field and fragment
+          // separately, and that doesn't feel like it would be cleaner).
+          updated = selection.withUpdatedSelectionSet(updatedSubSelection!);
         }
         if (!firstFieldSelection && updated.kind === 'FieldSelection') {
           firstFieldSelection = updated;
@@ -2774,7 +2809,7 @@ export class QueryPlanner {
     if (typenameSelection) {
       if (firstFieldSelection) {
         // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
-        firstFieldSelection.element().addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.field.alias ? typenameSelection.field.alias : '');
+        firstFieldSelection.element.addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.element.alias ? typenameSelection.element.alias : '');
       } else {
         // If we have no other field selection, then we can't optimize __typename and we need to add
         // it back to the updated subselections (we add it first because that's usually where we
@@ -2782,7 +2817,7 @@ export class QueryPlanner {
         updatedSelections = [typenameSelection as Selection].concat(updatedSelections);
       }
     }
-    return new SelectionSet(selectionSet.parentType, selectionSet.fragments).addAll(updatedSelections)
+    return new SelectionSetUpdates().add(updatedSelections).toSelectionSet(selectionSet.parentType, selectionSet.fragments);
   }
 
   /**
@@ -2825,7 +2860,7 @@ function computePlanInternal({
   statistics: PlanningStatistics,
 }): PlanNode | undefined {
   let main: PlanNode | undefined = undefined;
-  let primarySelection: SelectionSet | undefined = undefined;
+  let primarySelection: MutableSelectionSet | undefined = undefined;
   let deferred: DeferredNode[] = [];
 
   if (operation.rootKind === 'mutation') {
@@ -2838,7 +2873,7 @@ function computePlanInternal({
       const newSelection = dependencyGraph.deferTracking.primarySelection;
       if (newSelection) {
         if (primarySelection) {
-          primarySelection.mergeIn(newSelection);
+          primarySelection.updates().add(newSelection.get());
         } else {
           primarySelection = newSelection.clone();
         }
@@ -2851,7 +2886,7 @@ function computePlanInternal({
   }
   if (deferred.length > 0) {
     assert(primarySelection, 'Should have had a primary selection created');
-    return processor.reduceDefer(main, primarySelection, deferred);
+    return processor.reduceDefer(main, primarySelection.get(), deferred);
   }
   return main;
 }
@@ -2915,7 +2950,7 @@ function generateConditionNodes(
 }
 
 function isIntrospectionSelection(selection: Selection): boolean {
-  return selection.kind == 'FieldSelection' && selection.element().definition.isIntrospectionField();
+  return selection.kind == 'FieldSelection' && selection.element.definition.isIntrospectionField();
 }
 
 function mapOptionsToSelections<RV extends Vertex>(
@@ -2923,7 +2958,7 @@ function mapOptionsToSelections<RV extends Vertex>(
   options: SimultaneousPathsWithLazyIndirectPaths<RV>[]
 ): [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][]  {
   // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in the query order.
-  return selectionSet.selections(true).map(node => [node, options]);
+  return selectionSet.selectionsInReverseOrder().map(node => [node, options]);
 }
 
 function possiblePlans(closedBranches: SimultaneousPaths<any>[][]): number {
@@ -2950,7 +2985,8 @@ function selectionCost(selection?: SelectionSet, depth: number = 1): number {
   // The cost is essentially the number of elements in the selection, but we make deeped element cost a tiny bit more, mostly to make things a tad more
   // deterministic (typically, if we have an interface with a single implementation, then we can have a choice between a query plan that type-explode a
   // field of the interface and one that doesn't, and both will be almost identical, except that the type-exploded field will be a different depth; by
-  // favoring lesser depth in that case, we favor not type-expoding).
+  // favoring lesser depth in that case, we favor not type-exploding).
+  //return selection ? 10 + depth : 0;
   return selection ? selection.selections().reduce((prev, curr) => prev + depth + selectionCost(curr.selectionSet, depth + 1), 0) : 0;
 }
 
@@ -2962,11 +2998,10 @@ function withoutIntrospection(operation: Operation): Operation {
     return operation
   }
 
-  const newSelections = operation.selectionSet.selections().filter(s => !isIntrospectionSelection(s));
   return new Operation(
     operation.schema,
     operation.rootKind,
-    new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
+    operation.selectionSet.lazyMap((s) => isIntrospectionSelection(s) ? undefined : s),
     operation.variableDefinitions,
     operation.name
   );
@@ -3084,7 +3119,7 @@ function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
     if (selection.kind === 'FieldSelection') {
       return [selectionSetOf(selectionSet.parentType, selection)];
     } else {
-      return splitTopLevelFields(selection.selectionSet).map(s => selectionSetOfElement(selection.element(), s));
+      return splitTopLevelFields(selection.selectionSet).map(s => selectionSetOfElement(selection.element, s));
     }
   });
 }
@@ -3156,7 +3191,7 @@ function fetchGroupToPlanProcessor({
       queryPath: operationPathToStringPath(deferInfo.path.full()),
       // Note that if the deferred block has nested @defer, then the `value` is going to be a `DeferNode` and we'll
       // use it's own `subselection`, so we don't need it here.
-      subselection: deferInfo.deferred.size === 0 ? sanitizeAndPrintSubselection(deferInfo.subselection) : undefined,
+      subselection: deferInfo.deferred.size === 0 ? sanitizeAndPrintSubselection(deferInfo.subselection.get()) : undefined,
       node: value,
     }),
     reduceDefer: (main: PlanNode | undefined, subselection: SelectionSet, deferredBlocks: DeferredNode[]) => ({
@@ -3258,8 +3293,7 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
   const fragmentsMap = new Map<string, FragmentInfo>();
 
   for (const fragment of fragments.definitions()) {
-    const expandedSelectionSet = fragment.selectionSet.expandFragments();
-    addTypenameFieldForAbstractTypes(expandedSelectionSet);
+    const expandedSelectionSet = addTypenameFieldForAbstractTypes(fragment.selectionSet.expandAllFragments());
     const otherFragmentsUsages = new Map<string, number>();
     fragment.collectUsedFragmentNames(otherFragmentsUsages);
     fragmentsMap.set(fragment.name, {
@@ -3286,79 +3320,42 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
   return optimizedFragments;
 }
 
-function addSelectionOrSelectionSet(selectionSet: SelectionSet, toAdd: Selection | SelectionSet) {
-  if (toAdd instanceof SelectionSet) {
-    selectionSet.mergeIn(toAdd);
-  } else {
-    selectionSet.add(toAdd);
-  }
-}
-
 /**
- * Given a selection select (`selectionSet`) starting on a given type (`type`) and given a set of directive applications
- * that can be eliminated (`unneededDirectives`; in practice those are conditionals (@skip and @include) already accounted
- * for), returns an equivalent selection set but with unecessary "starting" fragments removed (if any can).
- * Note that this very similar to the optimisation done in `operation.ts#concatOperationPaths`, but applied to the "concatenation"
- * of selection sets.
+ * Given a selection select (`selectionSet`) and given a set of directive applications that can be eliminated (`unneededDirectives`; in 
+ * practice those are conditionals (@skip and @include) already accounted for), returns an equivalent selection set but with unecessary 
+ * "starting" fragments having the unneeded condition/directives removed.
  */
-function removeRedundantFragmentsOfSet(
+function removeUnneededTopLevelFragmentDirectives(
   selectionSet: SelectionSet,
-  type: CompositeType,
   unneededDirectives: Directive<any, any>[],
 ): SelectionSet {
-  let newSet: SelectionSet | undefined = undefined;
-  const selections = selectionSet.selections();
-  for (let i = 0; i < selections.length; i++) {
-    const selection = selections[i];
-    const updated = removeRedundantFragments(selection, type, unneededDirectives);
-    if (newSet) {
-      addSelectionOrSelectionSet(newSet, updated);
-    } else if (selection !== updated) {
-      // We've found the firs selection that is changed. Create `newSet`
-      // and add any previous selection (which we now is unchanged).
-      newSet = new SelectionSet(type);
-      for (let j = 0; j < i; j++) {
-        newSet.add(selections[j]);
-      }
-      // and add the new one.
-      addSelectionOrSelectionSet(newSet, updated);
-    } // else, we just move on
-  }
-  return newSet ? newSet : selectionSet;
-}
+  return selectionSet.lazyMap((selection) => {
+    if (selection.kind !== 'FragmentSelection') {
+      return selection;
+    }
 
-function removeRedundantFragments(
-  selection: Selection,
-  type: CompositeType,
-  unneededDirectives: Directive<any, any>[],
-): Selection | SelectionSet {
-  if (selection.kind !== 'FragmentSelection') {
-    return selection;
-  }
+    const fragment = selection.element;
+    const fragmentType = fragment.typeCondition;
+    if (!fragmentType) {
+      return selection;
+    }
 
-  const fragment = selection.element();
-  const fragmentType = fragment.typeCondition;
-  if (!fragmentType) {
-    return selection;
-  }
+    let neededDirectives: Directive<any>[] = [];
+    if (fragment.appliedDirectives.length > 0) {
+      neededDirectives = directiveApplicationsSubstraction(fragment.appliedDirectives, unneededDirectives);
+    }
 
-  let neededDirectives: Directive[] = [];
-  if (fragment.appliedDirectives.length > 0) {
-    neededDirectives = directiveApplicationsSubstraction(fragment.appliedDirectives, unneededDirectives);
-  }
+    // We recurse, knowing that we'll stop as soon a we hit field selections, so this only cover the fragments
+    // at the "top-level" of the set.
+    const updated = removeUnneededTopLevelFragmentDirectives(selection.selectionSet, unneededDirectives);
+    if (neededDirectives.length === fragment.appliedDirectives.length) {
+      // We need all the directives that the fragment has. Return it unchanged.
+      return selection.selectionSet === updated ? selection : selection.withUpdatedSelectionSet(updated);
+    }
 
-  if (sameType(type, fragmentType) && neededDirectives.length === 0) {
-    // we can completely skip this fragment and recurse.
-    return removeRedundantFragmentsOfSet(selection.selectionSet, type, unneededDirectives);
-  } else if (neededDirectives.length === fragment.appliedDirectives.length) {
-    // This means we need all of the directives of the fragment, and so just return it.
-    return selection;
-  } else {
-    // We need the fragment, but we can skip some of its directive.
-    const updatedFragment = new FragmentElement(type, fragment.typeCondition);
-    neededDirectives.forEach((d) => updatedFragment.applyDirective(d.definition!, d.arguments()));
-    return selectionSetOfElement(updatedFragment, selection.selectionSet);
-  }
+    // We can skip some of the fragment directives directive.
+    return selection.withUpdatedComponents(fragment.withUpdatedDirectives(neededDirectives), updated);
+  });
 }
 
 function schemaRootKindToOperationKind(operation: SchemaRootKind): OperationTypeNode {
@@ -3451,25 +3448,26 @@ function wrapSelectionWithTypeAndConditions<TSelection>(
   wrapInFragment: (fragment: FragmentElement, current: TSelection) => TSelection,
   context: PathContext
 ): TSelection {
-  const typeCast = new FragmentElement(wrappingType, wrappingType.name);
-  let updatedSelection = wrapInFragment(typeCast, initialSelection);
   if (context.conditionals.length === 0) {
-    return updatedSelection;
+    return wrapInFragment(new FragmentElement(wrappingType, wrappingType.name), initialSelection);
   }
 
-  const schema = wrappingType.schema();
   // We add the first include/skip to the current typeCast and then wrap in additional type-casts for the next ones
   // if necessary. Note that we use type-casts (... on <type>), but, outside of the first one, we could well also
   // use fragments with no type-condition. We do the former mostly to preverve older behavior, but doing the latter
   // would technically produce slightly small query plans.
   const { kind: name0, value: ifs0 } = context.conditionals[0];
-  typeCast.applyDirective(schema.directive(name0)!, { 'if': ifs0 });
+  let updatedSelection = wrapInFragment(
+    new FragmentElement(wrappingType, wrappingType.name, [new Directive(name0, { 'if': ifs0 })]),
+    initialSelection,
+  );
 
   for (let i = 1; i < context.conditionals.length; i++) {
     const { kind: name, value: ifs } = context.conditionals[i];
-    const fragment = new FragmentElement(wrappingType, wrappingType.name);
-    fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
-    updatedSelection = wrapInFragment(fragment, updatedSelection);
+    updatedSelection = wrapInFragment(
+      new FragmentElement(wrappingType, wrappingType.name, [new Directive(name, { 'if': ifs })]),
+      updatedSelection
+    );
   }
 
   return updatedSelection;
@@ -3524,7 +3522,7 @@ function computeGroupsForTree(
   while (stack.length > 0) {
     const { tree, group, path, context, deferContext } = stack.pop()!;
     if (tree.isLeaf()) {
-      group.addSelection(path.inGroup());
+      group.addAtPath(path.inGroup());
       dependencyGraph.deferTracking.updateSubselection(deferContext);
     } else {
       // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate
@@ -3583,14 +3581,14 @@ function computeGroupsForTree(
             // the supergraph does).
             const inputType = dependencyGraph.typeForFetchInputs(sourceType.name);
             const inputSelections = newCompositeTypeSelectionSet(inputType);
-            inputSelections.mergeIn(edge.conditions!);
+            inputSelections.updates().add(edge.conditions!);
             newGroup.addInputs(
-              wrapInputsSelections(inputType, inputSelections, newContext),
+              wrapInputsSelections(inputType, inputSelections.get(), newContext), 
               computeInputRewritesOnKeyFetch(inputType.name, destType),
             );
 
             // We also ensure to get the __typename of the current type in the "original" group.
-            group.addSelection(path.inGroup().concat(new Field(sourceType.typenameField()!)));
+            group.addAtPath(path.inGroup().concat(new Field(sourceType.typenameField()!)));
 
             stack.push({
               tree: child,
@@ -3617,7 +3615,7 @@ function computeGroupsForTree(
             // point in adding __typename because if we don't add any other selection, the group will be empty
             // and we've rather detect that and remove the group entirely later.
             if (path.inGroup().length > 0) {
-              group.addSelection(path.inGroup().concat(new Field((edge.head.type as CompositeType).typenameField()!)));
+              group.addAtPath(path.inGroup().concat(new Field((edge.head.type as CompositeType).typenameField()!)));
             }
 
             // We take the edge, creating a new group. Note that we always create a new group because this
@@ -3676,8 +3674,8 @@ function computeGroupsForTree(
             // We need to add the query __typename for the current type in the current group.
             // Note that the value of the "attachement" is the alias or '' if there is no alias
             const alias = typenameAttachment === '' ? undefined : typenameAttachment;
-            const typenameField = new Field(operation.parentType.typenameField()!, {}, new VariableDefinitions(), alias);
-            group.addSelection(path.inGroup().concat(typenameField));
+            const typenameField = new Field(operation.parentType.typenameField()!, undefined, undefined, alias);
+            group.addAtPath(path.inGroup().concat(typenameField));
             dependencyGraph.deferTracking.updateSubselection({
               ...deferContext,
               pathToDeferParent: deferContext.pathToDeferParent.concat(typenameField),
@@ -3690,7 +3688,7 @@ function computeGroupsForTree(
             deferContext,
             path,
           });
-          assert(updatedOperation, `Extracting @defer from ${operation} should not have resulted in no operation`);
+          assert(updatedOperation, () => `Extracting @defer from ${operation} should not have resulted in no operation`);
 
           const updated = {
             tree: child,
@@ -3821,24 +3819,39 @@ function extractDeferFromOperation({
   };
 }
 
-function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
-  for (const selection of selectionSet.selections()) {
-    if (selection.kind == 'FieldSelection') {
-      const fieldBaseType = baseType(selection.field.definition.type!);
-      if (isAbstractType(fieldBaseType)) {
-        selection.selectionSet!.add(new FieldSelection(new Field(fieldBaseType.typenameField()!)));
-      }
-      if (selection.selectionSet) {
-        addTypenameFieldForAbstractTypes(selection.selectionSet);
-      }
-    } else {
-      const conditionType = selection.element().typeCondition;
-      if (conditionType && isAbstractType(conditionType)) {
-        selection.selectionSet!.add(new FieldSelection(new Field(conditionType.typenameField()!)));
-      }
-      addTypenameFieldForAbstractTypes(selection.selectionSet);
-    }
+function subselectionTypeIfAbstract(selection: Selection): AbstractType | undefined {
+  if (selection.kind === 'FieldSelection') {
+    const fieldBaseType = baseType(selection.element.definition.type!);
+    return isAbstractType(fieldBaseType) ? fieldBaseType : undefined;
+  } else {
+    const conditionType = selection.element.typeCondition;
+    return conditionType && isAbstractType(conditionType) ? conditionType : undefined;
   }
+}
+
+function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentTypeIfAbstract?: AbstractType): SelectionSet {
+  const handleSelection = (selection: Selection): Selection => {
+      if (!selection.selectionSet) {
+        return selection;
+      }
+
+      const typeIfAbstract = subselectionTypeIfAbstract(selection);
+      const updatedSelectionSet = addTypenameFieldForAbstractTypes(selection.selectionSet, typeIfAbstract);
+      if (updatedSelectionSet === selection.selectionSet) {
+        return selection;
+      } else {
+        return selection.withUpdatedSelectionSet(updatedSelectionSet);
+      }
+  }
+
+  if (!parentTypeIfAbstract || selectionSet.hasTopLevelTypenameField()) {
+    return selectionSet.lazyMap((selection) => handleSelection(selection));
+  }
+
+  const updates = new SelectionSetUpdates();
+  updates.add(new FieldSelection(new Field(parentTypeIfAbstract.typenameField()!)));
+  selectionSet.selections().forEach((selection) => updates.add(handleSelection(selection)))
+  return updates.toSelectionSet(selectionSet.parentType);
 }
 
 function pathHasOnlyFragments(path: OperationPath): boolean {
@@ -3911,7 +3924,7 @@ function handleRequires(
       deferRef: group.deferRef
     });
     newGroup.addParent(parent);
-    newGroup.copyInputsOf(group, true);
+    newGroup.copyInputsOf(group);
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
     if (createdGroups.length == 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
@@ -4120,16 +4133,13 @@ function addPostRequireInputs(
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
-    preRequireGroup.addSelection(requirePath.inGroup(), (endOfPathSet) => {
-      assert(endOfPathSet, () => `Merge path ${requirePath} ends on a non-selectable type`);
-      endOfPathSet.addAll(keyInputs.selections());
-    });
+    preRequireGroup.addAtPath(requirePath.inGroup(), keyInputs.selections());
   }
 }
 
-function newCompositeTypeSelectionSet(type: CompositeType): SelectionSet {
-  const selectionSet = new SelectionSet(type);
-  selectionSet.add(new FieldSelection(new Field(type.typenameField()!)));
+function newCompositeTypeSelectionSet(type: CompositeType): MutableSelectionSet {
+  const selectionSet = MutableSelectionSet.empty(type);
+  selectionSet.updates().add(new FieldSelection(new Field(type.typenameField()!)));
   return selectionSet;
 }
 
@@ -4154,8 +4164,8 @@ function inputsForRequire(
   assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
 
   const fullSelectionSet = newCompositeTypeSelectionSet(inputType);
-  fullSelectionSet.mergeIn(edge.conditions!);
-  let keyInputs: SelectionSet | undefined = undefined;
+  fullSelectionSet.updates().add(edge.conditions!);
+  let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
     assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
@@ -4168,22 +4178,20 @@ function inputsForRequire(
       // condition on the supergraph type (which is an interface) first, which lets the `mergeIn` work.
       const supergraphItfType = dependencyGraph.supergraphSchema.type(entityType.name);
       assert(supergraphItfType && isInterfaceType(supergraphItfType), () => `Type ${entityType} should be an interface in the supergraph`);
-      const rebasedKeyCondition = new SelectionSet(supergraphItfType);
-      rebasedKeyCondition.mergeIn(keyConditionAsInput);
-      keyConditionAsInput = rebasedKeyCondition;
+      keyConditionAsInput = keyConditionAsInput.rebaseOn(supergraphItfType);
     }
-    fullSelectionSet.mergeIn(keyConditionAsInput);
+    fullSelectionSet.updates().add(keyConditionAsInput);
 
     // Note that `keyInputs` are used to ensure those input are fetch on the original group, the one having `edge`. In
     // the case of an @interfaceObject downcast, that's the subgraph with said @interfaceObject, so in that case we
     // should just use `entityType` (that @interfaceObject type), not input type which will be an implementation the
     // subgraph does not know in that particular case.
     keyInputs = newCompositeTypeSelectionSet(entityType);
-    keyInputs.mergeIn(keyCondition);
+    keyInputs.updates().add(keyCondition);
   }
   return {
-    inputs: wrapInputsSelections(inputType, fullSelectionSet, context),
-    keyInputs,
+    inputs: wrapInputsSelections(inputType, fullSelectionSet.get(), context),
+    keyInputs: keyInputs?.get(),
   };
 }
 
@@ -4216,16 +4224,12 @@ function operationForEntitiesFetch(
   const entities = queryType.field(entitiesFieldName);
   assert(entities, `Subgraphs should always have the _entities field`);
 
-  const entitiesCall: SelectionSet = new SelectionSet(queryType);
-  entitiesCall.add(
-    new FieldSelection(
-      new Field(
-        entities,
-        { representations: representationsVariable },
-        variableDefinitions,
-      ),
-      selectionSet,
+  const entitiesCall = selectionSetOfElement(
+    new Field(
+      entities,
+      { representations: representationsVariable },
     ),
+    selectionSet,
   );
 
   return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, operationName);

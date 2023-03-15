@@ -6,6 +6,7 @@ import {
   FieldDefinition,
   collectTargetFields,
   Schema,
+  isCompositeType,
 } from ".";
 
 export function computeShareables(schema: Schema): (field: FieldDefinition<CompositeType>) => boolean {
@@ -41,18 +42,23 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
         shareableFields.add(field.coordinate);
       }
       for (const provides of field.appliedDirectivesOf(providesDirective)) {
-        collectTargetFields({
-          parentType: baseType(field.type!) as CompositeType,
-          directive: provides,
-          includeInterfaceFieldsImplementations: true,
-          validate: false,
-        }).forEach((f) => {
-          // Fed2 schema reject provides on non-external field, but fed1 doesn't (at least not always), and we actually
-          // call this on fed1 schema upgrader. So let's make sure we do ignore non-external fields.
-          if (metadata.isFieldExternal(f)) {
-            shareableFields.add(f.coordinate);
-          }
-        });
+        const parentType = baseType(field.type!);
+        // It's never valid to put a @provides on a non-composite type, but things haven't been fully validated when this
+        // code run and we just want to ignore non-sensical cases (this is also why we pass `validate: false` below).
+        if (isCompositeType(parentType)) {
+          collectTargetFields({
+            parentType,
+            directive: provides,
+            includeInterfaceFieldsImplementations: true,
+            validate: false,
+          }).forEach((f) => {
+            // Fed2 schema reject provides on non-external field, but fed1 doesn't (at least not always), and we actually
+            // call this on fed1 schema upgrader. So let's make sure we do ignore non-external fields.
+            if (metadata.isFieldExternal(f)) {
+              shareableFields.add(f.coordinate);
+            }
+          });
+        }
       }
     }
   }

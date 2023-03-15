@@ -1,10 +1,12 @@
 import {
   assert,
+  Directive,
   isNonEmptyArray,
   isVariable,
   NonEmptyArray,
   OperationElement,
   Selection,
+  selectionOfElement,
   SelectionSet,
   Variable,
   VariableDefinitions
@@ -90,7 +92,7 @@ export function conditionsOfSelectionSet(selectionSet: SelectionSet): Conditions
 }
 
 function conditionsOfSelection(selection: Selection): Conditions {
-  const elementConditions = conditionsOfElement(selection.element());
+  const elementConditions = conditionsOfElement(selection.element);
   if (!selection.selectionSet) {
     return elementConditions;
   }
@@ -173,44 +175,55 @@ export function updatedConditions(newConditions: Conditions, handledConditions: 
   return isNonEmptyArray(filtered) ? filtered : true;
 }
 
-export function removeConditionsFromSelectionSet(selectionSet: SelectionSet, conditions: Conditions) {
+export function removeConditionsFromSelectionSet(selectionSet: SelectionSet, conditions: Conditions): SelectionSet {
   if (isConstantCondition(conditions)) {
     // If the conditions are the constant false, this means we know the selection will not be included
     // in the plan in practice, and it doesn't matter too much what we return here. So we just
     // the input unchanged as a shortcut.
     // If the conditions are the constant true, then it means we have no conditions to remove and we can
     // keep the selection "as is".
-    return;
+    return selectionSet;
   }
 
-  for (const selection of selectionSet.selections()) {
+  return selectionSet.lazyMap((selection) => {
     // We remove any of the conditions on the element and recurse.
-    removeConditionsOfElement(selection.element(), conditions);
+    const updatedElement = removeConditionsOfElement(selection.element, conditions);
     if (selection.selectionSet) {
-      removeConditionsFromSelectionSet(selection.selectionSet, conditions);
+      const updatedSelectionSet = removeConditionsFromSelectionSet(selection.selectionSet, conditions);
+      if (updatedElement === selection.element) {
+        if (updatedSelectionSet === selection.selectionSet) {
+          return selection;
+        } else {
+          return selection.withUpdatedSelectionSet(updatedSelectionSet);
+        }
+      } else {
+        return selectionOfElement(updatedElement, updatedSelectionSet);
+      }
+    } else {
+      return updatedElement === selection.element ? selection : selectionOfElement(updatedElement);
     }
+  });
+}
+
+function removeConditionsOfElement(element: OperationElement, conditions: VariableCondition[]): OperationElement {
+  const updatedDirectives = (element.appliedDirectives as Directive<OperationElement>[]).filter((d) => !matchesConditionForKind(d, conditions, 'include') && !matchesConditionForKind(d, conditions, 'skip'));
+  if (updatedDirectives.length === element.appliedDirectives.length) {
+    return element;
   }
+  return element.withUpdatedDirectives(updatedDirectives);
 }
 
-function removeConditionsOfElement(element: OperationElement, conditions: VariableCondition[]) {
-  removeConditionsOfElementForKind(element, conditions, 'include');
-  removeConditionsOfElementForKind(element, conditions, 'skip');
-}
-
-function removeConditionsOfElementForKind(
-  element: OperationElement,
+function matchesConditionForKind(
+  directive: Directive<OperationElement>,
   conditions: VariableCondition[],
   kind: 'include' | 'skip'
-) {
-  const applied = element.appliedDirectivesOf(kind);
-  if (applied.length > 0) {
-    assert(applied.length === 1, () => `${kind} shouldn't be repeated on ${element}`)
-    const directive = applied[0];
-    const value = directive.arguments()['if'];
-    if (!isVariable(value) || conditions.some((cond) => cond.variable.name === value.name && cond.negated === (kind === 'skip'))) {
-      directive.remove();
-    }
+): boolean {
+  if (directive.name !== kind) {
+    return false;
   }
+
+  const value = directive.arguments()['if'];
+  return !isVariable(value) || conditions.some((cond) => cond.variable.name === value.name && cond.negated === (kind === 'skip'));
 }
 
 /**
