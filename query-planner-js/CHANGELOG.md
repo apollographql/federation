@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.3.5
+### Patch Changes
+
+
+- Fix query planner assertion error when types with no common supertypes are requested at the same path ([#2467](https://github.com/apollographql/federation/pull/2467))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.5
+  - @apollo/query-graphs@2.3.5
+
 ## 2.3.4
 ### Patch Changes
 
