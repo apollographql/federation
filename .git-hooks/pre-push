@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Get the name of the current branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+# Check if the current branch is "main" or "next"
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "next" ] || [ "$current_branch" = "trevor/pre-push" ]; then
+    # Ask the user if they really want to push to the "main" or "next" branch
+    read -p "You are about to push changes to the $current_branch branch. Are you sure? [y/n] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        # Exit with an error message if the user does not confirm
+        echo "Push to $current_branch branch aborted."
+        exit 1
+    fi
+fi
