@@ -2605,7 +2605,7 @@ describe('composition', () => {
       const result = composeServices([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@tag" directive is imported with mismatched name between subgraphs: it is imported as "@tag" in subgraph "subgraphB" but "@apolloTag" in subgraph "subgraphA"']
+        ['LINK_IMPORT_NAME_MISMATCH', 'The "@tag" directive (from https://specs.apollo.dev/federation/v2.0) is imported with mismatched name between subgraphs: it is imported as "@tag" in subgraph "subgraphB" but "@apolloTag" in subgraph "subgraphA"']
       ]);
     });
 
@@ -2780,7 +2780,7 @@ describe('composition', () => {
       const result = composeServices([subgraphA, subgraphB]);
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['LINK_IMPORT_NAME_MISMATCH', 'The federation "@inaccessible" directive is imported with mismatched name between subgraphs: it is imported as "@inaccessible" in subgraph "subgraphB" but "@private" in subgraph "subgraphA"']
+        ['LINK_IMPORT_NAME_MISMATCH', 'The "@inaccessible" directive (from https://specs.apollo.dev/federation/v2.0) is imported with mismatched name between subgraphs: it is imported as "@inaccessible" in subgraph "subgraphB" but "@private" in subgraph "subgraphA"']
       ]);
     });
 

@@ -21,10 +21,23 @@ import { ERRORS } from "./error";
 import { valueEquals, valueToString } from "./values";
 import { sameType } from "./types";
 import { arrayEquals, assert } from "./utils";
+import { ArgumentCompositionStrategy } from "./fieldArgumentCompositionStrategies";
+import { FeatureDefinition } from "./coreSpec";
 
 export type DirectiveSpecification = {
   name: string,
   checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => GraphQLError[],
+  composition?: DirectiveCompositionSpecification,
+}
+
+export type DirectiveCompositionSpecification = {
+  supergraphSpecification: () => FeatureDefinition,
+  argumentsMerger?: (schema: Schema) => ArgumentMerger | GraphQLError,
+}
+
+export type ArgumentMerger = {
+  merge: (argName: string, values: any[]) => any,
+  toString: () => string,
 }
 
 export type TypeSpecification = {
@@ -34,43 +47,114 @@ export type TypeSpecification = {
 
 export type ArgumentSpecification = {
   name: string,
-  type: InputType,
+  type: (schema: Schema, nameInSchema?: string) => InputType | GraphQLError[],
   defaultValue?: any,
+}
+
+export type DirectiveArgumentSpecification = ArgumentSpecification & {
+  compositionStrategy?: ArgumentCompositionStrategy,
 }
 
 export type FieldSpecification = {
   name: string,
   type: OutputType,
-  args?: ArgumentSpecification[],
+  args?: ResolvedArgumentSpecification[],
 };
+
+type ResolvedArgumentSpecification = {
+  name: string,
+  type: InputType,
+  defaultValue?: any,
+}
 
 export function createDirectiveSpecification({
   name,
   locations,
   repeatable = false,
-  argumentFct = undefined,
+  args = [],
+  composes = false,
+  supergraphSpecification = undefined,
 }: {
   name: string,
   locations: DirectiveLocation[],
   repeatable?: boolean,
-  argumentFct?: (schema: Schema, nameInSchema?: string) => { args: ArgumentSpecification[], errors: GraphQLError[] },
+  args?: DirectiveArgumentSpecification[],
+  composes?: boolean,
+  supergraphSpecification?: () => FeatureDefinition,
 }): DirectiveSpecification {
+  let composition: DirectiveCompositionSpecification | undefined = undefined;
+  if (composes) {
+    assert(supergraphSpecification, `Should provide a @link specification to use in supergraph for ${name} if it composes`);
+    const argStrategies = new Map(args.filter((arg) => arg.compositionStrategy).map((arg) => [arg.name, arg.compositionStrategy!]));
+    let argumentsMerger: ((schema: Schema) => ArgumentMerger | GraphQLError) | undefined = undefined;
+    if (argStrategies.size > 0) {
+      assert(!repeatable, () => `Invalid directive specification for ${name}: ${name} is repeatable and should not define composition strategy for its arguments`);
+      assert(argStrategies.size === args.length, () => `Invalid directive specification for ${name}: not all argument defines a composition strategy`);
+      argumentsMerger = (schema) => {
+        // Validate that the arguments have compatible types with the declared strategies (a bit unfortunate that we can't do this until
+        // we have a schema but well, not a huge deal either).
+        for (const { name: argName, type } of args) {
+          const strategy = argStrategies.get(argName); 
+          // Note that we've built `argStrategies` from the declared args and checked that all argument had a strategy, so it would be
+          // a bug in the code if we didn't get a strategy (not an issue in the directive declaration).
+          assert(strategy, () => `Should have a strategy for ${argName}`);
+          const argType = type(schema);
+          // By the time we call this, the directive should have been added to the schema and so getting the type should not raise errors.
+          assert(!Array.isArray(argType), () => `Should have gotten error getting type for @${name}(${argName}:), but got ${argType}`)
+          const strategyTypes = strategy.types(schema);
+          if (!strategyTypes.some((t) => sameType(t, argType))) {
+            return new GraphQLError(
+              `Invalid composition strategy ${strategy.name} for argument @${name}(${argName}:) of type ${argType}; `
+                + `${strategy.name} only supports type(s) ${strategyTypes.join(', ')}`
+            );
+          }
+        };
+        return {
+          merge: (argName, values) => {
+            const strategy = argStrategies.get(argName); 
+            assert(strategy, () => `Should have a strategy for ${argName}`);
+            return strategy.mergeValues(values);
+          },
+          toString: () => {
+            return [...argStrategies.entries()].map(([arg, strat]) => `${arg}: ${strat.name}`).join(', ');
+          }
+        };
+      }
+    }
+    composition = {
+      supergraphSpecification,
+      argumentsMerger,
+    };
+  }
+
   return {
     name,
+    composition,
     checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
       const actualName = nameInSchema ?? name;
-      const {args, errors} = argumentFct ? argumentFct(schema, actualName) : { args: [], errors: []};
+      const {resolvedArgs, errors} = args.reduce<{resolvedArgs: (ResolvedArgumentSpecification & { compositionStrategy?: ArgumentCompositionStrategy })[], errors: GraphQLError[]}>(
+        ({resolvedArgs, errors}, arg) => {
+          const typeOrErrors = arg.type(schema, actualName);
+          if (Array.isArray(typeOrErrors)) {
+            errors.push(...typeOrErrors);
+          } else {
+            resolvedArgs.push({ ...arg, type: typeOrErrors });
+          }
+          return {resolvedArgs, errors};
+        },
+        { resolvedArgs: [], errors: []}
+      );
       if (errors.length > 0) {
         return errors;
       }
       const existing = schema.directive(actualName);
       if (existing) {
-        return ensureSameDirectiveStructure({name: actualName, locations, repeatable, args}, existing);
+        return ensureSameDirectiveStructure({name: actualName, locations, repeatable, args: resolvedArgs}, existing);
       } else {
         const directive = schema.addDirectiveDefinition(new DirectiveDefinition(actualName, asBuiltIn));
         directive.repeatable = repeatable;
         directive.addLocations(...locations);
-        for (const { name, type, defaultValue } of args) {
+        for (const { name, type, defaultValue } of resolvedArgs) {
           directive.addArgument(name, type, defaultValue);
         }
         return [];
@@ -259,7 +343,7 @@ function ensureSameDirectiveStructure(
     name: string,
     locations: DirectiveLocation[],
     repeatable: boolean,
-    args: ArgumentSpecification[]
+    args: ResolvedArgumentSpecification[]
   },
   actual: DirectiveDefinition<any>,
 ): GraphQLError[] {
@@ -285,7 +369,7 @@ function ensureSameDirectiveStructure(
 function ensureSameArguments(
   expected: {
     name: string,
-    args?: ArgumentSpecification[]
+    args?: ResolvedArgumentSpecification[]
   },
   actual: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): readonly ArgumentDefinition<any>[] },
   what: string,

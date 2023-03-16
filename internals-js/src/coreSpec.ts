@@ -2,12 +2,12 @@ import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graph
 import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
-import { assert, firstOf } from './utils';
+import { assert, firstOf, MapWithCachedArrays } from './utils';
 import { aggregateError, ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
 import { didYouMean, suggestionList } from "./suggestions";
-import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
+import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveCompositionSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 export const linkIdentity = 'https://specs.apollo.dev/link';
@@ -38,8 +38,35 @@ function purposesDescription(purpose: CorePurpose) {
 export abstract class FeatureDefinition {
   readonly url: FeatureUrl;
 
+  private readonly _directiveSpecs = new MapWithCachedArrays<string, DirectiveSpecification>();
+  private readonly _typeSpecs = new MapWithCachedArrays<string, TypeSpecification>();
+
   constructor(url: FeatureUrl | string) {
     this.url = typeof url === 'string' ? FeatureUrl.parse(url) : url;
+  }
+
+  protected registerDirective(spec: DirectiveSpecification) {
+    this._directiveSpecs.set(spec.name, spec);
+  }
+
+  protected registerType(spec: TypeSpecification) {
+    this._typeSpecs.set(spec.name, spec);
+  }
+
+  directiveSpecs(): readonly DirectiveSpecification[] {
+    return this._directiveSpecs.values();
+  }
+
+  directiveSpec(name: string): DirectiveSpecification | undefined {
+    return this._directiveSpecs.get(name);
+  }
+
+  typeSpecs(): readonly TypeSpecification[] {
+    return this._typeSpecs.values();
+  }
+
+  typeSpec(name: string): TypeSpecification | undefined {
+    return this._typeSpecs.get(name);
   }
 
   get identity(): string {
@@ -60,9 +87,25 @@ export abstract class FeatureDefinition {
     return nameInSchema != undefined && (directive.name === nameInSchema || directive.name.startsWith(`${nameInSchema}__`));
   }
 
-  abstract addElementsToSchema(schema: Schema): GraphQLError[];
+  addElementsToSchema(schema: Schema): GraphQLError[] {
+    const feature = this.featureInSchema(schema);
+    assert(feature, 'The federation specification should have been added to the schema before this is called');
 
-  abstract allElementNames(): string[];
+    let errors: GraphQLError[] = [];
+    for (const type of this.typeSpecs()) {
+      errors = errors.concat(this.addTypeSpec(schema, type));
+    }
+
+    for (const directive of this.directiveSpecs()) {
+      errors = errors.concat(this.addDirectiveSpec(schema, directive));
+    }
+    return errors;
+  }
+
+  allElementNames(): string[] {
+    return this.directiveSpecs().map((spec) => `@${spec.name}`)
+      .concat(this.typeSpecs().map((spec) => spec.name));
+  }
 
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
@@ -130,10 +173,16 @@ export abstract class FeatureDefinition {
     return undefined;
   }
 
+  compositionSpecification(directiveNameInFeature: string): DirectiveCompositionSpecification | undefined {
+    const spec = this._directiveSpecs.get(directiveNameInFeature);
+    return spec?.composition;
+  }
+
   toString(): string {
     return `${this.identity}/${this.version}`
   }
 }
+
 
 export type CoreDirectiveArgs = {
   url: undefined,
@@ -321,32 +370,43 @@ export class CoreSpecDefinition extends FeatureDefinition {
       name,
       locations: [DirectiveLocation.SCHEMA],
       repeatable: true,
-      argumentFct: (schema, nameInSchema) => this.createDefinitionArgumentSpecifications(schema, nameInSchema),
+      args: this.createDefinitionArgumentSpecifications(),
     });
+    this.registerDirective(this.directiveDefinitionSpec);
   }
 
-  private createDefinitionArgumentSpecifications(schema: Schema, nameInSchema?: string): { args: ArgumentSpecification[], errors: GraphQLError[] } {
+  private createDefinitionArgumentSpecifications(): ArgumentSpecification[] {
     const args: ArgumentSpecification[] = [
-      { name: this.urlArgName(), type: schema.stringType() },
-      { name: 'as', type: schema.stringType() },
+      { name: this.urlArgName(), type: (schema) => schema.stringType() },
+      { name: 'as', type: (schema) => schema.stringType() },
     ];
     if (this.supportPurposes()) {
-      const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
-      const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
-      if (errors.length > 0) {
-        return { args, errors }
-      }
-      args.push({ name: 'for', type: schema.type(purposeName) as InputType });
+      args.push({
+        name: 'for',
+        type: (schema, nameInSchema) => {
+          const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
+          const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
+          if (errors.length > 0) {
+            return errors;
+          }
+          return schema.type(purposeName) as InputType;
+        },
+      });
     }
     if (this.supportImport()) {
-      const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
-      const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
-      if (errors.length > 0) {
-        return { args, errors }
-      }
-      args.push({ name: 'import', type: new ListType(schema.type(importName)!) });
+      args.push({
+        name: 'import',
+        type: (schema, nameInSchema) => {
+          const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
+          const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
+          if (errors.length > 0) {
+            return errors;
+          }
+          return new ListType(schema.type(importName)!);
+        }
+      });
     }
-    return { args, errors: [] };
+    return args;
   }
 
   addElementsToSchema(_: Schema): GraphQLError[] {

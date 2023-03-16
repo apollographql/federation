@@ -175,6 +175,12 @@ const INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
   description: 'A non-repeatable directive is applied to a schema element in different subgraphs but with arguments that are different.',
 });
 
+const MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
+  code: 'MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS',
+  level: HintLevel.INFO,
+  description: 'A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured startegies.',
+});
+
 const DIRECTIVE_COMPOSITION_INFO = makeCodeDefinition({
   code: 'DIRECTIVE_COMPOSITION_INFO',
   level: HintLevel.INFO,
@@ -217,6 +223,7 @@ export const HINTS = {
   OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
   UNUSED_ENUM_TYPE,
   INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
+  MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
   DIRECTIVE_COMPOSITION_INFO,
   DIRECTIVE_COMPOSITION_WARN,
   INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,

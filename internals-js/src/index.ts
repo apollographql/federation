@@ -18,3 +18,6 @@ export * from './error';
 export * from './schemaUpgrader';
 export * from './suggestions';
 export * from './graphQLJSSchemaToAST';
+export * from './directiveAndTypeSpecification';
+export * from './knownCoreFeatures';
+export * from './fieldArgumentCompositionStrategies';
