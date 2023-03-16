@@ -1175,7 +1175,7 @@ class FetchGroup {
     assert(childPathInThis, () => `Cannot remove useless ${child} of ${this}: the path of the former into the later is unknown`);
 
     this.dependencyGraph.onModification();
-    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn". 
+    // Removing the child means atttaching all it's children to the parent, so it's the same relocation than on a "mergeIn".
     this.relocateChildrenOnMergedIn(child, childPathInThis);
     this.dependencyGraph.remove(child);
   }
@@ -1263,7 +1263,7 @@ class FetchGroup {
           operationName,
         );
 
-    operation = operation.optimize(fragments);
+    operation = operation.optimize(fragments, { autoFragmetize: queryPlannerConfig.experimental_autoFragmentQuery} );
 
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
@@ -2332,7 +2332,7 @@ class FetchDependencyGraph {
     // a @defer B may be nested inside @defer A "in the query", but be such that we don't need anything fetched within
     // the deferred part of A to start the deferred part of B).
     // Long story short, we first collect the groups from `allDeferredGroups` that are _not_ in our current level, if
-    // any, and pass those to recursion call below so they can be use a their proper level of nestedness. 
+    // any, and pass those to recursion call below so they can be use a their proper level of nestedness.
     const defersInCurrent = this.deferTracking.defersInParent(currentDeferRef);
     const handledDefersInCurrent = new Set(defersInCurrent.map((d) => d.label));
     const unhandledDefersInCurrent = mapKeys(allDeferredGroups).filter((label) => !handledDefersInCurrent.has(label));
