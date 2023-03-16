@@ -51,6 +51,13 @@ import { ERRORS } from "./error";
 import { isDirectSubtype, sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
+import { createHash } from '@apollo/utils.createhash';
+
+export interface OptimizeOptions {
+  minUsagesToOptimize?: number
+  autoFragmetize?: boolean
+  schema?: Schema
+}
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
@@ -574,13 +581,17 @@ export class Operation {
     readonly name?: string) {
   }
 
-  optimize(fragments?: NamedFragments, minUsagesToOptimize: number = 2): Operation {
+  optimize(fragments?: NamedFragments, options: OptimizeOptions = {}, minUsagesToOptimize: number = 2): Operation {
     assert(minUsagesToOptimize >= 1, `Expected 'minUsagesToOptimize' to be at least 1, but got ${minUsagesToOptimize}`)
-    if (!fragments || fragments.isEmpty()) {
+    if (!fragments || (!options.autoFragmetize && fragments.isEmpty())){
       return this;
     }
 
-    let optimizedSelection = this.selectionSet.optimize(fragments);
+    let optimizedSelection = this.selectionSet.optimize(fragments,
+      { ...options,
+        schema: options.autoFragmetize? this.schema : undefined
+      });
+
     if (optimizedSelection === this.selectionSet) {
       return this;
     }
@@ -1040,8 +1051,8 @@ export class SelectionSet extends Freezable<SelectionSet> {
     }
   }
 
-  optimize(fragments?: NamedFragments): SelectionSet {
-    if (!fragments || fragments.isEmpty()) {
+  optimize(fragments?: NamedFragments, options: OptimizeOptions = {}): SelectionSet {
+    if (!fragments || (!options.autoFragmetize && fragments.isEmpty())) {
       return this;
     }
 
@@ -1055,7 +1066,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
 
     const optimized = new SelectionSet(this.parentType, fragments);
     for (const selection of this.selections()) {
-      optimized.add(selection.optimize(fragments));
+      optimized.add(selection.optimize(fragments, options));
     }
     return optimized;
   }
@@ -1546,8 +1557,8 @@ export class FieldSelection extends Freezable<FieldSelection> {
     }
   }
 
-  optimize(fragments: NamedFragments): Selection {
-    const optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments) : undefined;
+  optimize(fragments: NamedFragments, options: OptimizeOptions = {}): Selection {
+    const optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments, options) : undefined;
     const fieldBaseType = baseType(this.field.definition.type!);
     if (isCompositeType(fieldBaseType) && optimizedSelection) {
       for (const candidate of fragments.maybeApplyingAtType(fieldBaseType)) {
@@ -1581,6 +1592,18 @@ export class FieldSelection extends Freezable<FieldSelection> {
           const fragmentSelection = new FragmentSpreadSelection(fieldBaseType, fragments, candidate.name);
           return new FieldSelection(this.field, selectionSetOf(fieldBaseType, fragmentSelection));
         }
+      }
+      // Create a new named fragment with exact selection set.
+      // Incase we see this same pattern in another part of the query,
+      // this will help reduce query expansion when sending requests to subgraphs.
+      // If we don't see the same pattern the final pass of optimizer will re-expand it.
+      const schema = options?.schema;
+      if(options?.autoFragmetize && schema && optimizedSelection.selections().length > 1) {
+        const hash = createHash('sha256').update(optimizedSelection.toString()).digest('hex');
+        const newFragment = new NamedFragmentDefinition(schema, fieldBaseType + hash, fieldBaseType, optimizedSelection);
+        fragments.addIfNotExist(newFragment);
+        const newFragmentSelection = new FragmentSpreadSelection(fieldBaseType, fragments, newFragment.name);
+        return new FieldSelection(this.field, selectionSetOf(fieldBaseType, newFragmentSelection));
       }
     }
 
@@ -1975,8 +1998,8 @@ class InlineFragmentSelection extends FragmentSelection {
     };
   }
 
-  optimize(fragments: NamedFragments): FragmentSelection {
-    let optimizedSelection = this.selectionSet.optimize(fragments);
+  optimize(fragments: NamedFragments, options: OptimizeOptions ={}): FragmentSelection {
+    let optimizedSelection = this.selectionSet.optimize(fragments, options);
     const typeCondition = this.element().typeCondition;
     if (typeCondition) {
       for (const candidate of fragments.maybeApplyingAtType(typeCondition)) {
@@ -1997,6 +2020,17 @@ class InlineFragmentSelection extends FragmentSelection {
           optimizedSelection = selectionSetOf(spread.element().parentType, spread);
           break;
         }
+      }
+      // Create a new named fragment with exact selection set.
+      // Incase we see this same pattern in another part of the query,
+      // this will help reduce query expansion when sending requests to subgraphs.
+      // If we don't see the same pattern the final pass of optimizer will re-expand it.
+      const schema = options?.schema;
+      if (options?.autoFragmetize && schema && optimizedSelection.selections().length > 1) {
+        const hash = createHash('sha256').update(optimizedSelection.toString()).digest('hex');
+        const newFragment = new NamedFragmentDefinition(schema, typeCondition + hash, typeCondition, optimizedSelection);
+        fragments.addIfNotExist(newFragment);
+        return new FragmentSpreadSelection(this.element().parentType, fragments, newFragment.name);
       }
     }
     return this.selectionSet === optimizedSelection
@@ -2113,7 +2147,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     };
   }
 
-  optimize(_: NamedFragments): FragmentSelection {
+  optimize(_: NamedFragments, _options: OptimizeOptions = {}): FragmentSelection {
     return this;
   }
 
