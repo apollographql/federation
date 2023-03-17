@@ -30,9 +30,9 @@ Let's look at an example!
 
 ## Subgraph schemas
 
-Below are the schemas for three subgraphs in a basic e-commerce application. Each subgraph is implemented as a separate GraphQL API:
+Below are example schemas for three subgraphs in an e-commerce company's supergraph. Each subgraph is implemented as a separate GraphQL API:
 
-<CodeColumns cols="3">
+<CodeColumns>
 
 ```graphql title="Users"
 type Query {
@@ -67,6 +67,10 @@ extend schema
   @link(url: "https://specs.apollo.dev/federation/v2.4",
         import: ["@key", "@shareable"])
 ```
+
+</CodeColumns>
+
+<CodeColumns>
 
 ```graphql title="Reviews"
 type Review {

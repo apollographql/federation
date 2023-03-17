@@ -23,7 +23,7 @@ type Product @key(fields: "id") @key(fields: "sku") {
 }
 ```
 
-This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a `reviews` subgraph might refer to products by their ID, whereas an `inventory` subgraph might use SKUs.
+This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
 
 A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can include the fields of any `@key` in its stub definition:
 
@@ -59,7 +59,7 @@ type Organization {
 
 ## Migrating entities and fields
 
-As your federated graph grows, you might decide that you want to move an entity's definition (or a particular _field_ of an entity) to a different subgraph. This section describes how to perform these migrations.
+As your supergraph grows, you might decide that you want to move an entity's definition (or a particular _field_ of an entity) to a different subgraph. This section describes how to perform these migrations safely.
 
 ### Entity migration
 
@@ -80,7 +80,7 @@ type Payment {
 
 </CodeColumns>
 
-Then, we add a dedicated Billing subgraph to our federated graph. It now makes sense to define the `Bill` entity there instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
+Then, we add a dedicated Billing subgraph to our supergraph. It now makes sense to define the `Bill` entity there instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
 
 <CodeColumns>
 
@@ -100,55 +100,6 @@ type Bill @key(fields: "id") {
 </CodeColumns>
 
 The steps for this migration depend on how you perform schema composition:
-
-<ExpansionPanel title="With Rover CLI composition">
-
-1. In the Billing subgraph, define the `Bill` entity exactly as it's defined in the Payments subgraph:
-
-    ```graphql title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-3. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
-
-3. Deploy the updated Billing subgraph to your environment.
-
-    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the router doesn't _know_ this yet because its supergraph schema hasn't been updated.
-
-4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-    </CodeColumns>
-
-5. Compose an updated supergraph schema with your usual configuration using `rover supergraph compose`.
-    * This updated supergraph schema indicates that the Billing subgraph resolves `Bill` entities, and the Payments subgraph _doesn't_.
-
-6. Assuming CI completes successfully, deploy an updated version of your _router_ with the new supergraph schema.
-    * When this deployment completes, the router begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
-
-7. Deploy an updated version of your Payments subgraph without the `Bill` entity.
-    * At this point it's safe to remove this definition, because the router is never resolving `Bill` with the Payments subgraph.
-
-We're done! `Bill` is now resolved in a new subgraph, and it was resolvable during each step of the migration process.
-
-</ExpansionPanel>
 
 <ExpansionPanel title="With managed federation">
 
@@ -270,9 +221,58 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 </ExpansionPanel>
 
+<ExpansionPanel title="With Rover CLI composition">
+
+1. In the Billing subgraph, define the `Bill` entity exactly as it's defined in the Payments subgraph:
+
+    ```graphql title="Billing subgraph"
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+3. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
+
+3. Deploy the updated Billing subgraph to your environment.
+
+    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the router doesn't _know_ this yet because its supergraph schema hasn't been updated.
+
+4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
+
+    <CodeColumns>
+
+    ```graphql title="Payments subgraph"
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql title="Billing subgraph"
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+5. Compose an updated supergraph schema with your usual configuration using `rover supergraph compose`.
+    * This updated supergraph schema indicates that the Billing subgraph resolves `Bill` entities, and the Payments subgraph _doesn't_.
+
+6. Assuming CI completes successfully, deploy an updated version of your _router_ with the new supergraph schema.
+    * When this deployment completes, the router begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
+
+7. Deploy an updated version of your Payments subgraph without the `Bill` entity.
+    * At this point it's safe to remove this definition, because the router is never resolving `Bill` with the Payments subgraph.
+
+We're done! `Bill` is now resolved in a new subgraph, and it was resolvable during each step of the migration process.
+
+</ExpansionPanel>
+
 <ExpansionPanel title="With IntrospectAndCompose">
 
-> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](./building-supergraphs/router/#limitations-of-introspectandcompose).
+> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](/apollo-server/using-federation/apollo-gateway-setup#limitations-of-introspectandcompose).
 
 When you provide `IntrospectAndCompose` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
 
@@ -470,7 +470,7 @@ In this modification of the previous example, `size` and `weight` are now subfie
 
 ## Resolving another subgraph's field
 
-By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with some exceptions, like entity `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
+By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with important exceptions, like entity `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
 
 You can enable multiple subgraphs to resolve a particular entity field. **This is a completely optional optimization.** When the router plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
 
@@ -489,7 +489,7 @@ graph TB;
   class shareable,provides tertiary;
 ```
 
-If you aren't sure whether your subgraph can always resolve a field, see [Using `@provides`](#using-provides) for an example of a subgraph that _can't_.
+If you aren't sure whether your subgraph can _always_ resolve a field, see [Using `@provides`](#using-provides) for an example of a subgraph that _can't_.
 
 ### Ensure resolver consistency
 
@@ -578,7 +578,7 @@ Violating any of these rules causes composition to fail.
 
 ## Handling the N+1 problem
 
-Most subgraph implementations use **reference resolvers** (also known as entity resolvers) to handle the `Query._entities` field ergonomically. An entity resolver is passed a single key and returns the entity object that corresponds to that key.
+Most subgraph implementations use **reference resolvers** (sometimes known as entity resolvers) to handle the `Query._entities` field ergonomically. A reference resolver is passed a single key and returns the entity object that corresponds to that key.
 
 Although this pattern is straightforward, it can diminish performance when a client operation requests fields from _many_ entities. To illustrate this, let's revisit an earlier example:
 
@@ -594,7 +594,7 @@ query GetReviewsWithProducts {
 }
 ```
 
-As mentioned in [The query plan](./entities#the-query-plan), the router executes two queries on its subgraphs to resolve this operation:
+As mentioned in [The query plan](./entities#the-query-plan), the router executes two queries on its subgraphs to resolve the above operation:
 
 1. It queries the Reviews subgraph to fetch all fields _except_ `Product.price`.
 2. It queries the Products subgraph to fetch the `price` of each `Product` entity.
@@ -613,6 +613,6 @@ const resolvers = {
 }
 ```
 
-A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made _in addition to_ the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems and can even enable denial-of-service attacks.
+A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made _in addition to_ the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems or even enable denial-of-service attacks.
 
 This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in **every resolver**. This is true even for resolvers that _aren't_ for entities and that _don't_ return a list. These resolvers can _still_ cause N+1 issues via [batched requests](/enterprise-guide/graph-security/#batched-requests).

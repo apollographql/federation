@@ -3,8 +3,6 @@ title: Introduction to Apollo Federation
 description: Combine GraphQL APIs into a unified supergraph
 ---
 
-import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-
 **Apollo Federation** is a powerful, open architecture for creating a **supergraph** that combines multiple GraphQL APIs:
 
 ```mermaid
@@ -20,9 +18,9 @@ graph LR;
   class clients secondary;
 ```
 
-With federation, you can responsibly share ownership of your supergraph across any number of teams.  And even if you currently only have _one_ GraphQL API, Apollo Federation is essential for scaling that API as you grow your features, user base, and organization.
+With federation, you can responsibly share ownership of your supergraph across any number of teams and services.  And even if you currently only have _one_ GraphQL API, Apollo Federation is essential for scaling that API as you grow your features, user base, and organization.
 
-Federation supports a free managed mode with Apollo GraphOS, which helps you modify and grow your supergraph without any downtime.
+[Apollo GraphOS](/graphos/) provides a managed mode for Apollo Federation, which helps you modify and grow your supergraph without any downtime.
 
 <div>
   <ButtonLink
@@ -121,7 +119,7 @@ graph LR;
 **The router** is one of the following:
 
 - [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
-    - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages routing for you!
+    - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
 - An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library
 
 **Subgraphs** can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/).
