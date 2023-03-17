@@ -1846,10 +1846,6 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     private readonly _selectionSet?: SelectionSet,
   ) {
     super(field);
-    assert(
-      field.isLeafField() === (_selectionSet === undefined),
-      () => `Got ${_selectionSet} as sub-selection for field of type ${field.definition.type}`,
-    );
   }
 
   get selectionSet(): SelectionSet | undefined {
@@ -1928,7 +1924,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
-      !(this.selectionSet && this.selectionSet.isEmpty()),
+      this.element.isLeafField() || (this.selectionSet && !this.selectionSet.isEmpty()),
       () => `Invalid empty selection set for field "${this.element.definition.coordinate}" of non-leaf type ${this.element.definition.type}`,
       this.element.definition.sourceAST
     );
