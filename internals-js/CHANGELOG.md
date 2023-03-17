@@ -1,5 +1,20 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.0
+### Patch Changes
+
+
+- Refactor the internal implementation of selection sets used by the query planner to decrease the code complexity and ([#2387](https://github.com/apollographql/federation/pull/2387))
+  improve query plan generation performance in many cases.
+
+- Revert #2293. Removing URL import causes a problem when running under deno. ([#2451](https://github.com/apollographql/federation/pull/2451))
+
+
+- Use globally available URL object instead of node builtin "url" module ([#2293](https://github.com/apollographql/federation/pull/2293))
+
+
+- Optimises query plan generation for parts of queries that can statically be known to not cross across subgraphs ([#2449](https://github.com/apollographql/federation/pull/2449))
+
 ## 2.4.0-alpha.1
 ### Patch Changes
 
