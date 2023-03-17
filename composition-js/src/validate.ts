@@ -28,9 +28,11 @@ import {
   selectionOfElement,
   SelectionSet,
   SubgraphASTNode,
+  selectionSetOf,
   typenameFieldName,
   validateSupergraph,
-  VariableDefinitions
+  VariableDefinitions,
+  isOutputType
 } from "@apollo/federation-internals";
 import {
   Edge,
@@ -209,7 +211,8 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
     // ellipsis instead make it immediately clear after which part of the query there is an issue.
     const lastType = edges[edges.length -1].tail.type;
     // Note that vertex types are named type and output ones, so if it's not a leaf it is guaranteed to be selectable.
-    return isLeafType(lastType) ? undefined : new SelectionSet(lastType as CompositeType);
+    assert(isOutputType(lastType), 'Should not have input types as vertex types');
+    return isLeafType(lastType) ? undefined : new SelectionSet(lastType);
   }
 
   const edge = edges[index];
@@ -235,17 +238,19 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
       assert(false, `Invalid edge ${edge} found in supergraph path`);
   }
   // If we get here, the edge is either a downcast or a field, so the edge head must be selectable.
-  const selectionSet = new SelectionSet(edge.head.type as CompositeType);
-  selectionSet.add(selection);
-  return selectionSet;
+  return selectionSetOf(edge.head.type as CompositeType, selection);
 }
 
 function buildWitnessField(definition: FieldDefinition<any>): Field {
+  if (definition.arguments().length === 0) {
+    return new Field(definition);
+  }
+
   const args = Object.create(null);
   for (const argDef of definition.arguments()) {
     args[argDef.name] = generateWitnessValue(argDef.type!);
   }
-  return new Field(definition, args, new VariableDefinitions());
+  return new Field(definition, args);
 }
 
 function generateWitnessValue(type: InputType): any {
@@ -743,7 +748,7 @@ class ConditionValidationResolver {
       const pathsOptions = advanceSimultaneousPathsWithOperation(
         this.supergraphSchema,
         paths,
-        state.selection.element(),
+        state.selection.element,
       );
       if (!pathsOptions) {
         continue;

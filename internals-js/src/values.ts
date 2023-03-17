@@ -19,9 +19,9 @@ import {
   ScalarType,
   Schema,
   Variable,
+  VariableCollector,
   VariableDefinition,
   VariableDefinitions,
-  Variables,
 } from './definitions';
 import {
   ArgumentNode,
@@ -697,41 +697,35 @@ export function argumentsFromAST(
   context: string,
   args: readonly ArgumentNode[] | undefined,
   argsDefiner: { argument(name: string): ArgumentDefinition<any> | undefined }
-): {[key: string]: any} {
+): {[key: string]: any} | undefined {
+  if (!args || args.length === 0) {
+    return undefined;
+  }
+
   const values = Object.create(null);
-  if (args) {
-    for (const argNode of args) {
-      const name = argNode.name.value;
-      const expectedType = argsDefiner.argument(name)?.type;
-      if (!expectedType) {
-        throw ERRORS.INVALID_GRAPHQL.err(
-          `Unknown argument "${name}" found in value: "${context}" has no argument named "${name}"`
-        );
+  for (const argNode of args) {
+    const name = argNode.name.value;
+    const expectedType = argsDefiner.argument(name)?.type;
+    if (!expectedType) {
+      throw ERRORS.INVALID_GRAPHQL.err(
+        `Unknown argument "${name}" found in value: "${context}" has no argument named "${name}"`
+      );
+    }
+    try {
+      values[name] = valueFromAST(argNode.value, expectedType);
+    } catch (e) {
+      if (e instanceof GraphQLError) {
+        throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument "${name}": ${e.message}`);
       }
-      try {
-        values[name] = valueFromAST(argNode.value, expectedType);
-      } catch (e) {
-        if (e instanceof GraphQLError) {
-          throw ERRORS.INVALID_GRAPHQL.err(`Invalid value for argument "${name}": ${e.message}`);
-        }
-        throw e;
-      }
+      throw e;
     }
   }
   return values;
 }
 
-export function variablesInValue(value: any): Variables {
-  const variables: Variable[] = [];
-  collectVariables(value, variables);
-  return variables;
-}
-
-function collectVariables(value: any, variables: Variable[]) {
+export function collectVariablesInValue(value: any, collector: VariableCollector) {
   if (isVariable(value)) {
-    if (!variables.some(v => v.name === value.name)) {
-      variables.push(value);
-    }
+    collector.add(value);
     return;
   }
 
@@ -740,10 +734,10 @@ function collectVariables(value: any, variables: Variable[]) {
   }
 
   if (Array.isArray(value)) {
-    value.forEach(v => collectVariables(v, variables));
+    value.forEach(v => collectVariablesInValue(v, collector));
   }
 
   if (typeof value === 'object') {
-    Object.keys(value).forEach(k => collectVariables(value[k], variables));
+    Object.keys(value).forEach(k => collectVariablesInValue(value[k], collector));
   }
 }

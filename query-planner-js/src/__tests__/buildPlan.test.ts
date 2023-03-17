@@ -2419,38 +2419,36 @@ describe('@requires', () => {
       `);
 
       const plan = queryPlanner.buildQueryPlan(operation);
-      // Note that during query planning, the inputs for the 2nd fetch also have the `@include(if: $test)` condition
-      // on them, but the final query plan format does not support that at the momment, which is why they don't
-      // appear below (it is a bit of a shame because that means the gateway/router can't use it, and so this
-      // should (imo) be fixed but...).
       expect(plan).toMatchInlineSnapshot(`
         QueryPlan {
-          Sequence {
-            Fetch(service: "Subgraph1") {
-              {
-                t @include(if: $test) {
-                  __typename
-                  id
-                  a
-                }
-              }
-            },
-            Flatten(path: "t") {
-              Fetch(service: "Subgraph2") {
+          Include(if: $test) {
+            Sequence {
+              Fetch(service: "Subgraph1") {
                 {
-                  ... on T {
+                  t {
                     __typename
                     id
                     a
                   }
-                } =>
-                {
-                  ... on T @include(if: $test) {
-                    b
-                  }
                 }
               },
-            },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                      a
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      b
+                    }
+                  }
+                },
+              },
+            }
           },
         }
       `);
@@ -2506,21 +2504,23 @@ describe('@requires', () => {
                 }
               }
             },
-            Flatten(path: "t") {
-              Fetch(service: "Subgraph2") {
-                {
-                  ... on T {
-                    __typename
-                    id
-                    a
+            Include(if: $test) {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T {
+                      __typename
+                      id
+                      a
+                    }
+                  } =>
+                  {
+                    ... on T {
+                      b
+                    }
                   }
-                } =>
-                {
-                  ... on T {
-                    b @include(if: $test)
-                  }
-                }
-              },
+                },
+              }
             },
           },
         }
@@ -2581,54 +2581,60 @@ describe('@requires', () => {
       const plan = queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
         QueryPlan {
-          Sequence {
-            Fetch(service: "Subgraph1") {
-              {
-                a @include(if: $test1) {
-                  __typename
-                  idA
-                }
-              }
-            },
-            Flatten(path: "a") {
-              Fetch(service: "Subgraph2") {
+          Include(if: $test1) {
+            Sequence {
+              Fetch(service: "Subgraph1") {
                 {
-                  ... on A {
+                  a {
                     __typename
                     idA
                   }
-                } =>
-                {
-                  ... on A @include(if: $test1) {
-                    b @include(if: $test2) {
-                      __typename
-                      idB
-                      required
-                    }
-                  }
                 }
               },
-            },
-            Flatten(path: "a.b.@") {
-              Fetch(service: "Subgraph3") {
-                {
-                  ... on B {
-                    ... on B {
-                      __typename
-                      idB
-                      required
-                    }
-                  }
-                } =>
-                {
-                  ... on B @include(if: $test1) {
-                    ... on B @include(if: $test2) {
-                      c
-                    }
-                  }
+              Include(if: $test2) {
+                Sequence {
+                  Flatten(path: "a") {
+                    Fetch(service: "Subgraph2") {
+                      {
+                        ... on A {
+                          __typename
+                          idA
+                        }
+                      } =>
+                      {
+                        ... on A {
+                          b {
+                            __typename
+                            idB
+                            required
+                          }
+                        }
+                      }
+                    },
+                  },
+                  Flatten(path: "a.b.@") {
+                    Fetch(service: "Subgraph3") {
+                      {
+                        ... on B {
+                          ... on B {
+                            __typename
+                            idB
+                            required
+                          }
+                        }
+                      } =>
+                      {
+                        ... on B {
+                          ... on B {
+                            c
+                          }
+                        }
+                      }
+                    },
+                  },
                 }
               },
-            },
+            }
           },
         }
       `);
@@ -4422,6 +4428,7 @@ describe('__typename handling', () => {
               } =>
               {
                 ... on S {
+                  __typename
                   t {
                     __typename
                     x
@@ -4933,10 +4940,8 @@ describe('merged abstract types handling', () => {
       `);
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    // While `A` is a `I` in the supergraph while not in `Subgraph1`, since the `i` operation is resolved by
-    // `Subgraph1`, it cannot ever return a A, and so we should skip the whole `v` selection; or at the very
-    // least, we should not send a query with `... on U { ... on A { <stuff> }}` to `Subgraph1` since it
-    // would reject it as invalid.
+    // Here, `A` is a `I` in the supergraph while not in `Subgraph1`, and since the `i` operation is resolved by
+    // `Subgraph1`, it cannot ever return a A. And so we can skip the whole `... on U` sub-selection.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -5223,10 +5228,8 @@ describe('merged abstract types handling', () => {
       `);
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    // While `A` is a `U1` in the supergraph while not in `Subgraph1`, since the `u1` operation is resolved by
-    // `Subgraph1`, it cannot ever return a A, and so we should skip the whole `v` selection; or at the very
-    // least, we should not send a query with `u1 { ... on A { <stuff> }}` to `Subgraph1` since it
-    // would reject it as invalid.
+    // Similar case than in the `interface/union` case: the whole `... on U2` sub-selection happens to be
+    // unsatisfiable in practice.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {

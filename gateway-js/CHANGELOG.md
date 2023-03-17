@@ -1,5 +1,115 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.4.0
+### Minor Changes
+
+
+- This change introduces a configurable query plan cache. This option allows ([#2385](https://github.com/apollographql/federation/pull/2385))
+  developers to provide their own query plan cache like so:
+  
+  ```
+  new ApolloGateway({
+    queryPlannerConfig: {
+      cache: new MyCustomQueryPlanCache(),
+    },
+  });
+  ```
+  
+  The current default implementation is effectively as follows:
+  ```
+  import { InMemoryLRUCache } from "@apollo/utils.keyvaluecache";
+  
+  const cache = new InMemoryLRUCache<string>({
+    maxSize: Math.pow(2, 20) * 30,
+    sizeCalculation<T>(obj: T): number {
+      return Buffer.byteLength(JSON.stringify(obj), "utf8");
+    },
+  });
+  ```
+  
+  TypeScript users should implement the `QueryPlanCache` type which is now
+  exported by `@apollo/query-planner`:
+  ```
+  import { QueryPlanCache } from '@apollo/query-planner';
+  
+  class MyCustomQueryPlanCache implements QueryPlanCache {
+    // ...
+  }
+  ```
+
+- Adds debug/testing query planner options (`debug.bypassPlannerForSingleSubgraph`) to bypass the query planning ([#2441](https://github.com/apollographql/federation/pull/2441))
+  process for federated supergraph having only a single subgraph. The option is disabled by default, is not recommended
+  for production, and is not supported (it may be removed later). It is meant for debugging/testing purposes.
+
+### Patch Changes
+
+
+- Refactor the internal implementation of selection sets used by the query planner to decrease the code complexity and ([#2387](https://github.com/apollographql/federation/pull/2387))
+  improve query plan generation performance in many cases.
+
+- Optimises query plan generation for parts of queries that can statically be known to not cross across subgraphs ([#2449](https://github.com/apollographql/federation/pull/2449))
+
+- Updated dependencies [[`260c357c`](https://github.com/apollographql/federation/commit/260c357c10b4cf560c66d11f85552036c2638b0b), [`7bc0f8e8`](https://github.com/apollographql/federation/commit/7bc0f8e814ea003802ed3761b5eeeb7137650b0c), [`d4426ff9`](https://github.com/apollographql/federation/commit/d4426ff9ea86273c145351f80d8d18eb56ebab38), [`a9385bdb`](https://github.com/apollographql/federation/commit/a9385bdb0d6f5e9b03f9c143bbc7f34e5b5bf166), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e), [`ade7ceb8`](https://github.com/apollographql/federation/commit/ade7ceb8093f3c6ad01362d4aec4d806bff4e4fd), [`09382e74`](https://github.com/apollographql/federation/commit/09382e74adf4648582c0bbd135fe433a9853c835), [`cab383b2`](https://github.com/apollographql/federation/commit/cab383b22d37bb6bc687b4d8cec6f5c22245f41f)]:
+  - @apollo/composition@2.4.0
+  - @apollo/federation-internals@2.4.0
+  - @apollo/query-planner@2.4.0
+
+## 2.4.0-alpha.1
+### Patch Changes
+
+- Updated dependencies [[`7bc0f8e8`](https://github.com/apollographql/federation/commit/7bc0f8e814ea003802ed3761b5eeeb7137650b0c)]:
+  - @apollo/federation-internals@2.4.0-alpha.1
+  - @apollo/composition@2.4.0-alpha.1
+  - @apollo/query-planner@2.4.0-alpha.1
+
+## 2.4.0-alpha.0
+### Minor Changes
+
+
+- This change introduces a configurable query plan cache. This option allows ([#2385](https://github.com/apollographql/federation/pull/2385))
+  developers to provide their own query plan cache like so:
+  
+  ```
+  new ApolloGateway({
+    queryPlannerConfig: {
+      cache: new MyCustomQueryPlanCache(),
+    },
+  });
+  ```
+  
+  The current default implementation is effectively as follows:
+  ```
+  import { InMemoryLRUCache } from "@apollo/utils.keyvaluecache";
+  
+  const cache = new InMemoryLRUCache<string>({
+    maxSize: Math.pow(2, 20) * 30,
+    sizeCalculation<T>(obj: T): number {
+      return Buffer.byteLength(JSON.stringify(obj), "utf8");
+    },
+  });
+  ```
+  
+  TypeScript users should implement the `QueryPlanCache` type which is now
+  exported by `@apollo/query-planner`:
+  ```
+  import { QueryPlanCache } from '@apollo/query-planner';
+  
+  class MyCustomQueryPlanCache implements QueryPlanCache {
+    // ...
+  }
+  ```
+
+- Adds debug/testing query planner options (`debug.bypassPlannerForSingleSubgraph`) to bypass the query planning ([#2441](https://github.com/apollographql/federation/pull/2441))
+  process for federated supergraph having only a single subgraph. The option is disabled by default, is not recommended
+  for production, and is not supported (it may be removed later). It is meant for debugging/testing purposes.
+
+### Patch Changes
+
+- Updated dependencies [[`d4426ff9`](https://github.com/apollographql/federation/commit/d4426ff9ea86273c145351f80d8d18eb56ebab38), [`a9385bdb`](https://github.com/apollographql/federation/commit/a9385bdb0d6f5e9b03f9c143bbc7f34e5b5bf166), [`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e), [`ade7ceb8`](https://github.com/apollographql/federation/commit/ade7ceb8093f3c6ad01362d4aec4d806bff4e4fd)]:
+  - @apollo/query-planner@2.4.0-alpha.0
+  - @apollo/composition@2.4.0-alpha.0
+  - @apollo/federation-internals@2.4.0-alpha.0
+
 ## 2.3.5
 ### Patch Changes
 
@@ -7,7 +117,7 @@
   - @apollo/query-planner@2.3.5
   - @apollo/composition@2.3.5
   - @apollo/federation-internals@2.3.5
-
+  
 ## 2.3.4
 ### Patch Changes
 
@@ -17,10 +127,12 @@
   Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
   
   With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
+
 - Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
   - @apollo/federation-internals@2.3.4
   - @apollo/composition@2.3.4
   - @apollo/query-planner@2.3.4
+
 
 ## 2.3.3
 ### Patch Changes

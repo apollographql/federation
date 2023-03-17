@@ -209,6 +209,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

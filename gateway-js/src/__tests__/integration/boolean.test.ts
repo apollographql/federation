@@ -4,8 +4,6 @@ import { astSerializer, queryPlanSerializer } from 'apollo-federation-integratio
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
-// TODO: right now the query planner doesn't prune known skip and include points
-// eventually we want to do this to prevent downstream fetches that aren't needed
 describe('@skip', () => {
   it('supports @skip when a boolean condition is met', async () => {
     const query = `#graphql
@@ -35,8 +33,8 @@ describe('@skip', () => {
       ],
     });
 
-    expect(queryPlan).toCallService('accounts');
     expect(queryPlan).toCallService('reviews');
+    expect(queryPlan).not.toCallService('accounts');
   });
 
   it('supports @skip when a boolean condition is met (variable driven)', async () => {
@@ -122,7 +120,7 @@ describe('@skip', () => {
     `;
 
     const skip = false;
-    const { data, queryPlan } = await execute({
+    const { data, queryPlan, operation } = await execute({
       query,
       variables: { skip },
     });
@@ -137,8 +135,9 @@ describe('@skip', () => {
       ],
     });
 
-    expect(queryPlan).toCallService('accounts');
-    expect(queryPlan).toCallService('reviews');
+    const variables = { definitions: operation.variableDefinitions, values: {skip} };
+    expect(queryPlan).toCallService('reviews', variables);
+    expect(queryPlan).toCallService('accounts', variables);
   });
 });
 
@@ -258,7 +257,7 @@ describe('@include', () => {
     `;
 
     const include = true;
-    const { data, queryPlan } = await execute({
+    const { data, queryPlan, operation } = await execute({
       query,
       variables: { include },
     });
@@ -273,7 +272,8 @@ describe('@include', () => {
       ],
     });
 
-    expect(queryPlan).toCallService('accounts');
-    expect(queryPlan).toCallService('reviews');
+    const variables = { definitions: operation.variableDefinitions, values: {include} };
+    expect(queryPlan).toCallService('accounts', variables);
+    expect(queryPlan).toCallService('reviews', variables);
   });
 });

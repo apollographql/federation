@@ -161,12 +161,12 @@ function applySelectionSet({
   parentType: CompositeType,
 }): ApplyResult {
   for (const selection of selectionSet.selections()) {
-    if (shouldSkip(selection.element(), parameters)) {
+    if (shouldSkip(selection.element, parameters)) {
       continue;
     }
 
     if (selection.kind === 'FieldSelection') {
-      const field = selection.element();
+      const field = selection.element;
       const fieldType = field.definition.type!;
       const responseName = field.responseName();
       const outputValue = output[responseName];
@@ -241,7 +241,7 @@ function applySelectionSet({
         return ApplyResult.NULL_BUBBLE_UP;
       }
     } else {
-      const fragment = selection.element();
+      const fragment = selection.element;
       const typename = input[typenameFieldName];
       assert(!typename || typeof typename === 'string', () => `Got unexpected value for __typename: ${typename}`);
       if (typeConditionApplies(parameters.schema, fragment.typeCondition, typename, parentType)) {

@@ -15,7 +15,6 @@ import {
   baseType,
   SelectionSet,
   isFederationSubgraphSchema,
-  CompositeType,
   extractSubgraphsFromSupergraph,
   FieldDefinition,
   isCompositeType,
@@ -34,6 +33,7 @@ import {
   typenameFieldName,
   Field,
   selectionSetOfElement,
+  SelectionSetUpdates,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -60,6 +60,8 @@ export function isFederatedGraphRootType(type: NamedType) {
  * @see QueryGraph
  */
 export class Vertex {
+  hasReachableCrossSubgraphEdges: boolean = false;
+
   constructor(
     /** Index used for this vertex in the query graph it is part of. */
     readonly index: number,
@@ -154,15 +156,7 @@ export class Edge {
      */
     conditions?: SelectionSet,
   ) {
-    // Edges are meant to be immutable once a query graph is fully built. More precisely,
-    // the whole query graph must be immutable once constructed since the query planner reuses
-    // it for buiding multiple plans.
-    // To ensure it/avoid hard-to-find bugs, we freeze the conditions (and because the caller might
-    // not expect that this method freezes its input, we clone first), which ensure that if we add
-    // them to another selection set during query planning, they will get automatically cloned first
-    // (and thus this instance will not be modified). This fixes #1750 in particular and should
-    // avoid such issue in the future.
-    this._conditions = conditions?.clone()?.freeze();
+    this._conditions = conditions;
   }
 
   get conditions(): SelectionSet | undefined {
@@ -206,15 +200,9 @@ export class Edge {
   }
 
   addToConditions(newConditions: SelectionSet) {
-    // As mentioned in the ctor, we freeze the conditions to avoid unexpected modifications once a query
-    // graph has bee fully built (this method is called _during_ the building, so can still mutate the
-    // edge freely). Which means we need to clone any existing conditions (so we can modify them), and need
-    // to re-freeze the result afterwards.
     this._conditions = this._conditions
-      ? this._conditions.clone()
-      : new SelectionSet(this.head.type as CompositeType);
-    this._conditions.mergeIn(newConditions);
-    this._conditions.freeze();
+      ? new SelectionSetUpdates().add(this._conditions).add(newConditions).toSelectionSet(this._conditions.parentType)
+      : newConditions;
   }
 
   isKeyOrRootTypeEdgeToSelf(): boolean {
@@ -287,10 +275,10 @@ export class QueryGraph {
     /** The vertices of the query graph. The index of each vertex in the array will be the value of its `Vertex.index` value. */
     readonly vertices: Vertex[],
     /**
-    * For each vertex, the edges that originate from that array. This array has the same length as `vertices` and `adjacencies[i]`
+    * For each vertex, the edges that originate from that array. This array has the same length as `vertices` and `_outEdges[i]`
     * is an array of all the edges starting at vertices[i].
     */
-    private readonly adjacencies: Edge[][],
+    private readonly _outEdges: Edge[][],
     /**
      * A map that associate type names of the underlying schema on which this query graph was built to each of the vertex
      * (vertex index) that points to a type of that name. Note that in a "supergraph query graph", each type name will only
@@ -318,7 +306,7 @@ export class QueryGraph {
   edgesCount(): number {
     // We could count edges as we add them and pass it to the ctor. For now though, it's not meant to be
     // on a hot path, so recomputing is probably fine.
-    return this.adjacencies.reduce((acc, v) => acc + v.length, 0);
+    return this._outEdges.reduce((acc, v) => acc + v.length, 0);
   }
 
   /**
@@ -359,7 +347,7 @@ export class QueryGraph {
    * @returns the list of all the edges out of this vertex.
    */
   outEdges(vertex: Vertex, includeKeyAndRootTypeEdgesToSelf: boolean = false): readonly Edge[] {
-    const allEdges = this.adjacencies[vertex.index];
+    const allEdges = this._outEdges[vertex.index];
     return includeKeyAndRootTypeEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyOrRootTypeEdgeToSelf())
   }
 
@@ -372,7 +360,7 @@ export class QueryGraph {
    * in general.
    */
   outEdgesCount(vertex: Vertex): number {
-    return this.adjacencies[vertex.index].length;
+    return this._outEdges[vertex.index].length;
   }
 
   /**
@@ -385,7 +373,7 @@ export class QueryGraph {
    * @returns the `edgeIndex`^th edge out of `vertex`, if such edges exists.
    */
   outEdge(vertex: Vertex, edgeIndex: number): Edge | undefined {
-    return this.adjacencies[vertex.index][edgeIndex];
+    return this._outEdges[vertex.index][edgeIndex];
   }
 
   /**
@@ -840,8 +828,8 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
   while (stack.length > 0) {
     const [v, selectionSet] = stack.pop()!;
     // We reverse the selections to cancel the reversing that the stack does.
-    for (const selection of selectionSet.selections(true)) {
-      const element = selection.element();
+    for (const selection of selectionSet.selectionsInReverseOrder()) {
+      const element = selection.element;
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
         const existingEdge = builder.edges(v).find(e => e.transition.kind === 'FieldCollection' && e.transition.definition.name === fieldDef.name);
@@ -899,14 +887,16 @@ interface SubgraphCopyPointer {
 class GraphBuilder {
   private readonly vertices: Vertex[];
   private nextIndex: number = 0;
-  private readonly adjacencies: Edge[][];
+  private readonly outEdges: Edge[][];
+  private readonly inEdges: Edge[][];
   private readonly typesToVertices: MultiMap<string, number> = new MultiMap();
   private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex> = new MapWithCachedArrays();
   private readonly sources: Map<string, Schema> = new Map();
 
   constructor(verticesCount?: number) {
     this.vertices = verticesCount ? new Array(verticesCount) : [];
-    this.adjacencies = verticesCount ? new Array(verticesCount) : [];
+    this.outEdges = verticesCount ? new Array(verticesCount) : [];
+    this.inEdges = verticesCount ? new Array(verticesCount) : [];
   }
 
   verticesForType(typeName: string): Vertex[] {
@@ -919,9 +909,37 @@ class GraphBuilder {
   }
 
   addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet) {
-    const edges = this.adjacencies[head.index];
-    const edge = new Edge(edges.length, head, tail, transition, conditions);
-    edges.push(edge);
+    const headOutEdges = this.outEdges[head.index];
+    const tailInEdges = this.inEdges[tail.index];
+    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions);
+    headOutEdges.push(edge);
+    tailInEdges.push(edge);
+
+    if (head.source !== tail.source) {
+      this.markInEdgesHasReachingCrossSubgraphEdge(head);
+    }
+  }
+
+  markInEdgesHasReachingCrossSubgraphEdge(from: Vertex) {
+    // When we mark a vertex, we mark all of its "ancestor" vertices, so if we
+    // get vertex already marked, there is nothing more to do.
+    if (from.hasReachableCrossSubgraphEdges) {
+      return;
+    }
+
+    const stack = [from];
+    while (stack.length > 0) {
+      const v = stack.pop()!;
+      v.hasReachableCrossSubgraphEdges = true;
+      for (const edge of this.inEdges[v.index]) {
+        // Again, no point in redoing work as soon as we read an aready marked vertec.
+        // We also only follow in-edges within the same subgraph, as vertices on other subgraphs
+        // will have been marked with their own cross-subgraph edges.
+        if (edge.head.source === edge.tail.source && !edge.head.hasReachableCrossSubgraphEdges) {
+          stack.push(edge.head);
+        }
+      }
+    }
   }
 
   createNewVertex(type: NamedType, source: string, schema: Schema, index?: number): Vertex {
@@ -933,7 +951,8 @@ class GraphBuilder {
     assert(!previous, () => `Overriding existing vertex ${previous} with ${vertex}`);
     this.vertices[index] = vertex;
     this.typesToVertices.add(type.name, index);
-    this.adjacencies[index] = [];
+    this.outEdges[index] = [];
+    this.inEdges[index] = [];
     if (!this.sources.has(source)) {
       this.sources.set(source, schema);
     }
@@ -952,7 +971,7 @@ class GraphBuilder {
     const rootVertex = toRootVertex(vertex, kind);
     this.vertices[vertex.index] = rootVertex;
     this.rootVertices.set(kind, rootVertex);
-    const rootEdges = this.adjacencies[vertex.index];
+    const rootEdges = this.outEdges[vertex.index];
     for (let i = 0; i < rootEdges.length; i++) {
       rootEdges[i] = rootEdges[i].withNewHead(rootVertex);
     }
@@ -990,11 +1009,11 @@ class GraphBuilder {
   }
 
   edge(head: Vertex, index: number): Edge {
-    return this.adjacencies[head.index][index];
+    return this.outEdges[head.index][index];
   }
 
   edges(head: Vertex): Edge[] {
-    return this.adjacencies[head.index];
+    return this.outEdges[head.index];
   }
 
   /**
@@ -1005,7 +1024,8 @@ class GraphBuilder {
    */
   makeCopy(vertex: Vertex): Vertex {
     const newVertex = this.createNewVertex(vertex.type, vertex.source, this.sources.get(vertex.source)!);
-    for (const edge of this.adjacencies[vertex.index]) {
+    newVertex.hasReachableCrossSubgraphEdges = vertex.hasReachableCrossSubgraphEdges;
+    for (const edge of this.outEdges[vertex.index]) {
       this.addEdge(newVertex, edge.tail, edge.transition, edge.conditions);
     }
     return newVertex;
@@ -1020,7 +1040,11 @@ class GraphBuilder {
    */
   updateEdgeTail(edge: Edge, newTail: Vertex): Edge {
     const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions);
-    this.adjacencies[edge.head.index][edge.index] = newEdge;
+    this.outEdges[edge.head.index][edge.index] = newEdge;
+    // For in-edge, we need to remove the edge from the inputs of the previous tail,
+    // and add it to the new tail.
+    this.inEdges[edge.tail.index] = this.inEdges[edge.tail.index].filter((e) => e !== edge);
+    this.inEdges[newTail.index].push(newEdge);
     return newEdge;
   }
 
@@ -1037,7 +1061,7 @@ class GraphBuilder {
     return new QueryGraph(
       name,
       this.vertices,
-      this.adjacencies,
+      this.outEdges,
       this.typesToVertices,
       this.rootVertices,
       this.sources);

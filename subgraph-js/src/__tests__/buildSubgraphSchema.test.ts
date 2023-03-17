@@ -1321,6 +1321,73 @@ describe('buildSubgraphSchema', () => {
         }
       `);
     });
+
+    it('expands federation 2.4 correctly', async () => {
+      // For 2.3, we expect in everything from 2.2 plus:
+      // - the @interfaceObject directive
+      // - the @tag directive to additionally have the SCHEMA location
+      await testVersion('2.4', `
+        schema
+          @link(url: \"https://specs.apollo.dev/link/v1.0\")
+        {
+          query: Query
+        }
+
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+
+        directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+        directive @federation__requires(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @federation__provides(fields: federation__FieldSet!) on FIELD_DEFINITION
+
+        directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
+
+        directive @federation__tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
+
+        directive @federation__extends on OBJECT | INTERFACE
+
+        directive @federation__shareable repeatable on OBJECT | FIELD_DEFINITION
+
+        directive @federation__inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+        directive @federation__override(from: String!) on FIELD_DEFINITION
+
+        directive @federation__composeDirective(name: String) repeatable on SCHEMA
+
+        directive @federation__interfaceObject on OBJECT
+
+        type Query {
+          x: Int
+          _service: _Service!
+        }
+
+        enum link__Purpose {
+          """
+          \`SECURITY\` features provide metadata necessary to securely resolve fields.
+          """
+          SECURITY
+
+          """
+          \`EXECUTION\` features provide metadata necessary for operation execution.
+          """
+          EXECUTION
+        }
+
+        scalar link__Import
+
+        scalar federation__FieldSet
+
+        scalar _Any
+
+        type _Service {
+          sdl: String
+        }
+      `);
+    });
   });
 });
 
