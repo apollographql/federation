@@ -588,7 +588,7 @@ type Employee implements User @tag(name: "team-admin") {
 
 ### `@composeDirective`
 
-> ⚠️ **Important:** This feature is currently available only in Rover and select open-source subgraph libraries like `@apollo/subgraph` which is used in the [JavaScript/TypeScript subgraph libraries](../building-supergraphs/supported-subgraphs#javascript--typescript). In many subgraph libraries you can manually add the `@composeDirective` definition below to your subgraph schema to enable support. Studio support is coming soon.
+> **⚠️ This directive is available in Apollo Federation 2.1 and later.**
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
