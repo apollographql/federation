@@ -157,6 +157,41 @@ describe('fragments optimization', () => {
         }
       }
     `);
+
+    const optimizedWithAutoRefragmetize = withoutFragments.optimize(operation.selectionSet.fragments!, {autoFragmetize: true} );
+    // Note that we expect onU to *not* be recreated because, by default, optimize only
+    // add add back a fragment if it is used at least twice (otherwise, the fragment just
+    // make the query bigger).
+    expect(optimizedWithAutoRefragmetize.toString()).toMatchString(`
+      fragment OnT1 on T1 {
+        a
+        b
+      }
+
+      fragment OnT2 on T2 {
+        x
+        y
+      }
+
+      fragment OnI on I {
+        b
+      }
+
+      fragment OnU on U {
+        ...OnI
+        ...OnT1
+        ...OnT2
+      }
+
+      {
+        t {
+          ...OnU
+          u {
+            ...OnU
+          }
+        }
+      }
+    `);
   });
 
   test('Reuse fragment if possible else auto re-fragment', () => {
@@ -228,7 +263,6 @@ describe('fragments optimization', () => {
             }
           }
         }
-
       }
     `);
     const expandedOperationForQP = operation.expandAllFragments();
@@ -291,10 +325,10 @@ describe('fragments optimization', () => {
     `);
     const optimized = expandedOperationForQP.optimize(operation.selectionSet.fragments!, {autoFragmetize: true});
     // Note that since auto refragment is set to true we were able to fragment the composite types
-    // and thus reduce the number of lines
-    // even if we could not re use the query fragment "OnSubT2"
+    // Also reuse the query fragment "OnSubT2"
+    // and thus effective re-fragment and reduce the number of lines
     expect(optimized.toString()).toMatchString(`
-    fragment T2faf847f657ff07731304c59df2e2a5defda79a55c30b12812b6321434294a78d on T2 {
+    fragment OnSubT2 on T2 {
       x
       y
       u
@@ -303,22 +337,19 @@ describe('fragments optimization', () => {
       r
       q
       p
+    }
+
+    fragment T206a5e7e420bda1858b8f4a7b50df310b2444b2df0c2539a574eb73b2a47e331d on T2 {
+      ...OnSubT2
       v
     }
 
-    fragment T2af4d8ff6a139c0b02b7fc2178dac7a3546b9082109233035d0c6a826eac159ad on T2 {
-      x
-      y
-      u
-      t
-      s
-      r
-      q
-      p
+    fragment T244924a138e3ac3bc1d623451cad7b7b82d2b8f580227f63436a4715fc85f4f37 on T2 {
+      ...OnSubT2
       z
       w {
         d {
-          ...T2faf847f657ff07731304c59df2e2a5defda79a55c30b12812b6321434294a78d
+          ...T206a5e7e420bda1858b8f4a7b50df310b2444b2df0c2539a574eb73b2a47e331d
         }
       }
     }
@@ -326,15 +357,16 @@ describe('fragments optimization', () => {
     {
       t {
         d {
-          ...T2af4d8ff6a139c0b02b7fc2178dac7a3546b9082109233035d0c6a826eac159ad
+          ...T244924a138e3ac3bc1d623451cad7b7b82d2b8f580227f63436a4715fc85f4f37
         }
       }
       duplicate: t {
         d {
-          ...T2af4d8ff6a139c0b02b7fc2178dac7a3546b9082109233035d0c6a826eac159ad
+          ...T244924a138e3ac3bc1d623451cad7b7b82d2b8f580227f63436a4715fc85f4f37
         }
       }
-    }`);
+    }
+    `);
   });
 
   test('handles fragments with nested selections', () => {
@@ -399,6 +431,27 @@ describe('fragments optimization', () => {
 
     const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
     expect(optimized.toString()).toMatchString(`
+      fragment OnT1 on T1 {
+        t2 {
+          x
+        }
+      }
+
+      {
+        t1a {
+          ...OnT1
+          t2 {
+            y
+          }
+        }
+        t2a {
+          ...OnT1
+        }
+      }
+    `);
+    // In the following test with AutoFragmetize as true, we dont achieve extra benefits so the output operation remains the same as above.
+    const optimizedWithAutoFragmetize = withoutFragments.optimize(operation.selectionSet.fragments!, {autoFragmetize: true});
+    expect(optimizedWithAutoFragmetize.toString()).toMatchString(`
       fragment OnT1 on T1 {
         t2 {
           x
