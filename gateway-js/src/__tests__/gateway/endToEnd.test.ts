@@ -1,68 +1,49 @@
-import { buildSubgraphSchema } from '@apollo/subgraph';
-import { ApolloServer } from 'apollo-server';
-import fetch, { Response } from 'node-fetch';
-import { ApolloGateway } from '../..';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
-import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
-import { buildSchema, ObjectType, ServiceDefinition } from '@apollo/federation-internals';
+import { buildSchema, ObjectType } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { printSchema } from 'graphql';
+import { startSubgraphsAndGateway, Services } from './testUtils'
+import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
+import { QueryPlan } from '@apollo/query-planner';
+import { createHash } from '@apollo/utils.createhash';
 
-async function startFederatedServer(modules: GraphQLSchemaModule[]) {
-  const schema = buildSubgraphSchema(modules);
-  const server = new ApolloServer({
-    schema,
-    // Manually installing the inline trace plugin means it doesn't log a message.
-    plugins: [ApolloServerPluginInlineTrace()],
-  });
-  const { url } = await server.listen({ port: 0 });
-  return { url, server };
+function approximateObjectSize<T>(obj: T): number {
+  return Buffer.byteLength(JSON.stringify(obj), 'utf8');
 }
 
-let backendServers: ApolloServer[];
-let gateway: ApolloGateway;
-let gatewayServer: ApolloServer;
-let gatewayUrl: string;
-
-async function startServicesAndGateway(servicesDefs: ServiceDefinition[]) {
-  backendServers = [];
-  const serviceList = [];
-  for (const serviceDef of servicesDefs) {
-    const { server, url } = await startFederatedServer([serviceDef]);
-    backendServers.push(server);
-    serviceList.push({ name: serviceDef.name, url });
-  }
-
-  gateway = new ApolloGateway({ serviceList });
-  gatewayServer = new ApolloServer({
-    gateway,
-  });
-  ({ url: gatewayUrl } = await gatewayServer.listen({ port: 0 }));
-}
-
-async function queryGateway(query: string): Promise<Response> {
-  return fetch(gatewayUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  });
-}
+let services: Services;
 
 afterEach(async () => {
-  for (const server of backendServers) {
-    await server.stop();
-  }
-  if (gatewayServer) {
-    await gatewayServer.stop();
+  if (services) {
+    await services.stop();
   }
 });
 
+
 describe('caching', () => {
+  const cache = new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * (30), sizeCalculation: approximateObjectSize});
   beforeEach(async () => {
-    await startServicesAndGateway(fixtures);
+    services = await startSubgraphsAndGateway(fixtures, { gatewayConfig: { queryPlannerConfig: { cache } } });
+  });
+
+  it(`cached query plan`, async () => {
+    const query = `
+      query {
+        me {
+          name {
+            first
+            last
+          }
+        }
+        topProducts {
+          name
+        }
+      }
+    `;
+
+    await services.queryGateway(query);
+    const queryHash:string = createHash('sha256').update(query).digest('hex');
+    expect(await cache.get(queryHash)).toBeTruthy();
   });
 
   it(`cache control`, async () => {
@@ -80,7 +61,7 @@ describe('caching', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -134,7 +115,7 @@ describe('caching', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -167,7 +148,7 @@ describe('caching', () => {
         },
       }
     `);
-    expect(response.headers.get('cache-control')).toBe(null);
+    expect(response.headers.get('cache-control')).toBe('no-store');
   });
 });
 
@@ -185,8 +166,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", { name: "@tag", as: "@federationTag"} ]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", { name: "@tag", as: "@federationTag" }]
           )
 
         type Query {
@@ -202,10 +183,10 @@ describe('end-to-end features', () => {
         Query: {
           t: () => ({
             k: 42,
-            x: 1
+            x: 1,
           }),
-        }
-      }
+        },
+      },
     };
 
     const subgraphB = {
@@ -214,8 +195,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", { name: "@tag", as: "@federationTag"} ]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", { name: "@tag", as: "@federationTag" }]
           )
 
         type T @key(fields: "k") {
@@ -226,13 +207,13 @@ describe('end-to-end features', () => {
       resolvers: {
         T: {
           __resolveReference: ({ k }: { k: string }) => {
-            return k === '42' ? ({ y: 2 }) : undefined;
+            return k === '42' ? { y: 2 } : undefined;
           },
-        }
-      }
+        },
+      },
     };
 
-    await startServicesAndGateway([subgraphA, subgraphB]);
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
 
     const query = `
       {
@@ -243,7 +224,7 @@ describe('end-to-end features', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -256,12 +237,16 @@ describe('end-to-end features', () => {
       }
     `);
 
-    const supergraphSdl = gateway.__testing().supergraphSdl;
+    const supergraphSdl = services.gateway.__testing().supergraphSdl;
     expect(supergraphSdl).toBeDefined();
     const supergraph = buildSchema(supergraphSdl!);
     const typeT = supergraph.type('T') as ObjectType;
-    expect(typeT.field('x')?.appliedDirectivesOf('federationTag').toString()).toStrictEqual('@federationTag(name: "Important")');
-    expect(typeT.field('y')?.appliedDirectivesOf('federationTag').toString()).toStrictEqual('@federationTag(name: "Less Important")');
+    expect(
+      typeT.field('x')?.appliedDirectivesOf('federationTag').toString(),
+    ).toStrictEqual('@federationTag(name: "Important")');
+    expect(
+      typeT.field('y')?.appliedDirectivesOf('federationTag').toString(),
+    ).toStrictEqual('@federationTag(name: "Less Important")');
   });
 
   it('handles fed1 schema', async () => {
@@ -282,10 +267,10 @@ describe('end-to-end features', () => {
         Query: {
           t: () => ({
             k: 42,
-            x: 1
+            x: 1,
           }),
-        }
-      }
+        },
+      },
     };
 
     const subgraphB = {
@@ -300,13 +285,13 @@ describe('end-to-end features', () => {
       resolvers: {
         T: {
           __resolveReference: ({ k }: { k: string }) => {
-            return k === '42' ? ({ y: 2 }) : undefined;
+            return k === '42' ? { y: 2 } : undefined;
           },
-        }
-      }
+        },
+      },
     };
 
-    await startServicesAndGateway([subgraphA, subgraphB]);
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
 
     const query = `
       {
@@ -317,7 +302,7 @@ describe('end-to-end features', () => {
       }
     `;
 
-    const response = await queryGateway(query);
+    const response = await services.queryGateway(query);
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -338,8 +323,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", "@shareable", "@inaccessible"]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", "@shareable", "@inaccessible"]
           )
 
         type Query {
@@ -369,9 +354,9 @@ describe('end-to-end features', () => {
           }),
           f: (_: any, args: any) => {
             return args.e === 'FOO' ? 0 : 1;
-          }
-        }
-      }
+          },
+        },
+      },
     };
 
     const subgraphB = {
@@ -380,8 +365,8 @@ describe('end-to-end features', () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ "@key", "@shareable", "@inaccessible" ]
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key", "@shareable", "@inaccessible"]
           )
 
         type T @key(fields: "k") {
@@ -393,13 +378,13 @@ describe('end-to-end features', () => {
       resolvers: {
         T: {
           __resolveReference: ({ k }: { k: string }) => {
-            return k === '42' ? ({ c: 'foo', d: 'bar' }) : undefined;
+            return k === '42' ? { c: 'foo', d: 'bar' } : undefined;
           },
-        }
-      }
+        },
+      },
     };
 
-    await startServicesAndGateway([subgraphA, subgraphB]);
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
 
     const q1 = `
       {
@@ -411,7 +396,7 @@ describe('end-to-end features', () => {
       }
     `;
 
-    const resp1 = await queryGateway(q1);
+    const resp1 = await services.queryGateway(q1);
     const res1 = await resp1.json();
     expect(res1).toMatchInlineSnapshot(`
       Object {
@@ -426,7 +411,7 @@ describe('end-to-end features', () => {
     `);
 
     // Make sure the exposed API doesn't have any @inaccessible elements.
-    expect(printSchema(gateway.schema!)).toMatchInlineSnapshot(`
+    expect(printSchema(services.gateway.schema!)).toMatchInlineSnapshot(`
       "enum E {
         FOO
       }
@@ -449,7 +434,7 @@ describe('end-to-end features', () => {
         f(e: BAR)
       }
     `;
-    const resp2 = await queryGateway(q2);
+    const resp2 = await services.queryGateway(q2);
     const res2 = await resp2.json();
     expect(res2).toMatchInlineSnapshot(`
       Object {
@@ -458,6 +443,12 @@ describe('end-to-end features', () => {
             "extensions": Object {
               "code": "GRAPHQL_VALIDATION_FAILED",
             },
+            "locations": Array [
+              Object {
+                "column": 14,
+                "line": 3,
+              },
+            ],
             "message": "Value \\"BAR\\" does not exist in \\"E\\" enum.",
           },
         ],
@@ -471,7 +462,7 @@ describe('end-to-end features', () => {
         }
       }
     `;
-    const resp3 = await queryGateway(q3);
+    const resp3 = await services.queryGateway(q3);
     const res3 = await resp3.json();
     expect(res3).toMatchInlineSnapshot(`
       Object {
@@ -480,10 +471,16 @@ describe('end-to-end features', () => {
             "extensions": Object {
               "code": "GRAPHQL_VALIDATION_FAILED",
             },
+            "locations": Array [
+              Object {
+                "column": 11,
+                "line": 4,
+              },
+            ],
             "message": "Cannot query field \\"a\\" on type \\"T\\". Did you mean \\"b\\", \\"d\\", or \\"k\\"?",
           },
         ],
       }
     `);
   });
-})
+});

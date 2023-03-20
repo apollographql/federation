@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { DeferredNode, PlanNode, QueryPlan } from '../';
+import { DeferredNode, PlanNode, QueryPlan, SubscriptionNode } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {
@@ -31,7 +31,7 @@ export default {
 } as Plugin;
 
 function printNode(
-  node: PlanNode,
+  node: PlanNode | SubscriptionNode,
   config: Config,
   indentation: string,
   depth: number,
@@ -56,7 +56,7 @@ function printNode(
     case 'Fetch':
       const idStr = node.id ? `, id: ${node.id}` : '';
       result +=
-        `Fetch(service: "${node.serviceName}"${idStr})` +
+        `${node.kind}(service: "${node.serviceName}"${idStr})` +
         ' {' +
         config.spacingOuter +
         (node.requires
@@ -119,6 +119,18 @@ function printNode(
           indentation + '}'
       }
       break;
+    case 'Subscription': {
+      const primary = node.primary;
+      const rest = node.rest;
+      const indentationInner = indentationNext + config.indent;
+      result += 'Subscription {'
+        + config.spacingOuter + indentationNext + 'Primary: {' + config.spacingOuter + indentationInner + printNode(primary, config, indentationInner, depth, refs, printer)
+        + config.spacingOuter + indentationNext + '},'
+        + (rest ? (config.spacingOuter + indentationNext + 'Rest: {' + config.spacingOuter + indentationInner + printNode(rest, config, indentationInner, depth, refs, printer)) : '')
+        + config.spacingOuter + indentationNext + '}'
+        + config.spacingOuter + config.indent + '}'; // TODO: Is this right?
+        break;
+    }
     default:
       result += node.kind;
   }
@@ -135,7 +147,7 @@ function printNode(
 }
 
 function printNodes(
-  nodes: PlanNode[] | undefined,
+  nodes: (SubscriptionNode | PlanNode)[] | undefined,
   config: Config,
   indentation: string,
   depth: number,

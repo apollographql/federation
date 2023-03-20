@@ -28,12 +28,13 @@ import {
   getResponseName,
   FetchDataInputRewrite,
   FetchDataOutputRewrite,
+  evaluateCondition,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined, operationFromDocument, Schema } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined, Operation, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 import { computeResponse } from './resultShaping';
 
@@ -64,6 +65,7 @@ type ResultCursor = {
 interface ExecutionContext {
   queryPlan: QueryPlan;
   operationContext: OperationContext;
+  operation: Operation,
   serviceMap: ServiceMap;
   requestContext: GatewayGraphQLRequestContext;
   supergraphSchema: GraphQLSchema;
@@ -114,9 +116,39 @@ export async function executeQueryPlan(
     try {
       const errors: GraphQLError[] = [];
 
+      let operation: Operation;
+      try {
+        operation = operationFromDocument(
+          apiSchema,
+          {
+            kind: Kind.DOCUMENT,
+            definitions: [
+              operationContext.operation,
+              ...Object.values(operationContext.fragments),
+            ],
+          },
+          {
+            validate: false,
+          }
+        );
+      } catch (err) {
+        // We shouldn't really have errors as the operation should already have been validated, but if something still
+        // happens, we should report it properly (plus, some of our tests call this method directly and blow up if we don't
+        // handle this correctly).
+        // TODO: we are doing some duplicate work by building both `OperationContext` and this `Operation`. Ideally we
+        // would remove `OperationContext`, pass the `Operation` directly to this method, and only use that. This would change
+        // the signature of this method though and it is exported so ... maybe later ?
+        //
+        if (err instanceof GraphQLError) {
+          return { errors: [err] };
+        }
+        throw err;
+      }
+
       const context: ExecutionContext = {
         queryPlan,
         operationContext,
+        operation,
         serviceMap,
         requestContext,
         supergraphSchema,
@@ -128,6 +160,10 @@ export async function executeQueryPlan(
       const captureTraces = !!(
           requestContext.metrics && requestContext.metrics.captureTraces
       );
+
+      if (queryPlan.node?.kind === 'Subscription') {
+        throw new Error('Execution of subscriptions not supported by gateway');
+      }
 
       if (queryPlan.node) {
         const traceNode = await executeNode(
@@ -148,26 +184,12 @@ export async function executeQueryPlan(
       const result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
         let data;
         try {
-          const operation = operationFromDocument(
-            apiSchema,
-            {
-              kind: Kind.DOCUMENT,
-              definitions: [
-                operationContext.operation,
-                ...Object.values(operationContext.fragments),
-              ],
-            },
-            {
-              validate: false,
-            }
-          );
-
           let postProcessingErrors: GraphQLError[];
           ({ data, errors: postProcessingErrors } = computeResponse({
             operation,
             variables: requestContext.request.variables,
             input: unfilteredData,
-            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandFragments().toSelectionNode()),
+            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandAllFragments().toSelectionNode()),
           }));
 
           // If we have errors during the post-processing, we ignore them if any other errors have been thrown during
@@ -326,11 +348,29 @@ async function executeNode(
       }
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
+    case 'Condition': {
+      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables); 
+      const pickedBranch = condition ? node.ifClause : node.elseClause;
+      let branchTraceNode: Trace.QueryPlanNode | undefined = undefined;
+      if (pickedBranch) {
+        branchTraceNode = await executeNode(
+          context,
+          pickedBranch,
+          currentCursor,
+          captureTraces
+        );
+      }
+
+      return new Trace.QueryPlanNode({
+        condition: new Trace.QueryPlanNode.ConditionNode({
+          condition: node.condition,
+          ifClause: condition ? branchTraceNode : undefined,
+          elseClause: condition ? undefined : branchTraceNode,
+        }),
+      });
+    }
     case 'Defer': {
       assert(false, `@defer support is not available in the gateway`);
-    }
-    case 'Condition': {
-      assert(false, `Condition nodes are not available in the gateway`);
     }
   }
 }

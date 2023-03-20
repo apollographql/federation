@@ -1,11 +1,32 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.4.0
+### Patch Changes
+
+
+- Optimises query plan generation for parts of queries that can statically be known to not cross across subgraphs ([#2449](https://github.com/apollographql/federation/pull/2449))
+
+- Updated dependencies [[`260c357c`](https://github.com/apollographql/federation/commit/260c357c10b4cf560c66d11f85552036c2638b0b), [`7bc0f8e8`](https://github.com/apollographql/federation/commit/7bc0f8e814ea003802ed3761b5eeeb7137650b0c), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e), [`cab383b2`](https://github.com/apollographql/federation/commit/cab383b22d37bb6bc687b4d8cec6f5c22245f41f)]:
+  - @apollo/federation-internals@2.4.0
+
+## 2.4.0-alpha.1
+### Patch Changes
+
+- Updated dependencies [[`7bc0f8e8`](https://github.com/apollographql/federation/commit/7bc0f8e814ea003802ed3761b5eeeb7137650b0c)]:
+  - @apollo/federation-internals@2.4.0-alpha.1
+
+## 2.4.0-alpha.0
+### Patch Changes
+
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e)]:
+  - @apollo/federation-internals@2.4.0-alpha.0
+
 ## 2.3.5
 ### Patch Changes
 
 - Updated dependencies []:
   - @apollo/federation-internals@2.3.5
-
+  
 ## 2.3.4
 ### Patch Changes
 

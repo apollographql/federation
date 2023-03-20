@@ -16,7 +16,7 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
 import { getFederatedTestingSchema } from './execution-utils';
 import { Schema, Operation, parseOperation, buildSchemaFromAST, arrayEquals } from '@apollo/federation-internals';
 import {
@@ -24,6 +24,7 @@ import {
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
 import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
+import { unwrapSingleResultKind } from './gateway/testUtils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -1325,13 +1326,12 @@ describe('executeQueryPlan', () => {
       // But note that this is only one possible initialization path for the
       // gateway, and with the current duplication of logic we'd actually need
       // to test other scenarios (like loading from supergraph SDL) separately.
-      const gateway = new ApolloGateway({
-        supergraphSdl: print(superGraphWithInaccessible),
+      const server = new ApolloServer({
+        gateway: new ApolloGateway({
+          supergraphSdl: print(superGraphWithInaccessible),
+        }),
       });
-
-      const { schema, executor } = await gateway.load();
-
-      const server = new ApolloServer({ schema, executor });
+      await server.start();
 
       const query = `#graphql
         query {
@@ -1349,10 +1349,22 @@ describe('executeQueryPlan', () => {
         query,
       });
 
-      expect(response.data).toBeUndefined();
-      expect(response.errors).toMatchInlineSnapshot(`
+      const { errors, data } = unwrapSingleResultKind(response);
+      expect(data).toBeUndefined();
+      expect(errors).toMatchInlineSnapshot(`
         Array [
-          [ValidationError: Cannot query field "ssn" on type "User".],
+          Object {
+            "extensions": Object {
+              "code": "GRAPHQL_VALIDATION_FAILED",
+            },
+            "locations": Array [
+              Object {
+                "column": 15,
+                "line": 7,
+              },
+            ],
+            "message": "Cannot query field \\"ssn\\" on type \\"User\\".",
+          },
         ]
       `);
     });
@@ -3153,7 +3165,8 @@ describe('executeQueryPlan', () => {
                     data {
                       __typename
                       foo
-                      ... on Data {
+                      ... on Bar {
+                        __typename
                         bar
                       }
                     }
@@ -3817,7 +3830,7 @@ describe('executeQueryPlan', () => {
         name: 'S1',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
 
           type Query {
             iFromS1: I
@@ -3863,7 +3876,7 @@ describe('executeQueryPlan', () => {
         name: 'S2',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject"])
 
           type Query {
             iFromS2: I
@@ -4207,7 +4220,7 @@ describe('executeQueryPlan', () => {
       // any specific extra resolving.
       const tester = defineSchema({});
 
-      let { plan, response } = await tester(`
+      const { plan, response } = await tester(`
         query {
           iFromS2 {
             y
@@ -4242,7 +4255,7 @@ describe('executeQueryPlan', () => {
         s1: { iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }), },
       });
 
-      let { plan, response } = await tester(`
+      const { plan, response } = await tester(`
         query {
           iFromS2 {
             ... on B {
@@ -4329,7 +4342,7 @@ describe('executeQueryPlan', () => {
         name: 'products',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
 
           type Query {
             products: [Product!]!
@@ -4378,7 +4391,7 @@ describe('executeQueryPlan', () => {
         name: 'reviews',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject"])
 
           type Query {
             allReviewedProducts: [Product!]!
