@@ -62,6 +62,7 @@ directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUM
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 directive @override(from: String!) on FIELD_DEFINITION
 directive @composeDirective(name: String!) repeatable on SCHEMA
+directive @interfaceObject on OBJECT
 
 # This definition is required only for libraries that don't support
 # GraphQL's built-in `extend` keyword
@@ -121,7 +122,7 @@ For example, consider this Federation 2 subgraph schema:
 
 ```graphql title="schema.graphql"
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key"])
 
 type Query {

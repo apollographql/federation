@@ -30,9 +30,13 @@ import {
   federationMetadata,
   FederationMetadata,
   DirectiveDefinition,
+  Directive,
+  typenameFieldName,
+  Field,
+  selectionSetOfElement,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
-import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
+import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
 import { preComputeNonTrivialFollowupEdges } from './nonTrivialEdgePrecomputing';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
@@ -170,13 +174,18 @@ export class Edge {
   }
 
   matchesSupergraphTransition(otherTransition: Transition): boolean {
-    assert(otherTransition.collectOperationElements, "Supergraphs shouldn't have transition that don't collect elements");
+    assert(otherTransition.collectOperationElements, () => `Supergraphs shouldn't have transition that don't collect elements; got ${otherTransition}"`);
     const transition = this.transition;
     switch (transition.kind) {
       case 'FieldCollection': return otherTransition.kind === 'FieldCollection' && transition.definition.name === otherTransition.definition.name;
       case 'DownCast': return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
+      case 'InterfaceObjectFakeDownCast': return otherTransition.kind === 'DownCast' && transition.castedTypeName === otherTransition.castedType.name;
       default: return false;
     }
+  }
+
+  changesSubgraph(): boolean {
+    return this.head.source !== this.tail.source;
   }
 
   label(): string {
@@ -518,7 +527,12 @@ export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
   return buildGraphInternal(name, schema, false);
 }
 
-function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractTypeEdges: boolean, supergraphSchema?: Schema): QueryGraph {
+function buildGraphInternal(
+  name: string,
+  schema: Schema,
+  addAdditionalAbstractTypeEdges: boolean,
+  supergraphSchema?: Schema
+): QueryGraph {
   const builder = new GraphBuilderFromSchema(
     name,
     schema,
@@ -526,6 +540,9 @@ function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractT
   );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
+  }
+  if (builder.isFederatedSubgraph) {
+    builder.addInterfaceEntityEdges();
   }
   if (addAdditionalAbstractTypeEdges) {
     builder.addAdditionalAbstractTypeEdges();
@@ -572,7 +589,7 @@ export function buildFederatedQueryGraph(supergraph: Schema, forQueryPlanning: b
   for (const subgraph of subgraphs) {
     graphs.push(buildGraphInternal(subgraph.name, subgraph.schema, forQueryPlanning, supergraph));
   }
-  return federateSubgraphs(graphs);
+  return federateSubgraphs(supergraph, graphs);
 }
 
 function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootKind>, Schema[]] {
@@ -588,7 +605,15 @@ function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootK
   return [vertices + rootKinds.size, rootKinds, schemas];
 }
 
-function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
+function resolvableKeyApplications(
+  keyDirective: DirectiveDefinition<{fields: any, resolvable?: boolean}>,
+  type: NamedType
+): Directive<NamedType, {fields: any, resolvable?: boolean}>[] {
+  const applications: Directive<NamedType, {fields: any, resolvable?: boolean}>[] = type.appliedDirectivesOf(keyDirective);
+  return applications.filter((application) => application.arguments().resolvable ?? true);
+}
+
+function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGraph {
   const [verticesCount, rootKinds, schemas] = federatedProperties(subgraphs);
   const builder = new GraphBuilder(verticesCount);
   rootKinds.forEach(k => builder.createRootVertex(
@@ -636,11 +661,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
       subgraph,
       v => {
         const type = v.type;
-        for (const keyApplication of type.appliedDirectivesOf(keyDirective)) {
-          if (!(keyApplication.arguments().resolvable ?? true)) {
-            continue;
-          }
-
+        for (const keyApplication of resolvableKeyApplications(keyDirective, type)) {
           // The @key directive creates an edge from every subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
           // that the service of the current subgraph can be queried for the entity (through
@@ -653,6 +674,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // restriction, and this may be useful at least temporarily to allow convert a type to
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
+          const isInterfaceObject = subgraphMetadata.isInterfaceObjectType(type);
           const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
           // Note that each subgraph has a key edge to itself (when i === j below). We usually ignore
           // this edges, but they exists for the special case of @defer, where we technically may have
@@ -662,16 +684,42 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
             if (otherVertices.length == 0) {
               continue;
             }
-            // Note that later, when we've handled @provides, this might not be true anymore a provide may create copy of a
+            // Note that later, when we've handled @provides, this might not be true anymore as @provides may create copy of a
             // certain type. But for now, it's true.
             assert(
               otherVertices.length == 1,
               () => `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`);
 
+            const otherVertice = otherVertices[0];
             // The edge goes from the otherSubgraph to the current one.
-            const head = copyPointers[j].copiedVertex(otherVertices[0]);
+            const head = copyPointers[j].copiedVertex(otherVertice);
             const tail = copyPointers[i].copiedVertex(v);
             builder.addEdge(head, tail, new KeyResolution(), conditions);
+
+            // Additionally, if the key is on an @interfaceObject and this "other" subgraph has the type as
+            // a proper interface, then we need an edge from each of those implementation (to the @interfaceObject).
+            // This is used when an entity of specific implementation is queried first, but then some of the
+            // requested fields are only provided by that @interfaceObject.
+            const otherType = otherVertice.type;
+            if (isInterfaceObject && isInterfaceType(otherType)) {
+              for (const implemType of otherType.possibleRuntimeTypes()) {
+                // Note that we're only taking the implementation types from "otherSubgraph", so we're guaranteed
+                // to have a corresponding vertice (and only one for the same reason than mentioned in the assert above).
+                const implemVertice = otherSubgraph.verticesForType(implemType.name)[0];
+                const implemHead = copyPointers[j].copiedVertex(implemVertice);
+                // The key goes from the implementation type to the @interfaceObject one, so the conditions
+                // will be "fetched" on the implementation type, but `conditions` has been parsed on the
+                // interface type, so it will use fields from the interface, not the implementation type.
+                // So we re-parse the condition using the implementation type: this could fail, but in
+                // that case it just mean that key is not usable.
+                try {
+                  const implConditions = parseFieldSetArgument({ parentType: implemType, directive: keyApplication, validate: false });
+                  builder.addEdge(implemHead, tail, new KeyResolution(), implConditions);
+                } catch (e) {
+                  // Ignored on purpose: it just means the key is not usable on this subgraph.
+                }
+              }
+            }
           }
         }
       },
@@ -729,6 +777,60 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
       }
     );
   }
+
+  // We now ned to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
+  // of a interface are queried, and that could apply to an interface that is an @interfaceObject in some sugraph. Consider
+  // the following example:
+  // ```graphql
+  // type Query {
+  //   getIs: [I]
+  // }
+  //
+  // type I @key(fields: "id") @interfaceObject {
+  //   id: ID!
+  //   x: Int
+  // }
+  // ```
+  // where we suppose that `I` has some implementations say, `A`, `B` and `C`, in some other subgraph.
+  // Now, consider query:
+  // ```graphql
+  // {
+  //   getIs {
+  //     ... on B {
+  //       x
+  //     }
+  //   }
+  // }
+  // ```
+  // So here, we query `x` which the subgraph provides, but we only do so for one of the impelementation.
+  // So in that case, we essentially need to figure out the `__typename` first (of more precisely, we need
+  // to know the real __typename "eventually"; we could theoretically query `x` first, and then get the __typename
+  // to know if we should keep the result or discard it, and that could be more efficient in certain case,
+  // but as we don't know both 1) if `x` is expansive to resolve and 2) what the ratio of results from `getIs`
+  // will be `B` versus some other implementation, it is "safer" to get the __typename first and only resolve `x`
+  // when we need to).
+  //
+  // Long story short, to solve this, we create edges from @interfaceObject types to themselves for every implementation
+  // types of the interface: those edges will be taken when we try to take a `... on B` condition, and those edge
+  // have __typename has a condition, forcing to find __typename in another subgraph first.
+  for (const [i, subgraph] of subgraphs.entries()) {
+    const subgraphSchema = schemas[i];
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const interfaceObjectDirective = subgraphMetadata.interfaceObjectDirective();
+    for (const application of interfaceObjectDirective.applications()) {
+      const type = application.parent;
+      assert(isObjectType(type), '@interfaceObject should have been on an object type');
+      const vertex = copyPointers[i].copiedVertex(subgraph.verticesForType(type.name)[0]);
+      const supergraphItf = supergraph.type(type.name);
+      assert(supergraphItf && isInterfaceType(supergraphItf), () => `${type} has @interfaceObject in subgraph but has kind ${supergraphItf?.kind} in supergraph`)
+      const condition = selectionSetOfElement(new Field(type.typenameField()!));
+      for (const implementation of supergraphItf.possibleRuntimeTypes()) {
+        builder.addEdge(vertex, vertex, new InterfaceObjectFakeDownCast(type, implementation.name), condition);
+      }
+    }
+  }
+
   return builder.build(FEDERATED_GRAPH_ROOT_SOURCE);
 }
 
@@ -948,7 +1050,7 @@ class GraphBuilder {
  * schema API, but does not handle vertices and edges related to federation).
  */
 class GraphBuilderFromSchema extends GraphBuilder {
-  private readonly isFederatedSubgraph: boolean;
+  readonly isFederatedSubgraph: boolean;
 
   constructor(
     private readonly name: string,
@@ -960,9 +1062,9 @@ class GraphBuilderFromSchema extends GraphBuilder {
     assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
   }
 
-  private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
+  private hasDirective(elt: FieldDefinition<any> | NamedType, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
     const metadata = federationMetadata(this.schema);
-    return !!metadata && field.hasAppliedDirective(directiveFct(metadata));
+    return !!metadata && elt.hasAppliedDirective(directiveFct(metadata));
   }
 
   private isExternal(field: FieldDefinition<any>): boolean {
@@ -1018,12 +1120,18 @@ class GraphBuilderFromSchema extends GraphBuilder {
   }
 
   private addObjectTypeEdges(type: ObjectType, head: Vertex) {
+    const isInterfaceObject = federationMetadata(this.schema)?.isInterfaceObjectType(type) ?? false;
+
     // We do want all fields, including most built-in. For instance, it's perfectly valid to query __typename manually, so we want
     // to have an edge for it. Also, the fact we handle the _entities field ensure that all entities are part of the graph,
     // even if they are not reachable by any other user operations.
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
-      if (field.isSchemaIntrospectionField()) {
+      // Note that @interfaceObject types are an exception to the rule of "it's perfectly valid to query __typename". More
+      // precisely, a query can ask for the `__typename` of anything, but it shouldn't be answered by an @interfaceObject
+      // and so we don't add an edge, ensuring the query planner has to get it from another subgraph (than the one with
+      // said @interfaceObject).
+      if (field.isSchemaIntrospectionField() || (isInterfaceObject && field.name === typenameFieldName)) {
         continue;
       }
 
@@ -1277,6 +1385,45 @@ class GraphBuilderFromSchema extends GraphBuilder {
             this.addEdge(t2Vertex, t1Vertex, new DownCast(t2.type, t1.type));
           }
         }
+      }
+    }
+  }
+
+  /**
+   * In a subgraph, all entity object type will be "automatically" reachable (from the query root) because
+   * of the `_entities` operation. Indeed, it returns `_Entity`, which is a union of all entity object types,
+   * making those reachable.
+   *
+   * However, we also want entity interface types (interface with a @key) to be reachable in a similar way,
+   * because the `_entities` operation is also technically the one resolving them, and not having them
+   * reachable would break plenty of code that assume that by traversing a query graph from root, we get to
+   * everything that can be queried.
+   *
+   * But because graphQL unions cannot have interface types, they are not part of the `_Entity` union (and
+   * cannot be). This is ok as far as the typing of the schema does, because even when `_entities` is called
+   * to resolve an interface type, it technically returns a concrete object, and so, since every
+   * implementation of an entity interface is also an entity, this is captured by the `_Entity` union.
+   *
+   * But it does mean we want to manually add the corresponding edges now for interfaces, or @key on
+   * interfaces wouldn't work properly (at least whenthe interface is not otherwise reachable by a use operation
+   * in the subgraph).
+   */
+  addInterfaceEntityEdges() {
+    const subgraphMetadata = federationMetadata(this.schema);
+    assert(subgraphMetadata, () => `${this.name} does not correspond to a subgraph`);
+    const entityType = subgraphMetadata.entityType();
+    // We can ignore this case because if the subgraph has an interface with a @key, then we force its
+    // implementations to be marked as entity too and so we know that if `_Entity` is undefined, then
+    // we have no need for entity edges.
+    if (!entityType) {
+      return;
+    }
+    const entityTypeVertex = this.addTypeRecursively(entityType);
+    const keyDirective = subgraphMetadata.keyDirective();
+    for (const itfType of this.schema.interfaceTypes()) {
+      if (resolvableKeyApplications(keyDirective, itfType).length > 0) {
+        const itfTypeVertex = this.addTypeRecursively(itfType);
+        this.addEdge(entityTypeVertex, itfTypeVertex, new DownCast(entityType, itfType));
       }
     }
   }

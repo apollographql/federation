@@ -10,7 +10,7 @@ To use federated directives in a Federation 2 subgraph schema, apply the `@link`
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key", "@shareable"])
 ```
 
@@ -26,7 +26,7 @@ If an imported directive's default name matches one of your own custom directive
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: [{ name: "@key", as: "@primaryKey"}, "@shareable"])
 ```
 
@@ -38,7 +38,7 @@ If you _don't_ [import a particular directive](#importing-directives) from a lin
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key"])
 
 type Book @federation__shareable {
@@ -54,7 +54,7 @@ You can customize a particular specification's namespace prefix by providing the
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         as: "fed")
 
 type Book @fed__shareable {
@@ -110,7 +110,7 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
 
-> ⚠️ **Do not apply `@key` to interface definitions.** The `INTERFACE` location is included in this definition for backward compatibility with Federation 1 subgraphs. Currently, applying `@key` to an interface has no effect in _any_ version of federation, and Federation 2 subgraphs produce a composition error to emphasize this.
+**In Apollo Federation 2.3 and later,** you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in _earlier_ versions of Federation 2, a composition error occurs.
 
 #### Arguments
 
@@ -156,7 +156,7 @@ See also [Advanced `@key`s](../entities-advanced/#advanced-keys).
 </td>
 <td>
 
-If `false`, indicates to the graph router that this subgraph _doesn't_ define a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity. This means that router query plans can't "jump to" this subgraph to resolve fields that aren't defined in _another_ subgraph.
+If `false`, indicates to the router that this subgraph _doesn't_ define a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity. This means that router query plans can't "jump to" this subgraph to resolve fields that aren't defined in _another_ subgraph.
 
 Most commonly, you set this to `false` when [referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
 
@@ -167,6 +167,20 @@ The default value is `true`.
 
 </tbody>
 </table>
+
+### `@interfaceObject`
+
+> **⚠️ This directive is available in Apollo Federation 2.3 and later.**
+
+```graphql
+directive @interfaceObject on OBJECT
+```
+
+Indicates that an object definition serves as an abstraction of another subgraph's **entity interface**. This abstraction enables a subgraph to automatically contribute fields to _all_ entities that implement a particular entity interface.
+
+During composition, the fields of every `@interfaceObject` are added both to their corresponding `interface` definition _and_ to all entity types that _implement_ that interface.
+
+> [Learn more about entity interfaces.](./interfaces/)
 
 ### `@extends`
 
@@ -259,7 +273,7 @@ type Position @shareable {
 
 Often when you add a field to a value type in _one_ subgraph, composition fails because that field isn't resolvable in _other_ subgraphs. With `@inaccessible`, you can preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the directive and begin using the field.
 
-An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, so the graph router still knows it exists (but clients can't include it in operations). This is what enables the graph router to use an `@inaccessible` field as part of an entity's `@key` when combining entity fields from multiple subgraphs.
+An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, so the router still knows it exists (but clients can't include it in operations). This is what enables the router to use an `@inaccessible` field as part of an entity's `@key` when combining entity fields from multiple subgraphs.
 
 **If a type is marked `@inaccessible`, all fields that return that type must also be marked `@inaccessible`.** Otherwise, a composition error occurs.
 
@@ -378,7 +392,7 @@ Specifies a set of entity fields that a subgraph _can_ resolve, but _only_ at a 
 
 If a subgraph can _always_ resolve a particular entity field, do _not_ apply this directive.
 
-**Using this directive is always an optional optimization.** It can reduce the total number of subgraphs that your graph router needs to communicate with to resolve certain operations, which can improve performance.
+**Using this directive is always an optional optimization.** It can reduce the total number of subgraphs that your router needs to communicate with to resolve certain operations, which can improve performance.
 
 ```graphql {3,8} title="Inventory subgraph"
 type Product @key(fields: "id") {
@@ -447,7 +461,7 @@ Examples:
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION
 ```
 
-Indicates that the resolver for a particular entity field depends on the values of _other_ entity fields that are resolved by _other_ subgraphs. This tells the graph router that it needs to fetch the values of those externally defined fields _first_, even if the original client query didn't request them.
+Indicates that the resolver for a particular entity field depends on the values of _other_ entity fields that are resolved by _other_ subgraphs. This tells the router that it needs to fetch the values of those externally defined fields _first_, even if the original client query didn't request them.
 
 ```graphql {5} title="Shipping subgraph"
 type Product @key(fields: "id") {
@@ -508,7 +522,7 @@ Examples:
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 ```
 
-Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/studio/contracts/) uses `@tag` with its inclusion and exclusion filters.
+Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. Apollo Studio's enterprise [contracts feature](/graphos/delivery/contracts/) uses `@tag` with its inclusion and exclusion filters.
 
 > ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
 >
@@ -516,7 +530,7 @@ Applies arbitrary string metadata to a schema location. Custom tooling can use t
 
 ```graphql
 extend schema
-    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
+    @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@tag"])
 
 type Query {
   customer(id: String!): Customer @tag(name: "team-customers")
@@ -580,12 +594,14 @@ type Employee implements User @tag(name: "team-admin") {
 directive @composeDirective(name: String!) repeatable on SCHEMA
 ```
 
-Indicates to composition that all uses of a particular custom directive in the subgraph schema should be preserved in the supergraph schema (by default, composition omits most directives from the supergraph schema).
+Indicates to composition that all uses of a particular custom [type system directive](./composition#type-system-directives) in the subgraph schema should be preserved in the supergraph schema (by default, composition omits most directives from the supergraph schema).
+
+> ⚠️ **Important:** Do not use this directive with an [executable directive](./composition#executable-directives). Executable directives have different rules for composition.
 
 ```graphql
 extend schema
     @link(url: "https://specs.apollo.dev/link/v1.0")
-    @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@composeDirective"])
+    @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@composeDirective"])
     @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
     # highlight-start
     @composeDirective(name: "@myDirective")

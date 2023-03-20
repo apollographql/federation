@@ -35,6 +35,7 @@ export enum FederationDirectiveName {
   TAG = 'tag',
   INACCESSIBLE = 'inaccessible',
   COMPOSE_DIRECTIVE = 'composeDirective',
+  INTERFACE_OBJECT = 'interfaceObject',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -93,7 +94,9 @@ const legacyFederationDirectives = [
   requiresDirectiveSpec,
   providesDirectiveSpec,
   externalDirectiveSpec,
-  TAG_VERSIONS.latest().tagDirectiveSpec,
+  // This should really be v0.1 instead of v0.2, but we can't change this to
+  // v0.1 without checking whether anyone relied on the v0.2 behavior.
+  TAG_VERSIONS.find(new FeatureVersion(0, 2))!.tagDirectiveSpec,
   extendsDirectiveSpec,
 ];
 
@@ -153,6 +156,16 @@ export class FederationSpecDefinition extends FeatureDefinition {
         }),
       }));
     }
+
+    if (version >= (new FeatureVersion(2, 3))) {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.INTERFACE_OBJECT,
+        locations: [DirectiveLocation.OBJECT],
+      }));
+      this.registerDirective(
+        TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
+      );
+    }
   }
 
   private registerDirective(spec: DirectiveSpecification) {
@@ -195,6 +208,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
 export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 2)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

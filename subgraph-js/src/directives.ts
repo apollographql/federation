@@ -84,6 +84,7 @@ export const TagDirective = new GraphQLDirective({
     DirectiveLocation.ENUM_VALUE,
     DirectiveLocation.INPUT_OBJECT,
     DirectiveLocation.INPUT_FIELD_DEFINITION,
+    DirectiveLocation.SCHEMA,
   ],
   isRepeatable: true,
   args: {

@@ -1,6 +1,26 @@
 # CHANGELOG for `@apollo/federation-internals`
 
-## vNext
+## 2.3.5
+
+## 2.3.4
+### Patch Changes
+
+
+- Handle defaulted variables correctly during post-processing. ([#2443](https://github.com/apollographql/federation/pull/2443))
+  
+  Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
+  
+  With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
+
+## 2.3.3
+
+## 2.3.2
+
+## 2.3.1
+
+## 2.3.0
+
+- Fix incorrect handling of `@external` on a type when dealing when adding `@shareable` during fed1 schema upgrades [PR #2343](https://github.com/apollographql/federation/pull/2343).
 
 ## 2.2.1
 

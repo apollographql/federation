@@ -1,8 +1,59 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.3.5
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.5
+  - @apollo/query-graphs@2.3.5
+
+## 2.3.4
+### Patch Changes
+
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
+  - @apollo/federation-internals@2.3.4
+  - @apollo/query-graphs@2.3.4
+
+## 2.3.3
+### Patch Changes
+
+
+- Stop generating misleading "hint" regarding value type fields for interface types that are entity interfaces (they have a `@key` defined). ([#2412](https://github.com/apollographql/federation/pull/2412))
+
+- Updated dependencies [[`de89e504`](https://github.com/apollographql/federation/commit/de89e5044d1a2500505a9269bcec7709aa1dcdf4)]:
+  - @apollo/query-graphs@2.3.3
+  - @apollo/federation-internals@2.3.3
+
+## 2.3.2
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.2
+  - @apollo/query-graphs@2.3.2
+
+## 2.3.1
+### Patch Changes
+
+- Updated dependencies [[`7e2ca46f`](https://github.com/apollographql/federation/commit/7e2ca46f57dccae6f5037c64d8719cee72adfe88)]:
+  - @apollo/query-graphs@2.3.1
+  - @apollo/federation-internals@2.3.1
+
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/federation-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNext
+## 2.3.0-beta.2
+- Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
+  must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
+  intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
+- Uses the 0.3 version of the tag spec in the supergraph, which adds `@tag` directive support for the `SCHEMA` location [PR #2314](https://github.com/apollographql/federation/pull/2314).
+- Fixes composition issues with `@interfaceObject` [PR #2318](https://github.com/apollographql/federation/pull/2318).
+
+## 2.3.0-alpha.0
+
+- Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+- __BREAKING__: composition now rejects `@override` on interface fields. The `@override` directive was not
+  meant to be supported on interfaces and was not having any impact whatsoever. If an existing subgraph does have a
+  `@override` on an interface field, this will now be rejected, but the `@override` can simply and safely be removed
+  since it previously was ignored.
 
 ## 2.2.0
 

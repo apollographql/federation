@@ -3,10 +3,10 @@ import {
 } from '../definitions';
 import { buildSchema } from '../buildSchema';
 import { parseOperation } from '../operations';
-import { buildForErrors } from './subgraphValidation.test';
 import gql from 'graphql-tag';
 import { printSchema } from '../print';
 import { valueEquals } from '../values';
+import { buildForErrors } from './testUtils';
 
 function parseSchema(schema: string): Schema {
   try {

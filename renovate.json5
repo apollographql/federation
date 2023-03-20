@@ -67,6 +67,11 @@
       matchPackageNames: ["chalk"],
       allowedVersions: "4.x",
     },
+    {
+      // v8 drops support for node < 16 so we can't take this for v0.x or main
+      "matchPackageNames": ["lru-cache"],
+      "allowedVersions": "7.x",
+    },
     // Bunch up all non-major npm dependencies into a single PR.  In the common case
     // where the upgrades apply cleanly, this causes less noise and is resolved faster
     // than starting a bunch of upgrades in parallel for what may turn out to be
@@ -87,6 +92,44 @@
       matchCurrentVersion: "/^[\^~]?0/",
       automerge: false,
       matchManagers: [ "npm" ],
+    },
+    // v0.x is stuck on the following major package versions due to node 12 support
+    // the packages listed below have dropped support for node 12 in current major versions
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "12.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackagePatterns": ["^@apollo/utils"],
+      "allowedVersions": "1.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["make-fetch-happen", "@types/make-fetch-happen"],
+      "allowedVersions": "10.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["lerna"],
+      "allowedVersions": "4.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackagePatterns": ["jest", "pretty-format"],
+      "allowedVersions": "28.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackagePatterns": ["@apollo/core-schema"],
+      "allowedVersions": "0.2.x"
+    },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["node"],
+      "matchPaths": ["v12-node-compatibility/package.json"],
+      "allowedVersions": "12.x",
     },
   ]
 }

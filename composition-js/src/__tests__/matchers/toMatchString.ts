@@ -29,14 +29,23 @@ function deIndent(str: string): string {
     .join('\n');
 }
 
+export function formatExpectedToMatchReceived(expected: string, received: string): string {
+  let formatted = deIndent(expected);
+  // If the expected string as a trailing '\n', add one since we removed it.
+  if (received.charAt(received.length - 1) === '\n') {
+    formatted = formatted + '\n';
+  }
+  return formatted;
+}
+
 expect.extend({
-  toMatchString(expected: string, received: string) {
-    received = deIndent(received);
-    const pass = this.equals(expected, received);
+  toMatchString(received: string, expected: string) {
+    expected = formatExpectedToMatchReceived(expected, received);
+    const pass = this.equals(received, expected);
     const message = pass
       ? () => this.utils.matcherHint('toMatchString', undefined, undefined)
           + '\n\n'
-          + `Expected: not ${this.printExpected(expected)}`
+          + `Expected: not ${this.printExpected(received)}`
       : () => {
         return (
           this.utils.matcherHint('toMatchString', undefined, undefined,)
@@ -46,8 +55,8 @@ expect.extend({
     return {received, expected, message, name: 'toMatchString', pass};
   },
 
-  toMatchStringArray(expected: string[], received: string[]) {
-    if (expected.length !== received.length) {
+  toMatchStringArray(received: string[], expected: string[]) {
+    if (received.length !== expected.length) {
       const message = () => 
         this.utils.matcherHint('toMatchStringArray', undefined, undefined,)
           + `\n\nExpected an array of size ${expected.length} but got one of size ${received.length}\n\n`
@@ -58,8 +67,8 @@ expect.extend({
     let pass = true;
     const messages: string[] = [];
     for (let i = 0; i < expected.length; i++) {
-      const exp = expected[i];
-      const rec = deIndent(received[i]);
+      const rec = received[i];
+      const exp = formatExpectedToMatchReceived(expected[i], rec);
       if (!this.equals(exp, rec)) {
         pass = false;
         messages.push(

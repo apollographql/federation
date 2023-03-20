@@ -68,7 +68,7 @@ The `@key` directive defines the entity's **primary key**, which consists of one
 
 The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this entity if you provide its primary key." In order for this to be true, the subgraph needs to define a **reference resolver** for the entity.
 
-> ⚠️ **This section describes how to create reference resolvers in Apollo Server.** If you're using another [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), see its documentation for creating reference resolvers.
+> ⚠️ **This section describes how to create reference resolvers in Apollo Server.** If you're using another [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), see its documentation for creating reference resolvers (or the equivalent functionality).
 
 For the `Product` entity defined [above](#1-define-a-key), the reference resolver might look like this:
 
@@ -93,9 +93,11 @@ Let's break this example down:
 * A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
     * In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
 
+> ⚠️ **A particular reference resolver might be called _many_ times to resolve a single query!** It is crucial that reference resolvers account for "N+1" issues (e.g., via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
+
 _Every_ subgraph that contributes at least one unique field to an entity must define a reference resolver for that entity.
 
-> To learn more about `__resolveReference` in Apollo Server, see the [API docs](./api/apollo-subgraph/#__resolvereference).
+> To learn more about `__resolveReference` in Apollo Server, see the [API docs](/apollo-server/using-federation/api/apollo-subgraph/#__resolvereference).
 
 ## Contributing entity fields
 

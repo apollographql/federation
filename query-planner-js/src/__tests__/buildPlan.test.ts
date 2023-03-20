@@ -1,28 +1,10 @@
-import { astSerializer, queryPlanSerializer, QueryPlanner, QueryPlannerConfig } from '@apollo/query-planner';
-import { composeServices } from '@apollo/composition';
-import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { QueryPlanner } from '@apollo/query-planner';
+import { assert, buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
-
-expect.addSnapshotSerializer(astSerializer);
-expect.addSnapshotSerializer(queryPlanSerializer);
-
-export function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  return composeAndCreatePlannerWithOptions(services, {});
-}
-
-export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
-  const compositionResults = composeServices(
-    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
-  );
-  expect(compositionResults.errors).toBeUndefined();
-  return [
-    compositionResults.schema!.toAPISchema(),
-    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!), config)
-  ];
-}
+import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
 
 describe('shareable root fields', () => {
   test('can use same root operation from multiple subgraphs in parallel', () => {
@@ -1273,7 +1255,8 @@ describe('@requires', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
-    // into the same fetch group.
+    // into the same fetch group. But note that because the type for `f` differs, the 2nd instance
+    // gets aliased (or the fetch would be invalid graphQL).
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1292,7 +1275,7 @@ describe('@requires', () => {
                 ... on T3 {
                   __typename
                   id
-                  f
+                  f__alias_0: f
                 }
               }
             }
@@ -4814,6 +4797,7 @@ describe('merged abstract types handling', () => {
             u {
               __typename
               ... on I {
+                __typename
                 v
               }
             }
@@ -5111,6 +5095,7 @@ describe('merged abstract types handling', () => {
             i1 {
               __typename
               ... on I2 {
+                __typename
                 v
               }
             }
@@ -5188,10 +5173,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  // TODO: this test currently doesn't work due to https://github.com/apollographql/federation/issues/2256
-  // (it is not a direct test of that issue, but one of its consequence nonetheles). We should enable it
-  // with the fix of that issue.
-  test.skip('union/union interaction, but no need to type-explode', () => {
+  test('union/union interaction, but no need to type-explode', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5257,4 +5239,331 @@ describe('merged abstract types handling', () => {
       }
     `);
   });
+});
+
+test('handles spread unions correctly', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        u: U
+      }
+
+      union U = A | B
+
+      type A @key(fields: "id") {
+        id: ID!
+        a1: Int
+      }
+
+      type B {
+        id: ID!
+        b: Int
+      }
+
+      type C  @key(fields: "id") {
+        id: ID!
+        c1: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        otherQuery: U
+      }
+
+      union U = A | C
+
+      type A @key(fields: "id") {
+        id: ID!
+        a2: Int
+      }
+
+      type C @key(fields: "id") {
+        id: ID!
+        c2: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      u {
+        ... on C {
+          c1
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  // Note: it's important that the query below DO NOT include the `... on C` part. Because in
+  // Subgraph 1, `C` is not a part of the union `U` and so a spread for `C` inside `u` is invalid
+  // GraphQL.
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Fetch(service: "Subgraph1") {
+        {
+          u {
+            __typename
+          }
+        }
+      },
+    }
+  `);
+})
+
+test('handles case of key chains in parallel requires', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      union T = T1 | T2
+
+      type T1 @key(fields: "id1") {
+        id1: ID!
+      }
+
+      type T2 @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T1 @key(fields: "id1")  @key(fields: "id2") {
+        id1: ID!
+        id2: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T1 @key(fields: "id2") {
+        id2: ID!
+        x: Int
+      }
+
+      type T2 @key(fields: "id") {
+        id: ID!
+        y: Int @external
+        z: Int @requires(fields: "y")
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          z
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ... on T1 {
+                __typename
+                id1
+              }
+              ... on T2 {
+                __typename
+                id
+                y
+              }
+            }
+          }
+        },
+        Parallel {
+          Sequence {
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id1
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    id2
+                  }
+                }
+              },
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on T1 {
+                    __typename
+                    id2
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    x
+                  }
+                }
+              },
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on T2 {
+                  __typename
+                  id
+                  y
+                }
+              } =>
+              {
+                ... on T2 {
+                  z
+                }
+              }
+            },
+          },
+        },
+      },
+    }
+  `);
+});
+
+test('handles types with no common supertype at the same "mergeAt"', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      union T = T1 | T2
+
+      type T1 @key(fields: "id") {
+        id: ID!
+        sub: Foo
+      }
+
+      type Foo @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+
+      type T2 @key(fields: "id") {
+        id: ID!
+        sub: Bar
+      }
+
+      type Bar @key(fields: "id") {
+        id: ID!
+        x: Int
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Foo @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+
+      type Bar @key(fields: "id") {
+        id: ID!
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        ... on T1 {
+          sub {
+            y
+          }
+        }
+        ... on T2 {
+          sub {
+            y
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ... on T1 {
+                sub {
+                  __typename
+                  id
+                }
+              }
+              ... on T2 {
+                sub {
+                  __typename
+                  id
+                }
+              }
+            }
+          }
+        },
+        Flatten(path: "t.sub") {
+          Fetch(service: "Subgraph2") {
+            {
+              ... on Foo {
+                __typename
+                id
+              }
+              ... on Bar {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on Foo {
+                y
+              }
+              ... on Bar {
+                y
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
 });

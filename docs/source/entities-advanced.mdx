@@ -206,7 +206,7 @@ We're done! `Bill` is now resolved in a new subgraph, and it was resolvable duri
 
 ```graphql {3} title="Billing subgraph"
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
         import: ["@key", "@shareable", "@override"])
 ```
 
@@ -575,3 +575,44 @@ Here we're using two directives in combination: `@provides` and `@external`.
 * To include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in _every_ subgraph that defines it.
 
 Violating any of these rules causes composition to fail.
+
+## Handling the N+1 problem
+
+Most subgraph implementations use **reference resolvers** (also known as entity resolvers) to handle the `Query._entities` field ergonomically. An entity resolver is passed a single key and returns the entity object that corresponds to that key.
+
+Although this pattern is straightforward, it can diminish performance when a client operation requests fields from _many_ entities. To illustrate this, let's revisit an earlier example:
+
+```graphql {6}
+query GetReviewsWithProducts {
+  latestReviews { # Defined in Reviews
+    score
+    product {
+      id
+      price # ⚠️ NOT defined in Reviews!
+    }
+  }
+}
+```
+
+As mentioned in [The query plan](./entities#the-query-plan), the router executes two queries on its subgraphs to resolve this operation:
+
+1. It queries the Reviews subgraph to fetch all fields _except_ `Product.price`.
+2. It queries the Products subgraph to fetch the `price` of each `Product` entity.
+
+In the Products subgraph, the reference resolver for `Product` doesn't take a list of keys, but rather a _single_ key. Therefore, the subgraph library calls the reference resolver _once for each key_:
+
+```js {4-6} title="resolvers.js"
+// Products subgraph
+const resolvers = {
+  Product: {
+    __resolveReference(productRepresentation) {
+      return fetchProductByID(productRepresentation.id);
+    }
+  },
+  // ...other resolvers...
+}
+```
+
+A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made _in addition to_ the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems and can even enable denial-of-service attacks.
+
+This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in **every resolver**. This is true even for resolvers that _aren't_ for entities and that _don't_ return a list. These resolvers can _still_ cause N+1 issues via [batched requests](/enterprise-guide/graph-security/#batched-requests).

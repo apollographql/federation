@@ -12,24 +12,25 @@
   ],
   "sidebar": {
     "Introduction": "/",
-    "Federation 2 Updates": {
-      "☀️ New in Federation 2": "/federation-2/new-in-federation-2",
-      "🚚 Moving from Federation 1": "/federation-2/moving-to-federation-2",
-      "⬅️ Backward compatibility": "/federation-2/backward-compatibility",
-      "🚀 Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
-      "🗺 Roadmap": "https://github.com/apollographql/federation/blob/main/ROADMAP.md"
-    },
+    "Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
+    "Changelog": "/federation-versions",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
       "3️⃣ Local composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
     },
+    "Moving from Federation 1": {
+      "☀️ Changes from Federation 1": "/federation-2/new-in-federation-2",
+      "🚚 Steps to move": "/federation-2/moving-to-federation-2",
+      "⬅️ Backward compatibility": "/federation-2/backward-compatibility"
+    },
     "Building Your Supergraph": {
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
       "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
-      "Router/gateway": "/building-supergraphs/router",
-      "Apollo Server subgraphs": "/building-supergraphs/subgraphs-apollo-server"
+      "Router / Gateway": "/building-supergraphs/router",
+      "Apollo Server subgraphs": "https://apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup",
+      "JetBrains IDE Support": "/building-supergraphs/jetbrains-ide-support"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
@@ -38,6 +39,7 @@
       "Sharing types (value types)": "/federated-types/sharing-types",
       "Entities (basics)": "/entities",
       "Entities (advanced)": "/entities-advanced",
+      "Entity interfaces": "/federated-types/interfaces",
       "Migrating from schema stitching": "/migrating-from-stitching"
     },
     "Managed Federation": {
@@ -61,8 +63,8 @@
       "OpenTelemetry": "/opentelemetry"
     },
     "API Reference": {
-      "@apollo/subgraph": "/api/apollo-subgraph",
-      "@apollo/gateway": "/api/apollo-gateway",
+      "@apollo/subgraph": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-subgraph",
+      "@apollo/gateway": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-gateway",
       "Subgraph specification": "/subgraph-spec"
     }
   }

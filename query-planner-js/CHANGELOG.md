@@ -1,8 +1,64 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.3.5
+### Patch Changes
+
+
+- Fix query planner assertion error when types with no common supertypes are requested at the same path ([#2467](https://github.com/apollographql/federation/pull/2467))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.5
+  - @apollo/query-graphs@2.3.5
+
+## 2.3.4
+### Patch Changes
+
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
+  - @apollo/federation-internals@2.3.4
+  - @apollo/query-graphs@2.3.4
+
+## 2.3.3
+### Patch Changes
+
+- Updated dependencies [[`de89e504`](https://github.com/apollographql/federation/commit/de89e5044d1a2500505a9269bcec7709aa1dcdf4)]:
+  - @apollo/query-graphs@2.3.3
+  - @apollo/federation-internals@2.3.3
+
+## 2.3.2
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.2
+  - @apollo/query-graphs@2.3.2
+
+## 2.3.1
+### Patch Changes
+
+
+- Fix assertion errors thrown by the query planner when querying fields for a specific interface implementation in some cases where `@interfaceObject` is involved ([#2362](https://github.com/apollographql/federation/pull/2362))
+
+
+- Fix issue where the query planner was incorrectly not querying `__typename` in a subgraph fetch when `@interfaceObject` is involved ([#2366](https://github.com/apollographql/federation/pull/2366))
+
+- Updated dependencies [[`7e2ca46f`](https://github.com/apollographql/federation/commit/7e2ca46f57dccae6f5037c64d8719cee72adfe88)]:
+  - @apollo/query-graphs@2.3.1
+  - @apollo/federation-internals@2.3.1
+
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/query-planner-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNext
+## 2.3.0
+- Fix issue with some `@interfaceObject` queries due to missing "input rewrites" [PR #2346](https://github.com/apollographql/federation/pull/2346).
+
+## 2.3.0-beta.2
+- Fix potential issue with nested `@defer` in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312).
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299).
+- Improves generation of plans once all path options are computed [PR #2316](https://github.com/apollographql/federation/pull/2316).
+
+## 2.2.2
+
+- Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
+  - __BREAKING__: Any code relying directly on the query plan handling of `@defer` will need to potentially update its
+      handling of the `path` before upgrading to this version. This is *not* a concern for end-user of federation. 
 
 ## 2.2.0
 

@@ -201,8 +201,13 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     const implementsDirective = joinSpec.implementsDirective(supergraph);
     const ownerDirective = joinSpec.ownerDirective(supergraph);
     const fieldDirective = joinSpec.fieldDirective(supergraph);
+    const unionMemberDirective = joinSpec.unionMemberDirective(supergraph);
+    const enumValueDirective = joinSpec.enumValueDirective(supergraph);
 
-    const getSubgraph = (application: Directive<any, { graph: string }>) => graphEnumNameToSubgraphName.get(application.arguments().graph);
+    const getSubgraph = (application: Directive<any, { graph?: string }>) => {
+      const graph = application.arguments().graph;
+      return graph ? graphEnumNameToSubgraphName.get(graph) : undefined;
+    };
 
     /*
      * Fed2 supergraph have "provenance" information for all types and fields, so we can faithfully extract subgraph relatively easily.
@@ -221,7 +226,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         supergraph,
         subgraphs.names(),
         (f, name) => {
-          const fieldApplications: Directive<any, { graph: string, requires?: string, provides?: string }>[] = f.appliedDirectivesOf(fieldDirective);
+          const fieldApplications: Directive<any, { graph?: string, requires?: string, provides?: string }>[] = f.appliedDirectivesOf(fieldDirective);
           if (fieldApplications.length) {
             const application = fieldApplications.find((application) => getSubgraph(application) === name);
             if (application) {
@@ -274,7 +279,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           // We can have more than one type directive for a given subgraph
           let subgraphType = schema.type(type.name);
           if (!subgraphType) {
-            subgraphType = schema.addType(newNamedType(type.kind, type.name));
+            const kind = args.isInterfaceObject ? 'ObjectType' : type.kind;
+            subgraphType = schema.addType(newNamedType(kind, type.name));
+            if (args.isInterfaceObject) {
+              subgraphType.applyDirective('interfaceObject');
+            }
           }
           if (args.key) {
             const { resolvable } = args;
@@ -353,6 +362,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
 
               for (const application of fieldApplications) {
                 const args = application.arguments();
+                // We use a @join__field with no graph to indicates when a field in the supergraph does not come
+                // directly from any subgraph and there is thus nothing to do to "extract" it.
+                if (!args.graph) {
+                  continue;
+                }
                 const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
                 const subgraphField = addSubgraphField(field, subgraph, args.type);
                 if (!subgraphField) {
@@ -394,23 +408,40 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
               continue;
             }
             assert(isEnumType(subgraphEnum), () => `${subgraphEnum} should be an enum but found a ${subgraphEnum.kind}`);
+
             for (const value of type.values) {
-              subgraphEnum.addValue(value.name);
+              // Before version 0.3 of the join spec (before `enumValueDirective`), we were not recording which subgraph defined which values,
+              // and instead aded all values to all subgraphs (at least if the type existed there).
+              const addValue = !enumValueDirective
+                || value.appliedDirectivesOf(enumValueDirective).some((d) =>
+                  graphEnumNameToSubgraphName.get(d.arguments().graph) === subgraph.name
+                );
+              if (addValue) {
+                subgraphEnum.addValue(value.name);
+              }
             }
           }
           break;
         case 'UnionType':
-          // TODO: Same as for enums. We need to know in which subgraph each member is defined.
-          // But for now, we also add every members to all subgraphs (as long as the subgraph has both the union type
-          // and the member in question).
           for (const subgraph of subgraphs) {
             const subgraphUnion = subgraph.schema.type(type.name);
             if (!subgraphUnion) {
               continue;
             }
             assert(isUnionType(subgraphUnion), () => `${subgraphUnion} should be an enum but found a ${subgraphUnion.kind}`);
-            for (const memberType of type.types()) {
-              const subgraphType = subgraph.schema.type(memberType.name);
+            let membersInSubgraph: string[];
+            if (unionMemberDirective) {
+              membersInSubgraph = type
+                .appliedDirectivesOf(unionMemberDirective)
+                .filter((d) => graphEnumNameToSubgraphName.get(d.arguments().graph) === subgraph.name)
+                .map((d) => d.arguments().member);
+            } else {
+              // Before version 0.3 of the join spec, we were not recording which subgraph defined which members,
+              // and instead aded all members to all subgraphs (at least if the type existed there).
+              membersInSubgraph = type.types().map((t) => t.name);
+            }
+            for (const memberTypeName of membersInSubgraph) {
+              const subgraphType = subgraph.schema.type(memberTypeName);
               if (subgraphType) {
                 subgraphUnion.addType(subgraphType as ObjectType);
               }

@@ -39,6 +39,52 @@ export interface FetchNode {
   operationName: string | undefined;
   operationKind: OperationTypeNode;
   operationDocumentNode?: DocumentNode;
+  // Optionally describe a number of "rewrites" that query plan executors should apply to the data that is sent as input of this fetch.
+  inputRewrites?: FetchDataInputRewrite[];
+  // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is apply to the current in-memory results).
+  outputRewrites?: FetchDataOutputRewrite[];
+}
+
+/**
+ * The type of rewrites currently supported on the input data of fetches.
+ *
+ * A rewrite usually identifies some subpart of the input data and some action to perform on that subpart.
+ * Note that input rewrites should only impact the inputs of the fetch they are applied to (meaning that, as
+ * those inputs are collected from the current in-memory result, the rewrite should _not_ impact said in-memory
+ * results, only what is sent in the fetch).
+ */
+export type FetchDataInputRewrite = FetchDataValueSetter;
+
+/**
+ * The type of rewrites currently supported on the output data of fetches.
+ *
+ * A rewrite usually identifies some subpart of the ouput data and some action to perform on that subpart.
+ * Note that ouput rewrites should only impact the outputs of the fetch they are applied to (meaning that
+ * the rewrites must be applied before the data from the fetch is merged to the  current in-memory result).
+ */
+export type FetchDataOutputRewrite = FetchDataKeyRenamer;
+
+/**
+ * A rewrite that sets a value at the provided path of the data it is applied to.
+ */
+export interface FetchDataValueSetter {
+  kind: 'ValueSetter',
+  // Path to the key that is set by this "rewrite". It is of the form `[ 'x', '... on A', 'y' ]`, where fragments
+  // means that the path should only match for objects whose `__typename` is he provided type.
+  // If the path does not match in the data this is applied to, then this setter should not rewrite the data.
+  // The path starts at the top of the data it is applied to. So for instance, for fetch data inputs, the path
+  // start at the root of the object representing those inputs.
+  path: string[],
+  // The value to set at `path`.
+  setValueTo: any,
+}
+
+export interface FetchDataKeyRenamer {
+  kind: 'KeyRenamer'
+  // Same format as in `FetchDataValueSetter`, but this renames the key at the very end of this path to the
+  // name from `renameKeyTo`.
+  path: string[],
+  renameKeyTo: string,
 }
 
 export interface FlattenNode {
@@ -93,8 +139,9 @@ export interface DeferredNode {
   }[],
   // The optional defer label.
   label?: string,
-  // Path to the @defer this correspond to. The `subselection` starts at that `path`.
-  path: ResponsePath,
+  // Path, in the query, to the @defer this corresponds to. The `subselection` starts at that `queryPath`.
+  // This look like: `[ 'products', '... on Book', 'reviews' ]`
+  queryPath: string[],
   // The part of the original query that "selects" the data to send in that deferred response (once the plan in `node` completes). Will be set _unless_ `node` is a `DeferNode` itself.
   subselection?: string,
   // The plan to get all the data for that deferred part. Usually set, but can be undefined for a `@defer` where everything has been fetched in the "primary block", that is when

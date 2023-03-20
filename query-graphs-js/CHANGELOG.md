@@ -1,6 +1,40 @@
 # CHANGELOG for `@apollo/query-graphs`
 
-## vNext
+## 2.3.5
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.5
+
+## 2.3.4
+### Patch Changes
+
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
+  - @apollo/federation-internals@2.3.4
+
+## 2.3.3
+### Patch Changes
+
+
+- Update ts-graphviz dependency ([#2395](https://github.com/apollographql/federation/pull/2395))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.3
+
+## 2.3.2
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.2
+
+## 2.3.1
+### Patch Changes
+
+
+- Fix assertion errors thrown by the query planner when querying fields for a specific interface implementation in some cases where `@interfaceObject` is involved ([#2362](https://github.com/apollographql/federation/pull/2362))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.1
 
 ## 2.2.0
 

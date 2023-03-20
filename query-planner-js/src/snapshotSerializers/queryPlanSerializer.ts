@@ -219,7 +219,7 @@ function printDeferredNode(
 
   const indentationNext = indentation + config.indent;
   const dependsStr = node.depends.map(({id, deferLabel}) => id + (deferLabel ? (`:"${deferLabel}"`) : '')).join(', ');
-  const pathStr = node.path.join('.');
+  const pathStr = node.queryPath.join('/');
   const labelStr = node.label ? `, label: "${node.label}"` : '';
   let result = `Deferred(depends: [${dependsStr}], path: "${pathStr}"${labelStr}) {`;
   if (node.subselection) {

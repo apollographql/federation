@@ -1,8 +1,127 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.3.5
+### Patch Changes
+
+- Updated dependencies [[`09382e74`](https://github.com/apollographql/federation/commit/09382e74adf4648582c0bbd135fe433a9853c835)]:
+  - @apollo/query-planner@2.3.5
+  - @apollo/composition@2.3.5
+  - @apollo/federation-internals@2.3.5
+
+## 2.3.4
+### Patch Changes
+
+
+- Handle defaulted variables correctly during post-processing. ([#2443](https://github.com/apollographql/federation/pull/2443))
+  
+  Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
+  
+  With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a)]:
+  - @apollo/federation-internals@2.3.4
+  - @apollo/composition@2.3.4
+  - @apollo/query-planner@2.3.4
+
+## 2.3.3
+### Patch Changes
+
+
+- Update @apollo/utils.logger typings dependency ([#2269](https://github.com/apollographql/federation/pull/2269))
+
+
+- Exposes, for each subgraph request, the path in the overall gateway operation at which that subgraph request gets inserted. This path is now available as the pathInIncomingRequest field in the arguments of RemoteGraphQLDataSource.willSendRequest and RemoteGraphQLDataSource.didReceiveResponse. ([#2384](https://github.com/apollographql/federation/pull/2384))
+
+
+- Previously the `queryPlanStoreKey` was a hash of the query concatenated with an unhashed `operationName` if it was present. This resulted in variable length cache keys that could become unnecessarily long, occupying additional space in the query plan cache. ([#2310](https://github.com/apollographql/federation/pull/2310))
+  
+  This change incorporates the `operationName` _into_ the hash itself (if `operationName` is present).
+
+- Update @apollo/utils.createhash package, which drops support for node 12 ([#2266](https://github.com/apollographql/federation/pull/2266))
+
+
+- Update @apollo/utils.isnodelike package, which dropped support for node 12 ([#2268](https://github.com/apollographql/federation/pull/2268))
+
+
+- Update @apollo/utils.fetcher package, which drops support for node 12 ([#2267](https://github.com/apollographql/federation/pull/2267))
+
+- Updated dependencies [[`71a07f30`](https://github.com/apollographql/federation/commit/71a07f3006e6152bb47e258546c2af717ceb687e)]:
+  - @apollo/composition@2.3.3
+  - @apollo/query-planner@2.3.3
+  - @apollo/federation-internals@2.3.3
+
+## 2.3.2
+### Patch Changes
+
+
+- Move gateway post-processing errors from `errors` into `extensions.valueCompletion` of the response ([#2380](https://github.com/apollographql/federation/pull/2380))
+  
+  [https://github.com/apollographql/federation/pull/2335](PR #2335) introduced a breaking change that broke existing usages with respect to nullability and gateway error handling. In response to [https://github.com/apollographql/federation/issues/2374](Issue #2374), we are reverting the breaking portion of this change by continuing to swallow post processing errors as the gateway did prior to v2.3.0. Instead, those errors will now be included on the `extensions.valueCompletion` object in the response object.
+  
+  Gateway v2.3.0 and v2.3.1 are both affected by this change in behavior.
+- Updated dependencies []:
+  - @apollo/composition@2.3.2
+  - @apollo/federation-internals@2.3.2
+  - @apollo/query-planner@2.3.2
+
+## 2.3.1
+### Patch Changes
+
+
+- Capture non-ftv1 error information in metrics data. This ([#2242](https://github.com/apollographql/federation/pull/2242))
+  error information allows the inline trace plugin to correctly
+  aggregate stats about errors (where no federated trace data
+  is available) and stop reporting incomplete traces which
+  are missing unavailable error information.
+  
+  This PR is a precursor to apollographql/apollo-server#7136
+
+- Fix issue where the query planner was incorrectly not querying `__typename` in a subgraph fetch when `@interfaceObject` is involved ([#2366](https://github.com/apollographql/federation/pull/2366))
+
+- Updated dependencies [[`7e2ca46f`](https://github.com/apollographql/federation/commit/7e2ca46f57dccae6f5037c64d8719cee72adfe88), [`eb5a8bc0`](https://github.com/apollographql/federation/commit/eb5a8bc0038ea237c3bde77bbc7a2dd616fc7387)]:
+  - @apollo/query-planner@2.3.1
+  - @apollo/composition@2.3.1
+  - @apollo/federation-internals@2.3.1
+
 This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
-## vNext
+## 2.3.0
+- Fix unexpected composition error about `@shareable` field when `@external` is on a type in a fed1 schema (one without `@link`) [PR #2343](https://github.com/apollographql/federation/pull/2343).
+- Fix issue with some `@interfaceObject` queries due to missing "input rewrites" [PR #2346](https://github.com/apollographql/federation/pull/2346).
+
+## 2.3.0-beta.3
+- Rewrites gateway response post-processing to avoid `@interfaceObject` related issues [PR 2335](https://github.com/apollographql/federation/pull/2335).
+- Generates correct response error paths for errors thrown during entity fetches [PR #2304](https://github.com/apollographql/federation/pull/2304).
+
+## 2.3.0-beta.2
+- Improves generation of plans once all path options are computed [PR #2316](https://github.com/apollographql/federation/pull/2316).
+- Fixes composition issues with `@interfaceObject` [PR #2318](https://github.com/apollographql/federation/pull/2318).
+- Fix potential issue with nested `@defer` in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312).
+- Adds support for the 0.3 version of the tag spec, which adds `@tag` directive support for the `SCHEMA` location [PR #2314](https://github.com/apollographql/federation/pull/2314).
+- Error on composition when a `@shareable` field runtime types don't intersect between subgraphs: a `@shareable` field
+  must resolve the same way in all the subgraphs, but this is impossible if the concrete runtime types have no
+  intersection at all [PR #1556](https://github.com/apollographql/federation/pull/1556). 
+
+## 2.3.0-alpha.0
+
+- __BREAKING__: composition now rejects `@override` on interface fields. The `@override` directive was not
+  meant to be supported on interfaces and was not having any impact whatsoever. If an existing subgraph does have a
+  `@override` on an interface field, this will now be rejected, but the `@override` can simply and safely be removed
+  since it previously was ignored.
+- Adds support for `@interfaceObject` and keys on interfaces [PR #2279](https://github.com/apollographql/federation/pull/2279).
+- Preserves source of union members and enum values in supergraph [PR #2288](https://github.com/apollographql/federation/pull/2288).
+
+## 2.2.3
+
+- Fix possible assertion error during query planning [PR #2299](https://github.com/apollographql/federation/pull/2299)
+- Fix potential issue with nested @defer in non-deferrable case [PR #2312](https://github.com/apollographql/federation/pull/2312)
+
+## 2.2.2
+
+- Fix issue with path in query plan's deferred nodes [PR #2281](https://github.com/apollographql/federation/pull/2281).
+
+## 2.2.1
+
+- Fix federation spec always being expanded to the last version [PR #2274](https://github.com/apollographql/federation/pull/2274).
 
 ## 2.2.0
 
@@ -53,6 +172,19 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## 2.1.0
 
+- The method `RemoteGraphQLDataSource.errorFromResponse` now returns a `GraphQLError` (as defined by `graphql`) rather than an `ApolloError` (as defined by `apollo-server-errors`). [PR #2028](https://github.com/apollographql/federation/pull/2028)
+  - __BREAKING__: If you call `RemoteGraphQLDataSource.errorFromResponse` manually and expect its return value to be a particular subclass of `GraphQLError`, or if you expect the error received by `didEncounterError` to be a particular subclass of `GraphQLError`, then this change may affect you. We recommend checking `error.extensions.code` instead.
+- The `LocalGraphQLDataSource` class no longer supports the undocumented `__resolveObject` Apollo Server feature. [PR #2007](https://github.com/apollographql/federation/pull/2007)
+  - __BREAKING__: If you relied on the undocumented `__resolveObject` feature with `LocalGraphQLDataSource`, it will no longer work. If this affects you, file an issue and we can help you find a workaround.
+- Fix issue when using a type condition on an inaccessible type in `@require` [#1873](https://github.com/apollographql/federation/pull/1873).
+  - __BREAKING__: this fix required passing a new argument to the `executeQueryPlan` method, which is technically
+    exported by the gateway. Most users of the gateway should _not_ call this method directly (which is exported mainly
+    for testing purposes in the first place) and will thus be unaffected, but if you do call this method directly, you
+    will have to pass the new argument when upgrading. See the method documentation for details.
+- Reject directive applications within `fields` of `@key`, `@provides` and `@requires`[PR #1975](https://github.com/apollographql/federation/pull/1975).
+  - __BREAKING__: previously, directive applications within a `@key`, `@provides` or `@requires` were parsed but
+    not honored in any way. As this change reject such applications (at composition time), it could theoretically
+    require to remove some existing (ignored) directive applications within a `@key`, `@provides` or `@requires`.
 - Fix issue where fragment expansion can erase applied directives (most notably `@defer`) [PR #2093](https://github.com/apollographql/federation/pull/2093).
 - Fix abnormally high memory usage when extracting subgraphs for some fed1 supergraphs (and small other memory footprint improvements) [PR #2089](https://github.com/apollographql/federation/pull/2089).
 - Fix issue with fragment reusing code something mistakenly re-expanding fragments [PR #2098](https://github.com/apollographql/federation/pull/2098).
@@ -66,32 +198,16 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Don't do debug logging by default [PR #2048](https://github.com/apollographql/federation/pull/2048)
 - Add `@composeDirective` directive to specify directives that should be merged to the supergraph during composition [PR #1996](https://github.com/apollographql/federation/pull/1996).
 - Fix fragment reuse in subgraph fetches [PR #1911](https://github.com/apollographql/federation/pull/1911).
-- Allow passing a custom `fetcher` [PR #1997](https://github.com/apollographql/federation/pull/1997).
-  - __UNBREAKING__: Previous 2.1.0 alphas removed the custom fetcher for Apollo Uplink. This re-adds that parameter, and requires the fetcher to have the `AbortSignal` interface https://fetch.spec.whatwg.org/#requestinit.
-- The method `RemoteGraphQLDataSource.errorFromResponse` now returns a `GraphQLError` (as defined by `graphql`) rather than an `ApolloError` (as defined by `apollo-server-errors`). [PR #2028](https://github.com/apollographql/federation/pull/2028)
-  - __BREAKING__: If you call `RemoteGraphQLDataSource.errorFromResponse` manually and expect its return value to be a particular subclass of `GraphQLError`, or if you expect the error received by `didEncounterError` to be a particular subclass of `GraphQLError`, then this change may affect you. We recommend checking `error.extensions.code` instead.
-- The `LocalGraphQLDataSource` class no longer supports the undocumented `__resolveObject` Apollo Server feature. [PR #2007](https://github.com/apollographql/federation/pull/2007)
-  - __BREAKING__: If you relied on the undocumented `__resolveObject` feature with `LocalGraphQLDataSource`, it will no longer work. If this affects you, file an issue and we can help you find a workaround.
+- Custom `fetcher`s should now accept a `Request` object which has a `signal: AbortSignal` property https://fetch.spec.whatwg.org/#requestinit for request timeout purposes. [PR #2017](https://github.com/apollographql/federation/pull/2017)
 - Expose document representation of sub-query request within GraphQLDataSourceProcessOptions so that it is available to RemoteGraphQLDataSource.process and RemoteGraphQLDataSource.willSendRequest [PR#1878](https://github.com/apollographql/federation/pull/1878)
-- Fix issue when using a type condition on an inaccessible type in `@require` [#1873](https://github.com/apollographql/federation/pull/1873).
-  - __BREAKING__: this fix required passing a new argument to the `executeQueryPlan` method, which is technically
-    exported by the gateway. Most users of the gateway should _not_ call this method directly (which is exported mainly
-    for testing purposes in the first place) and will thus be unaffected, but if you do call this method directly, you
-    will have to pass the new argument when upgrading. See the method documentation for details.
 - Cleanup error related code, adding missing error code to a few errors [PR #1914](https://github.com/apollographql/federation/pull/1914).
 - Fix issue generating plan for a "diamond-shaped" dependency [PR #1900](https://github.com/apollographql/federation/pull/1900).
 - Fix issue computing query plan costs that can lead to extra unnecessary fetches [PR #1937](https://github.com/apollographql/federation/pull/1937).
-- Reject directive applications within `fields` of `@key`, `@provides` and `@requires`[PR #1975](https://github.com/apollographql/federation/pull/1975).
-  - __BREAKING__: previously, directive applications within a `@key`, `@provides` or `@requires` were parsed but
-    not honored in any way. As this change reject such applications (at composition time), it could theoretically
-    require to remove some existing (ignored) directive applications within a `@key`, `@provides` or `@requires`.
 - Move `DEFAULT_UPLINK_ENDPOINTS` to static member of `UplinkSupergraphManager` [PR #1977](https://github.com/apollographql/federation/pull/1977).
 - Add `node-fetch` as a runtime dependency [PR #1970](https://github.com/apollographql/federation/pull/1970).
 - Add timeouts when making requests to Apollo Uplink [PR #1950](https://github.com/apollographql/federation/pull/1950).
-  - __BREAKING__: In 2.1.0-alpha.0, `UplinkSupergraphManager` was introduced and allowed passing a `fetcher` argument to the constructor. That parameter has been removed, at least until we figure out how to support the `signal` param more generically in [`apollo-utils` types](https://github.com/apollographql/apollo-utils/pull/146).
 - Avoid type-explosion with fed1 supergraphs using a fed2 query planner [PR #1994](https://github.com/apollographql/federation/pull/1994).
 - Add callback when fetching a supergraph from Apollo Uplink fails [PR #1812](https://github.com/apollographql/federation/pull/1812).
-  -__BREAKING__: Previously, if a custom `fetcher` was passed to the gateway instance, that would be passed to the `UplinkSupergraphManager`. That meant that `fetcher` customizations intended for `RemoteGraphQLDataSource` were also added to `UplinkFetcher`/`UplinkSupergraphManager`. Now, the `fetcher` passed to the gateway instance **will not** be passed to `UplinkSupergraphManager`. If your team relies on fetcher customizations being used for polling Apollo Uplink, please file an issue.
 - Expand support for Node.js v18 [PR #1884](https://github.com/apollographql/federation/pull/1884)
 
 ## 2.0.5
@@ -111,8 +227,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## 2.0.2
 
-- The `fetch` implementation used by default by `UplinkFetcher` and `RemoteGraphQLDataSource` is now imported from `make-fetch-happen` v10 instead of v8. The fetcher used by `RemoteGraphQLDataSource` no longer limits the number of simultaneous requests per subgraph (or specifically, per host/port pair) to 15 by default; instead, there is no limit.  (If you want to restore the previous behavior, install `make-fetch-happen`, import `fetcher` from it, and pass `new RemoteGraphQLDataSource({ fetcher: fetcher.defaults(maxSockets: 15)}))` in your `buildService` option.) Note that if you invoke the `fetcher` yourself in a `RemoteGraphQLDataSource` subclass, you should ensure that you pass "plain" objects rather than `Headers` or `Request` objects, as the newer version has slightly different logic about how to recognize `Headers` and `Request` objects. We have adjusted the TypeScript types for `fetcher` so that only these "plain" objects (which result in consistent behavior across all fetcher implementations) are permitted.  [PR #1805](https://github.com/apollographql/federation/pull/1805)
 - __BREAKING__: We no longer export a `getDefaultFetcher` function. This function returned the default `fetch` implementation used to talk to Uplink (which is distinct from the default `fetch` implementation used by `RemoteGraphQLDataSource` to talk to subgraphs). It was the fetcher from `make-fetch-happen` v8 with some preset configuration relating to caching and request headers. However, the caching configuration was not actually being used when talking to Uplink (as we talk to Uplink over POST requests, and the Uplink protocol has an application-level mechanism for avoiding unnecessary large responses), and the request headers were already being provided explicitly by the Uplink client code. Since this release is also upgrading `make-fetch-happen`, it is impossible to promise that there would be no behavior change at all to the fetcher returned from `make-fetch-happen`, and as none of the preset configuration is actually relevant to the internal use of `getDefaultFetcher` (which now just uses `make-fetch-happens` without extra configuration), we have removed the function. If you were using this function, you can replace `const fetcher = getDefaultFetcher()` with `import fetcher from 'make-fetch-happen'`. [PR #1805](https://github.com/apollographql/federation/pull/1805)
+- The `fetch` implementation used by default by `UplinkFetcher` and `RemoteGraphQLDataSource` is now imported from `make-fetch-happen` v10 instead of v8. The fetcher used by `RemoteGraphQLDataSource` no longer limits the number of simultaneous requests per subgraph (or specifically, per host/port pair) to 15 by default; instead, there is no limit.  (If you want to restore the previous behavior, install `make-fetch-happen`, import `fetcher` from it, and pass `new RemoteGraphQLDataSource({ fetcher: fetcher.defaults(maxSockets: 15)}))` in your `buildService` option.) Note that if you invoke the `fetcher` yourself in a `RemoteGraphQLDataSource` subclass, you should ensure that you pass "plain" objects rather than `Headers` or `Request` objects, as the newer version has slightly different logic about how to recognize `Headers` and `Request` objects. We have adjusted the TypeScript types for `fetcher` so that only these "plain" objects (which result in consistent behavior across all fetcher implementations) are permitted.  [PR #1805](https://github.com/apollographql/federation/pull/1805)
 - Fix `Schema.clone` when directive application happens before definition [PR #1785](https://github.com/apollographql/federation/pull/1785)
 - More helpful error message for errors encountered while reading supergraphs generated pre-federation 2 [PR #1796](https://github.com/apollographql/federation/pull/1796)
 - Fix handling of @require "chains" (a @require whose fields have @require themselves) [PR #1790](https://github.com/apollographql/federation/pull/1790)
@@ -266,9 +382,9 @@ Some defensive code around gateway shutdown has been removed which was only rele
 
 ## v2.0.0-alpha.2
 
-- Conditional schema update based on ifAfterId [PR #1152](https://github.com/apollographql/federation/pull/1152)
 - __BREAKING__: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
 - __BREAKING__: Remove legacy GCS fetcher for schema updates. If you're currently opted-in to the backwards compatibility provided by setting `schemaConfigDeliveryEndpoint: null`, you may be affected by this update. Please see the PR for additional details. [PR #1226](https://github.com/apollographql/federation/pull/1226)
+- Conditional schema update based on ifAfterId [PR #1152](https://github.com/apollographql/federation/pull/1152)
 - Fix the handling of nested `@provides` directives [PR #1148](https://github.com/apollographql/federation/pull/1148).
 - Remove outdated composition code. A concrete consequence of which is the removal of the `@apollo/federation` package. If your code was importing the `ServiceDefinition` interface from `@apollo/federation`, this can now be imported from `@apollo/gateway` [PR #1208](https://github.com/apollographql/federation/pull/1208).
 - Fix query planner sending queries to a subgraph involving interfaces it doesn't know [#817](https://github.com/apollographql/federation/issues/817).

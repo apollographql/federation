@@ -42,8 +42,10 @@ The following errors might be raised during composition:
 | `FIELD_TYPE_MISMATCH` | A field has a type that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_FIELD_TYPE_MISMATCH` |
 | `IMPLEMENTED_BY_INACCESSIBLE` | An element is marked as @inaccessible but implements an element visible in the API schema. | 2.0.0 |  |
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
-| `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257) | 2.0.0 |  |
 | `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implementation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
+| `INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE` | A subgraph has a `@key` on an interface type, but that subgraph does not define an implementation (in the supergraph) of that interface | 2.3.0 |  |
+| `INTERFACE_KEY_NOT_ON_IMPLEMENTATION` | A `@key` is defined on an interface type, but is not defined (or is not resolvable) on at least one of the interface implementations | 2.3.0 |  |
+| `INTERFACE_OBJECT_USAGE_ERROR` | Error in the usage of the @interfaceObject directive. | 2.3.0 |  |
 | `INVALID_FEDERATION_SUPERGRAPH` | Indicates that a schema provided for an Apollo Federation supergraph is not a valid supergraph schema. | 2.1.0 |  |
 | `INVALID_FIELD_SHARING` | A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs. | 2.0.0 |  |
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
@@ -56,13 +58,14 @@ The following errors might be raised during composition:
 | `KEY_FIELDS_SELECT_INVALID_TYPE` | The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key` | 0.x |  |
 | `KEY_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@key` directive is not a string. | 2.0.0 |  |
 | `KEY_INVALID_FIELDS` | The `fields` argument of a `@key` directive is invalid (it has invalid syntax, includes unknown fields, ...). | 2.0.0 |  |
-| `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
+| `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is only supported when @linking to federation 2.3+. | 2.0.0 |  |
 | `LINK_IMPORT_NAME_MISMATCH` | The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs. | 2.0.0 |  |
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
 | `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
 | `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
 | `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
+| `OVERRIDE_ON_INTERFACE` | The @override directive cannot be used on the fields of an interface type. | 2.3.0 |  |
 | `OVERRIDE_SOURCE_HAS_OVERRIDE` | Field which is overridden to another subgraph is also marked @override. | 2.0.0 |  |
 | `PROVIDES_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@provides` directive includes some directive applications. This is not supported | 2.1.0 |  |
 | `PROVIDES_FIELDS_HAS_ARGS` | The `fields` argument of a `@provides` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
@@ -85,6 +88,7 @@ The following errors might be raised during composition:
 | `ROOT_QUERY_USED` | A subgraph's schema defines a type with the name `query`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
 | `ROOT_SUBSCRIPTION_USED` | A subgraph's schema defines a type with the name `subscription`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
 | `SATISFIABILITY_ERROR` | Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs. | 2.0.0 |  |
+| `SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES` | A shareable field return type has mismatched possible runtime types in the subgraphs in which the field is declared. As shared fields must resolve the same way in all subgraphs, this is almost surely a mistake. | 2.0.0 |  |
 | `TYPE_DEFINITION_INVALID` | A built-in or federation type has an invalid definition in the schema. | 2.0.0 |  |
 | `TYPE_KIND_MISMATCH` | A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface. | 2.0.0 | Replaces: `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE` |
 | `TYPE_WITH_ONLY_UNUSED_EXTERNAL` | A federation 1 schema has a composite type comprised only of unused external fields. Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code EXTERNAL_UNUSED will be raised in that case). But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised | 2.0.0 |  |
@@ -103,24 +107,25 @@ The following error codes have been removed and are no longer generated by the m
 
 | Removed Code | Comment |
 |---|---|
-| `DUPLICATE_ENUM_DEFINITION` | As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
-| `DUPLICATE_ENUM_VALUE` | As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
-| `DUPLICATE_SCALAR_DEFINITION` | As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
-| `ENUM_MISMATCH` | Subgraph definitions for an enum are now merged by composition |
+| `DUPLICATE_ENUM_DEFINITION` | As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`. |
+| `DUPLICATE_ENUM_VALUE` | As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`. |
+| `DUPLICATE_SCALAR_DEFINITION` | As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL`. |
+| `ENUM_MISMATCH` | Subgraph definitions for an enum are now merged by composition. |
 | `EXTERNAL_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to where a field can be external. |
+| `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | This error was thrown by a validation introduced to avoid running into a known runtime bug. Since federation 2.3, the underlying runtime bug has been addressed and the validation/limitation was no longer necessary and has been removed. |
 | `KEY_FIELDS_MISSING_EXTERNAL` | Using `@external` for key fields is now discouraged, unless the field is truly meant to be external. |
 | `KEY_FIELDS_MISSING_ON_BASE` | Keys can now use any field from any other subgraph. |
 | `KEY_MISSING_ON_BASE` | Each subgraph is now free to declare a key only if it needs it. |
 | `KEY_NOT_SPECIFIED` | Each subgraph can declare key independently of any other subgraph. |
 | `MULTIPLE_KEYS_ON_EXTENSION` | Every subgraph can have multiple keys, as necessary. |
-| `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error |
-| `PROVIDES_FIELDS_SELECT_INVALID_TYPE` | @provides can now be used on field of interface, union and list types |
+| `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH` | Since federation 2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error. |
+| `PROVIDES_FIELDS_SELECT_INVALID_TYPE` | @provides can now be used on field of interface, union and list types. |
 | `PROVIDES_NOT_ON_ENTITY` | @provides can now be used on any type. |
-| `REQUIRES_FIELDS_HAS_ARGS` | Since federation 2.1.1, using fields with arguments in a @requires is fully supported |
+| `REQUIRES_FIELDS_HAS_ARGS` | Since federation 2.1.1, using fields with arguments in a @requires is fully supported. |
 | `REQUIRES_FIELDS_MISSING_ON_BASE` | Fields in @requires can now be from any subgraph. |
 | `REQUIRES_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires. |
-| `RESERVED_FIELD_USED` | This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case |
+| `RESERVED_FIELD_USED` | This error was previously not correctly enforced: the _service and _entities, if present, were overridden; this is still the case. |
 | `VALUE_TYPE_NO_ENTITY` | There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another. |
-| `VALUE_TYPE_UNION_TYPES_MISMATCH` | Subgraph definitions for an union are now merged by composition |
+| `VALUE_TYPE_UNION_TYPES_MISMATCH` | Subgraph definitions for an union are now merged by composition. |
 
 </div>
