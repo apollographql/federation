@@ -477,7 +477,6 @@ describe('basic operations', () => {
   })
 });
 
-
 describe('MutableSelectionSet', () => {
   test('memoizer', () => {
     const schema = parseSchema(`
@@ -544,5 +543,62 @@ describe('MutableSelectionSet', () => {
     expect(ss.memoized().count).toBe(5);
     expect(cloned.memoized().count).toBe(4);
     expect(sets).toStrictEqual(['{}', '{ t { v1 } }', '{ t { v1 v3 } }', '{ t { v1 v3 v2 } }', '{ t { v1 v3 v4 } }']);
+  });
+});
+
+describe('unsatisfiable branches removal', () => {
+  const schema = parseSchema(`
+    type Query {
+      i: I
+      j: J
+    }
+
+    interface I {
+      a: Int
+      b: Int
+    }
+
+    interface J {
+      b: Int
+    }
+
+    type T1 implements I & J {
+      a: Int
+      b: Int
+      c: Int
+    }
+
+    type T2 implements I {
+      a: Int
+      b: Int
+      d: Int
+    }
+
+    type T3 implements J {
+      a: Int
+      b: Int
+      d: Int
+    }
+  `);
+
+  const withoutUnsatisfiableBranches = (op: string) => {
+    return parseOperation(schema, op).trimUnsatisfiableBranches().toString(false, false)
+  };
+
+
+  it.each([
+    '{ i { a } }',
+    '{ i { ... on T1 { a b c } } }',
+  ])('is identity if there is no unsatisfiable branches', (op) => {
+    expect(withoutUnsatisfiableBranches(op)).toBe(op);
+  });
+
+  it.each([
+    { input: '{ i { ... on I { a } } }', output: '{ i { a } }' },
+    { input: '{ i { ... on T1 { ... on I { a b } } } }', output: '{ i { ... on T1 { a b } } }' },
+    { input: '{ i { ... on I { a ... on T2 { d } } } }', output: '{ i { a ... on T2 { d } } }' },
+    { input: '{ i { ... on T2 { ... on I { a ... on J { b } } } } }', output: '{ i { ... on T2 { a } } }' },
+  ])('removes unsatisfiable branches', ({input, output}) => {
+    expect(withoutUnsatisfiableBranches(input)).toBe(output);
   });
 });
