@@ -212,7 +212,7 @@ test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
 
   const s1 = `
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.4", import: [ "@key", "@interfaceObject"])
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
 
     type Query {
       a: A
