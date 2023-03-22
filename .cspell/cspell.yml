@@ -6,7 +6,7 @@
 # cspell-dict.txt, one per line.
 dictionaryDefinitions:
   - name: workspace
-    path: './cspell-dict.txt'
+    path: '.cspell/cspell-dict.txt'
     description: Custom Workspace Dictionary
     addWords: true
     scope: workspace
@@ -20,7 +20,7 @@ allowCompoundWords: true
 # contains English text like package descriptions).
 useGitignore: true
 ignorePaths:
-  - cspell.yml
+  - .cspell/cspell.yml
 
 overrides:
   # Ignore anything in a changelog file that looks like a GitHub username.
@@ -31,7 +31,7 @@ overrides:
   - filename: '**/*.md*'
     ignoreRegExpList:
       - "\\]\\([^)]+\\)"
-  # Ignore usernames and repo names in GitHub links.
-  - filename: 'supported-subgraphs.md'
+  # Ignore user and repo names in GitHub links to supported subgraph libraries.
+  - filename: '**/supported-subgraphs.md'
     ignoreRegExpList:
-      - "Github: <a href=\"https://github.com/(.+)/(.+)\">(.+)/(.+)</a>"
+      - "Github: <a .+</a>"
