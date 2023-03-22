@@ -38,7 +38,6 @@ comple
 condiditions
 correcly
 cyclesf
-dariuszkuc
 dedented
 Dedupe
 defered
@@ -54,7 +53,6 @@ Didnt
 diretive
 doesn
 Dont
-dotansimha
 effecient
 elimiate
 elts
@@ -75,7 +73,6 @@ follwoing
 fooz
 Fragmentization
 fufilled
-ghostdogpr
 GHSA
 Gmsuh
 gqlgen
@@ -109,7 +106,6 @@ isnodelike
 issuels
 itsef
 ized
-jbaxleyiii
 josephg
 Kornel
 ksip
@@ -182,7 +178,6 @@ reponse
 resovable
 Reviwed
 Rhai
-rmosolgo
 rulesof
 samee
 Sant
@@ -257,7 +252,6 @@ upgader
 Upgrader
 upgrader
 uppper
-Urigo
 uuidv
 vals
 verison

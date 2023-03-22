@@ -35,3 +35,7 @@ overrides:
   - filename: '**/*.md*'
     ignoreRegExpList:
       - "\\]\\([^)]+\\)"
+  # Ignore usernames and repo names in GitHub links.
+  - filename: 'supported-subgraph.md'
+    ignoreRegExpList:
+      - "Github: <a href=\"https://github.com/(.+)/(.+)\">(.+)/(.+)</a>"
