@@ -26,7 +26,7 @@
     "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
     "changeset-version": "changeset version && npm i",
     "publish": "changeset publish",
-    "spell:check": "cspell lint '**' '.changeset/**' --no-progress --config .cspell/cspell.yml  || (echo 'Add any real words to cspell-dict.txt.'; exit 1)"
+    "spell:check": "cspell lint '**' '.changeset/**' --no-progress --config .cspell/cspell.yml  || (echo 'Add any real words to ./cspell/cspell-dict.txt.'; exit 1)"
   },
   "engines": {
     "node": ">=14.15.0",
