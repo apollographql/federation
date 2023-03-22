@@ -7,7 +7,7 @@ expect.addSnapshotSerializer(queryPlanSerializer);
 
 const users = [
   { ssn: '111-11-1111', name: 'Trevor', id: '10', __typename: 'User' },
-  { ssn: '222-22-2222', name: 'Scheer', id: '20', __typename: 'User' },
+  { ssn: '222-22-2222', name: 'Joel', id: '20', __typename: 'User' },
   { ssn: '333-33-3333', name: 'James', id: '30', __typename: 'User' },
   { ssn: '444-44-4444', name: 'Baxley', id: '40', __typename: 'User' },
 ];
@@ -148,7 +148,7 @@ it('fetches data correctly with multiple @key fields', async () => {
         body: 'B',
         author: {
           risk: 0.2,
-          name: 'Scheer',
+          name: 'Joel',
         },
       },
       {

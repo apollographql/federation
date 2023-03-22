@@ -62,7 +62,7 @@ describe('Using supergraphSdl static configuration', () => {
 
     nock(accounts.url)
       .post('/', { query: '{me{username}}', variables: {} })
-      .reply(200, { data: { me: { username: '@jbaxleyiii' } } });
+      .reply(200, { data: { me: { username: '@apollo-user' } } });
 
 
     const result = await server.executeOperation({
@@ -72,7 +72,7 @@ describe('Using supergraphSdl static configuration', () => {
     expect(unwrapSingleResultKind(result).data).toMatchInlineSnapshot(`
       Object {
         "me": Object {
-          "username": "@jbaxleyiii",
+          "username": "@apollo-user",
         },
       }
     `);
