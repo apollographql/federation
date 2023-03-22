@@ -1,16 +1,19 @@
 abolve
 acessed
+acrosse
 actuall
 actualy
 aded
 afaict
 afteward
 agument
+alreayd
 alredy
 annot
 apollographql
 applicaiton
 arbitrarilly
+aready
 asile
 Attachement
 attachement
@@ -20,6 +23,7 @@ atype
 aunion
 autofragmentization
 automaticaly
+avaiable
 avalaible
 barz
 becuase
@@ -27,6 +31,7 @@ becuse
 behaviour
 betweeen
 buiding
+caes
 cand
 Childs
 childs
@@ -43,6 +48,7 @@ Dedupe
 defered
 definited
 delt
+deno
 denormalization
 denormalize
 denormalizing
@@ -115,6 +121,7 @@ Lesiński
 lonk
 mauy
 meaining
+memoizer
 ments
 Mercurius
 mercurius
@@ -126,6 +133,7 @@ miscomprehension
 mispelled
 mispelling
 momment
+multipe
 mytag
 Nanos
 nanos
@@ -141,6 +149,7 @@ oembedler
 optimial
 optimisation
 optimise
+Optimises
 organised
 orignal
 othe
@@ -152,6 +161,7 @@ ouput
 Overriden
 overriden
 plen
+poitn
 poluted
 prevoius
 Producs
@@ -175,6 +185,7 @@ reponse
 resovable
 Reviwed
 Rhai
+righ
 rulesof
 samee
 Sant
@@ -184,14 +195,17 @@ satisfiablility
 selecion
 selectin
 Seletions
+sensical
 separatly
 seriability
 SERVICEA
 SERVICEB
 SERVICEC
 shareabilty
+shoud
 simiar
 skippable
+Sleection
 slighly
 specfication
 subg
@@ -224,8 +238,10 @@ unadvanceable
 Unadvanceables
 unaliased
 uncacheable
+uncesssary
 uncomposable
 undici
+unecesasry
 unecessarally
 unecessarily
 unecessary
@@ -251,6 +267,7 @@ uppper
 uuidv
 vals
 verison
+vertec
 webp
 whith
 wizz
