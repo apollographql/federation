@@ -73,7 +73,6 @@ follwoing
 fooz
 Fragmentization
 fufilled
-GHSA
 Gmsuh
 gqlgen
 Graphi
@@ -114,8 +113,6 @@ leat
 Lebresne
 Lesiński
 lonk
-Martijn
-martijn
 mauy
 meaining
 ments
@@ -184,7 +181,6 @@ Sant
 SATISFIABILITY
 satisfiability
 satisfiablility
-Scheer
 selecion
 selectin
 Seletions

@@ -6,8 +6,8 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 const users = [
-  { id: '1', name: 'Trevor Scheer', organizationId: '1', __typename: 'User' },
-  { id: '1', name: 'Trevor Scheer', organizationId: '2', __typename: 'User' },
+  { id: '1', name: 'Trevor', organizationId: '1', __typename: 'User' },
+  { id: '1', name: 'Trevor', organizationId: '2', __typename: 'User' },
   { id: '2', name: 'James Baxley', organizationId: '1', __typename: 'User' },
   { id: '2', name: 'James Baxley', organizationId: '3', __typename: 'User' },
 ];
@@ -162,7 +162,7 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
     reviews: [
       {
         author: {
-          name: 'Trevor Scheer',
+          name: 'Trevor',
           organization: {
             name: 'Apollo',
           },
@@ -170,7 +170,7 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
       },
       {
         author: {
-          name: 'Trevor Scheer',
+          name: 'Trevor',
           organization: {
             name: 'Wayfair',
           },

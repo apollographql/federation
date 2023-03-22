@@ -20,11 +20,7 @@ allowCompoundWords: true
 # contains English text like package descriptions).
 useGitignore: true
 ignorePaths:
-  - cspell.yaml
-
-ignoreRegExpList:
-  # GitHub Security Advisories
-  - GHSA-[-\w]+
+  - cspell.yml
 
 overrides:
   # Ignore anything in a changelog file that looks like a GitHub username.
@@ -36,6 +32,6 @@ overrides:
     ignoreRegExpList:
       - "\\]\\([^)]+\\)"
   # Ignore usernames and repo names in GitHub links.
-  - filename: 'supported-subgraph.md'
+  - filename: 'supported-subgraphs.md'
     ignoreRegExpList:
       - "Github: <a href=\"https://github.com/(.+)/(.+)\">(.+)/(.+)</a>"
