@@ -777,7 +777,7 @@ describe('buildQueryPlan', () => {
                         }
                       }
                     }
-
+                    
                     fragment Price on Product {
                       price
                     }
