@@ -10,7 +10,6 @@
     "watch": "npm run compile && tsc --build tsconfig.json --watch",
     "version": "npm i --package-lock-only && git add package-lock.json",
     "pretest": "npm run compile && tsc --build tsconfig.test.json",
-    "preinstall": "git config core.hooksPath .git-hooks",
     "postinstall": "npm run compile",
     "test": "jest --verbose",
     "test:clean": "jest --clearCache",
@@ -26,7 +25,8 @@
     "hints-doc:check": "npm run hints-doc && git diff --exit-code",
     "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
     "changeset-version": "changeset version && npm i",
-    "publish": "changeset publish"
+    "publish": "changeset publish",
+    "use-repo-git-hooks": "git config core.hooksPath .git-hooks"
   },
   "engines": {
     "node": ">=14.15.0",
