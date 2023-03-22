@@ -2518,7 +2518,7 @@ describe('defer with conditions', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {

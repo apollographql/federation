@@ -17,4 +17,4 @@ export function nockAfterEach() {
   nock.restore();
   // effectively nock.isDone() but with more helpful messages in test failures
   expect(nock.activeMocks()).toEqual([]);
-};
+}

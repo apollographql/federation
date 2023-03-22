@@ -20,7 +20,7 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
   // by default are key fields).
   const shareableDirective = metadata.isFed2Schema() ? metadata.shareableDirective() : undefined;
 
-  const shareableFields: Set<String> = new Set();
+  const shareableFields: Set<string> = new Set();
   const addKeyFields = (type: CompositeType) => {
     for (const key of type.appliedDirectivesOf(keyDirective)) {
       collectTargetFields({
