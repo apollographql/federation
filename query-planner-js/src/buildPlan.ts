@@ -104,7 +104,7 @@ import { DeferredNode, FetchDataRewrite } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
-import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, SubgraphFetchNode, trimSelectionNodes } from "./QueryPlan";
+import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
 
@@ -1340,39 +1340,6 @@ class FetchGroup {
     if (!entityName) { // TODO: Should this be an assert?
       return [];
     }
-    console.log(entityName);
-    const schema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
-    const finders = (schema.directive(FederationDirectiveName.FINDER)?.applications() ?? [])
-      .filter(directive => {
-        console.log('checking directive', directive);
-        const parent = directive.parent as any; // TODO: Avoid cast
-        if (parent.type?.name === entityName && parent.arguments().length === 1) {
-          const inputNodes = inputs?.toSelectionSetNode();
-          if (inputNodes
-            && inputNodes.selections.length === 1
-            && inputNodes.selections[0].kind === 'InlineFragment'
-          ) {
-            const selections = inputNodes.selections[0].selectionSet.selections;
-            const prop = selections.find(s => s.kind === 'Field' && s.name.value === parent.arguments()[0].name);
-            if (prop) {
-              return true;
-            }
-          }
-        }
-        return false;
-      });
-
-    return finders
-      .map(f => new Finder(f.parent as FieldDefinition<any>));
-  }
-
-  getFindersForInput(inputs?: SelectionSet): Finder[] {
-    // TODO: Cache / optimize
-    assert(this.isEntityFetch, 'Must be a FetchGroup for an entity');
-    const entityName = inputs?.parentType.name;
-    if (!entityName) { // TODO: Should this be an assert?
-      return [];
-    }
     const schema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     const finders = (schema.directive(FederationDirectiveName.FINDER)?.applications() ?? [])
       .filter(directive => {
@@ -1414,12 +1381,12 @@ class FetchGroup {
 
     const subgraphSchema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     let operation = this.isEntityFetch
-      ? operationForEntitiesFetch(
+      ? operationForEntitiesFetch({
           subgraphSchema,
-          selection,
-          variableDefinitions,
+          selectionSet: selection,
+          allVariableDefinitions: variableDefinitions,
           operationName,
-        )
+      })
       : operationForQueryFetch(
           subgraphSchema,
           this.rootKind,
@@ -4503,127 +4470,52 @@ class Finder {
   }
 }
 
-function operationForFindersFetch({
-  subgraphSchema,
-  selectionSet,
-  allVariableDefinitions,
-  operationName,
-  finder,
-}: {
-  subgraphSchema: Schema,
-  selectionSet: SelectionSet,
-  allVariableDefinitions: VariableDefinitions,
-  operationName?: string,
-  finder: Finder,
-}): Operation {
-  const inputField = finder.argument(0);
-  const variableDefinitions = new VariableDefinitions();
-  const variable = new Variable(inputField.name);
-  const metadata = federationMetadata(subgraphSchema);
-  assert(metadata, 'Expected schema to be a federation subgraph');
-  variableDefinitions.add(new VariableDefinition(subgraphSchema, variable, inputField.inputType));
-  variableDefinitions.addAll(
-    allVariableDefinitions.filter(selectionSet.usedVariables()),
-  );
+// function operationForFindersFetch({
+//   subgraphSchema,
+//   selectionSet,
+//   allVariableDefinitions,
+//   operationName,
+//   finder,
+// }: {
+//   subgraphSchema: Schema,
+//   selectionSet: SelectionSet,
+//   allVariableDefinitions: VariableDefinitions,
+//   operationName?: string,
+//   finder: Finder,
+// }): Operation {
+//   const inputField = finder.argument(0);
+//   const variableDefinitions = new VariableDefinitions();
+//   const variable = new Variable(inputField.name);
+//   const metadata = federationMetadata(subgraphSchema);
+//   assert(metadata, 'Expected schema to be a federation subgraph');
+//   variableDefinitions.add(new VariableDefinition(subgraphSchema, variable, inputField.inputType));
+//   variableDefinitions.addAll(
+//     allVariableDefinitions.filter(selectionSet.usedVariables()),
+//   );
 
-  const queryType = subgraphSchema.schemaDefinition.rootType('query');
-  assert(
-    queryType,
-    `Subgraphs should always have a query root`,
-  );
+//   const queryType = subgraphSchema.schemaDefinition.rootType('query');
+//   assert(
+//     queryType,
+//     `Subgraphs should always have a query root`,
+//   );
 
-  const finderField = queryType.field(finder.fieldName());
-  assert(finderField, `@finder field exists on subgraph`);
+//   const finderField = queryType.field(finder.fieldName());
+//   assert(finderField, `@finder field exists on subgraph`);
 
-  const finderCall: SelectionSet = new SelectionSet(queryType);
-  finderCall.add(
-    new FieldSelection(
-      new Field(
-        finderField,
-        { [inputField.name]: variable },
-        variableDefinitions,
-      ),
-      selectionSet,
-    ),
-  );
+//   const finderCall: SelectionSet = new SelectionSet(queryType);
+//   finderCall.add(
+//     new FieldSelection(
+//       new Field(
+//         finderField,
+//         { [inputField.name]: variable },
+//         variableDefinitions,
+//       ),
+//       selectionSet,
+//     ),
+//   );
 
-  return new Operation(subgraphSchema, 'query', finderCall, variableDefinitions, operationName);
-}
-
-class Finder {
-  constructor(readonly target: FieldDefinition<any>) {}
-
-  fieldName(): string {
-    return this.target.name;
-  }
-
-  entityType(): NamedType {
-    const entityType = this.target.type;
-    assert(entityType, 'finder must return a defined type');
-    return entityType as NamedType;
-  }
-
-  arguments(): Readonly<ArgumentDefinition<FieldDefinition<any>>[]> {
-    return this.target.arguments();
-  }
-
-  argument(idx: number): { inputType: InputType, name: string } {
-    const arg = this.target.arguments()[idx];
-    assert(arg, `Argument at index ${idx} exists`);
-    assert(arg.type, 'type exists on argument');
-    return {
-      inputType: arg.type,
-      name: arg.name,
-    };
-  }
-}
-
-function operationForFindersFetch({
-  subgraphSchema,
-  selectionSet,
-  allVariableDefinitions,
-  operationName,
-  finder,
-}: {
-  subgraphSchema: Schema,
-  selectionSet: SelectionSet,
-  allVariableDefinitions: VariableDefinitions,
-  operationName?: string,
-  finder: Finder,
-}): Operation {
-  const inputField = finder.argument(0);
-  const variableDefinitions = new VariableDefinitions();
-  const variable = new Variable(inputField.name);
-  const metadata = federationMetadata(subgraphSchema);
-  assert(metadata, 'Expected schema to be a federation subgraph');
-  variableDefinitions.add(new VariableDefinition(subgraphSchema, variable, inputField.inputType));
-  variableDefinitions.addAll(
-    allVariableDefinitions.filter(selectionSet.usedVariables()),
-  );
-
-  const queryType = subgraphSchema.schemaDefinition.rootType('query');
-  assert(
-    queryType,
-    `Subgraphs should always have a query root`,
-  );
-
-  const finderField = queryType.field(finder.fieldName());
-  assert(finderField, `@finder field exists on subgraph`);
-
-  const finderCall: SelectionSet = new SelectionSet(queryType);
-  finderCall.add(
-    new FieldSelection(
-      new Field(
-        finderField,
-        { [inputField.name]: variable },
-        variableDefinitions,
-      ),
-      selectionSet,
-    ),
-  );
-
-  return new Operation(subgraphSchema, 'query', finderCall, variableDefinitions, operationName);
-}
+//   return new Operation(subgraphSchema, 'query', finderCall, variableDefinitions, operationName);
+// }
 
 function operationForQueryFetch(
   subgraphSchema: Schema,

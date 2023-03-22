@@ -27,8 +27,8 @@ import {
   QueryPlanFieldNode,
   getResponseName,
   evaluateCondition,
-  SubgraphFetchNode,
   FetchInput,
+  SubgraphFetchNode,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -406,12 +406,47 @@ async function executeNode(
     case 'Defer': {
       assert(false, `@defer support is not available in the gateway`);
     }
+    case 'SubgraphFetch': {
+      const traceNode = new Trace.QueryPlanNode.FetchNode({
+        serviceName: node.serviceName,
+        // executeFetch will fill in the other fields if desired.
+      });
+      try {
+        await executeFetch(
+          context,
+          node,
+          currentCursor,
+          captureTraces ? traceNode : null,
+        );
+      } catch (error) {
+        context.errors.push(error);
+      }
+      return new Trace.QueryPlanNode({ fetch: traceNode });
+    }
+    case 'Mapping': {
+      return new Trace.QueryPlanNode({
+        flatten: new Trace.QueryPlanNode.FlattenNode({
+          responsePath: node.path.map(
+            id =>
+              new Trace.QueryPlanNode.ResponsePathElement(
+                typeof id === 'string' ? { fieldName: id } : { index: id },
+              ),
+          ),
+          node: await executeNode(
+            context,
+            node.node,
+            moveIntoCursor(currentCursor, node.path),
+            captureTraces,
+          ),
+        }),
+      });
+    }
   }
 }
 
 async function executeFetch(
   context: ExecutionContext,
-  fetch: FetchNode,
+  fetch: FetchNode | SubgraphFetchNode,
   currentCursor: ResultCursor,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
@@ -462,7 +497,7 @@ async function executeFetch(
         }
       }
 
-      if (!fetch.requires) {
+      if (!requires) {
         const dataReceivedFromService = await sendOperation(variables);
         if (dataReceivedFromService) {
           applyRewrites(context.supergraphSchema, fetch.outputRewrites, dataReceivedFromService);
@@ -606,7 +641,7 @@ async function executeFetch(
       },
       incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
-      document: fetch.operationDocumentNode,
+      document: operationDocumentNode,
       pathInIncomingRequest: currentCursor.path
     });
 

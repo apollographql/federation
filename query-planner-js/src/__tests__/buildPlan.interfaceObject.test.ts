@@ -308,7 +308,9 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     `);
 
     assert(isPlanNode(plan.node), 'buildQueryPlan should return QueryPlan');
-    const rewrites = findFetchNodes('S2', plan.node)[0].inputRewrites;
+    const fetchNode = findFetchNodes('S2', plan.node)[0];
+    assert(fetchNode.kind === 'Fetch', 'Expected FetchNode');
+    const rewrites = fetchNode.inputRewrites;
     expect(rewrites).toBeDefined();
     expect(rewrites?.length).toBe(1);
     const rewrite = rewrites![0];
