@@ -26,6 +26,7 @@
     "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
     "changeset-version": "changeset version && npm i",
     "publish": "changeset publish",
+    "spell:check": "cspell lint '**' '.changeset/**' --no-progress --config .cspell/cspell.yml  || (echo 'Add any real words to ./cspell/cspell-dict.txt.'; exit 1)",
     "use-repo-git-hooks": "git config core.hooksPath .git-hooks"
   },
   "engines": {
@@ -67,6 +68,7 @@
     "@types/uuid": "9.0.1",
     "@typescript-eslint/eslint-plugin": "5.56.0",
     "bunyan": "1.8.15",
+    "cspell": "6.30.0",
     "graphql": "16.6.0",
     "graphql-tag": "2.12.6",
     "jest": "29.5.0",

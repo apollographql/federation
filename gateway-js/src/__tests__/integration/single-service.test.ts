@@ -18,7 +18,7 @@ const accounts = {
   `,
   resolvers: {
     Query: {
-      me: () => ({ id: 1, name: 'Martijn' }),
+      me: () => ({ id: 1, name: 'Me' }),
     },
   },
 };

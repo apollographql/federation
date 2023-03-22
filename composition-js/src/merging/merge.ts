@@ -486,7 +486,7 @@ class Merger {
           if (causes) {
             this.errors.push(...this.updateInaccessibleErrorsWithLinkToSubgraphs(causes));
           } else {
-            // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
+            // Not a GraphQLError, so probably a programming error. Let's re-throw so it can be more easily tracked down.
             throw e;
           }
         }

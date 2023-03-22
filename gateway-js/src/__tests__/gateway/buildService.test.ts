@@ -88,7 +88,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     .reply(
       200,
       {
-        data: { me: { username: '@jbaxleyiii' } },
+        data: { me: { username: '@apollo-user' } },
       },
       replyHeaders,
     );
@@ -107,7 +107,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
   const { data, errors } = unwrapSingleResultKind(result);
   expect(errors).toBeUndefined();
   expect(data).toEqual({
-    me: { username: '@jbaxleyiii' },
+    me: { username: '@apollo-user' },
   });
 });
 
