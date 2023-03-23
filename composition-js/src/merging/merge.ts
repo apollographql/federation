@@ -356,7 +356,7 @@ class Merger {
       const specInSupergraph = compositionSpec.supergraphSpecification();
       const errors = linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph, specInSupergraph.defaultCorePurpose);
       assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
-      const argumentsMerger = compositionSpec.argumentsMerger?.call(this, this.merged);
+      const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged);
       if (argumentsMerger instanceof GraphQLError) {
         // That would mean we made a mistake in the declaration of a hard-coded directive, so we just throw right away so this can be caught and corrected.
         throw argumentsMerger;

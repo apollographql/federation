@@ -11,15 +11,17 @@ import {
   ListType,
   NonNullType,
   ObjectType,
-  registerKnownFeature,
   Schema,
-  unregisterKnownFeatures,
   valueToString
 } from "@apollo/federation-internals";
 import { DirectiveLocation } from "graphql";
 import gql from "graphql-tag";
 import { assertCompositionSuccess, composeAsFed2Subgraphs } from "./testHelper";
 import './matchers';
+import {
+  registerKnownFeature,
+  unregisterKnownFeatures,
+} from "@apollo/federation-internals/dist/knownCoreFeatures"
 
 let testFeature: FeatureDefinitions | undefined = undefined;
 

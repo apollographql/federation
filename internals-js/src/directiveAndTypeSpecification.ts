@@ -21,7 +21,7 @@ import { ERRORS } from "./error";
 import { valueEquals, valueToString } from "./values";
 import { sameType } from "./types";
 import { arrayEquals, assert } from "./utils";
-import { ArgumentCompositionStrategy } from "./fieldArgumentCompositionStrategies";
+import { ArgumentCompositionStrategy } from "./argumentCompositionStrategies";
 import { FeatureDefinition } from "./coreSpec";
 
 export type DirectiveSpecification = {
@@ -59,7 +59,7 @@ export type FieldSpecification = {
   name: string,
   type: OutputType,
   args?: ResolvedArgumentSpecification[],
-};
+}
 
 type ResolvedArgumentSpecification = {
   name: string,
@@ -101,7 +101,7 @@ export function createDirectiveSpecification({
           const argType = type(schema);
           // By the time we call this, the directive should have been added to the schema and so getting the type should not raise errors.
           assert(!Array.isArray(argType), () => `Should have gotten error getting type for @${name}(${argName}:), but got ${argType}`)
-          const strategyTypes = strategy.types(schema);
+          const strategyTypes = strategy.supportedTypes(schema);
           if (!strategyTypes.some((t) => sameType(t, argType))) {
             return new GraphQLError(
               `Invalid composition strategy ${strategy.name} for argument @${name}(${argName}:) of type ${argType}; `
@@ -116,7 +116,7 @@ export function createDirectiveSpecification({
             return strategy.mergeValues(values);
           },
           toString: () => {
-            return [...argStrategies.entries()].map(([arg, strat]) => `${arg}: ${strat.name}`).join(', ');
+            return [...argStrategies.entries()].map(([arg, strategy]) => `${arg}: ${strategy.name}`).join(', ');
           }
         };
       }

@@ -178,7 +178,7 @@ const INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
 const MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS = makeCodeDefinition({
   code: 'MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS',
   level: HintLevel.INFO,
-  description: 'A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured startegies.',
+  description: 'A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured strategies.',
 });
 
 const DIRECTIVE_COMPOSITION_INFO = makeCodeDefinition({
