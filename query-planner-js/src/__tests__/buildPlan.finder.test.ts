@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import { composeAndCreatePlanner } from './testHelper';
-import { operationFromDocument } from '@apollo/federation-internals';
+import { operationFromDocument, printSchema } from '@apollo/federation-internals';
 
 describe('finder query plan tests', () => {
   test('finder for a single field', () => {

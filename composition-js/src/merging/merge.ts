@@ -2594,70 +2594,71 @@ class Merger {
     // 4. Every key is referenced by exactly one finder (unless @finder is not used in the subgraph)
     for (let i = 0; i < this.subgraphFinderData.length; i += 1) {
       const { finders, entityKeys } = this.subgraphFinderData[i];
-      if (finders.length > 0) {
-        const keyMapCount = new Map(entityKeys
-          .filter(ek => ek.arguments().fields.indexOf(' ') < 0)
-          .map(ek => ([`${ek.parent.name}+${ek.arguments().fields}`, {
-            finders: [] as FieldDefinition<ObjectType>[],
-            parent: ek.parent,
-            entityFieldDef: ek.parent.field(ek.arguments().fields),
-            fields: ek.arguments().fields,
-          }]))
-        );
+      if (finders.length === 0) {
+        continue;
+      }
+      const keyMapCount = new Map(entityKeys
+        .filter(ek => ek.arguments().fields.indexOf(' ') < 0)
+        .map(ek => ([`${ek.parent.name}+${ek.arguments().fields}`, {
+          finders: [] as FieldDefinition<ObjectType>[],
+          parent: ek.parent,
+          entityFieldDef: ek.parent.field(ek.arguments().fields),
+          fields: ek.arguments().fields,
+        }]))
+      );
 
-        for (const fieldDef of finders) {
-          assert(fieldDef.type, 'finder fieldDefinition must have a return type');
-          if (fieldDef.type.kind !== 'ObjectType') {
-            // TODO: I'm not certain this error is reachable
+      for (const fieldDef of finders) {
+        assert(fieldDef.type, 'finder fieldDefinition must have a return type');
+        if (fieldDef.type.kind !== 'ObjectType') {
+          // TODO: I'm not certain this error is reachable
+          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
+            `The type that finder fields resolve to must be an ObjectType.`,
+            { nodes: sourceASTs(fieldDef) }
+          ));
+        } else {
+          if (fieldDef.arguments().length === 0) {
+            // TODO: Support composite keys
             this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-              `The type that finder fields resolve to must be an ObjectType.`,
+              `Field without any arguments contains a @finder directive.`,
+              { nodes: sourceASTs(fieldDef) }
+            ));
+          } else if (fieldDef.arguments().length > 1) {
+            // TODO: Support composite keys
+            this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
+              `Finders are currently not supported for composite key lookup.`,
               { nodes: sourceASTs(fieldDef) }
             ));
           } else {
-            if (fieldDef.arguments().length === 0) {
-              // TODO: Support composite keys
+            const key = `${fieldDef.type.name}+${fieldDef.arguments()[0].name}`;
+            const result = keyMapCount.get(key);
+            if ((result === undefined) /* || TODO: Ensure that types match */) {
               this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-                `Field without any arguments contains a @finder directive.`,
+                `Cannot find entity key for this finder(Entity: "${fieldDef.type.name}", Key: "${fieldDef.arguments()[0].name}". Make sure that the parameter name matches the field and that the key is defined.`,
                 { nodes: sourceASTs(fieldDef) }
               ));
-            } else if (fieldDef.arguments().length > 1) {
-              // TODO: Support composite keys
+            } else if (!sameType(fieldDef.arguments()[0].type!, result.entityFieldDef.type)) {
               this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-                `Finders are currently not supported for composite key lookup.`,
-                { nodes: sourceASTs(fieldDef) }
+                `Finder input type "${fieldDef.arguments()[0].toString()}" does not match type on field "${result.entityFieldDef.toString()}" on entity "${result.parent.name}".`,
+                { nodes: sourceASTs(fieldDef, result.entityFieldDef) }
               ));
             } else {
-              const key = `${fieldDef.type.name}+${fieldDef.arguments()[0].name}`;
-              const result = keyMapCount.get(key);
-              if ((result === undefined) /* || TODO: Ensure that types match */) {
-                this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-                  `Cannot find entity key for this finder(Entity: "${fieldDef.type.name}", Key: "${fieldDef.arguments()[0].name}". Make sure that the parameter name matches the field and that the key is defined.`,
-                  { nodes: sourceASTs(fieldDef) }
-                ));
-              } else if (!sameType(fieldDef.arguments()[0].type!, result.entityFieldDef.type)) {
-                this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-                  `Finder input type "${fieldDef.arguments()[0].toString()}" does not match type on field "${result.entityFieldDef.toString()}" on entity "${result.parent.name}".`,
-                  { nodes: sourceASTs(fieldDef, result.entityFieldDef) }
-                ));
-              } else {
-                result.finders.push(fieldDef);
-              }
+              result.finders.push(fieldDef);
             }
           }
         }
+      }
 
-        for (const [_, result] of keyMapCount.entries()) {
-          if (result.finders.length === 0) {
-            this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-              `No finder exists for key "${result.fields}" on entity "${result.parent.name}".`,
-              { nodes: sourceASTs(result.parent.sourceAST) }
-            ));
-          } else if (result.finders.length > 1) {
-            this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-              `Multiple finders exist for the same entity key "${result.entityFieldDef.coordinate}".`,
-              { nodes: sourceASTs(...result.finders) }
-            ));
-          }
+      for (const [_, result] of keyMapCount.entries()) {
+        if (result.finders.length === 0) {
+          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
+            `No finder exists for key "${result.fields}" on entity "${result.parent.name}".`,
+            { nodes: sourceASTs(result.parent.sourceAST) }
+          ));
+        } else if (result.finders.length > 1) {
+          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
+            `Multiple finders exist for the same entity key "${result.entityFieldDef.coordinate}".`,
+            { nodes: sourceASTs(...result.finders) }
+          ));
         }
       }
     }

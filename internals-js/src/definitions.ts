@@ -1283,7 +1283,7 @@ export class Schema {
 
       removeInaccessibleElements(apiSchema);
       removeAllCoreFeatures(apiSchema);
-      assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
+      assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema");
       apiSchema.validate();
       this.apiSchema = apiSchema;
     }

@@ -1334,12 +1334,17 @@ class FetchGroup {
   }
 
   getFindersForInput(inputs?: SelectionSet): Finder[] {
-    // TODO: Cache / optimize
-    assert(this.isEntityFetch, 'Must be a FetchGroup for an entity');
-    const entityName = inputs?.parentType.name;
-    if (!entityName) { // TODO: Should this be an assert?
+    const fieldOrFragment = inputs?.selections()[0]?.element;
+    if (!fieldOrFragment || fieldOrFragment.kind === 'FragmentElement') {
       return [];
     }
+
+    const entityType = fieldOrFragment.definition.type;
+    if (!entityType) {
+      return [];
+    }
+    const entityName = (isListType(entityType) || isNonNullType(entityType)) ? entityType.ofType.name : entityType.name;
+
     const schema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
     const finders = (schema.directive(FederationDirectiveName.FINDER)?.applications() ?? [])
       .filter(directive => {
@@ -1376,7 +1381,8 @@ class FetchGroup {
     }
 
     const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
-
+    const finders = this.getFindersForInput(selection);
+    console.log(finders);
     const inputNodes = this._inputs ? this._inputs.toSelectionSetNode(variableDefinitions, handledConditions) : undefined;
 
     const subgraphSchema = this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!;
