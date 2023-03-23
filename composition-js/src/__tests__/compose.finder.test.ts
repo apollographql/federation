@@ -1,10 +1,4 @@
 import gql from "graphql-tag";
-// import {
-//   assert,
-//   FEDERATION2_LINK_WITH_FULL_IMPORTS,
-//   printSchema,
-//   Schema,
-// } from "@apollo/federation-internals";
 import { composeServices, CompositionResult } from "../compose";
 
 export function errors(r: CompositionResult): [string, string][] {

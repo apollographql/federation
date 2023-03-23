@@ -276,10 +276,6 @@ class Merger {
     sources: (SchemaElement<any, any> | undefined)[],
     dest: SchemaElement<any, any>,
   }[];
-  private subgraphFinderData: {
-    finders: FieldDefinition<ObjectType>[];
-    entityKeys: Directive<any, any>[];
-  }[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -296,10 +292,6 @@ class Merger {
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
-    this.subgraphFinderData = new Array(subgraphs.values().length);
-    for (let i = 0; i < this.subgraphFinderData.length; i += 1) {
-      this.subgraphFinderData[i] = { finders: [], entityKeys: [] };
-    }
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -783,12 +775,6 @@ class Merger {
           const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
           const { resolvable } = key.arguments();
           dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable, isInterfaceObject });
-
-          // if the object is an entity, we want to keep track of the key as a potential place that a finder
-          // might be assigned
-          if (dest.kind === 'ObjectType') {
-            this.subgraphFinderData[idx].entityKeys.push(key);
-          }
         }
       }
     }
@@ -1565,22 +1551,6 @@ class Merger {
       const name = this.joinSpecName(idx);
       const finderDirective = sourceMeta.finderDirective();
       const isFinder = (isFederationDirectiveDefinedInSchema(finderDirective) && source.hasAppliedDirective(finderDirective)) ? true : undefined;
-      if (isFinder) {
-        if (source.kind === 'InputFieldDefinition') {
-          // TODO: This is probably not reachable
-          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-            `The @finder directive may only be placed on fields of ObjectType, not ObjectInputType.`,
-            { nodes: sourceASTs(source) }
-          ));
-        } else if (source.parent.kind === 'InterfaceType') {
-          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-            `The @finder directive may not be placed on the fields of Interfaces.`,
-            { nodes: sourceASTs(source) }
-          ));
-        } else {
-          this.subgraphFinderData[idx].finders.push(source as FieldDefinition<ObjectType>); // TODO: Get rid of this cast
-        }
-      }
       dest.applyDirective(joinFieldDirective, {
         graph: name,
         requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
@@ -2581,92 +2551,9 @@ class Merger {
     return this.subgraphsSchema[this.names.indexOf(name)];
   }
 
-  private postMergeValidations() {
-    this.finderPostMergeValidations();
-    this.interfaceImplemPostMergeValidations();
-  }
-
-  private finderPostMergeValidations() {
-    // three things that we need to verify
-    // 1. There is a key + entity for every finder
-    // 2. The return type for every finder is nullable
-    // 3. Every finder refers to a key that is non-composite (TODO: remove this restriction for GA)
-    // 4. Every key is referenced by exactly one finder (unless @finder is not used in the subgraph)
-    for (let i = 0; i < this.subgraphFinderData.length; i += 1) {
-      const { finders, entityKeys } = this.subgraphFinderData[i];
-      if (finders.length === 0) {
-        continue;
-      }
-      const keyMapCount = new Map(entityKeys
-        .filter(ek => ek.arguments().fields.indexOf(' ') < 0)
-        .map(ek => ([`${ek.parent.name}+${ek.arguments().fields}`, {
-          finders: [] as FieldDefinition<ObjectType>[],
-          parent: ek.parent,
-          entityFieldDef: ek.parent.field(ek.arguments().fields),
-          fields: ek.arguments().fields,
-        }]))
-      );
-
-      for (const fieldDef of finders) {
-        assert(fieldDef.type, 'finder fieldDefinition must have a return type');
-        if (fieldDef.type.kind !== 'ObjectType') {
-          // TODO: I'm not certain this error is reachable
-          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-            `The type that finder fields resolve to must be an ObjectType.`,
-            { nodes: sourceASTs(fieldDef) }
-          ));
-        } else {
-          if (fieldDef.arguments().length === 0) {
-            // TODO: Support composite keys
-            this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-              `Field without any arguments contains a @finder directive.`,
-              { nodes: sourceASTs(fieldDef) }
-            ));
-          } else if (fieldDef.arguments().length > 1) {
-            // TODO: Support composite keys
-            this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-              `Finders are currently not supported for composite key lookup.`,
-              { nodes: sourceASTs(fieldDef) }
-            ));
-          } else {
-            const key = `${fieldDef.type.name}+${fieldDef.arguments()[0].name}`;
-            const result = keyMapCount.get(key);
-            if ((result === undefined) /* || TODO: Ensure that types match */) {
-              this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-                `Cannot find entity key for this finder(Entity: "${fieldDef.type.name}", Key: "${fieldDef.arguments()[0].name}". Make sure that the parameter name matches the field and that the key is defined.`,
-                { nodes: sourceASTs(fieldDef) }
-              ));
-            } else if (!sameType(fieldDef.arguments()[0].type!, result.entityFieldDef.type)) {
-              this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-                `Finder input type "${fieldDef.arguments()[0].toString()}" does not match type on field "${result.entityFieldDef.toString()}" on entity "${result.parent.name}".`,
-                { nodes: sourceASTs(fieldDef, result.entityFieldDef) }
-              ));
-            } else {
-              result.finders.push(fieldDef);
-            }
-          }
-        }
-      }
-
-      for (const [_, result] of keyMapCount.entries()) {
-        if (result.finders.length === 0) {
-          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-            `No finder exists for key "${result.fields}" on entity "${result.parent.name}".`,
-            { nodes: sourceASTs(result.parent.sourceAST) }
-          ));
-        } else if (result.finders.length > 1) {
-          this.errors.push(ERRORS.FINDER_USAGE_ERROR.err(
-            `Multiple finders exist for the same entity key "${result.entityFieldDef.coordinate}".`,
-            { nodes: sourceASTs(...result.finders) }
-          ));
-        }
-      }
-    }
-  }
-
   // TODO: the code here largely duplicate code that is in `internals-js/src/validate.ts`, except that when it detect an error, it
   // provides an error in terms of subgraph inputs (rather than what is merge). We could maybe try to save some of that duplication.
-  private interfaceImplemPostMergeValidations() {
+  private postMergeValidations() {
     for (const type of this.merged.types()) {
       if (!isObjectType(type) && !isInterfaceType(type)) {
         continue;

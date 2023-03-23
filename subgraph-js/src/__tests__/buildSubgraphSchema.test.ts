@@ -1360,6 +1360,8 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__interfaceObject on OBJECT
 
+        directive @federation__finder on FIELD_DEFINITION
+
         type Query {
           x: Int
           _service: _Service!

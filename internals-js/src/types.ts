@@ -37,11 +37,14 @@ export const DEFAULT_SUBTYPING_RULES = ALL_SUBTYPING_RULES.filter(r => r !== "li
  *
  * This method does not check that both types are from the same schema and does not validate
  * that the structure of named types is the same. Also note that it does not check the "kind"
- * of the type, which is actually relied on due to @interfaceObject (where the "same" type 
+ * of the type, which is actually relied on due to @interfaceObject (where the "same" type
  * can be an interface in one subgraph but an object type in another, while fundamentally being
  * the same type).
  */
-export function sameType(t1: Type, t2: Type): boolean {
+export function sameType(t1: Type | undefined, t2: Type | undefined): boolean {
+  if (t1 === undefined || t2 === undefined) {
+    return t1 === t2;
+  }
   switch (t1.kind) {
     case 'ListType':
       return isListType(t2) && sameType(t1.ofType, t2.ofType);

@@ -1,5 +1,6 @@
 import {
   allSchemaRootKinds,
+  ArgumentDefinition,
   baseType,
   CompositeType,
   CoreFeature,
@@ -82,6 +83,7 @@ import { createObjectTypeSpecification, createScalarTypeSpecification, createUni
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./joinSpec";
+import { sameType } from './types';
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -504,6 +506,114 @@ function validateInterfaceObjectsAreOnEntities(metadata: FederationMetadata, err
         { nodes: application.parent.sourceAST }
       ));
     }
+  }
+}
+
+// for each thing that is labeled with @finder, ensure that everything looks good
+function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLError[]): void {
+  const finderMap: Map<string, Directive<any, object>> = new Map();
+
+  // function to generate a key from a typename and arguments
+  const buildKey = (typeName: string, fields: string[]) => {
+    return `${typeName}:${fields.join(',')}`;
+  }
+
+  // helper function to make sure that a arguments match between finders and entities
+  const validateFinderArguments = (finderArgs: readonly ArgumentDefinition<FieldDefinition<ObjectType>>[], entity: ObjectType, fieldSet: SelectionSet) => {
+    if (finderArgs.length !== fieldSet.selections().length) {
+      return false;
+    }
+    return finderArgs.every((arg) => {
+      const selectionSetFields = fieldSet.selections().map(sel => sel.toString());
+      const entityField = entity.field(arg.name);
+      return entityField && sameType(arg.type, entityField.type) && selectionSetFields.includes(arg.name);
+    });
+  };
+
+  // first iterate through all the finders
+  const finderApplications = metadata.finderDirective().applications();
+  for (let i = 0; i < finderApplications.length; i++) {
+    const field = finderApplications[i].parent as FieldDefinition<ObjectType>;
+    assert(field.type, 'Finder FieldDefinition must have a type');
+    const args = field.arguments();
+
+    // TODO: Check for interfaces here rather than in merge.ts
+    if (args.length !== 1) {
+      errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+        `Fields marked with @finder must take exactly one argument.`,
+        { nodes: sourceASTs(field) },
+      ));
+    } else if (field.type.kind === 'NonNullType') {
+      errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+        `Fields marked with @finder must return a nullable type but is ${field.type.toString()}`,
+        { nodes: sourceASTs(field) },
+      ));
+    } else {
+      const key = buildKey(field.type.toString(), args.map(arg => arg.name));
+      if (finderMap.has(key)) {
+        errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+          `Fields marked with @finder must have unique argument names but ${field.coordinate} has the same arguments as ${finderMap.get(key)?.parent.coordinate}`,
+          { nodes: sourceASTs(field, finderMap.get(key)?.parent) },
+        ));
+      } else {
+        finderMap.set(key, finderApplications[i]);
+      }
+    }
+  }
+
+  // if there are no finders in our subgraph, we can skip the rest of the validation
+  if (finderMap.size === 0) {
+    return;
+  }
+
+  // then iterate through all the keys ensuring that they have a finder (if non-composite)
+  const keyApplications = metadata.keyDirective().applications();
+  for (let i = 0; i < keyApplications.length; i++) {
+    const parent = keyApplications[i].parent;
+    assert(parent instanceof ObjectType, 'Key Directive must be on an object type');
+    const fieldSet = parseFieldSetArgument({
+      parentType: parent,
+      directive: keyApplications[i],
+      fieldAccessor: (parent, name) => parent.field(name),
+      validate: false,
+    });
+
+    if (fieldSet.selections().length !== 1) {
+      // Ignore entity keys that contain multiple fields
+      continue;
+    }
+
+    const key = buildKey(parent.name, fieldSet.selections().map(sel => sel.toString()));
+    if (!finderMap.has(key)) {
+      errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+        `Each @key for an entity must have a corresponding @finder if @finder is used in graph`,
+        { nodes: sourceASTs(keyApplications[i]) },
+      ));
+      continue;
+    }
+    const finderParent = finderMap.get(key)!.parent as FieldDefinition<ObjectType>; // cast is okay because we just checked
+    assert(finderParent.type, 'Finder field must have a type');
+    if (!sameType(finderParent.type, parent)) {
+      errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+        `The return type of the @finder must match the type of the @key`,
+        { nodes: sourceASTs(finderParent) },
+      ));
+    } else if (!validateFinderArguments(finderParent.arguments(), parent, fieldSet)) {
+      errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+        `The arguments of the @finder must match the fields of the @key`,
+        { nodes: sourceASTs(finderParent) },
+      ));
+    }
+    finderMap.delete(key);
+  }
+
+  // finally, we need to make sure that all finders had a key
+  const leftoverFinders = Array.from(finderMap.values());
+  for (let i = 0; i < leftoverFinders.length; i++) {
+    errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+      `Each @finder must have a corresponding`,
+      { nodes: sourceASTs(leftoverFinders[i]) },
+    ));
   }
 }
 
@@ -985,6 +1095,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     validateAllExternalFieldsUsed(metadata, errorCollector);
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
     validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
+    validateFinders(metadata, errorCollector);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
@@ -1240,6 +1351,10 @@ export function isInterfaceObjectType(type: NamedType): boolean {
   }
   const metadata = federationMetadata(type.schema());
   return !!metadata && metadata.isInterfaceObjectType(type);
+}
+
+export function fieldDefinitionHasObjectParent(field: FieldDefinition<CompositeType>): field is FieldDefinition<ObjectType> {
+  return isObjectType(field.parent);
 }
 
 export function buildSubgraph(
