@@ -48,6 +48,7 @@ import {
   Variables,
   isObjectType,
 } from "./definitions";
+import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
 import { isDirectSubtype, sameType } from "./types";
 import { assert, mapEntries, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
@@ -304,16 +305,18 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   private canRebaseOn(parentType: CompositeType) {
+    const fieldParentType = this.definition.parent
     // There is 2 valid cases we want to allow:
     //  1. either `selectionParent` and `fieldParent` are the same underlying type (same name) but from different underlying schema. Typically,
     //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
-    //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
-    //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
-    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check.
-    // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
-    const fieldParentType = this.definition.parent
+    //  2. or they are not the same underlying type, but the field parent type is from an interface (or an interface object, which is the same
+    //    here), in which case we may be rebasing an interface field on one of the implementation type, which is ok. Note that we don't verify
+    //    that `parentType` is indeed an implementation of `fieldParentType` because it's possible that this implementation relationship exists
+    //    in the supergraph, but not in any of the subgraph schema involved here. So we just let it be. Not that `rebaseOn` will complain anyway
+    //    if the field name simply does not exists in `parentType`.
     return parentType.name === fieldParentType.name
-      || (isInterfaceType(fieldParentType) && fieldParentType.allImplementations().some(i => i.name === parentType.name));
+      || isInterfaceType(fieldParentType)
+      || isInterfaceObjectType(fieldParentType);
   }
 
   typeIfAddedTo(parentType: CompositeType): Type | undefined {
@@ -458,7 +461,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return newFragment;
   }
 
-  rebaseOn(parentType: CompositeType): FragmentElement{
+  rebaseOn(parentType: CompositeType): FragmentElement {
     const fragmentParent = this.parentType;
     const typeCondition = this.typeCondition;
     if (parentType === fragmentParent) {

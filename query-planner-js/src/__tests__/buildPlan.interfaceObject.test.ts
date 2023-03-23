@@ -312,6 +312,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     expect(rewrites).toBeDefined();
     expect(rewrites?.length).toBe(1);
     const rewrite = rewrites![0];
+    assert(rewrite.kind === 'ValueSetter', JSON.stringify(rewrite));
     expect(rewrite.path).toEqual(['... on A', '__typename']);
     expect(rewrite.setValueTo).toBe('I');
   });
