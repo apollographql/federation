@@ -2272,10 +2272,12 @@ class InlineFragmentSelection extends FragmentSelection {
       // If the current type is an object, then we never need to keep the current fragment because:
       // - either the fragment is also an object, but we've eliminated the case where the 2 types are the same,
       //   so this is just an unsatisfiable branch.
-      // - or it's not an object, but then the current type is more precise and no poitn in "casting" to a
-      //   less precise interface/union.
+      // - or it's not an object, but then the current type is more precise and no point in "casting" to a
+      //   less precise interface/union. And if the current type is not even a valid runtime of said interface/union,
+      //   then we should completely ignore the branch (or, since we're eliminating `thisCondition`, we would be
+      //   building an invalid selection). 
       if (isObjectType(currentType)) {
-        if (isObjectType(thisCondition)) {
+        if (isObjectType(thisCondition) || !possibleRuntimeTypes(thisCondition).includes(currentType)) {
           return undefined;
         } else {
           const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType);
@@ -2339,7 +2341,6 @@ class InlineFragmentSelection extends FragmentSelection {
 
     return this.selectionSet === trimmedSelectionSet ? this : this.withUpdatedSelectionSet(trimmedSelectionSet);
   }
-
 
   expandAllFragments(): FragmentSelection {
     return this.mapToSelectionSet((s) => s.expandAllFragments());
