@@ -1,7 +1,7 @@
 import { GraphQLSchemaExtensions } from 'graphql';
 
 interface ApolloGatewayExtensions {
-  version?: String;
+  version?: string;
 }
 
 export interface ApolloGraphQLSchemaExtensions extends GraphQLSchemaExtensions {
