@@ -50,7 +50,7 @@ The following hints might be generated during composition:
 | `INCONSISTENT_ENTITY` | Indicates that an object is declared as an entity (has a `@key`) in only some of the subgraphs in which the object is defined. | `INFO` |
 | `OVERRIDDEN_FIELD_CAN_BE_REMOVED` | Field has been overridden by another subgraph. Consider removing. | `INFO` |
 | `OVERRIDE_DIRECTIVE_CAN_BE_REMOVED` | Field with @override directive no longer exists in source subgraph, the directive can be safely removed | `INFO` |
-| `MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured startegies. | `INFO` |
+| `MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS` | A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured strategies. | `INFO` |
 | `DIRECTIVE_COMPOSITION_INFO` | Indicates that an issue was detected when composing custom directives. | `INFO` |
 
 </div>
