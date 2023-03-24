@@ -30,7 +30,6 @@ export function findFetchNodes(subgraphName: string, node: PlanNode | undefined)
     case 'SubgraphFetch':
       return node.serviceName === subgraphName ? [node] : [];
     case 'Flatten':
-    case 'Mapping':
       return findFetchNodes(subgraphName, node.node);
     case 'Defer':
       return findFetchNodes(subgraphName, node.primary?.node).concat(

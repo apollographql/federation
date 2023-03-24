@@ -401,6 +401,9 @@ async function executeNode(
         }),
       });
     }
+    case 'SubgraphFetch': {
+      assert(false, `@finder support is not available in the gateway`);
+    }
     case 'Defer': {
       assert(false, `@defer support is not available in the gateway`);
     }

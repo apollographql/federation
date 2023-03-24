@@ -61,7 +61,7 @@ describe('finder query plan tests', () => {
               }
             }
           },
-          Mapping(path: "me") {
+          Flatten(path: "me") {
             SubgraphFetch(service: "Subgraph2") {
               {
                 getUser(id: $id) {
@@ -134,7 +134,7 @@ describe('finder query plan tests', () => {
               }
             }
           },
-          Mapping(path: "allUsers.@") {
+          Flatten(path: "allUsers.@") {
             SubgraphFetch(service: "Subgraph2") {
               {
                 getUser(id: $id) {
@@ -210,7 +210,7 @@ describe('finder query plan tests', () => {
             }
           }
         },
-        Mapping(path: "allUsers.@") {
+        Flatten(path: "allUsers.@") {
           SubgraphFetch(service: "Subgraph2") {
             {
               getUser(id: $id) {

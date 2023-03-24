@@ -1402,7 +1402,7 @@ class FetchGroup {
       };
       return this.isTopLevel ? subgraphFetchNode
         : {
-          kind: 'Mapping',
+          kind: 'Flatten',
           path: this.mergeAt!,
           node: subgraphFetchNode,
         };

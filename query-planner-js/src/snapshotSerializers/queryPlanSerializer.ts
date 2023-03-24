@@ -84,7 +84,6 @@ function printNode(
         '}';
       break;
     case 'Flatten': // fallthrough intentional
-    case 'Mapping':
       result += `${node.kind}(path: "${node.path.join('.')}")`;
       break;
     case 'Defer':

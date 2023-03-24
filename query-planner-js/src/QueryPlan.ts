@@ -14,7 +14,7 @@ export interface QueryPlan {
   node?: PlanNode | SubscriptionNode;
 }
 
-export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode | SubgraphFetchNode | MappingNode;
+export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode | SubgraphFetchNode;
 
 export interface SequenceNode {
   kind: 'Sequence';
@@ -68,14 +68,6 @@ export interface FetchInput {
   selectedType: string;
   selections: QueryPlanSelectionNode[];
   variableName: string;
-}
-
-// Like a `FlattenNode`, but the path must point to a list.
-// It then call the inner node on every element of the list.
-export interface MappingNode {
-  kind: 'Mapping';
-  path: ResponsePath;
-  node: PlanNode;
 }
 
 /**
