@@ -425,9 +425,22 @@ export function removeArrayElement<T>(element: T, array: T[]): boolean {
   }
 }
 
-export type NonEmptyArray<T> = [T, ...T[]];
-
 export function isNonEmptyArray<T>(array: T[]): array is NonEmptyArray<T> {
   return array.length > 0;
 }
 
+/**
+ * Custom Utility types
+ */
+export type Concrete<Type> = {
+  [Property in keyof Type]-?: Type[Property];
+};
+
+export type NonEmptyArray<T> = [T, ...T[]];
+
+/**
+ * Returns a type that is the same as T, but with all properties of K set to required.
+ */
+export type RequiredProperties<T, K extends keyof T> = T & {
+  [J in K]: Exclude<T[J], undefined>;
+}

@@ -60,7 +60,7 @@ export interface SubgraphFetchNode {
   hasDefers?: boolean; // For `@defer`
   variableUsages: string[];
   inputs: FetchInput[];
-  operationName: string;
+  operationName: string | undefined;
   operation: string;
 }
 

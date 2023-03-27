@@ -63,8 +63,8 @@ import {
   FederationDirectiveName,
   ArgumentDefinition,
   FieldDefinition,
-  InputType,
   NamedType,
+  RequiredProperties,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1387,17 +1387,19 @@ class FetchGroup {
         finder,
       });
       const operationDocument = operationToDocument(operation);
+      const finderArg = finder.argument(0);
+
       const subgraphFetchNode: SubgraphFetchNode = {
         kind: 'SubgraphFetch',
         serviceName: this.subgraphName,
         id: this.id,
-        operationName: operation.name ?? 'finder call',
+        operationName: operation.name,
         operation: stripIgnoredCharacters(print(operationDocument)),
         variableUsages: [finder.fieldName()],
         inputs: [{
-          selectedType: finder.argument(0).inputType.toString(),
+          selectedType: finderArg.type.toString(),
           selections: inputNodes ? trimSelectionNodes(inputNodes.selections) : [],
-          variableName: finder.argument(0).name,
+          variableName: finderArg.name,
         }],
       };
       return this.isTopLevel ? subgraphFetchNode
@@ -4443,6 +4445,7 @@ function operationForEntitiesFetch({
 }): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
+
   variableDefinitions.addAll(
     allVariableDefinitions.filter(selectionSet.usedVariables()),
   );
@@ -4469,6 +4472,7 @@ function operationForEntitiesFetch({
   return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, undefined, operationName);
 }
 
+type ArgumentDefinitionWithType = RequiredProperties<ArgumentDefinition<FieldDefinition<any>>, 'type'>;
 class Finder {
   constructor(readonly target: FieldDefinition<any>) {}
 
@@ -4486,14 +4490,20 @@ class Finder {
     return this.target.arguments();
   }
 
-  argument(idx: number): { inputType: InputType, name: string } {
+  /**
+   * Return type for this function looks weird, but it's just a fancy way of saying that we want to strip the `undefined` possibility of a return type
+   * the ArgumentDefinition getter for type. This allows us to assert here that the type exists without needing asserts or type assertions(!) in all users of this function.
+   */
+  argument(idx: number): ArgumentDefinitionWithType {
     const arg = this.target.arguments()[idx];
     assert(arg, `Argument at index ${idx} exists`);
-    assert(arg.type, 'type exists on argument');
-    return {
-      inputType: arg.type,
-      name: arg.name,
-    };
+
+    // do the type assertion
+    assert(
+      ((arg): arg is ArgumentDefinitionWithType => arg.type !== undefined)(arg),
+      `Argument at index ${idx} has a type`,
+    );
+    return arg;
   }
 }
 
@@ -4515,7 +4525,7 @@ function operationForFindersFetch({
   const variable = new Variable(inputField.name);
   const metadata = federationMetadata(subgraphSchema);
   assert(metadata, 'Expected schema to be a federation subgraph');
-  variableDefinitions.add(new VariableDefinition(subgraphSchema, variable, inputField.inputType));
+  variableDefinitions.add(new VariableDefinition(subgraphSchema, variable, inputField.type));
   variableDefinitions.addAll(
     allVariableDefinitions.filter(selectionSet.usedVariables()),
   );
