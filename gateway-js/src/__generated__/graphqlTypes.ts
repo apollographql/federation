@@ -51,11 +51,11 @@ export type FetchError = {
 export enum FetchErrorCode {
   /** This token does not have access to fetch the schema for this ref. Do not retry. */
   AccessDenied = 'ACCESS_DENIED',
-  /** This token provided is not a valid graph token. Do not retry */
+  /** This token provided is not a valid graph token. Do not retry. */
   AuthenticationFailed = 'AUTHENTICATION_FAILED',
-  /** An internal server error occurred. Please retry with some backoff */
+  /** An internal server error occurred. Please retry with some backoff. */
   RetryLater = 'RETRY_LATER',
-  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Do not retry */
+  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Please retry with some backoff, eg in case of undeletion. */
   UnknownRef = 'UNKNOWN_REF'
 }
 
@@ -105,6 +105,7 @@ export type QueryRouterConfigArgs = {
 
 export type QueryRouterEntitlementsArgs = {
   apiKey: Scalars['String'];
+  ifAfterId?: InputMaybe<Scalars['ID']>;
   ref: Scalars['String'];
   unlessId?: InputMaybe<Scalars['ID']>;
 };
