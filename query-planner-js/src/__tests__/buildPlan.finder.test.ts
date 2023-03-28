@@ -77,6 +77,8 @@ describe('finder query plan tests', () => {
     `);
   });
 
+  it.todo('not sure how to trigger a naming conflict with "id" variable');
+
   test('finder invoked within a list', () => {
     const subgraph1 = {
       name: 'Subgraph1',

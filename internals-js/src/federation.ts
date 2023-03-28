@@ -540,19 +540,19 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
     // TODO: Check for interfaces here rather than in merge.ts
     if (args.length !== 1) {
       errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
-        `Fields marked with @finder must take exactly one argument.`,
+        `Field marked with @finder must take exactly one argument which must match a key on the resulting entity`,
         { nodes: sourceASTs(field) },
       ));
     } else if (field.type.kind === 'NonNullType') {
       errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
-        `Fields marked with @finder must return a nullable type but is ${field.type.toString()}`,
+        `Fields marked with @finder must return a nullable type but found '${field.type.toString()}'`,
         { nodes: sourceASTs(field) },
       ));
     } else {
       const key = buildKey(field.type.toString(), args.map(arg => arg.name));
       if (finderMap.has(key)) {
         errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
-          `Fields marked with @finder must have unique argument names but ${field.coordinate} has the same arguments as ${finderMap.get(key)?.parent.coordinate}`,
+          `Fields marked with @finder must have unique argument names but ${field.coordinate} has the same argument name as ${finderMap.get(key)?.parent.coordinate}`,
           { nodes: sourceASTs(field, finderMap.get(key)?.parent) },
         ));
       } else {
@@ -586,7 +586,7 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
     const key = buildKey(parent.name, fieldSet.selections().map(sel => sel.toString()));
     if (!finderMap.has(key)) {
       errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
-        `Each @key for an entity must have a corresponding @finder if @finder is used in graph`,
+        `Each key for an entity must have a corresponding finder if @finder is used in subgraph. Missing finder for key '${fieldSet.selections().map(sel => parent.field(sel.toString())?.toString()).join(',')}' of entity '${parent.name}'`,
         { nodes: sourceASTs(keyApplications[i]) },
       ));
       continue;
@@ -600,7 +600,7 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
       ));
     } else if (!validateFinderArguments(finderParent.arguments(), parent, fieldSet)) {
       errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
-        `The arguments of the @finder must match the fields of the @key`,
+        `The types of the named arguments of the finder '${finderParent.toString()}' do not match the types of the corresponding fields of the key '${fieldSet.selections().map(sel => parent.field(sel.toString())?.toString()).join(',')}' for entity '${parent.name}'`,
         { nodes: sourceASTs(finderParent) },
       ));
     }
@@ -611,7 +611,7 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
   const leftoverFinders = Array.from(finderMap.values());
   for (let i = 0; i < leftoverFinders.length; i++) {
     errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
-      `Each @finder must have a corresponding`,
+      `The arguments for field labeled with finder '${leftoverFinders[i].parent.toString()}' do not match a key in the entity`,
       { nodes: sourceASTs(leftoverFinders[i]) },
     ));
   }

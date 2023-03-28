@@ -124,7 +124,7 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['FINDER_USAGE_ERROR', 'No finder exists for key "email" on entity "User".']
+      ['FINDER_USAGE_ERROR', `[subgraphA] Each key for an entity must have a corresponding finder if @finder is used in subgraph. Missing finder for key 'email: String!' of entity 'User'`]
     ]);
   });
 
@@ -152,7 +152,7 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['FINDER_USAGE_ERROR', 'Multiple finders exist for the same entity key "User.id".']
+      ['FINDER_USAGE_ERROR', `[subgraphA] Fields marked with @finder must have unique argument names but Query.userById has the same argument name as Query.user`]
     ]);
   });
 
@@ -179,8 +179,8 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['FINDER_USAGE_ERROR', 'Cannot find entity key for this finder(Entity: "User", Key: "theID". Make sure that the parameter name matches the field and that the key is defined.'],
-      ['FINDER_USAGE_ERROR', 'No finder exists for key "id" on entity "User".'],
+      ['FINDER_USAGE_ERROR', `[subgraphA] Each key for an entity must have a corresponding finder if @finder is used in subgraph. Missing finder for key 'id: ID!' of entity 'User'`],
+      ['FINDER_USAGE_ERROR', `[subgraphA] The arguments for field labeled with finder 'user(theID: ID!): User' do not match a key in the entity`],
     ]);
   });
 
@@ -207,8 +207,7 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['FINDER_USAGE_ERROR', 'Finder input type \"id: String!\" does not match type on field "id: ID!" on entity "User".'],
-      ['FINDER_USAGE_ERROR', 'No finder exists for key "id" on entity "User".'],
+      ['FINDER_USAGE_ERROR', `[subgraphA] The types of the named arguments of the finder 'user(id: String!): User' do not match the types of the corresponding fields of the key 'id: ID!' for entity 'User'`],
     ]);
   });
 
@@ -235,8 +234,7 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['FINDER_USAGE_ERROR', 'Field without any arguments contains a @finder directive.'],
-      ['FINDER_USAGE_ERROR', 'No finder exists for key "id" on entity "User".'],
+      ['FINDER_USAGE_ERROR', '[subgraphA] Field marked with @finder must take exactly one argument which must match a key on the resulting entity'],
     ]);
   });
 
@@ -263,7 +261,7 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
-      ['FINDER_USAGE_ERROR', 'Finders are currently not supported for composite key lookup.'],
+      ['FINDER_USAGE_ERROR', '[subgraphA] Field marked with @finder must take exactly one argument which must match a key on the resulting entity'],
     ]);
   });
 
@@ -290,6 +288,33 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(result.errors).toBeUndefined();
+  });
+
+  it('finder returns a non-nullable type', () => {
+    const subgraphA = {
+      name: "subgraphA",
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.4"
+            import: ["@key", "@finder"]
+          )
+
+        type Query {
+          user(id: ID!): User! @finder
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          email: String!
+        }
+      `,
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['FINDER_USAGE_ERROR', `[subgraphA] Fields marked with @finder must return a nullable type but found 'User!'`],
+    ]);
   });
 
   it.todo('finder not on root query field');

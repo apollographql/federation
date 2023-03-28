@@ -1378,16 +1378,17 @@ class FetchGroup {
     if (finders.length > 0) {
       // if multiple finders are found, just use the first one for now
       const finder = finders[0];
-      assert(finder, 'operationForFindersFetch called without a finder');
+      const finderArg = finder.argument(0);
+      const variableName = generateNameForFinderArg(finderArg.name, finder.entityType.name, this.selection);
       const operation = operationForFindersFetch({
         subgraphSchema: subgraphSchema,
         selectionSet: this.selection,
         allVariableDefinitions: variableDefinitions,
         operationName,
         finder,
+        variableName,
       });
       const operationDocument = operationToDocument(operation);
-      const finderArg = finder.argument(0);
 
       const subgraphFetchNode: SubgraphFetchNode = {
         kind: 'SubgraphFetch',
@@ -1399,7 +1400,7 @@ class FetchGroup {
         inputs: [{
           selectedType: finderArg.type.toString(),
           selections: inputNodes ? trimSelectionNodes(inputNodes.selections) : [],
-          variableName: finderArg.name,
+          variableName: variableName,
         }],
       };
       return this.isTopLevel ? subgraphFetchNode
@@ -4507,22 +4508,49 @@ class Finder {
   }
 }
 
+function generateRandomString(length: number = 8) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function generateNameForFinderArg (argName: string, entityName: string, selectionSet: SelectionSet): string {
+  const usedNames = new Set(selectionSet.usedVariables().map(v => v.name));
+  let count = 0;
+  if (!usedNames.has(argName)) {
+    return argName;
+  }
+  while (count < 10) {
+    const candidate = `__finder_${entityName}_${argName}_${generateRandomString()}`;
+    if (!usedNames.has(candidate)) {
+      return candidate;
+    }
+    count += 1;
+  }
+  assert(false, `Could not find a name for ${argName} in ${selectionSet}`);
+}
+
 function operationForFindersFetch({
   subgraphSchema,
   selectionSet,
   allVariableDefinitions,
   operationName,
   finder,
+  variableName,
 }: {
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   operationName?: string,
   finder: Finder,
+  variableName: string,
 }): Operation {
   const inputField = finder.argument(0);
   const variableDefinitions = new VariableDefinitions();
-  const variable = new Variable(inputField.name);
+  const variable = new Variable(variableName);
   const metadata = federationMetadata(subgraphSchema);
   assert(metadata, 'Expected schema to be a federation subgraph');
   variableDefinitions.add(new VariableDefinition(subgraphSchema, variable, inputField.type));
