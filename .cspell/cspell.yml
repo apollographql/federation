@@ -1,3 +1,4 @@
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
 # Configuration for the cspell command-line tool and the Code Spell Checker
 # VSCode extension
 # (https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker).
@@ -19,8 +20,14 @@ allowCompoundWords: true
 # by hand. Note that we do want to check, say, JSON files (as package.json
 # contains English text like package descriptions).
 useGitignore: true
+
+# Need to set this since globs are relative to the cspell config file.
+globRoot: '..'
+files:
+  - '**'
+  - '.changeset/**'
 ignorePaths:
-  - .cspell/cspell.yml
+  - 'gateway-js/src/__generated__/**'
 
 overrides:
   # Ignore anything in a changelog file that looks like a GitHub username.
