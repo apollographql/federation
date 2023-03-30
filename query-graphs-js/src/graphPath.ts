@@ -974,7 +974,7 @@ export function advancePathWithTransition<V extends Vertex>(
   debug.group(`Computing indirect paths:`);
   const pathsWithNonCollecting = subgraphPath.indirectOptions();
   if (pathsWithNonCollecting.paths.length > 0) {
-    debug.groupEnd(() => `${pathsWithNonCollecting.paths.length} indirect paths`);
+    debug.groupEnd(() => `${pathsWithNonCollecting.paths.length} indirect paths: ${pathsWithNonCollecting.paths}`);
     debug.group('Validating indirect options:');
     for (const nonCollectingPath of pathsWithNonCollecting.paths) {
       debug.group(() => `For indirect path ${nonCollectingPath}:`);

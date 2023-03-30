@@ -96,7 +96,7 @@ import {
   FEDERATED_GRAPH_ROOT_SOURCE,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
-import { DeferredNode, FetchDataInputRewrite, FetchDataOutputRewrite } from ".";
+import { DeferredNode, FetchDataRewrite } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
@@ -774,6 +774,18 @@ class GroupInputs {
     }
     return cloned;
   }
+
+  toString(): string {
+    const inputs = mapValues(this.perType);
+    if (inputs.length === 0) {
+      return '{}';
+    }
+    if (inputs.length === 1) {
+      return inputs[0].toString();
+    }
+
+    return '[' + inputs.join(',') + ']';
+  }
 }
 
 /**
@@ -789,7 +801,7 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  private readonly inputRewrites: FetchDataInputRewrite[] = [];
+  private readonly inputRewrites: FetchDataRewrite[] = [];
 
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
@@ -1000,7 +1012,7 @@ class FetchGroup {
     return this._children;
   }
 
-  addInputs(selection: Selection | SelectionSet, rewrites?: FetchDataInputRewrite[]) {
+  addInputs(selection: Selection | SelectionSet, rewrites?: FetchDataRewrite[]) {
     assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
 
     this._inputs.add(selection);
@@ -1294,7 +1306,7 @@ class FetchGroup {
   private finalizeSelection(
     variableDefinitions: VariableDefinitions,
     handledConditions: Conditions,
-  ): { selection: SelectionSet, outputRewrites: FetchDataOutputRewrite[] } {
+  ): { selection: SelectionSet, outputRewrites: FetchDataRewrite[] } {
     // Finalizing the selection involves the following:
     // 1. removing any @include/@skip that are not necessary because they are already handled earlier in the query plan by
     //    some `ConditionNode`.
@@ -1476,11 +1488,11 @@ function computeAliasesForNonMergingFields(selections: SelectionSetAtPath[], ali
   }
 }
 
-function addAliasesForNonMergingFields(selectionSet: SelectionSet): { updated: SelectionSet, outputRewrites: FetchDataOutputRewrite[] } {
+function addAliasesForNonMergingFields(selectionSet: SelectionSet): { updated: SelectionSet, outputRewrites: FetchDataRewrite[] } {
   const aliases: FieldToAlias[] = [];
   computeAliasesForNonMergingFields([{ path: [], selections: selectionSet}], aliases);
   const updated = withFieldAliased(selectionSet, aliases);
-  const outputRewrites = aliases.map<FetchDataOutputRewrite>(({path, responseName, alias}) => ({
+  const outputRewrites = aliases.map<FetchDataRewrite>(({path, responseName, alias}) => ({
     kind: 'KeyRenamer',
     path: path.concat(alias),
     renameKeyTo: responseName,
@@ -1594,6 +1606,20 @@ function deferContextAfterSubgraphJump(baseContext: DeferContext): DeferContext 
     };
 }
 
+/**
+ * Filter any fragment element in the provided path whose type condition does not exists in the provide schema.
+ * Not that if the fragment element should be filtered but it has applied directives, then we preserve those applications by
+ * replacing with a fragment with no condition (but if there is not directives, we simply remove the fragment from the path).
+ */
+function filterOperationPath(path: OperationPath, schema: Schema): OperationPath {
+  return path.map((elt) => {
+    if (elt.kind === 'FragmentElement' && elt.typeCondition && !schema.type(elt.typeCondition.name)) {
+      return elt.appliedDirectives.length > 0 ? elt.withUpdatedCondition(undefined) : undefined;
+    }
+    return elt;
+  }).filter(isDefined);
+}
+
 class GroupPath {
   private constructor(
     private readonly fullPath: OperationPath,
@@ -1626,10 +1652,14 @@ class GroupPath {
     );
   }
 
-  forParentOfGroup(pathOfGroupInParent: OperationPath): GroupPath {
+  forParentOfGroup(pathOfGroupInParent: OperationPath, parentSchema: Schema): GroupPath {
     return new GroupPath(
       this.fullPath,
-      concatOperationPaths(pathOfGroupInParent, this.pathInGroup),
+      // The group refered by `this` may have types that do not exists in the group "parent", so we filter
+      // out any type conditions on those. This typically happens jumping to a group that use an @interfaceObject
+      // from a (parent) group that does not know the corresponding interface but has some of the type that
+      // implements it (in the supergraph).
+      concatOperationPaths(pathOfGroupInParent, filterOperationPath(this.pathInGroup, parentSchema)),
       this.responsePath,
     );
   }
@@ -3902,8 +3932,12 @@ function computeGroupsForTree(
   return createdGroups;
 }
 
-function computeInputRewritesOnKeyFetch(inputTypeName: string, destType: CompositeType): FetchDataInputRewrite[] | undefined {
-  if (isInterfaceObjectType(destType)) {
+function computeInputRewritesOnKeyFetch(inputTypeName: string, destType: CompositeType): FetchDataRewrite[] | undefined {
+  // When we send a fetch to a subgraph, the inputs __typename must essentially match `destType` so the proper __resolveReference
+  // is called. If `destType` is a "normal" object type, that's going to be fine by default, but if `destType` is an interface
+  // in the supergraph (meaning that it is either an interface or an interface object), then the underlying object might have
+  // a __typename that is the concrete implementation type of the object, and we need to rewrite it.
+  if (isInterfaceObjectType(destType) || isInterfaceType(destType)) {
     return [{
       kind: 'ValueSetter',
       path: [ `... on ${inputTypeName}`, typenameFieldName ],
@@ -4218,7 +4252,7 @@ function handleRequires(
     assert(parent.path, `Missing path-in-parent for @require on ${edge} with group ${group} and parent ${parent}`);
     addPostRequireInputs(
       dependencyGraph,
-      path.forParentOfGroup(parent.path),
+      path.forParentOfGroup(parent.path, parent.group.parentType.schema()),
       entityType,
       edge,
       context,
@@ -4277,16 +4311,12 @@ function addPostRequireInputs(
   postRequireGroup: FetchGroup,
 ) {
   const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
-  let rewrites: FetchDataInputRewrite[] | undefined = undefined;
-  // This method is used both for "normal" user @requires, but also to handle the internally injected requirement for interface objects
-  // when the "true" __typename needs to be retrieved. In those case, the post-require group is basically resuming fetch on the
-  // @interfaceObject subgraph after we found the real __typename of objects of that interface. But that also mean we need to make
-  // sure to rewrite that "real" __typename into the interface object name for that fetch (as we do for normal key edge toward an
-  // interface object).
-  if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
-    rewrites = computeInputRewritesOnKeyFetch(edge.transition.castedTypeName, entityType);
-  }
-  postRequireGroup.addInputs(inputs, rewrites);
+  // Note that `computeInputRewritesOnKeyFetch` will return `undefined` in general, but if `entityType` is an interface/interface object,
+  // then we need those rewrites to ensure the underlying fetch is valid.
+  postRequireGroup.addInputs(
+    inputs,
+    computeInputRewritesOnKeyFetch(entityType.name, entityType)
+  );
   if (keyInputs) {
     // It could be the key used to resume fetching after the @require is already fetched in the original group, but we cannot
     // guarantee it, so we add it now (and if it was already selected, this is a no-op).
