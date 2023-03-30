@@ -676,42 +676,54 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
           const isInterfaceObject = subgraphMetadata.isInterfaceObjectType(type);
           const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
+
+          // We'll look at adding edges from "other subgraphs" to the current type. So the tail of all the edges
+          // we'll build in this branch is always going to be the same.
+          const tail = copyPointers[i].copiedVertex(v);
           // Note that each subgraph has a key edge to itself (when i === j below). We usually ignore
           // this edges, but they exists for the special case of @defer, where we technically may have
           // to take such "edge-to-self" as a mean to "re-enter" a subgraph for a deferred section.
           for (const [j, otherSubgraph] of subgraphs.entries()) {
             const otherVertices = otherSubgraph.verticesForType(type.name);
-            if (otherVertices.length == 0) {
-              continue;
+            if (otherVertices.length > 0) {
+              // Note that later, when we've handled @provides, this might not be true anymore as @provides may create copy of a
+              // certain type. But for now, it's true.
+              assert(
+                otherVertices.length == 1,
+                () => `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`);
+
+              const otherVertex = otherVertices[0];
+              // The edge goes from the otherSubgraph to the current one.
+              const head = copyPointers[j].copiedVertex(otherVertex);
+              const tail = copyPointers[i].copiedVertex(v);
+              builder.addEdge(head, tail, new KeyResolution(), conditions);
             }
-            // Note that later, when we've handled @provides, this might not be true anymore as @provides may create copy of a
-            // certain type. But for now, it's true.
-            assert(
-              otherVertices.length == 1,
-              () => `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`);
 
-            const otherVertice = otherVertices[0];
-            // The edge goes from the otherSubgraph to the current one.
-            const head = copyPointers[j].copiedVertex(otherVertice);
-            const tail = copyPointers[i].copiedVertex(v);
-            builder.addEdge(head, tail, new KeyResolution(), conditions);
-
-            // Additionally, if the key is on an @interfaceObject and this "other" subgraph has the type as
-            // a proper interface, then we need an edge from each of those implementation (to the @interfaceObject).
+            // Additionally, if the key is on an @interfaceObject and this "other" subgraph has some of the implementations
+            // of the corresponding interface, then we need an edge from each of those implementations (to the @interfaceObject).
             // This is used when an entity of specific implementation is queried first, but then some of the
             // requested fields are only provided by that @interfaceObject.
-            const otherType = otherVertice.type;
-            if (isInterfaceObject && isInterfaceType(otherType)) {
-              for (const implemType of otherType.possibleRuntimeTypes()) {
-                // Note that we're only taking the implementation types from "otherSubgraph", so we're guaranteed
-                // to have a corresponding vertice (and only one for the same reason than mentioned in the assert above).
-                const implemVertice = otherSubgraph.verticesForType(implemType.name)[0];
+            if (isInterfaceObject) {
+              const typeInSupergraph = supergraph.type(type.name);
+              assert(typeInSupergraph && isInterfaceType(typeInSupergraph), () => `Type ${type} is an interfaceObject in subgraph ${i}; should be an interface in the supergraph`);
+              for (const implemTypeInSupergraph of typeInSupergraph.possibleRuntimeTypes()) {
+                // That implementation type may or may not exists in "otherSubgraph". If it doesn't, we just have nothing to
+                // do for that particular impelmentation. If it does, we'll add the proper edge, but note that we're guaranteed
+                // to have at most one vertex for the same reason than mentioned above (only the handling @provides will make it
+                // so that there can be more than one vertex per type).
+                const implemVertice = otherSubgraph.verticesForType(implemTypeInSupergraph.name)[0];
+                if (!implemVertice) {
+                  continue;
+                }
+
                 const implemHead = copyPointers[j].copiedVertex(implemVertice);
                 // The key goes from the implementation type to the @interfaceObject one, so the conditions
                 // will be "fetched" on the implementation type, but `conditions` has been parsed on the
                 // interface type, so it will use fields from the interface, not the implementation type.
                 // So we re-parse the condition using the implementation type: this could fail, but in
                 // that case it just mean that key is not usable.
+                const implemType = implemVertice.type;
+                assert(isCompositeType(implemType), () => `${implemType} should be composite since it implements ${typeInSupergraph} in the supergraph`);
                 try {
                   const implConditions = parseFieldSetArgument({ parentType: implemType, directive: keyApplication, validate: false });
                   builder.addEdge(implemHead, tail, new KeyResolution(), implConditions);
