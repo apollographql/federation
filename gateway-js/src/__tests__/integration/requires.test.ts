@@ -218,13 +218,13 @@ it('collapses nested requires with user-defined fragments', async () => {
           {
             user {
               __typename
-              id
               preferences {
                 favorites {
-                  animal
                   color
+                  animal
                 }
               }
+              id
             }
           }
         },

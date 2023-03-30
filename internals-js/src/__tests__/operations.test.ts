@@ -32,6 +32,34 @@ function astSSet(...selections: SelectionNode[]): SelectionSetNode {
 }
 
 describe('fragments optimization', () => {
+  // Takes a query with fragments as inputs, expand all those fragments, and ensures that all the
+  // fragments gets optimized back, and that we get back the exact same query. 
+  function testFragmentsRoundtrip({
+    schema,
+    query,
+    expanded,
+  }: {
+    schema: Schema,
+    query: string,
+    expanded: string,
+  }) {
+    const operation = parseOperation(schema, query);
+    // We call `trimUnsatisfiableBranches` because the selections we care about in the query planner
+    // will effectively have had gone through that function (and even if that function wasn't called,
+    // the query planning algorithm would still end up removing unsatisfiable branches anyway), so
+    // it is a more interesting test.
+    const withoutFragments = operation.expandAllFragments().trimUnsatisfiableBranches();
+
+    expect(withoutFragments.toString()).toMatchString(expanded);
+
+    // We force keeping all reused fragments, even if they are used only once, because the tests using
+    // this are just about testing the reuse of fragments and this make things shorter/easier to write.
+    // There is tests in `buildPlan.test.ts` that double-check that we don't reuse fragments used only
+    // once in actual query plans.
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!, 1);
+    expect(optimized.toString()).toMatchString(operation.toString());
+  }
+
   test('handles fragments using other fragments', () => {
     const schema = parseSchema(`
       type Query {
@@ -126,9 +154,8 @@ describe('fragments optimization', () => {
     `);
 
     const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-    // Note that we expect onU to *not* be recreated because, by default, optimize only
-    // add add back a fragment if it is used at least twice (otherwise, the fragment just
-    // make the query bigger).
+    // Note that while we didn't use `onU` for `t` in the query, it's technically ok to use
+    // it and it makes the query smaller, so it gets used.
     expect(optimized.toString()).toMatchString(`
       fragment OnT1 on T1 {
         a
@@ -144,15 +171,17 @@ describe('fragments optimization', () => {
         b
       }
 
+      fragment OnU on U {
+        ...OnI
+        ...OnT1
+        ...OnT2
+      }
+
       {
         t {
-          ...OnT1
-          ...OnT2
-          ...OnI
+          ...OnU
           u {
-            ...OnI
-            ...OnT1
-            ...OnT2
+            ...OnU
           }
         }
       }
@@ -176,69 +205,537 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
-      fragment OnT1 on T1 {
-        t2 {
-          x
-        }
-      }
-
-      query {
-        t1a {
-          ...OnT1
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment OnT1 on T1 {
           t2 {
-            y
+            x
           }
         }
-        t2a {
-          ...OnT1
-        }
-      }
-    `);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
-    expect(withoutFragments.toString()).toMatchString(`
-      {
-        t1a {
-          ... on T1 {
+        query {
+          t1a {
+            ...OnT1
             t2 {
-              x
+              y
             }
           }
-          t2 {
-            y
+          t2a {
+            ...OnT1
           }
         }
-        t2a {
-          ... on T1 {
+      `,
+      expanded: `
+        {
+          t1a {
+            t2 {
+              x
+              y
+            }
+          }
+          t2a {
             t2 {
               x
             }
           }
         }
+      `,
+    });
+  });
+
+  test('handles nested fragments with field intersection', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: A
+        b: Int
+      }
+
+      type A {
+        x: String
+        y: String
+        z: String
       }
     `);
 
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-    expect(optimized.toString()).toMatchString(`
-      fragment OnT1 on T1 {
-        t2 {
-          x
-        }
-      }
 
-      {
-        t1a {
-          ...OnT1
-          t2 {
-            y
+    // The subtlety here is that `FA` contains `__typename` and so after we're reused it, the
+    // selection will look like:
+    // {
+    //   t {
+    //     a {
+    //       ...FA
+    //     }
+    //   }
+    // }
+    // But to recognize that `FT` can be reused from there, we need to be able to see that
+    // the `__typename` that `FT` wants is inside `FA` (and since FA applies on the parent type `A`
+    // directly, it is fine to reuse).
+    testFragmentsRoundtrip({
+      schema,
+      query:  `
+        fragment FA on A {
+          __typename
+          x
+          y
+        }
+
+        fragment FT on T {
+          a {
+            __typename
+            ...FA
           }
         }
-        t2a {
-          ...OnT1
+
+        query {
+          t {
+            ...FT
+          }
         }
+      `,
+      expanded: `
+        {
+          t {
+            a {
+              __typename
+              x
+              y
+            }
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragment matching subset of field selection', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: String
+        b: B
+        c: Int
+        d: D
+      }
+
+      type B {
+        x: String
+        y: String
+      }
+
+      type D {
+        m: String
+        n: String
       }
     `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragT on T {
+          b {
+            __typename
+            x
+          }
+          c
+          d {
+            m
+          }
+        }
+
+        {
+          t {
+            ...FragT
+            d {
+              n
+            }
+            a
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            b {
+              __typename
+              x
+            }
+            c
+            d {
+              m
+              n
+            }
+            a
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragment matching subset of inline fragment selection', () => {
+    // Pretty much the same test than the previous one, but matching inside a fragment selection inside
+    // of inside a field selection.
+    const schema = parseSchema(`
+      type Query {
+        i: I
+      }
+
+      interface I {
+        a: String
+      }
+
+      type T {
+        a: String
+        b: B
+        c: Int
+        d: D
+      }
+
+      type B {
+        x: String
+        y: String
+      }
+
+      type D {
+        m: String
+        n: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragT on T {
+          b {
+            __typename
+            x
+          }
+          c
+          d {
+            m
+          }
+        }
+
+        {
+          i {
+            ... on T {
+              ...FragT
+              d {
+                n
+              }
+              a
+            }
+          }
+        }
+      `,
+      expanded: `
+        {
+          i {
+            ... on T {
+              b {
+                __typename
+                x
+              }
+              c
+              d {
+                m
+                n
+              }
+              a
+            }
+          }
+        }
+      `,
+    });
+  });
+
+  test('intersecting fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: String
+        b: B
+        c: Int
+        d: D
+      }
+
+      type B {
+        x: String
+        y: String
+      }
+
+      type D {
+        m: String
+        n: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      // Note: the code that reuse fragments iterates on fragments in the order they are defined in the document, but when it reuse
+      // a fragment, it puts it at the beginning of the selection (somewhat random, it just feel often easier to read), so the net
+      // effect on this example is that `Frag2`, which will be reused after `Frag1` will appear first in the re-optimized selection.
+      // So we put it first in the input too so that input and output actually match (the `testFragmentsRoundtrip` compares strings,
+      // so it is sensible to ordering; we could theoretically use `Operation.equals` instead of string equality, which wouldn't
+      // really on ordering, but `Operation.equals` is not entirely trivial and comparing strings make problem a bit more obvious).
+      query: `
+        fragment Frag1 on T {
+          b {
+            x
+          }
+          c
+          d {
+            m
+          }
+        }
+
+        fragment Frag2 on T {
+          a
+          b {
+            __typename
+            x
+          }
+          d {
+            m
+            n
+          }
+        }
+
+        {
+          t {
+            ...Frag2
+            ...Frag1
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            a
+            b {
+              __typename
+              x
+            }
+            d {
+              m
+              n
+            }
+            c
+          }
+        }
+      `,
+    });
+  });
+
+  test('fragments whose application makes a type condition trivial', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      interface I {
+        x: String
+      }
+
+      type T implements I {
+        x: String
+        a: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragI on I {
+          x
+          ... on T {
+            a
+          }
+        }
+
+        {
+          t {
+            ...FragI
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            x
+            a
+          }
+        }
+      `,
+    });
+  });
+
+  describe('applied directives', () => {
+    test('reuse fragments with directives on the fragment, but only when there is those directives', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T
+          t2: T
+          t3: T
+        }
+
+        type T {
+          a: Int
+          b: Int
+          c: Int
+          d: Int
+        }
+      `);
+
+      testFragmentsRoundtrip({
+        schema,
+        query: `
+          fragment DirectiveOnDef on T @include(if: $cond1) {
+            a
+          }
+
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              ...DirectiveOnDef
+            }
+            t2 {
+              ... on T @include(if: $cond2) {
+                a
+              }
+            }
+            t3 {
+              ...DirectiveOnDef @include(if: $cond2)
+            }
+          }
+        `,
+        expanded: `
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              ... on T @include(if: $cond1) {
+                a
+              }
+            }
+            t2 {
+              ... on T @include(if: $cond2) {
+                a
+              }
+            }
+            t3 {
+              ... on T @include(if: $cond1) @include(if: $cond2) {
+                a
+              }
+            }
+          }
+        `,
+      });
+    });
+
+    test('reuse fragments with directives in the fragment selection, but only when there is those directives', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T
+          t2: T
+          t3: T
+        }
+
+        type T {
+          a: Int
+          b: Int
+          c: Int
+          d: Int
+        }
+      `);
+
+      testFragmentsRoundtrip({
+        schema,
+        query: `
+          fragment DirectiveInDef on T {
+            a @include(if: $cond1)
+          }
+
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              a
+            }
+            t2 {
+              ...DirectiveInDef
+            }
+            t3 {
+              a @include(if: $cond2)
+            }
+          }
+        `,
+        expanded: `
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              a
+            }
+            t2 {
+              a @include(if: $cond1)
+            }
+            t3 {
+              a @include(if: $cond2)
+            }
+          }
+        `,
+      });
+    });
+
+    test('reuse fragments with directives on spread, but only when there is those directives', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T
+          t2: T
+          t3: T
+        }
+
+        type T {
+          a: Int
+          b: Int
+          c: Int
+          d: Int
+        }
+      `);
+
+      testFragmentsRoundtrip({
+        schema,
+        query: `
+          fragment NoDirectiveDef on T {
+            a
+          }
+
+          query myQuery($cond1: Boolean!) {
+            t1 {
+              ...NoDirectiveDef
+            }
+            t2 {
+              ...NoDirectiveDef @include(if: $cond1)
+            }
+          }
+        `,
+        expanded: `
+          query myQuery($cond1: Boolean!) {
+            t1 {
+              a
+            }
+            t2 {
+              ... on T @include(if: $cond1) {
+                a
+              }
+            }
+          }
+        `,
+      });
+    });
   });
 });
 
