@@ -11,6 +11,9 @@ import {
   executeSync,
   OperationTypeNode,
   FieldNode,
+  visit,
+  ASTNode,
+  VariableDefinitionNode,
 } from 'graphql';
 import { Trace, google } from '@apollo/usage-reporting-protobuf';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
@@ -66,13 +69,33 @@ interface ExecutionContext {
   errors: GraphQLError[];
 }
 
-function makeIntrospectionQueryDocument(introspectionSelection: FieldNode): DocumentNode {
+function collectUsedVariables(node: ASTNode): Set<string> {
+  const usedVariables = new Set<string>();
+  visit(node, {
+    Variable: ({ name }) => {
+      usedVariables.add(name.value);
+    }
+  });
+  return usedVariables;
+}
+
+function makeIntrospectionQueryDocument(
+  introspectionSelection: FieldNode,
+  variableDefinitions?: readonly VariableDefinitionNode[],
+): DocumentNode {
+  const usedVariables = collectUsedVariables(introspectionSelection);
+  const usedVariableDefinitions = variableDefinitions?.filter((def) => usedVariables.has(def.variable.name.value));
+  assert(
+    usedVariables.size === (usedVariableDefinitions?.length ?? 0), 
+    () => `Should have found all used variables ${[...usedVariables]} in definitions ${JSON.stringify(variableDefinitions)}`,
+  );
   return {
     kind: Kind.DOCUMENT,
     definitions: [
       {
         kind: Kind.OPERATION_DEFINITION,
         operation: OperationTypeNode.QUERY,
+        variableDefinitions: usedVariableDefinitions,
         selectionSet: {
           kind: Kind.SELECTION_SET,
           selections: [ introspectionSelection ],
@@ -85,14 +108,21 @@ function makeIntrospectionQueryDocument(introspectionSelection: FieldNode): Docu
 function executeIntrospection(
   schema: GraphQLSchema,
   introspectionSelection: FieldNode,
+  variableDefinitions: ReadonlyArray<VariableDefinitionNode> | undefined,
+  variableValues: Record<string, any> | undefined,
 ): any {
-  const { data } = executeSync({
+  const { data, errors } = executeSync({
     schema,
-    document: makeIntrospectionQueryDocument(introspectionSelection),
+    document: makeIntrospectionQueryDocument(introspectionSelection, variableDefinitions),
     rootValue: {},
+    variableValues,
   });
+  assert(
+    !errors || errors.length === 0,
+    () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed but got ${JSON.stringify(errors)}`
+  );
   assert(data, () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed`);
-  return data[introspectionSelection.name.value];
+  return data[introspectionSelection.alias?.value ?? introspectionSelection.name.value];
 }
 
 export async function executeQueryPlan(
@@ -159,11 +189,17 @@ export async function executeQueryPlan(
           );
 
           let postProcessingErrors: GraphQLError[];
+          const variables = requestContext.request.variables;
           ({ data, errors: postProcessingErrors } = computeResponse({
             operation,
-            variables: requestContext.request.variables,
+            variables,
             input: unfilteredData,
-            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandFragments().toSelectionNode()),
+            introspectionHandling: (f) => executeIntrospection(
+              operationContext.schema,
+              f.expandFragments().toSelectionNode(),
+              operationContext.operation.variableDefinitions,
+              variables,
+            ),
           }));
 
           // If we have errors during the post-processing, we ignore them if any other errors have been thrown during
