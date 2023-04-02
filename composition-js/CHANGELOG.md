@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.4.1
+### Patch Changes
+
+
+- Start building packages with TS 5.x, which should have no effect on consumers ([#2480](https://github.com/apollographql/federation/pull/2480))
+
+- Updated dependencies [[`450b9578`](https://github.com/apollographql/federation/commit/450b9578ec8d66a48621f0e76fe0b4f738a78659), [`afde3158`](https://github.com/apollographql/federation/commit/afde3158ec2ee93b123a9bdb0f1a852e41fa7f27), [`eafebc3c`](https://github.com/apollographql/federation/commit/eafebc3c9af5c511990fe66b7c2900ba9a1b330f), [`01fe3f83`](https://github.com/apollographql/federation/commit/01fe3f836c08805c1c53b14c745a5117c678866d)]:
+  - @apollo/query-graphs@2.4.1
+  - @apollo/federation-internals@2.4.1
+
 ## 2.4.0
 ### Minor Changes
 
