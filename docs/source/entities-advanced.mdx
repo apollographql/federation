@@ -59,9 +59,9 @@ type Organization {
 
 ## Migrating entities and fields
 
-As your supergraph grows, you might decide that you want to move an entity's definition (or a particular _field_ of an entity) to a different subgraph. This section describes how to perform these migrations safely.
+As your supergraph grows, you might want to move parts of an entity to a different subgraph. This section describes how to perform these migrations safely.
 
-### Entity migration
+### Incremental migration with `@override`
 
 Let's say our Payments subgraph defines a `Bill` entity:
 
@@ -71,6 +71,7 @@ Let's say our Payments subgraph defines a `Bill` entity:
 type Bill @key(fields: "id") {
   id: ID!
   amount: Int!
+  payment: Payment
 }
 
 type Payment {
@@ -80,11 +81,16 @@ type Payment {
 
 </CodeColumns>
 
-Then, we add a dedicated Billing subgraph to our supergraph. It now makes sense to define the `Bill` entity there instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
+Then, we add a dedicated Billing subgraph to our supergraph. It now makes sense to move billing functionality there instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
 
 <CodeColumns>
 
 ```graphql title="Payments subgraph"
+type Bill @key(fields: "id") {
+  id: ID!
+  payment: Payment
+}
+
 type Payment {
   # ...
 }
@@ -99,150 +105,141 @@ type Bill @key(fields: "id") {
 
 </CodeColumns>
 
-The steps for this migration depend on how you perform schema composition:
+The [`@override` directive](./federated-types/federated-directives#override) allows us to perform this migration incrementally with no downtime. First, we deploy a new version of the Billing subgraph that resolves the fields we want to override:
 
-<ExpansionPanel title="With managed federation">
+<CodeColumns>
 
-1. In the Billing subgraph, define the `Bill` entity exactly as it's defined in the Payments subgraph:
+  ```graphql title="Payments subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    amount: Int!
+    payment: Payment
+  }
 
-    <CodeColumns>
+  type Payment {
+    # ...
+  }
+  ```
 
-    ```graphql title="Payments subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
+  ```graphql {3} title="Billing subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    amount: Int! @override(from: "Payments")
+  }
+  ```
 
-    type Payment {
-      # ...
-    }
-    ```
+</CodeColumns>
 
-    ```graphql title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-    </CodeColumns>
-
-2. In the Billing subgraph, apply the `@override` directive to every field of `Bill`:
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql {2-3} title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID! @override(from: "Payments")
-      amount: Int! @override(from: "Payments")
-    }
-    ```
-
-    </CodeColumns>
-
-    The `@override` directive says, "Resolve this field in this subgraph _instead of_ in the Payments subgraph."
-
-3. In the Billing subgraph, make sure your Federation 2 opt-in declaration includes the `@override` directive in its `import` array:
+Make sure to include the `@override` directive in your `@link` imports (code-first frameworks usually do this for you):
 
 ```graphql {3} title="Billing subgraph"
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.3",
-        import: ["@key", "@shareable", "@override"])
+@link(url: "https://specs.apollo.dev/federation/v2.3",
+import: ["@key", "@shareable", "@override"])
 ```
 
-4. In the Billing subgraph, define resolvers for each field of `Bill` that's currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
+Now, publish the Billing subgraph's schema to your Router (e.g., with `rover`). The router will immediately start resolving the `amount` field from the Billing subgraph while continuing to resolve `payment` from the Payments subgraph.
 
-5. Deploy the updated Billing subgraph to your environment.
+> 💡 You can migrate as many fields as you want in a single change, just apply `@override` to all of the fields which should be moved. You can even migrate entire entities this way!
 
-    * This change is currently invisible to your router, which is not yet aware that the Billing subgraph defines the `Bill` entity.
+In the Payments subgraph, _remove_ the fields which have been migrated (and their associated resolvers):
 
-6. Publish the updated Billing subgraph schema to Apollo.
+<CodeColumns>
 
-    * When the router fetches its new supergraph schema, it detects that it should resolve the `Bill` entity in the Billing subgraph _instead of_ in the Payments subgraph.
+  ```graphql {1-4} title="Payments subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    payment: Payment
+  }
 
-7. In the Payments subgraph, _remove_ the `Bill` entity and its associated resolvers:
+  type Payment {
+    # ...
+  }
+  ```
+
+  ```graphql title="Billing subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    amount: Int! @override(from: "Payments")
+  }
+  ```
+
+</CodeColumns>
+
+Deploy the Payments subgraph and publish the updated schema to the router.
+
+> 💡 Because the router is no longer using the removed field, it's safe to publish and deploy in any order!
+
+Clean up the `@override` directives, which are no longer needed:
+
+<CodeColumns>
+
+  ```graphql title="Payments subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    payment: Payment
+  }
+
+  type Payment {
+    # ...
+  }
+  ```
+
+  ```graphql {3} title="Billing subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    amount: Int!
+  }
+  ```
+</CodeColumns>
+
+Deploy the Billing subgraph and publish the schema changes. That's it! The fields are fully migrated with zero down time.
+
+### Optimizing for fewer deploys with manual composition
+
+> ⚠️ This method requires careful coordination between subgraph and router updates. Without strict control over the order of deployments and schema updates, you will cause an outage. We recommend the above `@override` method for most use cases.
+
+The `@override` method is nice because it allows us to make changes to each subgraph independently with no risk of down time. However, it requires 3 separate schema publishes. If you are using [manual composition](./federated-types/composition#manually-with-rover-cli), each of these schema changes requires redeploying the Router. With careful coordination, we can do the same migration with only a single redeploy of the router.
+
+1. In the Billing subgraph, define the `Bill` entity along with appropriate resolvers. **These new resolvers should behave identically to the Payment subgraph resolvers they are replacing**:
+
+<CodeColumns>
+
+  ```graphql title="Payments subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    amount: Int!
+    payment: Payment
+  }
+
+  type Payment {
+    # ...
+  }
+  ```
+
+  ```graphql title="Billing subgraph"
+  type Bill @key(fields: "id") {
+    id: ID!
+    amount: Int!
+  }
+  ```
+
+</CodeColumns>
+
+2. Deploy the updated Billing subgraph to your environment, but **do not publish the schema yet**.
+
+    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the router doesn't _know_ this yet because its supergraph schema hasn't been updated. Publishing the schema would cause a composition error.
+
+4. In the Payments subgraph, remove the migrated fields from the `Bill` entity and their associated resolvers (**do not deploy this change yet**):
 
     <CodeColumns>
 
     ```graphql title="Payments subgraph"
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID! @override(from: "Payments")
-      amount: Int! @override(from: "Payments")
-    }
-    ```
-
-    </CodeColumns>
-
-8. Publish the updated Payments subgraph schema to Apollo.
-
-    * When the router fetches its new supergraph schema, it continues resolving the `Bill` entity in the Billing subgraph. The `@override` directive has no effect if a field is defined in only one subgraph.
-
-9. Deploy the updated Payments subgraph to your environment.
-
-10. Remove all `@override` directives from the `Bill` entity in the Billing subgraph:
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql {2-3} title="Billing subgraph"
     type Bill @key(fields: "id") {
       id: ID!
-      amount: Int!
+      payment: Payment
     }
-    ```
 
-    </CodeColumns>
-
-11. Publish the updated Billing subgraph schema to Apollo and deploy the updated Billing subgraph to your environment.
-
-We're done! `Bill` now originates in a new subgraph, and it was resolvable during each step of the migration process.
-
-</ExpansionPanel>
-
-<ExpansionPanel title="With Rover CLI composition">
-
-1. In the Billing subgraph, define the `Bill` entity exactly as it's defined in the Payments subgraph:
-
-    ```graphql title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-2. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
-
-3. Deploy the updated Billing subgraph to your environment.
-
-    * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the router doesn't _know_ this yet because its supergraph schema hasn't been updated.
-
-4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
     type Payment {
       # ...
     }
@@ -258,169 +255,17 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
     </CodeColumns>
 
 5. Compose an updated supergraph schema with your usual configuration using `rover supergraph compose`.
-    * This updated supergraph schema indicates that the Billing subgraph resolves `Bill` entities, and the Payments subgraph _doesn't_.
+    * This updated supergraph schema indicates that the Billing subgraph resolves `Bill.amount`, and the Payments subgraph _doesn't_.
 
 6. Assuming CI completes successfully, deploy an updated version of your _router_ with the new supergraph schema.
     * When this deployment completes, the router begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
 
-7. Deploy an updated version of your Payments subgraph without the `Bill` entity.
-    * At this point it's safe to remove this definition, because the router is never resolving `Bill` with the Payments subgraph.
+> ⚠️ While the new router is deploying, you will likely have two different routers resolving the field two different ways (the older deployment still resolving from Payments). It is important that the subgraphs resolve the field in **exactly the same way** or your clients will see inconsistent data during this rollover.
 
-We're done! `Bill` is now resolved in a new subgraph, and it was resolvable during each step of the migration process.
+7. Deploy the updated version of your Payments subgraph without the migrated field.
+    * At this point it's safe to remove this definition, because the router is using the Billing subgraph.
 
-</ExpansionPanel>
-
-<ExpansionPanel title="With IntrospectAndCompose">
-
-> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, see [Limitations of `IntrospectAndCompose`](/apollo-server/using-federation/apollo-gateway-setup#limitations-of-introspectandcompose).
-
-When you provide `IntrospectAndCompose` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
-
-To minimize downtime for your graph, you need to make sure all of your subgraph schemas successfully compose whenever your gateway starts up. When migrating an entity, this requires a **coordinated deployment** of your modified subgraphs and a restart of the gateway itself.
-
-1. In the Billing subgraph's schema, define the `Bill` entity exactly as it's defined in the Payments subgraph:
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql {1-4} title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-    </CodeColumns>
-
-2. In the Billing subgraph, define resolvers for each field of `Bill` that are currently resolved in the Payments subgraph. These resolvers should behave identically to the resolvers in the Payments subgraph.
-
-3. In the Payments subgraph's schema, remove the `Bill` entity and its associated resolvers:
-
-    <CodeColumns>
-
-    ```graphql title="Payments subgraph"
-    type Payment {
-      # ...
-    }
-    ```
-
-    ```graphql title="Billing subgraph"
-    type Bill @key(fields: "id") {
-      id: ID!
-      amount: Int!
-    }
-    ```
-
-    </CodeColumns>
-
-4. Bring down all instances of your gateway in your deployed environment. This downtime prevents inconsistent behavior during a rolling deploy of your subgraphs.
-
-5. Deploy the updated Payments _and_ Billing subgraphs to your environment. When these deployments complete, bring your gateway instances back up and confirm that they start up successfully.
-
-</ExpansionPanel>
-
-
-### Field migration
-
-The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#entity-migration).
-
-**If you're using managed federation**, follow the steps in the **With managed federation** section above, but apply the `@override` directive to the _individual field_ you're migrating instead of _all_ fields.
-
-If you're using local composition with Rover, see below for a field migration example.
-
-#### Local composition example
-
-Let's say our Products subgraph defines a `Product` entity, which includes the boolean field `inStock`:
-
-<CodeColumns>
-
-```graphql title="Products subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-  inStock: Boolean!
-}
-```
-
-</CodeColumns>
-
-Then, we add an Inventory subgraph to our federated graph. It now makes sense for the `inStock` field to originate in the Inventory subgraph instead, like this:
-
-<CodeColumns>
-
-```graphql title="Products subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-}
-```
-
-```graphql title="Inventory subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-  inStock: Boolean!
-}
-```
-
-</CodeColumns>
-
-
-We can perform this migration with the following steps (additional commentary on each step is provided in [Entity migration](#entity-migration)):
-
-1. In the Inventory subgraph's schema, define the `Product` entity and include the `inStock` field:
-
-    <CodeColumns>
-
-    ```graphql title="Products subgraph"
-    type Product @key(fields: "id") {
-      id: ID!
-      inStock: Boolean!
-    }
-    ```
-
-    ```graphql title="Inventory subgraph"
-    type Product @key(fields: "id") {
-      id: ID!
-      inStock: Boolean!
-    }
-    ```
-
-    </CodeColumns>
-
-2. In the Inventory subgraph, add a resolver for the `inStock` field. This subgraph should resolve the field with the exact same logic as the resolver in the Products subgraph.
-
-3. Deploy the updated Inventory subgraph to your environment.
-
-4. In the Products subgraph's schema, remove the `inStock` field and its associated resolver:
-
-    <CodeColumns>
-
-    ```graphql title="Products subgraph"
-    type Product @key(fields: "id") {
-      id: ID!
-    }
-    ```
-
-    ```graphql title="Inventory subgraph"
-    type Product @key(fields: "id") {
-      id: ID!
-      inStock: Boolean!
-    }
-    ```
-
-    </CodeColumns>
-
-5. Compose a new supergraph schema. Deploy a new version of your router that uses the updated schema.
-
-6. Deploy the updated Products subgraph to your environment.
+We're done! The migrated fields have been moved to a new subgraph while only restarting the router a single time.
 
 ## Contributing computed entity fields
 
