@@ -287,6 +287,8 @@ directive @override(from: String!) on FIELD_DEFINITION
 
 Indicates that an object field is now resolved by this subgraph _instead of_ another subgraph where it's also defined. This enables you to migrate a field from one subgraph to another.
 
+You can apply `@override` to [entity](../entities/) fields and fields of the root operation types (such as `Query` and `Mutation`).
+
 <CodeColumns>
 
 ```graphql title="Products subgraph"
