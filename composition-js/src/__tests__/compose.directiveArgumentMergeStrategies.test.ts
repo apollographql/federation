@@ -22,6 +22,7 @@ import {
   registerKnownFeature,
   unregisterKnownFeatures,
 } from "@apollo/federation-internals/dist/knownCoreFeatures"
+import { HINTS } from "../hints";
 
 let testFeature: FeatureDefinitions | undefined = undefined;
 
@@ -71,8 +72,8 @@ describe('composition of directive with non-trivial argument strategies', () => 
     type: (schema: Schema) => new NonNullType(schema.intType()),
     compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.MAX,
     argValues: {
-      s1: { t: 3, k: 1},
-      s2: { t: 2, k: 5, b: 4},
+      s1: { t: 3, k: 1 },
+      s2: { t: 2, k: 5, b: 4 },
     },
     resultValues: {
       t: 3, k: 5, b: 4,
@@ -82,8 +83,8 @@ describe('composition of directive with non-trivial argument strategies', () => 
     type: (schema: Schema) => new NonNullType(schema.intType()),
     compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.MIN,
     argValues: {
-      s1: { t: 3, k: 1},
-      s2: { t: 2, k: 5, b: 4},
+      s1: { t: 3, k: 1 },
+      s2: { t: 2, k: 5, b: 4 },
     },
     resultValues: {
       t: 2, k: 1, b: 4,
@@ -93,8 +94,8 @@ describe('composition of directive with non-trivial argument strategies', () => 
     type: (schema: Schema) => new NonNullType(schema.intType()),
     compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.SUM,
     argValues: {
-      s1: { t: 3, k: 1},
-      s2: { t: 2, k: 5, b: 4},
+      s1: { t: 3, k: 1 },
+      s2: { t: 2, k: 5, b: 4 },
     },
     resultValues: {
       t: 5, k: 6, b: 4,
@@ -104,8 +105,8 @@ describe('composition of directive with non-trivial argument strategies', () => 
     type: (schema: Schema) => new NonNullType(new ListType(new NonNullType(schema.stringType()))),
     compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.INTERSECTION,
     argValues: {
-      s1: { t: ['foo', 'bar'], k: []},
-      s2: { t: ['foo'], k: ['v1', 'v2'], b: ['x']},
+      s1: { t: ['foo', 'bar'], k: [] },
+      s2: { t: ['foo'], k: ['v1', 'v2'], b: ['x'] },
     },
     resultValues: {
       t: ['foo'], k: [], b: ['x'],
@@ -115,13 +116,13 @@ describe('composition of directive with non-trivial argument strategies', () => 
     type: (schema: Schema) => new NonNullType(new ListType(new NonNullType(schema.stringType()))),
     compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.UNION,
     argValues: {
-      s1: { t: ['foo', 'bar'], k: []},
-      s2: { t: ['foo'], k: ['v1', 'v2'], b: ['x']},
+      s1: { t: ['foo', 'bar'], k: [] },
+      s2: { t: ['foo'], k: ['v1', 'v2'], b: ['x'] },
     },
     resultValues: {
       t: ['foo', 'bar'], k: ['v1', 'v2'], b: ['x'],
     },
-  }])('works for $name', ({name, type, compositionStrategy, argValues, resultValues}) => {
+  }])('works for $name', ({ name, type, compositionStrategy, argValues, resultValues }) => {
     createTestFeature({
       url: 'https://specs.apollo.dev',
       name,
@@ -175,6 +176,11 @@ describe('composition of directive with non-trivial argument strategies', () => 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
 
+    expect(result.hints.map((h) => [h.definition, h.message])).toStrictEqual([
+      [HINTS.MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS, `Directive @${name} is applied to "T" in multiple subgraphs with different arguments. Merging strategies used by arguments: { "value": ${compositionStrategy.name} }`],
+      [HINTS.MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS, `Directive @${name} is applied to "T.k" in multiple subgraphs with different arguments. Merging strategies used by arguments: { "value": ${compositionStrategy.name} }`],
+    ]);
+
     const s = result.schema;
 
     expect(directiveStrings(s.schemaDefinition, name)).toStrictEqual([
@@ -188,5 +194,55 @@ describe('composition of directive with non-trivial argument strategies', () => 
     expect(directiveStrings(t.field('b')!, name)).toStrictEqual([`@${name}(value: ${valueToString(resultValues.b)})`]);
 
   });
-});
 
+  test('errors when declaring strategy that does not match the argument type', () => {
+    const name = 'foo';
+    const value = "bar";
+
+    createTestFeature({
+      url: 'https://specs.apollo.dev',
+      name,
+      createDirective: (name, supergraphSpecification) => createDirectiveSpecification({
+        name,
+        locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
+        composes: true,
+        supergraphSpecification,
+        args: [
+          { name: "value", type: (schema) => schema.stringType(), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.MAX }
+        ],
+      }),
+    });
+
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        extend schema @link(url: "https://specs.apollo.dev/${name}/v0.1")
+
+        type Query {
+          t: T
+        }
+
+        type T {
+          v: String @${name}(value: ${valueToString(value)})
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        extend schema @link(url: "https://specs.apollo.dev/${name}/v0.1")
+
+        type T {
+          v: String @${name}(value: ${valueToString(value)})
+        }
+      `
+    };
+
+    expect(
+      () => composeAsFed2Subgraphs([subgraph1, subgraph2])
+    ).toThrow('Invalid composition strategy MAX for argument @foo(value:) of type String; MAX only supports type(s) Int!');
+  });
+});

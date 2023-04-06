@@ -122,12 +122,12 @@ export abstract class FeatureDefinition {
     return feature ? feature.typeNameInSchema(typeName) : undefined;
   }
 
-  protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
+  protected rootDirective<TApplicationArgs extends { [key: string]: any }>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
     const name = this.nameInSchema(schema);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
 
-  protected directive<TApplicationArgs extends {[key: string]: any}>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
+  protected directive<TApplicationArgs extends { [key: string]: any }>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
     const name = this.directiveNameInSchema(schema, elementName);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
@@ -338,7 +338,7 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
     if (url.identity === coreIdentity) {
       return directive.name === (args.as ?? 'core');
     } else {
-      return url.identity === linkIdentity &&  directive.name === (args.as ?? linkDirectiveDefaultName);
+      return url.identity === linkIdentity && directive.name === (args.as ?? linkDirectiveDefaultName);
     }
   } catch (err) {
     return false;
@@ -356,7 +356,7 @@ function isValidUrlArgumentType(type: InputType, schema: Schema): boolean {
 
 const linkPurposeTypeSpec = createEnumTypeSpecification({
   name: 'Purpose',
-  values: corePurposes.map((name) => ({ name, description: purposesDescription(name)}))
+  values: corePurposes.map((name) => ({ name, description: purposesDescription(name) }))
 });
 
 const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
@@ -454,7 +454,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     //
     // So instead, we put the directive on the schema definition unless some extensions exists but no
     // definition does (that is, no non-extension elements are populated).
-    const schemaDef =  schema.schemaDefinition;
+    const schemaDef = schema.schemaDefinition;
     // Side-note: this test must be done _before_ we call `applyDirective`, otherwise it would take it into
     // account.
     const hasDefinition = schemaDef.hasNonExtensionElements();
@@ -489,7 +489,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
    * must start with a `@`.
    */
   allElementNames(): string[] {
-    const names = [ `@${this.url.name}` ];
+    const names = [`@${this.url.name}`];
     if (this.supportPurposes()) {
       names.push('Purpose');
     }
@@ -593,7 +593,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
  * Versions are a (major, minor) number pair.
  */
 export class FeatureVersion {
-  constructor(public readonly major: number, public readonly minor: number) {}
+  constructor(public readonly major: number, public readonly minor: number) { }
 
   /**
    * Parse a version specifier of the form "v(major).(minor)" or throw
@@ -625,8 +625,8 @@ export class FeatureVersion {
    * ```
    **/
   public satisfies(required: FeatureVersion): boolean {
-    const {major, minor} = this
-    const {major: rMajor, minor: rMinor} = required
+    const { major, minor } = this
+    const { major: rMajor, minor: rMinor } = required
     return rMajor == major && (
       major == 0
         ? rMinor == minor
@@ -640,7 +640,7 @@ export class FeatureVersion {
    * of compatibility, so those will just return the same thing as `this.toString()`.
    */
   public get series() {
-    const {major} = this
+    const { major } = this
     return major > 0 ? `${major}.x` : String(this)
   }
 
@@ -710,7 +710,7 @@ export class FeatureUrl {
     public readonly name: string,
     public readonly version: FeatureVersion,
     public readonly element?: string,
-  ) {}
+  ) { }
 
   /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
@@ -728,7 +728,7 @@ export class FeatureUrl {
     if (!name) {
       throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing feature name component in feature url '${url}'`, { nodes: node })
     }
-    const element = url.hash ? url.hash.slice(1): undefined
+    const element = url.hash ? url.hash.slice(1) : undefined
     url.hash = ''
     url.search = ''
     url.password = ''
@@ -750,7 +750,7 @@ export class FeatureUrl {
    */
   public satisfies(requested: FeatureUrl): boolean {
     return requested.identity === this.identity &&
-           this.version.satisfies(requested.version)
+      this.version.satisfies(requested.version)
   }
 
   public equals(other: FeatureUrl) {

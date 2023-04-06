@@ -84,17 +84,17 @@ export function createDirectiveSpecification({
 }): DirectiveSpecification {
   let composition: DirectiveCompositionSpecification | undefined = undefined;
   if (composes) {
-    assert(supergraphSpecification, `Should provide a @link specification to use in supergraph for ${name} if it composes`);
+    assert(supergraphSpecification, `Should provide a @link specification to use in supergraph for directive @${name} if it composes`);
     const argStrategies = new Map(args.filter((arg) => arg.compositionStrategy).map((arg) => [arg.name, arg.compositionStrategy!]));
     let argumentsMerger: ((schema: Schema) => ArgumentMerger | GraphQLError) | undefined = undefined;
     if (argStrategies.size > 0) {
-      assert(!repeatable, () => `Invalid directive specification for ${name}: ${name} is repeatable and should not define composition strategy for its arguments`);
-      assert(argStrategies.size === args.length, () => `Invalid directive specification for ${name}: not all argument defines a composition strategy`);
+      assert(!repeatable, () => `Invalid directive specification for @${name}: @${name} is repeatable and should not define composition strategy for its arguments`);
+      assert(argStrategies.size === args.length, () => `Invalid directive specification for @${name}: not all arguments define a composition strategy`);
       argumentsMerger = (schema) => {
         // Validate that the arguments have compatible types with the declared strategies (a bit unfortunate that we can't do this until
         // we have a schema but well, not a huge deal either).
         for (const { name: argName, type } of args) {
-          const strategy = argStrategies.get(argName); 
+          const strategy = argStrategies.get(argName);
           // Note that we've built `argStrategies` from the declared args and checked that all argument had a strategy, so it would be
           // a bug in the code if we didn't get a strategy (not an issue in the directive declaration).
           assert(strategy, () => `Should have a strategy for ${argName}`);
@@ -105,18 +105,21 @@ export function createDirectiveSpecification({
           if (!strategyTypes.some((t) => sameType(t, argType))) {
             return new GraphQLError(
               `Invalid composition strategy ${strategy.name} for argument @${name}(${argName}:) of type ${argType}; `
-                + `${strategy.name} only supports type(s) ${strategyTypes.join(', ')}`
+              + `${strategy.name} only supports type(s) ${strategyTypes.join(', ')}`
             );
           }
         };
         return {
           merge: (argName, values) => {
-            const strategy = argStrategies.get(argName); 
+            const strategy = argStrategies.get(argName);
             assert(strategy, () => `Should have a strategy for ${argName}`);
             return strategy.mergeValues(values);
           },
           toString: () => {
-            return [...argStrategies.entries()].map(([arg, strategy]) => `${arg}: ${strategy.name}`).join(', ');
+            if (argStrategies.size === 0) {
+              return "<none>";
+            }
+            return '{ ' + [...argStrategies.entries()].map(([arg, strategy]) => `"${arg}": ${strategy.name}`).join(', ') + ' }';
           }
         };
       }
@@ -132,24 +135,24 @@ export function createDirectiveSpecification({
     composition,
     checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
       const actualName = nameInSchema ?? name;
-      const {resolvedArgs, errors} = args.reduce<{resolvedArgs: (ResolvedArgumentSpecification & { compositionStrategy?: ArgumentCompositionStrategy })[], errors: GraphQLError[]}>(
-        ({resolvedArgs, errors}, arg) => {
+      const { resolvedArgs, errors } = args.reduce<{ resolvedArgs: (ResolvedArgumentSpecification & { compositionStrategy?: ArgumentCompositionStrategy })[], errors: GraphQLError[] }>(
+        ({ resolvedArgs, errors }, arg) => {
           const typeOrErrors = arg.type(schema, actualName);
           if (Array.isArray(typeOrErrors)) {
             errors.push(...typeOrErrors);
           } else {
             resolvedArgs.push({ ...arg, type: typeOrErrors });
           }
-          return {resolvedArgs, errors};
+          return { resolvedArgs, errors };
         },
-        { resolvedArgs: [], errors: []}
+        { resolvedArgs: [], errors: [] }
       );
       if (errors.length > 0) {
         return errors;
       }
       const existing = schema.directive(actualName);
       if (existing) {
-        return ensureSameDirectiveStructure({name: actualName, locations, repeatable, args: resolvedArgs}, existing);
+        return ensureSameDirectiveStructure({ name: actualName, locations, repeatable, args: resolvedArgs }, existing);
       } else {
         const directive = schema.addDirectiveDefinition(new DirectiveDefinition(actualName, asBuiltIn));
         directive.repeatable = repeatable;
@@ -179,7 +182,7 @@ export function createScalarTypeSpecification({ name }: { name: string }): TypeS
   }
 }
 
-export function createObjectTypeSpecification({ 
+export function createObjectTypeSpecification({
   name,
   fieldsFct,
 }: {
@@ -240,7 +243,7 @@ export function createObjectTypeSpecification({
   }
 }
 
-export function createUnionTypeSpecification({ 
+export function createUnionTypeSpecification({
   name,
   membersFct,
 }: {
@@ -294,7 +297,7 @@ export function createEnumTypeSpecification({
   values,
 }: {
   name: string,
-  values: { name: string, description?: string}[],
+  values: { name: string, description?: string }[],
 }): TypeSpecification {
   return {
     name,
@@ -318,7 +321,7 @@ export function createEnumTypeSpecification({
         return errors;
       } else {
         const type = schema.addType(new EnumType(actualName, asBuiltIn));
-        for (const {name, description} of values) {
+        for (const { name, description } of values) {
           type.addValue(name).description = description;
         }
         return [];
