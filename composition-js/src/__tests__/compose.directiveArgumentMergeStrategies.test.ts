@@ -55,8 +55,8 @@ function createTestFeature({
 }
 
 function directiveStrings(elt: { appliedDirectives: readonly Directive<any>[] }, contains?: string): string[] {
-  const strs = elt.appliedDirectives.map((d) => d.toString());
-  return contains ? strs.filter((str) => str.includes(contains)) : strs;
+  const strings = elt.appliedDirectives.map((d) => d.toString());
+  return contains ? strings.filter((str) => str.includes(contains)) : strings;
 }
 
 describe('composition of directive with non-trivial argument strategies', () => {
