@@ -62,15 +62,14 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
     this.inaccessibleDirectiveSpec = createDirectiveSpecification({
       name: 'inaccessible',
       locations: this.inaccessibleLocations,
+      composes: true,
+      supergraphSpecification: () => INACCESSIBLE_VERSIONS.latest(),
     });
+    this.registerDirective(this.inaccessibleDirectiveSpec);
   }
 
   isV01() {
     return this.version.equals(new FeatureVersion(0, 1));
-  }
-
-  addElementsToSchema(schema: Schema): GraphQLError[] {
-    return this.addDirectiveSpec(schema, this.inaccessibleDirectiveSpec);
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> | undefined {
@@ -87,10 +86,6 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
       );
     }
     return undefined;
-  }
-
-  allElementNames(): string[] {
-    return ['@inaccessible'];
   }
 
   get defaultCorePurpose(): CorePurpose | undefined {
@@ -891,9 +886,7 @@ function getInputType(element: SchemaElementWithDefaultValue): InputType {
 // similar to the "Values of Correct Type" validation in the GraphQL spec.
 // However, there are two noteable differences:
 // 1. Variable references are not allowed.
-// 2. Scalar values are not required to be coercible (due to machine-specific
-//    differences in input coercion rules).
-//
+// 2. Scalar values are not required to be coercible (due to machine-specific differences in input coercion rules).
 // As it turns out, building a Schema object validates this (and a bit more)
 // already, so in the interests of not duplicating validations/keeping the logic
 // centralized, this code assumes the input values it receives satisfy the above
