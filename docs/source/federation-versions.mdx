@@ -231,6 +231,31 @@ directive @composeDirective(name: String!) repeatable on SCHEMA
 </td>
 </tr>
 
+<tr>
+<td>
+
+##### `@requires`
+
+</td>
+<td>
+
+The `fields` argument can now include fields that themselves take arguments. [Learn more.](./entities-advanced/#using-requires-with-fields-that-take-arguments)
+
+(Functionality added in `v2.1.2`)
+
+```graphql
+type Product @key(fields: "id") {
+  id: ID!
+  weight(units: String): Int! @external
+  #highlight-start
+  shippingEstimate: Int! @requires(fields: "weight(units: \"KILOGRAMS\")")
+  #highlight-end
+}
+```
+
+</td>
+</tr>
+
 </tbody>
 </table>
 
