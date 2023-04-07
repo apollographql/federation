@@ -68,7 +68,7 @@
     "prompt-confirm": "2.0.4",
     "strip-indent": "3.0.0",
     "ts-jest": "28.0.8",
-    "typescript": "5.0.3",
+    "typescript": "5.0.4",
     "winston": "3.8.2",
     "winston-transport": "4.5.0"
   },
