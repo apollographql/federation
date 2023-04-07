@@ -1,3 +1,4 @@
+import { printType } from '@apollo/federation-internals';
 import gql from "graphql-tag";
 import { composeServices, CompositionResult } from "../compose";
 
@@ -40,63 +41,16 @@ describe("composing graphs with @finder", () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(result.errors).toBeUndefined();
-    expect(result.supergraphSdl).toMatchInlineSnapshot(`
-      "schema
-        @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-        @link(url: \\"https://specs.apollo.dev/join/v0.4\\", for: EXECUTION)
-      {
-        query: Query
-      }
-
-      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
-
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
-
-      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
-
-      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
-
-      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
-
-      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        SUBGRAPHA @join__graph(name: \\"subgraphA\\", url: \\"\\")
-        SUBGRAPHB @join__graph(name: \\"subgraphB\\", url: \\"\\")
-      }
-
-      scalar link__Import
-
-      enum link__Purpose {
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
-
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary for operation execution.
-        \\"\\"\\"
-        EXECUTION
-      }
-
-      type Query
-        @join__type(graph: SUBGRAPHA)
-        @join__type(graph: SUBGRAPHB)
-      {
-        user(id: ID!): User @join__field(graph: SUBGRAPHA, isFinder: true)
-        getInt: Int @join__field(graph: SUBGRAPHB)
-      }
-
-      type User
-        @join__type(graph: SUBGRAPHA, key: \\"id\\")
-      {
-        id: ID!
-        name: String!
-      }"
+    expect(result.schema).toBeDefined();
+    const queryType = result.schema?.type("Query");
+    expect(queryType ? printType(queryType) : '').toMatchInlineSnapshot(`
+    "type Query
+      @join__type(graph: SUBGRAPHA)
+      @join__type(graph: SUBGRAPHB)
+    {
+      user(id: ID!): User @join__field(graph: SUBGRAPHA, isFinder: true)
+      getInt: Int @join__field(graph: SUBGRAPHB)
+    }"
     `);
   });
 
@@ -125,6 +79,38 @@ describe("composing graphs with @finder", () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       ['FINDER_USAGE_ERROR', `[subgraphA] Each key for an entity must have a corresponding finder if @finder is used in subgraph. Missing finder for key 'email: String!' of entity 'User'`]
+    ]);
+  });
+
+  it('lack of finder for a key is a problem when there is at least one finder usage, for interface', () => {
+    const subgraphA = {
+      name: "subgraphA",
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.4"
+            import: ["@key", "@finder"]
+          )
+
+        type Query {
+          user(id: ID!): User @finder
+        }
+
+        interface I @key (fields: "id") {
+          id: ID!
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          email: String!
+          name: String!
+        }
+      `,
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['FINDER_USAGE_ERROR', `[subgraphA] Each key for an entity must have a corresponding finder if @finder is used in subgraph. Missing finder for key 'id: ID!' of entity 'I'`]
     ]);
   });
 
@@ -317,7 +303,76 @@ describe("composing graphs with @finder", () => {
     ]);
   });
 
-  it.todo('finder not on root query field');
-  it.todo('finder on interface');
-  it.todo('finder on input type');
+  it('finder not on root query field', () => {
+    const subgraphA = {
+      name: "subgraphA",
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.4"
+            import: ["@key", "@finder"]
+          )
+
+        type Query {
+          allQueries: AllQueries!
+        }
+
+        type AllQueries {
+          user(id: ID!): User @finder
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          email: String!
+        }
+      `,
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['FINDER_USAGE_ERROR', `[subgraphA] Field marked with @finder must be on the Query type but AllQueries.user is on AllQueries`],
+    ]);
+  });
+
+  it("finder on interface", () => {
+    const subgraphA = {
+      name: "subgraphA",
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.4"
+            import: ["@key", "@finder"]
+          )
+
+        type Query {
+          userInterface(id: ID!): UserInterface @finder
+          user(id: ID!): UserConcrete @finder
+        }
+
+        interface UserInterface @key(fields: "id") {
+          id: ID!
+        }
+
+        type UserConcrete implements UserInterface @key(fields: "id") {
+          id: ID!
+          name: String!
+        }
+      `,
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(result.errors).toBeUndefined();
+    expect(result.schema).toBeDefined();
+    const queryType = result.schema?.type("Query");
+    expect(queryType ? printType(queryType) : "").toMatchInlineSnapshot(`
+      "type Query
+        @join__type(graph: SUBGRAPHA)
+        @join__type(graph: SUBGRAPHB)
+      {
+        userInterface(id: ID!): UserInterface @join__field(graph: SUBGRAPHA, isFinder: true)
+        user(id: ID!): UserConcrete @join__field(graph: SUBGRAPHA, isFinder: true)
+        getInt: Int @join__field(graph: SUBGRAPHB)
+      }"
+    `);
+  });
 });

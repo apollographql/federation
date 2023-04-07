@@ -519,7 +519,7 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
   }
 
   // helper function to make sure that a arguments match between finders and entities
-  const validateFinderArguments = (finderArgs: readonly ArgumentDefinition<FieldDefinition<ObjectType>>[], entity: ObjectType, fieldSet: SelectionSet) => {
+  const validateFinderArguments = (finderArgs: readonly ArgumentDefinition<FieldDefinition<ObjectType>>[], entity: ObjectType | InterfaceType, fieldSet: SelectionSet) => {
     if (finderArgs.length !== fieldSet.selections().length) {
       return false;
     }
@@ -537,8 +537,14 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
     assert(field.type, 'Finder FieldDefinition must have a type');
     const args = field.arguments();
 
-    // TODO: Check for interfaces here rather than in merge.ts
-    if (args.length !== 1) {
+    // Field parent must be a query TODO: Relax this restriction in the future
+    if (field.parent.name !== 'Query') {
+      errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
+        `Field marked with @finder must be on the Query type but ${field.coordinate} is on ${field.parent.coordinate}`,
+        { nodes: sourceASTs(field) },
+      ));
+    } else if (args.length !== 1) {
+      // TODO: Check for interfaces here rather than in merge.ts
       errorCollector.push(ERRORS.FINDER_USAGE_ERROR.err(
         `Field marked with @finder must take exactly one argument which must match a key on the resulting entity`,
         { nodes: sourceASTs(field) },
@@ -570,7 +576,7 @@ function validateFinders(metadata: FederationMetadata, errorCollector: GraphQLEr
   const keyApplications = metadata.keyDirective().applications();
   for (let i = 0; i < keyApplications.length; i++) {
     const parent = keyApplications[i].parent;
-    assert(parent instanceof ObjectType, 'Key Directive must be on an object type');
+    assert(parent instanceof ObjectType || parent instanceof InterfaceType, 'Key Directive must be on an object type');
     const fieldSet = parseFieldSetArgument({
       parentType: parent,
       directive: keyApplications[i],
