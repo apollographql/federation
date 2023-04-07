@@ -487,7 +487,7 @@ type Product @key(fields: "id") {
 - The router provides the specified values in its query to whichever subgraph defines the required field.
 - Each specified argument value is _static_ (i.e., the router always provides the same value).
 - You can omit values for nullable arguments. You _must_ provide values for non-nullable arguments.
-- If you define your subgraph schema in an SDL file (instead of programmatically), you escape quotes for string and enum values with backslashes (as shown above).
+- If you define your subgraph schema in an SDL file (instead of programmatically), you must escape quotes for string and enum values with backslashes (as shown above).
 
 ## Resolving another subgraph's field
 
