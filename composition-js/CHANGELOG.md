@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/composition`
 
+- `compose` and `composeServices` now take optional `ComposeOptions` to customize (at the moment, only `sdlPrintOptions` is supported)
+
 ## 2.4.1
 ### Patch Changes
 

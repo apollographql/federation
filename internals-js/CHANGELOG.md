@@ -1,7 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
 - Add more ordering options to `printSchema`
-- Update `orderPrintedDefinitions` to consider sub-elements: fields, implemented interfaces, union members, input obect fields, and enum values [PR #2042](https://github.com/apollographql/federation/pull/2042).
+- Update `orderPrintedDefinitions` to consider sub-elements: fields, implemented interfaces, union members, input obect fields, and enum values [PR #2042](https://github.com/apollographql/federation/pull/2042). `shallowOrderPrintedDefinitions` is introduced with old behavior.
 
 ## 2.4.1
 ### Patch Changes
