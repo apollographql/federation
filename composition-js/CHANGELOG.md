@@ -1,7 +1,5 @@
 # CHANGELOG for `@apollo/composition`
 
-- Deeply order schema yielded by `compose`: fields, implemented interfaces, union members, input object fields, and enum values are now alphabetically ordered too [PR #2042](https://github.com/apollographql/federation/pull/2042)
-
 ## 2.4.1
 ### Patch Changes
 

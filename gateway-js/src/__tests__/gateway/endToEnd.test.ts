@@ -417,14 +417,14 @@ describe('end-to-end features', () => {
       }
 
       type Query {
-        f(e: E): Int
         t: T
+        f(e: E): Int
       }
 
       type T {
+        k: ID
         b: Int
         d: String
-        k: ID
       }"
     `);
 

@@ -70,6 +70,14 @@ export function orderPrintedDefinitions(options: PrintOptions): PrintOptions {
   };
 }
 
+export function shallowOrderPrintedDefinitions(options: PrintOptions): PrintOptions {
+  return {
+    ...options,
+    typeCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+    directiveCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+  };
+}
+
 function isDefinitionOrderValid(options: PrintOptions): boolean {
   return options.definitionsOrder.length === 3
     && options.definitionsOrder.indexOf('schema') >= 0

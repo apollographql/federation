@@ -3,7 +3,8 @@ import {
   Schema,
   Subgraphs,
   defaultPrintOptions,
-  orderPrintedDefinitions,
+  shallowOrderPrintedDefinitions,
+  PrintOptions,
   ServiceDefinition,
   subgraphsFromServiceList,
   upgradeSubgraphsIfNecessary,
@@ -30,7 +31,15 @@ export interface CompositionSuccess {
   errors?: undefined;
 }
 
-export function compose(subgraphs: Subgraphs): CompositionResult {
+export interface ComposeOptions {
+  sdlPrintOptions: (options: PrintOptions) => PrintOptions;
+}
+
+export const defaultComposeOptions: ComposeOptions = {
+  sdlPrintOptions: shallowOrderPrintedDefinitions
+}
+
+export function compose(subgraphs: Subgraphs, options: ComposeOptions = defaultComposeOptions): CompositionResult {
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
@@ -60,7 +69,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   try {
     supergraphSdl = printSchema(
       supergraphSchema,
-      orderPrintedDefinitions(defaultPrintOptions)
+      options.sdlPrintOptions(defaultPrintOptions)
     );
   } catch (err) {
     return { errors: [err] };
@@ -73,7 +82,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   };
 }
 
-export function composeServices(services: ServiceDefinition[]): CompositionResult  {
+export function composeServices(services: ServiceDefinition[], options: ComposeOptions = defaultComposeOptions): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
@@ -81,5 +90,5 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     // include the subgraph name in their message.
     return { errors: subgraphs };
   }
-  return compose(subgraphs);
+  return compose(subgraphs, options);
 }
