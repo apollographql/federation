@@ -1462,3 +1462,247 @@ describe('legacy interface', () => {
     `);
   });
 });
+
+fdescribe('reproduction', () => {
+  it('p1 then p2', async () => {
+    const userData = [
+      { id: '1', name: 'George', number: '1234', email: 'g@example.com' },
+      { id: '2', name: 'Tina', number: '2345', email: 't@example.com' },
+      { id: '3', name: 'Mandy', number: '3456', email: 'm@example.com' },
+    ];
+
+    const schema = buildSubgraphSchema({
+      typeDefs: gql`
+        type Query {
+          users: [PublicUser]
+        }
+
+        type User @key(fields: "id") {
+          id: String!
+          name: String!
+          number: Int
+          email: String
+        }
+
+        type PublicUser @key(fields: "id") {
+          id: String!
+          name: String!
+        }
+
+        extend type Review @key(fields: "id") {
+          id: String! @external
+          user: PublicUser
+        }
+
+        extend type InternalReview @key(fields: "id") {
+          id: String! @external
+          user: User
+        }
+      `,
+      resolvers: {
+        Query: {
+          users() {
+            return userData;
+          },
+        },
+        User: {
+          __resolveReference(parent) {
+            console.log('user', parent);
+            return userData.find((d) => d.id === parent.id);
+          },
+        },
+        PublicUser: {
+          __resolveReference(parent) {
+            console.log('public user', parent);
+            return userData.find((d) => d.id === parent.id);
+          },
+        },
+      },
+    });
+
+    const result = await execute({
+      schema,
+      document: gql`
+        query products__users__2($representations: [_Any!]!) {
+          _entities(representations: $representations) {
+            ... on PublicUser {
+              name
+            }
+          }
+        }
+      `,
+      variableValues: {
+        representations: [
+          { __typename: 'PublicUser', id: '1' },
+          { __typename: 'PublicUser', id: '2' },
+          { __typename: 'PublicUser', id: '1' },
+        ],
+      },
+    });
+
+    expect(result).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "_entities": Array [
+            Object {
+              "name": "George",
+            },
+            Object {
+              "name": "Tina",
+            },
+            Object {
+              "name": "George",
+            },
+          ],
+        },
+      }
+    `);
+
+    const result2 = await execute({
+      schema,
+      document: gql`
+        query products__users__2($representations: [_Any!]!) {
+          _entities(representations: $representations) {
+            ... on PublicUser {
+              name
+            }
+          }
+        }
+      `,
+      variableValues: {
+        representations: [
+          { __typename: 'User', id: '1' },
+          { __typename: 'User', id: '2' },
+          { __typename: 'User', id: '1' },
+        ],
+      },
+    });
+
+    expect(result2).toMatchInlineSnapshot(`
+      Object {
+        "data": null,
+        "errors": Array [
+          [GraphQLError: Cannot redefine property: __typename],
+        ],
+      }
+    `);
+  });
+
+  it('p2 then p1', async () => {
+    const userData = [
+      { id: '1', name: 'George', number: '1234', email: 'g@example.com' },
+      { id: '2', name: 'Tina', number: '2345', email: 't@example.com' },
+      { id: '3', name: 'Mandy', number: '3456', email: 'm@example.com' },
+    ];
+
+    const schema = buildSubgraphSchema({
+      typeDefs: gql`
+        type Query {
+          users: [PublicUser]
+        }
+
+        type User @key(fields: "id") {
+          id: String!
+          name: String!
+          number: Int
+          email: String
+        }
+
+        type PublicUser @key(fields: "id") {
+          id: String!
+          name: String!
+        }
+
+        extend type Review @key(fields: "id") {
+          id: String! @external
+          user: PublicUser
+        }
+
+        extend type InternalReview @key(fields: "id") {
+          id: String! @external
+          user: User
+        }
+      `,
+      resolvers: {
+        Query: {
+          users() {
+            return userData;
+          },
+        },
+        User: {
+          __resolveReference(parent) {
+            console.log('user', parent);
+            return userData.find((d) => d.id === parent.id);
+          },
+        },
+        PublicUser: {
+          __resolveReference(parent) {
+            console.log('public user', parent);
+            return userData.find((d) => d.id === parent.id);
+          },
+        },
+      },
+    });
+
+    const result = await execute({
+      schema,
+      document: gql`
+        query products__users__2($representations: [_Any!]!) {
+          _entities(representations: $representations) {
+            ... on PublicUser {
+              name
+            }
+          }
+        }
+      `,
+      variableValues: {
+        representations: [
+          { __typename: 'User', id: '1' },
+          { __typename: 'User', id: '2' },
+          { __typename: 'User', id: '1' },
+        ],
+      },
+    });
+
+    expect(result).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "_entities": Array [
+            Object {},
+            Object {},
+            Object {},
+          ],
+        },
+      }
+    `);
+
+    const result2 = await execute({
+      schema,
+      document: gql`
+        query products__users__2($representations: [_Any!]!) {
+          _entities(representations: $representations) {
+            ... on PublicUser {
+              name
+            }
+          }
+        }
+      `,
+      variableValues: {
+        representations: [
+          { __typename: 'PublicUser', id: '1' },
+          { __typename: 'PublicUser', id: '2' },
+          { __typename: 'PublicUser', id: '1' },
+        ],
+      },
+    });
+
+    expect(result2).toMatchInlineSnapshot(`
+      Object {
+        "data": null,
+        "errors": Array [
+          [GraphQLError: Cannot redefine property: __typename],
+        ],
+      }
+    `);
+  });
+});
