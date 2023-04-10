@@ -1464,13 +1464,15 @@ describe('legacy interface', () => {
 });
 
 fdescribe('reproduction', () => {
-  it('p1 then p2', async () => {
-    const userData = [
+  function getUserData() {
+    return [
       { id: '1', name: 'George', number: '1234', email: 'g@example.com' },
       { id: '2', name: 'Tina', number: '2345', email: 't@example.com' },
       { id: '3', name: 'Mandy', number: '3456', email: 'm@example.com' },
     ];
+  }
 
+  it('p1 then p2', async () => {
     const schema = buildSubgraphSchema({
       typeDefs: gql`
         type Query {
@@ -1502,19 +1504,19 @@ fdescribe('reproduction', () => {
       resolvers: {
         Query: {
           users() {
-            return userData;
+            return getUserData();
           },
         },
         User: {
           __resolveReference(parent) {
             console.log('user', parent);
-            return userData.find((d) => d.id === parent.id);
+            return getUserData().find((d) => d.id === parent.id);
           },
         },
         PublicUser: {
           __resolveReference(parent) {
             console.log('public user', parent);
-            return userData.find((d) => d.id === parent.id);
+            return getUserData().find((d) => d.id === parent.id);
           },
         },
       },
@@ -1580,21 +1582,18 @@ fdescribe('reproduction', () => {
 
     expect(result2).toMatchInlineSnapshot(`
       Object {
-        "data": null,
-        "errors": Array [
-          [GraphQLError: Cannot redefine property: __typename],
-        ],
+        "data": Object {
+          "_entities": Array [
+            Object {},
+            Object {},
+            Object {},
+          ],
+        },
       }
     `);
   });
 
   it('p2 then p1', async () => {
-    const userData = [
-      { id: '1', name: 'George', number: '1234', email: 'g@example.com' },
-      { id: '2', name: 'Tina', number: '2345', email: 't@example.com' },
-      { id: '3', name: 'Mandy', number: '3456', email: 'm@example.com' },
-    ];
-
     const schema = buildSubgraphSchema({
       typeDefs: gql`
         type Query {
@@ -1626,19 +1625,19 @@ fdescribe('reproduction', () => {
       resolvers: {
         Query: {
           users() {
-            return userData;
+            return getUserData();
           },
         },
         User: {
           __resolveReference(parent) {
             console.log('user', parent);
-            return userData.find((d) => d.id === parent.id);
+            return getUserData().find((d) => d.id === parent.id);
           },
         },
         PublicUser: {
           __resolveReference(parent) {
             console.log('public user', parent);
-            return userData.find((d) => d.id === parent.id);
+            return getUserData().find((d) => d.id === parent.id);
           },
         },
       },
@@ -1698,10 +1697,19 @@ fdescribe('reproduction', () => {
 
     expect(result2).toMatchInlineSnapshot(`
       Object {
-        "data": null,
-        "errors": Array [
-          [GraphQLError: Cannot redefine property: __typename],
-        ],
+        "data": Object {
+          "_entities": Array [
+            Object {
+              "name": "George",
+            },
+            Object {
+              "name": "Tina",
+            },
+            Object {
+              "name": "George",
+            },
+          ],
+        },
       }
     `);
   });
