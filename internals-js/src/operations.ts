@@ -49,7 +49,7 @@ import {
 } from "./definitions";
 import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
-import { sameType } from "./types";
+import { isSubtype, sameType } from "./types";
 import { assert, isDefined, mapEntries, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 import { v1 as uuidv1 } from 'uuid';
@@ -678,12 +678,12 @@ function isUselessFollowupElement(first: OperationElement, followup: OperationEl
     : first.typeCondition;
 
   // The followup is useless if it's a fragment (with no directives we would want to preserve) whose type
-  // is already that of the first element.
+  // is already that of the first element (or a supertype).
   return !!typeOfFirst
     && followup.kind === 'FragmentElement'
     && !!followup.typeCondition
     && (followup.appliedDirectives.length === 0 || isDirectiveApplicationsSubset(conditionals, followup.appliedDirectives))
-    && sameType(typeOfFirst, followup.typeCondition);
+    && isSubtype(followup.typeCondition, typeOfFirst);
 }
 
 export type RootOperationPath = {
@@ -1598,9 +1598,19 @@ function addOneToKeyedUpdates(keyedUpdates: MultiMap<string, SelectionUpdate>, s
   }
 }
 
+function maybeRebaseOnSchema(toRebase: CompositeType, schema: Schema): CompositeType {
+  if (toRebase.schema() === schema) {
+    return toRebase;
+  }
+
+  const rebased = schema.type(toRebase.name);
+  assert(rebased && isCompositeType(rebased), () => `Expected ${toRebase} to exists and be composite in the rebased schema, but got ${rebased?.kind}`);
+  return rebased;
+}
+
 function isUnecessaryFragment(parentType: CompositeType, fragment: FragmentSelection): boolean {
   return fragment.element.appliedDirectives.length === 0
-    && (!fragment.element.typeCondition || sameType(parentType, fragment.element.typeCondition));
+    && (!fragment.element.typeCondition || isSubtype(maybeRebaseOnSchema(fragment.element.typeCondition, parentType.schema()), parentType));
 }
 
 function withUnecessaryFragmentsRemoved(
