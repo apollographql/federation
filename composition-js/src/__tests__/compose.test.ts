@@ -2,15 +2,17 @@ import {
   asFed2SubgraphDocument,
   assert,
   buildSubgraph,
+  defaultPrintOptions,
   FEDERATION2_LINK_WITH_FULL_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
   isObjectType,
   ObjectType,
+  orderPrintedDefinitions,
   printSchema,
   printType,
 } from '@apollo/federation-internals';
-import { CompositionResult, composeServices } from '../compose';
+import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
 import { print } from 'graphql';
@@ -162,6 +164,154 @@ describe('composition', () => {
         k: ID
         a: Int
         b: String
+      }
+
+      union U = S | T
+    `);
+  })
+
+  it('respects given compose options', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "k") {
+          k: ID
+        }
+
+        type S {
+          x: Int
+        }
+
+        union U = S | T
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "k") {
+          k: ID
+          a: Int
+          b: String
+        }
+
+        enum E {
+          V1
+          V2
+        }
+      `
+    }
+
+    const options: CompositionOptions = {
+      sdlPrintOptions: orderPrintedDefinitions(defaultPrintOptions),
+    }
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2], options);
+    assertCompositionSuccess(result);
+
+    expect(result.supergraphSdl).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      enum E
+        @join__type(graph: SUBGRAPH2)
+      {
+        V1 @join__enumValue(graph: SUBGRAPH2)
+        V2 @join__enumValue(graph: SUBGRAPH2)
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
+        SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
+      }
+
+      scalar link__Import
+
+      enum link__Purpose {
+        """
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        """
+        EXECUTION
+
+        """
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        """
+        SECURITY
+      }
+
+      type Query
+        @join__type(graph: SUBGRAPH1)
+        @join__type(graph: SUBGRAPH2)
+      {
+        t: T @join__field(graph: SUBGRAPH1)
+      }
+
+      type S
+        @join__type(graph: SUBGRAPH1)
+      {
+        x: Int
+      }
+
+      type T
+        @join__type(graph: SUBGRAPH1, key: "k")
+        @join__type(graph: SUBGRAPH2, key: "k")
+      {
+        a: Int @join__field(graph: SUBGRAPH2)
+        b: String @join__field(graph: SUBGRAPH2)
+        k: ID
+      }
+
+      union U
+        @join__type(graph: SUBGRAPH1)
+        @join__unionMember(graph: SUBGRAPH1, member: "S")
+        @join__unionMember(graph: SUBGRAPH1, member: "T")
+       = S | T
+    `);
+
+    const [_, api] = schemas(result);
+    expect(printSchema(api, orderPrintedDefinitions(defaultPrintOptions))).toMatchString(`
+      enum E {
+        V1
+        V2
+      }
+
+      type Query {
+        t: T
+      }
+
+      type S {
+        x: Int
+      }
+
+      type T {
+        a: Int
+        b: String
+        k: ID
       }
 
       union U = S | T

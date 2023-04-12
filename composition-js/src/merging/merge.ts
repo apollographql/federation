@@ -16,7 +16,6 @@ import {
   UnionType,
   sameType,
   isStrictSubtype,
-  SubtypingRule,
   ListType,
   NonNullType,
   Type,
@@ -40,7 +39,6 @@ import {
   addSubgraphToASTNode,
   firstOf,
   Extension,
-  DEFAULT_SUBTYPING_RULES,
   isInterfaceType,
   sourceASTs,
   ERRORS,
@@ -79,6 +77,7 @@ import { ComposeDirectiveManager } from '../composeDirectiveManager';
 import { MismatchReporter } from './reporter';
 import { inspect } from "util";
 import { collectCoreDirectivesToCompose, CoreDirectiveInSubgraphs } from "./coreDirectiveCollector";
+import { CompositionOptions } from "../compose";
 
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -88,11 +87,6 @@ const joinSpec = JOIN_VERSIONS.latest();
 const inaccessibleSpec = INACCESSIBLE_VERSIONS.latest();
 
 export type MergeResult = MergeSuccess | MergeFailure;
-
-// TODO: move somewhere else.
-export type CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
-}
 
 type FieldMergeContextProperties = {
   usedOverridden: boolean,
@@ -137,14 +131,6 @@ class FieldMergeContext {
   }
 }
 
-// TODO:" we currently cannot allow "list upgrades", meaning a subgraph returning `String`
-// and another returning `[String]`. To support it, we would need the execution code to
-// recognize situation and "coerce" results from the first subgraph (the one returning
-// `String`) into singleton lists.
-const defaultCompositionOptions: CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules: DEFAULT_SUBTYPING_RULES
-}
-
 export interface MergeSuccess {
   supergraph: Schema;
   hints: CompositionHint[];
@@ -167,7 +153,7 @@ export function isMergeFailure(mergeResult: MergeResult): mergeResult is MergeFa
 
 export function mergeSubgraphs(subgraphs: Subgraphs, options: CompositionOptions = {}): MergeResult {
   assert(subgraphs.values().every((s) => s.isFed2Subgraph()), 'Merging should only be applied to federation 2 subgraphs');
-  return new Merger(subgraphs, { ...defaultCompositionOptions, ...options }).merge();
+  return new Merger(subgraphs, options).merge();
 }
 
 function copyTypeReference(source: Type, dest: Schema): Type {
