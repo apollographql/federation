@@ -4850,6 +4850,251 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test('handles @requires on @interfaceObject that applies to only one of the queried implementation', async () => {
+      // The case this test is that where the @interfaceObject in s2 has a @requires, but the query we send requests the field on which
+      // there is this @require only for one of the implementation type, which it request another field with no require for another implementation.
+      // And we're making sure the requirements only get queried for T1, the first type.
+      const s1 = {
+        name: 's1',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+          type Query {
+            is: [I!]!
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            name: String
+            req: Req
+          }
+
+          type T1 implements I @key(fields: "id") {
+            id: ID!
+            name: String
+            req: Req
+          }
+
+          type T2 implements I @key(fields: "id") {
+            id: ID!
+            name: String
+            req: Req
+          }
+
+          type Req {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            is: () => [
+              { __typename: 'T1', id: '2', name: 'e2', req: { id: 'r1'} },
+              { __typename: 'T2', id: '4', name: 'e4', req: { id: 'r2'} },
+              { __typename: 'T1', id: '1', name: 'e1', req: { id: 'r3'} }
+            ]
+          },
+        }
+      }
+
+      const s2 = {
+        name: 's2',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject", "@external", "@requires"])
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            req: Req @external
+            v: String! @requires(fields: "req { id }")
+          }
+
+          type Req {
+            id: ID! @external
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference(ref: any) {
+              return {
+                ...ref,
+                v: `req=${ref.req.id}`
+              };
+            },
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      let operation = parseOp(`
+        {
+          is {
+            ... on T1 {
+              v
+            }
+            ... on T2 {
+              name
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "s1") {
+              {
+                is {
+                  __typename
+                  ... on T1 {
+                    __typename
+                    id
+                    req {
+                      id
+                    }
+                  }
+                  ... on T2 {
+                    name
+                  }
+                }
+              }
+            },
+            Flatten(path: "is.@") {
+              Fetch(service: "s2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                  ... on I {
+                    __typename
+                    req {
+                      id
+                    }
+                  }
+                } =>
+                {
+                  ... on I {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "is": Array [
+            Object {
+              "v": "req=r1",
+            },
+            Object {
+              "name": "e4",
+            },
+            Object {
+              "v": "req=r3",
+            },
+          ],
+        }
+      `);
+
+      // Sanity checking that if we ask for `v` (the field with @requires), then everything still works.
+      operation = parseOp(`
+        {
+          is {
+            ... on T1 {
+              v
+            }
+            ... on T2 {
+              v
+              name
+            }
+          }
+        }
+        `, schema);
+
+      global.console = require('console');
+      queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "s1") {
+              {
+                is {
+                  __typename
+                  ... on T1 {
+                    __typename
+                    id
+                    req {
+                      id
+                    }
+                  }
+                  ... on T2 {
+                    __typename
+                    id
+                    req {
+                      id
+                    }
+                    name
+                  }
+                }
+              }
+            },
+            Flatten(path: "is.@") {
+              Fetch(service: "s2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                  ... on I {
+                    __typename
+                    req {
+                      id
+                    }
+                  }
+                  ... on T2 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "is": Array [
+            Object {
+              "v": "req=r1",
+            },
+            Object {
+              "name": "e4",
+              "v": "req=r2",
+            },
+            Object {
+              "v": "req=r3",
+            },
+          ],
+        }
+      `);
+    });
   });
 
   describe('fields with conflicting types needing aliasing', () => {

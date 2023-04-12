@@ -49,7 +49,7 @@ import {
 } from "./definitions";
 import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
-import { isDirectSubtype, sameType } from "./types";
+import { isDirectSubtype, isSubtype, sameType } from "./types";
 import { assert, mapEntries, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
@@ -568,12 +568,12 @@ function isUselessFollowupElement(first: OperationElement, followup: OperationEl
     : first.typeCondition;
 
   // The followup is useless if it's a fragment (with no directives we would want to preserve) whose type
-  // is already that of the first element.
+  // is already that of the first element (or a supertype).
   return !!typeOfFirst
     && followup.kind === 'FragmentElement'
     && !!followup.typeCondition
     && (followup.appliedDirectives.length === 0 || isDirectiveApplicationsSubset(conditionals, followup.appliedDirectives))
-    && sameType(typeOfFirst, followup.typeCondition);
+    && isSubtype(followup.typeCondition, typeOfFirst);
 }
 
 export type RootOperationPath = {

@@ -58,6 +58,7 @@ import {
   FragmentSelection,
   InterfaceType,
   isDefined,
+  isSubtype,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -885,13 +886,12 @@ class FetchGroup {
    */
   isChildOfWithArtificialDependency(maybeParent: FetchGroup): boolean {
     const relation =  this.parentRelation(maybeParent);
-    // To be a child with an artificial dependency, it needs to be a child first,
-    // and the "path in parent" should be know to be empty (which essentially
-    // means the groups are on the same entity at the same level).
-    if (!relation || relation.path?.length !== 0) {
+    // To be a child with an artificial dependency, it needs to be a child first, and the "path in parent" should be know.
+    if (!relation || !relation.path) {
       return false;
     }
-    // If we have no inputs, we don't really care about what `maybeParent` fetches.
+
+    // Then, if we have no inputs, we know we don't depend on anything from the parent no matter what.
     if (!this.inputs) {
       return true;
     }
@@ -1793,8 +1793,12 @@ class FetchDependencyGraph {
     // 2. has the same mergeAt
     // 3. is for the same entity type (we don't reuse groups for different entities just yet, as this can create unecessary dependencies that
     //   gets in the way of some optimizations; the final optimizations in `reduceAndOptimize` will however later merge groups on the same subgraph
-    //   and mergeAt when possibleA).
+    //   and mergeAt when possible).
     // 4. is not part of our conditions or our conditions ancestors (meaning that we annot reuse a group if it fetches something we take as input).
+    // 5. is part of the same "defer" grouping
+    // 6. has the same path in parents (here again, we _will_ eventually merge fetches for which this is not true later in `reduceAndOptimize`, but
+    //   for now, keeping groups separated when they have a different path in their parent allows to keep that "path in parent" more precisely,
+    //   which is important for some case of @requires).
     for (const existing of parent.group.children()) {
       if (existing.subgraphName === subgraphName
         && existing.mergeAt
@@ -1802,16 +1806,8 @@ class FetchDependencyGraph {
         && existing.selection.selections().every((s) => s.kind === 'FragmentSelection' && s.element().castedType() === type)
         && !this.isInGroupsOrTheirAncestors(existing, conditionsGroups)
         && existing.deferRef === deferRef
+        && samePathsInParents(existing.parentRelation(parent.group)?.path, parent.path)
       ) {
-        const existingPathInParent = existing.parentRelation(parent.group)?.path;
-        if (!samePathsInParents(existingPathInParent, parent.path)) {
-          // We're at the same "mergeAt", so the 'path in parent' should mostly be the same, but it's not guaranteed to
-          // be the exact same, in particular due to fragments with conditions (@skip/@include) that may be present in
-          // one case but not the other. This is fine, and we still want to reuse the group in those case, but we should
-          // erase the 'path in parent' in that case so we don't end up merging this group to another one "the wrong way"
-          // later on.
-          this.removePathInParent(parent.group, existing);
-        }
         return existing;
       }
     }
@@ -1822,12 +1818,6 @@ class FetchDependencyGraph {
     });
     newGroup.addParent(parent);
     return newGroup
-  }
-
-  private removePathInParent(parent: FetchGroup, child: FetchGroup) {
-    // Simplest option is to remove the parent edge and re-add it without a path.
-    parent.removeChild(child);
-    child.addParent({ group: parent });
   }
 
   newRootTypeFetchGroup({
@@ -3261,6 +3251,16 @@ function removeRedundantFragmentsOfSet(
   return newSet ? newSet : selectionSet;
 }
 
+function maybeRebaseOnSchema(toRebase: CompositeType, schema: Schema): CompositeType {
+  if (toRebase.schema() === schema) {
+    return toRebase;
+  }
+
+  const rebased = schema.type(toRebase.name);
+  assert(rebased && isCompositeType(rebased), () => `Expected ${toRebase} to exists and be composite in the rebased schema, but got ${rebased?.kind}`);
+  return rebased;
+}
+
 function removeRedundantFragments(
   selection: Selection,
   type: CompositeType,
@@ -3281,7 +3281,7 @@ function removeRedundantFragments(
     neededDirectives = directiveApplicationsSubstraction(fragment.appliedDirectives, unneededDirectives);
   }
 
-  if (sameType(type, fragmentType) && neededDirectives.length === 0) {
+  if (isSubtype(maybeRebaseOnSchema(fragmentType, type.schema()), type) && neededDirectives.length === 0) {
     // we can completely skip this fragment and recurse.
     return removeRedundantFragmentsOfSet(selection.selectionSet, type, unneededDirectives);
   } else if (neededDirectives.length === fragment.appliedDirectives.length) {
@@ -3370,9 +3370,15 @@ function wrapInputsSelections(
   );
 }
 
-function createFetchInitialPath(wrappingType: CompositeType, context: PathContext): OperationPath {
+function createFetchInitialPath(supergraphSchema: Schema, wrappingType: CompositeType, context: PathContext): OperationPath {
+  // We make sure that all `OperationPath` are based on the supergraph as `OperationPath` is really about path on the input query/overall supergraph data
+  // (most other places already do this as the elements added to the operation path are from the input query, but this is an exception
+  // when we create an element from an type that may/usually will not be from the supergraph). Doing this make sure we can rely on things like checking
+  // subtyping between the types of a given path.
+  const rebasedType = supergraphSchema.type(wrappingType.name);
+  assert(rebasedType && isCompositeType(rebasedType), () => `${wrappingType} should be composite in the supergraph but got ${rebasedType?.kind}`)
   return wrapSelectionWithTypeAndConditions<OperationPath>(
-    wrappingType,
+    rebasedType,
     [],
     (fragment, path) => [fragment as OperationElement].concat(path),
     context,
@@ -3383,7 +3389,7 @@ function wrapSelectionWithTypeAndConditions<TSelection>(
   wrappingType: CompositeType,
   initialSelection: TSelection,
   wrapInFragment: (fragment: FragmentElement, current: TSelection) => TSelection,
-  context: PathContext
+  context: PathContext,
 ): TSelection {
   const typeCast = new FragmentElement(wrappingType, wrappingType.name);
   let updatedSelection = wrapInFragment(typeCast, initialSelection);
@@ -3407,19 +3413,6 @@ function wrapSelectionWithTypeAndConditions<TSelection>(
   }
 
   return updatedSelection;
-}
-
-function extractPathInParentForKeyFetch(type: CompositeType, path: GroupPath): OperationPath {
-  // A "key fetch" (calls to the `_entities` operation) always have to start with some type-cast into
-  // the entity fetched (`type` in this function), so we can remove a type-cast into the entity from
-  // the parent path if it is the last thing in the past. And doing that removal ensures the code
-  // later reuse fetch groups for different entities, as long as they get otherwise merged into the
-  // parent at the same place.
-  const inGroup = path.inGroup();
-  const lastElement = inGroup[inGroup.length - 1];
-  return (lastElement && lastElement.kind === 'FragmentElement' && lastElement.typeCondition?.name === type.name)
-    ? inGroup.slice(0, inGroup.length - 1)
-    : inGroup;
 }
 
 /**
@@ -3479,7 +3472,7 @@ function computeGroupsForTree(
             // on the condition ones.
             const sourceType = edge.head.type as CompositeType; // We shouldn't have a key on a non-composite type
             const destType = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
-            const pathInParent = extractPathInParentForKeyFetch(sourceType, path);
+            const pathInParent = path.inGroup();
             const updatedDeferContext = deferContextAfterSubgraphJump(deferContext);
             // Note that we use the name of `destType` for the inputs parent type, which can seem strange, but the reason is that we
             // 2 kind of cases:
@@ -3528,7 +3521,7 @@ function computeGroupsForTree(
             stack.push({
               tree: child,
               group: newGroup,
-              path: path.forNewKeyFetch(createFetchInitialPath(edge.tail.type as CompositeType, newContext)),
+              path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.tail.type as CompositeType, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
             });
@@ -3568,7 +3561,7 @@ function computeGroupsForTree(
             stack.push({
               tree: child,
               group: newGroup,
-              path: path.forNewKeyFetch(createFetchInitialPath(type, newContext)),
+              path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, type, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
             });
@@ -3849,7 +3842,7 @@ function handleRequires(
     newGroup.addParent(parent);
     newGroup.copyInputsOf(group, true);
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
-    if (createdGroups.length == 0) {
+    if (createdGroups.length === 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
       assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
@@ -3875,9 +3868,9 @@ function handleRequires(
 
     if (newGroupIsUnneeded) {
       // Up to this point, `newGroup` had no parent, so let's first merge `newGroup` to the parent, thus "rooting"
-      // it's children to it. Note that we just checked that `newGroup` selection was just its inputs, so
+      // its children to it. Note that we just checked that `newGroup` selection was just its inputs, so
       // we know that merging it to the parent is mostly a no-op from that POV, except maybe for requesting
-      // a few addition `__typename` we didn't before (due to the exclusion of `__typename` in the `newGroupIsUnneeded` check)
+      // a few additional `__typename` we didn't before (due to the exclusion of `__typename` in the `newGroupIsUnneeded` check)
       parent.group.mergeChildIn(newGroup);
 
       // Now, all created groups are going to be descendant of `parentGroup`. But some of them may actually be
@@ -3991,7 +3984,7 @@ function handleRequires(
     );
     return {
       group: postRequireGroup,
-      path: path.forNewKeyFetch(createFetchInitialPath(entityType, context)),
+      path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
       createdGroups: unmergedGroups.concat(postRequireGroup),
     };
   } else {
@@ -4025,7 +4018,7 @@ function handleRequires(
     );
     return {
       group: newGroup,
-      path: path.forNewKeyFetch(createFetchInitialPath(entityType, context)),
+      path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
       createdGroups: createdGroups.concat(newGroup),
     };
   }
