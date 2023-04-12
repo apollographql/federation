@@ -12,7 +12,7 @@ import {
   printSchema,
   printType,
 } from '@apollo/federation-internals';
-import { ComposeOptions, CompositionResult, composeServices } from '../compose';
+import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
 import { print } from 'graphql';
@@ -208,8 +208,8 @@ describe('composition', () => {
       `
     }
 
-    const options: ComposeOptions = {
-      sdlPrintOptions: orderPrintedDefinitions
+    const options: CompositionOptions = {
+      sdlPrintOptions: orderPrintedDefinitions(defaultPrintOptions),
     }
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2], options);
     assertCompositionSuccess(result);
