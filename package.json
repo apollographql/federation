@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.2",
-    "@apollo/client": "3.7.11",
+    "@apollo/client": "3.7.12",
     "@apollo/utils.fetcher": "1.1.1",
     "@graphql-codegen/cli": "3.3.0",
     "@graphql-codegen/typescript": "3.0.3",
@@ -82,6 +82,6 @@
     ]
   },
   "volta": {
-    "node": "18.15.0"
+    "node": "18.16.0"
   }
 }
