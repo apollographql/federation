@@ -313,7 +313,7 @@ class Merger {
       }
       return latest >= version ? latest : version;
     }, undefined);
-    return latestVersion ? latestVersion : FEDERATION_VERSIONS.latest().version;
+    return latestVersion ?? FEDERATION_VERSIONS.latest().version;
   }
 
   private prepareSupergraph(): Map<string, string> {
