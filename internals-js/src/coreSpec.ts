@@ -374,8 +374,8 @@ const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
 export class CoreSpecDefinition extends FeatureDefinition {
   private readonly directiveDefinitionSpec: DirectiveSpecification;
 
-  constructor(version: FeatureVersion, fedVersion?: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
-    super(new FeatureUrl(identity, name, version), fedVersion);
+  constructor(version: FeatureVersion, firstFedVersion?: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
+    super(new FeatureUrl(identity, name, version), firstFedVersion);
     this.directiveDefinitionSpec = createDirectiveSpecification({
       name,
       locations: [DirectiveLocation.SCHEMA],
@@ -815,10 +815,10 @@ export function findCoreSpecVersion(featureUrl: FeatureUrl): CoreSpecDefinition 
 
 export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIdentity)
   .add(new CoreSpecDefinition(new FeatureVersion(0, 1), undefined, coreIdentity, 'core'))
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 4), coreIdentity, 'core'));
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 0), coreIdentity, 'core'));
 
 export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIdentity)
-  .add(new CoreSpecDefinition(new FeatureVersion(1, 0), new FeatureVersion(2,4)));
+  .add(new CoreSpecDefinition(new FeatureVersion(1, 0), new FeatureVersion(2, 0)));
 
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);

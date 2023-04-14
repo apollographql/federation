@@ -77,6 +77,6 @@ export class TagSpecDefinition extends FeatureDefinition {
 export const TAG_VERSIONS = new FeatureDefinitions<TagSpecDefinition>(tagIdentity)
   .add(new TagSpecDefinition(new FeatureVersion(0, 1)))
   .add(new TagSpecDefinition(new FeatureVersion(0, 2)))
-  .add(new TagSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 4)));
+  .add(new TagSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)));
 
 registerKnownFeature(TAG_VERSIONS);

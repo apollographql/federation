@@ -95,7 +95,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
 
 export const INACCESSIBLE_VERSIONS = new FeatureDefinitions<InaccessibleSpecDefinition>(inaccessibleIdentity)
   .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)))
-  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 4)));
+  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 0)));
 
 registerKnownFeature(INACCESSIBLE_VERSIONS);
 
