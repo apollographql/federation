@@ -431,3 +431,12 @@ export function isNonEmptyArray<T>(array: T[]): array is NonEmptyArray<T> {
   return array.length > 0;
 }
 
+export function findLast<T>(array: T[], predicate: (t: T) => boolean): T | undefined {
+  for (let i = array.length - 1; i >= 0; i--) {
+    const t = array[i];
+    if (predicate(t)) {
+      return t;
+    }
+  }
+  return undefined;
+}

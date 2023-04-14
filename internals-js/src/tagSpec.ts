@@ -13,8 +13,8 @@ export class TagSpecDefinition extends FeatureDefinition {
   public readonly tagDirectiveSpec: DirectiveSpecification;
   private readonly printedTagDefinition: string;
 
-  constructor(version: FeatureVersion) {
-    super(new FeatureUrl(tagIdentity, 'tag', version));
+  constructor(version: FeatureVersion, firstFedVersion?: FeatureVersion) {
+    super(new FeatureUrl(tagIdentity, 'tag', version), firstFedVersion);
     this.tagLocations = [
       DirectiveLocation.FIELD_DEFINITION,
       DirectiveLocation.OBJECT,
@@ -43,7 +43,7 @@ export class TagSpecDefinition extends FeatureDefinition {
       repeatable: true,
       args: [{ name: 'name', type: (schema) => new NonNullType(schema.stringType()) }],
       composes: true,
-      supergraphSpecification: () => TAG_VERSIONS.latest(),
+      supergraphSpecification: (fedVersion) => TAG_VERSIONS.getMinimumRequiredVersion(fedVersion),
     });
     this.registerDirective(this.tagDirectiveSpec);
   }
@@ -77,6 +77,6 @@ export class TagSpecDefinition extends FeatureDefinition {
 export const TAG_VERSIONS = new FeatureDefinitions<TagSpecDefinition>(tagIdentity)
   .add(new TagSpecDefinition(new FeatureVersion(0, 1)))
   .add(new TagSpecDefinition(new FeatureVersion(0, 2)))
-  .add(new TagSpecDefinition(new FeatureVersion(0, 3)));
+  .add(new TagSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 4)));
 
 registerKnownFeature(TAG_VERSIONS);

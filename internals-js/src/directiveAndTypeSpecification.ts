@@ -22,7 +22,7 @@ import { valueEquals, valueToString } from "./values";
 import { sameType } from "./types";
 import { arrayEquals, assert } from "./utils";
 import { ArgumentCompositionStrategy } from "./argumentCompositionStrategies";
-import { FeatureDefinition } from "./coreSpec";
+import { FeatureDefinition, FeatureVersion } from "./coreSpec";
 
 export type DirectiveSpecification = {
   name: string,
@@ -31,7 +31,7 @@ export type DirectiveSpecification = {
 }
 
 export type DirectiveCompositionSpecification = {
-  supergraphSpecification: () => FeatureDefinition,
+  supergraphSpecification: (federationVersion: FeatureVersion) => FeatureDefinition,
   argumentsMerger?: (schema: Schema) => ArgumentMerger | GraphQLError,
 }
 
@@ -80,7 +80,7 @@ export function createDirectiveSpecification({
   repeatable?: boolean,
   args?: DirectiveArgumentSpecification[],
   composes?: boolean,
-  supergraphSpecification?: () => FeatureDefinition,
+  supergraphSpecification?: (fedVersion: FeatureVersion) => FeatureDefinition,
 }): DirectiveSpecification {
   let composition: DirectiveCompositionSpecification | undefined = undefined;
   if (composes) {
