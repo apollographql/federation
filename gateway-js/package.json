@@ -30,7 +30,7 @@
     "@apollo/query-planner": "2.4.1",
     "@apollo/server-gateway-interface": "^1.1.0",
     "@apollo/usage-reporting-protobuf": "^4.1.0",
-    "@apollo/utils.createhash": "^2.0.0",
+    "@apollo/utils.createhash": "^3.0.0",
     "@apollo/utils.fetcher": "^2.0.0",
     "@apollo/utils.isnodelike": "^2.0.0",
     "@apollo/utils.keyvaluecache": "^2.1.0",
