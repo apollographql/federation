@@ -58,7 +58,7 @@
     "@types/async-retry": "1.4.5",
     "@types/bunyan": "1.8.8",
     "@types/deep-equal": "1.0.1",
-    "@types/jest": "29.5.0",
+    "@types/jest": "29.5.1",
     "@types/js-levenshtein": "1.1.1",
     "@types/loglevel": "1.5.4",
     "@types/make-fetch-happen": "10.0.1",
