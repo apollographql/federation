@@ -3,10 +3,13 @@ import {
   Schema,
   Subgraphs,
   defaultPrintOptions,
-  orderPrintedDefinitions,
+  shallowOrderPrintedDefinitions,
+  PrintOptions,
   ServiceDefinition,
   subgraphsFromServiceList,
   upgradeSubgraphsIfNecessary,
+  SubtypingRule,
+  assert,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -30,7 +33,22 @@ export interface CompositionSuccess {
   errors?: undefined;
 }
 
-export function compose(subgraphs: Subgraphs): CompositionResult {
+export interface CompositionOptions {
+  sdlPrintOptions?: PrintOptions;
+
+
+  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
+}
+
+function validateCompositionOptions(options: CompositionOptions) {
+  // TODO: we currently cannot allow "list upgrades", meaning a subgraph returning `String` and another returning `[String]`. To support it, we would need the execution code to
+  // recognize situation and "coerce" results from the first subgraph (the one returning `String`) into singleton lists.
+  assert(!options?.allowedFieldTypeMergingSubtypingRules?.includes("list_upgrade"), "The `list_upgrade` field subtyping rule is currently not supported");
+}
+
+export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
+  validateCompositionOptions(options);
+
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
@@ -60,7 +78,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   try {
     supergraphSdl = printSchema(
       supergraphSchema,
-      orderPrintedDefinitions(defaultPrintOptions)
+      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
     return { errors: [err] };
@@ -73,7 +91,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   };
 }
 
-export function composeServices(services: ServiceDefinition[]): CompositionResult  {
+export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
@@ -81,5 +99,5 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     // include the subgraph name in their message.
     return { errors: subgraphs };
   }
-  return compose(subgraphs);
+  return compose(subgraphs, options);
 }

@@ -105,6 +105,12 @@
       "matchPackagePatterns": ["^@apollo/utils"],
       "allowedVersions": "1.x"
     },
+    // v3.x utils packages drop support for node 14
+    {
+      "matchBaseBranches": ["main"],
+      "matchPackagePatterns": ["^@apollo/utils"],
+      "allowedVersions": "2.x"
+    },
     {
       "matchBaseBranches": ["version-0.x"],
       "matchPackageNames": ["make-fetch-happen", "@types/make-fetch-happen"],

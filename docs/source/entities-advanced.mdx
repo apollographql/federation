@@ -324,6 +324,27 @@ type Product @key(fields: "id") {
 
 In this modification of the previous example, `size` and `weight` are now subfields of a `ProductDimensions` object. Note that the `ProductDimensions` type must be defined in both the Products _and_ Shipping subgraphs for this to be valid.
 
+### Using `@requires` with fields that take arguments
+
+> This functionality was introduced in Federation `v2.1.2`.
+
+The `@requires` directive can include fields that take arguments, like so:
+
+```graphql title="Shipping subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  weight(units: String): Int @external
+  #highlight-start
+  shippingEstimate: String @requires(fields: "weight(units:\"KILOGRAMS\")")
+  #highlight-end
+}
+```
+
+- The router provides the specified values in its query to whichever subgraph defines the required field.
+- Each specified argument value is _static_ (i.e., the router always provides the same value).
+- You can omit values for nullable arguments. You _must_ provide values for non-nullable arguments.
+- If you define your subgraph schema in an SDL file (instead of programmatically), you must escape quotes for string and enum values with backslashes (as shown above).
+
 ## Resolving another subgraph's field
 
 By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with important exceptions, like entity `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
