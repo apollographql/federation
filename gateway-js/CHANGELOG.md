@@ -1,5 +1,20 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.4.2
+### Patch Changes
+
+
+- Fix potential bug when an `@interfaceObject` type has a `@requires`. When an `@interfaceObject` type has a field with a ([#2524](https://github.com/apollographql/federation/pull/2524))
+  `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
+  then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
+  subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
+  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+  schema"`).
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/composition@2.4.2
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-planner@2.4.2
+
 ## 2.4.1
 ### Patch Changes
 
