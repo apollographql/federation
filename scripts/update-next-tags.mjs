@@ -34,7 +34,7 @@ await Promise.all(
       console.log(`Found most recent version of ${pkg}: ${mostRecentVersion}`);
       console.log(`Current \`next\` tag version of ${pkg}: ${nextVersion}`);
 
-      const command = `dist-tag add ${pkg}@${mostRecentVersion} next`;
+      const command = `npm dist-tag add ${pkg}@${mostRecentVersion} next`;
       console.log(command);
       if (nextVersion !== mostRecentVersion) {
         console.log(`\`next\` tag is behind, updating...`);
