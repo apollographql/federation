@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.4.2
+### Patch Changes
+
+
+- Allow passing print options to the `compose` method to impact how the supergraph is printed, and adds new printing ([#2042](https://github.com/apollographql/federation/pull/2042))
+  options to order all elements of the schema.
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-graphs@2.4.2
+
 ## 2.4.1
 ### Patch Changes
 
