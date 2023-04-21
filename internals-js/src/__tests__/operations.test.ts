@@ -154,8 +154,6 @@ describe('fragments optimization', () => {
     `);
 
     const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-    // Note that while we didn't use `onU` for `t` in the query, it's technically ok to use
-    // it and it makes the query smaller, so it gets used.
     expect(optimized.toString()).toMatchString(`
       fragment OnT1 on T1 {
         a
@@ -171,17 +169,15 @@ describe('fragments optimization', () => {
         b
       }
 
-      fragment OnU on U {
-        ...OnI
-        ...OnT1
-        ...OnT2
-      }
-
       {
         t {
-          ...OnU
+          ...OnI
+          ...OnT1
+          ...OnT2
           u {
-            ...OnU
+            ...OnI
+            ...OnT1
+            ...OnT2
           }
         }
       }
@@ -573,6 +569,111 @@ describe('fragments optimization', () => {
           t {
             x
             a
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragment matching at the top level of another fragment', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: String
+        u: U
+      }
+
+      type U {
+        x: String
+        y: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment Frag1 on T {
+          a
+        }
+
+        fragment Frag2 on T {
+          u {
+            x
+            y
+          }
+          ...Frag1
+        }
+
+        fragment Frag3 on Query {
+          t {
+            ...Frag2
+          }
+        }
+
+        {
+          ...Frag3
+        }
+      `,
+      expanded: `
+        {
+          t {
+            u {
+              x
+              y
+            }
+            a
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragments used in a context where they get trimmed', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      interface I {
+        x: Int
+      }
+
+      type T1 implements I {
+        x: Int
+        y: Int
+      }
+
+      type T2 implements I {
+        x: Int
+        z: Int
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragOnI on I {
+          ... on T1 {
+            y
+          }
+          ... on T2 {
+            z
+          }
+        }
+
+        {
+          t1 {
+            ...FragOnI
+          }
+        }
+      `,
+      expanded: `
+        {
+          t1 {
+            y
           }
         }
       `,
