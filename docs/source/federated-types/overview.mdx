@@ -24,7 +24,7 @@ graph TB;
 * **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific information that tells your router which subgraphs can resolve which fields.
     * This schema is the result of performing [composition](./composition/) on your collection of subgraph schemas.
 * **API schema.** This schema is similar to the supergraph schema, but it _omits_ federation-specific types, fields, and directives that are considered "machinery" and are not part of your public API.
-    * This is the schema that your router exposes to clients, who don't need to know internal implementation details about your graph.
+    * This is the schema that your router exposes to clients, which don't need to know internal implementation details about your graph.
 
 Let's look at an example!
 
@@ -116,26 +116,30 @@ Here's the supergraph schema composed with [the subgraph schemas above](#subgrap
 ```graphql
 schema
   @link(url: "https://specs.apollo.dev/link/v1.0")
-  @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
 {
   query: Query
 }
 
-directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
 directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
 directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
 scalar join__FieldSet
 
 enum join__Graph {
-  PRODUCTS @join__graph(name: "products", url: "http://localhost:4003/graphql")
-  REVIEWS @join__graph(name: "reviews", url: "http://localhost:4002/graphql")
+  PRODUCTS @join__graph(name: "products", url: "http://localhost:4002/graphql")
+  REVIEWS @join__graph(name: "reviews", url: "http://localhost:4003/graphql")
   USERS @join__graph(name: "users", url: "http://localhost:4001/graphql")
 }
 
