@@ -16,8 +16,8 @@ The overall flow of a federated trace is as follows:
 3. Each queried subgraph returns response data to the router.
     - The [`extensions`](/resources/graphql-glossary/#extensions) field of each response includes trace data for the corresponding sub-query.
     - **The subgraph must support the federated trace format to include trace data in its response!** See [this section](#in-your-subgraphs).
-5. The router collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
-6. The router [reports the federated trace to GraphOS](/graphos/metrics/sending-operation-metrics/) for processing.
+4. The router collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
+5. The router [reports the federated trace to GraphOS](/graphos/metrics/sending-operation-metrics/) for processing.
 
 In summary, subgraphs report timing and error information to the router, and the router is responsible for aggregating those metrics and reporting them to GraphOS.
 
