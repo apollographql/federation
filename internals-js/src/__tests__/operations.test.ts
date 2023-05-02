@@ -680,6 +680,70 @@ describe('fragments optimization', () => {
     });
   });
 
+  test('handles fragments used in the context of non-intersecting abstract types', () => {
+    const schema = parseSchema(`
+      type Query {
+        i2: I2
+      }
+
+      interface I1 {
+        x: Int
+      }
+
+      interface I2 {
+        y: Int
+      }
+
+      interface I3 {
+        z: Int
+      }
+
+      type T1 implements I1 & I2 {
+        x: Int
+        y: Int
+      }
+
+      type T2 implements I1 & I3 {
+        x: Int
+        z: Int
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragOnI1 on I1 {
+          ... on I2 {
+            y
+          }
+          ... on I3 {
+            z
+          }
+        }
+
+        {
+          i2 {
+            ...FragOnI1
+          }
+        }
+      `,
+      expanded: `
+        {
+          i2 {
+            ... on I1 {
+              ... on I2 {
+                y
+              }
+              ... on I3 {
+                z
+              }
+            }
+          }
+        }
+      `,
+    });
+  });
+
   describe('applied directives', () => {
     test('reuse fragments with directives on the fragment, but only when there is those directives', () => {
       const schema = parseSchema(`

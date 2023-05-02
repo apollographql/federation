@@ -3453,7 +3453,7 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
   //  3. re-optimize all fragments (using the "updated-with-typename" versions).
   // which is what `mapToExpandedSelectionSets` gives us.
   assert(!fragments.isEmpty(), 'Should not pass empty fragments to this method');
-  const updated = fragments.mapToExpandedSelectionSets((s) => addTypenameFieldForAbstractTypes(s));
+  const updated = fragments.mapToExpandedSelectionSets(addTypenameFieldForAbstractTypes);
   assert(updated, 'No fragments should have been removed');
   return updated;
 }
