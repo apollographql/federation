@@ -429,12 +429,16 @@ describe('buildSubgraphSchema', () => {
         contextValue: null,
         variableValues: variables,
       });
-      expect(errors).toMatchInlineSnapshot(`
-        Array [
-          [GraphQLError: Could not resolve type, received: [object Promise]],
-        ]
+      expect(errors).toBeUndefined();
+      expect(data).toMatchInlineSnapshot(`
+        Object {
+          "_entities": Array [
+            Object {
+              "name": "My book",
+            },
+          ],
+        }
       `);
-      expect(data).toMatchInlineSnapshot(`null`);
     });
   });
 
