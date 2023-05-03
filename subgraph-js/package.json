@@ -24,7 +24,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@apollo/cache-control-types": "^1.0.2",
+    "@apollo/cache-control-types": "1.0.2",
     "@apollo/federation-internals": "2.4.2"
   },
   "peerDependencies": {
