@@ -732,8 +732,13 @@ export class Operation {
     // probably not noticeable in practice so ...).
     const toDeoptimize = mapEntries(usages).filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
 
-    const newFragments = optimizedSelection.fragments?.without(toDeoptimize);
-    optimizedSelection = optimizedSelection.expandFragments(toDeoptimize, newFragments);
+    if (toDeoptimize.length > 0) {
+      const newFragments = optimizedSelection.fragments?.without(toDeoptimize);
+      optimizedSelection = optimizedSelection.expandFragments(toDeoptimize, newFragments);
+      // Expanding fragments could create some "inefficiencies" that we wouldn't have if we hadn't re-optimized
+      // the fragments to de-optimize it later, so we do a final "trim" pass to remove those.
+      optimizedSelection = optimizedSelection.trimUnsatisfiableBranches(optimizedSelection.parentType);
+    }
 
     return new Operation(this.schema, this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
   }
@@ -841,6 +846,8 @@ export class Operation {
 export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmentDefinition> {
   private _selectionSet: SelectionSet | undefined;
 
+  private readonly selectionSetsAtTypesCache = new Map<string, SelectionSet>();
+
   constructor(
     schema: Schema,
     readonly name: string,
@@ -852,6 +859,9 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   setSelectionSet(selectionSet: SelectionSet): NamedFragmentDefinition {
     assert(!this._selectionSet, 'Attempting to set the selection set of a fragment definition already built')
+    // We set the selection set post-construction to simplify the handling of fragments that use other fragments,
+    // but let's make sure we've properly used the fragment type condition as parent type of the selection set, as we should.
+    assert(selectionSet.parentType === this.typeCondition, `Fragment selection set parent is ${selectionSet.parentType} differs from the fragment condition type ${this.typeCondition}`);
     this._selectionSet = selectionSet;
     return this;
   }
@@ -894,32 +904,53 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * @param type - the type at which we're looking at applying the fragment
    */
   canApplyAtType(type: CompositeType): boolean {
-    const applyAtType = sameType(type, this.typeCondition) || runtimeTypesIntersects(type, this.typeCondition);
-    return applyAtType
-      && this.validForSchema(type.schema());
+    return sameType(type, this.typeCondition) || runtimeTypesIntersects(type, this.typeCondition);
   }
 
-  // Checks whether this named fragment can be applied to the provided schema, which might be different
-  // from the one the named fragment originate from.
-  private validForSchema(schema: Schema): boolean {
-    if (schema === this.schema()) {
-      return true;
+  /**
+   * This methods *assumes* that `this.canApplyAtType(type)` is `true` (and may crash if this is not true), and returns
+   * a version fo this named fragment selection set that corresponds to the "expansion" of this named fragment at `type`
+   *
+   * The overall idea here is that if we have an interface I with 2 implementations T1 and T2, and we have a fragment like:
+   * ```graphql
+   *  fragment X on I {
+   *    ... on T1 {
+   *      <stuff>
+   *    }
+   *    ... on T2 {
+   *      <stuff>
+   *    }
+   *  }
+   * ```
+   * then if the current type is `T1`, then all we care about matching for this fragment is the `... on T1` part, and this method gives
+   * us that part.
+   */
+  selectionSetAtType(type: CompositeType): SelectionSet {
+    // First, if the candidate condition is an object or is the type passed, then there isn't any additional restriction to do.
+    if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
+      return this.selectionSet;
     }
 
-    const typeInSchema = schema.type(this.typeCondition.name);
-    if (!typeInSchema || !isCompositeType(typeInSchema)) {
-      return false;
+    // We should not call `trimUnsatisfiableBranches` where `type` is an abstract type (`interface` or `union`) as it currently could
+    // create an invalid selection set (and throw down the line). In theory, when `type` is an abstract type, we could look at the
+    // intersection of its runtime types with those of `this.typeCondition`, call `trimUnsatisfiableBranches` for each of the resulting
+    // object types, and merge all those selection sets, and this "may" result in a smaller selection at times. This is a bit complex
+    // and costly to do however, so we just return the selection unchanged for now, which is always valid but simply may not be absolutely
+    // optimal.
+    // Concretely, this means that there may be corner cases where a named fragment could be reused but isn't, but waiting on finding
+    // concrete examples where this matter to decide if it's worth the complexity.
+    if (!isObjectType(type)) {
+      return this.selectionSet;
     }
 
-    // We try "rebasing" the selection into the provided schema and checks if that succeed.
-    try {
-      this.selectionSet.rebaseOn(typeInSchema);
-      // If this succeed, it means the fragment could be applied to that schema and be valid.
-      return true;
-    } catch (e) {
-      // We don't really care what kind of error was triggered; only that it doesn't work.
-      return false;
+    let selectionSet = this.selectionSetsAtTypesCache.get(type.name);
+    if (!selectionSet) {
+      // Note that all we want is removing any top-level branches that don't apply due to the current type. There is no point
+      // in going recursive however: any simplification due to `type` stops as soon as we traverse a field. And so we don't bother. 
+      selectionSet = this.selectionSet.trimUnsatisfiableBranches(type, { recursive: false });
+      this.selectionSetsAtTypesCache.set(type.name, selectionSet);
     }
+    return selectionSet;
   }
 
   toString(indent?: string): string {
@@ -993,6 +1024,72 @@ export class NamedFragments {
       mapped.fragments.set(def.name, mapper(def));
     }
     return mapped;
+  }
+
+  /**
+   * This method:
+   * - expands all nested fragments,
+   * - applies the provided mapper to the selection set of the fragments,
+   * - and finally re-fragments the nested fragments.
+   */
+  mapToExpandedSelectionSets(
+    mapper: (selectionSet: SelectionSet) => SelectionSet | undefined,
+    recreateFct: (frag: NamedFragmentDefinition, newSelectionSet: SelectionSet) => NamedFragmentDefinition = (f, s) => f.withUpdatedSelectionSet(s),
+  ): NamedFragments | undefined {
+    type FragmentInfo = {
+      original: NamedFragmentDefinition,
+      mappedSelectionSet: SelectionSet,
+      dependsOn: string[],
+    };
+    const fragmentsMap = new Map<string, FragmentInfo>();
+
+    const removedFragments = new Set<string>();
+    for (const fragment of this.definitions()) {
+      const mappedSelectionSet = mapper(fragment.selectionSet.expandAllFragments().trimUnsatisfiableBranches(fragment.typeCondition));
+      if (!mappedSelectionSet) {
+        removedFragments.add(fragment.name);
+        continue;
+      }
+
+      const otherFragmentsUsages = new Map<string, number>();
+      fragment.collectUsedFragmentNames(otherFragmentsUsages);
+      fragmentsMap.set(fragment.name, {
+        original: fragment,
+        mappedSelectionSet,
+        dependsOn: Array.from(otherFragmentsUsages.keys()),
+      });
+    }
+
+    const mappedFragments = new NamedFragments();
+    while (fragmentsMap.size > 0) {
+      for (const [name, info] of fragmentsMap) {
+        // Note that graphQL specifies that named fragments cannot have cycles (https://spec.graphql.org/draft/#sec-Fragment-spreads-must-not-form-cycles)
+        // and so we're guaranteed that on every iteration, at least one element of the map is removed (so the `while` loop will terminate).
+        if (info.dependsOn.every((n) => mappedFragments.has(n) || removedFragments.has(n))) {
+          const reoptimizedSelectionSet = info.mappedSelectionSet.optimize(mappedFragments);
+          mappedFragments.add(recreateFct(info.original, reoptimizedSelectionSet));
+          fragmentsMap.delete(name);
+        }
+      }
+    }
+
+    return mappedFragments.isEmpty() ? undefined : mappedFragments;
+  }
+
+  rebaseOn(schema: Schema): NamedFragments | undefined {
+    return this.mapToExpandedSelectionSets(
+      (s) => {
+        const rebasedType = schema.type(s.parentType.name);
+        try {
+          return rebasedType && isCompositeType(rebasedType) ? s.rebaseOn(rebasedType) : undefined;
+        } catch (e) {
+          // This means we cannot rebase this selection on the schema and thus cannot reuse that fragment on that
+          // particular schema.
+          return undefined;
+        }
+      },
+      (orig, newSelection) => new NamedFragmentDefinition(schema, orig.name, newSelection.parentType).setSelectionSet(newSelection),
+    );
   }
 
   validate(variableDefinitions: VariableDefinitions) {
@@ -1142,6 +1239,36 @@ export class SelectionSet {
       return this;
     }
 
+    // Calling optimizeSelections() will not match a fragment that would have expanded at top-level.
+    // That is, say we have the selection set `{ x y }` for a top-level `Query`, and we have a fragment
+    // ```
+    // fragment F on Query {
+    //   x
+    //   y
+    // }
+    // ```
+    // then calling `this.optimizeSelections(fragments)` would only apply check if F apply to `x` and
+    // then `y`.
+    //
+    // To ensure the fragment match in this case, we "wrap" the selection into a trivial fragment of
+    // the selection parent, so in the example above, we create selection `... on Query { x y}`.
+    // With that, `optimizeSelections` will correctly match on the `on Query` fragment; after which
+    // we can unpack the final result.
+    const wrapped = new InlineFragmentSelection(new FragmentElement(this.parentType, this.parentType), this);
+    const optimized = wrapped.optimize(fragments);
+
+    // Now, it's possible we matched a full fragment, in which case `optimized` will be just the named fragment,
+    // and in that case we return a singleton selection with just that. Otherwise, it's our wrapping inline fragment
+    // with the sub-selections optimized, and we just return that subselection.
+    return optimized instanceof FragmentSpreadSelection
+      ? selectionSetOf(this.parentType, optimized, fragments)
+      : optimized.selectionSet;
+  }
+
+  // Tries to match fragments inside each selections of this selection set, and this recursively. However, note that this
+  // may not match fragments that would apply at top-level, so you should usually use `optimize` instead (this exists mostly
+  // for the recursion).
+  optimizeSelections(fragments: NamedFragments): SelectionSet {
     // Handling the case where the selection may alreayd have some fragments adds complexity,
     // not only because we need to deal with merging new and existing fragments, but also because
     // things get weird if some fragment names are in common to both. Since we currently only care
@@ -1164,8 +1291,8 @@ export class SelectionSet {
     return this.lazyMap((selection) => selection.expandFragments(names, updatedFragments), { fragments: updatedFragments ?? null });
   }
 
-  trimUnsatisfiableBranches(parentType: CompositeType): SelectionSet {
-    return this.lazyMap((selection) => selection.trimUnsatisfiableBranches(parentType), { parentType });
+  trimUnsatisfiableBranches(parentType: CompositeType, options?: { recursive? : boolean }): SelectionSet {
+    return this.lazyMap((selection) => selection.trimUnsatisfiableBranches(parentType, options), { parentType });
   }
 
   /**
@@ -1325,12 +1452,22 @@ export class SelectionSet {
     return true;
   }
 
-  diffIfContains(that: SelectionSet): { contains: boolean, diff?: SelectionSet } {
+  // Please note that this method assumes that `candidate.canApplyAtType(parentType) === true` but it is left to the caller to
+  // validate this (`canApplyAtType` is not free, and we want to avoid repeating it multiple times).
+  diffWithNamedFragmentIfContained(candidate: NamedFragmentDefinition, parentType: CompositeType): { contains: boolean, diff?: SelectionSet } {
+    const that = candidate.selectionSetAtType(parentType);
     if (this.contains(that)) {
-      const diff = this.minus(that);
+      // One subtlety here is that at "this" sub-selections may already have been optimized with some fragments. It's
+      // usually ok because `candidate` will also use those fragments, but one fragments that `candidate` can never be
+      // using is itself (the `contains` check is fine with this, but it's harder to deal in `minus`). So we expand
+      // the candidate we're currently looking at in "this" to avoid some issues.
+      let updatedThis = this.expandFragments([candidate.name], this.fragments);
+      if (updatedThis !== this) {
+        updatedThis = updatedThis.trimUnsatisfiableBranches(parentType);
+      }
+      const diff = updatedThis.minus(that);
       return { contains: true, diff: diff.isEmpty() ? undefined : diff };
     }
-
     return { contains: false };
   }
 
@@ -1891,7 +2028,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract expandFragments(names: string[], updatedFragments: NamedFragments | undefined): TOwnType | readonly Selection[];
 
-  abstract trimUnsatisfiableBranches(parentType: CompositeType): TOwnType | SelectionSet | undefined;
+  abstract trimUnsatisfiableBranches(parentType: CompositeType, options?: { recursive? : boolean }): TOwnType | SelectionSet | undefined;
 
   minus(that: Selection): TOwnType | undefined {
     // If there is a subset, then we compute the diff of the subset and add that (if not empty).
@@ -1905,6 +2042,10 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     return undefined;
   }
 
+  // Attempts to optimize the subselection of this field selection using named fragments `candidates` _assuming_ that
+  // those candidates do apply at `parentType` (that is, `candidates.every((c) => c.canApplyAtType(parentType))` is true,
+  // which is ensured by the fact that `tryOptimizeSubselectionWithFragments` calls this on a subset of the candidates
+  // returned by `maybeApplyingAtType`).
   protected tryOptimizeSubselectionOnce(_: {
     parentType: CompositeType,
     subSelection: SelectionSet,
@@ -1978,7 +2119,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
   }
 
   optimize(fragments: NamedFragments): Selection {
-    let optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments) : undefined;
+    let optimizedSelection = this.selectionSet ? this.selectionSet.optimizeSelections(fragments) : undefined;
     const fieldBaseType = baseType(this.element.definition.type!);
     if (isCompositeType(fieldBaseType) && optimizedSelection) {
       const optimized = this.tryOptimizeSubselectionWithFragments({
@@ -2017,7 +2158,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
   }{
     let optimizedSelection = subSelection;
     for (const candidate of candidates) {
-      const { contains, diff } = optimizedSelection.diffIfContains(candidate.selectionSet);
+      const { contains, diff } = optimizedSelection.diffWithNamedFragmentIfContained(candidate, parentType);
       if (contains) {
         // We can optimize the selection with this fragment. The replaced sub-selection will be
         // comprised of this new spread and the remaining `diff` if there is any.
@@ -2133,14 +2274,14 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return this.mapToSelectionSet((s) => s.expandAllFragments());
   }
 
-  trimUnsatisfiableBranches(_: CompositeType): FieldSelection {
+  trimUnsatisfiableBranches(_: CompositeType, options?: { recursive? : boolean }): FieldSelection {
     if (!this.selectionSet) {
       return this;
     }
 
     const base = baseType(this.element.definition.type!)
     assert(isCompositeType(base), () => `Field ${this.element} should not have a sub-selection`);
-    const trimmed = this.mapToSelectionSet((s) => s.trimUnsatisfiableBranches(base));
+    const trimmed = (options?.recursive ?? true) ? this.mapToSelectionSet((s) => s.trimUnsatisfiableBranches(base)) : this;
     // In rare caes, it's possible that everything in the sub-selection was trimmed away and so the
     // sub-selection is empty. Which suggest something may be wrong with this part of the query
     // intent, but the query was valid while keeping an empty sub-selection isn't. So in that
@@ -2327,7 +2468,7 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 
   optimize(fragments: NamedFragments): FragmentSelection {
-    let optimizedSelection = this.selectionSet.optimize(fragments);
+    let optimizedSelection = this.selectionSet.optimizeSelections(fragments);
     const typeCondition = this.element.typeCondition;
     if (typeCondition) {
       const optimized = this.tryOptimizeSubselectionWithFragments({
@@ -2363,7 +2504,7 @@ class InlineFragmentSelection extends FragmentSelection {
   }{
     let optimizedSelection = subSelection;
     for (const candidate of candidates) {
-      const { contains, diff } = optimizedSelection.diffIfContains(candidate.selectionSet);
+      const { contains, diff } = optimizedSelection.diffWithNamedFragmentIfContained(candidate, parentType);
       if (contains) {
         // The candidate selection is included in our sub-selection. One remaining thing to take into account
         // is applied directives: if the candidate has directives, then we can only use it if 1) there is
@@ -2434,12 +2575,14 @@ class InlineFragmentSelection extends FragmentSelection {
       : this.withUpdatedComponents(newElement, newSelection);
   }
 
-  trimUnsatisfiableBranches(currentType: CompositeType): FragmentSelection | SelectionSet | undefined {
+  trimUnsatisfiableBranches(currentType: CompositeType, options?: { recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
+    const recursive = options?.recursive ?? true;
+
     const thisCondition = this.element.typeCondition;
     // Note that if the condition has directives, we preserve the fragment no matter what.
     if (this.element.appliedDirectives.length === 0) {
       if (!thisCondition || currentType === this.element.typeCondition) {
-        const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType);
+        const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType, options);
         return trimmed.isEmpty() ? undefined : trimmed;
       }
 
@@ -2454,10 +2597,15 @@ class InlineFragmentSelection extends FragmentSelection {
         if (isObjectType(thisCondition) || !possibleRuntimeTypes(thisCondition).includes(currentType)) {
           return undefined;
         } else {
-          const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType);
+          const trimmed =this.selectionSet.trimUnsatisfiableBranches(currentType, options);
           return trimmed.isEmpty() ? undefined : trimmed;
         }
       }
+    }
+
+    // As we preserve the current fragment, the rest is about recursing. If we don't recurse, we're done
+    if (!recursive) {
+      return this;
     }
 
     // In all other cases, we first recurse on the sub-selection.
