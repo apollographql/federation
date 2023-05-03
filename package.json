@@ -10,7 +10,6 @@
     "watch": "npm run compile && tsc --build tsconfig.json --watch",
     "version": "npm i --package-lock-only && git add package-lock.json",
     "pretest": "npm run compile && tsc --build tsconfig.test.json",
-    "postinstall": "npm run compile",
     "test": "jest --verbose",
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",
