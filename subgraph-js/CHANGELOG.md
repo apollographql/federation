@@ -1,5 +1,28 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.4.3
+### Patch Changes
+
+
+- Resolve `Promise` references before calling `__resolveType` on interface ([#2556](https://github.com/apollographql/federation/pull/2556))
+  
+  Since the introduction of entity interfaces, users could not return
+  a `Promise` from `__resolveReference` while implementing a synchronous,
+  custom `__resolveType` function. This change fixes/permits this use case.
+  
+  Additional background / implementation details:
+  
+  Returning a `Promise` from `__resolveReference` has historically never
+  been an issue. However, with the introduction of entity interfaces, the
+  calling of an interface's `__resolveType` function became a new concern.
+  
+  `__resolveType` functions expect a reference (and shouldn't be concerned
+  with whether those references are wrapped in a `Promise`). In order to
+  address this, we can `await` the reference before calling the
+  `__resolveType` (this handles both the non-`Promise` and `Promise` case).
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/federation-internals@2.4.3
+
 ## 2.4.2
 ### Patch Changes
 

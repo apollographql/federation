@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.3
+### Patch Changes
+
+
+- Improves the heuristics used to try to reuse the query named fragments in subgraph fetches. Said fragment will be reused ([#2541](https://github.com/apollographql/federation/pull/2541))
+  more often, which can lead to smaller subgraph queries (and hence overall faster processing).
+
 ## 2.4.2
 ### Patch Changes
 
