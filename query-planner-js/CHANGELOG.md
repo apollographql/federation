@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.4.3
+### Patch Changes
+
+
+- Improves the heuristics used to try to reuse the query named fragments in subgraph fetches. Said fragment will be reused ([#2541](https://github.com/apollographql/federation/pull/2541))
+  more often, which can lead to smaller subgraph queries (and hence overall faster processing).
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/federation-internals@2.4.3
+  - @apollo/query-graphs@2.4.3
+
 ## 2.4.2
 ### Patch Changes
 
