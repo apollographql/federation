@@ -134,7 +134,7 @@ function ensureValidRuntimeType(
   return runtimeType;
 }
 
-function withResolvedType<T>({
+async function withResolvedType<T>({
   type,
   value,
   context,
@@ -146,9 +146,9 @@ function withResolvedType<T>({
   context: any,
   info: GraphQLResolveInfo,
   callback: (runtimeType: GraphQLObjectType) => PromiseOrValue<T>,
-}): PromiseOrValue<T> {
+}): Promise<T> {
   const resolveTypeFn = type.resolveType ?? defaultTypeResolver;
-  const runtimeType = resolveTypeFn(value, context, info, type);
+  const runtimeType = resolveTypeFn(await value, context, info, type);
   if (isPromise(runtimeType)) {
     return runtimeType.then((name) => (
       callback(ensureValidRuntimeType(name, info.schema, type, value))

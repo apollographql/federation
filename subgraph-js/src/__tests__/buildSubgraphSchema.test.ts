@@ -373,6 +373,73 @@ describe('buildSubgraphSchema', () => {
       expect(errors).toBeUndefined();
       expect((data as any)?._entities[0].name).toEqual('Apollo Gateway');
     });
+
+    it('correctly resolves Promise values from `resolveReference` for `resolveType`', async () => {
+      const query = `#graphql
+        query ($representations: [_Any!]!) {
+          _entities(representations: $representations) {
+            ... on Product {
+              name
+            }
+          }
+        }
+      `;
+
+      const variables = {
+        representations: [{ __typename: 'Product', id: 1 }],
+      };
+
+      const schema = buildSubgraphSchema([
+        {
+          typeDefs: gql`
+            extend schema
+              @link(
+                url: "https://specs.apollo.dev/federation/v2.4"
+                import: ["@key"]
+              )
+            interface Product @key(fields: "id") {
+              id: ID!
+              name: String
+            }
+            type Book implements Product @key(fields: "id") {
+              id: ID!
+              name: String
+              author: String!
+            }
+          `,
+          resolvers: {
+            Product: {
+              async __resolveReference() {
+                return { id: '1', name: 'My book', author: 'Author' };
+              },
+              __resolveType(ref) {
+                if ('author' in ref) return 'Book';
+                throw new Error(
+                  'Could not resolve type, received: ' + ref.toString(),
+                );
+              },
+            },
+          },
+        },
+      ]);
+      const { data, errors } = await graphql({
+        schema,
+        source: query,
+        rootValue: null,
+        contextValue: null,
+        variableValues: variables,
+      });
+      expect(errors).toBeUndefined();
+      expect(data).toMatchInlineSnapshot(`
+        Object {
+          "_entities": Array [
+            Object {
+              "name": "My book",
+            },
+          ],
+        }
+      `);
+    });
   });
 
   describe('_service root field', () => {

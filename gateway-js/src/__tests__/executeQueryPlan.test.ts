@@ -3802,10 +3802,15 @@ describe('executeQueryPlan', () => {
       s1,
     }: {
       s1?: {
+        // additional resolvers for interface I
         iResolversExtra?: any,
+        // provide a default __resolveReference for the interface
         hasIResolveReference?: boolean,
+        // turn an id into extra data returned by __resolveReference (if hasIResolveReference is true)
         iResolveReferenceExtra?: (id: string) => { [k: string]: any },
+        // additional resolvers for type A
         aResolversExtra?: any,
+        // additional resolvers for type B
         bResolversExtra?: any,
       }
     }) => {
@@ -4136,7 +4141,75 @@ describe('executeQueryPlan', () => {
         + 'Either the object returned by "I.__resolveReference" must include a valid `__typename` field, '
         + 'or the "I" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.'
       ],
-    }])('resolving an interface @key $name', async ({s1, expectedErrors}) => {
+    }, {
+      name: 'with an async __resolveReference and a non-default __resolveType',
+      s1: {
+        iResolversExtra: {
+          async __resolveReference(ref: { id: string }) {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : { id: ref.id, x: 10, w: 30 };
+          },
+          __resolveType(ref: { id: string }) {
+            switch (ref.id) {
+              case 'idA':
+                return 'A';
+              case 'idB':
+                return 'B';
+              default:
+                throw new Error('Unknown type: ' + ref.id);
+            }
+          },
+        },
+      },
+    }, {
+      name: 'with an async __resolveReference and a non-default async __resolveType',
+      s1: {
+        iResolversExtra: {
+          async __resolveReference(ref: { id: string }) {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : { id: ref.id, x: 10, w: 30 };
+          },
+          async __resolveType(ref: { id: string }) {
+            switch (ref.id) {
+              case 'idA':
+                return 'A';
+              case 'idB':
+                return 'B';
+              default:
+                throw new Error('Unknown type: ' + ref.id);
+            }
+          },
+        },
+      },
+    }, {
+      name: 'with an async __resolveReference and async __isTypeOf on implementations',
+      s1: {
+        iResolversExtra: {
+          async __resolveReference(ref: {
+            id: string;
+            // I don't understand the TypeScript error that occurs when the
+            // return type is removed here (like all the others); it surfaces
+            // because `aResolversExtra` is defined, which I can't explain.
+          }): Promise<Record<string, any>> {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : { id: ref.id, x: 10, w: 30 };
+          },
+        },
+        aResolversExtra: {
+          async __isTypeOf(ref: { id: string }) {
+            return ref.id === 'idA';
+          },
+        },
+        bResolversExtra: {
+          async __isTypeOf(ref: { id: string }) {
+            return ref.id === 'idB';
+          },
+        },
+      },
+    }])('resolving an interface @key $name', async ({ s1, expectedErrors }) => {
       const tester = defineSchema({ s1 });
 
       const { plan, response } = await tester(`
