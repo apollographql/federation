@@ -1,28 +1,49 @@
 ---
 title: Federated trace data
-description: How federated tracing works
+description: Reporting fine-grained performance metrics
 ---
 
-One of the many benefits of using GraphQL as an API layer is that it enables fine-grained [tracing](/graphos/metrics/usage-reporting/) of every API call. The Apollo platform supports consuming and aggregating these traces to provide detailed insights into your GraphQL layer's performance and usage.
+One of the many benefits of using GraphQL as an API layer is that it enables fine-grained, field-level [tracing](/graphos/metrics/#resolver-level-traces) of every executed operation. The [GraphOS platform](/graphos/) can consume and aggregate these traces to provide detailed insights into your supergraph's usage and performance.
 
-Apollo Federation supports sending **federated traces** from your graph router, which are constructed from timing and error information provided by your subgraphs. These federated traces capture the subgraph-level details in the shape of the query plan, which is sent to Apollo's [metrics ingress](/graphos/metrics/usage-reporting) by default, and aggregated into query-level stats and field-level stats. The overall flow of a federated trace is as follows:
+Your supergraph's router can generate **federated traces** and [report them to GraphOS](/graphos/metrics/sending-operation-metrics). A federated trace is assembled from timing and error information provided by each subgraph that helps resolve a particular operation.
+
+## Reporting flow
+
+The overall flow of a federated trace is as follows:
 
 1. The router receives an operation from a client.
-2. The router constructs a query plan for the operation, delegating sub-queries to subgraphs.
-3. For each fetch to a subgraph, a response is received.
-4. The [`extensions`](/resources/graphql-glossary/#extensions) of each response includes a trace from the sub-query.
-5. The router collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
-6. The federated trace is sent to the Apollo [metrics ingress](/graphos/metrics/usage-reporting/) for processing.
+2. The router generates a [query plan](./query-plans/) for the operation and delegates sub-queries to individual subgraphs.
+3. Each queried subgraph returns response data to the router.
+    - The [`extensions`](/resources/graphql-glossary/#extensions) field of each response includes trace data for the corresponding sub-query.
+    - **The subgraph must support the federated trace format to include trace data in its response!** See [this section](#in-your-subgraphs).
+4. The router collects the set of sub-query traces from subgraphs and arranges them in the shape of the query plan.
+5. The router [reports the federated trace to GraphOS](/graphos/metrics/sending-operation-metrics/) for processing.
 
-In summary, subgraphs report timing and error information to the router, and the router is responsible for reporting those metrics to Apollo.
+In summary, subgraphs report timing and error information to the router, and the router is responsible for aggregating those metrics and reporting them to GraphOS.
 
-## Enabling federated tracing with `@apollo/gateway`
+## Enabling federated tracing
+
+### In your subgraphs
+
+For a subgraph to include trace data in its responses to your router, it must use a subgraph-compatible library that supports the trace format.
+
+To check whether your subgraph library supports federated tracing, see the `FEDERATED TRACING` entry for the library on [this page](./building-supergraphs/supported-subgraphs/).
+
+If your library _does_ support federated tracing, see its documentation to learn how to enable the feature.
+
+> If your subgraph uses Apollo Server with `@apollo/subgraph`, federated tracing is enabled by default. You can customize this behavior with Apollo Server's [inline trace plugin](/apollo-server/api/plugin/inline-trace).
+
+### In the Apollo Router
+
+See [Sending Apollo Router usage data to GraphOS](/router/configuration/apollo-telemetry).
+
+### In `@apollo/gateway`
 
 You can use the `@apollo/server` package's [built-in usage reporting plugin](/apollo-server/api/plugin/usage-reporting) to enable federated tracing for your gateway. Provide an API key to your gateway via the `APOLLO_KEY` environment variable for the gateway to report metrics to the default ingress. To ensure that subgraphs do not report metrics as well, either do not provide them with an `APOLLO_KEY` or install the [`ApolloServerPluginUsageReportingDisabled` plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/usage-reporting/) in your `ApolloServer`.
 
-These options will cause the Apollo gateway to collect tracing information from the underlying subgraphs and pass them on, along with the query plan, to the Apollo metrics ingress. Currently, only Apollo Server supports detailed metrics insights as a subgraph, but we would love to work with you to implement the protocol in other languages!
+These options will cause the Apollo gateway to collect tracing information from the underlying subgraphs and pass them on, along with the query plan, to the Apollo metrics ingress.
 
-> NOTE: By default, metrics will be reported to the `current` variant. To change the variant for reporting, set the `APOLLO_GRAPH_VARIANT` environment variable.
+> **Note:** By default, metrics are reported to the `current` GraphOS variant. To change the variant for reporting, set the `APOLLO_GRAPH_VARIANT` environment variable.
 
 ## How tracing data is exposed from a subgraph
 
@@ -30,7 +51,7 @@ These options will cause the Apollo gateway to collect tracing information from 
 
 Your router inspects the `extensions` field of all subgraph responses for the presence of an `ftv1` field. This field contains a representation of the tracing information for the sub-query that was executed against the subgraph, sent as the Base64 encoding of the [protobuf representation](https://github.com/apollographql/apollo-server/blob/main/packages/usage-reporting-protobuf/src/reports.proto) of the trace.
 
-To request this information of a subgraph, the router sends the header pair `'apollo-federation-include-trace': 'ftv1'` on fetches if configured to collect metrics, as per above. By default, a federated Apollo Server subgraph recognizes this header pair and attaches tracing information in extensions of the response.
+To obtain this information from a subgraph, the router includes the header pair `'apollo-federation-include-trace': 'ftv1'` in its request (if it's [configured to collect trace data](#in-the-apollo-router)). If the subgraph [supports federated traces](#in-your-subgraphs), it attaches tracing information in the `extensions` field of its response.
 
 ## How traces are constructed and aggregated
 

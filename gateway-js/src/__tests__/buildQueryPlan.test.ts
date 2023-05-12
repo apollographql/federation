@@ -465,7 +465,6 @@ describe('buildQueryPlan', () => {
       });
     });
 
-    // TODO: Ask martijn about the meaning of this test
     it(`should only add requirements once`, () => {
       const operationString = `#graphql
         query {

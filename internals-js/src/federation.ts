@@ -80,6 +80,8 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
+import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
+import { joinIdentity } from "./joinSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -110,7 +112,6 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
 const ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES: string[] = Object.values(FederationDirectiveName);
-
 function validateFieldSetSelections({
   directiveName,
   selectionSet,
@@ -1342,12 +1343,14 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     }
   }
 
-  return FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, '_' + spec.name))
+  const errors = FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, '_' + spec.name))
     .concat(FEDERATION1_DIRECTIVES.map((spec) => spec.checkOrAdd(schema)))
     .flat();
+
+  return errors.length === 0 ? expandKnownFeatures(schema) : errors;
 }
 
-function completeFed2SubgraphSchema(schema: Schema) {
+function completeFed2SubgraphSchema(schema: Schema): GraphQLError[] {
   const coreFeatures = schema.coreFeatures;
   assert(coreFeatures, 'This method should not have been called on a non-core schema');
 
@@ -1362,7 +1365,33 @@ function completeFed2SubgraphSchema(schema: Schema) {
     )];
   }
 
-  return spec.addElementsToSchema(schema);
+  const errors = spec.addElementsToSchema(schema);
+  return errors.length === 0 ? expandKnownFeatures(schema) : errors;
+}
+
+function expandKnownFeatures(schema: Schema): GraphQLError[] {
+  const coreFeatures = schema.coreFeatures;
+  if (!coreFeatures) {
+    return [];
+  }
+
+  let errors: GraphQLError[] = [];
+  for (const feature of coreFeatures.allFeatures()) {
+    // We should already have dealt with the core/link spec and federation at this point. Also, we shouldn't have the `join` spec in subgraphs,
+    // but some tests play with the idea and currently the join spec is implemented in a way that is not idempotent (it doesn't use
+    // `DirectiveSpecification.checkAndAdd`; we should clean it up at some point, but not exactly urgent).
+    if (feature === coreFeatures.coreItself || feature.url.identity === federationIdentity  || feature.url.identity === joinIdentity) {
+      continue;
+    }
+
+    const spec = coreFeatureDefinitionIfKnown(feature.url);
+    if (!spec) {
+      continue;
+    }
+
+    errors = errors.concat(spec.addElementsToSchema(schema));
+  }
+  return errors;
 }
 
 export function parseFieldSetArgument({

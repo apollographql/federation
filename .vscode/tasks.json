@@ -13,7 +13,6 @@
       },
       "presentation": {
         "reveal": "never",
-        "revealProblems": "onProblem",
         "panel": "shared",
         "clear": true
       },

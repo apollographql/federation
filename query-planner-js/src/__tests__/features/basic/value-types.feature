@@ -79,7 +79,7 @@ Scenario: resolves value types within their respective services
                 ],
                 "variableUsages": [],
                 "operationKind": "query",
-                "operation": "query ProducsWithMetadata__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}...on Furniture{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}}",
+                "operation": "query ProducsWithMetadata__reviews__1($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...Metadata}}}...on Furniture{reviews{metadata{__typename ...Metadata}}}}}fragment Metadata on MetadataOrError{...on KeyValue{key value}...on Error{code message}}",
                 "operationName": "ProducsWithMetadata__reviews__1"
               }
             },

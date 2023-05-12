@@ -41,11 +41,11 @@ export class TagSpecDefinition extends FeatureDefinition {
       name:'tag',
       locations: this.tagLocations,
       repeatable: true,
-      argumentFct: (schema) => ({
-        args: [{ name: 'name', type: new NonNullType(schema.stringType()) }],
-        errors: [],
-      }),
+      args: [{ name: 'name', type: (schema) => new NonNullType(schema.stringType()) }],
+      composes: true,
+      supergraphSpecification: () => TAG_VERSIONS.latest(),
     });
+    this.registerDirective(this.tagDirectiveSpec);
   }
 
   private isV01() {
@@ -54,10 +54,6 @@ export class TagSpecDefinition extends FeatureDefinition {
 
   private isV02() {
     return this.version.equals(new FeatureVersion(0, 2))
-  }
-
-  addElementsToSchema(schema: Schema): GraphQLError[] {
-    return this.addDirectiveSpec(schema, this.tagDirectiveSpec);
   }
 
   tagDirective(schema: Schema): DirectiveDefinition<{name: string}> {
@@ -75,10 +71,6 @@ export class TagSpecDefinition extends FeatureDefinition {
       );
     }
     return undefined;
-  }
-
-  allElementNames(): string[] {
-    return ["@tag"];
   }
 }
 

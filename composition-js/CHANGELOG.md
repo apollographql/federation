@@ -1,5 +1,32 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.4.3
+### Patch Changes
+
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/federation-internals@2.4.3
+  - @apollo/query-graphs@2.4.3
+
+## 2.4.2
+### Patch Changes
+
+
+- Allow passing print options to the `compose` method to impact how the supergraph is printed, and adds new printing ([#2042](https://github.com/apollographql/federation/pull/2042))
+  options to order all elements of the schema.
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-graphs@2.4.2
+
+## 2.4.1
+### Patch Changes
+
+
+- Start building packages with TS 5.x, which should have no effect on consumers ([#2480](https://github.com/apollographql/federation/pull/2480))
+
+- Updated dependencies [[`450b9578`](https://github.com/apollographql/federation/commit/450b9578ec8d66a48621f0e76fe0b4f738a78659), [`afde3158`](https://github.com/apollographql/federation/commit/afde3158ec2ee93b123a9bdb0f1a852e41fa7f27), [`eafebc3c`](https://github.com/apollographql/federation/commit/eafebc3c9af5c511990fe66b7c2900ba9a1b330f), [`01fe3f83`](https://github.com/apollographql/federation/commit/01fe3f836c08805c1c53b14c745a5117c678866d)]:
+  - @apollo/query-graphs@2.4.1
+  - @apollo/federation-internals@2.4.1
+
 ## 2.4.0
 ### Minor Changes
 
@@ -39,6 +66,13 @@
   - @apollo/federation-internals@2.4.0-alpha.0
   - @apollo/query-graphs@2.4.0-alpha.0
 
+## 2.3.5
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.3.5
+  - @apollo/query-graphs@2.3.5
+  
 ## 2.3.4
 ### Patch Changes
 

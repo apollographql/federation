@@ -1,5 +1,52 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.4.3
+### Patch Changes
+
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/query-planner@2.4.3
+  - @apollo/federation-internals@2.4.3
+  - @apollo/composition@2.4.3
+
+## 2.4.2
+### Patch Changes
+
+
+- Fix potential bug when an `@interfaceObject` type has a `@requires`. When an `@interfaceObject` type has a field with a ([#2524](https://github.com/apollographql/federation/pull/2524))
+  `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
+  then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
+  subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
+  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+  schema"`).
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/composition@2.4.2
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-planner@2.4.2
+
+## 2.4.1
+### Patch Changes
+
+
+- Fix issues (incorrectly rejected composition and/or subgraph errors) with `@interfaceObject`. Those issues may occur ([#2494](https://github.com/apollographql/federation/pull/2494))
+  either due to some use of `@requires` in an `@interfaceObject` type, or when some subgraph `S` defines a type that is an
+  implementation of an interface `I` in the supergraph, and there is an `@interfaceObject` for `I` in another subgraph,
+  but `S` does not itself defines `I`.
+
+- Fix handling of aliases and variables in introspection queries. ([#2506](https://github.com/apollographql/federation/pull/2506))
+
+
+- Start building packages with TS 5.x, which should have no effect on consumers ([#2480](https://github.com/apollographql/federation/pull/2480))
+
+
+- Improves reuse of named fragments in subgraph fetches. When a question has named fragments, the code tries to reuse ([#2497](https://github.com/apollographql/federation/pull/2497))
+  those fragment in subgraph fetches is those can apply (so when the fragment is fully queried in a single subgraph fetch).
+  However, the existing was only able to reuse those fragment in a small subset of cases. This change makes it much more
+  likely that _if_ a fragment can be reused, it will be.
+- Updated dependencies [[`450b9578`](https://github.com/apollographql/federation/commit/450b9578ec8d66a48621f0e76fe0b4f738a78659), [`afde3158`](https://github.com/apollographql/federation/commit/afde3158ec2ee93b123a9bdb0f1a852e41fa7f27), [`eafebc3c`](https://github.com/apollographql/federation/commit/eafebc3c9af5c511990fe66b7c2900ba9a1b330f), [`01fe3f83`](https://github.com/apollographql/federation/commit/01fe3f836c08805c1c53b14c745a5117c678866d)]:
+  - @apollo/query-planner@2.4.1
+  - @apollo/federation-internals@2.4.1
+  - @apollo/composition@2.4.1
+
 ## 2.4.0
 ### Minor Changes
 
@@ -110,7 +157,14 @@
   - @apollo/composition@2.4.0-alpha.0
   - @apollo/federation-internals@2.4.0-alpha.0
 
+## 2.3.5
+### Patch Changes
 
+- Updated dependencies [[`09382e74`](https://github.com/apollographql/federation/commit/09382e74adf4648582c0bbd135fe433a9853c835)]:
+  - @apollo/query-planner@2.3.5
+  - @apollo/composition@2.3.5
+  - @apollo/federation-internals@2.3.5
+  
 ## 2.3.4
 ### Patch Changes
 

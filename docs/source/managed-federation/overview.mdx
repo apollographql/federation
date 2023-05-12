@@ -19,8 +19,8 @@ graph LR;
     registry{{Schema Registry}};
     uplink{{Uplink}}
   end
-  serviceA & serviceB -->|Publishes schema| registry;
-  registry -->|Updates config| uplink;
+  serviceA & serviceB -->|Publishes<br/>schema| registry;
+  registry -->|Updates<br/>config| uplink;
   router -->|Polls for config changes| uplink;
   class registry secondary;
   class uplink secondary;

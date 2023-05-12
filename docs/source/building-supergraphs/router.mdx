@@ -3,11 +3,20 @@ title: The router
 description: The entry point to your supergraph
 ---
 
-import FederationArchitecture from '../../shared/diagrams/federation-architecture.mdx';
-
 After you set up at least one federation-ready [subgraph](./subgraphs-overview/), you can configure a **router** (formerly known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
 
-<FederationArchitecture />
+```mermaid
+graph LR;
+  clients(Clients);
+  subgraph "Supergraph";
+  gateway([Router]);
+  serviceA[Users<br/>subgraph];
+  serviceB[Products<br/>subgraph];
+  gateway --- serviceA & serviceB;
+  end;
+  clients -.- gateway;
+  class clients secondary;
+```
 
 ## Choosing a router library
 
@@ -15,7 +24,7 @@ Apollo actively supports the following options for your router:
 
 - **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
 
-    > If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages routing for you!
+    > If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
 
     You can also host your own Apollo Router instances:
 

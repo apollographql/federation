@@ -1,5 +1,15 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.4.3
+
+## 2.4.2
+
+## 2.4.1
+### Patch Changes
+
+
+- Start building packages with TS 5.x, which should have no effect on consumers ([#2480](https://github.com/apollographql/federation/pull/2480))
+
 ## 2.4.0
 ### Patch Changes
 
@@ -9,6 +19,8 @@
 ## 2.4.0-alpha.1
 
 ## 2.4.0-alpha.0
+
+## 2.3.5
 
 ## 2.3.4
 

@@ -1078,16 +1078,7 @@ export class CoreFeatures {
         isImported: false,
       } : undefined;
     } else {
-      const directFeature = this.byAlias.get(element.name);
-      if (directFeature && isDirective) {
-        return {
-          feature: directFeature,
-          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
-          isImported: true,
-        };
-      }
-
-      // Let's see if it's an import. If not, it's not associated to a declared feature.
+      // Let's first see if it's an import, as this would take precedence over directive implicitely named like their feature.
       const importName = isDirective ? '@' + element.name : element.name;
       const allFeatures = [this.coreItself, ...this.byIdentity.values()];
       for (const feature of allFeatures) {
@@ -1101,6 +1092,17 @@ export class CoreFeatures {
           }
         }
       }
+
+      // Otherwise, this may be the special directive having the same name as its feature.
+      const directFeature = this.byAlias.get(element.name);
+      if (directFeature && isDirective) {
+        return {
+          feature: directFeature,
+          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
+          isImported: true,
+        };
+      }
+
       return undefined;
     }
   }
@@ -1113,22 +1115,22 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'include',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
+    args: [{ name: 'if', type: (schema) => new NonNullType(schema.booleanType()) }],
   }),
   createDirectiveSpecification({
     name: 'skip',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
+    args: [{ name: 'if', type: (schema) => new NonNullType(schema.booleanType()) }],
   }),
   createDirectiveSpecification({
     name: 'deprecated',
     locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION],
-    argumentFct: (schema) => ({ args: [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }], errors: [] })
+    args: [{ name: 'reason', type: (schema) => schema.stringType(), defaultValue: 'No longer supported' }],
   }),
   createDirectiveSpecification({
     name: 'specifiedBy',
     locations: [DirectiveLocation.SCALAR],
-    argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
+    args: [{ name: 'url', type: (schema) => new NonNullType(schema.stringType()) }],
   }),
   // Note that @defer and @stream are unconditionally added to `Schema` even if they are technically "optional" built-in. _But_,
   // the `Schema#toGraphQLJSSchema` method has an option to decide if @defer/@stream should be included or not in the resulting
@@ -1136,13 +1138,10 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'defer',
     locations: [DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => ({
-      args: [
-        { name: 'label', type: schema.stringType() },
-        { name: 'if', type: new NonNullType(schema.booleanType()), defaultValue: true },
-      ],
-      errors: [],
-    })
+    args: [
+      { name: 'label', type: (schema) => schema.stringType() },
+      { name: 'if', type: (schema) => new NonNullType(schema.booleanType()), defaultValue: true },
+    ],
   }),
   // Adding @stream too so that it's know and we don't error out if it is queries. It feels like it would be weird to do so for @stream but not
   // @defer when both are defined in the same spec. That said, that does *not* mean we currently _implement_ @stream, we don't, and so putting
@@ -1150,14 +1149,11 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'stream',
     locations: [DirectiveLocation.FIELD],
-    argumentFct: (schema) => ({
-      args: [
-        { name: 'label', type: schema.stringType() },
-        { name: 'initialCount', type: schema.intType(), defaultValue: 0 },
-        { name: 'if', type: new NonNullType(schema.booleanType()), defaultValue: true },
-      ],
-      errors: [],
-    })
+    args: [
+      { name: 'label', type: (schema) => schema.stringType() },
+      { name: 'initialCount', type: (schema) => schema.intType(), defaultValue: 0 },
+      { name: 'if', type: (schema) => new NonNullType(schema.booleanType()), defaultValue: true },
+    ],
   }),
 ];
 
@@ -1455,6 +1451,16 @@ export class Schema {
 
   idType(): ScalarType {
     return this._builtInTypes.get('ID')! as ScalarType;
+  }
+
+  builtInScalarTypes(): ScalarType[] {
+    return [
+      this.intType(),
+      this.floatType(),
+      this.stringType(),
+      this.booleanType(),
+      this.idType(),
+    ];
   }
 
   addType<T extends NamedType>(type: T): T {
