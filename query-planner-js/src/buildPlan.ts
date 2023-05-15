@@ -3426,6 +3426,14 @@ function maybeSubstratPathPrefix(basePath: OperationPath, maybePrefix: Operation
   return undefined;
 }
 
+function updateCreatedGroups(createdGroups: FetchGroup[], ...newCreatedGroups: FetchGroup[]) {
+  for (const newGroup of newCreatedGroups) {
+    if (!createdGroups.includes(newGroup)) {
+      createdGroups.push(newGroup);
+    }
+  }
+}
+
 function computeGroupsForTree(
   dependencyGraph: FetchDependencyGraph,
   pathTree: OpPathTree<any>,
@@ -3447,7 +3455,7 @@ function computeGroupsForTree(
     context: initialContext,
     deferContext: initialDeferContext,
   }];
-  const createdGroups = [ ];
+  const createdGroups: FetchGroup[] = [ ];
   while (stack.length > 0) {
     const { tree, group, path, context, deferContext } = stack.pop()!;
     if (tree.isLeaf()) {
@@ -3467,7 +3475,7 @@ function computeGroupsForTree(
             assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
             const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, path, deferContextForConditions(deferContext));
-            createdGroups.push(...conditionsGroups);
+            updateCreatedGroups(createdGroups, ...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
             const sourceType = edge.head.type as CompositeType; // We shouldn't have a key on a non-composite type
@@ -3492,7 +3500,7 @@ function computeGroupsForTree(
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
             });
-            createdGroups.push(newGroup);
+            updateCreatedGroups(createdGroups, newGroup);
             newGroup.addParents(conditionsGroups.map((conditionGroup) => {
               // If `conditionGroup` parent is `group`, that is the same as `newGroup` current parent, then we can infer the path of `newGroup` into
               // that condition `group` by looking at the paths of each to their common parent. But otherwise, we cannot have a proper
@@ -3638,7 +3646,7 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
-            createdGroups.push(...requireResult.createdGroups);
+            updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
           }
 
           if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
@@ -3982,10 +3990,11 @@ function handleRequires(
       parent.group,
       postRequireGroup,
     );
+    updateCreatedGroups(unmergedGroups, postRequireGroup);
     return {
       group: postRequireGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
-      createdGroups: unmergedGroups.concat(postRequireGroup),
+      createdGroups: unmergedGroups,
     };
   } else {
     // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
@@ -4016,10 +4025,11 @@ function handleRequires(
       group,
       newGroup,
     );
+    updateCreatedGroups(createdGroups, newGroup);
     return {
       group: newGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
-      createdGroups: createdGroups.concat(newGroup),
+      createdGroups,
     };
   }
 }
