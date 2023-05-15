@@ -2716,6 +2716,108 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it('require of multiple field, when one is also a key to reach another', () => {
+    // The specificity of this example is that we `T.v` requires 2 fields `req1`
+    // and `req2`, but `req1` is also a key to get `req2`. This dependency was
+    // confusing a previous version of the code (which, when gathering the
+    // "createdGroups" for `T.v` @requires, was using the group for `req1` twice
+    // separatly (instead of recognizing it was the same group), and this was
+    // confusing the rest of the code was wasn't expecting it.
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          t : T
+        }
+
+        type T @key(fields: "id1") @key(fields: "req1") {
+          id1: ID!
+          req1: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type T @key(fields: "id1") {
+          id1: ID!
+          req1: Int @external
+          req2: Int @external
+          v: Int @requires(fields: "req1 req2")
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'C',
+      typeDefs: gql`
+        type T @key(fields: "req1") {
+          req1: Int
+          req2: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
+            {
+              t {
+                __typename
+                id1
+                req1
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "C") {
+              {
+                ... on T {
+                  __typename
+                  req1
+                }
+              } =>
+              {
+                ... on T {
+                  req2
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "B") {
+              {
+                ... on T {
+                  __typename
+                  req1
+                  req2
+                  id1
+                }
+              } =>
+              {
+                ... on T {
+                  v
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {
