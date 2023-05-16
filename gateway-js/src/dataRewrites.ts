@@ -1,5 +1,5 @@
 import { FetchDataRewrite } from "@apollo/query-planner";
-import { assert } from "console";
+import { assert } from "@apollo/federation-internals";
 import { GraphQLSchema, isAbstractType, isInterfaceType, isObjectType } from "graphql";
 
 const FRAGMENT_PREFIX = '... on ';
