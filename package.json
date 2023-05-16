@@ -50,7 +50,7 @@
     "@types/make-fetch-happen": "10.0.1",
     "@types/nock": "10.0.3",
     "@types/node": "12.20.55",
-    "@types/node-fetch": "2.6.3",
+    "@types/node-fetch": "2.6.4",
     "apollo-server": "3.12.0",
     "bunyan": "1.8.15",
     "graphql": "16.6.0",
