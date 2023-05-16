@@ -1,5 +1,34 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.3.6
+### Patch Changes
+
+
+- Fix issues (incorrectly rejected composition and/or subgraph errors) with `@interfaceObject`. Those issues may occur ([`11f2d7c0`](https://github.com/apollographql/federation/commit/11f2d7c0a1548e086f108f1e543da808de2a38b2))
+  either due to some use of `@requires` in an `@interfaceObject` type, or when some subgraph `S` defines a type that is an
+  implementation of an interface `I` in the supergraph, and there is an `@interfaceObject` for `I` in another subgraph,
+  but `S` does not itself defines `I`.
+
+- Fix potential assertion error during query planning in some multi-field `@requires` case. This error could be triggered ([`c0412fd9`](https://github.com/apollographql/federation/commit/c0412fd9c9e208bde3572ed5469c31683a182431))
+  when a field in a `@requires` depended on another field that was also part of that same requires (for instance, if a
+  field has a `@requires(fields: "id otherField")` and that `id` is also a key necessary to reach the subgraph providing
+  `otherField`).
+  
+  The assertion error thrown in that case contained the message `Root groups (...) should have no remaining groups unhandled (...)`
+
+- Fix potential bug when an `@interfaceObject` type has a `@requires`. When an `@interfaceObject` type has a field with a ([`2894a1ea`](https://github.com/apollographql/federation/commit/2894a1ea666d2f2f0cb50e1dc4147a29cb32bca6))
+  `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
+  then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
+  subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
+  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+  schema"`).
+
+- Fix query planner assertion error when types with no common supertypes are requested at the same path ([`ce0459a6`](https://github.com/apollographql/federation/commit/ce0459a64388b1c24a4febbe5427ad9ddf52d465))
+
+- Updated dependencies [[`98844fd5`](https://github.com/apollographql/federation/commit/98844fd511050678cc39cbbf86f5dc6d739f1923), [`11f2d7c0`](https://github.com/apollographql/federation/commit/11f2d7c0a1548e086f108f1e543da808de2a38b2), [`2894a1ea`](https://github.com/apollographql/federation/commit/2894a1ea666d2f2f0cb50e1dc4147a29cb32bca6)]:
+  - @apollo/federation-internals@2.3.6
+  - @apollo/query-graphs@2.3.6
+
 ## 2.3.5
 ### Patch Changes
 

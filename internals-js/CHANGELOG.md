@@ -1,5 +1,27 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.3.6
+### Patch Changes
+
+
+- Handle defaulted variables correctly during post-processing. ([`98844fd5`](https://github.com/apollographql/federation/commit/98844fd511050678cc39cbbf86f5dc6d739f1923))
+  
+  Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
+  
+  With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
+
+- Fix issues (incorrectly rejected composition and/or subgraph errors) with `@interfaceObject`. Those issues may occur ([`11f2d7c0`](https://github.com/apollographql/federation/commit/11f2d7c0a1548e086f108f1e543da808de2a38b2))
+  either due to some use of `@requires` in an `@interfaceObject` type, or when some subgraph `S` defines a type that is an
+  implementation of an interface `I` in the supergraph, and there is an `@interfaceObject` for `I` in another subgraph,
+  but `S` does not itself defines `I`.
+
+- Fix potential bug when an `@interfaceObject` type has a `@requires`. When an `@interfaceObject` type has a field with a ([`2894a1ea`](https://github.com/apollographql/federation/commit/2894a1ea666d2f2f0cb50e1dc4147a29cb32bca6))
+  `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
+  then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
+  subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
+  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+  schema"`).
+
 ## 2.3.5
 
 ## 2.3.4
