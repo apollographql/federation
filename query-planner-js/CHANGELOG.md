@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.4.4
+### Patch Changes
+
+
+- Fix potential assertion error during query planning in some multi-field `@requires` case. This error could be triggered ([#2575](https://github.com/apollographql/federation/pull/2575))
+  when a field in a `@requires` depended on another field that was also part of that same requires (for instance, if a
+  field has a `@requires(fields: "id otherField")` and that `id` is also a key necessary to reach the subgraph providing
+  `otherField`).
+  
+  The assertion error thrown in that case contained the message `Root groups (...) should have no remaining groups unhandled (...)`
+- Updated dependencies []:
+  - @apollo/federation-internals@2.4.4
+  - @apollo/query-graphs@2.4.4
+
 ## 2.4.3
 ### Patch Changes
 
