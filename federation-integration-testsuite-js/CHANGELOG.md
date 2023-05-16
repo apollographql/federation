@@ -1,5 +1,7 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.3.6
+
 ## 2.3.5
 
 ## 2.3.4
