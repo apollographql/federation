@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.4
+
 ## 2.4.3
 ### Patch Changes
 
