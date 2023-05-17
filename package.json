@@ -24,7 +24,7 @@
     "hints-doc:check": "npm run hints-doc && git diff --exit-code",
     "gen-test-supergraph": "ts-node ./query-planner-js/src/__tests__/genTestSupergraph.ts",
     "changeset-version": "changeset version && npm i",
-    "publish": "changeset publish",
+    "build-and-publish": "npm run compile && changeset publish",
     "spell:check": "cspell lint --no-progress --config .cspell/cspell.yml  || (echo 'Add any real words to ./cspell/cspell-dict.txt.'; exit 1)",
     "use-repo-git-hooks": "git config core.hooksPath .git-hooks"
   },
