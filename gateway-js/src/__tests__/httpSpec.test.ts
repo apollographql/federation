@@ -12,7 +12,6 @@ describe('httpSpecTests.ts', () => {
   beforeAll(async () => {
     gatewayServer = new ApolloServer({
       gateway: new ApolloGateway({
-        // serviceList: [{ name: 'subgraph', url: subgraphUrl }],
         supergraphSdl: getTestingSupergraphSdl()
       }),
       // The test doesn't know we should send apollo-require-preflight along
