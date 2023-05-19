@@ -9,7 +9,6 @@
     // Bundle together graphql-codegen updates (even major ones).
     "group:graphqlcodegeneratorMonorepo",
   ],
-  schedule: null,
   // "Past" major version branches, preserved as
   // "version-" branches, should be added here to ensure they get
   // important updatets.
