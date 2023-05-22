@@ -63,6 +63,26 @@ export type QueryPlannerConfig = {
      * normal query planning and instead a fetch to the one subgraph is built directly from the input query. 
      */
     bypassPlannerForSingleSubgraph?: boolean,
+
+    /**
+     * Query planning is an exploratory process. Depending on the specificities and feature used by
+     * subgraphs, there could exist may different theoretical valid (if not always efficient) plans
+     * for a given query, and at a high level, the query planner generates those possible choices,
+     * evaluate them, and return the best one. In some complex cases however, the number of 
+     * theoretically possible plans can be very large, and to keep query planning time acceptable,
+     * the query planner cap the maximum number of plans it evaluates. This config allows to configure
+     * that cap. Note if planning a query hits that cap, then the planner will still always return a
+     * "correct" plan, but it may not return _the_ optimal one, so this config can be considered a
+     * trade-off between the worst-time for query planning computation processing, and the risk of
+     * having non-optimal query plans (impacting query runtimes).
+     *
+     * This value currently defaults to 10 000, but this default is considered an implementation
+     * detail and is subject to change. We do not recommend setting this value unless it is to
+     * debug a specific issue (with unexpectedly slow query planning for instance). Remember that
+     * setting this value too low can negatively affect query runtime (due to the use of sub-optimal
+     * query plans).
+     */
+    maxEvaluatedPlans?: number,
   },
 }
 
@@ -80,7 +100,19 @@ export function enforceQueryPlannerConfigDefaults(
     },
     debug: {
       bypassPlannerForSingleSubgraph: false,
+      // Note that this number is a tad arbitrary: it's a nice round number that, on my laptop, ensure query planning
+      // don't take more than a handful of seconds. It might be worth running a bit more experiments on more environment
+      // to see if it's such a good default.
+      maxEvaluatedPlans: 10000,
       ...config?.debug,
     },
   };
+}
+
+export function validateQueryPlannerConfig(
+  config: QueryPlannerConfig,
+) {
+  if (config.debug?.maxEvaluatedPlans !== undefined && config.debug?.maxEvaluatedPlans < 1) {
+    throw new Error(`Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got ${config.debug.maxEvaluatedPlans}`);
+  }
 }
