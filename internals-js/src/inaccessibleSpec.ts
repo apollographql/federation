@@ -39,8 +39,8 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   public readonly inaccessibleDirectiveSpec: DirectiveSpecification;
   private readonly printedInaccessibleDefinition: string;
 
-  constructor(version: FeatureVersion, firstFedVersion?: FeatureVersion) {
-    super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version), firstFedVersion);
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+    super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version), minimumFederationVersion);
     this.inaccessibleLocations = [
       DirectiveLocation.FIELD_DEFINITION,
       DirectiveLocation.OBJECT,

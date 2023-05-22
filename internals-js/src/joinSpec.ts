@@ -31,8 +31,8 @@ function sanitizeGraphQLName(name: string) {
 }
 
 export class JoinSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion, firstFedVersion?: FeatureVersion) {
-    super(new FeatureUrl(joinIdentity, 'join', version), firstFedVersion);
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+    super(new FeatureUrl(joinIdentity, 'join', version), minimumFederationVersion);
   }
 
   private isV01() {

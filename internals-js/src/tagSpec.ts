@@ -13,8 +13,8 @@ export class TagSpecDefinition extends FeatureDefinition {
   public readonly tagDirectiveSpec: DirectiveSpecification;
   private readonly printedTagDefinition: string;
 
-  constructor(version: FeatureVersion, firstFedVersion?: FeatureVersion) {
-    super(new FeatureUrl(tagIdentity, 'tag', version), firstFedVersion);
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+    super(new FeatureUrl(tagIdentity, 'tag', version), minimumFederationVersion);
     this.tagLocations = [
       DirectiveLocation.FIELD_DEFINITION,
       DirectiveLocation.OBJECT,

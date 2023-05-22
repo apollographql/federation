@@ -42,7 +42,7 @@ export abstract class FeatureDefinition {
   private readonly _typeSpecs = new MapWithCachedArrays<string, TypeSpecification>();
 
   // A minimumFederationVersion that's undefined would mean that we won't produce that version in the supergraph SDL.
-  constructor(url: FeatureUrl | string, readonly firstFedVersion?: FeatureVersion) {
+  constructor(url: FeatureUrl | string, readonly minimumFederationVersion?: FeatureVersion) {
     this.url = typeof url === 'string' ? FeatureUrl.parse(url) : url;
   }
 
@@ -181,15 +181,6 @@ export abstract class FeatureDefinition {
 
   toString(): string {
     return `${this.identity}/${this.version}`
-  }
-
-  /**
-   * Returns true if this version of the Feature was introduced before the supplied federation version.
-   * If the feature does not specify a minimum federation version, this returns true signifying that we don't want to
-   * look for an older version
-   */
-  introducedAsOfFederationVersion(version: FeatureVersion): boolean {
-    return this.firstFedVersion ? version >= this.firstFedVersion : true;
   }
 }
 
@@ -374,8 +365,8 @@ const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
 export class CoreSpecDefinition extends FeatureDefinition {
   private readonly directiveDefinitionSpec: DirectiveSpecification;
 
-  constructor(version: FeatureVersion, firstFedVersion?: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
-    super(new FeatureUrl(identity, name, version), firstFedVersion);
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
+    super(new FeatureUrl(identity, name, version), minimumFederationVersion);
     this.directiveDefinitionSpec = createDirectiveSpecification({
       name,
       locations: [DirectiveLocation.SCHEMA],
@@ -600,7 +591,9 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
 
   getMinimumRequiredVersion(fedVersion: FeatureVersion): T {
     // this._definitions is already sorted with the most recent first
-    const def = this._definitions.find(def => def.introducedAsOfFederationVersion(fedVersion));
+    // get the first definition that is compatible with the federation version
+    // if the minimum version is not present, assume that we won't look for an older version
+    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion >= def.minimumFederationVersion : true);
     assert(def, `No compatible definition exists for federation version ${fedVersion}`);
 
     // note that it's necessary that we can only get versions that have the same major version as the latest,
@@ -608,7 +601,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     // the same major version as the latest.
     const latestMajor = this.latest().version.major;
     if (def.version.major !== latestMajor) {
-      return findLast(this._definitions, def => def.version.major === latestMajor) ?? this.latest(); // could use non-null assertion here
+      return findLast(this._definitions, def => def.version.major === latestMajor) ?? this.latest();
     }
     return def;
   }
