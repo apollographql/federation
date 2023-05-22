@@ -46,6 +46,7 @@ import {
   isLeafType,
   Variables,
   isObjectType,
+  NamedType,
 } from "./definitions";
 import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
@@ -152,7 +153,11 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   isLeafField(): boolean {
-    return isLeafType(baseType(this.definition.type!));
+    return isLeafType(this.baseType());
+  }
+
+  baseType(): NamedType {
+    return baseType(this.definition.type!);
   }
 
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
@@ -674,7 +679,7 @@ export function concatOperationPaths(head: OperationPath, tail: OperationPath): 
 
 function isUselessFollowupElement(first: OperationElement, followup: OperationElement, conditionals: Directive<any, any>[]): boolean {
   const typeOfFirst = first.kind === 'Field'
-    ? baseType(first.definition.type!)
+    ? first.baseType()
     : first.typeCondition;
 
   // The followup is useless if it's a fragment (with no directives we would want to preserve) whose type
@@ -1430,7 +1435,73 @@ export class SelectionSet {
     for (const selection of selections) {
       mergedSubselections.add(selection.selectionSet!);
     }
-    return first.withUpdatedSelectionSet(mergedSubselections.toSelectionSet(first.selectionSet.parentType));
+
+    // We know all the `selections` are basically for the same element (same field or same inline fragment),
+    // and we want to return a single selection with the merged selections. There is a subtlety regarding
+    // the parent type of that merged selection however: we cannot safely rely on the parent type of any
+    // of the individual selections, because this can be incorrect. Let's illustrate.
+    // Consider that we have:
+    // ```graphql
+    //   type Query {
+    //     a: A!
+    //   }
+    //
+    //   interface IA1 {
+    //     b: IB1!
+    //   }
+    //
+    //   interface IA2 {
+    //     b: IB2!
+    //   }
+    //
+    //   type A implements IA1 & IA2 {
+    //     b: B!
+    //   }
+    //
+    //   interface IB1 {
+    //     v1: Int!
+    //   }
+    //
+    //   interface IB2 {
+    //     v2: Int!
+    //   }
+    //
+    //   type B implements IB1 & IB2 {
+    //     v1: Int!
+    //     v2: Int!
+    //   }
+    // ```
+    // and suppose that we're trying to check if selection set:
+    //  maybeSuperset = { ... on IA1 { b { v1 } } ... on IA2 { b { v2 } } }  // (parent type A)
+    // contains selection set:
+    //  maybeSubset   = { b { v1 v2 } }                                      // (parent type A)
+    //
+    // In that case, the `contains` method below will call this function with the 2 sub-selections
+    // from `maybeSuperset`, but with the unecessary interface fragment removed (reminder that the
+    // parent type is `A`, so the "casts" into the interfaces are semantically useless).
+    //
+    // And so in that case, the argument to this method will be:
+    //   [ b { v1 } (parent type IA1), b { v2 } (parent type IA2) ]
+    // but then, the sub-selection `{ v1 }` of the 1st value will have parent type IB1,
+    //       and the sub-selection `{ v2 }` of the 2nd value will have parent type IB2,
+    // neither of which work for the merge sub-selection.
+    //
+    // Instead, we want to use as parent type the type of field `b` the parent type of `this`
+    // (which is `maybeSupeset` in our example). Which means that we want to use type `B` for
+    // the sub-selection, which is now guaranteed to work (or `maybeSupergerset` wouldn't have
+    // been valid).
+    //
+    // Long story short, we get that type by rebasing any of the selection element (we use the
+    // first as we have it) on `this.parentType`, which gives use the element we want, and we
+    // use the type of that for the sub-selection.
+
+    if (first.kind === 'FieldSelection') {
+      const rebasedField = first.element.rebaseOn(this.parentType);
+      return new FieldSelection(rebasedField, mergedSubselections.toSelectionSet(rebasedField.baseType() as CompositeType));
+    } else {
+      const rebasedFragment = first.element.rebaseOn(this.parentType);
+      return new InlineFragmentSelection(rebasedFragment, mergedSubselections.toSelectionSet(rebasedFragment.castedType()));
+    }
   }
 
   contains(that: SelectionSet): boolean {
@@ -1790,7 +1861,7 @@ function makeSelection(parentType: CompositeType, updates: SelectionUpdate[], fr
   }
 
   const element = updateElement(first).rebaseOn(parentType);
-  const subSelectionParentType = element.kind === 'Field' ? baseType(element.definition.type!) : element.castedType();
+  const subSelectionParentType = element.kind === 'Field' ? element.baseType() : element.castedType();
   if (!isCompositeType(subSelectionParentType)) {
     // This is a leaf, so all updates should correspond ot the same field and we just use the first.
     return selectionOfElement(element);
@@ -2120,7 +2191,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
 
   optimize(fragments: NamedFragments): Selection {
     let optimizedSelection = this.selectionSet ? this.selectionSet.optimizeSelections(fragments) : undefined;
-    const fieldBaseType = baseType(this.element.definition.type!);
+    const fieldBaseType = this.element.baseType();
     if (isCompositeType(fieldBaseType) && optimizedSelection) {
       const optimized = this.tryOptimizeSubselectionWithFragments({
         parentType: fieldBaseType,
@@ -2213,7 +2284,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
       return this.withUpdatedElement(rebasedElement);
     }
 
-    const rebasedBase = baseType(rebasedElement.definition.type!);
+    const rebasedBase = rebasedElement.baseType();
     if (rebasedBase === this.selectionSet.parentType) {
       return this.withUpdatedElement(rebasedElement);
     }
@@ -2279,7 +2350,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
       return this;
     }
 
-    const base = baseType(this.element.definition.type!)
+    const base = this.element.baseType()
     assert(isCompositeType(base), () => `Field ${this.element} should not have a sub-selection`);
     const trimmed = (options?.recursive ?? true) ? this.mapToSelectionSet((s) => s.trimUnsatisfiableBranches(base)) : this;
     // In rare caes, it's possible that everything in the sub-selection was trimmed away and so the

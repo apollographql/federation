@@ -5672,3 +5672,79 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
     }
   `);
 });
+
+test('does not error out handling fragments when interface subtyping is involved', () => {
+  // This test essentially make sure the issue in https://github.com/apollographql/federation/issues/2592
+  // is resolved.
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        a: A!
+      }
+
+      interface IA {
+        b: IB!
+      }
+
+      type A implements IA {
+        b: B!
+      }
+
+      interface IB {
+        v1: Int!
+      }
+
+      type B implements IB {
+        v1: Int!
+        v2: Int!
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+  const operation = operationFromDocument(api, gql`
+    {
+      a {
+        ...F1
+        ...F2
+        ...F3
+      }
+    }
+
+    fragment F1 on A {
+      b {
+        v2
+      }
+    }
+
+    fragment F2 on IA {
+      b {
+        v1
+      }
+    }
+
+    fragment F3 on IA {
+      b {
+        __typename
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Fetch(service: "Subgraph1") {
+        {
+          a {
+            b {
+              __typename
+              v1
+              v2
+            }
+          }
+        }
+      },
+    }
+  `);
+});
