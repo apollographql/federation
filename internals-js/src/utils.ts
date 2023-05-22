@@ -431,6 +431,7 @@ export function isNonEmptyArray<T>(array: T[]): array is NonEmptyArray<T> {
   return array.length > 0;
 }
 
+// We can switch to `Array.prototype.findLast` when we drop support for Node 16
 export function findLast<T>(array: T[], predicate: (t: T) => boolean): T | undefined {
   for (let i = array.length - 1; i >= 0; i--) {
     const t = array[i];
