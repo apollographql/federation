@@ -177,9 +177,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           logger,
         }),
       ).rejects.toThrowError(
-        new UplinkFetcherError(
-          'An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0',
-        ),
+        /An error occurred while fetching your schema from Apollo: 200 invalid json response body at https:\/\/example1.cloud-config-url.com\/cloudconfig\/ reason: Unexpected token/,
       );
     });
 

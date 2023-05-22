@@ -1,5 +1,50 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.4.5
+### Patch Changes
+
+
+- Supersedes v2.4.4 due to a publishing error with no dist/ folder ([#2583](https://github.com/apollographql/federation/pull/2583))
+
+- Updated dependencies [[`c96e24c4`](https://github.com/apollographql/federation/commit/c96e24c448bde3c4acfa5332335e868c701d7621)]:
+  - @apollo/composition@2.4.5
+  - @apollo/federation-internals@2.4.5
+  - @apollo/query-planner@2.4.5
+
+## 2.4.4
+### Patch Changes
+
+
+- Fix incorrect import the `assert` function in the `DataRewrite.ts`. The incorrect method was imported (due to a bad ([#2581](https://github.com/apollographql/federation/pull/2581))
+  import auto-completion) and went unnoticed, leading to potential build issue.
+- Updated dependencies [[`cb7f414d`](https://github.com/apollographql/federation/commit/cb7f414dde0b89f02e5c925a8f9ef1ce9b0d9b80)]:
+  - @apollo/query-planner@2.4.4
+  - @apollo/composition@2.4.4
+  - @apollo/federation-internals@2.4.4
+
+## 2.4.3
+### Patch Changes
+
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/query-planner@2.4.3
+  - @apollo/federation-internals@2.4.3
+  - @apollo/composition@2.4.3
+
+## 2.4.2
+### Patch Changes
+
+
+- Fix potential bug when an `@interfaceObject` type has a `@requires`. When an `@interfaceObject` type has a field with a ([#2524](https://github.com/apollographql/federation/pull/2524))
+  `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
+  then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
+  subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
+  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+  schema"`).
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/composition@2.4.2
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-planner@2.4.2
+
 ## 2.4.1
 ### Patch Changes
 

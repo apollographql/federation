@@ -1,5 +1,53 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.4.5
+### Patch Changes
+
+
+- Supersedes v2.4.4 due to a publishing error with no dist/ folder ([#2583](https://github.com/apollographql/federation/pull/2583))
+
+- Updated dependencies [[`c96e24c4`](https://github.com/apollographql/federation/commit/c96e24c448bde3c4acfa5332335e868c701d7621)]:
+  - @apollo/federation-internals@2.4.5
+  - @apollo/query-graphs@2.4.5
+
+## 2.4.4
+### Patch Changes
+
+
+- Fix potential assertion error during query planning in some multi-field `@requires` case. This error could be triggered ([#2575](https://github.com/apollographql/federation/pull/2575))
+  when a field in a `@requires` depended on another field that was also part of that same requires (for instance, if a
+  field has a `@requires(fields: "id otherField")` and that `id` is also a key necessary to reach the subgraph providing
+  `otherField`).
+  
+  The assertion error thrown in that case contained the message `Root groups (...) should have no remaining groups unhandled (...)`
+- Updated dependencies []:
+  - @apollo/federation-internals@2.4.4
+  - @apollo/query-graphs@2.4.4
+
+## 2.4.3
+### Patch Changes
+
+
+- Improves the heuristics used to try to reuse the query named fragments in subgraph fetches. Said fragment will be reused ([#2541](https://github.com/apollographql/federation/pull/2541))
+  more often, which can lead to smaller subgraph queries (and hence overall faster processing).
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/federation-internals@2.4.3
+  - @apollo/query-graphs@2.4.3
+
+## 2.4.2
+### Patch Changes
+
+
+- Fix potential bug when an `@interfaceObject` type has a `@requires`. When an `@interfaceObject` type has a field with a ([#2524](https://github.com/apollographql/federation/pull/2524))
+  `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
+  then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
+  subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
+  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+  schema"`).
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-graphs@2.4.2
+
 ## 2.4.1
 ### Patch Changes
 

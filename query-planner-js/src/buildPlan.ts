@@ -45,7 +45,6 @@ import {
   DeferDirectiveArgs,
   setValues,
   MultiMap,
-  NamedFragmentDefinition,
   typenameFieldName,
   mapKeys,
   operationPathToStringPath,
@@ -1339,7 +1338,7 @@ class FetchGroup {
     queryPlannerConfig: QueryPlannerConfig,
     handledConditions: Conditions,
     variableDefinitions: VariableDefinitions,
-    fragments?: NamedFragments,
+    fragments?: RebasedFragments,
     operationName?: string,
   ) : PlanNode | undefined {
     if (this.selection.isEmpty()) {
@@ -1366,7 +1365,7 @@ class FetchGroup {
           operationName,
         );
 
-    operation = operation.optimize(fragments);
+    operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
 
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
@@ -1397,6 +1396,22 @@ class FetchGroup {
     return this.isTopLevel
       ? `${base}[${this._selection}]`
       : `${base}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+class RebasedFragments {
+  private readonly bySubgraph = new Map<string, NamedFragments | null>();
+
+  constructor(private readonly queryFragments: NamedFragments) {
+  }
+
+  forSubgraph(name: string, schema: Schema): NamedFragments | undefined {
+    let frags = this.bySubgraph.get(name);
+    if (frags === undefined) {
+      frags = this.queryFragments.rebaseOn(schema) ?? null;
+      this.bySubgraph.set(name, frags);
+    }
+    return frags ?? undefined;
   }
 }
 
@@ -2782,10 +2797,10 @@ export class QueryPlanner {
 
     const reuseQueryFragments = this.config.reuseQueryFragments ?? true;
     let fragments = operation.selectionSet.fragments
-    if (fragments && reuseQueryFragments) {
+    if (fragments && !fragments.isEmpty() && reuseQueryFragments) {
       // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
       // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
-      fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments).map((def) => def.withUpdatedSelectionSet(def.selectionSet.trimUnsatisfiableBranches(def.selectionSet.parentType)));
+      fragments = addTypenameFieldForAbstractTypesInNamedFragments(fragments);
     } else {
       fragments = undefined;
     }
@@ -2824,7 +2839,7 @@ export class QueryPlanner {
     const processor = fetchGroupToPlanProcessor({
       config: this.config,
       variableDefinitions: operation.variableDefinitions,
-      fragments,
+      fragments: fragments ? new RebasedFragments(fragments) : undefined,
       operationName: operation.name,
       assignedDeferLabels,
     });
@@ -3307,7 +3322,7 @@ function fetchGroupToPlanProcessor({
 }: {
   config: QueryPlannerConfig,
   variableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments,
+  fragments?: RebasedFragments,
   operationName?: string,
   assignedDeferLabels?: Set<string>,
 }): FetchGroupProcessor<PlanNode | undefined, DeferredNode> {
@@ -3436,42 +3451,11 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
   //  1. expand any nested fragments in its selection.
   //  2. add `__typename` where we should in that expanded selection.
   //  3. re-optimize all fragments (using the "updated-with-typename" versions).
-  // which ends up getting us what we need. However, doing so requires us to deal with fragments in order
-  // of dependencies (first the ones with no nested fragments, then the one with only nested fragments of
-  // that first group, etc...), and that's why this method is a bit longer that one could have expected.
-  type FragmentInfo = {
-    original: NamedFragmentDefinition,
-    expandedSelectionSet: SelectionSet,
-    dependentsOn: string[],
-  };
-  const fragmentsMap = new Map<string, FragmentInfo>();
-
-  for (const fragment of fragments.definitions()) {
-    const expandedSelectionSet = addTypenameFieldForAbstractTypes(fragment.selectionSet.expandAllFragments());
-    const otherFragmentsUsages = new Map<string, number>();
-    fragment.collectUsedFragmentNames(otherFragmentsUsages);
-    fragmentsMap.set(fragment.name, {
-      original: fragment,
-      expandedSelectionSet,
-      dependentsOn: Array.from(otherFragmentsUsages.keys()),
-    });
-  }
-
-  const optimizedFragments = new NamedFragments();
-  while (fragmentsMap.size > 0) {
-    for (const [name, info] of fragmentsMap) {
-      // Note that graphQL specifies that named fragments cannot have cycles (https://spec.graphql.org/draft/#sec-Fragment-spreads-must-not-form-cycles)
-      // and so we guaranteed that on every ieration, at least element of the map is removed and thus that the
-      // overall `while` loops terminate.
-      if (info.dependentsOn.every((n) => optimizedFragments.has(n))) {
-        const reoptimizedSelectionSet = info.expandedSelectionSet.optimize(optimizedFragments);
-        optimizedFragments.add(info.original.withUpdatedSelectionSet(reoptimizedSelectionSet));
-        fragmentsMap.delete(name);
-      }
-    }
-  }
-
-  return optimizedFragments;
+  // which is what `mapToExpandedSelectionSets` gives us.
+  assert(!fragments.isEmpty(), 'Should not pass empty fragments to this method');
+  const updated = fragments.mapToExpandedSelectionSets(addTypenameFieldForAbstractTypes);
+  assert(updated, 'No fragments should have been removed');
+  return updated;
 }
 
 /**
@@ -3644,6 +3628,14 @@ function maybeSubstratPathPrefix(basePath: OperationPath, maybePrefix: Operation
   return undefined;
 }
 
+function updateCreatedGroups(createdGroups: FetchGroup[], ...newCreatedGroups: FetchGroup[]) {
+  for (const newGroup of newCreatedGroups) {
+    if (!createdGroups.includes(newGroup)) {
+      createdGroups.push(newGroup);
+    }
+  }
+}
+
 function computeGroupsForTree(
   dependencyGraph: FetchDependencyGraph,
   pathTree: OpPathTree<any>,
@@ -3665,7 +3657,7 @@ function computeGroupsForTree(
     context: initialContext,
     deferContext: initialDeferContext,
   }];
-  const createdGroups = [ ];
+  const createdGroups: FetchGroup[] = [ ];
   while (stack.length > 0) {
     const { tree, group, path, context, deferContext } = stack.pop()!;
     if (tree.localSelections) {
@@ -3691,7 +3683,7 @@ function computeGroupsForTree(
             assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
             const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, path, deferContextForConditions(deferContext));
-            createdGroups.push(...conditionsGroups);
+            updateCreatedGroups(createdGroups, ...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
             const sourceType = edge.head.type as CompositeType; // We shouldn't have a key on a non-composite type
@@ -3716,7 +3708,7 @@ function computeGroupsForTree(
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
             });
-            createdGroups.push(newGroup);
+            updateCreatedGroups(createdGroups, newGroup);
             newGroup.addParents(conditionsGroups.map((conditionGroup) => {
               // If `conditionGroup` parent is `group`, that is the same as `newGroup` current parent, then we can infer the path of `newGroup` into
               // that condition `group` by looking at the paths of each to their common parent. But otherwise, we cannot have a proper
@@ -3862,7 +3854,7 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
-            createdGroups.push(...requireResult.createdGroups);
+            updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
           }
 
           if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
@@ -4240,10 +4232,11 @@ function handleRequires(
       parent.group,
       postRequireGroup,
     );
+    updateCreatedGroups(unmergedGroups, postRequireGroup);
     return {
       group: postRequireGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
-      createdGroups: unmergedGroups.concat(postRequireGroup),
+      createdGroups: unmergedGroups,
     };
   } else {
     // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
@@ -4274,10 +4267,11 @@ function handleRequires(
       group,
       newGroup,
     );
+    updateCreatedGroups(createdGroups, newGroup);
     return {
       group: newGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
-      createdGroups: createdGroups.concat(newGroup),
+      createdGroups,
     };
   }
 }
