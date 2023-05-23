@@ -1,5 +1,27 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.4.5
+### Patch Changes
+
+
+- Supersedes v2.4.4 due to a publishing error with no dist/ folder ([#2583](https://github.com/apollographql/federation/pull/2583))
+
+- Updated dependencies [[`c96e24c4`](https://github.com/apollographql/federation/commit/c96e24c448bde3c4acfa5332335e868c701d7621)]:
+  - @apollo/composition@2.4.5
+  - @apollo/federation-internals@2.4.5
+  - @apollo/query-planner@2.4.5
+
+## 2.4.4
+### Patch Changes
+
+
+- Fix incorrect import the `assert` function in the `DataRewrite.ts`. The incorrect method was imported (due to a bad ([#2581](https://github.com/apollographql/federation/pull/2581))
+  import auto-completion) and went unnoticed, leading to potential build issue.
+- Updated dependencies [[`cb7f414d`](https://github.com/apollographql/federation/commit/cb7f414dde0b89f02e5c925a8f9ef1ce9b0d9b80)]:
+  - @apollo/query-planner@2.4.4
+  - @apollo/composition@2.4.4
+  - @apollo/federation-internals@2.4.4
+
 ## 2.4.3
 ### Patch Changes
 

@@ -34,7 +34,7 @@ jobs:
         with:
           title: "release: on branch ${{ github.ref_name }}"
           createGithubReleases: true
-          publish: npm run publish
+          publish: npm run build-and-publish
           # workaround for https://github.com/changesets/action/issues/203, includes an `npm i` after running the version command
           version: npm run changeset-version
         env:
