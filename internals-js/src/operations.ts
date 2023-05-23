@@ -1047,7 +1047,6 @@ export class NamedFragments {
       dependsOn: string[],
     };
     const fragmentsMap = new Map<string, FragmentInfo>();
-
     const removedFragments = new Set<string>();
     for (const fragment of this.definitions()) {
       const mappedSelectionSet = mapper(fragment.selectionSet.expandAllFragments().trimUnsatisfiableBranches(fragment.typeCondition));
@@ -1527,6 +1526,28 @@ export class SelectionSet {
   // validate this (`canApplyAtType` is not free, and we want to avoid repeating it multiple times).
   diffWithNamedFragmentIfContained(candidate: NamedFragmentDefinition, parentType: CompositeType): { contains: boolean, diff?: SelectionSet } {
     const that = candidate.selectionSetAtType(parentType);
+    // It's possible that while the fragment technically applies at `parentType`, it's "rebasing" on
+    // `parentType` is empty, or contains only `__typename`. For instance, suppose we have
+    // a union `U = A | B | C`, and then a fragment:
+    // ```graphql
+    //   fragment F on U {
+    //     ... on A {
+    //       x
+    //     }
+    //     ... on b {
+    //       y
+    //     }
+    //   }
+    // ```
+    // It is then possible to apply `F` when the parent type is `C`, but this ends up selecting
+    // nothing at all.
+    //
+    // Returning `contains: true` in those cases is, while not 100% incorrect, at least not productive,
+    // and so we skip right away in that case. This is essentially an optimisation.
+    if (that.isEmpty() || (that.selections().length === 1 && that.selections()[0].isTypenameField())) {
+      return { contains: false };
+    }
+
     if (this.contains(that)) {
       // One subtlety here is that at "this" sub-selections may already have been optimized with some fragments. It's
       // usually ok because `candidate` will also use those fragments, but one fragments that `candidate` can never be
@@ -1554,6 +1575,17 @@ export class SelectionSet {
       const otherSelections = that.triviallyNestedSelectionsForKey(this.parentType, key);
       const allSelections = thatSelection ? [thatSelection].concat(otherSelections) : otherSelections;
       if (allSelections.length === 0) {
+        // If it is a fragment spread, and we didn't find it in `that`, then we try to expand that
+        // fragment and see if that result is entirely covered by `that`. If that is the case, then it means
+        // `thisSelection` does not need to be in the returned "diff". If it's not entirely covered,
+        // we just add the spread itself to the diff: even if some parts of it were covered by `that`,
+        // keeping just the fragment is, in a sense, more condensed.
+        if (thisSelection instanceof FragmentSpreadSelection) {
+          const expanded = thisSelection.selectionSet.expandAllFragments().trimUnsatisfiableBranches(this.parentType);
+          if (expanded.minus(that).isEmpty()) {
+            continue;
+          }
+        }
         updated.add(thisSelection);
       } else {
         const selectionDiff = allSelections.reduce<Selection | undefined>((prev, val) => prev?.minus(val), thisSelection);
@@ -2055,6 +2087,11 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     return this.element.parentType;
   }
 
+  isTypenameField(): boolean {
+    // Overridden where appropriate
+    return false;
+  }
+
   collectVariables(collector: VariableCollector) {
     this.element.collectVariables(collector);
     this.selectionSet?.collectVariables(collector)
@@ -2179,6 +2216,10 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
 
   protected us(): FieldSelection {
     return this;
+  }
+
+  isTypenameField(): boolean {
+    return this.element.definition.name === typenameFieldName;
   }
 
   withUpdatedComponents(field: Field<any>, selectionSet: SelectionSet | undefined): FieldSelection {
@@ -2456,7 +2497,6 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
           || (isObjectType(parentType) && possibleRuntimeTypes(this.element.typeCondition).some((t) => t.name === parentType.name))
       );
   }
-
 }
 
 class InlineFragmentSelection extends FragmentSelection {
@@ -2668,7 +2708,7 @@ class InlineFragmentSelection extends FragmentSelection {
         if (isObjectType(thisCondition) || !possibleRuntimeTypes(thisCondition).includes(currentType)) {
           return undefined;
         } else {
-          const trimmed =this.selectionSet.trimUnsatisfiableBranches(currentType, options);
+          const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType, options);
           return trimmed.isEmpty() ? undefined : trimmed;
         }
       }
@@ -2799,8 +2839,10 @@ class FragmentSpreadSelection extends FragmentSelection {
     assert(false, `Unsupported`);
   }
 
-  trimUnsatisfiableBranches(_: CompositeType): FragmentSelection  {
-    return this;
+  trimUnsatisfiableBranches(parentType: CompositeType): FragmentSelection  {
+    // We must update the spread parent type if necessary since we're not going deeper,
+    // or we'll be fundamentally losing context.
+    return this.rebaseOn(parentType);
   }
 
   namedFragments(): NamedFragments | undefined {
@@ -2837,18 +2879,30 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this;
   }
 
-  rebaseOn(_parentType: CompositeType): FragmentSelection {
-    // This is a little bit iffy, because the fragment could link to a schema (typically the supergraph API one)
-    // that is different from the one of `_selectionSet` (say, a subgraph fetch selection in which we're trying to
-    // reuse a user fragment). But in practice, we expand all fragments when we do query planning and only re-add
-    // fragments back at the very end, so this should be fine. Importantly, we don't want this method to mistakenly
-    // expand the spread, as that would compromise the code that optimize subgraph fetches to re-use named
+  rebaseOn(parentType: CompositeType): FragmentSelection {
+    // We preserve the parent type here, to make sure we don't lose context, but we actually don't
+    // want to expand the spread  as that would compromise the code that optimize subgraph fetches to re-use named
     // fragments.
-    return this;
+    //
+    // This is a little bit iffy, because the fragment may not apply at this parent type, but we
+    // currently leave it to the caller to ensure this is not a mistake. But most of the
+    // QP code works on selections with fully expanded fragments, so this code (and that of `canAddTo`
+    // on come into play in the code for reusing fragments, and that code calls those methods
+    // appropriately.
+    if (this.parentType === parentType) {
+      return this;
+    }
+    return new FragmentSpreadSelection(
+      parentType,
+      this.fragments,
+      this.namedFragment,
+      this.spreadDirectives,
+    );
   }
 
   canAddTo(_: CompositeType): boolean {
-    // Mimicking the logic of `rebaseOn`.
+    // Since `rebaseOn` never fail, we copy the logic here and always return `true`. But as
+    // mentioned in `rebaseOn`, this leave it a bit to the caller to know what he is doing.
     return true;
   }
 
