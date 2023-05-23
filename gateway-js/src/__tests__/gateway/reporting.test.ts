@@ -1,20 +1,17 @@
 import { gunzipSync } from 'zlib';
 import nock from 'nock';
 import gql from 'graphql-tag';
-import { buildSubgraphSchema } from '@apollo/subgraph';
-import { ApolloServer } from 'apollo-server';
-import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
+import { ApolloServerPluginUsageReporting } from '@apollo/server/plugin/usageReporting';
 import { execute } from '@apollo/client/link/core';
 import { toPromise } from '@apollo/client/link/utils';
 import { createHttpLink } from '@apollo/client/link/http';
 import fetch from 'node-fetch';
-import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from '@apollo/usage-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
-import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
 import resolvable, { Resolvable } from '@josephg/resolvable';
+import { startSubgraphsAndGateway, Services } from './testUtils';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -80,17 +77,8 @@ expect.addSnapshotSerializer(
   }),
 );
 
-async function startFederatedServer(modules: GraphQLSchemaModule[]) {
-  const schema = buildSubgraphSchema(modules);
-  const server = new ApolloServer({ schema });
-  const { url } = await server.listen({ port: 0 });
-  return { url, server };
-}
-
 describe('reporting', () => {
-  let backendServers: ApolloServer[];
-  let gatewayServer: ApolloServer;
-  let gatewayUrl: string;
+  let services: Services;
   let reportPromise: Resolvable<any>;
 
   beforeEach(async () => {
@@ -104,38 +92,27 @@ describe('reporting', () => {
         return 'ok';
       });
 
-    backendServers = [];
-    const serviceList = [];
-    for (const fixture of fixtures) {
-      const { server, url } = await startFederatedServer([fixture]);
-      backendServers.push(server);
-      serviceList.push({ name: fixture.name, url });
-    }
-
-    const gateway = new ApolloGateway({ serviceList });
-    const { schema, executor } = await gateway.load();
-    gatewayServer = new ApolloServer({
-      schema,
-      executor,
-      apollo: {
-        key: 'service:foo:bar',
-        graphRef: 'foo@current',
-      },
-      plugins: [
-        ApolloServerPluginUsageReporting({
-          sendReportsImmediately: true,
-        }),
-      ],
-    });
-    ({ url: gatewayUrl } = await gatewayServer.listen({ port: 0 }));
+    services = await startSubgraphsAndGateway(
+      fixtures,
+      {
+        gatewayServerConfig: {
+          apollo: {
+            key: 'service:foo:bar',
+            graphRef: 'foo@current',
+          },
+          plugins: [
+            ApolloServerPluginUsageReporting({
+              sendReportsImmediately: true,
+            }),
+          ],
+        },
+      }
+    );
   });
 
   afterEach(async () => {
-    for (const server of backendServers) {
-      await server.stop();
-    }
-    if (gatewayServer) {
-      await gatewayServer.stop();
+    if (services) {
+      await services.stop();
     }
 
     nockAfterEach();
@@ -157,7 +134,7 @@ describe('reporting', () => {
     `;
 
     const result = await toPromise(
-      execute(createHttpLink({ uri: gatewayUrl, fetch: fetch as any }), {
+      execute(createHttpLink({ uri: services.gatewayUrl, fetch: fetch as any }), {
         query,
       }),
     );
@@ -632,6 +609,7 @@ describe('reporting', () => {
             ],
           },
         },
+        "tracesPreAggregated": false,
       }
     `);
   });

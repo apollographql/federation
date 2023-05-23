@@ -8,11 +8,9 @@ import {
   ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
-  DirectiveSpecification,
-  TypeSpecification,
 } from "./directiveAndTypeSpecification";
-import { DirectiveLocation, GraphQLError } from "graphql";
-import { assert, MapWithCachedArrays } from "./utils";
+import { DirectiveLocation } from "graphql";
+import { assert } from "./utils";
 import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
@@ -40,17 +38,16 @@ export enum FederationDirectiveName {
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
 
+const fieldsArgument: ArgumentSpecification = { name: 'fields', type: (schema) => fieldSetType(schema) };
+
 const keyDirectiveSpec = createDirectiveSpecification({
   name: FederationDirectiveName.KEY,
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
   repeatable: true,
-  argumentFct: (schema) => ({
-    args: [
-      fieldsArgument(schema),
-      { name: 'resolvable', type: schema.booleanType(), defaultValue: true },
-    ],
-    errors: [],
-  }),
+  args: [
+    fieldsArgument,
+    { name: 'resolvable', type: (schema) => schema.booleanType(), defaultValue: true },
+  ]
 });
 
 const extendsDirectiveSpec = createDirectiveSpecification({
@@ -61,28 +58,19 @@ const extendsDirectiveSpec = createDirectiveSpecification({
 const externalDirectiveSpec = createDirectiveSpecification({
   name: FederationDirectiveName.EXTERNAL,
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
-  argumentFct: (schema) => ({
-    args: [{ name: 'reason', type: schema.stringType() }],
-    errors: [],
-  }),
+  args: [{ name: 'reason', type: (schema) => schema.stringType() }],
 });
 
 const requiresDirectiveSpec = createDirectiveSpecification({
   name: FederationDirectiveName.REQUIRES,
   locations: [DirectiveLocation.FIELD_DEFINITION],
-  argumentFct: (schema) => ({
-    args: [fieldsArgument(schema)],
-    errors: [],
-  }),
+  args: [fieldsArgument],
 });
 
 const providesDirectiveSpec = createDirectiveSpecification({
   name: FederationDirectiveName.PROVIDES,
   locations: [DirectiveLocation.FIELD_DEFINITION],
-  argumentFct: (schema) => ({
-    args: [fieldsArgument(schema)],
-    errors: [],
-  }),
+  args: [fieldsArgument],
 });
 
 const legacyFederationTypes = [
@@ -103,9 +91,6 @@ const legacyFederationDirectives = [
 export const FEDERATION1_TYPES = legacyFederationTypes;
 export const FEDERATION1_DIRECTIVES = legacyFederationDirectives;
 
-function fieldsArgument(schema: Schema): ArgumentSpecification {
-  return { name: 'fields', type: fieldSetType(schema) };
-}
 
 function fieldSetType(schema: Schema): InputType {
   const metadata = federationMetadata(schema);
@@ -114,9 +99,6 @@ function fieldSetType(schema: Schema): InputType {
 }
 
 export class FederationSpecDefinition extends FeatureDefinition {
-  private readonly _directiveSpecs = new MapWithCachedArrays<string, DirectiveSpecification>();
-  private readonly _typeSpecs = new MapWithCachedArrays<string, TypeSpecification>();
-
   constructor(version: FeatureVersion) {
     super(new FeatureUrl(federationIdentity, 'federation', version));
 
@@ -139,10 +121,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
     this.registerDirective(createDirectiveSpecification({
       name: FederationDirectiveName.OVERRIDE,
       locations: [DirectiveLocation.FIELD_DEFINITION],
-      argumentFct: (schema) => ({
-        args: [{ name: 'from', type: new NonNullType(schema.stringType()) }],
-        errors: [],
-      }),
+      args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
     }));
 
     if (version >= (new FeatureVersion(2, 1))) {
@@ -150,10 +129,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
         name: FederationDirectiveName.COMPOSE_DIRECTIVE,
         locations: [DirectiveLocation.SCHEMA],
         repeatable: true,
-        argumentFct: (schema) => ({
-          args: [{ name: 'name', type: schema.stringType() }],
-          errors: [],
-        }),
+        args: [{ name: 'name', type: (schema) => schema.stringType() }],
       }));
     }
 
@@ -167,48 +143,13 @@ export class FederationSpecDefinition extends FeatureDefinition {
       );
     }
   }
-
-  private registerDirective(spec: DirectiveSpecification) {
-    this._directiveSpecs.set(spec.name, spec);
-  }
-
-  private registerType(spec: TypeSpecification) {
-    this._typeSpecs.set(spec.name, spec);
-  }
-
-  directiveSpecs(): readonly DirectiveSpecification[] {
-    return this._directiveSpecs.values();
-  }
-
-  typeSpecs(): readonly TypeSpecification[] {
-    return this._typeSpecs.values();
-  }
-
-  addElementsToSchema(schema: Schema): GraphQLError[] {
-    const feature = this.featureInSchema(schema);
-    assert(feature, 'The federation specification should have been added to the schema before this is called');
-
-    let errors: GraphQLError[] = [];
-    for (const type of this.typeSpecs()) {
-      errors = errors.concat(this.addTypeSpec(schema, type));
-    }
-
-    for (const directive of this.directiveSpecs()) {
-      errors = errors.concat(this.addDirectiveSpec(schema, directive));
-    }
-    return errors;
-  }
-
-  allElementNames(): string[] {
-    return this.directiveSpecs().map((spec) => `@${spec.name}`)
-      .concat(this.typeSpecs().map((spec) => spec.name));
-  }
 }
 
 export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
   .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

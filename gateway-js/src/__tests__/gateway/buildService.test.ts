@@ -1,12 +1,13 @@
 import nock from 'nock';
 
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
 
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';
 import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { GraphQLDataSourceRequestKind } from '../../datasources/types';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 beforeEach(nockBeforeEach);
 afterEach(nockAfterEach);
@@ -62,15 +63,10 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     },
   });
 
-  const { schema, executor } = await gateway.load();
-
   const server = new ApolloServer({
-    schema,
-    executor,
-    context: () => ({
-      userId: '1234',
-    }),
+    gateway,
   });
+  await server.start();
 
   const query = `#graphql
     {
@@ -92,18 +88,26 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     .reply(
       200,
       {
-        data: { me: { username: '@jbaxleyiii' } },
+        data: { me: { username: '@apollo-user' } },
       },
       replyHeaders,
     );
 
-  const result = await server.executeOperation({
-    query,
-  });
+  const result = await server.executeOperation(
+    {
+      query,
+    },
+    {
+      contextValue: {
+        userId: '1234',
+      },
+    },
+  );
 
-  expect(result.errors).toBeUndefined();
-  expect(result.data).toEqual({
-    me: { username: '@jbaxleyiii' },
+  const { data, errors } = unwrapSingleResultKind(result);
+  expect(errors).toBeUndefined();
+  expect(data).toEqual({
+    me: { username: '@apollo-user' },
   });
 });
 

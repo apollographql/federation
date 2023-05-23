@@ -6,7 +6,7 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 const users = [
-  { id: ['1', '1'], name: 'Trevor Scheer', __typename: 'User' },
+  { id: ['1', '1'], name: 'Trevor', __typename: 'User' },
   { id: ['2', '2'], name: 'James Baxley', __typename: 'User' },
 ];
 
@@ -89,7 +89,7 @@ it('fetches data correctly list type @key fields', async () => {
 
   expect(data).toEqual({
     reviews: [
-      { body: 'Good', author: { name: 'Trevor Scheer' } },
+      { body: 'Good', author: { name: 'Trevor' } },
       { body: 'Bad', author: { name: 'James Baxley' } },
     ],
   });

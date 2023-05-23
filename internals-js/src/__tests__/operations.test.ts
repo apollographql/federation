@@ -4,7 +4,7 @@ import {
   SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { Field, FieldSelection, Operation, operationFromDocument, parseOperation, SelectionSet } from '../../dist/operations';
+import { MutableSelectionSet, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
 
@@ -32,6 +32,34 @@ function astSSet(...selections: SelectionNode[]): SelectionSetNode {
 }
 
 describe('fragments optimization', () => {
+  // Takes a query with fragments as inputs, expand all those fragments, and ensures that all the
+  // fragments gets optimized back, and that we get back the exact same query. 
+  function testFragmentsRoundtrip({
+    schema,
+    query,
+    expanded,
+  }: {
+    schema: Schema,
+    query: string,
+    expanded: string,
+  }) {
+    const operation = parseOperation(schema, query);
+    // We call `trimUnsatisfiableBranches` because the selections we care about in the query planner
+    // will effectively have had gone through that function (and even if that function wasn't called,
+    // the query planning algorithm would still end up removing unsatisfiable branches anyway), so
+    // it is a more interesting test.
+    const withoutFragments = operation.expandAllFragments().trimUnsatisfiableBranches();
+
+    expect(withoutFragments.toString()).toMatchString(expanded);
+
+    // We force keeping all reused fragments, even if they are used only once, because the tests using
+    // this are just about testing the reuse of fragments and this make things shorter/easier to write.
+    // There is tests in `buildPlan.test.ts` that double-check that we don't reuse fragments used only
+    // once in actual query plans.
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!, 1);
+    expect(optimized.toString()).toMatchString(operation.toString());
+  }
+
   test('handles fragments using other fragments', () => {
     const schema = parseSchema(`
       type Query {
@@ -126,9 +154,6 @@ describe('fragments optimization', () => {
     `);
 
     const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-    // Note that we expect onU to *not* be recreated because, by default, optimize only
-    // add add back a fragment if it is used at least twice (otherwise, the fragment just
-    // make the query bigger).
     expect(optimized.toString()).toMatchString(`
       fragment OnT1 on T1 {
         a
@@ -146,9 +171,9 @@ describe('fragments optimization', () => {
 
       {
         t {
+          ...OnI
           ...OnT1
           ...OnT2
-          ...OnI
           u {
             ...OnI
             ...OnT1
@@ -176,187 +201,706 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
-      fragment OnT1 on T1 {
-        t2 {
-          x
-        }
-      }
-
-      query {
-        t1a {
-          ...OnT1
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment OnT1 on T1 {
           t2 {
-            y
+            x
           }
         }
-        t2a {
-          ...OnT1
-        }
-      }
-    `);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
-    expect(withoutFragments.toString()).toMatchString(`
-      {
-        t1a {
-          ... on T1 {
+        query {
+          t1a {
+            ...OnT1
             t2 {
-              x
+              y
             }
           }
-          t2 {
-            y
+          t2a {
+            ...OnT1
           }
         }
-        t2a {
-          ... on T1 {
+      `,
+      expanded: `
+        {
+          t1a {
+            t2 {
+              x
+              y
+            }
+          }
+          t2a {
             t2 {
               x
             }
           }
         }
+      `,
+    });
+  });
+
+  test('handles nested fragments with field intersection', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: A
+        b: Int
+      }
+
+      type A {
+        x: String
+        y: String
+        z: String
       }
     `);
 
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
-    expect(optimized.toString()).toMatchString(`
-      fragment OnT1 on T1 {
-        t2 {
+
+    // The subtlety here is that `FA` contains `__typename` and so after we're reused it, the
+    // selection will look like:
+    // {
+    //   t {
+    //     a {
+    //       ...FA
+    //     }
+    //   }
+    // }
+    // But to recognize that `FT` can be reused from there, we need to be able to see that
+    // the `__typename` that `FT` wants is inside `FA` (and since FA applies on the parent type `A`
+    // directly, it is fine to reuse).
+    testFragmentsRoundtrip({
+      schema,
+      query:  `
+        fragment FA on A {
+          __typename
           x
+          y
         }
+
+        fragment FT on T {
+          a {
+            __typename
+            ...FA
+          }
+        }
+
+        query {
+          t {
+            ...FT
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            a {
+              __typename
+              x
+              y
+            }
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragment matching subset of field selection', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
       }
 
-      {
-        t1a {
-          ...OnT1
-          t2 {
+      type T {
+        a: String
+        b: B
+        c: Int
+        d: D
+      }
+
+      type B {
+        x: String
+        y: String
+      }
+
+      type D {
+        m: String
+        n: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragT on T {
+          b {
+            __typename
+            x
+          }
+          c
+          d {
+            m
+          }
+        }
+
+        {
+          t {
+            ...FragT
+            d {
+              n
+            }
+            a
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            b {
+              __typename
+              x
+            }
+            c
+            d {
+              m
+              n
+            }
+            a
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragment matching subset of inline fragment selection', () => {
+    // Pretty much the same test than the previous one, but matching inside a fragment selection inside
+    // of inside a field selection.
+    const schema = parseSchema(`
+      type Query {
+        i: I
+      }
+
+      interface I {
+        a: String
+      }
+
+      type T {
+        a: String
+        b: B
+        c: Int
+        d: D
+      }
+
+      type B {
+        x: String
+        y: String
+      }
+
+      type D {
+        m: String
+        n: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragT on T {
+          b {
+            __typename
+            x
+          }
+          c
+          d {
+            m
+          }
+        }
+
+        {
+          i {
+            ... on T {
+              ...FragT
+              d {
+                n
+              }
+              a
+            }
+          }
+        }
+      `,
+      expanded: `
+        {
+          i {
+            ... on T {
+              b {
+                __typename
+                x
+              }
+              c
+              d {
+                m
+                n
+              }
+              a
+            }
+          }
+        }
+      `,
+    });
+  });
+
+  test('intersecting fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: String
+        b: B
+        c: Int
+        d: D
+      }
+
+      type B {
+        x: String
+        y: String
+      }
+
+      type D {
+        m: String
+        n: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      // Note: the code that reuse fragments iterates on fragments in the order they are defined in the document, but when it reuse
+      // a fragment, it puts it at the beginning of the selection (somewhat random, it just feel often easier to read), so the net
+      // effect on this example is that `Frag2`, which will be reused after `Frag1` will appear first in the re-optimized selection.
+      // So we put it first in the input too so that input and output actually match (the `testFragmentsRoundtrip` compares strings,
+      // so it is sensible to ordering; we could theoretically use `Operation.equals` instead of string equality, which wouldn't
+      // really on ordering, but `Operation.equals` is not entirely trivial and comparing strings make problem a bit more obvious).
+      query: `
+        fragment Frag1 on T {
+          b {
+            x
+          }
+          c
+          d {
+            m
+          }
+        }
+
+        fragment Frag2 on T {
+          a
+          b {
+            __typename
+            x
+          }
+          d {
+            m
+            n
+          }
+        }
+
+        {
+          t {
+            ...Frag2
+            ...Frag1
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            a
+            b {
+              __typename
+              x
+            }
+            d {
+              m
+              n
+            }
+            c
+          }
+        }
+      `,
+    });
+  });
+
+  test('fragments whose application makes a type condition trivial', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      interface I {
+        x: String
+      }
+
+      type T implements I {
+        x: String
+        a: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragI on I {
+          x
+          ... on T {
+            a
+          }
+        }
+
+        {
+          t {
+            ...FragI
+          }
+        }
+      `,
+      expanded: `
+        {
+          t {
+            x
+            a
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragment matching at the top level of another fragment', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: String
+        u: U
+      }
+
+      type U {
+        x: String
+        y: String
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment Frag1 on T {
+          a
+        }
+
+        fragment Frag2 on T {
+          u {
+            x
+            y
+          }
+          ...Frag1
+        }
+
+        fragment Frag3 on Query {
+          t {
+            ...Frag2
+          }
+        }
+
+        {
+          ...Frag3
+        }
+      `,
+      expanded: `
+        {
+          t {
+            u {
+              x
+              y
+            }
+            a
+          }
+        }
+      `,
+    });
+  });
+
+  test('handles fragments used in a context where they get trimmed', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      interface I {
+        x: Int
+      }
+
+      type T1 implements I {
+        x: Int
+        y: Int
+      }
+
+      type T2 implements I {
+        x: Int
+        z: Int
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragOnI on I {
+          ... on T1 {
+            y
+          }
+          ... on T2 {
+            z
+          }
+        }
+
+        {
+          t1 {
+            ...FragOnI
+          }
+        }
+      `,
+      expanded: `
+        {
+          t1 {
             y
           }
         }
-        t2a {
-          ...OnT1
-        }
+      `,
+    });
+  });
+
+  test('handles fragments used in the context of non-intersecting abstract types', () => {
+    const schema = parseSchema(`
+      type Query {
+        i2: I2
+      }
+
+      interface I1 {
+        x: Int
+      }
+
+      interface I2 {
+        y: Int
+      }
+
+      interface I3 {
+        z: Int
+      }
+
+      type T1 implements I1 & I2 {
+        x: Int
+        y: Int
+      }
+
+      type T2 implements I1 & I3 {
+        x: Int
+        z: Int
       }
     `);
-  });
-});
 
-describe('selection set freezing', () => {
-  const schema = parseSchema(`
-    type Query {
-      t: T
-    }
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment FragOnI1 on I1 {
+          ... on I2 {
+            y
+          }
+          ... on I3 {
+            z
+          }
+        }
 
-    type T {
-      a: Int
-      b: Int
-    }
-  `);
-
-  const tField = schema.schemaDefinition.rootType('query')!.field('t')!;
-
-  it('throws if one tries to modify a frozen selection set', () => {
-    // Note that we use parseOperation to help us build selection/selection sets because it's more readable/convenient
-    // thant to build the object "programmatically".
-    const s1 = parseOperation(schema, `{ t { a } }`).selectionSet;
-    const s2 = parseOperation(schema, `{ t { b } }`).selectionSet;
-
-    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
-
-    // Control: check we can add to the selection set while not yet frozen
-    expect(s.isFrozen()).toBeFalsy();
-    expect(() => s.mergeIn(s1)).not.toThrow();
-
-    s.freeze();
-    expect(s.isFrozen()).toBeTruthy();
-    expect(() => s.mergeIn(s2)).toThrowError('Cannot add to frozen selection: { t { a } }');
-  });
-
-  it('it does not clone non-frozen selections when adding to another one', () => {
-    // This test is a bit debatable because what it tests is not so much a behaviour
-    // we *need* absolutely to preserve, but rather test how things happens to
-    // behave currently and illustrate the current contrast between frozen and
-    // non-frozen selection set.
-    // That is, this test show what happens if the test
-    //   "it automaticaly clones frozen selections when adding to another one"
-    // is done without freezing.
-
-    const s1 = parseOperation(schema, `{ t { a } }`).selectionSet;
-    const s2 = parseOperation(schema, `{ t { b } }`).selectionSet;
-    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
-
-    s.mergeIn(s1);
-    s.mergeIn(s2);
-
-    expect(s.toString()).toBe('{ t { a b } }');
-
-    // This next assertion is where differs from the case where `s1` is frozen. Namely,
-    // when we do `s.mergeIn(s1)`, then `s` directly references `s1` without cloning
-    // and thus the next modification (`s.mergeIn(s2)`) ends up modifying both `s` and `s1`.
-    // Note that we don't mean by this test that the fact that `s.mergeIn(s1)` does
-    // not clone `s1` is a behaviour one should *rely* on, but it currently done for
-    // efficiencies sake: query planning does a lot of selection set building through
-    // `SelectionSet::mergeIn` and `SelectionSet::add` and we often pass to those method
-    // newly constructed selections as input, so cloning them would wast CPU and early
-    // query planning benchmarking showed that this could add up on the more expansive
-    // plan computations. This is why freezing exists: it allows us to save cloning
-    // in general, but to protect those selection set we know should be immutable
-    // so they do get cloned in such situation.
-    expect(s1.toString()).toBe('{ t { a b } }');
-    expect(s2.toString()).toBe('{ t { b } }');
+        {
+          i2 {
+            ...FragOnI1
+          }
+        }
+      `,
+      expanded: `
+        {
+          i2 {
+            ... on I1 {
+              ... on I2 {
+                y
+              }
+              ... on I3 {
+                z
+              }
+            }
+          }
+        }
+      `,
+    });
   });
 
-  it('it automaticaly clones frozen field selections when merging to another one', () => {
-    const s1 = parseOperation(schema, `{ t { a } }`).selectionSet.freeze();
-    const s2 = parseOperation(schema, `{ t { b } }`).selectionSet.freeze();
-    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
+  describe('applied directives', () => {
+    test('reuse fragments with directives on the fragment, but only when there is those directives', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T
+          t2: T
+          t3: T
+        }
 
-    s.mergeIn(s1);
-    s.mergeIn(s2);
+        type T {
+          a: Int
+          b: Int
+          c: Int
+          d: Int
+        }
+      `);
 
-    // We check S is what we expect...
-    expect(s.toString()).toBe('{ t { a b } }');
+      testFragmentsRoundtrip({
+        schema,
+        query: `
+          fragment DirectiveOnDef on T @include(if: $cond1) {
+            a
+          }
 
-    // ... but more importantly for this test, that s1/s2 were not modified.
-    expect(s1.toString()).toBe('{ t { a } }');
-    expect(s2.toString()).toBe('{ t { b } }');
-  });
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              ...DirectiveOnDef
+            }
+            t2 {
+              ... on T @include(if: $cond2) {
+                a
+              }
+            }
+            t3 {
+              ...DirectiveOnDef @include(if: $cond2)
+            }
+          }
+        `,
+        expanded: `
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              ... on T @include(if: $cond1) {
+                a
+              }
+            }
+            t2 {
+              ... on T @include(if: $cond2) {
+                a
+              }
+            }
+            t3 {
+              ... on T @include(if: $cond1) @include(if: $cond2) {
+                a
+              }
+            }
+          }
+        `,
+      });
+    });
 
-  it('it automaticaly clones frozen fragment selections when merging to another one', () => {
-    // Note: needlessly complex queries, but we're just ensuring the cloning story works when fragments are involved
-    const s1 = parseOperation(schema, `{ ... on Query { t { ... on T { a } } } }`).selectionSet.freeze();
-    const s2 = parseOperation(schema, `{ ... on Query { t { ... on T { b } } } }`).selectionSet.freeze();
-    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
+    test('reuse fragments with directives in the fragment selection, but only when there is those directives', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T
+          t2: T
+          t3: T
+        }
 
-    s.mergeIn(s1);
-    s.mergeIn(s2);
+        type T {
+          a: Int
+          b: Int
+          c: Int
+          d: Int
+        }
+      `);
 
-    expect(s.toString()).toBe('{ ... on Query { t { ... on T { a b } } } }');
+      testFragmentsRoundtrip({
+        schema,
+        query: `
+          fragment DirectiveInDef on T {
+            a @include(if: $cond1)
+          }
 
-    expect(s1.toString()).toBe('{ ... on Query { t { ... on T { a } } } }');
-    expect(s2.toString()).toBe('{ ... on Query { t { ... on T { b } } } }');
-  });
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              a
+            }
+            t2 {
+              ...DirectiveInDef
+            }
+            t3 {
+              a @include(if: $cond2)
+            }
+          }
+        `,
+        expanded: `
+          query myQuery($cond1: Boolean!, $cond2: Boolean!) {
+            t1 {
+              a
+            }
+            t2 {
+              a @include(if: $cond1)
+            }
+            t3 {
+              a @include(if: $cond2)
+            }
+          }
+        `,
+      });
+    });
 
-  it('it automaticaly clones frozen field selections when adding to another one', () => {
-    const s1 = parseOperation(schema, `{ t { a } }`).selectionSet.freeze();
-    const s2 = parseOperation(schema, `{ t { b } }`).selectionSet.freeze();
-    const s = new SelectionSet(schema.schemaDefinition.rootType('query')!);
-    const tSelection = new FieldSelection(new Field(tField));
-    s.add(tSelection);
+    test('reuse fragments with directives on spread, but only when there is those directives', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T
+          t2: T
+          t3: T
+        }
 
-    // Note that this test both checks the auto-cloning for the `add` method, but
-    // also shows that freezing dose apply deeply (since we freeze the whole `s1`/`s2`
-    // but only add some sub-selection of it).
-    tSelection.selectionSet!.add(s1.selections()[0].selectionSet!.selections()[0]);
-    tSelection.selectionSet!.add(s2.selections()[0].selectionSet!.selections()[0]);
+        type T {
+          a: Int
+          b: Int
+          c: Int
+          d: Int
+        }
+      `);
 
-    // We check S is what we expect...
-    expect(s.toString()).toBe('{ t { a b } }');
+      testFragmentsRoundtrip({
+        schema,
+        query: `
+          fragment NoDirectiveDef on T {
+            a
+          }
 
-    // ... but more importantly for this test, that s1/s2 were not modified.
-    expect(s1.toString()).toBe('{ t { a } }');
-    expect(s2.toString()).toBe('{ t { b } }');
+          query myQuery($cond1: Boolean!) {
+            t1 {
+              ...NoDirectiveDef
+            }
+            t2 {
+              ...NoDirectiveDef @include(if: $cond1)
+            }
+          }
+        `,
+        expanded: `
+          query myQuery($cond1: Boolean!) {
+            t1 {
+              a
+            }
+            t2 {
+              ... on T @include(if: $cond1) {
+                a
+              }
+            }
+          }
+        `,
+      });
+    });
   });
 });
 
@@ -515,5 +1059,208 @@ describe('empty branches removal', () => {
         astField('u'),
       )
     )).toBe('{ u }');
+  });
+});
+
+describe('basic operations', () => {
+  const schema = parseSchema(`
+    type Query {
+      t: T
+      i: I
+    }
+
+    type T {
+      v1: Int
+      v2: String
+      v3: I
+    }
+
+    interface I {
+      x: Int
+      y: Int
+    }
+
+    type A implements I {
+      x: Int
+      y: Int
+      a1: String
+      a2: String
+    }
+
+    type B implements I {
+      x: Int
+      y: Int
+      b1: Int
+      b2: T
+    }
+  `);
+
+  const operation = parseOperation(schema, `
+    {
+      t {
+        v1
+        v3 {
+          x
+        }
+      }
+      i {
+        ... on A {
+          a1
+          a2
+        }
+        ... on B {
+          y
+          b2 {
+           v2
+          }
+        }
+      }
+    }
+  `);
+
+  test('forEachElement', () => {
+    // We collect a pair of (parent type, field-or-fragment).
+    const actual: [string, string][] = [];
+    operation.selectionSet.forEachElement((elt) => actual.push([elt.parentType.name, elt.toString()]));
+    expect(actual).toStrictEqual([
+      ['Query', 't'],
+      ['T', 'v1'],
+      ['T', 'v3'],
+      ['I', 'x'],
+      ['Query', 'i'],
+      ['I', '... on A'],
+      ['A', 'a1'],
+      ['A', 'a2'],
+      ['I', '... on B'],
+      ['B', 'y'],
+      ['B', 'b2'],
+      ['T', 'v2'],
+    ]);
+  })
+});
+
+describe('MutableSelectionSet', () => {
+  test('memoizer', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        v1: Int
+        v2: String
+        v3: Int
+        v4: Int
+      }
+    `);
+
+    type Value = {
+      count: number
+    };
+
+    let calls = 0;
+    const sets: string[] = [];
+
+    const queryType = schema.schemaDefinition.rootType('query')!;
+    const ss = MutableSelectionSet.emptyWithMemoized<Value>(
+      queryType,
+      (s) => {
+        sets.push(s.toString());
+        return { count: ++calls };
+      }
+    );
+
+    expect(ss.memoized().count).toBe(1);
+    // Calling a 2nd time with no change to make sure we're not re-generating the value.
+    expect(ss.memoized().count).toBe(1);
+
+    ss.updates().add(parseOperation(schema, `{ t { v1 } }`).selectionSet);
+
+    expect(ss.memoized().count).toBe(2);
+    expect(sets).toStrictEqual(['{}', '{ t { v1 } }']);
+
+    ss.updates().add(parseOperation(schema, `{ t { v3 } }`).selectionSet);
+
+    expect(ss.memoized().count).toBe(3);
+    expect(sets).toStrictEqual(['{}', '{ t { v1 } }', '{ t { v1 v3 } }']);
+
+    // Still making sure we don't re-compute without updates.
+    expect(ss.memoized().count).toBe(3);
+
+    const cloned = ss.clone();
+    expect(cloned.memoized().count).toBe(3);
+
+    cloned.updates().add(parseOperation(schema, `{ t { v2 } }`).selectionSet);
+
+    // The value of `ss` should not have be recomputed, so it should still be 3.
+    expect(ss.memoized().count).toBe(3);
+    // But that of the clone should have changed.
+    expect(cloned.memoized().count).toBe(4);
+    expect(sets).toStrictEqual(['{}', '{ t { v1 } }', '{ t { v1 v3 } }', '{ t { v1 v3 v2 } }']);
+
+    // And here we make sure that if we update the fist selection, we don't have v3 in the set received
+    ss.updates().add(parseOperation(schema, `{ t { v4 } }`).selectionSet);
+    // Here, only `ss` memoized value has been recomputed. But since both increment the same `calls` variable,
+    // the total count should be 5 (even if the previous count for `ss` was only 3).
+    expect(ss.memoized().count).toBe(5);
+    expect(cloned.memoized().count).toBe(4);
+    expect(sets).toStrictEqual(['{}', '{ t { v1 } }', '{ t { v1 v3 } }', '{ t { v1 v3 v2 } }', '{ t { v1 v3 v4 } }']);
+  });
+});
+
+describe('unsatisfiable branches removal', () => {
+  const schema = parseSchema(`
+    type Query {
+      i: I
+      j: J
+    }
+
+    interface I {
+      a: Int
+      b: Int
+    }
+
+    interface J {
+      b: Int
+    }
+
+    type T1 implements I & J {
+      a: Int
+      b: Int
+      c: Int
+    }
+
+    type T2 implements I {
+      a: Int
+      b: Int
+      d: Int
+    }
+
+    type T3 implements J {
+      a: Int
+      b: Int
+      d: Int
+    }
+  `);
+
+  const withoutUnsatisfiableBranches = (op: string) => {
+    return parseOperation(schema, op).trimUnsatisfiableBranches().toString(false, false)
+  };
+
+
+  it.each([
+    '{ i { a } }',
+    '{ i { ... on T1 { a b c } } }',
+  ])('is identity if there is no unsatisfiable branches', (op) => {
+    expect(withoutUnsatisfiableBranches(op)).toBe(op);
+  });
+
+  it.each([
+    { input: '{ i { ... on I { a } } }', output: '{ i { a } }' },
+    { input: '{ i { ... on T1 { ... on I { a b } } } }', output: '{ i { ... on T1 { a b } } }' },
+    { input: '{ i { ... on I { a ... on T2 { d } } } }', output: '{ i { a ... on T2 { d } } }' },
+    { input: '{ i { ... on T2 { ... on I { a ... on J { b } } } } }', output: '{ i { ... on T2 { a } } }' },
+  ])('removes unsatisfiable branches', ({input, output}) => {
+    expect(withoutUnsatisfiableBranches(input)).toBe(output);
   });
 });

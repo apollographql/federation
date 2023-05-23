@@ -17,7 +17,7 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { composeServices } from '@apollo/composition';
-import { buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
+import { buildSchema, Operation, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
 import { GatewayExecutionResult, GatewayGraphQLRequest } from '@apollo/server-gateway-interface';
 
 const prettyFormat = require('pretty-format');
@@ -39,7 +39,7 @@ export async function execute(
   request: GatewayGraphQLRequest,
   services: ServiceDefinitionModule[] = fixtures,
   logger: Logger = console,
-): Promise<GatewayExecutionResult & { queryPlan: QueryPlan }> {
+): Promise<GatewayExecutionResult & { queryPlan: QueryPlan, operation: Operation }> {
   const serviceMap = Object.fromEntries(
     services.map(({ name, typeDefs, resolvers }) => {
       return [
@@ -79,7 +79,7 @@ export async function execute(
     apiSchema,
   );
 
-  return { ...result, queryPlan };
+  return { ...result, queryPlan, operation };
 }
 
 export function buildLocalService(modules: GraphQLSchemaModule[]) {

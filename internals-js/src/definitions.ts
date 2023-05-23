@@ -32,7 +32,16 @@ import {
   removeAllCoreFeatures,
 } from "./coreSpec";
 import { assert, mapValues, MapWithCachedArrays, removeArrayElement } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode, argumentsEquals } from "./values";
+import {
+  withDefaultValues,
+  valueEquals,
+  valueToString,
+  valueToAST,
+  valueFromAST,
+  valueNodeToConstValueNode,
+  argumentsEquals,
+  collectVariablesInValue
+} from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
@@ -343,12 +352,27 @@ export interface Named {
 export type ExtendableElement = SchemaDefinition | NamedType;
 
 export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
-  private _appliedDirectives: Directive<T>[] | undefined;
+  readonly appliedDirectives: Directive<T>[];
 
-  constructor(private readonly _schema: Schema) {}
+  constructor(
+    private readonly _schema: Schema,
+    directives: readonly Directive<any>[] = [],
+  ) {
+    this.appliedDirectives = directives.map((d) => this.attachDirective(d));
+  }
 
   schema(): Schema {
     return this._schema;
+  }
+
+  private attachDirective(directive: Directive<any>): Directive<T> {
+    // if the directive is not attached, we can assume we're fine just attaching it to use. Otherwise, we're "copying" it.
+    const toAdd = directive.isAttached()
+      ? new Directive(directive.name, directive.arguments())
+      : directive;
+
+    Element.prototype['setParent'].call(toAdd, this);
+    return toAdd;
   }
 
   appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(nameOrDefinition: string | DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[] {
@@ -356,39 +380,9 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
     return this.appliedDirectives.filter(d => d.name == directiveName) as Directive<T, TApplicationArgs>[];
   }
 
-  get appliedDirectives(): readonly Directive<T>[] {
-    return this._appliedDirectives ?? [];
-  }
-
   hasAppliedDirective(nameOrDefinition: string | DirectiveDefinition): boolean {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
     return this.appliedDirectives.some(d => d.name == directiveName);
-  }
-
-  applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    defOrDirective: Directive<T, TApplicationArgs> | DirectiveDefinition<TApplicationArgs>,
-    args?: TApplicationArgs
-  ): Directive<T, TApplicationArgs> {
-    let toAdd: Directive<T, TApplicationArgs>;
-    if (defOrDirective instanceof Directive) {
-      if (defOrDirective.schema() != this.schema()) {
-        throw new Error(`Cannot add directive ${defOrDirective} to ${this} as it is attached to another schema`);
-      }
-      toAdd = defOrDirective;
-      if (args) {
-        toAdd.setArguments(args);
-      }
-    } else {
-      toAdd = new Directive<T, TApplicationArgs>(defOrDirective.name, args ?? Object.create(null));
-    }
-    Element.prototype['setParent'].call(toAdd, this);
-    // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
-    if (this._appliedDirectives) {
-      this._appliedDirectives.push(toAdd);
-    } else {
-      this._appliedDirectives = [ toAdd ];
-    }
-    return toAdd;
   }
 
   appliedDirectivesToDirectiveNodes() : ConstDirectiveNode[] | undefined {
@@ -414,8 +408,10 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
       : ' ' + this.appliedDirectives.join(' ');
   }
 
-  variablesInAppliedDirectives(): Variables {
-    return this.appliedDirectives.reduce((acc: Variables, d) => mergeVariables(acc, variablesInArguments(d.arguments())), []);
+  collectVariablesInAppliedDirectives(collector: VariableCollector) {
+    for (const applied of this.appliedDirectives) {
+      collector.collectInArguments(applied.arguments());
+    }
   }
 }
 
@@ -1082,16 +1078,7 @@ export class CoreFeatures {
         isImported: false,
       } : undefined;
     } else {
-      const directFeature = this.byAlias.get(element.name);
-      if (directFeature && isDirective) {
-        return {
-          feature: directFeature,
-          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
-          isImported: true,
-        };
-      }
-
-      // Let's see if it's an import. If not, it's not associated to a declared feature.
+      // Let's first see if it's an import, as this would take precedence over directive implicitely named like their feature.
       const importName = isDirective ? '@' + element.name : element.name;
       const allFeatures = [this.coreItself, ...this.byIdentity.values()];
       for (const feature of allFeatures) {
@@ -1105,6 +1092,17 @@ export class CoreFeatures {
           }
         }
       }
+
+      // Otherwise, this may be the special directive having the same name as its feature.
+      const directFeature = this.byAlias.get(element.name);
+      if (directFeature && isDirective) {
+        return {
+          feature: directFeature,
+          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
+          isImported: true,
+        };
+      }
+
       return undefined;
     }
   }
@@ -1117,22 +1115,22 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'include',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
+    args: [{ name: 'if', type: (schema) => new NonNullType(schema.booleanType()) }],
   }),
   createDirectiveSpecification({
     name: 'skip',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => ({ args: [{ name: 'if', type: new NonNullType(schema.booleanType()) }], errors: [] })
+    args: [{ name: 'if', type: (schema) => new NonNullType(schema.booleanType()) }],
   }),
   createDirectiveSpecification({
     name: 'deprecated',
     locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION],
-    argumentFct: (schema) => ({ args: [{ name: 'reason', type: schema.stringType(), defaultValue: 'No longer supported' }], errors: [] })
+    args: [{ name: 'reason', type: (schema) => schema.stringType(), defaultValue: 'No longer supported' }],
   }),
   createDirectiveSpecification({
     name: 'specifiedBy',
     locations: [DirectiveLocation.SCALAR],
-    argumentFct: (schema) => ({ args: [{ name: 'url', type: new NonNullType(schema.stringType()) }], errors: [] })
+    args: [{ name: 'url', type: (schema) => new NonNullType(schema.stringType()) }],
   }),
   // Note that @defer and @stream are unconditionally added to `Schema` even if they are technically "optional" built-in. _But_,
   // the `Schema#toGraphQLJSSchema` method has an option to decide if @defer/@stream should be included or not in the resulting
@@ -1140,13 +1138,10 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'defer',
     locations: [DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
-    argumentFct: (schema) => ({
-      args: [
-        { name: 'label', type: schema.stringType() },
-        { name: 'if', type: new NonNullType(schema.booleanType()), defaultValue: true },
-      ],
-      errors: [],
-    })
+    args: [
+      { name: 'label', type: (schema) => schema.stringType() },
+      { name: 'if', type: (schema) => new NonNullType(schema.booleanType()), defaultValue: true },
+    ],
   }),
   // Adding @stream too so that it's know and we don't error out if it is queries. It feels like it would be weird to do so for @stream but not
   // @defer when both are defined in the same spec. That said, that does *not* mean we currently _implement_ @stream, we don't, and so putting
@@ -1154,14 +1149,11 @@ const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] 
   createDirectiveSpecification({
     name: 'stream',
     locations: [DirectiveLocation.FIELD],
-    argumentFct: (schema) => ({
-      args: [
-        { name: 'label', type: schema.stringType() },
-        { name: 'initialCount', type: schema.intType(), defaultValue: 0 },
-        { name: 'if', type: new NonNullType(schema.booleanType()), defaultValue: true },
-      ],
-      errors: [],
-    })
+    args: [
+      { name: 'label', type: (schema) => schema.stringType() },
+      { name: 'initialCount', type: (schema) => schema.intType(), defaultValue: 0 },
+      { name: 'if', type: (schema) => new NonNullType(schema.booleanType()), defaultValue: true },
+    ],
   }),
 ];
 
@@ -1459,6 +1451,16 @@ export class Schema {
 
   idType(): ScalarType {
     return this._builtInTypes.get('ID')! as ScalarType;
+  }
+
+  builtInScalarTypes(): ScalarType[] {
+    return [
+      this.intType(),
+      this.floatType(),
+      this.stringType(),
+      this.booleanType(),
+      this.idType(),
+    ];
   }
 
   addType<T extends NamedType>(type: T): T {
@@ -2089,6 +2091,14 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
   isQueryRootType(): boolean {
     const schema = this.schema();
     return schema.schemaDefinition.root('query')?.type === this;
+  }
+
+  /**
+   *  Whether this type is the "subscription" root type of the schema (will return false if the type is detached).
+   */
+  isSubscriptionRootType(): boolean {
+    const schema = this.schema();
+    return schema.schemaDefinition.root('subscription')?.type === this;
   }
 
   protected removeReferenceRecursive(ref: ObjectTypeReferencer): void {
@@ -3061,7 +3071,7 @@ export class Directive<
   // applied to a field that is part of an extension, the field will have its extension set, but not the underlying directive.
   private _extension?: Extension<any>;
 
-  constructor(readonly name: string, private _args: TArgs) {
+  constructor(readonly name: string, private _args: TArgs = Object.create(null)) {
     super();
   }
 
@@ -3306,36 +3316,36 @@ export class Variable {
 
 export type Variables = readonly Variable[];
 
-export function mergeVariables(v1s: Variables, v2s: Variables): Variables {
-  if (v1s.length == 0) {
-    return v2s;
+export class VariableCollector {
+  private readonly _variables = new Map<string, Variable>();
+
+  add(variable: Variable) {
+    this._variables.set(variable.name, variable);
   }
-  if (v2s.length == 0) {
-    return v1s;
-  }
-  const res: Variable[] = v1s.concat();
-  for (const v of v2s) {
-    if (!containsVariable(v1s, v)) {
-      res.push(v);
+
+  addAll(variables: Variables) {
+    for (const variable of variables) {
+      this.add(variable);
     }
   }
-  return res;
-}
 
-export function containsVariable(variables: Variables, toCheck: Variable): boolean {
-  return variables.some(v => v.name == toCheck.name);
+  collectInArguments(args: {[key: string]: any}) {
+    for (const value of Object.values(args)) {
+      collectVariablesInValue(value, this);
+    }
+  }
+
+  variables() {
+    return mapValues(this._variables);
+  }
+
+  toString(): string {
+    return this.variables().toString();
+  }
 }
 
 export function isVariable(v: any): v is Variable {
   return v instanceof Variable;
-}
-
-export function variablesInArguments(args: {[key: string]: any}): Variables {
-  let variables: Variables = [];
-  for (const value of Object.values(args)) {
-    variables = mergeVariables(variables, variablesInValue(value));
-  }
-  return variables;
 }
 
 export class VariableDefinition extends DirectiveTargetElement<VariableDefinition> {
@@ -3362,7 +3372,7 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
 
   toString() {
     let base = this.variable + ': ' + this.type;
-    if (this.defaultValue) {
+    if (this.defaultValue !== undefined) {
       base = base + ' = ' + valueToString(this.defaultValue, this.type);
     }
     return base + this.appliedDirectivesToString();

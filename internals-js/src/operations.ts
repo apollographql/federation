@@ -24,16 +24,12 @@ import {
   InterfaceType,
   isCompositeType,
   isInterfaceType,
-  isLeafType,
   isNullableType,
-  isUnionType,
   ObjectType,
   runtimeTypesIntersects,
   Schema,
   SchemaRootKind,
-  mergeVariables,
-  Variables,
-  variablesInArguments,
+  VariableCollector,
   VariableDefinitions,
   variableDefinitionsFromAST,
   CompositeType,
@@ -46,11 +42,17 @@ import {
   Variable,
   possibleRuntimeTypes,
   Type,
+  sameDirectiveApplication,
+  isLeafType,
+  Variables,
+  isObjectType,
 } from "./definitions";
+import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
-import { isDirectSubtype, sameType } from "./types";
-import { assert, mapEntries, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
+import { isSubtype, sameType } from "./types";
+import { assert, isDefined, mapEntries, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
+import { v1 as uuidv1 } from 'uuid';
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
@@ -67,19 +69,25 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
 
   constructor(
     schema: Schema,
-    private readonly variablesInElement: Variables
+    directives?: readonly Directive<any>[],
   ) {
-    super(schema);
+    super(schema, directives);
   }
 
-  variables(): Variables {
-    return mergeVariables(this.variablesInElement, this.variablesInAppliedDirectives());
+  collectVariables(collector: VariableCollector) {
+    this.collectVariablesInElement(collector);
+    this.collectVariablesInAppliedDirectives(collector);
   }
 
-  /**
-   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
-   */
-  abstract updateForAddingTo(selection: SelectionSet): T;
+  abstract key(): string;
+
+  abstract asPathElement(): string | undefined;
+
+  abstract rebaseOn(parentType: CompositeType): T;
+
+  abstract withUpdatedDirectives(newDirectives: readonly Directive<any>[]): T;
+
+  protected abstract collectVariablesInElement(collector: VariableCollector): void;
 
   addAttachement(key: string, value: string) {
     if (!this.attachements) {
@@ -106,49 +114,112 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   constructor(
     readonly definition: FieldDefinition<CompositeType>,
-    readonly args: TArgs = Object.create(null),
-    readonly variableDefinitions: VariableDefinitions = new VariableDefinitions(),
-    readonly alias?: string
+    private readonly args?: TArgs,
+    directives?: readonly Directive<any>[],
+    readonly alias?: string,
   ) {
-    super(definition.schema(), variablesInArguments(args));
+    super(definition.schema(), directives);
+  }
+
+  protected collectVariablesInElement(collector: VariableCollector): void {
+    if (this.args) {
+      collector.collectInArguments(this.args);
+    }
   }
 
   get name(): string {
     return this.definition.name;
   }
 
+  argumentValue(name: string): any {
+    return this.args ? this.args[name] : undefined;
+  }
+
   responseName(): string {
     return this.alias ? this.alias : this.name;
+  }
+
+  key(): string {
+    return this.responseName();
+  }
+
+  asPathElement(): string {
+    return this.responseName();
   }
 
   get parentType(): CompositeType {
     return this.definition.parent;
   }
 
+  isLeafField(): boolean {
+    return isLeafType(baseType(this.definition.type!));
+  }
+
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
-    const newField = new Field<TArgs>(newDefinition, this.args, this.variableDefinitions, this.alias);
-    for (const directive of this.appliedDirectives) {
-      newField.applyDirective(directive.definition!, directive.arguments());
-    }
+    const newField = new Field<TArgs>(
+      newDefinition,
+      this.args,
+      this.appliedDirectives,
+      this.alias,
+    );
     this.copyAttachementsTo(newField);
     return newField;
   }
 
   withUpdatedAlias(newAlias: string | undefined): Field<TArgs> {
-    const newField = new Field<TArgs>(this.definition, this.args, this.variableDefinitions, newAlias);
-    for (const directive of this.appliedDirectives) {
-      newField.applyDirective(directive.definition!, directive.arguments());
-    }
+    const newField = new Field<TArgs>(
+      this.definition,
+      this.args,
+      this.appliedDirectives,
+      newAlias,
+    );
     this.copyAttachementsTo(newField);
     return newField;
   }
+
+  withUpdatedDirectives(newDirectives: readonly Directive<any>[]): Field<TArgs> {
+    const newField = new Field<TArgs>(
+      this.definition,
+      this.args,
+      newDirectives,
+      this.alias,
+    );
+    this.copyAttachementsTo(newField);
+    return newField;
+  }
+
+  argumentsToNodes(): ArgumentNode[] | undefined {
+    if (!this.args) {
+      return undefined;
+    }
+
+    const entries = Object.entries(this.args);
+    if (entries.length === 0) {
+      return undefined;
+    }
+
+    return entries.map(([n, v]) => {
+      return {
+        kind: Kind.ARGUMENT,
+        name: { kind: Kind.NAME, value: n },
+        value: valueToAST(v, this.definition.argument(n)!.type!)!,
+      };
+    });
+  }
+
 
   appliesTo(type: ObjectType | InterfaceType): boolean {
     const definition = type.field(this.name);
     return !!definition && this.selects(definition);
   }
 
-  selects(definition: FieldDefinition<any>, assumeValid: boolean = false): boolean {
+  selects(
+    definition: FieldDefinition<any>,
+    assumeValid: boolean = false,
+    variableDefinitions?: VariableDefinitions,
+  ): boolean {
+    assert(assumeValid || variableDefinitions, 'Must provide variable definitions if validation is needed');
+
     // We've already validated that the field selects the definition on which it was built.
     if (definition === this.definition) {
       return true;
@@ -163,20 +234,20 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of definition.arguments()) {
-      const appliedValue = this.args[argDef.name];
+      const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
         if (argDef.defaultValue === undefined && !isNullableType(argDef.type!)) {
           return false;
         }
       } else {
-        if (!assumeValid && !isValidValue(appliedValue, argDef, this.variableDefinitions)) {
+        if (!assumeValid && !isValidValue(appliedValue, argDef, variableDefinitions!)) {
           return false;
         }
       }
     }
 
     // We also make sure the field application does not have non-null values for field that are not part of the definition.
-    if (!assumeValid) {
+    if (!assumeValid && this.args) {
       for (const [name, value] of Object.entries(this.args)) {
         if (value !== null && definition.argument(name) === undefined) {
           return false
@@ -186,65 +257,65 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return true;
   }
 
-  validate() {
+  validate(variableDefinitions: VariableDefinitions) {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
-      const appliedValue = this.args[argDef.name];
+      const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!),
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef, this.variableDefinitions),
+          isValidValue(appliedValue, argDef, variableDefinitions),
           () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
 
     // We also make sure the field application does not have non-null values for field that are not part of the definition.
-    for (const [name, value] of Object.entries(this.args)) {
-      validate(
-        value === null || this.definition.argument(name) !== undefined,
-        () => `Unknown argument "${name}" in field application of "${this.name}"`);
+    if (this.args) {
+      for (const [name, value] of Object.entries(this.args)) {
+        validate(
+          value === null || this.definition.argument(name) !== undefined,
+          () => `Unknown argument "${name}" in field application of "${this.name}"`);
+      }
     }
   }
 
-  /**
-   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
-   */
-  updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
-    const selectionParent = selectionSet.parentType;
+  rebaseOn(parentType: CompositeType): Field<TArgs> {
     const fieldParent = this.definition.parent;
-    if (selectionParent === fieldParent) {
+    if (parentType === fieldParent) {
       return this;
     }
 
     if (this.name === typenameFieldName) {
-      return this.withUpdatedDefinition(selectionParent.typenameField()!);
+      return this.withUpdatedDefinition(parentType.typenameField()!);
     }
 
     validate(
-      this.canRebaseOn(selectionParent),
-      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}"`
+      this.canRebaseOn(parentType),
+      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${parentType}"`
     );
-    const fieldDef = selectionParent.field(this.name);
-    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent}" (that does not declare that field)`);
+    const fieldDef = parentType.field(this.name);
+    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${parentType}" (that does not declare that field)`);
     return this.withUpdatedDefinition(fieldDef);
   }
 
   private canRebaseOn(parentType: CompositeType) {
+    const fieldParentType = this.definition.parent
     // There is 2 valid cases we want to allow:
     //  1. either `selectionParent` and `fieldParent` are the same underlying type (same name) but from different underlying schema. Typically,
     //    happens when we're building subgraph queries but using selections from the original query which is against the supergraph API schema.
-    //  2. or they are not the same underlying type, and we only accept this if we're adding an interface field to a selection of one of its
-    //    subtype, and this for convenience. Note that in that case too, `selectinParent` and `fieldParent` may or may be from the same exact
-    //    underlying schema, and so we avoid relying on `isDirectSubtype` in the check.
-    // In both cases, we just get the field from `selectionParent`, ensuring the return field parent _is_ `selectionParent`.
-    const fieldParentType = this.definition.parent
+    //  2. or they are not the same underlying type, but the field parent type is from an interface (or an interface object, which is the same
+    //    here), in which case we may be rebasing an interface field on one of the implementation type, which is ok. Note that we don't verify
+    //    that `parentType` is indeed an implementation of `fieldParentType` because it's possible that this implementation relationship exists
+    //    in the supergraph, but not in any of the subgraph schema involved here. So we just let it be. Not that `rebaseOn` will complain anyway
+    //    if the field name simply does not exists in `parentType`.
     return parentType.name === fieldParentType.name
-      || (isInterfaceType(fieldParentType) && fieldParentType.allImplementations().some(i => i.name === parentType.name));
+      || isInterfaceType(fieldParentType)
+      || isInterfaceObjectType(fieldParentType);
   }
 
   typeIfAddedTo(parentType: CompositeType): Type | undefined {
@@ -284,42 +355,86 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return that.kind === 'Field'
       && this.name === that.name
       && this.alias === that.alias
-      && argumentsEquals(this.args, that.args)
+      && (this.args ? that.args && argumentsEquals(this.args, that.args) : !that.args)
       && haveSameDirectives(this, that);
   }
 
   toString(): string {
     const alias = this.alias ? this.alias + ': ' : '';
-    const entries = Object.entries(this.args);
-    const args = entries.length == 0
+    const entries = this.args ? Object.entries(this.args) : [];
+    const args = entries.length === 0
       ? ''
       : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.definition.argument(n)?.type)}`).join(', ') + ')';
     return alias + this.name + args + this.appliedDirectivesToString();
   }
 }
 
+/**
+ * Computes a string key representing a directive application, so that if 2 directive applications have the same key, then they
+ * represent the same application.
+ *
+ * Note that this is mostly just the `toString` representation of the directive, but for 2 subtlety:
+ * 1. for a handful of directives (really just `@defer` for now), we never want to consider directive applications the same, no
+ *    matter that the arguments of the directive match, and this for the same reason as documented on the `sameDirectiveApplications`
+ *    method in `definitions.ts`.
+ * 2. we sort the argument (by their name) before converting them to string, since argument order does not matter in graphQL.
+ */
+function keyForDirective(
+  directive: Directive<OperationElement>,
+  directivesNeverEqualToThemselves: string[] = [ 'defer' ],
+): string {
+  if (directivesNeverEqualToThemselves.includes(directive.name)) {
+    return uuidv1();
+  }
+  const entries = Object.entries(directive.arguments()).filter(([_, v]) => v !== undefined);
+  entries.sort(([n1], [n2]) => n1.localeCompare(n2));
+  const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, directive.argumentType(n))}`).join(', ') + ')';
+  return `@${directive.name}${args}`;
+}
+
 export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   readonly kind = 'FragmentElement' as const;
   readonly typeCondition?: CompositeType;
+  private computedKey: string | undefined;
 
   constructor(
     private readonly sourceType: CompositeType,
     typeCondition?: string | CompositeType,
+    directives?: readonly Directive<any>[],
   ) {
     // TODO: we should do some validation here (remove the ! with proper error, and ensure we have some intersection between
     // the source type and the type condition)
-    super(sourceType.schema(), []);
+    super(sourceType.schema(), directives);
     this.typeCondition = typeCondition !== undefined && typeof typeCondition === 'string'
       ? this.schema().type(typeCondition)! as CompositeType
       : typeCondition;
+  }
+
+  protected collectVariablesInElement(_: VariableCollector): void {
+    // Cannot have variables in fragments
   }
 
   get parentType(): CompositeType {
     return this.sourceType;
   }
 
+  key(): string {
+    if (!this.computedKey) {
+      // The key is such that 2 fragments with the same key within a selection set gets merged together. So the type-condition
+      // is include, but so are the directives.
+      const keyForDirectives = this.appliedDirectives.map((d) => keyForDirective(d)).join(' ');
+      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition.name : '') + keyForDirectives;
+    }
+    return this.computedKey;
+  }
+
   castedType(): CompositeType {
     return this.typeCondition ? this.typeCondition : this.sourceType;
+  }
+
+  asPathElement(): string | undefined {
+    const condition = this.typeCondition;
+    return condition ? `... on ${condition}` : undefined;
   }
 
   withUpdatedSourceType(newSourceType: CompositeType): FragmentElement {
@@ -334,34 +449,33 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     // Note that we pass the type-condition name instead of the type itself, to ensure that if `newSourceType` was from a different
     // schema (typically, the supergraph) than `this.sourceType` (typically, a subgraph), then the new condition uses the
     // definition of the proper schema (the supergraph in such cases, instead of the subgraph).
-    const newFragment = new FragmentElement(newSourceType, newCondition?.name);
-    for (const directive of this.appliedDirectives) {
-      newFragment.applyDirective(directive.definition!, directive.arguments());
-    }
+    const newFragment = new FragmentElement(newSourceType, newCondition?.name, this.appliedDirectives);
     this.copyAttachementsTo(newFragment);
     return newFragment;
   }
 
-  /**
-   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
-   */
-  updateForAddingTo(selectionSet: SelectionSet): FragmentElement {
-    const selectionParent = selectionSet.parentType;
+  withUpdatedDirectives(newDirectives: Directive<OperationElement>[]): FragmentElement {
+    const newFragment = new FragmentElement(this.sourceType, this.typeCondition, newDirectives);
+    this.copyAttachementsTo(newFragment);
+    return newFragment;
+  }
+
+  rebaseOn(parentType: CompositeType): FragmentElement {
     const fragmentParent = this.parentType;
     const typeCondition = this.typeCondition;
-    if (selectionParent === fragmentParent) {
+    if (parentType === fragmentParent) {
       return this;
     }
 
     // This usually imply that the fragment is not from the same sugraph than then selection. So we need
     // to update the source type of the fragment, but also "rebase" the condition to the selection set
     // schema.
-    const { canRebase, rebasedCondition } = this.canRebaseOn(selectionParent);
+    const { canRebase, rebasedCondition } = this.canRebaseOn(parentType);
     validate(
-      canRebase,
-      () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to selection set of parent type "${selectionParent}" (runtimes: ${possibleRuntimeTypes(selectionParent)})`
+      canRebase, 
+      () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to parent type "${parentType}" (runtimes: ${possibleRuntimeTypes(parentType)})`
     );
-    return this.withUpdatedTypes(selectionParent, rebasedCondition);
+    return this.withUpdatedTypes(parentType, rebasedCondition);
   }
 
   private canRebaseOn(parentType: CompositeType): { canRebase: boolean, rebasedCondition?: CompositeType } {
@@ -417,9 +531,8 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       return this;
     }
 
-    const updated = new FragmentElement(this.sourceType, this.typeCondition);
+    const updated = new FragmentElement(this.sourceType, this.typeCondition, updatedDirectives);
     this.copyAttachementsTo(updated);
-    updatedDirectives.forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
     return updated;
   }
 
@@ -478,13 +591,13 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       return this;
     }
 
-    const updated = new FragmentElement(this.sourceType, this.typeCondition);
-    this.copyAttachementsTo(updated);
     const deferDirective = this.schema().deferDirective();
-    // Re-apply all the non-defer directives
-    this.appliedDirectives.filter((d) => d.name !== deferDirective.name).forEach((d) => updated.applyDirective(d.definition!, d.arguments()));
-    // And then re-apply the @defer with the new label.
-    updated.applyDirective(this.schema().deferDirective(), newDeferArgs);
+    const updatedDirectives = this.appliedDirectives
+      .filter((d) => d.name !== deferDirective.name)
+      .concat(new Directive<FragmentElement>(deferDirective.name, newDeferArgs));
+
+    const updated = new FragmentElement(this.sourceType, this.typeCondition, updatedDirectives);
+    this.copyAttachementsTo(updated);
     return updated;
   }
 
@@ -565,12 +678,12 @@ function isUselessFollowupElement(first: OperationElement, followup: OperationEl
     : first.typeCondition;
 
   // The followup is useless if it's a fragment (with no directives we would want to preserve) whose type
-  // is already that of the first element.
+  // is already that of the first element (or a supertype).
   return !!typeOfFirst
     && followup.kind === 'FragmentElement'
     && !!followup.typeCondition
     && (followup.appliedDirectives.length === 0 || isDirectiveApplicationsSubset(conditionals, followup.appliedDirectives))
-    && sameType(typeOfFirst, followup.typeCondition);
+    && isSubtype(followup.typeCondition, typeOfFirst);
 }
 
 export type RootOperationPath = {
@@ -618,13 +731,20 @@ export class Operation {
     // `expandFragments` on _only_ unused fragments and that case could be dealt with more efficiently, but
     // probably not noticeable in practice so ...).
     const toDeoptimize = mapEntries(usages).filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
-    optimizedSelection = optimizedSelection.expandFragments(toDeoptimize);
+
+    if (toDeoptimize.length > 0) {
+      const newFragments = optimizedSelection.fragments?.without(toDeoptimize);
+      optimizedSelection = optimizedSelection.expandFragments(toDeoptimize, newFragments);
+      // Expanding fragments could create some "inefficiencies" that we wouldn't have if we hadn't re-optimized
+      // the fragments to de-optimize it later, so we do a final "trim" pass to remove those.
+      optimizedSelection = optimizedSelection.trimUnsatisfiableBranches(optimizedSelection.parentType);
+    }
 
     return new Operation(this.schema, this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
   }
 
   expandAllFragments(): Operation {
-    const expandedSelections = this.selectionSet.expandFragments();
+    const expandedSelections = this.selectionSet.expandAllFragments();
     if (expandedSelections === this.selectionSet) {
       return this;
     }
@@ -633,6 +753,21 @@ export class Operation {
       this.schema,
       this.rootKind,
       expandedSelections,
+      this.variableDefinitions,
+      this.name
+    );
+  }
+
+  trimUnsatisfiableBranches(): Operation {
+    const trimmedSelections = this.selectionSet.trimUnsatisfiableBranches(this.selectionSet.parentType);
+    if (trimmedSelections === this.selectionSet) {
+      return this;
+    }
+
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      trimmedSelections,
       this.variableDefinitions,
       this.name
     );
@@ -708,40 +843,36 @@ export class Operation {
   }
 }
 
-function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | undefined, element: DirectiveTargetElement<any>) {
-  if (!directiveNodes) {
-    return;
-  }
-  const schema = element.schema();
-  for (const node of directiveNodes) {
-    const directiveDef = schema.directive(node.name.value);
-    validate(directiveDef, () => `Unknown directive "@${node.name.value}" in selection`)
-    element.applyDirective(directiveDef, argumentsFromAST(directiveDef.coordinate, node.arguments, directiveDef));
-  }
-}
-
-export function selectionSetOf(parentType: CompositeType, selection: Selection): SelectionSet {
-  const selectionSet = new SelectionSet(parentType);
-  selectionSet.add(selection);
-  return selectionSet;
-}
-
 export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmentDefinition> {
+  private _selectionSet: SelectionSet | undefined;
+
+  private readonly selectionSetsAtTypesCache = new Map<string, SelectionSet>();
+
   constructor(
     schema: Schema,
     readonly name: string,
     readonly typeCondition: CompositeType,
-    readonly selectionSet: SelectionSet
+    directives?: Directive<NamedFragmentDefinition>[],
   ) {
-    super(schema);
+    super(schema, directives);
+  }
+
+  setSelectionSet(selectionSet: SelectionSet): NamedFragmentDefinition {
+    assert(!this._selectionSet, 'Attempting to set the selection set of a fragment definition already built')
+    // We set the selection set post-construction to simplify the handling of fragments that use other fragments,
+    // but let's make sure we've properly used the fragment type condition as parent type of the selection set, as we should.
+    assert(selectionSet.parentType === this.typeCondition, `Fragment selection set parent is ${selectionSet.parentType} differs from the fragment condition type ${this.typeCondition}`);
+    this._selectionSet = selectionSet;
+    return this;
+  }
+
+  get selectionSet(): SelectionSet {
+    assert(this._selectionSet, () => `Trying to access fragment definition ${this.name} before it is fully built`);
+    return this._selectionSet;
   }
 
   withUpdatedSelectionSet(newSelectionSet: SelectionSet): NamedFragmentDefinition {
-    return new NamedFragmentDefinition(this.schema(), this.name, this.typeCondition, newSelectionSet);
-  }
-
-  variables(): Variables {
-    return mergeVariables(this.variablesInAppliedDirectives(), this.selectionSet.usedVariables());
+    return new NamedFragmentDefinition(this.schema(), this.name, this.typeCondition).setSelectionSet(newSelectionSet);
   }
 
   collectUsedFragmentNames(collector: Map<string, number>) {
@@ -767,41 +898,59 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
   }
 
   /**
-   * Whether this fragment may apply at the provided type, that is if its type condition matches the type
-   * or is a supertype of it.
+   * Whether this fragment may apply at the provided type, that is if its type condition runtime types intersects with the
+   * runtimes of the provided type.
    *
    * @param type - the type at which we're looking at applying the fragment
    */
   canApplyAtType(type: CompositeType): boolean {
-    const applyAtType =
-      sameType(this.typeCondition, type)
-      || (isAbstractType(this.typeCondition) && !isUnionType(type) && isDirectSubtype(this.typeCondition, type));
-    return applyAtType
-      && this.validForSchema(type.schema());
+    return sameType(type, this.typeCondition) || runtimeTypesIntersects(type, this.typeCondition);
   }
 
-  // Checks whether this named fragment can be applied to the provided schema, which might be different
-  // from the one the named fragment originate from.
-  private validForSchema(schema: Schema): boolean {
-    if (schema === this.schema()) {
-      return true;
+  /**
+   * This methods *assumes* that `this.canApplyAtType(type)` is `true` (and may crash if this is not true), and returns
+   * a version fo this named fragment selection set that corresponds to the "expansion" of this named fragment at `type`
+   *
+   * The overall idea here is that if we have an interface I with 2 implementations T1 and T2, and we have a fragment like:
+   * ```graphql
+   *  fragment X on I {
+   *    ... on T1 {
+   *      <stuff>
+   *    }
+   *    ... on T2 {
+   *      <stuff>
+   *    }
+   *  }
+   * ```
+   * then if the current type is `T1`, then all we care about matching for this fragment is the `... on T1` part, and this method gives
+   * us that part.
+   */
+  selectionSetAtType(type: CompositeType): SelectionSet {
+    // First, if the candidate condition is an object or is the type passed, then there isn't any additional restriction to do.
+    if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
+      return this.selectionSet;
     }
 
-    const typeInSchema = schema.type(this.typeCondition.name);
-    if (!typeInSchema || !isCompositeType(typeInSchema)) {
-      return false;
+    // We should not call `trimUnsatisfiableBranches` where `type` is an abstract type (`interface` or `union`) as it currently could
+    // create an invalid selection set (and throw down the line). In theory, when `type` is an abstract type, we could look at the
+    // intersection of its runtime types with those of `this.typeCondition`, call `trimUnsatisfiableBranches` for each of the resulting
+    // object types, and merge all those selection sets, and this "may" result in a smaller selection at times. This is a bit complex
+    // and costly to do however, so we just return the selection unchanged for now, which is always valid but simply may not be absolutely
+    // optimal.
+    // Concretely, this means that there may be corner cases where a named fragment could be reused but isn't, but waiting on finding
+    // concrete examples where this matter to decide if it's worth the complexity.
+    if (!isObjectType(type)) {
+      return this.selectionSet;
     }
 
-    // We try "rebasing" the selection into the provided schema and checks if that succeed.
-    try {
-      const rebasedSelection = new SelectionSet(typeInSchema);
-      rebasedSelection.mergeIn(this.selectionSet);
-      // If this succeed, it means the fragment could be applied to that schema and be valid.
-      return true;
-    } catch (e) {
-      // We don't really care what kind of error was triggered; only that it doesn't work.
-      return false;
+    let selectionSet = this.selectionSetsAtTypesCache.get(type.name);
+    if (!selectionSet) {
+      // Note that all we want is removing any top-level branches that don't apply due to the current type. There is no point
+      // in going recursive however: any simplification due to `type` stops as soon as we traverse a field. And so we don't bother. 
+      selectionSet = this.selectionSet.trimUnsatisfiableBranches(type, { recursive: false });
+      this.selectionSetsAtTypesCache.set(type.name, selectionSet);
     }
+    return selectionSet;
   }
 
   toString(indent?: string): string {
@@ -814,14 +963,6 @@ export class NamedFragments {
 
   isEmpty(): boolean {
     return this.fragments.size === 0;
-  }
-
-  variables(): Variables {
-    let variables: Variables = [];
-    for (const fragment of this.fragments.values()) {
-      variables = mergeVariables(variables, fragment.variables());
-    }
-    return variables;
   }
 
   names(): readonly string[] {
@@ -845,7 +986,7 @@ export class NamedFragments {
     return this.fragments.values().filter(f => f.canApplyAtType(type));
   }
 
-  without(names: string[]): NamedFragments {
+  without(names: string[]): NamedFragments | undefined {
     if (!names.some(n => this.fragments.has(n))) {
       return this;
     }
@@ -855,14 +996,14 @@ export class NamedFragments {
       if (!names.includes(fragment.name)) {
         // We want to keep that fragment. But that fragment might use a fragment we
         // remove, and if so, we need to expand that removed fragment.
-        const updatedSelection = fragment.selectionSet.expandFragments(names, false);
-        const newFragment = updatedSelection === fragment.selectionSet
+        const updatedSelectionSet = fragment.selectionSet.expandFragments(names, newFragments);
+        const newFragment = updatedSelectionSet === fragment.selectionSet
           ? fragment
-          : new NamedFragmentDefinition(fragment.schema(), fragment.name, fragment.typeCondition, updatedSelection);
+          : fragment.withUpdatedSelectionSet(updatedSelectionSet);
         newFragments.add(newFragment);
       }
     }
-    return newFragments;
+    return newFragments.isEmpty() ? undefined : newFragments;
   }
 
   get(name: string): NamedFragmentDefinition | undefined {
@@ -877,9 +1018,83 @@ export class NamedFragments {
     return this.fragments.values();
   }
 
-  validate() {
+  map(mapper: (def: NamedFragmentDefinition) => NamedFragmentDefinition): NamedFragments {
+    const mapped = new NamedFragments();
+    for (const def of this.fragments.values()) {
+      mapped.fragments.set(def.name, mapper(def));
+    }
+    return mapped;
+  }
+
+  /**
+   * This method:
+   * - expands all nested fragments,
+   * - applies the provided mapper to the selection set of the fragments,
+   * - and finally re-fragments the nested fragments.
+   */
+  mapToExpandedSelectionSets(
+    mapper: (selectionSet: SelectionSet) => SelectionSet | undefined,
+    recreateFct: (frag: NamedFragmentDefinition, newSelectionSet: SelectionSet) => NamedFragmentDefinition = (f, s) => f.withUpdatedSelectionSet(s),
+  ): NamedFragments | undefined {
+    type FragmentInfo = {
+      original: NamedFragmentDefinition,
+      mappedSelectionSet: SelectionSet,
+      dependsOn: string[],
+    };
+    const fragmentsMap = new Map<string, FragmentInfo>();
+
+    const removedFragments = new Set<string>();
+    for (const fragment of this.definitions()) {
+      const mappedSelectionSet = mapper(fragment.selectionSet.expandAllFragments().trimUnsatisfiableBranches(fragment.typeCondition));
+      if (!mappedSelectionSet) {
+        removedFragments.add(fragment.name);
+        continue;
+      }
+
+      const otherFragmentsUsages = new Map<string, number>();
+      fragment.collectUsedFragmentNames(otherFragmentsUsages);
+      fragmentsMap.set(fragment.name, {
+        original: fragment,
+        mappedSelectionSet,
+        dependsOn: Array.from(otherFragmentsUsages.keys()),
+      });
+    }
+
+    const mappedFragments = new NamedFragments();
+    while (fragmentsMap.size > 0) {
+      for (const [name, info] of fragmentsMap) {
+        // Note that graphQL specifies that named fragments cannot have cycles (https://spec.graphql.org/draft/#sec-Fragment-spreads-must-not-form-cycles)
+        // and so we're guaranteed that on every iteration, at least one element of the map is removed (so the `while` loop will terminate).
+        if (info.dependsOn.every((n) => mappedFragments.has(n) || removedFragments.has(n))) {
+          const reoptimizedSelectionSet = info.mappedSelectionSet.optimize(mappedFragments);
+          mappedFragments.add(recreateFct(info.original, reoptimizedSelectionSet));
+          fragmentsMap.delete(name);
+        }
+      }
+    }
+
+    return mappedFragments.isEmpty() ? undefined : mappedFragments;
+  }
+
+  rebaseOn(schema: Schema): NamedFragments | undefined {
+    return this.mapToExpandedSelectionSets(
+      (s) => {
+        const rebasedType = schema.type(s.parentType.name);
+        try {
+          return rebasedType && isCompositeType(rebasedType) ? s.rebaseOn(rebasedType) : undefined;
+        } catch (e) {
+          // This means we cannot rebase this selection on the schema and thus cannot reuse that fragment on that
+          // particular schema.
+          return undefined;
+        }
+      },
+      (orig, newSelection) => new NamedFragmentDefinition(schema, orig.name, newSelection.parentType).setSelectionSet(newSelection),
+    );
+  }
+
+  validate(variableDefinitions: VariableDefinitions) {
     for (const fragment of this.fragments.values()) {
-      fragment.selectionSet.validate();
+      fragment.selectionSet.validate(variableDefinitions);
     }
   }
 
@@ -890,55 +1105,6 @@ export class NamedFragments {
   toString(indent?: string) {
     return this.definitions().map(f => f.toString(indent)).join('\n\n');
   }
-}
-
-abstract class Freezable<T> {
-  private _isFrozen: boolean = false;
-
-  protected abstract us(): T;
-
-  /**
-   * Freezes this selection/selection set, making it immutable after that point (that is, attempts to modify it will error out).
-   *
-   * This method should be used when a selection/selection set should not be modified. It ensures both that:
-   *  1. direct attempts to modify the selection afterward fails (at runtime, but the goal is to fetch bugs early and easily).
-   *  2. if this selection/selection set is "added" to another non-frozen selection (say, if this is input to `anotherSet.mergeIn(this)`),
-   *   then it is automatically cloned first (thus ensuring this copy is not modified). Note that this properly is not guaranteed for
-   *   non frozen selections. Meaning that if one does `s1.mergeIn(s2)` and `s2` is not frozen, then `s1` may (or may not) reference
-   *   `s2` directly (without cloning) and thus later modifications to `s1` may (or may not) modify `s2`. This
-   *   do-not-defensively-clone-by-default behaviour is done for performance reasons.
-   *
-   * Note that freezing is a "deep" operation, in that the whole structure of the selection/selection set is frozen by this method
-   * (and so this is not an excessively cheap operation).
-   *
-   * @return this selection/selection set (for convenience, to allow method chaining).
-   */
-  freeze(): T {
-    if (!this.isFrozen()) {
-      this.freezeInternals();
-      this._isFrozen = true;
-    }
-    return this.us();
-  }
-
-  protected abstract freezeInternals(): void;
-
-  /**
-   * Whether this selection/selection set is frozen. See `freeze` for details.
-   */
-  isFrozen(): boolean {
-    return this._isFrozen;
-  }
-
-  /**
-   * A shortcut for returning a mutable version of this selection/selection set by cloning it if it is frozen, but returning this set directly
-   * if it is not frozen.
-   */
-  cloneIfFrozen(): T {
-    return this.isFrozen() ? this.clone() : this.us();
-  }
-
-  abstract clone(): T;
 }
 
 /**
@@ -965,7 +1131,7 @@ class DeferNormalizer {
     while (stack.length > 0) {
       const selection = stack.pop()!;
       if (selection.kind === 'FragmentSelection') {
-        const deferArgs = selection.element().deferDirectiveArgs();
+        const deferArgs = selection.element.deferDirectiveArgs();
         if (deferArgs) {
           hasDefers = true;
           if (!deferArgs.label || deferArgs.if !== undefined) {
@@ -1003,57 +1169,47 @@ class DeferNormalizer {
   }
 }
 
-export class SelectionSet extends Freezable<SelectionSet> {
-  // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
-  // case for a fragment with no type condition.
-  private readonly _selections = new MultiMap<string, Selection>();
-  private _selectionCount = 0;
-  private _cachedSelections?: readonly Selection[];
+export class SelectionSet {
+  private readonly _keyedSelections: Map<string, Selection>;
+  private readonly _selections: readonly Selection[];
 
   constructor(
     readonly parentType: CompositeType,
-    readonly fragments?: NamedFragments
+    keyedSelections: Map<string, Selection> = new Map(),
+    readonly fragments?: NamedFragments,
   ) {
-    super();
-    validate(!isLeafType(parentType), () => `Cannot have selection on non-leaf type ${parentType}`);
+    this._keyedSelections = keyedSelections;
+    this._selections = mapValues(keyedSelections);
   }
 
-  protected us(): SelectionSet {
-    return this;
-  }
-
-  selections(reversedOrder: boolean = false): readonly Selection[] {
-    if (!this._cachedSelections) {
-      const selections = new Array(this._selectionCount);
-      let idx = 0;
-      for (const byResponseName of this._selections.values()) {
-        for (const selection of byResponseName) {
-          selections[idx++] = selection;
-        }
-      }
-      this._cachedSelections = selections;
+  selectionsInReverseOrder(): readonly Selection[] {
+    const length = this._selections.length;
+    const reversed = new Array<Selection>(length);
+    for (let i = 0; i < length; i++) {
+      reversed[i] = this._selections[length - i - 1];
     }
-    assert(this._cachedSelections, 'Cache should have been populated');
-    if (reversedOrder && this._cachedSelections.length > 1) {
-      const reversed = new Array(this._selectionCount);
-      for (let i = 0; i < this._selectionCount; i++) {
-        reversed[i] = this._cachedSelections[this._selectionCount - i - 1];
-      }
-      return reversed;
-    }
-    return this._cachedSelections;
+    return reversed;
   }
 
-  fieldsInSet(): { path: string[], field: FieldSelection, directParent: SelectionSet }[] {
-    const fields = new Array<{ path: string[], field: FieldSelection, directParent: SelectionSet }>();
+  selections(): readonly Selection[] {
+    return this._selections;
+  }
+
+  // Returns whether the selection contains a _non-aliased_ selection of __typename.
+  hasTopLevelTypenameField(): boolean {
+    return this._keyedSelections.has(typenameFieldName);
+  }
+
+  fieldsInSet(): { path: string[], field: FieldSelection }[] {
+    const fields = new Array<{ path: string[], field: FieldSelection }>();
     for (const selection of this.selections()) {
       if (selection.kind === 'FieldSelection') {
-        fields.push({ path: [], field: selection, directParent: this });
+        fields.push({ path: [], field: selection });
       } else {
-        const condition = selection.element().typeCondition;
+        const condition = selection.element.typeCondition;
         const header = condition ? [`... on ${condition}`] : [];
-        for (const { path, field, directParent } of selection.selectionSet.fieldsInSet()) {
-          fields.push({ path: header.concat(path), field, directParent });
+        for (const { path, field } of selection.selectionSet.fieldsInSet()) {
+          fields.push({ path: header.concat(path), field});
         }
       }
     }
@@ -1061,23 +1217,20 @@ export class SelectionSet extends Freezable<SelectionSet> {
   }
 
   usedVariables(): Variables {
-    let variables: Variables = [];
-    for (const byResponseName of this._selections.values()) {
-      for (const selection of byResponseName) {
-        variables = mergeVariables(variables, selection.usedVariables());
-      }
+    const collector = new VariableCollector();
+    this.collectVariables(collector);
+    return collector.variables();
+  }
+
+  collectVariables(collector: VariableCollector) {
+    for (const selection of this.selections()) {
+      selection.collectVariables(collector);
     }
-    if (this.fragments) {
-      variables = mergeVariables(variables, this.fragments.variables());
-    }
-    return variables;
   }
 
   collectUsedFragmentNames(collector: Map<string, number>) {
-    for (const byResponseName of this._selections.values()) {
-      for (const selection of byResponseName) {
+    for (const selection of this.selections()) {
         selection.collectUsedFragmentNames(collector);
-      }
     }
   }
 
@@ -1086,38 +1239,60 @@ export class SelectionSet extends Freezable<SelectionSet> {
       return this;
     }
 
-    // If any of the existing fragments of the selection set is also a name in the provided one,
-    // we bail out of optimizing anything. Not ideal, but dealing with it properly complicate things
-    // and we probably don't care for now as we'll call `optimize` mainly on result sets that have
-    // no named fragments in the first place.
-    if (this.fragments && this.fragments.definitions().some(def => fragments.get(def.name))) {
-      return this;
-    }
+    // Calling optimizeSelections() will not match a fragment that would have expanded at top-level.
+    // That is, say we have the selection set `{ x y }` for a top-level `Query`, and we have a fragment
+    // ```
+    // fragment F on Query {
+    //   x
+    //   y
+    // }
+    // ```
+    // then calling `this.optimizeSelections(fragments)` would only apply check if F apply to `x` and
+    // then `y`.
+    //
+    // To ensure the fragment match in this case, we "wrap" the selection into a trivial fragment of
+    // the selection parent, so in the example above, we create selection `... on Query { x y}`.
+    // With that, `optimizeSelections` will correctly match on the `on Query` fragment; after which
+    // we can unpack the final result.
+    const wrapped = new InlineFragmentSelection(new FragmentElement(this.parentType, this.parentType), this);
+    const optimized = wrapped.optimize(fragments);
 
-    const optimized = new SelectionSet(this.parentType, fragments);
-    for (const selection of this.selections()) {
-      optimized.add(selection.optimize(fragments));
-    }
-    return optimized;
+    // Now, it's possible we matched a full fragment, in which case `optimized` will be just the named fragment,
+    // and in that case we return a singleton selection with just that. Otherwise, it's our wrapping inline fragment
+    // with the sub-selections optimized, and we just return that subselection.
+    return optimized instanceof FragmentSpreadSelection
+      ? selectionSetOf(this.parentType, optimized, fragments)
+      : optimized.selectionSet;
   }
 
-  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): SelectionSet {
-    if (names && names.length === 0) {
+  // Tries to match fragments inside each selections of this selection set, and this recursively. However, note that this
+  // may not match fragments that would apply at top-level, so you should usually use `optimize` instead (this exists mostly
+  // for the recursion).
+  optimizeSelections(fragments: NamedFragments): SelectionSet {
+    // Handling the case where the selection may alreayd have some fragments adds complexity,
+    // not only because we need to deal with merging new and existing fragments, but also because
+    // things get weird if some fragment names are in common to both. Since we currently only care
+    // about this method when optimizing subgraph fetch selections and those are initially created
+    // without any fragments, we don't bother handling this more complex case.
+    assert(!this.fragments || this.fragments.isEmpty(), `Should not be called on selection that already has named fragments, but got ${this.fragments}`)
+
+    return this.lazyMap((selection) => selection.optimize(fragments), { fragments });
+  }
+
+  expandAllFragments(): SelectionSet {
+    return this.lazyMap((selection) => selection.expandAllFragments(), { fragments: null });
+  }
+
+  expandFragments(names: string[], updatedFragments: NamedFragments | undefined): SelectionSet {
+    if (names.length === 0) {
       return this;
     }
-    const newFragments = updateSelectionSetFragments
-      ? (names ? this.fragments?.without(names) : undefined)
-      : this.fragments;
-    const withExpanded = new SelectionSet(this.parentType, newFragments);
-    for (const selection of this.selections()) {
-      const expanded = selection.expandFragments(names, updateSelectionSetFragments);
-      if (Array.isArray(expanded)) {
-        withExpanded.addAll(expanded);
-      } else {
-        withExpanded.add(expanded as Selection);
-      }
-    }
-    return withExpanded;
+
+    return this.lazyMap((selection) => selection.expandFragments(names, updatedFragments), { fragments: updatedFragments ?? null });
+  }
+
+  trimUnsatisfiableBranches(parentType: CompositeType, options?: { recursive? : boolean }): SelectionSet {
+    return this.lazyMap((selection) => selection.trimUnsatisfiableBranches(parentType, options), { parentType });
   }
 
   /**
@@ -1128,30 +1303,39 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * objects when that is the case. This does mean that the resulting selection set may be `this`
    * directly, or may alias some of the sub-selection in `this`.
    */
-  private lazyMap(mapper: (selection: Selection) => Selection | SelectionSet | undefined): SelectionSet {
-    let updatedSelections: Selection[] | undefined = undefined;
+  lazyMap(
+    mapper: (selection: Selection) => Selection | readonly Selection[] | SelectionSet | undefined,
+    options?: {
+      fragments?: NamedFragments | null,
+      parentType?: CompositeType,
+    }
+  ): SelectionSet {
     const selections = this.selections();
+    const updatedFragments = options?.fragments;
+    const newFragments = updatedFragments === undefined ? this.fragments : (updatedFragments ?? undefined);
+
+    let updatedSelections: SelectionSetUpdates | undefined = undefined;
     for (let i = 0; i < selections.length; i++) {
       const selection = selections[i];
       const updated = mapper(selection);
       if (updated !== selection && !updatedSelections) {
-        updatedSelections = [];
+        updatedSelections = new SelectionSetUpdates();
         for (let j = 0; j < i; j++) {
-          updatedSelections.push(selections[j]);
+          updatedSelections.add(selections[j]);
         }
       }
       if (!!updated && updatedSelections) {
-        if (updated instanceof SelectionSet) {
-          updated.selections().forEach((s) => updatedSelections!.push(s));
-        } else {
-          updatedSelections.push(updated);
-        }
+        updatedSelections.add(updated);
       }
     }
     if (!updatedSelections) {
-      return this;
+      return this.withUpdatedFragments(newFragments);
     }
-    return new SelectionSet(this.parentType, this.fragments).addAll(updatedSelections)
+    return updatedSelections.toSelectionSet(options?.parentType ?? this.parentType, newFragments);
+  }
+
+  private withUpdatedFragments(newFragments: NamedFragments | undefined): SelectionSet {
+    return this.fragments === newFragments ? this : new SelectionSet(this.parentType, this._keyedSelections, newFragments);
   }
 
   withoutDefer(labelsToRemove?: Set<string>): SelectionSet {
@@ -1162,6 +1346,10 @@ export class SelectionSet extends Freezable<SelectionSet> {
   withNormalizedDefer(normalizer: DeferNormalizer): SelectionSet {
     assert(!this.fragments, 'Not yet supported');
     return this.lazyMap((selection) => selection.withNormalizedDefer(normalizer));
+  }
+
+  hasDefer(): boolean {
+    return this.selections().some((s) => s.hasDefer());
   }
 
   /**
@@ -1179,156 +1367,17 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return updated.isEmpty() ? undefined : updated;
   }
 
-  protected freezeInternals(): void {
+  rebaseOn(parentType: CompositeType): SelectionSet {
+    if (this.parentType === parentType) {
+      return this;
+    }
+
+    const newSelections = new Map<string, Selection>();
     for (const selection of this.selections()) {
-      selection.freeze();
+      newSelections.set(selection.key(), selection.rebaseOn(parentType));
     }
-  }
 
-  /**
-   * Adds the selections of the provided selection set to this selection, merging common selection as necessary.
-   *
-   * Please note that by default, the selection from the input may (or may not) be directly referenced by this selection
-   * set after this method return. That is, future modification of this selection set may end up modifying the input
-   * set due to direct aliasing. If direct aliasing should be prevented, the input selection set should be frozen (see
-   * `freeze` for details).
-   */
-  mergeIn(selectionSet: SelectionSet) {
-    for (const selection of selectionSet.selections()) {
-      this.add(selection);
-    }
-  }
-
-  /**
-   * Adds the provided selections to this selection, merging common selection as necessary.
-   *
-   * This is very similar to `mergeIn` except that it takes a direct array of selection, and the direct aliasing
-   * remarks from `mergeInd` applies here too.
-   */
-  addAll(selections: readonly Selection[]): SelectionSet {
-    selections.forEach(s => this.add(s));
-    return this;
-  }
-
-  /**
-   * Adds the provided selection to this selection, merging it to any existing selection of this set as appropriate.
-   *
-   * Please note that by default, the input selection may (or may not) be directly referenced by this selection
-   * set after this method return. That is, future modification of this selection set may end up modifying the input
-   * selection due to direct aliasing. If direct aliasing should be prevented, the input selection should be frozen
-   * (see `freeze` for details).
-   */
-  add(selection: Selection): Selection {
-    // It's a bug to try to add to a frozen selection set
-    assert(!this.isFrozen(), () => `Cannot add to frozen selection: ${this}`);
-
-    const toAdd = selection.updateForAddingTo(this);
-    const key = toAdd.key();
-    const existing: Selection[] | undefined = this._selections.get(key);
-    if (existing) {
-      for (const existingSelection of existing) {
-        if (existingSelection.kind === toAdd.kind && haveSameDirectives(existingSelection.element(), toAdd.element())) {
-          if (toAdd.selectionSet) {
-            existingSelection.selectionSet!.mergeIn(toAdd.selectionSet);
-          }
-          return existingSelection;
-        }
-      }
-    }
-    this._selections.add(key, toAdd);
-    ++this._selectionCount;
-    this._cachedSelections = undefined;
-    return toAdd;
-  }
-
-  /**
-   * If this selection contains a selection of a field with provided response name at top level, removes it.
-   *
-   * @return whether a selection was removed.
-   */
-  removeTopLevelField(responseName: string): boolean {
-    // It's a bug to try to remove from a frozen selection set
-    assert(!this.isFrozen(), () => `Cannot remove from frozen selection: ${this}`);
-
-    const wasRemoved = this._selections.delete(responseName);
-    if (wasRemoved) {
-      --this._selectionCount;
-      this._cachedSelections = undefined;
-    }
-    return wasRemoved;
-  }
-
-  addPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void) {
-    let previousSelections: SelectionSet = this;
-    let currentSelections: SelectionSet | undefined = this;
-    for (const element of path) {
-      validate(currentSelections, () => `Cannot apply selection ${element} to non-selectable parent type "${previousSelections.parentType}"`);
-      const mergedSelection: Selection = currentSelections.add(selectionOfElement(element));
-      previousSelections = currentSelections;
-      currentSelections = mergedSelection.selectionSet;
-    }
-    if (onPathEnd) {
-      onPathEnd(currentSelections);
-    }
-  }
-
-  addSelectionSetNode(
-    node: SelectionSetNode | undefined,
-    variableDefinitions: VariableDefinitions,
-    fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
-  ) {
-    if (!node) {
-      return;
-    }
-    for (const selectionNode of node.selections) {
-      this.addSelectionNode(selectionNode, variableDefinitions, fieldAccessor);
-    }
-  }
-
-  addSelectionNode(
-    node: SelectionNode,
-    variableDefinitions: VariableDefinitions,
-    fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
-  ) {
-    this.add(this.nodeToSelection(node, variableDefinitions, fieldAccessor));
-  }
-
-  private nodeToSelection(
-    node: SelectionNode,
-    variableDefinitions: VariableDefinitions,
-    fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined
-  ): Selection {
-    let selection: Selection;
-    switch (node.kind) {
-      case Kind.FIELD:
-        const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
-        validate(definition, () => `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
-        const type = baseType(definition.type!);
-        selection = new FieldSelection(
-          new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, node.alias?.value),
-          isLeafType(type) ? undefined : new SelectionSet(type as CompositeType, this.fragments)
-        );
-        if (node.selectionSet) {
-          validate(selection.selectionSet, () => `Unexpected selection set on leaf field "${selection.element()}"`, selection.element().definition.sourceAST);
-          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
-        }
-        break;
-      case Kind.INLINE_FRAGMENT:
-        const element = new FragmentElement(this.parentType, node.typeCondition?.name.value);
-        selection = new InlineFragmentSelection(
-          element,
-          new SelectionSet(element.typeCondition ? element.typeCondition : element.parentType, this.fragments)
-        );
-        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
-        break;
-      case Kind.FRAGMENT_SPREAD:
-        const fragmentName = node.name.value;
-        validate(this.fragments, () => `Cannot find fragment name "${fragmentName}" (no fragments were provided)`);
-        selection = new FragmentSpreadSelection(this.parentType, this.fragments, fragmentName);
-        break;
-    }
-    addDirectiveNodesToElement(node.directives, selection.element());
-    return selection;
+    return new SelectionSet(parentType, newSelections, this.fragments);
   }
 
   equals(that: SelectionSet): boolean {
@@ -1336,15 +1385,66 @@ export class SelectionSet extends Freezable<SelectionSet> {
       return true;
     }
 
-    if (this._selections.size !== that._selections.size) {
+    if (this._selections.length !== that._selections.length) {
       return false;
     }
 
-    for (const [key, thisSelections] of this._selections) {
-      const thatSelections = that._selections.get(key);
-      if (!thatSelections
-        || thisSelections.length !== thatSelections.length
-        || !thisSelections.every(thisSelection => thatSelections.some(thatSelection => thisSelection.equals(thatSelection)))
+    for (const [key, thisSelection] of this._keyedSelections) {
+      const thatSelection = that._keyedSelections.get(key);
+      if (!thatSelection || !thisSelection.equals(thatSelection)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private triviallyNestedSelectionsForKey(parentType: CompositeType, key: string): Selection[] {
+    const found: Selection[] = [];
+    for (const selection of this.selections()) {
+      if (selection.isUnecessaryInlineFragment(parentType)) {
+        const selectionForKey = selection.selectionSet._keyedSelections.get(key);
+        if (selectionForKey) {
+          found.push(selectionForKey);
+        }
+        for (const nestedSelection of selection.selectionSet.triviallyNestedSelectionsForKey(parentType, key)) {
+          found.push(nestedSelection);
+        }
+      }
+    }
+    return found;
+  }
+
+  private mergeSameKeySelections(selections: Selection[]): Selection | undefined {
+    if (selections.length === 0) {
+      return undefined;
+    }
+    const first = selections[0];
+    // We know that all the selections passed are for exactly the same element (same "key"). So if it is a
+    // leaf field or a named fragment, then we know that even if we have more than 1 selection, all of them
+    // are the exact same and we can just return the first one. Only if we have a composite field or an
+    // inline fragment do we need to merge the underlying sub-selection (which may differ).
+    if (!first.selectionSet || (first instanceof FragmentSpreadSelection) || selections.length === 1) {
+      return first;
+    }
+    const mergedSubselections = new SelectionSetUpdates();
+    for (const selection of selections) {
+      mergedSubselections.add(selection.selectionSet!);
+    }
+    return first.withUpdatedSelectionSet(mergedSubselections.toSelectionSet(first.selectionSet.parentType));
+  }
+
+  contains(that: SelectionSet): boolean {
+    // Note that we cannot really rely on the number of selections in `this` and `that` to short-cut this method
+    // due to the handling of "trivially nested selections". That is, `this` might have less top-level selections
+    // than `that`, and yet contains a named fragment directly on the parent type that includes everything in `that`.
+
+    for (const [key, thatSelection] of that._keyedSelections) {
+      const thisSelection = this._keyedSelections.get(key);
+      const otherSelections = this.triviallyNestedSelectionsForKey(this.parentType, key);
+      const mergedSelection = this.mergeSameKeySelections([thisSelection].concat(otherSelections).filter(isDefined));
+
+      if (!(mergedSelection && mergedSelection.contains(thatSelection))
+        && !(thatSelection.isUnecessaryInlineFragment(this.parentType) && this.contains(thatSelection.selectionSet))
       ) {
         return false
       }
@@ -1352,21 +1452,23 @@ export class SelectionSet extends Freezable<SelectionSet> {
     return true;
   }
 
-  contains(that: SelectionSet): boolean {
-    if (this._selections.size < that._selections.size) {
-      return false;
-    }
-
-    for (const [key, thatSelections] of that._selections) {
-      const thisSelections = this._selections.get(key);
-      if (!thisSelections
-        || (thisSelections.length < thatSelections.length
-        || !thatSelections.every(thatSelection => thisSelections.some(thisSelection => thisSelection.contains(thatSelection))))
-      ) {
-        return false
+  // Please note that this method assumes that `candidate.canApplyAtType(parentType) === true` but it is left to the caller to
+  // validate this (`canApplyAtType` is not free, and we want to avoid repeating it multiple times).
+  diffWithNamedFragmentIfContained(candidate: NamedFragmentDefinition, parentType: CompositeType): { contains: boolean, diff?: SelectionSet } {
+    const that = candidate.selectionSetAtType(parentType);
+    if (this.contains(that)) {
+      // One subtlety here is that at "this" sub-selections may already have been optimized with some fragments. It's
+      // usually ok because `candidate` will also use those fragments, but one fragments that `candidate` can never be
+      // using is itself (the `contains` check is fine with this, but it's harder to deal in `minus`). So we expand
+      // the candidate we're currently looking at in "this" to avoid some issues.
+      let updatedThis = this.expandFragments([candidate.name], this.fragments);
+      if (updatedThis !== this) {
+        updatedThis = updatedThis.trimUnsatisfiableBranches(parentType);
       }
+      const diff = updatedThis.minus(that);
+      return { contains: true, diff: diff.isEmpty() ? undefined : diff };
     }
-    return true;
+    return { contains: false };
   }
 
   /**
@@ -1374,45 +1476,37 @@ export class SelectionSet extends Freezable<SelectionSet> {
    * provided selection set have been remove.
    */
   minus(that: SelectionSet): SelectionSet {
-    const updated = new SelectionSet(this.parentType, this.fragments);
-    for (const [key, thisSelections] of this._selections) {
-      const thatSelections = that._selections.get(key);
-      if (!thatSelections) {
-        updated._selections.set(key, thisSelections);
+    const updated = new SelectionSetUpdates();
+
+    for (const [key, thisSelection] of this._keyedSelections) {
+      const thatSelection = that._keyedSelections.get(key);
+      const otherSelections = that.triviallyNestedSelectionsForKey(this.parentType, key);
+      const allSelections = thatSelection ? [thatSelection].concat(otherSelections) : otherSelections;
+      if (allSelections.length === 0) {
+        updated.add(thisSelection);
       } else {
-        for (const thisSelection  of thisSelections) {
-          const thatSelection = thatSelections.find((s) => thisSelection.element().equals(s.element()));
-          if (thatSelection) {
-            // If there is a subset, then we compute the diff of the subset and add that (if not empty).
-            // Otherwise, we just skip `thisSelection` and do nothing
-            if (thisSelection.selectionSet && thatSelection.selectionSet) {
-              const updatedSubSelectionSet = thisSelection.selectionSet.minus(thatSelection.selectionSet);
-              if (!updatedSubSelectionSet.isEmpty()) {
-                updated._selections.add(key, thisSelection.withUpdatedSubSelection(updatedSubSelectionSet));
-              }
-            }
-          } else {
-            updated._selections.add(key, thisSelection);
-          }
+        const selectionDiff = allSelections.reduce<Selection | undefined>((prev, val) => prev?.minus(val), thisSelection);
+        if (selectionDiff) {
+          updated.add(selectionDiff);
         }
       }
     }
-    return updated;
+    return updated.toSelectionSet(this.parentType, this.fragments);
   }
 
   canRebaseOn(parentTypeToTest: CompositeType): boolean {
     return this.selections().every((selection) => selection.canAddTo(parentTypeToTest));
   }
 
-  validate() {
+  validate(variableDefinitions: VariableDefinitions) {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
-      selection.validate();
+      selection.validate(variableDefinitions);
     }
   }
 
   isEmpty(): boolean {
-    return this._selections.size === 0;
+    return this._selections.length === 0;
   }
 
   toSelectionSetNode(): SelectionSetNode {
@@ -1445,13 +1539,12 @@ export class SelectionSet extends Freezable<SelectionSet> {
     // By default, we will print the selection the order in which things were added to it.
     // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
     // and it happens to mimic prior behavior on the query plan side so it saves us from changing tests for no good reasons.
-    const typenameSelection = this._selections.get(typenameFieldName);
-    const isNonAliasedTypenameSelection =
-      (s: Selection) => s.kind === 'FieldSelection' && !s.field.alias && s.field.name === typenameFieldName;
+    const isNonAliasedTypenameSelection = (s: Selection) => s.kind === 'FieldSelection' && !s.element.alias && s.element.name === typenameFieldName;
+    const typenameSelection = this._selections.find((s) => isNonAliasedTypenameSelection(s));
     if (typenameSelection) {
-      return typenameSelection.concat(this.selections().filter(s => !isNonAliasedTypenameSelection(s)));
+      return [typenameSelection].concat(this.selections().filter(s => !isNonAliasedTypenameSelection(s)));
     } else {
-      return this.selections();
+      return this._selections;
     }
   }
 
@@ -1461,7 +1554,7 @@ export class SelectionSet extends Freezable<SelectionSet> {
 
   private toOperationPathsInternal(parentPaths: OperationPath[]): OperationPath[] {
     return this.selections().flatMap((selection) => {
-      const updatedPaths = parentPaths.map(path => path.concat(selection.element()));
+      const updatedPaths = parentPaths.map(path => path.concat(selection.element));
       return selection.selectionSet
         ? selection.selectionSet.toOperationPathsInternal(updatedPaths)
         : updatedPaths;
@@ -1470,29 +1563,28 @@ export class SelectionSet extends Freezable<SelectionSet> {
 
   /**
    * Calls the provided callback on all the "elements" (including nested ones) of this selection set.
-   * The specific order of traversal should not be relied on.
+   * The order of traversal is that of the selection set.
    */
   forEachElement(callback: (elt: OperationElement) => void) {
-    const stack = this.selections().concat();
+    // Note: we reverse to preserve ordering (since the stack re-reverse).
+    const stack = this.selectionsInReverseOrder().concat();
     while (stack.length > 0) {
       const selection = stack.pop()!;
-      callback(selection.element());
-      // Note: we reserve to preserver ordering (since the stack re-reverse). Not a big cost in general
-      // and make output a bit more intuitive.
-      selection.selectionSet?.selections(true).forEach((s) => stack.push(s));
+      callback(selection.element);
+      selection.selectionSet?.selectionsInReverseOrder().forEach((s) => stack.push(s));
     }
   }
 
-  clone(): SelectionSet {
-    const cloned = new SelectionSet(this.parentType);
+  /**
+   * Returns true if any of the element in this selection set matches the provided predicate.
+   */
+  some(predicate: (elt: OperationElement) => boolean): boolean {
     for (const selection of this.selections()) {
-      const clonedSelection = selection.clone();
-      // Note: while we could used cloned.add() directly, this does some checks (in `updatedForAddingTo` in particular)
-      // which we can skip when we clone (since we know the inputs have already gone through that).
-      cloned._selections.add(clonedSelection.key(), clonedSelection);
-      ++cloned._selectionCount;
+      if (predicate(selection.element) || (selection.selectionSet && selection.selectionSet.some(predicate))) {
+        return true;
+      }
     }
-    return cloned;
+    return false;
   }
 
   toOperationString(
@@ -1528,6 +1620,10 @@ export class SelectionSet extends Freezable<SelectionSet> {
     includeExternalBrackets: boolean = true,
     indent?: string
   ): string {
+    if (this.isEmpty()) {
+      return '{}';
+    }
+
     if (indent === undefined) {
       const selectionsToString = this.selections().map(s => s.toString(expandFragments)).join(' ');
       return includeExternalBrackets ?  '{ ' + selectionsToString  + ' }' : selectionsToString;
@@ -1541,13 +1637,304 @@ export class SelectionSet extends Freezable<SelectionSet> {
   }
 }
 
+type PathBasedUpdate = { path: OperationPath, selections?: Selection | SelectionSet | readonly Selection[] };
+type SelectionUpdate = Selection | PathBasedUpdate;
+
+/**
+ * Accumulates updates in order to build a new `SelectionSet`.
+ */
+export class SelectionSetUpdates {
+  private readonly keyedUpdates = new MultiMap<string, SelectionUpdate>;
+
+  isEmpty(): boolean {
+    return this.keyedUpdates.size === 0;
+  }
+
+  /**
+   * Adds the provided selections to those updates.
+   */
+  add(selections: Selection | SelectionSet | readonly Selection[]): SelectionSetUpdates {
+    addToKeyedUpdates(this.keyedUpdates, selections);
+    return this;
+  }
+
+  /**
+   * Adds a path, and optional some selections following that path, to those updates.
+   *
+   * The final selections are optional (for instance, if `path` ends on a leaf field, then no followup selections would
+   * make sense), but when some are provided, uncesssary fragments will be automaticaly removed at the junction between
+   * the path and those final selections. For instance, suppose that we have:
+   *  - a `path` argument that is `a::b::c`, where the type of the last field `c` is some object type `C`.
+   *  - a `selections` argument that is `{ ... on C { d } }`.
+   * Then the resulting built selection set will be: `{ a { b { c { d } } }`, and in particular the `... on C` fragment
+   * will be eliminated since it is unecesasry (since again, `c` is of type `C`).
+   */
+  addAtPath(path: OperationPath, selections?: Selection | SelectionSet | readonly Selection[]): SelectionSetUpdates {
+    if (path.length === 0) {
+      if (selections) {
+        addToKeyedUpdates(this.keyedUpdates, selections)
+      }
+    } else {
+      if (path.length === 1 && !selections) {
+        const element = path[0];
+        if (element.kind === 'Field' && element.isLeafField()) {
+          // This is a somewhat common case (when we deal with @key "conditions", those are often trivial and end up here),
+          // so we unpack it directly instead of creating unecessary temporary objects (not that we only do it for leaf
+          // field; for non-leaf ones, we'd have to create an empty sub-selectionSet, and that may have to get merged
+          // with other entries of this `SleectionSetUpdates`, so we wouldn't really save work).
+          const selection = selectionOfElement(element);
+          this.keyedUpdates.add(selection.key(), selection);
+          return this;
+        }
+      }
+      // We store the provided update "as is" (we don't convert it to a `Selection` just yet) and process everything
+      // when we build the final `SelectionSet`. This is done because multipe different updates can intersect in various
+      // ways, and the work to build a `Selection` now could be largely wasted due to followup updates.
+      this.keyedUpdates.add(path[0].key(), { path, selections });
+    }
+    return this;
+  }
+
+  clone(): SelectionSetUpdates {
+    const cloned = new SelectionSetUpdates();
+    for (const [key, values] of this.keyedUpdates.entries()) {
+      cloned.keyedUpdates.set(key, Array.from(values));
+    }
+    return cloned;
+  }
+
+  clear() {
+    this.keyedUpdates.clear();
+  }
+
+  toSelectionSet(parentType: CompositeType, fragments?: NamedFragments): SelectionSet {
+    return makeSelectionSet(parentType, this.keyedUpdates, fragments);
+  }
+}
+
+function addToKeyedUpdates(keyedUpdates: MultiMap<string, SelectionUpdate>, selections: Selection | SelectionSet | readonly Selection[]) {
+  if (selections instanceof AbstractSelection) {
+    addOneToKeyedUpdates(keyedUpdates, selections);
+  } else {
+    const toAdd = selections instanceof SelectionSet ? selections.selections() : selections;
+    for (const selection of toAdd) {
+      addOneToKeyedUpdates(keyedUpdates, selection);
+    }
+  }
+}
+
+function addOneToKeyedUpdates(keyedUpdates: MultiMap<string, SelectionUpdate>, selection: Selection) {
+  // Keys are such that for a named fragment, only a selection of the same fragment with same directives can have the same key.
+  // But if we end up with multiple spread of the same named fragment, we don't want to try to "merge" the sub-selections of
+  // each, as it would expand the fragments and make things harder. So we essentially special case spreads to avoid having
+  // to deal with multiple time the exact same one.
+  if (selection instanceof FragmentSpreadSelection) {
+    keyedUpdates.set(selection.key(), [selection]);
+  } else {
+    keyedUpdates.add(selection.key(), selection);
+  }
+}
+
+function maybeRebaseOnSchema(toRebase: CompositeType, schema: Schema): CompositeType {
+  if (toRebase.schema() === schema) {
+    return toRebase;
+  }
+
+  const rebased = schema.type(toRebase.name);
+  assert(rebased && isCompositeType(rebased), () => `Expected ${toRebase} to exists and be composite in the rebased schema, but got ${rebased?.kind}`);
+  return rebased;
+}
+
+function isUnecessaryFragment(parentType: CompositeType, fragment: FragmentSelection): boolean {
+  return fragment.element.appliedDirectives.length === 0
+    && (!fragment.element.typeCondition || isSubtype(maybeRebaseOnSchema(fragment.element.typeCondition, parentType.schema()), parentType));
+}
+
+function withUnecessaryFragmentsRemoved(
+  parentType: CompositeType,
+  selections: Selection | SelectionSet | readonly Selection[],
+): Selection | readonly Selection[] {
+  if (selections instanceof AbstractSelection) {
+    if (selections.kind !== 'FragmentSelection' || !isUnecessaryFragment(parentType, selections)) {
+      return selections;
+    }
+    return withUnecessaryFragmentsRemoved(parentType, selections.selectionSet);
+  }
+
+  const toCheck = selections instanceof SelectionSet ? selections.selections() : selections;
+  const filtered: Selection[] = [];
+  for (const selection of toCheck) {
+    if (selection.kind === 'FragmentSelection' && isUnecessaryFragment(parentType, selection)) {
+      const subSelections = withUnecessaryFragmentsRemoved(parentType, selection.selectionSet);
+      if (subSelections instanceof AbstractSelection) {
+        filtered.push(subSelections);
+      } else {
+        for (const subSelection of subSelections) {
+          filtered.push(subSelection);
+        }
+      }
+    } else {
+      filtered.push(selection);
+    }
+  }
+  return filtered;
+}
+
+function makeSelection(parentType: CompositeType, updates: SelectionUpdate[], fragments?: NamedFragments): Selection {
+  assert(updates.length > 0, 'Should not be called without any updates');
+  const first = updates[0];
+
+  // Optimize for the simple case of a single selection, as we don't have to do anything complex to merge the sub-selections.
+  if (updates.length === 1 && first instanceof AbstractSelection) {
+    return first.rebaseOn(parentType);
+  }
+
+  const element = updateElement(first).rebaseOn(parentType);
+  const subSelectionParentType = element.kind === 'Field' ? baseType(element.definition.type!) : element.castedType();
+  if (!isCompositeType(subSelectionParentType)) {
+    // This is a leaf, so all updates should correspond ot the same field and we just use the first.
+    return selectionOfElement(element);
+  }
+
+  const subSelectionKeyedUpdates = new MultiMap<string, SelectionUpdate>();
+  for (const update of updates) {
+    if (update instanceof AbstractSelection) {
+      if (update.selectionSet) {
+        addToKeyedUpdates(subSelectionKeyedUpdates, update.selectionSet);
+      }
+    } else {
+      addSubpathToKeyUpdates(subSelectionKeyedUpdates, subSelectionParentType, update);
+    }
+  }
+  return selectionOfElement(element, makeSelectionSet(subSelectionParentType, subSelectionKeyedUpdates, fragments));
+}
+
+function updateElement(update: SelectionUpdate): OperationElement {
+  return update instanceof AbstractSelection ? update.element : update.path[0];
+}
+
+function addSubpathToKeyUpdates(
+  keyedUpdates: MultiMap<string, SelectionUpdate>,
+  subSelectionParentType: CompositeType,
+  pathUpdate: PathBasedUpdate
+) {
+  if (pathUpdate.path.length === 1) {
+    if (!pathUpdate.selections) {
+      return;
+    }
+    addToKeyedUpdates(keyedUpdates, withUnecessaryFragmentsRemoved(subSelectionParentType, pathUpdate.selections!));
+  } else {
+    keyedUpdates.add(pathUpdate.path[1].key(), { path: pathUpdate.path.slice(1), selections: pathUpdate.selections });
+  }
+}
+
+function makeSelectionSet(parentType: CompositeType, keyedUpdates: MultiMap<string, SelectionUpdate>, fragments?: NamedFragments): SelectionSet {
+  const selections = new Map<string, Selection>();
+  for (const [key, updates] of keyedUpdates.entries()) {
+    selections.set(key, makeSelection(parentType, updates, fragments));
+  }
+  return new SelectionSet(parentType, selections, fragments);
+}
+
+/**
+ * A simple wrapper over a `SelectionSetUpdates` that allows to conveniently build a selection set, then add some more updates and build it again, etc... 
+ */
+export class MutableSelectionSet<TMemoizedValue extends { [key: string]: any } = {}> {
+  private computed: SelectionSet | undefined;
+  private _memoized: TMemoizedValue | undefined;
+
+  private constructor(
+    readonly parentType: CompositeType,
+    private readonly _updates: SelectionSetUpdates,
+    private readonly memoizer: (s: SelectionSet) => TMemoizedValue,
+  ) {
+  }
+
+  static empty(parentType: CompositeType): MutableSelectionSet {
+    return this.emptyWithMemoized(parentType, () => ({}));
+  }
+
+  static emptyWithMemoized<TMemoizedValue extends { [key: string]: any }>(
+    parentType: CompositeType,
+    memoizer: (s: SelectionSet) => TMemoizedValue,
+  ): MutableSelectionSet<TMemoizedValue> {
+    return new MutableSelectionSet( parentType, new SelectionSetUpdates(), memoizer);
+  }
+
+
+  static of(selectionSet: SelectionSet): MutableSelectionSet {
+    return this.ofWithMemoized(selectionSet, () => ({}));
+  }
+
+  static ofWithMemoized<TMemoizedValue extends { [key: string]: any }>(
+    selectionSet: SelectionSet,
+    memoizer: (s: SelectionSet) => TMemoizedValue,
+  ): MutableSelectionSet<TMemoizedValue> {
+    const s = new MutableSelectionSet(selectionSet.parentType, new SelectionSetUpdates(), memoizer);
+    s._updates.add(selectionSet);
+    // Avoids needing to re-compute `selectionSet` until there is new updates.
+    s.computed = selectionSet;
+    return s;
+  }
+
+  isEmpty(): boolean {
+    return this._updates.isEmpty();
+  }
+
+  get(): SelectionSet {
+    if (!this.computed) {
+      this.computed = this._updates.toSelectionSet(this.parentType);
+      // But now, we clear the updates an re-add the selections from computed. Of course, we could also
+      // not clear updates at all, but that would mean that the computations going on for merging selections
+      // would be re-done every time and that would be a lot less efficient.
+      this._updates.clear();
+      this._updates.add(this.computed);
+    }
+    return this.computed;
+  }
+
+  updates(): SelectionSetUpdates {
+    // We clear our cached version since we're about to add more updates and so this cached version won't
+    // represent the mutable set properly anymore.
+    this.computed = undefined;
+    this._memoized = undefined;
+    return this._updates;
+  }
+
+  clone(): MutableSelectionSet<TMemoizedValue> {
+    const cloned = new MutableSelectionSet(this.parentType, this._updates.clone(), this.memoizer);
+    // Until we have more updates, we can share the computed values (if any).
+    cloned.computed = this.computed;
+    cloned._memoized = this._memoized;
+    return cloned;
+  }
+
+  rebaseOn(parentType: CompositeType): MutableSelectionSet<TMemoizedValue> {
+    const rebased = new MutableSelectionSet(parentType, new SelectionSetUpdates(), this.memoizer);
+    // Note that updates are always rebased on their parentType, so we won't have to call `rebaseOn` manually on `this.get()`.
+    rebased._updates.add(this.get());
+    return rebased;
+  }
+
+  memoized(): TMemoizedValue {
+    if (!this._memoized) {
+      this._memoized = this.memoizer(this.get());
+    }
+    return this._memoized;
+  }
+
+  toString() {
+    return this.get().toString();
+  }
+}
+
 export function allFieldDefinitionsInSelectionSet(selection: SelectionSet): FieldDefinition<CompositeType>[] {
   const stack = Array.from(selection.selections());
   const allFields: FieldDefinition<CompositeType>[] = [];
   while (stack.length > 0) {
     const selection = stack.pop()!;
     if (selection.kind === 'FieldSelection') {
-      allFields.push(selection.field.definition);
+      allFields.push(selection.element.definition);
     }
     if (selection.selectionSet) {
       stack.push(...selection.selectionSet.selections());
@@ -1556,99 +1943,233 @@ export function allFieldDefinitionsInSelectionSet(selection: SelectionSet): Fiel
   return allFields;
 }
 
-export function selectionSetOfElement(element: OperationElement, subSelection?: SelectionSet): SelectionSet {
-  const selectionSet = new SelectionSet(element.parentType);
-  selectionSet.add(selectionOfElement(element, subSelection));
-  return selectionSet;
+export function selectionSetOf(parentType: CompositeType, selection: Selection, fragments?: NamedFragments): SelectionSet {
+  const map = new Map<string, Selection>()
+  map.set(selection.key(), selection);
+  return new SelectionSet(parentType, map, fragments);
+}
+
+export function selectionSetOfElement(element: OperationElement, subSelection?: SelectionSet, fragments?: NamedFragments): SelectionSet {
+  return selectionSetOf(element.parentType, selectionOfElement(element, subSelection), fragments);
 }
 
 export function selectionOfElement(element: OperationElement, subSelection?: SelectionSet): Selection {
-  return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection);
+  // TODO: validate that the subSelection is ok for the element
+  return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection!);
 }
 
 export type Selection = FieldSelection | FragmentSelection;
-
-export class FieldSelection extends Freezable<FieldSelection> {
-  readonly kind = 'FieldSelection' as const;
-  readonly selectionSet?: SelectionSet;
-
+abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf extends undefined | never, TOwnType extends AbstractSelection<TElement, TIsLeaf, TOwnType>> {
   constructor(
-    readonly field: Field<any>,
-    initialSelectionSet? : SelectionSet
+    readonly element: TElement,
   ) {
-    super();
-    const type = baseType(field.definition.type!);
-    // Field types are output type, and a named typethat is an output one and isn't a leaf is guaranteed to be selectable.
-    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet.cloneIfFrozen() : new SelectionSet(type as CompositeType));
+    // TODO: we should do validate the type of the selection set matches the element.
   }
 
+  abstract get selectionSet(): SelectionSet | TIsLeaf;
+
+  protected abstract us(): TOwnType;
+
+  abstract key(): string;
+
+  abstract optimize(fragments: NamedFragments): Selection;
+
+  abstract toSelectionNode(): SelectionNode;
+
+  abstract validate(variableDefinitions: VariableDefinitions): void;
+
+  abstract rebaseOn(parentType: CompositeType): TOwnType;
+
   get parentType(): CompositeType {
-    return this.field.parentType;
+    return this.element.parentType;
+  }
+
+  collectVariables(collector: VariableCollector) {
+    this.element.collectVariables(collector);
+    this.selectionSet?.collectVariables(collector)
+  }
+
+  collectUsedFragmentNames(collector: Map<string, number>) {
+    this.selectionSet?.collectUsedFragmentNames(collector);
+  }
+
+  namedFragments(): NamedFragments | undefined {
+    return this.selectionSet?.fragments;
+  }
+
+  abstract withUpdatedComponents(element: TElement, selectionSet: SelectionSet | TIsLeaf): TOwnType;
+
+  withUpdatedSelectionSet(selectionSet: SelectionSet | TIsLeaf): TOwnType {
+    return this.withUpdatedComponents(this.element, selectionSet);
+  }
+
+  withUpdatedElement(element: TElement): TOwnType {
+    return this.withUpdatedComponents(element, this.selectionSet);
+  }
+
+  mapToSelectionSet(mapper: (s: SelectionSet) => SelectionSet): TOwnType {
+    if (!this.selectionSet) {
+      return this.us();
+    }
+
+    const updatedSelectionSet = mapper(this.selectionSet);
+    return updatedSelectionSet === this.selectionSet
+      ? this.us()
+      : this.withUpdatedSelectionSet(updatedSelectionSet);
+  }
+
+  abstract withoutDefer(labelsToRemove?: Set<string>): TOwnType | SelectionSet;
+
+  abstract withNormalizedDefer(normalizer: DeferNormalizer): TOwnType | SelectionSet;
+
+  abstract hasDefer(): boolean;
+
+  abstract expandAllFragments(): TOwnType | readonly Selection[];
+
+  abstract expandFragments(names: string[], updatedFragments: NamedFragments | undefined): TOwnType | readonly Selection[];
+
+  abstract trimUnsatisfiableBranches(parentType: CompositeType, options?: { recursive? : boolean }): TOwnType | SelectionSet | undefined;
+
+  minus(that: Selection): TOwnType | undefined {
+    // If there is a subset, then we compute the diff of the subset and add that (if not empty).
+    // Otherwise, we have no diff.
+    if (this.selectionSet && that.selectionSet) {
+      const updatedSubSelectionSet = this.selectionSet.minus(that.selectionSet);
+      if (!updatedSubSelectionSet.isEmpty()) {
+        return this.withUpdatedSelectionSet(updatedSubSelectionSet);
+      }
+    }
+    return undefined;
+  }
+
+  // Attempts to optimize the subselection of this field selection using named fragments `candidates` _assuming_ that
+  // those candidates do apply at `parentType` (that is, `candidates.every((c) => c.canApplyAtType(parentType))` is true,
+  // which is ensured by the fact that `tryOptimizeSubselectionWithFragments` calls this on a subset of the candidates
+  // returned by `maybeApplyingAtType`).
+  protected tryOptimizeSubselectionOnce(_: {
+    parentType: CompositeType,
+    subSelection: SelectionSet,
+    candidates: NamedFragmentDefinition[],
+    fragments: NamedFragments,
+  }): {
+    spread?: FragmentSpreadSelection,
+    optimizedSelection?: SelectionSet,
+    hasDiff?: boolean,
+  } {
+    // Field and inline fragment override this, but this should never be called for a spread.
+    assert(false, `UNSUPPORTED`);
+  }
+
+  protected tryOptimizeSubselectionWithFragments({
+    parentType,
+    subSelection,
+    fragments,
+    fragmentFilter,
+  }: {
+    parentType: CompositeType,
+    subSelection: SelectionSet,
+    fragments: NamedFragments,
+    fragmentFilter?: (f: NamedFragmentDefinition) => boolean,
+  }): SelectionSet | FragmentSpreadSelection {
+    let candidates = fragments.maybeApplyingAtType(parentType);
+    if (fragmentFilter) {
+      candidates = candidates.filter(fragmentFilter);
+    }
+    let shouldTryAgain: boolean;
+    do {
+      const { spread, optimizedSelection, hasDiff } = this.tryOptimizeSubselectionOnce({ parentType, subSelection, candidates, fragments });
+      if (optimizedSelection) {
+        subSelection = optimizedSelection;
+      } else if (spread) {
+        return spread;
+      }
+      shouldTryAgain = !!spread && !!hasDiff;
+      if (shouldTryAgain) {
+        candidates = candidates.filter((c) => c !== spread?.namedFragment)
+      }
+    } while (shouldTryAgain);
+    return subSelection;
+  }
+}
+
+export class FieldSelection extends AbstractSelection<Field<any>, undefined, FieldSelection> {
+  readonly kind = 'FieldSelection' as const;
+
+  constructor(
+    field: Field<any>,
+    private readonly _selectionSet?: SelectionSet,
+  ) {
+    super(field);
+  }
+
+  get selectionSet(): SelectionSet | undefined {
+    return this._selectionSet;
   }
 
   protected us(): FieldSelection {
     return this;
   }
 
+  withUpdatedComponents(field: Field<any>, selectionSet: SelectionSet | undefined): FieldSelection {
+    return new FieldSelection(field, selectionSet);
+  }
+
   key(): string {
-    return this.element().responseName();
-  }
-
-  element(): Field<any> {
-    return this.field;
-  }
-
-  usedVariables(): Variables {
-    return mergeVariables(this.element().variables(), this.selectionSet?.usedVariables() ?? []);
-  }
-
-  collectUsedFragmentNames(collector: Map<string, number>) {
-    if (this.selectionSet) {
-      this.selectionSet.collectUsedFragmentNames(collector);
-    }
+    return this.element.key();
   }
 
   optimize(fragments: NamedFragments): Selection {
-    const optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments) : undefined;
-    const fieldBaseType = baseType(this.field.definition.type!);
+    let optimizedSelection = this.selectionSet ? this.selectionSet.optimizeSelections(fragments) : undefined;
+    const fieldBaseType = baseType(this.element.definition.type!);
     if (isCompositeType(fieldBaseType) && optimizedSelection) {
-      for (const candidate of fragments.maybeApplyingAtType(fieldBaseType)) {
-        // TODO: Checking `equals` here is very simple, but somewhat restrictive in theory. That is, if a query
-        // is:
-        //   {
-        //     t {
-        //       a
-        //       b
-        //       c
-        //     }
-        //   }
-        // and we have:
-        //   fragment X on T {
-        //     t {
-        //       a
-        //       b
-        //     }
-        //   }
-        // then the current code will not use the fragment because `c` is not in the fragment, but in relatity,
-        // we could use it and make the result be:
-        //   {
-        //     ...X
-        //     t {
-        //       c
-        //     }
-        //   }
-        // To do that, we can change that `equals` to `contains`, but then we should also "extract" the remainder
-        // of `optimizedSelection` that isn't covered by the fragment, and that is the part slighly more involved.
-        if (optimizedSelection.equals(candidate.selectionSet)) {
-          const fragmentSelection = new FragmentSpreadSelection(fieldBaseType, fragments, candidate.name);
-          return new FieldSelection(this.field, selectionSetOf(fieldBaseType, fragmentSelection));
-        }
-      }
+      const optimized = this.tryOptimizeSubselectionWithFragments({
+        parentType: fieldBaseType,
+        subSelection: optimizedSelection,
+        fragments,
+        // We can never apply a fragments that has directives on it at the field level (but when those are expanded,
+        // their type condition would always be preserved due to said applied directives, so they will always
+        // be handled by `InlineFragmentSelection.optimize` anyway).
+        fragmentFilter: (f) => f.appliedDirectives.length === 0,
+      });
+
+      assert(!(optimized instanceof FragmentSpreadSelection), 'tryOptimizeSubselectionOnce should never return only a spread');
+      optimizedSelection = optimized;
     }
 
     return this.selectionSet === optimizedSelection
       ? this
-      : new FieldSelection(this.field, optimizedSelection);
+      : new FieldSelection(this.element, optimizedSelection);
+  }
+
+  protected tryOptimizeSubselectionOnce({
+    parentType,
+    subSelection,
+    candidates,
+    fragments,
+  }: {
+    parentType: CompositeType,
+    subSelection: SelectionSet,
+    candidates: NamedFragmentDefinition[],
+    fragments: NamedFragments,
+  }): {
+    spread?: FragmentSpreadSelection,
+    optimizedSelection?: SelectionSet,
+    hasDiff?: boolean,
+  }{
+    let optimizedSelection = subSelection;
+    for (const candidate of candidates) {
+      const { contains, diff } = optimizedSelection.diffWithNamedFragmentIfContained(candidate, parentType);
+      if (contains) {
+        // We can optimize the selection with this fragment. The replaced sub-selection will be
+        // comprised of this new spread and the remaining `diff` if there is any.
+        const spread = new FragmentSpreadSelection(parentType, fragments, candidate, []);
+        optimizedSelection = diff
+          ? new SelectionSetUpdates().add(spread).add(diff).toSelectionSet(parentType, fragments)
+          : selectionSetOf(parentType, spread);
+        return { spread, optimizedSelection, hasDiff: !!diff }
+      }
+    }
+    return {};
   }
 
   filter(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
@@ -1659,143 +2180,127 @@ export class FieldSelection extends Freezable<FieldSelection> {
     const updatedSelectionSet = this.selectionSet.filter(predicate);
     const thisWithFilteredSelectionSet = this.selectionSet === updatedSelectionSet
       ? this
-      : new FieldSelection(this.field, updatedSelectionSet);
+      : new FieldSelection(this.element, updatedSelectionSet);
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
-  protected freezeInternals(): void {
-    this.selectionSet?.freeze();
-  }
-
-  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FieldSelection {
-    const expandedSelection = this.selectionSet ? this.selectionSet.expandFragments(names, updateSelectionSetFragments) : undefined;
-    return this.selectionSet === expandedSelection
-      ? this
-      : new FieldSelection(this.field, expandedSelection);
-  }
-
-  private fieldArgumentsToAST(): ArgumentNode[] | undefined {
-    const entries = Object.entries(this.field.args);
-    if (entries.length === 0) {
-      return undefined;
-    }
-
-    return entries.map(([n, v]) => {
-      return {
-        kind: Kind.ARGUMENT,
-        name: { kind: Kind.NAME, value: n },
-        value: valueToAST(v, this.field.definition.argument(n)!.type!)!,
-      };
-    });
-  }
-
-  validate() {
-    this.field.validate();
+  validate(variableDefinitions: VariableDefinitions) {
+    this.element.validate(variableDefinitions);
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
-      !(this.selectionSet && this.selectionSet.isEmpty()),
-      () => `Invalid empty selection set for field "${this.field.definition.coordinate}" of non-leaf type ${this.field.definition.type}`,
-      this.field.definition.sourceAST
+      this.element.isLeafField() || (this.selectionSet && !this.selectionSet.isEmpty()),
+      () => `Invalid empty selection set for field "${this.element.definition.coordinate}" of non-leaf type ${this.element.definition.type}`,
+      this.element.definition.sourceAST
     );
-    this.selectionSet?.validate();
+    this.selectionSet?.validate(variableDefinitions);
   }
 
   /**
-   * Returns a field selection "equivalent" to the one represented by this object, but such that:
-   *  1. its parent type is the exact one of the provided selection set (same type of same schema object).
-   *  2. it is not frozen (which might involve cloning).
+   * Returns a field selection "equivalent" to the one represented by this object, but such that its parent type 
+   * is the one provided as argument.
    *
-   * This method assumes that such a thing is possible, meaning that the parent type of the provided
-   * selection set does have a field that correspond to this selection (which can support any sub-selection).
-   * If that is not the case, an assertion will be thrown.
-   *
-   * Note that in the simple cases where this selection parent type is already the one of the provide
-   * `selectionSet`, then this method is mostly a no-op, except for the potential cloning if this selection
-   * is frozen. But this method mostly exists to make working with multiple "similar" schema easier.
-   * That is, `Selection` and `SelectionSet` are intrinsically linked to a particular `Schema` object since
-   * their underlying `OperationElement` points to fields and types of a particular `Schema`. And we want to
-   * make sure that _everything_ within a particular `SelectionSet` does link to the same `Schema` object,
-   * or things could get really confusing (nor would it make much sense; a selection set is that of a particular
-   * schema fundamentally). In many cases, when we work with a single schema (when we parse an operation string
-   * against a given schema for instance), this problem is moot, but as we do query planning for instance, we
-   * end up building queries over subgraphs _based_ on some selections from the supergraph API schema, and so
-   * we need to deal with the fact that the code can easily mix selection from different schema. One option
-   * could be to simply hard-reject such mixing, meaning that `SelectionSet.add(Selection)` could error out
-   * if the provided selection is not of the same schema of that of the selection set we add to, thus forcing
-   * the caller to first ensure the selection is properly "rebased" on the same schema. But this would be a
-   * bit inconvenient and so this this method instead provide a sort of "automatic rebasing": that is, it
-   * allows `this` selection not be of the same schema as the provided `selectionSet` as long as both are
-   * "compatible", and as long as it's the case, it return an equivalent selection that is suitable to be
-   * added to `selectionSet` (it's against the same fundamental schema).
+   * Obviously, this operation will only succeed if this selection (both the field itself and its subselections)
+   * make sense from the provided parent type. If this is not the case, this method will throw.
    */
-  updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
-    const updatedField = this.field.updateForAddingTo(selectionSet);
-    if (this.field === updatedField) {
-      return this.cloneIfFrozen();
+  rebaseOn(parentType: CompositeType): FieldSelection {
+    if (this.element.parentType === parentType) {
+      return this;
     }
 
-    // We create a new selection that not only uses the updated field, but also ensures
-    // the underlying selection set uses the updated field type as parent type.
-    const updatedBaseType = baseType(updatedField.definition.type!);
-    let updatedSelectionSet : SelectionSet | undefined;
-    if (this.selectionSet && this.selectionSet.parentType !== updatedBaseType) {
-      assert(isCompositeType(updatedBaseType), `Expected ${updatedBaseType.coordinate} to be composite but ${updatedBaseType.kind}`);
-      updatedSelectionSet = new SelectionSet(updatedBaseType);
-      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
-      // effect of the type change.
-      for (const selection of this.selectionSet.selections()) {
-        updatedSelectionSet.add(selection);
-      }
-    } else {
-      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    const rebasedElement = this.element.rebaseOn(parentType);
+    if (!this.selectionSet) {
+      return this.withUpdatedElement(rebasedElement);
     }
 
-    return new FieldSelection(updatedField, updatedSelectionSet);
+    const rebasedBase = baseType(rebasedElement.definition.type!);
+    if (rebasedBase === this.selectionSet.parentType) {
+      return this.withUpdatedElement(rebasedElement);
+    }
+
+    validate(isCompositeType(rebasedBase), () => `Cannot rebase field selection ${this} on ${parentType}: rebased field base return type ${rebasedBase} is not composite`);
+    return this.withUpdatedComponents(rebasedElement, this.selectionSet.rebaseOn(rebasedBase));
   }
 
   /**
    * Essentially checks if `updateForAddingTo` would work on an selecion set of the provide parent type.
    */
   canAddTo(parentType: CompositeType): boolean {
-    if (this.field.parentType === parentType) {
+    if (this.element.parentType === parentType) {
       return true;
     }
 
-    const type = this.field.typeIfAddedTo(parentType);
+    const type = this.element.typeIfAddedTo(parentType);
     if (!type) {
       return false;
     }
 
     const base = baseType(type);
     if (this.selectionSet && this.selectionSet.parentType !== base) {
-      assert(isCompositeType(base), () => `${this.field} should have a selection set as it's type is not a composite`);
+      assert(isCompositeType(base), () => `${this.element} should have a selection set as it's type is not a composite`);
       return this.selectionSet.selections().every((s) => s.canAddTo(base));
     }
     return true;
   }
 
   toSelectionNode(): FieldNode {
-    const alias: NameNode | undefined = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
+    const alias: NameNode | undefined = this.element.alias ? { kind: Kind.NAME, value: this.element.alias, } : undefined;
     return {
       kind: Kind.FIELD,
       name: {
         kind: Kind.NAME,
-        value: this.field.name,
+        value: this.element.name,
       },
       alias,
-      arguments: this.fieldArgumentsToAST(),
-      directives: this.element().appliedDirectivesToDirectiveNodes(),
+      arguments: this.element.argumentsToNodes(),
+      directives: this.element.appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet?.toSelectionSetNode()
     };
   }
 
-  withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FieldSelection {
-    return new FieldSelection(this.field, newSubSelection);
+  withoutDefer(labelsToRemove?: Set<string>): FieldSelection {
+    return this.mapToSelectionSet((s) => s.withoutDefer(labelsToRemove));
   }
 
-  withUpdatedField(newField: Field<any>): FieldSelection {
-    return new FieldSelection(newField, this.selectionSet);
+  withNormalizedDefer(normalizer: DeferNormalizer): FieldSelection {
+    return this.mapToSelectionSet((s) => s.withNormalizedDefer(normalizer));
+  }
+
+  hasDefer(): boolean {
+    return !!this.selectionSet?.hasDefer();
+  }
+
+  expandAllFragments(): FieldSelection {
+    return this.mapToSelectionSet((s) => s.expandAllFragments());
+  }
+
+  trimUnsatisfiableBranches(_: CompositeType, options?: { recursive? : boolean }): FieldSelection {
+    if (!this.selectionSet) {
+      return this;
+    }
+
+    const base = baseType(this.element.definition.type!)
+    assert(isCompositeType(base), () => `Field ${this.element} should not have a sub-selection`);
+    const trimmed = (options?.recursive ?? true) ? this.mapToSelectionSet((s) => s.trimUnsatisfiableBranches(base)) : this;
+    // In rare caes, it's possible that everything in the sub-selection was trimmed away and so the
+    // sub-selection is empty. Which suggest something may be wrong with this part of the query
+    // intent, but the query was valid while keeping an empty sub-selection isn't. So in that
+    // case, we just add some "non-included" __typename field just to keep the query valid.
+    if (trimmed.selectionSet?.isEmpty()) {
+      return trimmed.withUpdatedSelectionSet(selectionSetOfElement(
+        new Field(
+          base.typenameField()!,
+          undefined,
+          [new Directive('include', { 'if': false })],
+        )
+      ));
+    } else {
+      return trimmed;
+    }
+  }
+
+  expandFragments(names: string[], updatedFragments: NamedFragments | undefined): FieldSelection {
+    return this.mapToSelectionSet((s) => s.expandFragments(names, updatedFragments));
   }
 
   equals(that: Selection): boolean {
@@ -1803,7 +2308,7 @@ export class FieldSelection extends Freezable<FieldSelection> {
       return true;
     }
 
-    if (!(that instanceof FieldSelection) || !this.field.equals(that.field)) {
+    if (!(that instanceof FieldSelection) || !this.element.equals(that.element)) {
       return false;
     }
     if (!this.selectionSet) {
@@ -1813,7 +2318,7 @@ export class FieldSelection extends Freezable<FieldSelection> {
   }
 
   contains(that: Selection): boolean {
-    if (!(that instanceof FieldSelection) || !this.field.equals(that.field)) {
+    if (!(that instanceof FieldSelection) || !this.element.equals(that.element)) {
       return false;
     }
 
@@ -1823,187 +2328,117 @@ export class FieldSelection extends Freezable<FieldSelection> {
     return !!this.selectionSet && this.selectionSet.contains(that.selectionSet);
   }
 
-  namedFragments(): NamedFragments | undefined {
-    return this.selectionSet?.fragments;
-  }
-
-  withoutDefer(labelsToRemove?: Set<string>): FieldSelection {
-    const updatedSubSelections = this.selectionSet?.withoutDefer(labelsToRemove);
-    return updatedSubSelections === this.selectionSet
-      ? this
-      : new FieldSelection(this.field, updatedSubSelections);
-  }
-
-  withNormalizedDefer(normalizer: DeferNormalizer): FieldSelection {
-    const updatedSubSelections = this.selectionSet?.withNormalizedDefer(normalizer);
-    return updatedSubSelections === this.selectionSet
-      ? this
-      : new FieldSelection(this.field, updatedSubSelections);
-  }
-
-  clone(): FieldSelection {
-    if (!this.selectionSet) {
-      return this;
-    }
-    return new FieldSelection(this.field, this.selectionSet.clone());
+  isUnecessaryInlineFragment(_: CompositeType): this is InlineFragmentSelection {
+    // Overridden by inline fragments
+    return false;
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
-    return (indent ?? '') + this.field + (this.selectionSet ? ' ' + this.selectionSet.toString(expandFragments, true, indent) : '');
+    return (indent ?? '') + this.element + (this.selectionSet ? ' ' + this.selectionSet.toString(expandFragments, true, indent) : '');
   }
 }
 
-export abstract class FragmentSelection extends Freezable<FragmentSelection> {
+export abstract class FragmentSelection extends AbstractSelection<FragmentElement, never, FragmentSelection> {
   readonly kind = 'FragmentSelection' as const;
 
-  abstract key(): string;
-
-  abstract element(): FragmentElement;
-
-  abstract get selectionSet(): SelectionSet;
-
-  abstract collectUsedFragmentNames(collector: Map<string, number>): void;
-
-  abstract namedFragments(): NamedFragments | undefined;
-
-  abstract optimize(fragments: NamedFragments): FragmentSelection;
-
-  abstract expandFragments(names?: string[]): Selection | readonly Selection[];
-
-  abstract toSelectionNode(): SelectionNode;
-
-  abstract validate(): void;
-
-  abstract withoutDefer(labelsToRemove?: Set<string>): FragmentSelection | SelectionSet;
-
-  abstract withNormalizedDefer(normalizer: DeferNormalizer): FragmentSelection | SelectionSet;
-
-  /**
-   * See `FielSelection.updateForAddingTo` for a discussion of why this method exists and what it does.
-   */
-  abstract updateForAddingTo(selectionSet: SelectionSet): FragmentSelection;
-
   abstract canAddTo(parentType: CompositeType): boolean;
-
-  abstract withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): FragmentSelection;
-
-  get parentType(): CompositeType {
-    return this.element().parentType;
-  }
 
   protected us(): FragmentSelection {
     return this;
   }
 
   protected validateDeferAndStream() {
-    if (this.element().hasDefer() || this.element().hasStream()) {
-      const schemaDef = this.element().schema().schemaDefinition;
-      const parentType = this.element().parentType;
+    if (this.element.hasDefer() || this.element.hasStream()) {
+      const schemaDef = this.element.schema().schemaDefinition;
+      const parentType = this.parentType;
       validate(
         schemaDef.rootType('mutation') !== parentType && schemaDef.rootType('subscription') !== parentType,
         () => `The @defer and @stream directives cannot be used on ${schemaDef.roots().filter((t) => t.type === parentType).pop()?.rootKind} root type "${parentType}"`,
       );
     }
   }
-
-  usedVariables(): Variables {
-    return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
-  }
-
+  
   filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
     // Note that we essentially expand all fragments as part of this.
     const selectionSet = this.selectionSet;
     const updatedSelectionSet = selectionSet.filter(predicate);
     const thisWithFilteredSelectionSet = updatedSelectionSet === selectionSet
       ? this
-      : new InlineFragmentSelection(this.element(), updatedSelectionSet);
+      : new InlineFragmentSelection(this.element, updatedSelectionSet);
 
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
-
-  protected freezeInternals() {
-    this.selectionSet.freeze();
+ 
+  hasDefer(): boolean {
+    return this.element.hasDefer() || this.selectionSet.hasDefer();
   }
 
-  equals(that: Selection): boolean {
-    if (this === that) {
-      return true;
-    }
-    return (that instanceof FragmentSelection)
-      && this.element().equals(that.element())
-      && this.selectionSet.equals(that.selectionSet);
+  abstract equals(that: Selection): boolean;
+
+  abstract contains(that: Selection): boolean;
+
+  isUnecessaryInlineFragment(parentType: CompositeType): boolean {
+    return this.element.appliedDirectives.length === 0
+      && !!this.element.typeCondition
+      && (
+        this.element.typeCondition.name === parentType.name 
+          || (isObjectType(parentType) && possibleRuntimeTypes(this.element.typeCondition).some((t) => t.name === parentType.name))
+      );
   }
 
-  contains(that: Selection): boolean {
-    return (that instanceof FragmentSelection)
-      && this.element().equals(that.element())
-      && this.selectionSet.contains(that.selectionSet);
-  }
-
-  clone(): FragmentSelection {
-    return new InlineFragmentSelection(this.element(), this.selectionSet.clone());
-  }
 }
 
 class InlineFragmentSelection extends FragmentSelection {
-  private readonly _selectionSet: SelectionSet;
-
   constructor(
-    private readonly fragmentElement: FragmentElement,
-    initialSelectionSet?: SelectionSet
+    fragment: FragmentElement,
+    private readonly _selectionSet: SelectionSet,
   ) {
-    super();
-    // TODO: we should do validate the type of the initial selection set.
-    this._selectionSet = initialSelectionSet
-      ? initialSelectionSet.cloneIfFrozen()
-      : new SelectionSet(fragmentElement.typeCondition ? fragmentElement.typeCondition : fragmentElement.parentType);
+    super(fragment);
+  }
+
+  get selectionSet(): SelectionSet {
+    return this._selectionSet;
   }
 
   key(): string {
-    return this.element().typeCondition?.name ?? '';
+    return this.element.key();
   }
 
-  validate() {
+  withUpdatedComponents(fragment: FragmentElement, selectionSet: SelectionSet): InlineFragmentSelection {
+    return new InlineFragmentSelection(fragment, selectionSet);
+  }
+
+  validate(variableDefinitions: VariableDefinitions) {
     this.validateDeferAndStream();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
       !this.selectionSet.isEmpty(),
-      () => `Invalid empty selection set for fragment "${this.element()}"`
+      () => `Invalid empty selection set for fragment "${this.element}"`
     );
-    this.selectionSet.validate();
+    this.selectionSet.validate(variableDefinitions);
   }
 
-  updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
-    const updatedFragment = this.element().updateForAddingTo(selectionSet);
-    if (this.element() === updatedFragment) {
-      return this.cloneIfFrozen();
+  rebaseOn(parentType: CompositeType): FragmentSelection {
+    if (this.parentType === parentType) {
+      return this;
     }
 
-    // Like for fields, we create a new selection that not only uses the updated fragment, but also ensures
-    // the underlying selection set uses the updated type as parent type.
-    const updatedCastedType = updatedFragment.castedType();
-    let updatedSelectionSet : SelectionSet | undefined;
-    if (this.selectionSet.parentType !== updatedCastedType) {
-      updatedSelectionSet = new SelectionSet(updatedCastedType);
-      // Note that re-adding every selection ensures that anything frozen will be cloned as needed, on top of handling any knock-down
-      // effect of the type change.
-      for (const selection of this.selectionSet.selections()) {
-        updatedSelectionSet.add(selection);
-      }
-    } else {
-      updatedSelectionSet = this.selectionSet?.cloneIfFrozen();
+    const rebasedFragment = this.element.rebaseOn(parentType);
+    const rebasedCastedType = rebasedFragment.castedType();
+    if (rebasedCastedType === this.selectionSet.parentType) {
+      return this.withUpdatedElement(rebasedFragment);
     }
 
-    return new InlineFragmentSelection(updatedFragment, updatedSelectionSet);
+    return this.withUpdatedComponents(rebasedFragment, this.selectionSet.rebaseOn(rebasedCastedType));
   }
 
   canAddTo(parentType: CompositeType): boolean {
-    if (this.element().parentType === parentType) {
+    if (this.element.parentType === parentType) {
       return true;
     }
 
-    const type = this.element().castedTypeIfAddedTo(parentType);
+    const type = this.element.castedTypeIfAddedTo(parentType);
     if (!type) {
       return false;
     }
@@ -2014,21 +2449,8 @@ class InlineFragmentSelection extends FragmentSelection {
     return true;
   }
 
-
-  get selectionSet(): SelectionSet {
-    return this._selectionSet;
-  }
-
-  namedFragments(): NamedFragments | undefined {
-    return this.selectionSet.fragments;
-  }
-
-  element(): FragmentElement {
-    return this.fragmentElement;
-  }
-
   toSelectionNode(): InlineFragmentNode {
-    const typeCondition = this.element().typeCondition;
+    const typeCondition = this.element.typeCondition;
     return {
       kind: Kind.INLINE_FRAGMENT,
       typeCondition: typeCondition
@@ -2040,120 +2462,278 @@ class InlineFragmentSelection extends FragmentSelection {
           },
         }
         : undefined,
-      directives: this.element().appliedDirectivesToDirectiveNodes(),
+      directives: this.element.appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet.toSelectionSetNode()
     };
   }
 
   optimize(fragments: NamedFragments): FragmentSelection {
-    let optimizedSelection = this.selectionSet.optimize(fragments);
-    const typeCondition = this.element().typeCondition;
+    let optimizedSelection = this.selectionSet.optimizeSelections(fragments);
+    const typeCondition = this.element.typeCondition;
     if (typeCondition) {
-      for (const candidate of fragments.maybeApplyingAtType(typeCondition)) {
-        // See comment in `FieldSelection.optimize` about the `equals`: this fully apply here too.
-        if (optimizedSelection.equals(candidate.selectionSet)) {
-          const spread = new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
-          // We use the fragment when the fragments condition is either the same, or a supertype of our current condition.
-          // If it's the same type, then we don't really want to preserve the current condition, it is included in the
-          // spread and we can return it directly. But if the fragment condition is a superset, then we should preserve
-          // our current condition since it restricts the selection more than the fragment actual does.
-          if (sameType(typeCondition, candidate.typeCondition)) {
-            // If we ignore the current condition, then we need to ensure any directive applied to it are preserved.
-            this.fragmentElement.appliedDirectives.forEach((directive) => {
-              spread.element().applyDirective(directive.definition!, directive.arguments());
-            })
-            return spread;
-          }
-          optimizedSelection = selectionSetOf(spread.element().parentType, spread);
-          break;
-        }
+      const optimized = this.tryOptimizeSubselectionWithFragments({
+        parentType: typeCondition,
+        subSelection: optimizedSelection,
+        fragments,
+      });
+      if (optimized instanceof FragmentSpreadSelection) {
+        // This means the whole inline fragment can be replaced by the spread.
+        return optimized;
       }
+      optimizedSelection = optimized;
     }
     return this.selectionSet === optimizedSelection
       ? this
-      : new InlineFragmentSelection(this.fragmentElement, optimizedSelection);
+      : new InlineFragmentSelection(this.element, optimizedSelection);
   }
 
-  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection {
-    const expandedSelection = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
-    return this.selectionSet === expandedSelection
-      ? this
-      : new InlineFragmentSelection(this.element(), expandedSelection);
+  protected tryOptimizeSubselectionOnce({
+    parentType,
+    subSelection,
+    candidates,
+    fragments,
+  }: {
+    parentType: CompositeType,
+    subSelection: SelectionSet,
+    candidates: NamedFragmentDefinition[],
+    fragments: NamedFragments,
+  }): {
+    spread?: FragmentSpreadSelection,
+    optimizedSelection?: SelectionSet,
+    hasDiff?: boolean,
+  }{
+    let optimizedSelection = subSelection;
+    for (const candidate of candidates) {
+      const { contains, diff } = optimizedSelection.diffWithNamedFragmentIfContained(candidate, parentType);
+      if (contains) {
+        // The candidate selection is included in our sub-selection. One remaining thing to take into account
+        // is applied directives: if the candidate has directives, then we can only use it if 1) there is
+        // no `diff`, 2) the type condition of this fragment matches the candidate one and 3) the directives
+        // in question are also on this very fragment. In that case, we can replace this whole inline fragment
+        // by a spread of the candidate.
+        if (!diff && sameType(this.element.typeCondition!, candidate.typeCondition)) {
+          // We can potentially replace the whole fragment by the candidate; but as said above, still needs
+          // to check the directives.
+          let spreadDirectives: Directive<any>[] = this.element.appliedDirectives;
+          if (candidate.appliedDirectives.length > 0) {
+            const { isSubset, difference } = diffDirectives(this.element.appliedDirectives, candidate.appliedDirectives);
+            if (!isSubset) {
+              // While the candidate otherwise match, it has directives that are not on this element, so we
+              // cannot reuse it.
+              continue;
+            }
+            // Otherwise, any directives on this element that are not on the candidate should be kept and used
+            // on the spread created.
+            spreadDirectives = difference;
+          }
+          // Returning a spread without a subselection will make the code "replace" this whole inline fragment
+          // by the spread, which is what we want. Do not that as we're replacing the whole inline fragment,
+          // we use `this.parentType` instead of `parentType` (the later being `this.element.typeCondition` basically).
+          return {
+            spread: new FragmentSpreadSelection(this.parentType, fragments, candidate, spreadDirectives),
+          };
+        }
+
+        // We're already dealt with the one case where we might be able to handle a candidate that has directives.
+        if (candidate.appliedDirectives.length > 0) {
+          continue;
+        }
+
+        const spread = new FragmentSpreadSelection(parentType, fragments, candidate, []);
+        optimizedSelection = diff
+          ? new SelectionSetUpdates().add(spread).add(diff).toSelectionSet(parentType, fragments)
+          : selectionSetOf(parentType, spread);
+
+        return { spread, optimizedSelection, hasDiff: !!diff };
+      }
+    }
+    return {};
   }
 
-  collectUsedFragmentNames(collector: Map<string, number>): void {
-    this.selectionSet.collectUsedFragmentNames(collector);
-  }
-
-  withoutDefer(labelsToRemove?: Set<string>): FragmentSelection | SelectionSet {
-    const updatedSubSelections = this.selectionSet.withoutDefer(labelsToRemove);
-    const deferArgs = this.fragmentElement.deferDirectiveArgs();
+  withoutDefer(labelsToRemove?: Set<string>): InlineFragmentSelection | SelectionSet {
+    const newSelection = this.selectionSet.withoutDefer(labelsToRemove);
+    const deferArgs = this.element.deferDirectiveArgs();
     const hasDeferToRemove = deferArgs && (!labelsToRemove || (deferArgs.label && labelsToRemove.has(deferArgs.label)));
-    if (updatedSubSelections === this.selectionSet && !hasDeferToRemove) {
+    if (newSelection === this.selectionSet && !hasDeferToRemove) {
       return this;
     }
-    const newFragment = hasDeferToRemove ? this.fragmentElement.withoutDefer() : this.fragmentElement;
-    if (!newFragment) {
-      return updatedSubSelections;
+    const newElement = hasDeferToRemove ? this.element.withoutDefer() : this.element;
+    if (!newElement) {
+      return newSelection;
     }
-    return new InlineFragmentSelection(newFragment, updatedSubSelections);
+    return this.withUpdatedComponents(newElement, newSelection);
   }
 
   withNormalizedDefer(normalizer: DeferNormalizer): InlineFragmentSelection | SelectionSet {
-    const newFragment = this.fragmentElement.withNormalizedDefer(normalizer);
-    const updatedSubSelections = this.selectionSet.withNormalizedDefer(normalizer);
-    if (!newFragment) {
-      return updatedSubSelections;
+    const newElement = this.element.withNormalizedDefer(normalizer);
+    const newSelection = this.selectionSet.withNormalizedDefer(normalizer)
+    if (!newElement) {
+      return newSelection;
     }
-    return newFragment === this.fragmentElement && updatedSubSelections === this.selectionSet
+    return newElement === this.element && newSelection === this.selectionSet
       ? this
-      : new InlineFragmentSelection(newFragment, updatedSubSelections);
+      : this.withUpdatedComponents(newElement, newSelection);
   }
 
-  withUpdatedSubSelection(newSubSelection: SelectionSet | undefined): InlineFragmentSelection {
-    return new InlineFragmentSelection(this.fragmentElement, newSubSelection);
+  trimUnsatisfiableBranches(currentType: CompositeType, options?: { recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
+    const recursive = options?.recursive ?? true;
+
+    const thisCondition = this.element.typeCondition;
+    // Note that if the condition has directives, we preserve the fragment no matter what.
+    if (this.element.appliedDirectives.length === 0) {
+      if (!thisCondition || currentType === this.element.typeCondition) {
+        const trimmed = this.selectionSet.trimUnsatisfiableBranches(currentType, options);
+        return trimmed.isEmpty() ? undefined : trimmed;
+      }
+
+      // If the current type is an object, then we never need to keep the current fragment because:
+      // - either the fragment is also an object, but we've eliminated the case where the 2 types are the same,
+      //   so this is just an unsatisfiable branch.
+      // - or it's not an object, but then the current type is more precise and no point in "casting" to a
+      //   less precise interface/union. And if the current type is not even a valid runtime of said interface/union,
+      //   then we should completely ignore the branch (or, since we're eliminating `thisCondition`, we would be
+      //   building an invalid selection). 
+      if (isObjectType(currentType)) {
+        if (isObjectType(thisCondition) || !possibleRuntimeTypes(thisCondition).includes(currentType)) {
+          return undefined;
+        } else {
+          const trimmed =this.selectionSet.trimUnsatisfiableBranches(currentType, options);
+          return trimmed.isEmpty() ? undefined : trimmed;
+        }
+      }
+    }
+
+    // As we preserve the current fragment, the rest is about recursing. If we don't recurse, we're done
+    if (!recursive) {
+      return this;
+    }
+
+    // In all other cases, we first recurse on the sub-selection.
+    const trimmedSelectionSet = this.selectionSet.trimUnsatisfiableBranches(this.element.typeCondition ?? this.parentType);
+
+    // First, could be that everything was unsatisfiable.
+    if (trimmedSelectionSet.isEmpty()) {
+      if (this.element.appliedDirectives.length === 0) {
+        return undefined;
+      } else {
+        return this.withUpdatedSelectionSet(selectionSetOfElement(
+          new Field(
+            (this.element.typeCondition ?? this.parentType).typenameField()!,
+            undefined,
+            [new Directive('include', { 'if': false })],
+          )
+        ));
+      }
+    }
+
+    // Second, we check if some of the sub-selection fragments can be "lifted" outside of this fragment. This can happen if:
+    // 1. the current fragment is an abstract type,
+    // 2. the sub-fragment is an object type,
+    // 3. the sub-fragment type is a valid runtime of the current type.
+    if (this.element.appliedDirectives.length === 0 && isAbstractType(thisCondition!)) {
+      assert(!isObjectType(currentType), () => `Should not have got here if ${currentType} is an object type`);
+      const currentRuntimes = possibleRuntimeTypes(currentType);
+      const liftableSelections: Selection[] = [];
+      for (const selection of trimmedSelectionSet.selections()) {
+        if (selection.kind === 'FragmentSelection'
+          && selection.element.typeCondition
+          && isObjectType(selection.element.typeCondition)
+          && currentRuntimes.includes(selection.element.typeCondition)
+        ) {
+          liftableSelections.push(selection);
+        }
+      }
+
+      // If we can lift all selections, then that just mean we can get rid of the current fragment altogether
+      if (liftableSelections.length === trimmedSelectionSet.selections().length) {
+        return trimmedSelectionSet;
+      }
+
+      // Otherwise, if there is "liftable" selections, we must return a set comprised of those lifted selection,
+      // and the current fragment _without_ those lifted selections.
+      if (liftableSelections.length > 0) {
+        const newSet = new SelectionSetUpdates();
+        newSet.add(liftableSelections);
+        newSet.add(this.withUpdatedSelectionSet(
+          trimmedSelectionSet.filter((s) => !liftableSelections.includes(s)),
+        ));
+        return newSet.toSelectionSet(this.parentType);
+      }
+    }
+
+    return this.selectionSet === trimmedSelectionSet ? this : this.withUpdatedSelectionSet(trimmedSelectionSet);
+  }
+
+  expandAllFragments(): FragmentSelection {
+    return this.mapToSelectionSet((s) => s.expandAllFragments());
+  }
+
+  expandFragments(names: string[], updatedFragments: NamedFragments | undefined): FragmentSelection {
+    return this.mapToSelectionSet((s) => s.expandFragments(names, updatedFragments));
+  }
+
+  equals(that: Selection): boolean {
+    if (this === that) {
+      return true;
+    }
+
+    return (that instanceof FragmentSelection)
+      && this.element.equals(that.element)
+      && this.selectionSet.equals(that.selectionSet);
+  }
+
+  contains(that: Selection): boolean {
+    return (that instanceof FragmentSelection)
+      && this.element.equals(that.element)
+      && this.selectionSet.contains(that.selectionSet);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
-    return (indent ?? '') + this.fragmentElement + ' ' + this.selectionSet.toString(expandFragments, true, indent);
+    return (indent ?? '') + this.element + ' ' + this.selectionSet.toString(expandFragments, true, indent);
+  }
+}
+
+function diffDirectives(superset: readonly Directive<any>[], maybeSubset: readonly Directive<any>[]): { isSubset: boolean, difference: Directive[] } {
+  if (maybeSubset.every((d) => superset.some((s) => sameDirectiveApplication(d, s)))) {
+    return { isSubset: true, difference: superset.filter((s) => !maybeSubset.some((d) => sameDirectiveApplication(d, s))) };
+  } else {
+    return { isSubset: false, difference: [] };
   }
 }
 
 class FragmentSpreadSelection extends FragmentSelection {
-  private readonly namedFragment: NamedFragmentDefinition;
-  // Note that the named fragment directives are copied on this element and appear first (the spreadDirectives
-  // method rely on this to be able to extract the directives that are specific to the spread itself).
-  private readonly _element : FragmentElement;
+  private computedKey: string | undefined;
 
   constructor(
     sourceType: CompositeType,
     private readonly fragments: NamedFragments,
-    fragmentName: string
+    readonly namedFragment: NamedFragmentDefinition,
+    private readonly spreadDirectives: readonly Directive<any>[],
   ) {
-    super();
-    const fragmentDefinition = fragments.get(fragmentName);
-    validate(fragmentDefinition, () => `Unknown fragment "...${fragmentName}"`);
-    this.namedFragment = fragmentDefinition;
-    this._element = new FragmentElement(sourceType, fragmentDefinition.typeCondition);
-    for (const directive of fragmentDefinition.appliedDirectives) {
-      this._element.applyDirective(directive.definition!, directive.arguments());
-    }
-  }
-
-  key(): string {
-    return '...' + this.namedFragment.name;
-  }
-
-  element(): FragmentElement {
-    return this._element;
-  }
-
-  namedFragments(): NamedFragments | undefined {
-    return this.fragments;
+    super(new FragmentElement(sourceType, namedFragment.typeCondition, namedFragment.appliedDirectives.concat(spreadDirectives)));
   }
 
   get selectionSet(): SelectionSet {
     return this.namedFragment.selectionSet;
+  }
+
+  key(): string {
+    if (!this.computedKey) {
+      this.computedKey = '...' + this.namedFragment.name + (this.spreadDirectives.length === 0 ? '' : ' ' + this.spreadDirectives.join(' '));
+    }
+    return this.computedKey;
+  }
+
+  withUpdatedComponents(_fragment: FragmentElement, _selectionSet: SelectionSet): InlineFragmentSelection {
+    assert(false, `Unsupported`);
+  }
+
+  trimUnsatisfiableBranches(_: CompositeType): FragmentSelection  {
+    return this;
+  }
+
+  namedFragments(): NamedFragments | undefined {
+    return this.fragments;
   }
 
   validate(): void {
@@ -2163,10 +2743,9 @@ class FragmentSpreadSelection extends FragmentSelection {
   }
 
   toSelectionNode(): FragmentSpreadNode {
-    const spreadDirectives = this.spreadDirectives();
-    const directiveNodes = spreadDirectives.length === 0
+    const directiveNodes = this.spreadDirectives.length === 0
       ? undefined
-      : spreadDirectives.map(directive => {
+      : this.spreadDirectives.map(directive => {
         return {
           kind: Kind.DIRECTIVE,
           name: {
@@ -2187,7 +2766,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this;
   }
 
-  updateForAddingTo(_selectionSet: SelectionSet): FragmentSelection {
+  rebaseOn(_parentType: CompositeType): FragmentSelection {
     // This is a little bit iffy, because the fragment could link to a schema (typically the supergraph API one)
     // that is different from the one of `_selectionSet` (say, a subgraph fetch selection in which we're trying to
     // reuse a user fragment). But in practice, we expand all fragments when we do query planning and only re-add
@@ -2198,19 +2777,26 @@ class FragmentSpreadSelection extends FragmentSelection {
   }
 
   canAddTo(_: CompositeType): boolean {
-    // Mimicking the logic of `updateForAddingTo`.
+    // Mimicking the logic of `rebaseOn`.
     return true;
   }
 
-  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection | readonly Selection[] {
-    if (names && !names.includes(this.namedFragment.name)) {
+  expandAllFragments(): FragmentSelection | readonly Selection[] {
+    const expandedSubSelections = this.selectionSet.expandAllFragments();
+    return sameType(this.parentType, this.namedFragment.typeCondition) && this.element.appliedDirectives.length === 0
+      ? expandedSubSelections.selections()
+      : new InlineFragmentSelection(this.element, expandedSubSelections);
+  }
+
+  expandFragments(names: string[], updatedFragments: NamedFragments | undefined): FragmentSelection | readonly Selection[] {
+    if (!names.includes(this.namedFragment.name)) {
       return this;
     }
 
-    const expandedSubSelections = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
-    return sameType(this._element.parentType, this.namedFragment.typeCondition) && this._element.appliedDirectives.length === 0
+    const expandedSubSelections = this.selectionSet.expandFragments(names, updatedFragments);
+    return sameType(this.parentType, this.namedFragment.typeCondition) && this.element.appliedDirectives.length === 0
       ? expandedSubSelections.selections()
-      : new InlineFragmentSelection(this._element, expandedSubSelections);
+      : new InlineFragmentSelection(this.element, expandedSubSelections);
   }
 
   collectUsedFragmentNames(collector: Map<string, number>): void {
@@ -2219,31 +2805,121 @@ class FragmentSpreadSelection extends FragmentSelection {
     collector.set(this.namedFragment.name, usageCount === undefined ? 1 : usageCount + 1);
   }
 
-  withoutDefer(_labelsToRemove?: Set<string>): FragmentSelection {
-    assert(false, 'Unsupported, see `Operation.withoutDefer`');
-  }
-
-  withNormalizedDefer(_normalizezr: DeferNormalizer): FragmentSelection {
+  withoutDefer(_labelsToRemove?: Set<string>): FragmentSpreadSelection {
     assert(false, 'Unsupported, see `Operation.withAllDeferLabelled`');
   }
 
-  private spreadDirectives(): Directive<FragmentElement>[] {
-    return this._element.appliedDirectives.slice(this.namedFragment.appliedDirectives.length);
+  withNormalizedDefer(_normalizer: DeferNormalizer): FragmentSpreadSelection {
+    assert(false, 'Unsupported, see `Operation.withAllDeferLabelled`');
   }
 
-  withUpdatedSubSelection(_: SelectionSet | undefined): InlineFragmentSelection {
-    assert(false, `Unssupported`);
+  minus(that: Selection): undefined {
+    assert(this.equals(that), () => `Invalid operation for ${this.toString(false)} and ${that.toString(false)}`);
+    return undefined;
+  }
+
+  equals(that: Selection): boolean {
+    if (this === that) {
+      return true;
+    }
+
+    return (that instanceof FragmentSpreadSelection)
+      && this.namedFragment.name === that.namedFragment.name
+      && sameDirectiveApplications(this.spreadDirectives, that.spreadDirectives);
+  }
+
+  contains(that: Selection): boolean {
+    if (this.equals(that)) {
+      return true;
+    }
+
+    return (that instanceof FragmentSelection)
+      && this.element.equals(that.element)
+      && this.selectionSet.contains(that.selectionSet);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
     if (expandFragments) {
-      return (indent ?? '') + this._element + ' ' + this.selectionSet.toString(true, true, indent);
+      return (indent ?? '') + this.element + ' ' + this.selectionSet.toString(true, true, indent);
     } else {
-      const directives = this.spreadDirectives();
+      const directives = this.spreadDirectives;
       const directiveString = directives.length == 0 ? '' : ' ' + directives.join(' ');
       return (indent ?? '') + '...' + this.namedFragment.name + directiveString;
     }
   }
+}
+
+function selectionSetOfNode(
+  parentType: CompositeType,
+  node: SelectionSetNode,
+  variableDefinitions: VariableDefinitions,
+  fragments: NamedFragments | undefined,
+  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
+): SelectionSet {
+  if (node.selections.length === 1) {
+    return selectionSetOf(
+      parentType,
+      selectionOfNode(parentType, node.selections[0], variableDefinitions, fragments, fieldAccessor),
+      fragments,
+    );
+  }
+
+  const selections = new SelectionSetUpdates();
+  for (const selectionNode of node.selections) {
+    selections.add(selectionOfNode(parentType, selectionNode, variableDefinitions, fragments, fieldAccessor));
+  }
+  return selections.toSelectionSet(parentType, fragments);
+}
+
+function directiveOfNode<T extends DirectiveTargetElement<T>>(schema: Schema, node: DirectiveNode): Directive<T> {
+  const directiveDef = schema.directive(node.name.value);
+  validate(directiveDef, () => `Unknown directive "@${node.name.value}"`)
+  return new Directive(directiveDef.name, argumentsFromAST(directiveDef.coordinate, node.arguments, directiveDef));
+}
+
+function directivesOfNodes<T extends DirectiveTargetElement<T>>(schema: Schema, nodes: readonly DirectiveNode[] | undefined): Directive<T>[] {
+  return nodes?.map((n) => directiveOfNode(schema, n)) ?? [];
+}
+
+function selectionOfNode(
+  parentType: CompositeType,
+  node: SelectionNode,
+  variableDefinitions: VariableDefinitions,
+  fragments: NamedFragments | undefined,
+  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
+): Selection {
+  let selection: Selection;
+  const directives = directivesOfNodes(parentType.schema(), node.directives);
+  switch (node.kind) {
+    case Kind.FIELD:
+      const definition: FieldDefinition<any> | undefined  = fieldAccessor(parentType, node.name.value);
+      validate(definition, () => `Cannot query field "${node.name.value}" on type "${parentType}".`, parentType.sourceAST);
+      const type = baseType(definition.type!);
+      const selectionSet = node.selectionSet
+        ? selectionSetOfNode(type as CompositeType, node.selectionSet, variableDefinitions, fragments, fieldAccessor)
+        : undefined;
+
+      selection = new FieldSelection(
+        new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), directives, node.alias?.value),
+        selectionSet,
+      );
+      break;
+    case Kind.INLINE_FRAGMENT:
+      const element = new FragmentElement(parentType, node.typeCondition?.name.value, directives);
+      selection = new InlineFragmentSelection(
+        element,
+        selectionSetOfNode(element.typeCondition ? element.typeCondition : element.parentType, node.selectionSet, variableDefinitions, fragments, fieldAccessor),
+      );
+      break;
+    case Kind.FRAGMENT_SPREAD:
+      const fragmentName = node.name.value;
+      validate(fragments, () => `Cannot find fragment name "${fragmentName}" (no fragments were provided)`);
+      const fragment = fragments.get(fragmentName);
+      validate(fragment, () => `Cannot find fragment name "${fragmentName}" (provided fragments are: [${fragments.names().join(', ')}])`);
+      selection = new FragmentSpreadSelection(parentType, fragments, fragment, directives);
+      break;
+  }
+  return selection;
 }
 
 export function operationFromDocument(
@@ -2277,9 +2953,7 @@ export function operationFromDocument(
         if (!isCompositeType(typeCondition)) {
           throw ERRORS.INVALID_GRAPHQL.err(`Invalid fragment "${name}" on non-composite type "${typeName}"`, { nodes: definition });
         }
-        const fragment = new NamedFragmentDefinition(schema, name, typeCondition, new SelectionSet(typeCondition, fragments));
-        addDirectiveNodesToElement(definition.directives, fragment);
-        fragments.add(fragment);
+        fragments.add(new NamedFragmentDefinition(schema, name, typeCondition, directivesOfNodes(schema, definition.directives)));
         break;
     }
   });
@@ -2295,28 +2969,29 @@ export function operationFromDocument(
     switch (definition.kind) {
       case Kind.FRAGMENT_DEFINITION:
         const fragment = fragments.get(definition.name.value)!;
-        fragment.selectionSet.addSelectionSetNode(definition.selectionSet, variableDefinitions);
+        fragment.setSelectionSet(selectionSetOfNode(fragment.typeCondition, definition.selectionSet, variableDefinitions, fragments));
         break;
     }
   });
-  fragments.validate();
-  return operationFromAST({schema, operation, fragments, validateInput: options?.validate});
+  fragments.validate(variableDefinitions);
+  return operationFromAST({schema, operation, variableDefinitions, fragments, validateInput: options?.validate});
 }
 
 function operationFromAST({
   schema,
   operation,
+  variableDefinitions,
   fragments,
   validateInput,
 }:{
   schema: Schema,
   operation: OperationDefinitionNode,
+  variableDefinitions: VariableDefinitions,
   fragments: NamedFragments,
   validateInput?: boolean,
 }) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
-  const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
   return new Operation(
     schema,
     operation.operation,
@@ -2324,7 +2999,7 @@ function operationFromAST({
       parentType: rootType.type,
       source: operation.selectionSet,
       variableDefinitions,
-      fragments,
+      fragments: fragments.isEmpty() ? undefined : fragments,
       validate: validateInput,
     }),
     variableDefinitions,
@@ -2346,7 +3021,7 @@ export function parseOperation(
 export function parseSelectionSet({
   parentType,
   source,
-  variableDefinitions,
+  variableDefinitions = new VariableDefinitions(),
   fragments,
   fieldAccessor,
   validate = true,
@@ -2362,10 +3037,9 @@ export function parseSelectionSet({
   const node = typeof source === 'string'
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;
-  const selectionSet = new SelectionSet(parentType, fragments);
-  selectionSet.addSelectionSetNode(node, variableDefinitions ?? new VariableDefinitions(), fieldAccessor);
+  const selectionSet = selectionSetOfNode(parentType, node, variableDefinitions ?? new VariableDefinitions(), fragments, fieldAccessor);
   if (validate)
-    selectionSet.validate();
+    selectionSet.validate(variableDefinitions);
   return selectionSet;
 }
 

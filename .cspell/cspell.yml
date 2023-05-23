@@ -1,0 +1,44 @@
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+# Configuration for the cspell command-line tool and the Code Spell Checker
+# VSCode extension
+# (https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker).
+
+# Add a repo-specific dictionary. Any new real words can be added to
+# cspell-dict.txt, one per line.
+dictionaryDefinitions:
+  - name: workspace
+    path: '.cspell/cspell-dict.txt'
+    description: Custom Workspace Dictionary
+    addWords: true
+    scope: workspace
+dictionaries:
+  - workspace
+
+allowCompoundWords: true
+
+# Ignore files that aren't checked in to git as well as files that aren't written
+# by hand. Note that we do want to check, say, JSON files (as package.json
+# contains English text like package descriptions).
+useGitignore: true
+
+# Need to set this since globs are relative to the cspell config file.
+globRoot: '..'
+files:
+  - '**'
+  - '.changeset/**'
+ignorePaths:
+  - 'gateway-js/src/__generated__/**'
+
+overrides:
+  # Ignore anything in a changelog file that looks like a GitHub username.
+  - filename: '**/CHANGELOG*.md'
+    ignoreRegExpList:
+      - "@[-\\w]+"
+  # Ignore the targets of links in Markdown/MDX files.
+  - filename: '**/*.md*'
+    ignoreRegExpList:
+      - "\\]\\([^)]+\\)"
+  # Ignore user and repo names in GitHub links to supported subgraph libraries.
+  - filename: '**/supported-subgraphs.md'
+    ignoreRegExpList:
+      - "Github: <a .+</a>"

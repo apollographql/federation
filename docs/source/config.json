@@ -12,18 +12,14 @@
   ],
   "sidebar": {
     "Introduction": "/",
-    "Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
     "Changelog": "/federation-versions",
+    "Interactive tutorial": "https://www.apollographql.com/tutorials/voyage-part1",
+    "Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
       "3️⃣ Local composition": "/quickstart/local-composition",
       "4️⃣ Working with subgraphs": "/quickstart/local-subgraphs"
-    },
-    "Moving from Federation 1": {
-      "☀️ Changes from Federation 1": "/federation-2/new-in-federation-2",
-      "🚚 Steps to move": "/federation-2/moving-to-federation-2",
-      "⬅️ Backward compatibility": "/federation-2/backward-compatibility"
     },
     "Building Your Supergraph": {
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
@@ -63,9 +59,14 @@
       "OpenTelemetry": "/opentelemetry"
     },
     "API Reference": {
+      "Subgraph specification": "/subgraph-spec",
       "@apollo/subgraph": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-subgraph",
-      "@apollo/gateway": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-gateway",
-      "Subgraph specification": "/subgraph-spec"
+      "@apollo/gateway": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-gateway"
+    },
+    "Moving from Federation 1": {
+      "Changes from Federation 1": "/federation-2/new-in-federation-2",
+      "Steps to move": "/federation-2/moving-to-federation-2",
+      "Backward compatibility": "/federation-2/backward-compatibility"
     }
   }
 }

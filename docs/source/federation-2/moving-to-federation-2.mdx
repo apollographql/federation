@@ -13,9 +13,9 @@ Here are the three steps for moving to Federation 2:
 
 ```mermaid
 graph LR;
-  gateway(Upgrade your gateway)
-  gateway --> composition(Use Federation 2 composition);
-  composition --> subgrahs(Update individual subgraphs);
+  gateway("Upgrade your<br/>gateway")
+  gateway --> composition("Use Federation 2<br/>composition");
+  composition --> subgrahs("Update individual<br/>subgraphs");
 ```
 
 1. Upgrade your gateway to support Federation 2.
@@ -139,7 +139,7 @@ rover supergraph compose --config ./supergraph.yaml
 
 </ExpansionPanel>
 
-After you configure these changes, make sure your gateway is using your newly created Federation 2 supergraph schema. (If you're using managed federation, your gateway will fetch the new schema from Apollo automatically.)
+After you configure these changes, make sure your router is using your newly created Federation 2 supergraph schema. (If you're using managed federation, your router will fetch the new schema from Apollo automatically.)
 
 Your Federation 1 subgraphs are now composed using Federation 2 composition! The natural next question is, "What does this change about the behavior of those subgraphs?" And until the next step, the answer is: nothing!
 
@@ -209,7 +209,7 @@ directive @shareable on FIELD_DEFINITION | OBJECT
 
 > Some subgraph libraries are "code-first" (they dynamically generate their schema from code) instead of "schema-first" (they use a static schema file). For code-first libraries, manually adding these directive definitions is less straightforward. If you encounter this with your library, please let us know by [submitting an issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues).
 
-We'll be working with library maintainers to help automatically add these schema definitions in more subgraph libraries.
+Definitions for all Federation 2 directives are available in [this article](../federated-types/federated-directives/). We work with library maintainers to help automatically add these schema definitions in as many subgraph libraries as possible.
 
 ### Mark all value types as `@shareable`
 

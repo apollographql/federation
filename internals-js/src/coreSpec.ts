@@ -2,12 +2,12 @@ import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graph
 import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
-import { assert, firstOf } from './utils';
+import { assert, firstOf, MapWithCachedArrays } from './utils';
 import { aggregateError, ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
 import { didYouMean, suggestionList } from "./suggestions";
-import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
+import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveCompositionSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 export const linkIdentity = 'https://specs.apollo.dev/link';
@@ -38,8 +38,35 @@ function purposesDescription(purpose: CorePurpose) {
 export abstract class FeatureDefinition {
   readonly url: FeatureUrl;
 
+  private readonly _directiveSpecs = new MapWithCachedArrays<string, DirectiveSpecification>();
+  private readonly _typeSpecs = new MapWithCachedArrays<string, TypeSpecification>();
+
   constructor(url: FeatureUrl | string) {
     this.url = typeof url === 'string' ? FeatureUrl.parse(url) : url;
+  }
+
+  protected registerDirective(spec: DirectiveSpecification) {
+    this._directiveSpecs.set(spec.name, spec);
+  }
+
+  protected registerType(spec: TypeSpecification) {
+    this._typeSpecs.set(spec.name, spec);
+  }
+
+  directiveSpecs(): readonly DirectiveSpecification[] {
+    return this._directiveSpecs.values();
+  }
+
+  directiveSpec(name: string): DirectiveSpecification | undefined {
+    return this._directiveSpecs.get(name);
+  }
+
+  typeSpecs(): readonly TypeSpecification[] {
+    return this._typeSpecs.values();
+  }
+
+  typeSpec(name: string): TypeSpecification | undefined {
+    return this._typeSpecs.get(name);
   }
 
   get identity(): string {
@@ -60,9 +87,25 @@ export abstract class FeatureDefinition {
     return nameInSchema != undefined && (directive.name === nameInSchema || directive.name.startsWith(`${nameInSchema}__`));
   }
 
-  abstract addElementsToSchema(schema: Schema): GraphQLError[];
+  addElementsToSchema(schema: Schema): GraphQLError[] {
+    const feature = this.featureInSchema(schema);
+    assert(feature, 'The federation specification should have been added to the schema before this is called');
 
-  abstract allElementNames(): string[];
+    let errors: GraphQLError[] = [];
+    for (const type of this.typeSpecs()) {
+      errors = errors.concat(this.addTypeSpec(schema, type));
+    }
+
+    for (const directive of this.directiveSpecs()) {
+      errors = errors.concat(this.addDirectiveSpec(schema, directive));
+    }
+    return errors;
+  }
+
+  allElementNames(): string[] {
+    return this.directiveSpecs().map((spec) => `@${spec.name}`)
+      .concat(this.typeSpecs().map((spec) => spec.name));
+  }
 
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
@@ -79,12 +122,12 @@ export abstract class FeatureDefinition {
     return feature ? feature.typeNameInSchema(typeName) : undefined;
   }
 
-  protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
+  protected rootDirective<TApplicationArgs extends { [key: string]: any }>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
     const name = this.nameInSchema(schema);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
 
-  protected directive<TApplicationArgs extends {[key: string]: any}>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
+  protected directive<TApplicationArgs extends { [key: string]: any }>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
     const name = this.directiveNameInSchema(schema, elementName);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
@@ -130,10 +173,16 @@ export abstract class FeatureDefinition {
     return undefined;
   }
 
+  compositionSpecification(directiveNameInFeature: string): DirectiveCompositionSpecification | undefined {
+    const spec = this._directiveSpecs.get(directiveNameInFeature);
+    return spec?.composition;
+  }
+
   toString(): string {
     return `${this.identity}/${this.version}`
   }
 }
+
 
 export type CoreDirectiveArgs = {
   url: undefined,
@@ -289,7 +338,7 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
     if (url.identity === coreIdentity) {
       return directive.name === (args.as ?? 'core');
     } else {
-      return url.identity === linkIdentity &&  directive.name === (args.as ?? linkDirectiveDefaultName);
+      return url.identity === linkIdentity && directive.name === (args.as ?? linkDirectiveDefaultName);
     }
   } catch (err) {
     return false;
@@ -307,7 +356,7 @@ function isValidUrlArgumentType(type: InputType, schema: Schema): boolean {
 
 const linkPurposeTypeSpec = createEnumTypeSpecification({
   name: 'Purpose',
-  values: corePurposes.map((name) => ({ name, description: purposesDescription(name)}))
+  values: corePurposes.map((name) => ({ name, description: purposesDescription(name) }))
 });
 
 const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
@@ -321,32 +370,43 @@ export class CoreSpecDefinition extends FeatureDefinition {
       name,
       locations: [DirectiveLocation.SCHEMA],
       repeatable: true,
-      argumentFct: (schema, nameInSchema) => this.createDefinitionArgumentSpecifications(schema, nameInSchema),
+      args: this.createDefinitionArgumentSpecifications(),
     });
+    this.registerDirective(this.directiveDefinitionSpec);
   }
 
-  private createDefinitionArgumentSpecifications(schema: Schema, nameInSchema?: string): { args: ArgumentSpecification[], errors: GraphQLError[] } {
+  private createDefinitionArgumentSpecifications(): ArgumentSpecification[] {
     const args: ArgumentSpecification[] = [
-      { name: this.urlArgName(), type: schema.stringType() },
-      { name: 'as', type: schema.stringType() },
+      { name: this.urlArgName(), type: (schema) => schema.stringType() },
+      { name: 'as', type: (schema) => schema.stringType() },
     ];
     if (this.supportPurposes()) {
-      const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
-      const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
-      if (errors.length > 0) {
-        return { args, errors }
-      }
-      args.push({ name: 'for', type: schema.type(purposeName) as InputType });
+      args.push({
+        name: 'for',
+        type: (schema, nameInSchema) => {
+          const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
+          const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
+          if (errors.length > 0) {
+            return errors;
+          }
+          return schema.type(purposeName) as InputType;
+        },
+      });
     }
     if (this.supportImport()) {
-      const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
-      const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
-      if (errors.length > 0) {
-        return { args, errors }
-      }
-      args.push({ name: 'import', type: new ListType(schema.type(importName)!) });
+      args.push({
+        name: 'import',
+        type: (schema, nameInSchema) => {
+          const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
+          const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
+          if (errors.length > 0) {
+            return errors;
+          }
+          return new ListType(schema.type(importName)!);
+        }
+      });
     }
-    return { args, errors: [] };
+    return args;
   }
 
   addElementsToSchema(_: Schema): GraphQLError[] {
@@ -394,7 +454,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     //
     // So instead, we put the directive on the schema definition unless some extensions exists but no
     // definition does (that is, no non-extension elements are populated).
-    const schemaDef =  schema.schemaDefinition;
+    const schemaDef = schema.schemaDefinition;
     // Side-note: this test must be done _before_ we call `applyDirective`, otherwise it would take it into
     // account.
     const hasDefinition = schemaDef.hasNonExtensionElements();
@@ -429,7 +489,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
    * must start with a `@`.
    */
   allElementNames(): string[] {
-    const names = [ `@${this.url.name}` ];
+    const names = [`@${this.url.name}`];
     if (this.supportPurposes()) {
       names.push('Purpose');
     }
@@ -533,7 +593,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
  * Versions are a (major, minor) number pair.
  */
 export class FeatureVersion {
-  constructor(public readonly major: number, public readonly minor: number) {}
+  constructor(public readonly major: number, public readonly minor: number) { }
 
   /**
    * Parse a version specifier of the form "v(major).(minor)" or throw
@@ -565,8 +625,8 @@ export class FeatureVersion {
    * ```
    **/
   public satisfies(required: FeatureVersion): boolean {
-    const {major, minor} = this
-    const {major: rMajor, minor: rMinor} = required
+    const { major, minor } = this
+    const { major: rMajor, minor: rMinor } = required
     return rMajor == major && (
       major == 0
         ? rMinor == minor
@@ -580,7 +640,7 @@ export class FeatureVersion {
    * of compatibility, so those will just return the same thing as `this.toString()`.
    */
   public get series() {
-    const {major} = this
+    const { major } = this
     return major > 0 ? `${major}.x` : String(this)
   }
 
@@ -650,7 +710,7 @@ export class FeatureUrl {
     public readonly name: string,
     public readonly version: FeatureVersion,
     public readonly element?: string,
-  ) {}
+  ) { }
 
   /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
@@ -668,7 +728,7 @@ export class FeatureUrl {
     if (!name) {
       throw ERRORS.INVALID_LINK_IDENTIFIER.err(`Missing feature name component in feature url '${url}'`, { nodes: node })
     }
-    const element = url.hash ? url.hash.slice(1): undefined
+    const element = url.hash ? url.hash.slice(1) : undefined
     url.hash = ''
     url.search = ''
     url.password = ''
@@ -690,7 +750,7 @@ export class FeatureUrl {
    */
   public satisfies(requested: FeatureUrl): boolean {
     return requested.identity === this.identity &&
-           this.version.satisfies(requested.version)
+      this.version.satisfies(requested.version)
   }
 
   public equals(other: FeatureUrl) {

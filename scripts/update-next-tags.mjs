@@ -34,10 +34,12 @@ await Promise.all(
       console.log(`Found most recent version of ${pkg}: ${mostRecentVersion}`);
       console.log(`Current \`next\` tag version of ${pkg}: ${nextVersion}`);
 
+      const command = `npm dist-tag add ${pkg}@${mostRecentVersion} next`;
       if (nextVersion !== mostRecentVersion) {
         console.log(`\`next\` tag is behind, updating...`);
-        exec(`npm dist-tag add ${pkg}@${mostRecentVersion} next`, (e) => {
+        exec(command, (e) => {
           if (e) {
+            console.error(e);
             throw e;
           } else {
             console.log("`next` tag updated successfully!");

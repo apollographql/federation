@@ -98,14 +98,7 @@ describe('value types', () => {
                     reviews {
                       metadata {
                         __typename
-                        ... on KeyValue {
-                          key
-                          value
-                        }
-                        ... on Error {
-                          code
-                          message
-                        }
+                        ...Metadata
                       }
                     }
                   }
@@ -113,16 +106,20 @@ describe('value types', () => {
                     reviews {
                       metadata {
                         __typename
-                        ... on KeyValue {
-                          key
-                          value
-                        }
-                        ... on Error {
-                          code
-                          message
-                        }
+                        ...Metadata
                       }
                     }
+                  }
+                }
+                
+                fragment Metadata on MetadataOrError {
+                  ... on KeyValue {
+                    key
+                    value
+                  }
+                  ... on Error {
+                    code
+                    message
                   }
                 }
               },

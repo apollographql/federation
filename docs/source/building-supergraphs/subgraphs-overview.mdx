@@ -30,7 +30,7 @@ Every subgraph in your supergraph should use a **subgraph-compatible GraphQL ser
 
 After you select a subgraph library, consult its documentation to learn how to configure it to run as a subgraph.
 
-> If you're using Apollo Server as your subgraph library, see [Implementing a subgraph with Apollo Server](/apollo-server/using-federation/apollo-subgraph-setup/).
+> **If you're using Apollo Server as your subgraph library,** see [Implementing a subgraph with Apollo Server](/apollo-server/using-federation/apollo-subgraph-setup/).
 
 ## Securing your subgraphs
 
@@ -44,13 +44,15 @@ There are many reasons for this:
   - The router uses these fields to cross subgraph boundaries while resolving complex operations.
 - Providing a single endpoint for your entire supergraph reduces its overall [attack surface](https://en.wikipedia.org/wiki/Attack_surface).
 
-> In addition to the above security concerns, a significant benefit of _any_ GraphQL API is that clients only need to interact with one endpoint. This definitely holds true for a supergraph, especially one with tens or even hundreds of subgraphs! 
+> In addition to the above security concerns, a significant benefit of _any_ GraphQL API is that clients only need to interact with one endpoint. This definitely holds true for a supergraph, especially one with tens or even hundreds of subgraphs!
+
+For more information on securing your subgraphs with a GraphOS cloud supergraph, see [this article](/graphos/graphs/securing-a-subgraph).
 
 ### Disabling CORS
 
 We recommend that subgraphs do not enable CORS (or at least, do not use the wildcard `access-control-allow-origin: *` header). This prevents attackers from exploiting a user's browser to access a subgraph directly.
 
-For Apollo Server subgraphs, you need to disable the default wildcard CORS policy (which is appropriate for many publicly-exposed servers but not for inaccessible servers like subgraphs). For details, see the [Apollo Server CORS documentation](/apollo-server/security/cors/#choosing-cors-options-for-your-project).
+For Apollo Server subgraphs, you need to disable the default wildcard CORS policy (this policy is appropriate for many monolithic public API servers, but _not_ for subgraphs). For details, see the [Apollo Server CORS documentation](/apollo-server/security/cors/#choosing-cors-options-for-your-project).
 
 ## Subgraph-specific fields
 
@@ -65,23 +67,6 @@ type Query {
   _entities(representations: [_Any!]!): [_Entity]!
 }
 ```
-
-### `Query._service`
-
-This field returns a `_Service` object with one field of its own: `sdl`. You can query it like so:
-
-```graphql
-query GetSubgraphSchema {
-  _service {
-    sdl
-  }
-}
-```
-
-The `sdl` field returns your subgraph's schema as an SDL string. This field has a couple of important differences from a standard [introspection query](https://graphql.org/learn/introspection/) that a tool like Apollo Sandbox uses:
-
-* Unlike introspection, the `sdl` field is _not_ disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
-* Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.
 
 ### `Query._entities`
 
@@ -127,3 +112,21 @@ query ($representations: [_Any!]!) {
 If you're writing integration tests for your subgraph, you can test the return value of the `_entities` field for various entity representations that your _other_ subgraphs use.
 
 If you're developing your subgraph in your local environment, you can [mock the return value](/apollo-server/testing/mocking/) of the `_entities` field for your _other_ subgraphs so you don't have to connect those subgraphs to their respective data stores.
+
+
+### `Query._service`
+
+This field returns a `_Service` object with one field of its own: `sdl`. You can query it like so:
+
+```graphql
+query GetSubgraphSchema {
+  _service {
+    sdl
+  }
+}
+```
+
+The `sdl` field returns your subgraph's schema as an SDL string. This field has a couple of important differences from a standard [introspection query](https://graphql.org/learn/introspection/) that a tool like Apollo Sandbox uses:
+
+* Unlike introspection, the `sdl` field is _not_ disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
+* Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.

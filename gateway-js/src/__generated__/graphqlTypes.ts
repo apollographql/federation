@@ -51,11 +51,13 @@ export type FetchError = {
 export enum FetchErrorCode {
   /** This token does not have access to fetch the schema for this ref. Do not retry. */
   AccessDenied = 'ACCESS_DENIED',
-  /** This token provided is not a valid graph token. Do not retry */
+  /** This token provided is not a valid graph token. Do not retry. */
   AuthenticationFailed = 'AUTHENTICATION_FAILED',
-  /** An internal server error occurred. Please retry with some backoff */
+  /** This instance of Uplink does not support this feature. Please try another instance. */
+  NotImplementedOnThisInstance = 'NOT_IMPLEMENTED_ON_THIS_INSTANCE',
+  /** An internal server error occurred. Please retry with some backoff. */
   RetryLater = 'RETRY_LATER',
-  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Do not retry */
+  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Please retry with some backoff, eg in case of undeletion. */
   UnknownRef = 'UNKNOWN_REF'
 }
 
@@ -86,13 +88,43 @@ export type MutationReportErrorArgs = {
   report?: InputMaybe<ApiMonitoringReport>;
 };
 
+/** A chunk of persisted queries */
+export type PersistedQueriesChunk = {
+  __typename?: 'PersistedQueriesChunk';
+  /** Unique identifier. */
+  id: Scalars['ID'];
+  /** The chunk can be downloaded from any of those URLs, which might be transient. */
+  urls: Array<Scalars['String']>;
+};
+
+export type PersistedQueriesResponse = FetchError | PersistedQueriesResult | Unchanged;
+
+export type PersistedQueriesResult = {
+  __typename?: 'PersistedQueriesResult';
+  /** List of URLs chunks are to be fetched from; chunks should be cached by ID between updates. null indicates there is no configured persisted query list. */
+  chunks?: Maybe<Array<PersistedQueriesChunk>>;
+  /** Unique identifier. */
+  id: Scalars['ID'];
+  /** Minimum delay before the next fetch should occur, in seconds. */
+  minDelaySeconds: Scalars['Float'];
+};
+
 export type Query = {
   __typename?: 'Query';
   _empty?: Maybe<Scalars['String']>;
-  /** Fetch the configuration for a router. If a valid configuration is available, it will be readable as cSDL. */
+  /** Fetch the persisted queries for a router. */
+  persistedQueries: PersistedQueriesResponse;
+  /** Fetch the configuration for a router. */
   routerConfig: RouterConfigResponse;
   /** Fetch the current entitlements for a router. */
   routerEntitlements: RouterEntitlementsResponse;
+};
+
+
+export type QueryPersistedQueriesArgs = {
+  apiKey: Scalars['String'];
+  ifAfterId?: InputMaybe<Scalars['ID']>;
+  ref: Scalars['String'];
 };
 
 
@@ -105,8 +137,8 @@ export type QueryRouterConfigArgs = {
 
 export type QueryRouterEntitlementsArgs = {
   apiKey: Scalars['String'];
+  ifAfterId?: InputMaybe<Scalars['ID']>;
   ref: Scalars['String'];
-  unlessId?: InputMaybe<Scalars['ID']>;
 };
 
 export type Request = {

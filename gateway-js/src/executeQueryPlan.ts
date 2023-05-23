@@ -5,15 +5,15 @@ import {
   TypeNameMetaFieldDef,
   GraphQLFieldResolver,
   GraphQLFormattedError,
-  isAbstractType,
   GraphQLSchema,
-  isObjectType,
-  isInterfaceType,
   GraphQLErrorOptions,
   DocumentNode,
   executeSync,
   OperationTypeNode,
   FieldNode,
+  visit,
+  ASTNode,
+  VariableDefinitionNode,
 } from 'graphql';
 import { Trace, google } from '@apollo/usage-reporting-protobuf';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
@@ -26,16 +26,16 @@ import {
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
   getResponseName,
-  FetchDataInputRewrite,
-  FetchDataOutputRewrite,
+  evaluateCondition,
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { assert, defaultRootName, errorCodeDef, ERRORS, isDefined, operationFromDocument, Schema } from '@apollo/federation-internals';
+import { assert, defaultRootName, errorCodeDef, ERRORS, Operation, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 import { computeResponse } from './resultShaping';
+import { applyRewrites, isObjectOfType } from './dataRewrites';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -64,19 +64,40 @@ type ResultCursor = {
 interface ExecutionContext {
   queryPlan: QueryPlan;
   operationContext: OperationContext;
+  operation: Operation,
   serviceMap: ServiceMap;
   requestContext: GatewayGraphQLRequestContext;
   supergraphSchema: GraphQLSchema;
   errors: GraphQLError[];
 }
 
-function makeIntrospectionQueryDocument(introspectionSelection: FieldNode): DocumentNode {
+function collectUsedVariables(node: ASTNode): Set<string> {
+  const usedVariables = new Set<string>();
+  visit(node, {
+    Variable: ({ name }) => {
+      usedVariables.add(name.value);
+    }
+  });
+  return usedVariables;
+}
+
+function makeIntrospectionQueryDocument(
+  introspectionSelection: FieldNode,
+  variableDefinitions?: readonly VariableDefinitionNode[],
+): DocumentNode {
+  const usedVariables = collectUsedVariables(introspectionSelection);
+  const usedVariableDefinitions = variableDefinitions?.filter((def) => usedVariables.has(def.variable.name.value));
+  assert(
+    usedVariables.size === (usedVariableDefinitions?.length ?? 0), 
+    () => `Should have found all used variables ${[...usedVariables]} in definitions ${JSON.stringify(variableDefinitions)}`,
+  );
   return {
     kind: Kind.DOCUMENT,
     definitions: [
       {
         kind: Kind.OPERATION_DEFINITION,
         operation: OperationTypeNode.QUERY,
+        variableDefinitions: usedVariableDefinitions,
         selectionSet: {
           kind: Kind.SELECTION_SET,
           selections: [ introspectionSelection ],
@@ -89,14 +110,21 @@ function makeIntrospectionQueryDocument(introspectionSelection: FieldNode): Docu
 function executeIntrospection(
   schema: GraphQLSchema,
   introspectionSelection: FieldNode,
+  variableDefinitions: ReadonlyArray<VariableDefinitionNode> | undefined,
+  variableValues: Record<string, any> | undefined,
 ): any {
-  const { data } = executeSync({
+  const { data, errors } = executeSync({
     schema,
-    document: makeIntrospectionQueryDocument(introspectionSelection),
+    document: makeIntrospectionQueryDocument(introspectionSelection, variableDefinitions),
     rootValue: {},
+    variableValues,
   });
+  assert(
+    !errors || errors.length === 0,
+    () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed but got ${JSON.stringify(errors)}`
+  );
   assert(data, () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed`);
-  return data[introspectionSelection.name.value];
+  return data[introspectionSelection.alias?.value ?? introspectionSelection.name.value];
 }
 
 export async function executeQueryPlan(
@@ -114,9 +142,39 @@ export async function executeQueryPlan(
     try {
       const errors: GraphQLError[] = [];
 
+      let operation: Operation;
+      try {
+        operation = operationFromDocument(
+          apiSchema,
+          {
+            kind: Kind.DOCUMENT,
+            definitions: [
+              operationContext.operation,
+              ...Object.values(operationContext.fragments),
+            ],
+          },
+          {
+            validate: false,
+          }
+        );
+      } catch (err) {
+        // We shouldn't really have errors as the operation should already have been validated, but if something still
+        // happens, we should report it properly (plus, some of our tests call this method directly and blow up if we don't
+        // handle this correctly).
+        // TODO: we are doing some duplicate work by building both `OperationContext` and this `Operation`. Ideally we
+        // would remove `OperationContext`, pass the `Operation` directly to this method, and only use that. This would change
+        // the signature of this method though and it is exported so ... maybe later ?
+        //
+        if (err instanceof GraphQLError) {
+          return { errors: [err] };
+        }
+        throw err;
+      }
+
       const context: ExecutionContext = {
         queryPlan,
         operationContext,
+        operation,
         serviceMap,
         requestContext,
         supergraphSchema,
@@ -128,6 +186,10 @@ export async function executeQueryPlan(
       const captureTraces = !!(
           requestContext.metrics && requestContext.metrics.captureTraces
       );
+
+      if (queryPlan.node?.kind === 'Subscription') {
+        throw new Error('Execution of subscriptions not supported by gateway');
+      }
 
       if (queryPlan.node) {
         const traceNode = await executeNode(
@@ -148,26 +210,18 @@ export async function executeQueryPlan(
       const result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
         let data;
         try {
-          const operation = operationFromDocument(
-            apiSchema,
-            {
-              kind: Kind.DOCUMENT,
-              definitions: [
-                operationContext.operation,
-                ...Object.values(operationContext.fragments),
-              ],
-            },
-            {
-              validate: false,
-            }
-          );
-
           let postProcessingErrors: GraphQLError[];
+          const variables = requestContext.request.variables;
           ({ data, errors: postProcessingErrors } = computeResponse({
             operation,
-            variables: requestContext.request.variables,
+            variables,
             input: unfilteredData,
-            introspectionHandling: (f) => executeIntrospection(operationContext.schema, f.expandFragments().toSelectionNode()),
+            introspectionHandling: (f) => executeIntrospection(
+              operationContext.schema,
+              f.expandAllFragments().toSelectionNode(),
+              operationContext.operation.variableDefinitions,
+              variables,
+            ),
           }));
 
           // If we have errors during the post-processing, we ignore them if any other errors have been thrown during
@@ -326,11 +380,29 @@ async function executeNode(
       }
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
+    case 'Condition': {
+      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables); 
+      const pickedBranch = condition ? node.ifClause : node.elseClause;
+      let branchTraceNode: Trace.QueryPlanNode | undefined = undefined;
+      if (pickedBranch) {
+        branchTraceNode = await executeNode(
+          context,
+          pickedBranch,
+          currentCursor,
+          captureTraces
+        );
+      }
+
+      return new Trace.QueryPlanNode({
+        condition: new Trace.QueryPlanNode.ConditionNode({
+          condition: node.condition,
+          ifClause: condition ? branchTraceNode : undefined,
+          elseClause: condition ? undefined : branchTraceNode,
+        }),
+      });
+    }
     case 'Defer': {
       assert(false, `@defer support is not available in the gateway`);
-    }
-    case 'Condition': {
-      assert(false, `Condition nodes are not available in the gateway`);
     }
   }
 }
@@ -376,9 +448,12 @@ async function executeFetch(
 
       if (!fetch.requires) {
         const dataReceivedFromService = await sendOperation(variables);
+        if (dataReceivedFromService) {
+          applyRewrites(context.supergraphSchema, fetch.outputRewrites, dataReceivedFromService);
+        }
 
         for (const entity of entities) {
-          deepMerge(entity, withFetchRewrites(dataReceivedFromService, fetch.outputRewrites));
+          deepMerge(entity, dataReceivedFromService);
         }
       } else {
         const requires = fetch.requires;
@@ -394,9 +469,9 @@ async function executeFetch(
             context.supergraphSchema,
             entity,
             requires,
-            fetch.inputRewrites,
           );
           if (representation && representation[TypeNameMetaFieldDef.name]) {
+            applyRewrites(context.supergraphSchema, fetch.inputRewrites, representation);
             representations.push(representation);
             representationToEntity.push(index);
           }
@@ -433,8 +508,11 @@ async function executeFetch(
           );
         }
 
+
         for (let i = 0; i < entities.length; i++) {
-          deepMerge(entities[representationToEntity[i]], withFetchRewrites(receivedEntities[i], filterEntityRewrites(representations[i], fetch.outputRewrites)));
+          const receivedEntity = receivedEntities[i];
+          applyRewrites(context.supergraphSchema, fetch.outputRewrites, receivedEntity);
+          deepMerge(entities[representationToEntity[i]], receivedEntity);
         }
       }
     }
@@ -667,84 +745,6 @@ export function generateHydratedPaths(
   }
 }
 
-function applyOrMapRecursive(value: any | any[], fct: (v: any) => any | undefined): any | any[] | undefined {
-  if (Array.isArray(value)) {
-    const res = value.map((elt) => applyOrMapRecursive(elt, fct)).filter(isDefined);
-    return res.length === 0 ? undefined : res;
-  }
-  return fct(value);
-}
-
-function withFetchRewrites(fetchResult: ResultMap | null | void, rewrites: FetchDataOutputRewrite[] | undefined): ResultMap | null | void {
-  if (!rewrites || !fetchResult) {
-    return fetchResult;
-  }
-
-  for (const rewrite of rewrites) {
-    let obj: any = fetchResult;
-    let i = 0;
-    while (obj && i < rewrite.path.length - 1) {
-      const p = rewrite.path[i++];
-      if (p.startsWith('... on ')) {
-        const typename = p.slice('... on '.length);
-        // Filter only objects that match the condition.
-        obj = applyOrMapRecursive(obj, (elt) => elt[TypeNameMetaFieldDef.name] === typename ? elt : undefined);
-      } else {
-        obj = applyOrMapRecursive(obj, (elt) => elt[p]);
-      }
-    }
-    if (obj) {
-      applyOrMapRecursive(obj, (elt) => {
-        if (typeof elt === 'object') {
-          // We need to move the value at path[i] to `renameKeyTo`.
-          const removedKey = rewrite.path[i];
-          elt[rewrite.renameKeyTo] = elt[removedKey];
-          elt[removedKey] = undefined;
-        }
-      });
-    }
-  }
-  return fetchResult;
-}
-
-function filterEntityRewrites(entity: Record<string, any>, rewrites: FetchDataOutputRewrite[] | undefined): FetchDataOutputRewrite[] | undefined {
-  if (!rewrites) {
-    return undefined;
-  }
-
-  const typename = entity[TypeNameMetaFieldDef.name] as string;
-  const typenameAsFragment = `... on ${typename}`;
-  return rewrites.map((r) => r.path[0] === typenameAsFragment ? { ...r, path: r.path.slice(1) } : undefined).filter(isDefined)
-}
-
-function updateRewrites(rewrites: FetchDataInputRewrite[] | undefined, pathElement: string): {
-  updated: FetchDataInputRewrite[],
-  completeRewrite?: any,
-} | undefined {
-  if (!rewrites) {
-    return undefined;
-  }
-
-  let completeRewrite: any = undefined;
-  const updated = rewrites
-    .map((r) => {
-      let u: FetchDataInputRewrite | undefined = undefined;
-      if (r.path[0] === pathElement) {
-        const updatedPath = r.path.slice(1);
-        if (updatedPath.length === 0) {
-          completeRewrite = r.setValueTo;
-        } else {
-          u = { ...r, path: updatedPath };
-        }
-      }
-      return u;
-    })
-    .filter(isDefined);
-  return updated.length === 0 && completeRewrite === undefined
-    ? undefined
-    : { updated, completeRewrite };
-}
-
 /**
  *
  * @param source Result of GraphQL execution.
@@ -754,7 +754,6 @@ function executeSelectionSet(
   schema: GraphQLSchema,
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
-  activeRewrites?: FetchDataInputRewrite[],
 ): Record<string, any> | null {
 
   // If the underlying service has returned null for the parent (source)
@@ -785,16 +784,10 @@ function executeSelectionSet(
           return null;
         }
 
-        const updatedRewrites = updateRewrites(activeRewrites, responseName);
-        if (updatedRewrites?.completeRewrite !== undefined) {
-          result[responseName] = updatedRewrites.completeRewrite;
-          continue;
-        }
-
         if (Array.isArray(source[responseName])) {
           result[responseName] = source[responseName].map((value: any) =>
             selections
-              ? executeSelectionSet(schema, value, selections, updatedRewrites?.updated)
+              ? executeSelectionSet(schema, value, selections)
               : value,
           );
         } else if (selections) {
@@ -802,23 +795,18 @@ function executeSelectionSet(
             schema,
             source[responseName],
             selections,
-            updatedRewrites?.updated,
           );
         } else {
           result[responseName] = source[responseName];
         }
         break;
       case Kind.INLINE_FRAGMENT:
-        if (!selection.typeCondition) continue;
+        if (!selection.typeCondition || !source) continue;
 
-        const typename = source && source['__typename'];
-        if (!typename) continue;
-
-        if (doesTypeConditionMatch(schema, selection.typeCondition, typename)) {
-          const updatedRewrites = activeRewrites ? updateRewrites(activeRewrites, `... on ${selection.typeCondition}`) : undefined;
+        if (isObjectOfType(schema, source, selection.typeCondition)) {
           deepMerge(
             result,
-            executeSelectionSet(schema, source, selection.selections, updatedRewrites?.updated),
+            executeSelectionSet(schema, source, selection.selections),
           );
         }
         break;
@@ -826,32 +814,6 @@ function executeSelectionSet(
   }
 
   return result;
-}
-
-function doesTypeConditionMatch(
-  schema: GraphQLSchema,
-  typeCondition: string,
-  typename: string,
-): boolean {
-  if (typeCondition === typename) {
-    return true;
-  }
-
-  const type = schema.getType(typename);
-  if (!type) {
-    return false;
-  }
-
-  const conditionalType = schema.getType(typeCondition);
-  if (!conditionalType) {
-    return false;
-  }
-
-  if (isAbstractType(conditionalType)) {
-    return (isObjectType(type) || isInterfaceType(type)) && schema.isSubType(conditionalType, type);
-  }
-
-  return false;
 }
 
 function moveIntoCursor(cursor: ResultCursor, pathInCursor: ResponsePath): ResultCursor | undefined {

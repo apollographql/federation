@@ -1,12 +1,95 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.4.5
+### Patch Changes
+
+
+- Supersedes v2.4.4 due to a publishing error with no dist/ folder ([#2583](https://github.com/apollographql/federation/pull/2583))
+
+- Updated dependencies [[`c96e24c4`](https://github.com/apollographql/federation/commit/c96e24c448bde3c4acfa5332335e868c701d7621)]:
+  - @apollo/federation-internals@2.4.5
+  - @apollo/query-graphs@2.4.5
+
+## 2.4.4
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.4.4
+  - @apollo/query-graphs@2.4.4
+
+## 2.4.3
+### Patch Changes
+
+- Updated dependencies [[`f6a8c1ce`](https://github.com/apollographql/federation/commit/f6a8c1cee60dc2b602db857b610fe8280674f2ee)]:
+  - @apollo/federation-internals@2.4.3
+  - @apollo/query-graphs@2.4.3
+
+## 2.4.2
+### Patch Changes
+
+
+- Allow passing print options to the `compose` method to impact how the supergraph is printed, and adds new printing ([#2042](https://github.com/apollographql/federation/pull/2042))
+  options to order all elements of the schema.
+- Updated dependencies [[`2c370508`](https://github.com/apollographql/federation/commit/2c3705087284710956390c7c3444c812db7c22e0), [`179b4602`](https://github.com/apollographql/federation/commit/179b46028b914ef743674a5c59e0f3a6edc31638)]:
+  - @apollo/federation-internals@2.4.2
+  - @apollo/query-graphs@2.4.2
+
+## 2.4.1
+### Patch Changes
+
+
+- Start building packages with TS 5.x, which should have no effect on consumers ([#2480](https://github.com/apollographql/federation/pull/2480))
+
+- Updated dependencies [[`450b9578`](https://github.com/apollographql/federation/commit/450b9578ec8d66a48621f0e76fe0b4f738a78659), [`afde3158`](https://github.com/apollographql/federation/commit/afde3158ec2ee93b123a9bdb0f1a852e41fa7f27), [`eafebc3c`](https://github.com/apollographql/federation/commit/eafebc3c9af5c511990fe66b7c2900ba9a1b330f), [`01fe3f83`](https://github.com/apollographql/federation/commit/01fe3f836c08805c1c53b14c745a5117c678866d)]:
+  - @apollo/query-graphs@2.4.1
+  - @apollo/federation-internals@2.4.1
+
+## 2.4.0
+### Minor Changes
+
+
+- Addition of new query planner node types to enable federated subscriptions support ([#2389](https://github.com/apollographql/federation/pull/2389))
+
+
+### Patch Changes
+
+
+- Refactor the internal implementation of selection sets used by the query planner to decrease the code complexity and ([#2387](https://github.com/apollographql/federation/pull/2387))
+  improve query plan generation performance in many cases.
+
+- Optimises query plan generation for parts of queries that can statically be known to not cross across subgraphs ([#2449](https://github.com/apollographql/federation/pull/2449))
+
+- Updated dependencies [[`260c357c`](https://github.com/apollographql/federation/commit/260c357c10b4cf560c66d11f85552036c2638b0b), [`7bc0f8e8`](https://github.com/apollographql/federation/commit/7bc0f8e814ea003802ed3761b5eeeb7137650b0c), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e), [`cab383b2`](https://github.com/apollographql/federation/commit/cab383b22d37bb6bc687b4d8cec6f5c22245f41f)]:
+  - @apollo/federation-internals@2.4.0
+  - @apollo/query-graphs@2.4.0
+
+## 2.4.0-alpha.1
+### Patch Changes
+
+- Updated dependencies [[`7bc0f8e8`](https://github.com/apollographql/federation/commit/7bc0f8e814ea003802ed3761b5eeeb7137650b0c)]:
+  - @apollo/federation-internals@2.4.0-alpha.1
+  - @apollo/query-graphs@2.4.0-alpha.1
+
+## 2.4.0-alpha.0
+### Minor Changes
+
+
+- Addition of new query planner node types to enable federated subscriptions support ([#2389](https://github.com/apollographql/federation/pull/2389))
+
+
+### Patch Changes
+
+- Updated dependencies [[`6e2d24b5`](https://github.com/apollographql/federation/commit/6e2d24b5491914316b9930395817f0c3780f181a), [`1a555d98`](https://github.com/apollographql/federation/commit/1a555d98f2030814ebd5074269d035b7f298f71e)]:
+  - @apollo/federation-internals@2.4.0-alpha.0
+  - @apollo/query-graphs@2.4.0-alpha.0
+
 ## 2.3.5
 ### Patch Changes
 
 - Updated dependencies []:
   - @apollo/federation-internals@2.3.5
   - @apollo/query-graphs@2.3.5
-
+  
 ## 2.3.4
 ### Patch Changes
 

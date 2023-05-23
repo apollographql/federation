@@ -48,7 +48,7 @@ import {
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { parseSelectionSet, selectionOfElement, SelectionSet } from './operations';
+import { parseSelectionSet, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./tagSpec";
 import {
   errorCodeDef,
@@ -80,6 +80,8 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
+import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
+import { joinIdentity } from "./joinSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -110,7 +112,6 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
 const ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES: string[] = Object.values(FederationDirectiveName);
-
 function validateFieldSetSelections({
   directiveName,
   selectionSet,
@@ -129,7 +130,7 @@ function validateFieldSetSelections({
   allowFieldsWithArguments: boolean,
 }): void {
   for (const selection of selectionSet.selections()) {
-    const appliedDirectives = selection.element().appliedDirectives;
+    const appliedDirectives = selection.element.appliedDirectives;
     if (appliedDirectives.length > 0) {
       onError(ERROR_CATEGORIES.DIRECTIVE_IN_FIELDS_ARG.get(directiveName).err(
         `cannot have directive applications in the @${directiveName}(fields:) argument but found ${appliedDirectives.join(', ')}.`,
@@ -137,7 +138,7 @@ function validateFieldSetSelections({
     }
 
     if (selection.kind === 'FieldSelection') {
-      const field = selection.element().definition;
+      const field = selection.element.definition;
       const isExternal = metadata.isFieldExternal(field);
       if (!allowFieldsWithArguments && field.hasArguments()) {
         onError(ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err(
@@ -1116,14 +1117,14 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
  * returns an equivalent document that `@link` to the last known federation spec.
  *
  * @param document - the document to "augment".
- * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or 
+ * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or
  *   added to the schema definition. Defaults to `true` (added as an extension), as this mimics what we tends to write manually.
  */
 export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension: boolean }): DocumentNode {
@@ -1342,12 +1343,14 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     }
   }
 
-  return FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, '_' + spec.name))
+  const errors = FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, '_' + spec.name))
     .concat(FEDERATION1_DIRECTIVES.map((spec) => spec.checkOrAdd(schema)))
     .flat();
+
+  return errors.length === 0 ? expandKnownFeatures(schema) : errors;
 }
 
-function completeFed2SubgraphSchema(schema: Schema) {
+function completeFed2SubgraphSchema(schema: Schema): GraphQLError[] {
   const coreFeatures = schema.coreFeatures;
   assert(coreFeatures, 'This method should not have been called on a non-core schema');
 
@@ -1362,7 +1365,33 @@ function completeFed2SubgraphSchema(schema: Schema) {
     )];
   }
 
-  return spec.addElementsToSchema(schema);
+  const errors = spec.addElementsToSchema(schema);
+  return errors.length === 0 ? expandKnownFeatures(schema) : errors;
+}
+
+function expandKnownFeatures(schema: Schema): GraphQLError[] {
+  const coreFeatures = schema.coreFeatures;
+  if (!coreFeatures) {
+    return [];
+  }
+
+  let errors: GraphQLError[] = [];
+  for (const feature of coreFeatures.allFeatures()) {
+    // We should already have dealt with the core/link spec and federation at this point. Also, we shouldn't have the `join` spec in subgraphs,
+    // but some tests play with the idea and currently the join spec is implemented in a way that is not idempotent (it doesn't use
+    // `DirectiveSpecification.checkAndAdd`; we should clean it up at some point, but not exactly urgent).
+    if (feature === coreFeatures.coreItself || feature.url.identity === federationIdentity  || feature.url.identity === joinIdentity) {
+      continue;
+    }
+
+    const spec = coreFeatureDefinitionIfKnown(feature.url);
+    if (!spec) {
+      continue;
+    }
+
+    errors = errors.concat(spec.addElementsToSchema(schema));
+  }
+  return errors;
 }
 
 export function parseFieldSetArgument({
@@ -1817,12 +1846,17 @@ class ExternalTester {
   private collectProvidedFields() {
     for (const provides of this.metadata().providesDirective().applications()) {
       const parent = provides.parent as FieldDefinition<CompositeType>;
-      collectTargetFields({
-        parentType: baseType(parent.type!) as CompositeType,
-        directive: provides as Directive<any, {fields: any}>,
-        includeInterfaceFieldsImplementations: true,
-        validate: false,
-      }).forEach((f) => this.providedFields.add(f.coordinate));
+      const parentType = baseType(parent.type!);
+      // If `parentType` is not a composite, that means an invalid @provides, but we ignore such errors
+      // for now (also why we pass 'validate: false'). Proper errors will be thrown later during validation.
+      if (isCompositeType(parentType)) {
+        collectTargetFields({
+          parentType,
+          directive: provides as Directive<any, {fields: any}>,
+          includeInterfaceFieldsImplementations: true,
+          validate: false,
+        }).forEach((f) => this.providedFields.add(f.coordinate));
+      }
     }
   }
 
@@ -1854,7 +1888,7 @@ class ExternalTester {
 
   selectsAnyExternalField(selectionSet: SelectionSet): boolean {
     for (const selection of selectionSet.selections()) {
-      if (selection.kind === 'FieldSelection' && this.isExternal(selection.element().definition)) {
+      if (selection.kind === 'FieldSelection' && this.isExternal(selection.element.definition)) {
         return true;
       }
       if (selection.selectionSet) {
@@ -1966,7 +2000,7 @@ function selectsNonExternalLeafField(selection: SelectionSet): boolean {
   return selection.selections().some(s => {
     if (s.kind === 'FieldSelection') {
       // If it's external, we're good and don't need to recurse.
-      if (isExternalOrHasExternalImplementations(s.field.definition)) {
+      if (isExternalOrHasExternalImplementations(s.element.definition)) {
         return false;
       }
       // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
@@ -1978,25 +2012,24 @@ function selectsNonExternalLeafField(selection: SelectionSet): boolean {
 }
 
 function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet {
-  const newSelectionSet = new SelectionSet(selectionSet.parentType);
-  for (const selection of selectionSet.selections()) {
+  return selectionSet.lazyMap((selection) => {
     if (selection.kind === 'FieldSelection') {
-      if (isExternalOrHasExternalImplementations(selection.field.definition)) {
+      if (isExternalOrHasExternalImplementations(selection.element.definition)) {
         // That field is external, so we can add the selection back entirely.
-        newSelectionSet.add(selection);
-        continue;
+        return selection;
       }
     }
-    // Note that for fragments will always be true (and we just recurse), while
-    // for fields, we'll only get here if the field is not external, and so
-    // we want to add the selection only if it's not a leaf and even then, only
-    // the part where we've recursed.
     if (selection.selectionSet) {
+      // Note that for fragments this will always be true (and we just recurse), while
+      // for fields, we'll only get here if the field is not external, and so
+      // we want to add the selection only if it's not a leaf and even then, only
+      // the part where we've recursed.
       const updated = withoutNonExternalLeafFields(selection.selectionSet);
       if (!updated.isEmpty()) {
-        newSelectionSet.add(selectionOfElement(selection.element(), updated));
+        return selection.withUpdatedSelectionSet(updated);
       }
     }
-  }
-  return newSelectionSet;
+    // We skip that selection.
+    return undefined;
+  });
 }

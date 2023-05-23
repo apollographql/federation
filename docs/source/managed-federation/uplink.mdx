@@ -1,6 +1,6 @@
 ---
 title: Apollo Uplink
-description: Fetch your managed gateway's configuration
+description: Fetch your managed router's configuration
 ---
 
 When using [managed federation](./overview/), your supergraph's router regularly polls an endpoint called **Apollo Uplink** for its latest supergraph schema and other configuration:
@@ -16,35 +16,58 @@ graph LR;
   registry{{Schema Registry}};
   uplink{{Uplink}}
   end
-  serviceA & serviceB -->|Pushes schema| registry;
-  registry -->|Updates config| uplink;
+  serviceA & serviceB -->|"Publishes<br/>schema"| registry;
+  registry -->|"Updates<br/>config"| uplink;
   router -->|Polls for config changes| uplink;
   class registry secondary;
   class uplink secondary;
 ```
 
+> Uplink also serves your router's **entitlement** if you're using [Enterprise features](/router/enterprise-features/).
+
 To maximize uptime, Uplink is hosted simultaneously at _two_ endpoints, one in GCP and one in AWS:
 
-* GCP: `https://uplink.api.apollographql.com/`
-* AWS: `https://aws.uplink.api.apollographql.com/`
+- GCP: `https://uplink.api.apollographql.com/`
+- AWS: `https://aws.uplink.api.apollographql.com/`
 
-By default in versions of `@apollo/gateway` v0.45.0 and later, your gateway polls Uplink every ten seconds. Every time it does so, it cycles between Uplink endpoints in round-robin fashion.
+## Default polling behavior
+
+### Apollo Router
+
+If you use the Apollo Router with managed federation, by default it polls Uplink every ten seconds. Every time it does so, it cycles through Uplink endpoints in round-robin fashion.
+
+Whenever a poll request times out or otherwise fails (the default timeout is thirty seconds), the router continues polling as usual at the next interval. In the meantime, it continues using its most recent successfully obtained configuration.
+
+### `@apollo/gateway`
+
+If you use the `@apollo/gateway` library with managed federation, by default your gateway polls Uplink every ten seconds. Every time it does so, it cycles through Uplink endpoints in round-robin fashion.
+
+> Versions of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP endpoint by default.
 
 Whenever a poll request fails, the gateway retries that request (again, using round robin). It continues retrying until a request succeeds, or until reaching the defined maximum number of retries.
 
 Even if a particular poll request fails _all_ of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recent successfully obtained configuration.
 
-> Versions of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP endpoint by default.
-
 ## Configuring polling behavior
 
-You can configure the following aspects of your gateway's polling behavior:
+You can configure the following aspects of your router's Uplink polling behavior:
 
-* The number of retries your gateway performs for a failed poll request
-* The interval at which your gateway polls
-* The list of Uplink URLs your gateway uses
+- The interval at which your router polls (minimum ten seconds)
+- The list of Uplink URLs your router uses
+- The request timeout for each poll request (Apollo Router only)
+  - For `@apollo/gateway`, this value is always thirty seconds.
+- The number of retries performed for a failed poll request (`@apollo/gateway` only)
+  - The Apollo Router does not perform retries for a failed poll request. It continues polling at the next interval.
 
-### Retry limit
+### Apollo Router
+
+You configure Uplink polling for the Apollo Router by providing certain command-line options when running the router executable. These options all start with `--apollo-uplink`.
+
+[See the Apollo Router docs](/router/configuration/overview#--apollo-uplink-endpoints).
+
+### `@apollo/gateway`
+
+#### Retry limit
 
 You can configure how many times your gateway retries a single failed poll request like so:
 
@@ -62,7 +85,7 @@ By default, the gateway retries a single poll request a number of times equal to
 
 > Even if a particular poll request fails _all_ of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recently obtained configuration.
 
-### Poll interval
+#### Poll interval
 
 You can configure the interval at which your gateway polls Apollo Uplink like so:
 
@@ -78,13 +101,13 @@ const gateway = new ApolloGateway({
 
 The `pollIntervalInMs` option specifies the polling interval in milliseconds. This value must be at least `10000` (which is also the default value).
 
-### Uplink URLs (advanced)
+#### Uplink URLs (advanced)
 
 > ⚠️ Most gateways never need to configure their list of Apollo Uplink URLs. Consult this section only if advised to do so.
 
 You can provide a custom list of URLs for the gateway to use when polling Uplink. You can provide this list either in the `ApolloGateway` constructor or as an environment variable.
 
-#### `ApolloGateway` constructor
+##### `ApolloGateway` constructor
 
 Provide a custom list of Uplink URLs to the `ApolloGateway` constructor like so:
 
@@ -105,7 +128,7 @@ This example omits the AWS endpoint, which means it's never polled.
 
 Note that if you _also_ provide a list of endpoints via [environment variable](#environment-variable), the environment variable takes precedence.
 
-#### Environment variable
+##### Environment variable
 
 You can provide a comma-separated list of Uplink URLs as the value of the `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` environment variable in your gateway's environment:
 
@@ -117,4 +140,4 @@ APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/
 
 Supergraph schemas provided by Uplink cannot exceed 6MB in size. The _vast_ majority of supergraph schemas are well below this limit.
 
-If your supergraph schema _does_ exceed 6MB, you can set up a [build status webhook](/graphos/notifications/build-status-notification/) for your graph. Whenever you're notified of a successful supergraph schema composition, your webhook can fetch the latest supergraph schema via the Rover CLI.
+If your supergraph schema _does_ exceed 6MB, you can set up a [build status webhook](/graphos/notifications/build-status-notification/) for your graph. Whenever you're notified of a successful supergraph schema composition, your webhook can fetch the latest supergraph schema [via the Rover CLI](/rover/commands/supergraphs#supergraph-fetch).

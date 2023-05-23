@@ -11,7 +11,7 @@ export type ResponsePath = (string | number)[];
 
 export interface QueryPlan {
   kind: 'QueryPlan';
-  node?: PlanNode;
+  node?: PlanNode | SubscriptionNode;
 }
 
 export type PlanNode = SequenceNode | ParallelNode | FetchNode | FlattenNode | DeferNode | ConditionNode;
@@ -24,6 +24,12 @@ export interface SequenceNode {
 export interface ParallelNode {
   kind: 'Parallel';
   nodes: PlanNode[];
+}
+
+export interface SubscriptionNode {
+  kind: 'Subscription';
+  primary: FetchNode;
+  rest?: PlanNode;
 }
 
 export interface FetchNode {
@@ -40,29 +46,19 @@ export interface FetchNode {
   operationKind: OperationTypeNode;
   operationDocumentNode?: DocumentNode;
   // Optionally describe a number of "rewrites" that query plan executors should apply to the data that is sent as input of this fetch.
-  inputRewrites?: FetchDataInputRewrite[];
-  // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is apply to the current in-memory results).
-  outputRewrites?: FetchDataOutputRewrite[];
+  // Note that such rewrites should only impact the inputs of the fetch they are applied to (meaning that, as those inputs are collected 
+  // from the current in-memory result, the rewrite should _not_ impact said in-memory results, only what is sent in the fetch).
+  inputRewrites?: FetchDataRewrite[];
+  // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is applied to the current in-memory results).
+  outputRewrites?: FetchDataRewrite[];
 }
 
 /**
- * The type of rewrites currently supported on the input data of fetches.
+ * The type of rewrites currently supported on the input/output data of fetches.
  *
- * A rewrite usually identifies some subpart of the input data and some action to perform on that subpart.
- * Note that input rewrites should only impact the inputs of the fetch they are applied to (meaning that, as
- * those inputs are collected from the current in-memory result, the rewrite should _not_ impact said in-memory
- * results, only what is sent in the fetch).
+ * A rewrite usually identifies some subpart of thedata and some action to perform on that subpart.
  */
-export type FetchDataInputRewrite = FetchDataValueSetter;
-
-/**
- * The type of rewrites currently supported on the output data of fetches.
- *
- * A rewrite usually identifies some subpart of the ouput data and some action to perform on that subpart.
- * Note that ouput rewrites should only impact the outputs of the fetch they are applied to (meaning that
- * the rewrites must be applied before the data from the fetch is merged to the  current in-memory result).
- */
-export type FetchDataOutputRewrite = FetchDataKeyRenamer;
+export type FetchDataRewrite = FetchDataValueSetter | FetchDataKeyRenamer;
 
 /**
  * A rewrite that sets a value at the provided path of the data it is applied to.
@@ -229,3 +225,7 @@ export const trimSelectionNodes = (
 
   return remapped;
 };
+
+export const isPlanNode = (node: PlanNode | SubscriptionNode | undefined): node is PlanNode => {
+  return !!node && node.kind !== 'Subscription';
+}

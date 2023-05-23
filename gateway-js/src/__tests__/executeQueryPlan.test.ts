@@ -16,7 +16,7 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { ApolloServer } from '@apollo/server';
 import { getFederatedTestingSchema } from './execution-utils';
 import { Schema, Operation, parseOperation, buildSchemaFromAST, arrayEquals } from '@apollo/federation-internals';
 import {
@@ -24,6 +24,7 @@ import {
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
 import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
+import { unwrapSingleResultKind } from './gateway/testUtils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -1325,13 +1326,12 @@ describe('executeQueryPlan', () => {
       // But note that this is only one possible initialization path for the
       // gateway, and with the current duplication of logic we'd actually need
       // to test other scenarios (like loading from supergraph SDL) separately.
-      const gateway = new ApolloGateway({
-        supergraphSdl: print(superGraphWithInaccessible),
+      const server = new ApolloServer({
+        gateway: new ApolloGateway({
+          supergraphSdl: print(superGraphWithInaccessible),
+        }),
       });
-
-      const { schema, executor } = await gateway.load();
-
-      const server = new ApolloServer({ schema, executor });
+      await server.start();
 
       const query = `#graphql
         query {
@@ -1349,10 +1349,22 @@ describe('executeQueryPlan', () => {
         query,
       });
 
-      expect(response.data).toBeUndefined();
-      expect(response.errors).toMatchInlineSnapshot(`
+      const { errors, data } = unwrapSingleResultKind(response);
+      expect(data).toBeUndefined();
+      expect(errors).toMatchInlineSnapshot(`
         Array [
-          [ValidationError: Cannot query field "ssn" on type "User".],
+          Object {
+            "extensions": Object {
+              "code": "GRAPHQL_VALIDATION_FAILED",
+            },
+            "locations": Array [
+              Object {
+                "column": 15,
+                "line": 7,
+              },
+            ],
+            "message": "Cannot query field \\"ssn\\" on type \\"User\\".",
+          },
         ]
       `);
     });
@@ -3153,7 +3165,8 @@ describe('executeQueryPlan', () => {
                     data {
                       __typename
                       foo
-                      ... on Data {
+                      ... on Bar {
+                        __typename
                         bar
                       }
                     }
@@ -3789,10 +3802,15 @@ describe('executeQueryPlan', () => {
       s1,
     }: {
       s1?: {
+        // additional resolvers for interface I
         iResolversExtra?: any,
+        // provide a default __resolveReference for the interface
         hasIResolveReference?: boolean,
+        // turn an id into extra data returned by __resolveReference (if hasIResolveReference is true)
         iResolveReferenceExtra?: (id: string) => { [k: string]: any },
+        // additional resolvers for type A
         aResolversExtra?: any,
+        // additional resolvers for type B
         bResolversExtra?: any,
       }
     }) => {
@@ -4123,7 +4141,75 @@ describe('executeQueryPlan', () => {
         + 'Either the object returned by "I.__resolveReference" must include a valid `__typename` field, '
         + 'or the "I" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.'
       ],
-    }])('resolving an interface @key $name', async ({s1, expectedErrors}) => {
+    }, {
+      name: 'with an async __resolveReference and a non-default __resolveType',
+      s1: {
+        iResolversExtra: {
+          async __resolveReference(ref: { id: string }) {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : { id: ref.id, x: 10, w: 30 };
+          },
+          __resolveType(ref: { id: string }) {
+            switch (ref.id) {
+              case 'idA':
+                return 'A';
+              case 'idB':
+                return 'B';
+              default:
+                throw new Error('Unknown type: ' + ref.id);
+            }
+          },
+        },
+      },
+    }, {
+      name: 'with an async __resolveReference and a non-default async __resolveType',
+      s1: {
+        iResolversExtra: {
+          async __resolveReference(ref: { id: string }) {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : { id: ref.id, x: 10, w: 30 };
+          },
+          async __resolveType(ref: { id: string }) {
+            switch (ref.id) {
+              case 'idA':
+                return 'A';
+              case 'idB':
+                return 'B';
+              default:
+                throw new Error('Unknown type: ' + ref.id);
+            }
+          },
+        },
+      },
+    }, {
+      name: 'with an async __resolveReference and async __isTypeOf on implementations',
+      s1: {
+        iResolversExtra: {
+          async __resolveReference(ref: {
+            id: string;
+            // I don't understand the TypeScript error that occurs when the
+            // return type is removed here (like all the others); it surfaces
+            // because `aResolversExtra` is defined, which I can't explain.
+          }): Promise<Record<string, any>> {
+            return ref.id === 'idA'
+              ? { id: ref.id, x: 1, z: 3 }
+              : { id: ref.id, x: 10, w: 30 };
+          },
+        },
+        aResolversExtra: {
+          async __isTypeOf(ref: { id: string }) {
+            return ref.id === 'idA';
+          },
+        },
+        bResolversExtra: {
+          async __isTypeOf(ref: { id: string }) {
+            return ref.id === 'idB';
+          },
+        },
+      },
+    }])('resolving an interface @key $name', async ({ s1, expectedErrors }) => {
       const tester = defineSchema({ s1 });
 
       const { plan, response } = await tester(`
@@ -4207,7 +4293,7 @@ describe('executeQueryPlan', () => {
       // any specific extra resolving.
       const tester = defineSchema({});
 
-      let { plan, response } = await tester(`
+      const { plan, response } = await tester(`
         query {
           iFromS2 {
             y
@@ -4242,7 +4328,7 @@ describe('executeQueryPlan', () => {
         s1: { iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }), },
       });
 
-      let { plan, response } = await tester(`
+      const { plan, response } = await tester(`
         query {
           iFromS2 {
             ... on B {
@@ -4582,6 +4668,514 @@ describe('executeQueryPlan', () => {
             },
             Object {
               "__typename": "Movie",
+            },
+          ],
+        }
+      `);
+    });
+
+    test('handles querying @interfaceObject from a specific implementation', async () => {
+      const s1 = {
+        name: 's1',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+
+          type Query {
+            ts: [T!]!
+          }
+
+          interface I {
+            id: ID!
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            ts: () => [ { id: '2' }, { id: '4' }, { id: '1' } ]
+          },
+        }
+      }
+
+      const s2 = {
+        name: 's2',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject", "@external", "@requires"])
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            v: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference(ref: any) {
+              return {
+                ...ref,
+                v: `id=${ref.id}`
+              };
+            },
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      let operation = parseOp(`
+        {
+          ts {
+            v
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      const expectedPlan = `
+        QueryPlan {
+          Sequence {
+            Fetch(service: "s1") {
+              {
+                ts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "ts.@") {
+              Fetch(service: "s2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        }
+      `;
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "ts": Array [
+            Object {
+              "v": "id=2",
+            },
+            Object {
+              "v": "id=4",
+            },
+            Object {
+              "v": "id=1",
+            },
+          ],
+        }
+      `);
+    });
+
+    test('handles querying @interfaceObject from a specific implementation (even when the subgraph does not have the corresponding interface)', async () => {
+      const s1 = {
+        name: 's1',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+
+          type Query {
+            ts: [T!]!
+          }
+
+          type T @key(fields: "id", resolvable: false) {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            ts: () => [ { id: '2' }, { id: '4' }, { id: '1' } ]
+          },
+        }
+      }
+
+      const s2 = {
+        name: 's2',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject"])
+
+          interface I @key(fields: "id") {
+            id: ID!
+            required: String
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            required: String
+          }
+
+        `,
+        resolvers: {
+          I: {
+            __resolveReference(ref: any) {
+              return [
+                { id: '1', __typename: "T", required: "r1" },
+                { id: '2', __typename: "T", required: "r2" },
+                { id: '3', __typename: "T", required: "r3" },
+                { id: '4', __typename: "T", required: "r4" },
+              ].find(({id}) => id === ref.id);
+            },
+          },
+        }
+      }
+
+      const s3 = {
+        name: 's3',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject", "@external", "@requires"])
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            required: String @external
+            v: String @requires(fields: "required")
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference(ref: any) {
+              return {
+                ...ref,
+                v: `req=${ref.required}`
+              };
+            },
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2, s3 ]);
+
+      let operation = parseOp(`
+        {
+          ts {
+            v
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      const expectedPlan = `
+        QueryPlan {
+          Sequence {
+            Fetch(service: "s1") {
+              {
+                ts {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "ts.@") {
+              Fetch(service: "s2") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                    required
+                  }
+                }
+              },
+            },
+            Flatten(path: "ts.@") {
+              Fetch(service: "s3") {
+                {
+                  ... on I {
+                    __typename
+                    required
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        }
+      `;
+      expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "ts": Array [
+            Object {
+              "v": "req=r2",
+            },
+            Object {
+              "v": "req=r4",
+            },
+            Object {
+              "v": "req=r1",
+            },
+          ],
+        }
+      `);
+    });
+
+    test('handles @requires on @interfaceObject that applies to only one of the queried implementation', async () => {
+      // The case this test is that where the @interfaceObject in s2 has a @requires, but the query we send requests the field on which
+      // there is this @require only for one of the implementation type, which it request another field with no require for another implementation.
+      // And we're making sure the requirements only get queried for T1, the first type.
+      const s1 = {
+        name: 's1',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+
+          type Query {
+            is: [I!]!
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            name: String
+            req: Req
+          }
+
+          type T1 implements I @key(fields: "id") {
+            id: ID!
+            name: String
+            req: Req
+          }
+
+          type T2 implements I @key(fields: "id") {
+            id: ID!
+            name: String
+            req: Req
+          }
+
+          type Req {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            is: () => [
+              { __typename: 'T1', id: '2', name: 'e2', req: { id: 'r1'} },
+              { __typename: 'T2', id: '4', name: 'e4', req: { id: 'r2'} },
+              { __typename: 'T1', id: '1', name: 'e1', req: { id: 'r3'} }
+            ]
+          },
+        }
+      }
+
+      const s2 = {
+        name: 's2',
+        typeDefs: gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject", "@external", "@requires"])
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            req: Req @external
+            v: String! @requires(fields: "req { id }")
+          }
+
+          type Req {
+            id: ID! @external
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference(ref: any) {
+              return {
+                ...ref,
+                v: `req=${ref.req.id}`
+              };
+            },
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      let operation = parseOp(`
+        {
+          is {
+            ... on T1 {
+              v
+            }
+            ... on T2 {
+              name
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "s1") {
+              {
+                is {
+                  __typename
+                  ... on T1 {
+                    __typename
+                    id
+                    req {
+                      id
+                    }
+                  }
+                  ... on T2 {
+                    name
+                  }
+                }
+              }
+            },
+            Flatten(path: "is.@") {
+              Fetch(service: "s2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                  ... on I {
+                    __typename
+                    req {
+                      id
+                    }
+                  }
+                } =>
+                {
+                  ... on I {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "is": Array [
+            Object {
+              "v": "req=r1",
+            },
+            Object {
+              "name": "e4",
+            },
+            Object {
+              "v": "req=r3",
+            },
+          ],
+        }
+      `);
+
+      // Sanity checking that if we ask for `v` (the field with @requires), then everything still works.
+      operation = parseOp(`
+        {
+          is {
+            ... on T1 {
+              v
+            }
+            ... on T2 {
+              v
+              name
+            }
+          }
+        }
+        `, schema);
+
+      global.console = require('console');
+      queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "s1") {
+              {
+                is {
+                  __typename
+                  ... on T1 {
+                    __typename
+                    id
+                    req {
+                      id
+                    }
+                  }
+                  ... on T2 {
+                    __typename
+                    id
+                    req {
+                      id
+                    }
+                    name
+                  }
+                }
+              }
+            },
+            Flatten(path: "is.@") {
+              Fetch(service: "s2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                  ... on I {
+                    __typename
+                    req {
+                      id
+                    }
+                  }
+                  ... on T2 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "is": Array [
+            Object {
+              "v": "req=r1",
+            },
+            Object {
+              "name": "e4",
+              "v": "req=r2",
+            },
+            Object {
+              "v": "req=r3",
             },
           ],
         }
