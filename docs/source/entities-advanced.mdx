@@ -141,8 +141,8 @@ In any subgraph where you use `@override`, make sure to include it in your schem
 
 ```graphql {3} title="Billing subgraph"
 extend schema
-@link(url: "https://specs.apollo.dev/federation/v2.3",
-import: ["@key", "@shareable", "@override"])
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@shareable", "@override"])
 ```
 
 </blockquote>

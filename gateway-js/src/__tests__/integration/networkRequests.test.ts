@@ -56,7 +56,7 @@ function getRootQueryFields(schema?: GraphQLSchema): string[] {
 let logger: Logger;
 let gateway: ApolloGateway | null = null;
 let cleanUp: (() => void) | null = null;
-let originalMinPollInterval = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
+const originalMinPollInterval = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
 
 beforeEach(() => {
   // Set the min poll interval artificially low so we're not waiting during tests
