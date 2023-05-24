@@ -189,7 +189,7 @@ function buildWitnessOperation(witness: RootPath<Transition>): Operation {
     schema,
     root.rootKind,
     buildWitnessNextStep([...witness].map(e => e[0]), 0)!,
-    new VariableDefinitions()
+    new VariableDefinitions(),
   );
 }
 

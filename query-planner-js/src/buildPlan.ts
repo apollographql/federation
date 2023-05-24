@@ -2793,7 +2793,7 @@ export class QueryPlanner {
     }
 
     const reuseQueryFragments = this.config.reuseQueryFragments ?? true;
-    let fragments = operation.selectionSet.fragments
+    let fragments = operation.fragments
     if (fragments && !fragments.isEmpty() && reuseQueryFragments) {
       // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
       // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
@@ -3021,7 +3021,7 @@ export class QueryPlanner {
         updatedSelections = [typenameSelection as Selection].concat(updatedSelections);
       }
     }
-    return new SelectionSetUpdates().add(updatedSelections).toSelectionSet(selectionSet.parentType, selectionSet.fragments);
+    return new SelectionSetUpdates().add(updatedSelections).toSelectionSet(selectionSet.parentType);
   }
 
   /**
@@ -3037,6 +3037,7 @@ export class QueryPlanner {
       operation.rootKind,
       updatedSelectionSet,
       operation.variableDefinitions,
+      operation.fragments,
       operation.name
     );
   }
@@ -3190,6 +3191,7 @@ function withoutIntrospection(operation: Operation): Operation {
     operation.rootKind,
     operation.selectionSet.lazyMap((s) => isIntrospectionSelection(s) ? undefined : s),
     operation.variableDefinitions,
+    operation.fragments,
     operation.name
   );
 }
@@ -4338,7 +4340,9 @@ function inputsForRequire(
       // condition on the supergraph type (which is an interface) first, which lets the `mergeIn` work.
       const supergraphItfType = dependencyGraph.supergraphSchema.type(entityType.name);
       assert(supergraphItfType && isInterfaceType(supergraphItfType), () => `Type ${entityType} should be an interface in the supergraph`);
-      keyConditionAsInput = keyConditionAsInput.rebaseOn(supergraphItfType);
+      // Note: we are rebasing on another schema below, but we also known that we're working on a full expanded
+      // selection set (no spread), so passing undefined is actually correct.
+      keyConditionAsInput = keyConditionAsInput.rebaseOn(supergraphItfType, undefined);
     }
     fullSelectionSet.updates().add(keyConditionAsInput);
 
@@ -4392,7 +4396,9 @@ function operationForEntitiesFetch(
     selectionSet,
   );
 
-  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, operationName);
+  // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
+  // the selection, hence the `undefined` for fragments.
+  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, undefined, operationName);
 }
 
 function operationForQueryFetch(
@@ -4402,5 +4408,7 @@ function operationForQueryFetch(
   allVariableDefinitions: VariableDefinitions,
   operationName?: string
 ): Operation {
-  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), operationName);
+  // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
+  // the selection, hence the `undefined` for fragments.
+  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), undefined, operationName);
 }
