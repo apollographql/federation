@@ -1,10 +1,11 @@
 import {
+    CompositeType,
   defaultRootName,
   Schema,
   SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { MutableSelectionSet, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
+import { MutableSelectionSet, Operation, operationFromDocument, parseOperation, parseSelectionSet } from '../../dist/operations';
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
 
@@ -1263,4 +1264,63 @@ describe('unsatisfiable branches removal', () => {
   ])('removes unsatisfiable branches', ({input, output}) => {
     expect(withoutUnsatisfiableBranches(input)).toBe(output);
   });
+});
+
+test('contains ignores unecessary fragments even when subtyping is involved', () => {
+  const schema = parseSchema(`
+      type Query {
+        a: A!
+      }
+
+      interface IA1 {
+        b: IB1!
+      }
+
+      interface IA2 {
+        b: IB2!
+      }
+
+      type A implements IA1 & IA2 {
+        b: B!
+      }
+
+      interface IB1 {
+        v1: Int!
+      }
+
+      interface IB2 {
+        v2: Int!
+      }
+
+      type B implements IB1 & IB2 {
+        v1: Int!
+        v2: Int!
+      }
+  `);
+
+  const typeA = schema.type('A') as CompositeType;
+
+  const s1 = parseSelectionSet({
+    parentType: typeA,
+    source: '{ b { v1 v2 } }'
+  });
+
+  const s2 = parseSelectionSet({
+    parentType: typeA,
+    source: '{ ... on IA1 { b { v1 } } ... on IA2 { b { v2 } } }'
+  });
+
+  // Here, A is a concrete type, and IA1 and IA2 are just 2 of its interfaces, so
+  //   a { ... on IA1 { b { v1 } } ... on IA2 { b { v2 } } }
+  // is basically exactly the same as:
+  //   a { b { v1 } b { v2 } }
+  // which is the same as:
+  //   a { b { v1 v2 } }
+  // and that is why we want the `contains` below to work (note that a simple `contains`
+  // that doesn't handle this kind of subtlety could have its use too, it would just be
+  // a different contract, but we want "our" `contains` to handle this because of named
+  // fragments "reconstruction" where that kind of subtlety arises).
+  //
+  // Here, the added subtlety is that there is interface subtyping involved too.
+  expect(s2.contains(s1)).toBeTruthy();
 });
