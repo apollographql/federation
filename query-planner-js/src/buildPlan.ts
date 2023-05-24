@@ -558,9 +558,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.log(() => `Query has ${planCount} possible plans`);
 
     let firstBranch = this.closedBranches[0];
-    // Note: typing is not able to know that `maxEvaluatedPlans` is guaranteed to be set here, but it is
-    // due to early call to `enforceQueryPlannerConfigDefaults`.
-    const maxPlansToCompute = this.parameters.config.debug.maxEvaluatedPlans!;
+    const maxPlansToCompute = this.parameters.config.debug.maxEvaluatedPlans;
     while (planCount > maxPlansToCompute && firstBranch.length > 1) {
       // we remove the right-most option of the first branch, and them move that branch to it's new place.
       const prevSize = firstBranch.length;
@@ -1331,7 +1329,7 @@ class FetchGroup {
   }
 
   toPlanNode(
-    queryPlannerConfig: QueryPlannerConfig,
+    queryPlannerConfig: Concrete<QueryPlannerConfig>,
     handledConditions: Conditions,
     variableDefinitions: VariableDefinitions,
     fragments?: RebasedFragments,
@@ -3320,7 +3318,7 @@ function fetchGroupToPlanProcessor({
   operationName,
   assignedDeferLabels,
 }: {
-  config: QueryPlannerConfig,
+  config: Concrete<QueryPlannerConfig>,
   variableDefinitions: VariableDefinitions,
   fragments?: RebasedFragments,
   operationName?: string,

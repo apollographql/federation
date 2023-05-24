@@ -110,9 +110,9 @@ export function enforceQueryPlannerConfigDefaults(
 }
 
 export function validateQueryPlannerConfig(
-  config: QueryPlannerConfig,
+  config: Concrete<QueryPlannerConfig>,
 ) {
-  if (config.debug?.maxEvaluatedPlans !== undefined && config.debug?.maxEvaluatedPlans < 1) {
+  if (config.debug.maxEvaluatedPlans < 1) {
     throw new Error(`Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got ${config.debug.maxEvaluatedPlans}`);
   }
 }
