@@ -71,13 +71,13 @@ describe('fragments optimization', () => {
         b: Int
       }
 
-      type T1 {
+      type T1 implements I {
         a: Int
         b: Int
         u: U
       }
 
-      type T2 {
+      type T2 implements I {
         x: String
         y: String
         b: Int

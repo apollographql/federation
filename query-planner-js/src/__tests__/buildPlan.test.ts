@@ -5748,3 +5748,76 @@ test('does not error out handling fragments when interface subtyping is involved
     }
   `);
 });
+
+
+test('handles mix of fragments indirection and unions', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        parent: Parent
+      }
+
+      union CatOrPerson = Cat | Parent | Child
+
+      type Parent {
+        childs: [Child]
+      }
+
+      type Child {
+        id: ID!
+      }
+
+      type Cat {
+        name: String
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+  const operation = operationFromDocument(api, gql`
+    query {
+      parent {
+        ...F_indirection1_parent
+      }
+    }
+
+    fragment F_indirection1_parent on Parent {
+      ...F_indirection2_catOrPerson
+    }
+
+    fragment F_indirection2_catOrPerson on CatOrPerson {
+      ...F_catOrPerson
+    }
+
+    fragment F_catOrPerson on CatOrPerson {
+      __typename
+      ... on Cat {
+        name
+      }
+      ... on Parent {
+        childs {
+          __typename
+          id
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Fetch(service: "Subgraph1") {
+        {
+          parent {
+            __typename
+            childs {
+              __typename
+              id
+            }
+          }
+        }
+      },
+    }
+  `);
+});
