@@ -137,5 +137,10 @@
       "matchPaths": ["v12-node-compatibility/package.json"],
       "allowedVersions": "12.x",
     },
+    // @graphql-codegen/*@4 drops support for node 14
+    {
+      "matchPackagePatterns": ["^@graphql-codegen"],
+      "allowedVersions": "3.x",
+    },
   ]
 }
