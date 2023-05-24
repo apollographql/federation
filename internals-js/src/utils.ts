@@ -401,7 +401,7 @@ export function printHumanReadableList(
 }
 
 export type Concrete<Type> = {
-  [Property in keyof Type]-?: Type[Property];
+  [Property in keyof Type]-?: Concrete<Type[Property]>;
 };
 
 // for use with Array.filter
