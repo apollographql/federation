@@ -1,5 +1,5 @@
 ---
-"@apollo/query-planner": minor
+"@apollo/query-planner": patch
 ---
 
 Adds `debug.maxEvaluatedPlans` query planning configuration options. This option limits the maximum number of query plan
