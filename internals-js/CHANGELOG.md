@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.6
+### Patch Changes
+
+
+- Fix assertion error in some overlapping fragment cases. In some cases, when fragments overlaps on some sub-selections ([#2594](https://github.com/apollographql/federation/pull/2594))
+  and some interface field implementation relied on sub-typing, an assertion error could be raised with a message of
+  the form `Cannot add selection of field X to selection set of parent type Y` and this fixes this problem.
+
+- Fix possible fragment-related assertion error during query planning. This prevents a rare case where an assertion with a ([#2596](https://github.com/apollographql/federation/pull/2596))
+  message of the form `Cannot add fragment of condition X (runtimes: ...) to parent type Y (runtimes: ...)` could fail
+  during query planning.
+
 ## 2.4.5
 ### Patch Changes
 
