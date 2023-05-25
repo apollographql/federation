@@ -97,7 +97,7 @@ import {
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
 import { DeferredNode, FetchDataRewrite } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
-import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig } from "./config";
+import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
 
@@ -106,13 +106,6 @@ const debug = newDebugLogger('plan');
 // Somewhat random string used to optimise handling __typename in some cases. See usage for details. The concrete value
 // has no particular significance.
 const SIBLING_TYPENAME_KEY = 'sibling_typename';
-
-// If a query can be resolved by more than this number of plans, we'll try to reduce the possible options we'll look
-// at to get it below this number to void query planning running forever.
-// Note that this number is a tad arbitrary: it's a nice round number that, on my laptop, ensure query planning don't
-// take more than a handful of seconds.
-// Note: exported so we can have a test that explicitly requires more than this number.
-export const MAX_COMPUTED_PLANS = 10000;
 
 type CostFunction = FetchGroupProcessor<number, number>;
 
@@ -565,7 +558,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.log(() => `Query has ${planCount} possible plans`);
 
     let firstBranch = this.closedBranches[0];
-    while (planCount > MAX_COMPUTED_PLANS && firstBranch.length > 1) {
+    const maxPlansToCompute = this.parameters.config.debug.maxEvaluatedPlans;
+    while (planCount > maxPlansToCompute && firstBranch.length > 1) {
       // we remove the right-most option of the first branch, and them move that branch to it's new place.
       const prevSize = firstBranch.length;
       firstBranch.pop();
@@ -1335,7 +1329,7 @@ class FetchGroup {
   }
 
   toPlanNode(
-    queryPlannerConfig: QueryPlannerConfig,
+    queryPlannerConfig: Concrete<QueryPlannerConfig>,
     handledConditions: Conditions,
     variableDefinitions: VariableDefinitions,
     fragments?: RebasedFragments,
@@ -2685,6 +2679,7 @@ type PlanningParameters<RV extends Vertex> = {
   processor: FetchGroupProcessor<PlanNode | undefined, DeferredNode>
   root: RV,
   inconsistentAbstractTypesRuntimes: Set<string>,
+  config: Concrete<QueryPlannerConfig>,
 }
 
 export class QueryPlanner {
@@ -2704,6 +2699,8 @@ export class QueryPlanner {
     config?: QueryPlannerConfig
   ) {
     this.config = enforceQueryPlannerConfigDefaults(config);
+    // Validating post default-setting to catch any fat-fingering of the defaults themselves.
+    validateQueryPlannerConfig(this.config);
     this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
     this.collectInterfaceTypesWithInterfaceObjects();
     this.collectInconsistentAbstractTypesRuntimes();
@@ -2852,6 +2849,7 @@ export class QueryPlanner {
       root,
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
+      config: this.config,
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
@@ -3320,7 +3318,7 @@ function fetchGroupToPlanProcessor({
   operationName,
   assignedDeferLabels,
 }: {
-  config: QueryPlannerConfig,
+  config: Concrete<QueryPlannerConfig>,
   variableDefinitions: VariableDefinitions,
   fragments?: RebasedFragments,
   operationName?: string,
