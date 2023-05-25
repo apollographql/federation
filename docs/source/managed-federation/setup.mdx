@@ -61,7 +61,7 @@ You can also manually fetch your latest supergraph schema with the `rover superg
 
 <ExpansionPanel title="Using Apollo Gateway?">
 
-If you've already set up Apollo Federation _without_ conneting your gateway to GraphOS, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` option, like this:
+If you've already set up Apollo Federation _without_ connecting your gateway to GraphOS, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` option, like this:
 
 ```js {2}
 const gateway = new ApolloGateway({
@@ -114,6 +114,4 @@ After obtaining your graph API key, you set the following environment variables 
 
 ## 5. Deploy the modified router
 
-You can now deploy your modified router to begin fetching your supergraph schema from GraphOS instead of using a locally generated one.
-
-On startup, your router will use its API key to fetch its federation config from GraphOS. It can then begin executing operations across your subgraphs.
+You can now deploy your modified router, which will fetch its supergraph schema from GraphOS on startup. It can then begin executing operations across your subgraphs.
