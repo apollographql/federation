@@ -3627,21 +3627,25 @@ describe('Named fragments preservation', () => {
         interface Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
 
         type A1 implements Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
 
         type A2 implements Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
 
         type A3 implements Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
       `
     }
@@ -3666,6 +3670,9 @@ describe('Named fragments preservation', () => {
         __typename
         foo
         child {
+          ...FooChildSelect
+        }
+        child2 {
           ...FooChildSelect
         }
       }
@@ -3721,6 +3728,9 @@ describe('Named fragments preservation', () => {
             __typename
             foo
             child {
+              ...FooChildSelect
+            }
+            child2 {
               ...FooChildSelect
             }
           }
@@ -5740,8 +5750,8 @@ test('does not error out handling fragments when interface subtyping is involved
           a {
             b {
               __typename
-              v1
               v2
+              v1
             }
           }
         }
@@ -5750,77 +5760,250 @@ test('does not error out handling fragments when interface subtyping is involved
   `);
 });
 
-test('handles mix of fragments indirection and unions', () => {
-  const subgraph1 = {
-    name: 'Subgraph1',
-    typeDefs: gql`
-      type Query {
-        parent: Parent
-      }
+describe("named fragments reuse", () => {
+  test('handles mix of fragments indirection and unions', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          parent: Parent
+        }
 
-      union CatOrPerson = Cat | Parent | Child
+        union CatOrPerson = Cat | Parent | Child
 
-      type Parent {
-        childs: [Child]
-      }
+        type Parent {
+          childs: [Child]
+        }
 
-      type Child {
-        id: ID!
-      }
+        type Child {
+          id: ID!
+        }
 
-      type Cat {
-        name: String
-      }
-    `
-  }
-
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-  const operation = operationFromDocument(api, gql`
-    query {
-      parent {
-        ...F_indirection1_parent
-      }
+        type Cat {
+          name: String
+        }
+      `
     }
 
-    fragment F_indirection1_parent on Parent {
-      ...F_indirection2_catOrPerson
-    }
-
-    fragment F_indirection2_catOrPerson on CatOrPerson {
-      ...F_catOrPerson
-    }
-
-    fragment F_catOrPerson on CatOrPerson {
-      __typename
-      ... on Cat {
-        name
-      }
-      ... on Parent {
-        childs {
-          __typename
-          id
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      query {
+        parent {
+          ...F_indirection1_parent
         }
       }
-    }
-  `);
+ 
+      fragment F_indirection1_parent on Parent {
+        ...F_indirection2_catOrPerson
+      }
 
-  const plan = queryPlanner.buildQueryPlan(operation);
-  expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Fetch(service: "Subgraph1") {
-        {
-          parent {
+      fragment F_indirection2_catOrPerson on CatOrPerson {
+        ...F_catOrPerson
+      }
+
+      fragment F_catOrPerson on CatOrPerson {
+        __typename
+        ... on Cat {
+          name
+        }
+        ... on Parent {
+          childs {
             __typename
-            childs {
+            id
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            parent {
               __typename
+              childs {
+                __typename
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  test('another mix of fragments indirection and unions', () => {
+    // This tests that the issue reported on https://github.com/apollographql/router/issues/3172 is resolved.
+
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          owner: Owner!
+        }
+
+        interface OItf {
+          id: ID!
+          v0: String!
+        }
+
+        type Owner implements OItf {
+          id: ID!
+          v0: String!
+          u: [U]
+        }
+
+        union U = T1 | T2
+
+        interface I {
+          id: ID!
+        }
+
+        type T1 implements I {
+          id: ID!
+          owner: Owner!
+        }
+
+        type T2 implements I {
+          id: ID!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      {
+        owner {
+          u {
+            ... on I {
               id
             }
+            ...Fragment1
+            ...Fragment2
           }
         }
-      },
-    }
-  `);
-});
+      }
+
+      fragment Fragment1 on T1 {
+        owner {
+          ... on Owner {
+            ...Fragment3
+          }
+        }
+      }
+
+      fragment Fragment2 on T2 {
+        ...Fragment4
+        id
+      }
+
+      fragment Fragment3 on OItf {
+        v0
+      }
+
+      fragment Fragment4 on I {
+        id
+        __typename
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            owner {
+              u {
+                __typename
+                ...Fragment4
+                ... on T1 {
+                  owner {
+                    v0
+                  }
+                }
+                ... on T2 {
+                  ...Fragment4
+                }
+              }
+            }
+          }
+          
+          fragment Fragment4 on I {
+            __typename
+            id
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(api, gql`
+      {
+        owner {
+          u {
+            ... on I {
+              id
+            }
+            ...Fragment1
+            ...Fragment2
+          }
+        }
+      }
+
+      fragment Fragment1 on T1 {
+        owner {
+          ... on Owner {
+            ...Fragment3
+          }
+        }
+      }
+
+      fragment Fragment2 on T2 {
+        ...Fragment4
+        id
+      }
+
+      fragment Fragment3 on OItf {
+        v0
+      }
+
+      fragment Fragment4 on I {
+        id
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            owner {
+              u {
+                __typename
+                ... on I {
+                  __typename
+                  ...Fragment4
+                }
+                ... on T1 {
+                  owner {
+                    v0
+                  }
+                }
+                ... on T2 {
+                  ...Fragment4
+                }
+              }
+            }
+          }
+          
+          fragment Fragment4 on I {
+            id
+          }
+        },
+      }
+    `);
+  });
+})
 
 describe('`debug.maxEvaluatedPlans` configuration', () => {
   // Simple schema, created to force the query planner to have multiple choice. We'll build
@@ -5986,3 +6169,4 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
     );
   });
 });
+

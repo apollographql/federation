@@ -1,11 +1,10 @@
 import {
-    CompositeType,
   defaultRootName,
   Schema,
   SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { MutableSelectionSet, Operation, operationFromDocument, parseOperation, parseSelectionSet } from '../../dist/operations';
+import { MutableSelectionSet, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
 
@@ -57,18 +56,19 @@ describe('fragments optimization', () => {
     // this are just about testing the reuse of fragments and this make things shorter/easier to write.
     // There is tests in `buildPlan.test.ts` that double-check that we don't reuse fragments used only
     // once in actual query plans.
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!, 1);
+    const optimized = withoutFragments.optimize(operation.fragments!, 1);
     expect(optimized.toString()).toMatchString(operation.toString());
   }
 
-  test('handles fragments using other fragments', () => {
+  test('optimize fragments using other fragments when possible', () => {
     const schema = parseSchema(`
       type Query {
-        t: T1
+        t: I
       }
 
       interface I {
         b: Int
+        u: U
       }
 
       type T1 implements I {
@@ -154,7 +154,165 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
+    const optimized = withoutFragments.optimize(operation.fragments!);
+    expect(optimized.toString()).toMatchString(`
+      fragment OnU on U {
+        ... on I {
+          b
+        }
+        ... on T1 {
+          a
+          b
+        }
+        ... on T2 {
+          x
+          y
+        }
+      }
+
+      {
+        t {
+          ...OnU
+          u {
+            ...OnU
+          }
+        }
+      }
+    `);
+  });
+
+  test('handles fragments using other fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: I
+      }
+
+      interface I {
+        b: Int
+        c: Int
+        u1: U
+        u2: U
+      }
+
+      type T1 implements I {
+        a: Int
+        b: Int
+        c: Int
+        me: T1
+        u1: U
+        u2: U
+      }
+
+      type T2 implements I {
+        x: String
+        y: String
+        b: Int
+        c: Int
+        u1: U
+        u2: U
+      }
+
+      union U = T1 | T2
+    `);
+
+    const operation = parseOperation(schema, `
+      fragment OnT1 on T1 {
+        a
+        b
+      }
+
+      fragment OnT2 on T2 {
+        x
+        y
+      }
+
+      fragment OnI on I {
+        b
+        c
+      }
+
+      fragment OnU on U {
+        ...OnI
+        ...OnT1
+        ...OnT2
+      }
+
+      query {
+        t {
+          ...OnT1
+          ...OnT2
+          u1 {
+            ...OnU
+          }
+          u2 {
+            ...OnU
+          }
+          ... on T1 {
+            me {
+              ...OnI
+            }
+          }
+        }
+      }
+    `);
+
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t {
+          ... on T1 {
+            a
+            b
+            me {
+              ... on I {
+                b
+                c
+              }
+            }
+          }
+          ... on T2 {
+            x
+            y
+          }
+          u1 {
+            ... on U {
+              ... on I {
+                b
+                c
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
+            }
+          }
+          u2 {
+            ... on U {
+              ... on I {
+                b
+                c
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!);
+    // We should reuse and keep all fragments, because 1) onU is used twice and 2)
+    // all the other ones are used once in the query, and once in onU definition.
     expect(optimized.toString()).toMatchString(`
       fragment OnT1 on T1 {
         a
@@ -168,17 +326,29 @@ describe('fragments optimization', () => {
 
       fragment OnI on I {
         b
+        c
+      }
+
+      fragment OnU on U {
+        ...OnI
+        ...OnT1
+        ...OnT2
       }
 
       {
         t {
-          ...OnI
-          ...OnT1
-          ...OnT2
-          u {
-            ...OnI
+          ... on T1 {
             ...OnT1
-            ...OnT2
+            me {
+              ...OnI
+            }
+          }
+          ...OnT2
+          u1 {
+            ...OnU
+          }
+          u2 {
+            ...OnU
           }
         }
       }
@@ -509,24 +679,24 @@ describe('fragments optimization', () => {
 
         {
           t {
-            ...Frag2
             ...Frag1
+            ...Frag2
           }
         }
       `,
       expanded: `
         {
           t {
-            a
             b {
-              __typename
               x
+              __typename
             }
+            c
             d {
               m
               n
             }
-            c
+            a
           }
         }
       `,
@@ -1264,63 +1434,4 @@ describe('unsatisfiable branches removal', () => {
   ])('removes unsatisfiable branches', ({input, output}) => {
     expect(withoutUnsatisfiableBranches(input)).toBe(output);
   });
-});
-
-test('contains ignores unecessary fragments even when subtyping is involved', () => {
-  const schema = parseSchema(`
-      type Query {
-        a: A!
-      }
-
-      interface IA1 {
-        b: IB1!
-      }
-
-      interface IA2 {
-        b: IB2!
-      }
-
-      type A implements IA1 & IA2 {
-        b: B!
-      }
-
-      interface IB1 {
-        v1: Int!
-      }
-
-      interface IB2 {
-        v2: Int!
-      }
-
-      type B implements IB1 & IB2 {
-        v1: Int!
-        v2: Int!
-      }
-  `);
-
-  const typeA = schema.type('A') as CompositeType;
-
-  const s1 = parseSelectionSet({
-    parentType: typeA,
-    source: '{ b { v1 v2 } }'
-  });
-
-  const s2 = parseSelectionSet({
-    parentType: typeA,
-    source: '{ ... on IA1 { b { v1 } } ... on IA2 { b { v2 } } }'
-  });
-
-  // Here, A is a concrete type, and IA1 and IA2 are just 2 of its interfaces, so
-  //   a { ... on IA1 { b { v1 } } ... on IA2 { b { v2 } } }
-  // is basically exactly the same as:
-  //   a { b { v1 } b { v2 } }
-  // which is the same as:
-  //   a { b { v1 v2 } }
-  // and that is why we want the `contains` below to work (note that a simple `contains`
-  // that doesn't handle this kind of subtlety could have its use too, it would just be
-  // a different contract, but we want "our" `contains` to handle this because of named
-  // fragments "reconstruction" where that kind of subtlety arises).
-  //
-  // Here, the added subtlety is that there is interface subtyping involved too.
-  expect(s2.contains(s1)).toBeTruthy();
 });

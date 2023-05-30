@@ -218,7 +218,7 @@ export async function executeQueryPlan(
             input: unfilteredData,
             introspectionHandling: (f) => executeIntrospection(
               operationContext.schema,
-              f.expandAllFragments().toSelectionNode(),
+              f.expandFragments().toSelectionNode(),
               operationContext.operation.variableDefinitions,
               variables,
             ),

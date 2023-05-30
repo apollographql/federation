@@ -192,7 +192,7 @@ Scenario: supports multiple named fragments (one level, mixed ordering)
       "serviceName": "accounts",
       "variableUsages": [],
       "operationKind": "query",
-      "operation": "query GetUser__accounts__0{me{username name{first}}}",
+      "operation": "query GetUser__accounts__0{me{name{first}username}}",
       "operationName": "GetUser__accounts__0"
     }
   }
