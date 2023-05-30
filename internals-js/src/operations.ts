@@ -697,7 +697,7 @@ export type RootOperationPath = {
 }
 
 // Computes for every fragment, which other fragments use it (so the reverse of it's dependencies, the other fragment it uses). 
-function computeFragmentsReverseDependencies(fragments: NamedFragments): SetMultiMap<string, string> {
+function computeFragmentsDependents(fragments: NamedFragments): SetMultiMap<string, string> {
   const reverseDeps = new SetMultiMap<string, string>();
   for (const fragment of fragments.definitions()) {
     for (const dependency of fragment.fragmentUsages().keys()) {
@@ -738,8 +738,8 @@ function clearKeptFragments(
 }
 
 // Checks, in `selectionSet`, which fragments (of `fragments`) are used at least `minUsagesToOptimize` times.
-// Returns the updated set of fragments containing only the fragment definitions with usage above our treshold,
-// and `undefined` or `null` if no such fragment meets said treshold. When this method returns `null`, it
+// Returns the updated set of fragments containing only the fragment definitions with usage above our threshold,
+// and `undefined` or `null` if no such fragment meets said threshold. When this method returns `null`, it
 // additionally means that no fragments are use at all in `selectionSet` (and so `undefined` means that
 // "some" fragments are used in `selectionSet`, but just none of them is used at least `minUsagesToOptimize`
 // times).
@@ -793,7 +793,7 @@ function computeFragmentsToKeep(
   //  F1 first, and then realize that this increases F2 usages to 2, which means we stop there and keep F2.
   //  Generalizing this, it means we want to first pick up fragments to expand that are _not_ used by any
   //  other fragments that may be expanded.
-  const reverseDependencies = computeFragmentsReverseDependencies(fragments);
+  const reverseDependencies = computeFragmentsDependents(fragments);
   // We'll add to `toExpand` fragment we will definitively expand.
   const toExpand = new Set<string>;
   let shouldContinue = true;
@@ -831,7 +831,7 @@ function computeFragmentsToKeep(
         // after that to see if something changes.
         shouldContinue = true;
 
-        // Now that we expand it, we should bump the usage or every fragment it uses.
+        // Now that we expand it, we should bump the usage for every fragment it uses.
         const nameUsages = fragments.get(name)!.fragmentUsages();
         for (const [otherName, otherCount] of nameUsages.entries()) {
           const prev = usages.get(otherName);

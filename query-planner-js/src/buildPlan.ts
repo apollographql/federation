@@ -2793,7 +2793,7 @@ export class QueryPlanner {
     }
 
     const reuseQueryFragments = this.config.reuseQueryFragments ?? true;
-    let fragments = operation.fragments
+    let fragments = operation.fragments;
     if (fragments && !fragments.isEmpty() && reuseQueryFragments) {
       // For all subgraph fetches we query `__typename` on every abstract types (see `FetchGroup.toPlanNode`) so if we want
       // to have a chance to reuse fragments, we should make sure those fragments also query `__typename` for every abstract type.
