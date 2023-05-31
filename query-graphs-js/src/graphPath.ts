@@ -1842,6 +1842,40 @@ export function advanceOptionsToString(options: (SimultaneousPaths<any> | Simult
   return '[\n  ' + options.map(opt => Array.isArray(opt) ? simultaneousPathsToString(opt, "  ") : opt.toString()).join('\n  ') + '\n]';
 }
 
+// Given a list of just computed indirect paths and a field that we're trying to advance after those paths, this
+// method fields any path that should note be considered.
+//
+// Currently, this handle the case where the key used at the end of the indirect path contains (at top level) the field
+// being queried. Or to make this more concrete, if we're trying to collect field `id`, and the path last edge was using
+// key `id`, then we can ignore that path because this imply that there is a way to `id` "some other way" (also see
+// the `does not evaluate plans relying on a key field to fetch that same field` test in `buildPlan` for more details).
+function filterNonCollectingPathsForField<V extends Vertex>(
+  paths: OpIndirectPaths<V>,
+  field: Field,
+): OpIndirectPaths<V> {
+  // We only handle leafs. Things are more complex non-leaf.
+  if (!field.isLeafField()) {
+    return paths;
+  }
+
+  const filtered = paths.paths.filter((p) => {
+    const lastEdge = p.lastEdge();
+    if (!lastEdge || lastEdge.transition.kind !== 'KeyResolution') {
+      return true;
+    }
+
+    const conditions = lastEdge.conditions;
+    return !(conditions && conditions.containsTopLevelField(field));
+  });
+  return filtered.length === paths.paths.length
+    ? paths
+    : {
+      ...paths,
+      paths: filtered
+    };
+
+}
+
 // Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
 // being a set of simultaneous paths in the subgraphs (a single path in the simple case, but type exploding may make us explore multiple paths simultaneously).
 // The lists of options can be empty, which has the special meaning that the operation is guaranteed to have no results (it corresponds to unsatisfiable conditions),
@@ -1900,7 +1934,10 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     if (operation.kind === 'Field') {
       debug.group(`Computing indirect paths:`);
       // Then adds whatever options can be obtained by taking some non-collecting edges first.
-      const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
+      const pathsWithNonCollecting = filterNonCollectingPathsForField(
+        subgraphSimultaneousPaths.indirectOptions(updatedContext, i),
+        operation
+      );
       debug.groupEnd(() => pathsWithNonCollecting.paths.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.paths.length} indirect paths`);
       if (pathsWithNonCollecting.paths.length > 0) {
         debug.group('Validating indirect options:');

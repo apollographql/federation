@@ -1792,6 +1792,11 @@ export class SelectionSet {
       : ContainsResult.STRICTLY_CONTAINED;
   }
 
+  containsTopLevelField(field: Field): boolean {
+    const selection = this._keyedSelections.get(field.key());
+    return !!selection && selection.element.equals(field);
+  }
+
   /**
    * Returns a selection set that correspond to this selection set but where any of the selections in the
    * provided selection set have been remove.
