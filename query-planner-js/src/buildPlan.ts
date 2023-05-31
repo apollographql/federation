@@ -814,6 +814,7 @@ const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: condit
 
 class GroupInputs {
   private readonly perType = new Map<string, MutableSelectionSet>();
+  onUpdateCallback: () => void = () => {};
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -830,6 +831,7 @@ class GroupInputs {
       this.perType.set(typeName, typeSelection);
     }
     typeSelection.updates().add(selection);
+    this.onUpdateCallback();
   }
 
   addAll(other: GroupInputs) {
@@ -913,6 +915,7 @@ class FetchGroup {
 
   private readonly inputRewrites: FetchDataRewrite[] = [];
 
+
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -928,7 +931,21 @@ class FetchGroup {
     // key for that. Having it here saves us from re-computing it more than once.
     readonly subgraphAndMergeAtKey?: string,
     private cachedCost?: number,
+    // Cache used to save unecessary recomputation of the `isUseless` method.
+    private isKnownUseful: boolean = false,
   ) {
+    if (this._inputs) {
+      this._inputs.onUpdateCallback = () => {
+        // We're trying to avoid the full recomputation of `isUseless` when we're already
+        // shown that the group is known usefull (if it is shown useless, the group is removed,
+        // so we're not caching that result but it's ok). And `isUseless` basically checks if
+        // `inputs.contains(selection)`, so if a group is shown usefull, it means that there
+        // is some selections not in the inputs, but as long as we add to selections (and we
+        // never remove from selections; `MutableSelectionSet` don't have removing methods),
+        // then this won't change. Only changing inputs may require some recomputation. 
+        this.isKnownUseful = false;
+      }
+    }
   }
 
   static create({
@@ -967,6 +984,7 @@ class FetchGroup {
     );
   }
 
+  // Clones everything on the group itself, but not it's `_parents` or `_children` links.
   cloneShallow(newDependencyGraph: FetchDependencyGraph): FetchGroup {
     return new FetchGroup(
       newDependencyGraph,
@@ -981,6 +999,7 @@ class FetchGroup {
       this.deferRef,
       this.subgraphAndMergeAtKey,
       this.cachedCost,
+      this.isKnownUseful,
     );
   }
 
@@ -1169,6 +1188,10 @@ class FetchGroup {
       return false;
     }
 
+    if (this.isKnownUseful) {
+      return false;
+    }
+
     // For groups that fetches from an @interfaceObject, we can sometimes have something like
     //   { ... on Book { id } } => { ... on Product { id } }
     // where `Book` is an implementation of interface `Product`.
@@ -1178,7 +1201,7 @@ class FetchGroup {
     // But the fetch above _is_ useless, it does only fetch its inputs, and we wouldn't catch this
     // if we do a raw inclusion check of `selection` into `inputs`
     //
-    // We only care about this problem at the top-level of the selections however, so we does that
+    // We only care about this problem at the top-level of the selections however, so we do that
     // top-level check manually (instead of just calling `this.inputs.contains(this.selection)`)
     // but fallback on `contains` for anything deeper.
 
@@ -1199,7 +1222,7 @@ class FetchGroup {
 
     const inputSelections = this.inputs.selectionSets().flatMap((s) => s.selections());
     // Checks that every selection is contained in the input selections.
-    return this.selection.selections().every((selection) => {
+    const isUseless = this.selection.selections().every((selection) => {
       const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
       if (!conditionInSupergraph) {
         // We're not in the @interfaceObject case described above. We just check that an input selection contains the
@@ -1240,6 +1263,9 @@ class FetchGroup {
       return implementationInputSelections.length > 0
         && implementationInputSelections.every((input) => input.selectionSet.contains(subSelectionSet));
     });
+
+    this.isKnownUseful = !isUseless;
+    return isUseless;;
   }
 
   /**
