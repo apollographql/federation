@@ -1359,7 +1359,7 @@ class FetchGroup {
           operationName,
         );
 
-    operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
+    operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema), {minUsagesToOptimize: queryPlannerConfig.experimental.minFragmentUsagesToOptimize, autoFragmentize: queryPlannerConfig.experimental.autoFragmentSubgraphQueries });
 
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
@@ -1542,7 +1542,7 @@ function withFieldAliased(selectionSet: SelectionSet, aliases: FieldToAlias[]): 
       const field = selection.element;
       const alias = pathElement && atCurrentLevel.get(pathElement);
       return !alias && selection.selectionSet === updatedSelectionSet
-        ? selection 
+        ? selection
         : selection.withUpdatedComponents(alias ? field.withUpdatedAlias(alias.alias) : field, updatedSelectionSet);
     } else {
       return selection.selectionSet === updatedSelectionSet
@@ -3457,8 +3457,8 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
 }
 
 /**
- * Given a selection select (`selectionSet`) and given a set of directive applications that can be eliminated (`unneededDirectives`; in 
- * practice those are conditionals (@skip and @include) already accounted for), returns an equivalent selection set but with unecessary 
+ * Given a selection select (`selectionSet`) and given a set of directive applications that can be eliminated (`unneededDirectives`; in
+ * practice those are conditionals (@skip and @include) already accounted for), returns an equivalent selection set but with unecessary
  * "starting" fragments having the unneeded condition/directives removed.
  */
 function removeUnneededTopLevelFragmentDirectives(
@@ -3725,7 +3725,7 @@ function computeGroupsForTree(
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.updates().add(edge.conditions!);
             newGroup.addInputs(
-              wrapInputsSelections(inputType, inputSelections.get(), newContext), 
+              wrapInputsSelections(inputType, inputSelections.get(), newContext),
               computeInputRewritesOnKeyFetch(inputType.name, destType),
             );
 

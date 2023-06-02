@@ -60,7 +60,7 @@ export type QueryPlannerConfig = {
   debug?: {
     /**
      * If used and the supergraph is built from a single subgraph, then user queries do not go through the
-     * normal query planning and instead a fetch to the one subgraph is built directly from the input query. 
+     * normal query planning and instead a fetch to the one subgraph is built directly from the input query.
      */
     bypassPlannerForSingleSubgraph?: boolean,
 
@@ -68,7 +68,7 @@ export type QueryPlannerConfig = {
      * Query planning is an exploratory process. Depending on the specificities and feature used by
      * subgraphs, there could exist may different theoretical valid (if not always efficient) plans
      * for a given query, and at a high level, the query planner generates those possible choices,
-     * evaluate them, and return the best one. In some complex cases however, the number of 
+     * evaluate them, and return the best one. In some complex cases however, the number of
      * theoretically possible plans can be very large, and to keep query planning time acceptable,
      * the query planner cap the maximum number of plans it evaluates. This config allows to configure
      * that cap. Note if planning a query hits that cap, then the planner will still always return a
@@ -84,6 +84,8 @@ export type QueryPlannerConfig = {
      */
     maxEvaluatedPlans?: number,
   },
+
+  experimental?: { autoFragmentSubgraphQueries?: boolean, minFragmentUsagesToOptimize?: number, }
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -106,6 +108,7 @@ export function enforceQueryPlannerConfigDefaults(
       maxEvaluatedPlans: 10000,
       ...config?.debug,
     },
+    experimental: { autoFragmentSubgraphQueries: false, minFragmentUsagesToOptimize: 2}
   };
 }
 

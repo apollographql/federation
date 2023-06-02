@@ -34,7 +34,7 @@ function astSSet(...selections: SelectionNode[]): SelectionSetNode {
 
 describe('fragments optimization', () => {
   // Takes a query with fragments as inputs, expand all those fragments, and ensures that all the
-  // fragments gets optimized back, and that we get back the exact same query. 
+  // fragments gets optimized back, and that we get back the exact same query.
   function testFragmentsRoundtrip({
     schema,
     query,
@@ -57,7 +57,7 @@ describe('fragments optimization', () => {
     // this are just about testing the reuse of fragments and this make things shorter/easier to write.
     // There is tests in `buildPlan.test.ts` that double-check that we don't reuse fragments used only
     // once in actual query plans.
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!, 1);
+    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!, {minUsagesToOptimize: 1});
     expect(optimized.toString()).toMatchString(operation.toString());
   }
 
@@ -1323,4 +1323,179 @@ test('contains ignores unecessary fragments even when subtyping is involved', ()
   //
   // Here, the added subtlety is that there is interface subtyping involved too.
   expect(s2.contains(s1)).toBeTruthy();
+});
+
+test('Reuse fragment if possible else auto re-fragment', () => {
+  const schema = parseSchema(`
+    type Query {
+      t: T1
+    }
+    interface I {
+      b: Int
+    }
+    type T1 {
+      a: Int
+      b: Int
+      c: String
+      d: T2
+    }
+    type T2 {
+      b: Int
+      x: String
+      y: String
+      u: String
+      t: String
+      s: String
+      r: String
+      q: String
+      p: String
+      o: String
+      z: Int
+      v: String
+      w: T1
+    }
+    union U = T1 | T2
+  `);
+
+  const operation = parseOperation(schema, `
+    fragment OnSubT2 on T2 {
+      x
+      y
+      u
+      t
+      s
+      r
+      q
+      p
+    }
+    query {
+      t {
+        d {
+          ...OnSubT2
+          z
+          w {
+            d {
+              ...OnSubT2
+              v
+            }
+          }
+        }
+      }
+      duplicate: t {
+        d {
+          ...OnSubT2
+          z
+          w {
+            d {
+              ...OnSubT2
+              v
+            }
+          }
+        }
+      }
+    }
+  `);
+  const expandedOperationForQP = operation.expandAllFragments();
+  const resultantOperationWithoutFragments = expandedOperationForQP.optimize(operation.selectionSet.fragments!, {minUsagesToOptimize: 2,  autoFragmentize: false});
+  expect(resultantOperationWithoutFragments.toString()).toMatchString(`
+  fragment OnSubT2 on T2 {
+    x
+    y
+    u
+    t
+    s
+    r
+    q
+    p
+  }
+
+  {
+    t {
+      d {
+        ...OnSubT2
+        z
+        w {
+          d {
+            x
+            y
+            u
+            t
+            s
+            r
+            q
+            p
+            v
+          }
+        }
+      }
+    }
+    duplicate: t {
+      d {
+        ...OnSubT2
+        z
+        w {
+          d {
+            x
+            y
+            u
+            t
+            s
+            r
+            q
+            p
+            v
+          }
+        }
+      }
+    }
+  }`);
+  const optimized = expandedOperationForQP.optimize(operation.selectionSet.fragments!, {minUsagesToOptimize:2, autoFragmentize: true});
+  // Note that since auto refragment is set to true we were able to fragment the composite types
+  // and thus reduce the number of lines
+  // even if we could not re use the query fragment "OnSubT2"
+  expect(optimized.toString()).toMatchString(`
+  fragment OnSubT2 on T2 {
+    x
+    y
+    u
+    t
+    s
+    r
+    q
+    p
+  }
+
+  fragment T206a5e7e420bda1858b8f4a7b50df310b2444b2df0c2539a574eb73b2a47e331d on T2 {
+    ...OnSubT2
+    v
+  }
+
+  fragment T1ddac968f776e51fc51b44e4da419b068b627ba915c8470ef0db717b336da59a6 on T1 {
+    d {
+      ...T206a5e7e420bda1858b8f4a7b50df310b2444b2df0c2539a574eb73b2a47e331d
+    }
+  }
+
+  fragment T2150315cdc6028cf38902b0acb83322a8d03258910425d875326fb36072957f7f on T2 {
+    ...OnSubT2
+    z
+    w {
+      ...T1ddac968f776e51fc51b44e4da419b068b627ba915c8470ef0db717b336da59a6
+    }
+  }
+
+  fragment T1a064aab381a5268898c38068088deb7b1a4adf85e0b45762c82828c38df60878 on T1 {
+    d {
+      ...T2150315cdc6028cf38902b0acb83322a8d03258910425d875326fb36072957f7f
+    }
+  }
+
+  {
+    t {
+      ...T1a064aab381a5268898c38068088deb7b1a4adf85e0b45762c82828c38df60878
+    }
+    duplicate: t {
+      ...T1a064aab381a5268898c38068088deb7b1a4adf85e0b45762c82828c38df60878
+    }
+  }`);
 });
