@@ -6,7 +6,7 @@ import {
 import { buildSchema } from '../../dist/buildSchema';
 import { MutableSelectionSet, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
 import './matchers';
-import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
+import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -1072,6 +1072,117 @@ describe('fragments optimization', () => {
         `,
       });
     });
+  });
+
+  test('does not generate invalid operations', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+        i: I
+      }
+
+      interface I {
+        id: ID!
+      }
+
+      interface WithF {
+        f(arg: Int): Int
+      }
+
+      type T1 implements I {
+        id: ID!
+        f(arg: Int): Int
+      }
+
+      type T2 implements I & WithF {
+        id: ID!
+        f(arg: Int): Int
+      }
+    `);
+    const gqlSchema = schema.toGraphQLJSSchema();
+
+    const operation = parseOperation(schema, `
+      query {
+        t1 {
+          id
+          f(arg: 0)
+        }
+        i {
+          ...F1
+        }
+      }
+
+      fragment F1 on I {
+        id
+        ... on WithF {
+          f(arg: 1)
+        }
+      }
+    `);
+    expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1 {
+          id
+          f(arg: 0)
+        }
+        i {
+          ... on I {
+            id
+            ... on WithF {
+              f(arg: 1)
+            }
+          }
+        }
+      }
+    `);
+
+    // Note that technically, `t1` has parent type `T1` which is a `I`, so `F1` can be spread
+    // withing `t1`, and `t1 { ...F1 }` is just `t1 { id }` (because `T` does not implement `WithF`),
+    // so that it would appear that it could be valid to optimize this query into:
+    //   {
+    //     t1 {
+    //       ...F1       // Notice the use of F1 here, which does expand to `id` in this context
+    //       f(arg: 0)
+    //     }
+    //     i {
+    //       ...F1
+    //     }
+    //   }
+    // And while doing this may look "dumb" in that toy example (we're replacing `id` with `...F1`
+    // which is longer so less optimal really), it's easy to expand this to example where re-using
+    // `F1` this way _does_ make things smaller.
+    //
+    // But the query above is actually invalid. And it is invalid because the validation of graphQL
+    // does not take into account the fact that the `... on WithF` part of `F1` is basically dead
+    // code within `t1`. And so it finds a conflict between `f(arg: 0)` and the `f(arg: 1)` in `F1`
+    // (even though, again, the later is statically known to never apply, but graphQL does not
+    // include such static analysis in its validation).
+    //
+    // And so this test does make sure we do not generate the query above (do not use `F1` in `t1`).
+    const optimized = withoutFragments.optimize(operation.fragments!, 1);
+    expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+    expect(optimized.toString()).toMatchString(`
+      fragment F1 on I {
+        id
+        ... on WithF {
+          f(arg: 1)
+        }
+      }
+
+      {
+        t1 {
+          id
+          f(arg: 0)
+        }
+        i {
+          ...F1
+        }
+      }
+    `);
   });
 });
 
