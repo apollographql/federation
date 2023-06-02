@@ -62,7 +62,7 @@
     "@types/loglevel": "1.5.4",
     "@types/make-fetch-happen": "10.0.1",
     "@types/nock": "10.0.3",
-    "@types/node": "14.18.47",
+    "@types/node": "14.18.48",
     "@types/node-fetch": "2.6.4",
     "@types/uuid": "9.0.1",
     "@typescript-eslint/eslint-plugin": "5.59.7",
@@ -85,7 +85,7 @@
     "ts-jest": "29.1.0",
     "ts-node": "10.9.1",
     "typescript": "5.0.4",
-    "winston": "3.8.2",
+    "winston": "3.9.0",
     "winston-transport": "4.5.0"
   },
   "jest": {

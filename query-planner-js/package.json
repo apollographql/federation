@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-planner",
-  "version": "2.4.5",
+  "version": "2.4.6",
   "description": "Apollo Query Planner",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -25,8 +25,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@apollo/federation-internals": "2.4.5",
-    "@apollo/query-graphs": "2.4.5",
+    "@apollo/federation-internals": "2.4.6",
+    "@apollo/query-graphs": "2.4.6",
     "@apollo/utils.keyvaluecache": "^2.1.0",
     "chalk": "^4.1.0",
     "deep-equal": "^2.0.5",

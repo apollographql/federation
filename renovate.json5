@@ -9,7 +9,6 @@
     // Bundle together graphql-codegen updates (even major ones).
     "group:graphqlcodegeneratorMonorepo",
   ],
-  schedule: null,
   // "Past" major version branches, preserved as
   // "version-" branches, should be added here to ensure they get
   // important updatets.
@@ -136,6 +135,11 @@
       "matchPackageNames": ["node"],
       "matchPaths": ["v12-node-compatibility/package.json"],
       "allowedVersions": "12.x",
+    },
+    // @graphql-codegen/*@4 drops support for node 14
+    {
+      "matchPackagePatterns": ["^@graphql-codegen"],
+      "allowedVersions": "3.x",
     },
   ]
 }

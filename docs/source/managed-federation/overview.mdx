@@ -11,13 +11,13 @@ On composition success, GraphOS updates your supergraph's latest configuration, 
 ```mermaid
 graph LR;
   subgraph "Your infrastructure"
-  serviceA[Products subgraph];
-  serviceB[Reviews subgraph];
+  serviceA[Products<br/>subgraph];
+  serviceB[Reviews<br/>subgraph];
   router([Router]);
   end
   subgraph "Apollo GraphOS"
-    registry{{Schema Registry}};
-    uplink{{Uplink}}
+    registry{{Apollo Schema<br/>Registry}};
+    uplink{{Apollo<br/>Uplink}}
   end
   serviceA & serviceB -->|Publishes<br/>schema| registry;
   registry -->|Updates<br/>config| uplink;
