@@ -44,11 +44,7 @@ describe('fragments optimization', () => {
     expanded: string,
   }) {
     const operation = parseOperation(schema, query);
-    // We call `trimUnsatisfiableBranches` because the selections we care about in the query planner
-    // will effectively have had gone through that function (and even if that function wasn't called,
-    // the query planning algorithm would still end up removing unsatisfiable branches anyway), so
-    // it is a more interesting test.
-    const withoutFragments = operation.expandAllFragments().trimUnsatisfiableBranches();
+    const withoutFragments = operation.expandAllFragments();
 
     expect(withoutFragments.toString()).toMatchString(expanded);
 
@@ -120,7 +116,7 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
       {
         t {
@@ -132,22 +128,18 @@ describe('fragments optimization', () => {
             x
             y
           }
-          ... on I {
-            b
-          }
+          b
           u {
-            ... on U {
-              ... on I {
-                b
-              }
-              ... on T1 {
-                a
-                b
-              }
-              ... on T2 {
-                x
-                y
-              }
+            ... on I {
+              b
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
             }
           }
         }
@@ -256,7 +248,7 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
       {
         t {
@@ -264,10 +256,8 @@ describe('fragments optimization', () => {
             a
             b
             me {
-              ... on I {
-                b
-                c
-              }
+              b
+              c
             }
           }
           ... on T2 {
@@ -275,35 +265,31 @@ describe('fragments optimization', () => {
             y
           }
           u1 {
-            ... on U {
-              ... on I {
-                b
-                c
-              }
-              ... on T1 {
-                a
-                b
-              }
-              ... on T2 {
-                x
-                y
-              }
+            ... on I {
+              b
+              c
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
             }
           }
           u2 {
-            ... on U {
-              ... on I {
-                b
-                c
-              }
-              ... on T1 {
-                a
-                b
-              }
-              ... on T2 {
-                x
-                y
-              }
+            ... on I {
+              b
+              c
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
             }
           }
         }
@@ -1121,7 +1107,7 @@ describe('fragments optimization', () => {
     `);
     expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
       {
         t1 {
@@ -1129,11 +1115,9 @@ describe('fragments optimization', () => {
           f(arg: 0)
         }
         i {
-          ... on I {
-            id
-            ... on WithF {
-              f(arg: 1)
-            }
+          id
+          ... on WithF {
+            f(arg: 1)
           }
         }
       }
@@ -1525,8 +1509,8 @@ describe('unsatisfiable branches removal', () => {
     }
   `);
 
-  const withoutUnsatisfiableBranches = (op: string) => {
-    return parseOperation(schema, op).trimUnsatisfiableBranches().toString(false, false)
+  const normalized = (op: string) => {
+    return parseOperation(schema, op).normalize().toString(false, false)
   };
 
 
@@ -1534,7 +1518,7 @@ describe('unsatisfiable branches removal', () => {
     '{ i { a } }',
     '{ i { ... on T1 { a b c } } }',
   ])('is identity if there is no unsatisfiable branches', (op) => {
-    expect(withoutUnsatisfiableBranches(op)).toBe(op);
+    expect(normalized(op)).toBe(op);
   });
 
   it.each([
@@ -1543,6 +1527,6 @@ describe('unsatisfiable branches removal', () => {
     { input: '{ i { ... on I { a ... on T2 { d } } } }', output: '{ i { a ... on T2 { d } } }' },
     { input: '{ i { ... on T2 { ... on I { a ... on J { b } } } } }', output: '{ i { ... on T2 { a } } }' },
   ])('removes unsatisfiable branches', ({input, output}) => {
-    expect(withoutUnsatisfiableBranches(input)).toBe(output);
+    expect(normalized(input)).toBe(output);
   });
 });

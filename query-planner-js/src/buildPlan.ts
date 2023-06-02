@@ -2806,7 +2806,6 @@ export class QueryPlanner {
     // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
     // later if possible (which is why we saved them above before expansion).
     operation = operation.expandAllFragments();
-    operation = operation.trimUnsatisfiableBranches();
     operation = withoutIntrospection(operation);
     operation = this.withSiblingTypenameOptimizedAway(operation);
 
