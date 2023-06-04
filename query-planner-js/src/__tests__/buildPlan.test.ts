@@ -1,10 +1,10 @@
 import { QueryPlanner } from '@apollo/query-planner';
 import { assert, buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
+import { enforceQueryPlannerConfigDefaults } from '../config';
 
 describe('shareable root fields', () => {
   test('can use same root operation from multiple subgraphs in parallel', () => {
@@ -3032,7 +3032,8 @@ test('Correctly handle case where there is too many plans to consider', () => {
   // gets very large very quickly). Obviously, there is no reason to do this in practice.
 
   // Each leaf field is reachable from 2 subgraphs, so doubles the number of plans.
-  const fieldCount = Math.ceil(Math.log2(MAX_COMPUTED_PLANS)) + 1;
+  const defaultMaxComputedPlans = enforceQueryPlannerConfigDefaults().debug.maxEvaluatedPlans!;
+  const fieldCount = Math.ceil(Math.log2(defaultMaxComputedPlans)) + 1;
   const fields = [...Array(fieldCount).keys()].map((i) => `f${i}`);
 
   const typeDefs = gql`
@@ -3626,21 +3627,25 @@ describe('Named fragments preservation', () => {
         interface Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
 
         type A1 implements Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
 
         type A2 implements Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
 
         type A3 implements Foo {
           foo: String
           child: Foo
+          child2: Foo
         }
       `
     }
@@ -3665,6 +3670,9 @@ describe('Named fragments preservation', () => {
         __typename
         foo
         child {
+          ...FooChildSelect
+        }
+        child2 {
           ...FooChildSelect
         }
       }
@@ -3720,6 +3728,9 @@ describe('Named fragments preservation', () => {
             __typename
             foo
             child {
+              ...FooChildSelect
+            }
+            child2 {
               ...FooChildSelect
             }
           }
@@ -5672,3 +5683,490 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
     }
   `);
 });
+
+test('does not error out handling fragments when interface subtyping is involved', () => {
+  // This test essentially make sure the issue in https://github.com/apollographql/federation/issues/2592
+  // is resolved.
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        a: A!
+      }
+
+      interface IA {
+        b: IB!
+      }
+
+      type A implements IA {
+        b: B!
+      }
+
+      interface IB {
+        v1: Int!
+      }
+
+      type B implements IB {
+        v1: Int!
+        v2: Int!
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+  const operation = operationFromDocument(api, gql`
+    {
+      a {
+        ...F1
+        ...F2
+        ...F3
+      }
+    }
+
+    fragment F1 on A {
+      b {
+        v2
+      }
+    }
+
+    fragment F2 on IA {
+      b {
+        v1
+      }
+    }
+
+    fragment F3 on IA {
+      b {
+        __typename
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Fetch(service: "Subgraph1") {
+        {
+          a {
+            b {
+              __typename
+              v2
+              v1
+            }
+          }
+        }
+      },
+    }
+  `);
+});
+
+describe("named fragments reuse", () => {
+  test('handles mix of fragments indirection and unions', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          parent: Parent
+        }
+
+        union CatOrPerson = Cat | Parent | Child
+
+        type Parent {
+          childs: [Child]
+        }
+
+        type Child {
+          id: ID!
+        }
+
+        type Cat {
+          name: String
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      query {
+        parent {
+          ...F_indirection1_parent
+        }
+      }
+ 
+      fragment F_indirection1_parent on Parent {
+        ...F_indirection2_catOrPerson
+      }
+
+      fragment F_indirection2_catOrPerson on CatOrPerson {
+        ...F_catOrPerson
+      }
+
+      fragment F_catOrPerson on CatOrPerson {
+        __typename
+        ... on Cat {
+          name
+        }
+        ... on Parent {
+          childs {
+            __typename
+            id
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            parent {
+              __typename
+              childs {
+                __typename
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  test('another mix of fragments indirection and unions', () => {
+    // This tests that the issue reported on https://github.com/apollographql/router/issues/3172 is resolved.
+
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          owner: Owner!
+        }
+
+        interface OItf {
+          id: ID!
+          v0: String!
+        }
+
+        type Owner implements OItf {
+          id: ID!
+          v0: String!
+          u: [U]
+        }
+
+        union U = T1 | T2
+
+        interface I {
+          id: ID!
+        }
+
+        type T1 implements I {
+          id: ID!
+          owner: Owner!
+        }
+
+        type T2 implements I {
+          id: ID!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    let operation = operationFromDocument(api, gql`
+      {
+        owner {
+          u {
+            ... on I {
+              id
+            }
+            ...Fragment1
+            ...Fragment2
+          }
+        }
+      }
+
+      fragment Fragment1 on T1 {
+        owner {
+          ... on Owner {
+            ...Fragment3
+          }
+        }
+      }
+
+      fragment Fragment2 on T2 {
+        ...Fragment4
+        id
+      }
+
+      fragment Fragment3 on OItf {
+        v0
+      }
+
+      fragment Fragment4 on I {
+        id
+        __typename
+      }
+    `);
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            owner {
+              u {
+                __typename
+                ...Fragment4
+                ... on T1 {
+                  owner {
+                    v0
+                  }
+                }
+                ... on T2 {
+                  ...Fragment4
+                }
+              }
+            }
+          }
+          
+          fragment Fragment4 on I {
+            __typename
+            id
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(api, gql`
+      {
+        owner {
+          u {
+            ... on I {
+              id
+            }
+            ...Fragment1
+            ...Fragment2
+          }
+        }
+      }
+
+      fragment Fragment1 on T1 {
+        owner {
+          ... on Owner {
+            ...Fragment3
+          }
+        }
+      }
+
+      fragment Fragment2 on T2 {
+        ...Fragment4
+        id
+      }
+
+      fragment Fragment3 on OItf {
+        v0
+      }
+
+      fragment Fragment4 on I {
+        id
+      }
+    `);
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            owner {
+              u {
+                __typename
+                ... on I {
+                  __typename
+                  ...Fragment4
+                }
+                ... on T1 {
+                  owner {
+                    v0
+                  }
+                }
+                ... on T2 {
+                  ...Fragment4
+                }
+              }
+            }
+          }
+          
+          fragment Fragment4 on I {
+            id
+          }
+        },
+      }
+    `);
+  });
+})
+
+describe('`debug.maxEvaluatedPlans` configuration', () => {
+  // Simple schema, created to force the query planner to have multiple choice. We'll build
+  // a supergraph with the 2 _same_ subgraph having this exact same schema. In practice,
+  // for every field `v_i`, the planner will consider the option of fetching it from either
+  // the 1st or 2nd subgraph (not that in theory, there is more choices than this; we could
+  // get `t.id` from the 1st subgraph and then jump to then 2nd subgraph, but some heuristics
+  // in the the query planner recognize this is not useful. Also note that we currently
+  // need both the `@key` on `T` and to have `Query.t` shareable for the query to consider
+  // those choices).
+  const typeDefs = gql`
+    type Query {
+      t: T @shareable
+    }
+
+    type T @key(fields: "id") @shareable {
+      id: ID!
+      v1: Int
+      v2: Int
+      v3: Int
+      v4: Int
+    }
+  `;
+
+  const subgraphs = [
+    {
+      name: 'Subgraph1',
+      typeDefs
+    }, {
+      name: 'Subgraph2',
+      typeDefs  }
+  ];
+
+  test('works when unset', () => {
+    // This test is mostly a sanity check to make sure that "by default", we do have 16 plans
+    // (all combination of the 2 choices for 4 fields). It's not entirely impossible that
+    // some future smarter heuristic is added to the planner so that it recognize it could
+    // but the choices earlier, and if that's the case, this test will fail (showing that less
+    // plans are considered) and we'll have to adapt the example (find a better way to force
+    // choices).
+
+    const config = { debug : { maxEvaluatedPlans : undefined } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          v2
+          v3
+          v4
+        }
+      }
+      `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              v1
+              v2
+              v3
+              v4
+            }
+          }
+        },
+      }
+    `);
+
+    const stats = queryPlanner.lastGeneratedPlanStatistics();
+    expect(stats?.evaluatedPlanCount).toBe(16);
+  });
+
+  test('allows setting down to 1', () => {
+    const config = { debug : { maxEvaluatedPlans : 1 } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          v2
+          v3
+          v4
+        }
+      }
+      `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // Note that in theory, the planner would be excused if it wasn't generated this
+    // (optimal in this case) plan. But we kind of want it in this simple example so
+    // we still assert this is the plan we get.
+    // Note2: `v1` ends up reordered in this case due to reordering of branches that
+    // happens as a by-product of cutting out choice. This is completely harmless and
+    // the plan is still find and optimal, but if we someday find the time to update
+    // the code to keep the order more consistent (say, if we ever rewrite said code :)),
+    // then this wouldn't be the worst thing either.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              v2
+              v3
+              v4
+              v1
+            }
+          }
+        },
+      }
+    `);
+
+    const stats = queryPlanner.lastGeneratedPlanStatistics();
+    expect(stats?.evaluatedPlanCount).toBe(1);
+  });
+
+  test('can be set to an arbitrary number', () => {
+    const config = { debug : { maxEvaluatedPlans : 10 } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          v1
+          v2
+          v3
+          v4
+        }
+      }
+      `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              v1
+              v4
+              v2
+              v3
+            }
+          }
+        },
+      }
+    `);
+
+    const stats = queryPlanner.lastGeneratedPlanStatistics();
+    // Note that in this particular example, since we have binary choices only and due to the way
+    // we cut branches when we're above the max, the number of evaluated plans can only be a power
+    // of 2. Here, we just want it to be the nearest power of 2 below our limit.
+    expect(stats?.evaluatedPlanCount).toBe(8);
+  });
+
+  test('cannot be set to 0 or a negative number', () => {
+    let config = { debug : { maxEvaluatedPlans : 0 } };
+    expect(() => composeAndCreatePlannerWithOptions(subgraphs, config)).toThrow(
+      'Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got 0'
+    );
+
+    config = { debug : { maxEvaluatedPlans : -1 } };
+    expect(() => composeAndCreatePlannerWithOptions(subgraphs, config)).toThrow(
+      'Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got -1'
+    );
+  });
+});
+

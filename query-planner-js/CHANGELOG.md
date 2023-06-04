@@ -1,5 +1,37 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.4.7
+### Patch Changes
+
+
+- Re-work the code use to try to reuse query named fragments to improve performance (thus sometimes improving query ([#2604](https://github.com/apollographql/federation/pull/2604))
+  planning performance), to fix a possibly raised assertion error (with a message of form like `Cannot add selection of
+  field X to selection set of parent type Y`), and to fix a rare issue where an interface or union field was not being
+  queried for all the types it should be.
+- Updated dependencies [[`2d44f346`](https://github.com/apollographql/federation/commit/2d44f346c553f489d83f1c672e1ad8715665cde2)]:
+  - @apollo/federation-internals@2.4.7
+  - @apollo/query-graphs@2.4.7
+
+## 2.4.6
+### Patch Changes
+
+
+- Fix assertion error in some overlapping fragment cases. In some cases, when fragments overlaps on some sub-selections ([#2594](https://github.com/apollographql/federation/pull/2594))
+  and some interface field implementation relied on sub-typing, an assertion error could be raised with a message of
+  the form `Cannot add selection of field X to selection set of parent type Y` and this fixes this problem.
+
+- Adds `debug.maxEvaluatedPlans` query planning configuration options. This option limits the maximum number of query plan ([#2593](https://github.com/apollographql/federation/pull/2593))
+  that may have to be evaluated during a query planning phase, thus capping the maximum query planning runtime, but at the
+  price of potentially reducing the optimality of the generated query plan (which may mean slower query executions). This
+  option is exposed for debugging purposes, but it is recommended to rely on the default in production.
+
+- Fix possible fragment-related assertion error during query planning. This prevents a rare case where an assertion with a ([#2596](https://github.com/apollographql/federation/pull/2596))
+  message of the form `Cannot add fragment of condition X (runtimes: ...) to parent type Y (runtimes: ...)` could fail
+  during query planning.
+- Updated dependencies [[`5cd17e69`](https://github.com/apollographql/federation/commit/5cd17e6965664768c9d9f5b734634764bbebf2e7), [`e136ad87`](https://github.com/apollographql/federation/commit/e136ad87db6005ddd8100f98022a043c0846f38e)]:
+  - @apollo/federation-internals@2.4.6
+  - @apollo/query-graphs@2.4.6
+
 ## 2.4.5
 ### Patch Changes
 
