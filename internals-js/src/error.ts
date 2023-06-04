@@ -58,7 +58,7 @@ export function extractGraphQLErrorOptions(e: GraphQLError): GraphQLErrorOptions
 
 class AggregateGraphQLError extends GraphQLError {
   constructor(
-    code: String,
+    code: string,
     message: string,
     readonly causes: GraphQLError[],
     options?: GraphQLErrorOptions,
@@ -83,7 +83,7 @@ class AggregateGraphQLError extends GraphQLError {
   }
 }
 
-export function aggregateError(code: String, message: string, causes: GraphQLError[]): GraphQLError {
+export function aggregateError(code: string, message: string, causes: GraphQLError[]): GraphQLError {
   return new AggregateGraphQLError(code, message, causes);
 }
 

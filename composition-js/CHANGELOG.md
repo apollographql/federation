@@ -1,5 +1,24 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.4.7
+### Patch Changes
+
+
+- Re-work the code use to try to reuse query named fragments to improve performance (thus sometimes improving query ([#2604](https://github.com/apollographql/federation/pull/2604))
+  planning performance), to fix a possibly raised assertion error (with a message of form like `Cannot add selection of
+  field X to selection set of parent type Y`), and to fix a rare issue where an interface or union field was not being
+  queried for all the types it should be.
+- Updated dependencies [[`2d44f346`](https://github.com/apollographql/federation/commit/2d44f346c553f489d83f1c672e1ad8715665cde2)]:
+  - @apollo/federation-internals@2.4.7
+  - @apollo/query-graphs@2.4.7
+
+## 2.4.6
+### Patch Changes
+
+- Updated dependencies [[`5cd17e69`](https://github.com/apollographql/federation/commit/5cd17e6965664768c9d9f5b734634764bbebf2e7), [`e136ad87`](https://github.com/apollographql/federation/commit/e136ad87db6005ddd8100f98022a043c0846f38e)]:
+  - @apollo/federation-internals@2.4.6
+  - @apollo/query-graphs@2.4.6
+
 ## 2.4.5
 ### Patch Changes
 

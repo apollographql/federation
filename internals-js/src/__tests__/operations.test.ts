@@ -56,27 +56,28 @@ describe('fragments optimization', () => {
     // this are just about testing the reuse of fragments and this make things shorter/easier to write.
     // There is tests in `buildPlan.test.ts` that double-check that we don't reuse fragments used only
     // once in actual query plans.
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!, 1);
+    const optimized = withoutFragments.optimize(operation.fragments!, 1);
     expect(optimized.toString()).toMatchString(operation.toString());
   }
 
-  test('handles fragments using other fragments', () => {
+  test('optimize fragments using other fragments when possible', () => {
     const schema = parseSchema(`
       type Query {
-        t: T1
+        t: I
       }
 
       interface I {
         b: Int
+        u: U
       }
 
-      type T1 {
+      type T1 implements I {
         a: Int
         b: Int
         u: U
       }
 
-      type T2 {
+      type T2 implements I {
         x: String
         y: String
         b: Int
@@ -153,7 +154,165 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const optimized = withoutFragments.optimize(operation.selectionSet.fragments!);
+    const optimized = withoutFragments.optimize(operation.fragments!);
+    expect(optimized.toString()).toMatchString(`
+      fragment OnU on U {
+        ... on I {
+          b
+        }
+        ... on T1 {
+          a
+          b
+        }
+        ... on T2 {
+          x
+          y
+        }
+      }
+
+      {
+        t {
+          ...OnU
+          u {
+            ...OnU
+          }
+        }
+      }
+    `);
+  });
+
+  test('handles fragments using other fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: I
+      }
+
+      interface I {
+        b: Int
+        c: Int
+        u1: U
+        u2: U
+      }
+
+      type T1 implements I {
+        a: Int
+        b: Int
+        c: Int
+        me: T1
+        u1: U
+        u2: U
+      }
+
+      type T2 implements I {
+        x: String
+        y: String
+        b: Int
+        c: Int
+        u1: U
+        u2: U
+      }
+
+      union U = T1 | T2
+    `);
+
+    const operation = parseOperation(schema, `
+      fragment OnT1 on T1 {
+        a
+        b
+      }
+
+      fragment OnT2 on T2 {
+        x
+        y
+      }
+
+      fragment OnI on I {
+        b
+        c
+      }
+
+      fragment OnU on U {
+        ...OnI
+        ...OnT1
+        ...OnT2
+      }
+
+      query {
+        t {
+          ...OnT1
+          ...OnT2
+          u1 {
+            ...OnU
+          }
+          u2 {
+            ...OnU
+          }
+          ... on T1 {
+            me {
+              ...OnI
+            }
+          }
+        }
+      }
+    `);
+
+    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t {
+          ... on T1 {
+            a
+            b
+            me {
+              ... on I {
+                b
+                c
+              }
+            }
+          }
+          ... on T2 {
+            x
+            y
+          }
+          u1 {
+            ... on U {
+              ... on I {
+                b
+                c
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
+            }
+          }
+          u2 {
+            ... on U {
+              ... on I {
+                b
+                c
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!);
+    // We should reuse and keep all fragments, because 1) onU is used twice and 2)
+    // all the other ones are used once in the query, and once in onU definition.
     expect(optimized.toString()).toMatchString(`
       fragment OnT1 on T1 {
         a
@@ -167,17 +326,29 @@ describe('fragments optimization', () => {
 
       fragment OnI on I {
         b
+        c
+      }
+
+      fragment OnU on U {
+        ...OnI
+        ...OnT1
+        ...OnT2
       }
 
       {
         t {
-          ...OnI
-          ...OnT1
-          ...OnT2
-          u {
-            ...OnI
+          ... on T1 {
             ...OnT1
-            ...OnT2
+            me {
+              ...OnI
+            }
+          }
+          ...OnT2
+          u1 {
+            ...OnU
+          }
+          u2 {
+            ...OnU
           }
         }
       }
@@ -508,24 +679,24 @@ describe('fragments optimization', () => {
 
         {
           t {
-            ...Frag2
             ...Frag1
+            ...Frag2
           }
         }
       `,
       expanded: `
         {
           t {
-            a
             b {
-              __typename
               x
+              __typename
             }
+            c
             d {
               m
               n
             }
-            c
+            a
           }
         }
       `,
