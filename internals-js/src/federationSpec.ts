@@ -117,7 +117,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
       repeatable: version >= (new FeatureVersion(2, 2)),
     }));
 
-    this.registerDirective(INACCESSIBLE_VERSIONS.latest().inaccessibleDirectiveSpec);
+    this.registerDirective(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version).inaccessibleDirectiveSpec);
 
     this.registerDirective(createDirectiveSpecification({
       name: FederationDirectiveName.OVERRIDE,

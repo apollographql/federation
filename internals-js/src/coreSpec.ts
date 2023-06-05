@@ -2,7 +2,7 @@ import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graph
 import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
 import { sameType } from "./types";
-import { assert, firstOf, MapWithCachedArrays } from './utils';
+import { assert, findLast, firstOf, MapWithCachedArrays } from './utils';
 import { aggregateError, ERRORS } from "./error";
 import { valueToString } from "./values";
 import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
@@ -41,7 +41,8 @@ export abstract class FeatureDefinition {
   private readonly _directiveSpecs = new MapWithCachedArrays<string, DirectiveSpecification>();
   private readonly _typeSpecs = new MapWithCachedArrays<string, TypeSpecification>();
 
-  constructor(url: FeatureUrl | string) {
+  // A minimumFederationVersion that's undefined would mean that we won't produce that version in the supergraph SDL.
+  constructor(url: FeatureUrl | string, readonly minimumFederationVersion?: FeatureVersion) {
     this.url = typeof url === 'string' ? FeatureUrl.parse(url) : url;
   }
 
@@ -364,8 +365,8 @@ const linkImportTypeSpec = createScalarTypeSpecification({ name: 'Import' });
 export class CoreSpecDefinition extends FeatureDefinition {
   private readonly directiveDefinitionSpec: DirectiveSpecification;
 
-  constructor(version: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
-    super(new FeatureUrl(identity, name, version));
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
+    super(new FeatureUrl(identity, name, version), minimumFederationVersion);
     this.directiveDefinitionSpec = createDirectiveSpecification({
       name,
       locations: [DirectiveLocation.SCHEMA],
@@ -587,6 +588,23 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     assert(this._definitions.length > 0, 'Trying to get latest when no definitions exist');
     return this._definitions[0];
   }
+
+  getMinimumRequiredVersion(fedVersion: FeatureVersion): T {
+    // this._definitions is already sorted with the most recent first
+    // get the first definition that is compatible with the federation version
+    // if the minimum version is not present, assume that we won't look for an older version
+    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion >= def.minimumFederationVersion : true);
+    assert(def, `No compatible definition exists for federation version ${fedVersion}`);
+
+    // note that it's necessary that we can only get versions that have the same major version as the latest,
+    // because otherwise we can not guarantee compatibility. In this case, we want to return the oldest version with
+    // the same major version as the latest.
+    const latestMajor = this.latest().version.major;
+    if (def.version.major !== latestMajor) {
+      return findLast(this._definitions, def => def.version.major === latestMajor) ?? this.latest();
+    }
+    return def;
+  }
 }
 
 /**
@@ -789,11 +807,11 @@ export function findCoreSpecVersion(featureUrl: FeatureUrl): CoreSpecDefinition 
 }
 
 export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIdentity)
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 1), coreIdentity, 'core'))
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 2), coreIdentity, 'core'));
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 1), undefined, coreIdentity, 'core'))
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 0), coreIdentity, 'core'));
 
 export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIdentity)
-  .add(new CoreSpecDefinition(new FeatureVersion(1, 0)));
+  .add(new CoreSpecDefinition(new FeatureVersion(1, 0), new FeatureVersion(2, 0)));
 
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);
