@@ -39,8 +39,8 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   public readonly inaccessibleDirectiveSpec: DirectiveSpecification;
   private readonly printedInaccessibleDefinition: string;
 
-  constructor(version: FeatureVersion) {
-    super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version));
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+    super(new FeatureUrl(inaccessibleIdentity, 'inaccessible', version), minimumFederationVersion);
     this.inaccessibleLocations = [
       DirectiveLocation.FIELD_DEFINITION,
       DirectiveLocation.OBJECT,
@@ -63,7 +63,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
       name: 'inaccessible',
       locations: this.inaccessibleLocations,
       composes: true,
-      supergraphSpecification: () => INACCESSIBLE_VERSIONS.latest(),
+      supergraphSpecification: (fedVersion) => INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(fedVersion),
     });
     this.registerDirective(this.inaccessibleDirectiveSpec);
   }
@@ -95,7 +95,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
 
 export const INACCESSIBLE_VERSIONS = new FeatureDefinitions<InaccessibleSpecDefinition>(inaccessibleIdentity)
   .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)))
-  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 2)));
+  .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 0)));
 
 registerKnownFeature(INACCESSIBLE_VERSIONS);
 
