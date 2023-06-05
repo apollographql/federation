@@ -400,10 +400,6 @@ export function printHumanReadableList(
   }
 }
 
-export type Concrete<Type> = {
-  [Property in keyof Type]-?: Concrete<Type[Property]>;
-};
-
 // for use with Array.filter
 // Example:
 //   const x = [1,2,undefined];
@@ -433,7 +429,7 @@ export function isNonEmptyArray<T>(array: T[]): array is NonEmptyArray<T> {
  * Custom Utility types
  */
 export type Concrete<Type> = {
-  [Property in keyof Type]-?: Type[Property];
+  [Property in keyof Type]-?: Concrete<Type[Property]>;
 };
 
 export type NonEmptyArray<T> = [T, ...T[]];

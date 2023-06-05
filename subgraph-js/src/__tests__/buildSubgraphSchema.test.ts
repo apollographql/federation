@@ -1105,7 +1105,7 @@ describe('buildSubgraphSchema', () => {
   });
 
   // Those tests ensures that we expand older federation specification to their proper definitions,
-  // so they explicitely link to older spec and should not be changed.
+  // so they explicitly link to older spec and should not be changed.
   describe('federation specification backward compatibility', () => {
     const testVersion = async (version: string, expectedOutput: string) => {
       const query = `
@@ -1322,11 +1322,11 @@ describe('buildSubgraphSchema', () => {
       `);
     });
 
-    it('expands federation 2.3 correctly', async () => {
-      // For 2.3, we expect in everything from 2.2 plus:
+    it('expands federation 2.4 correctly', async () => {
+      // For 2.4, we expect in everything from 2.2 plus:
       // - the @interfaceObject directive
       // - the @tag directive to additionally have the SCHEMA location
-      await testVersion('2.3', `
+      await testVersion('2.4', `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
         {
@@ -1334,7 +1334,7 @@ describe('buildSubgraphSchema', () => {
         }
 
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+          @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
 
         directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 

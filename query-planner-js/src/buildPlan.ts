@@ -1348,8 +1348,8 @@ class FetchGroup {
     assert(schema, `subgraph schema does not exist for ${this.subgraphName}`);
     return (schema.directive(FederationDirectiveName.FINDER)?.applications() ?? [])
       .map(d => d.parent)
-      .filter((parent): parent is FieldDefinition<any> =>
-        parent instanceof FieldDefinition<any>
+      .filter((parent): parent is FieldDefinition<ObjectType> =>
+        parent instanceof FieldDefinition
         && parent.type?.kind === 'ObjectType'
         && parent.type?.name === entityName
         && parent.arguments().length === 1
@@ -4577,7 +4577,7 @@ function operationForFindersFetch({
   ));
   const finderCall: SelectionSet = new SelectionSet(queryType, newSelections);
 
-  return new Operation(subgraphSchema, 'query', finderCall, variableDefinitions, operationName);
+  return new Operation(subgraphSchema, 'query', finderCall, variableDefinitions, undefined, operationName);
 }
 
 function operationForQueryFetch(

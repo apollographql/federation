@@ -217,7 +217,7 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
       {
         query: Query
       }
