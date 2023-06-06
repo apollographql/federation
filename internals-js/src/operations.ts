@@ -47,6 +47,7 @@ import {
   Variables,
   isObjectType,
   NamedType,
+  isUnionType,
 } from "./definitions";
 import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
@@ -1114,23 +1115,50 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * us that part.
    */
   expandedSelectionSetAtType(type: CompositeType): SelectionSetAtType {
-    const expandedSelectionSet = this.expandedSelectionSet();
-
-    // First, if the candidate condition is an object or is the type passed, then there isn't any additional restriction to do.
+    // First, if the candidate condition is an object or is the type passed, then there isn't anyrestriction to do.
     if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
-      return { selectionSet: expandedSelectionSet };
+      return { selectionSet: this.expandedSelectionSet() };
     }
 
     let cached = this.expandedSelectionSetsAtTypesCache.get(type.name);
     if (!cached) {
-      // Note that all we want is removing any top-level branches that don't apply due to the current type. There is no point
-      // in going recursive however: any simplification due to `type` stops as soon as we traverse a field. And so we don't bother. 
-      const selectionSetAtType = expandedSelectionSet.normalize(type, { recursive: false });
-      const trimmed = expandedSelectionSet.minus(selectionSetAtType);
-      cached = { selectionSet: selectionSetAtType, trimmed : trimmed.isEmpty() ? undefined: trimmed };
+      cached = this.computeExpandedSelectionSetAtType(type);
       this.expandedSelectionSetsAtTypesCache.set(type.name, cached);
     }
     return cached;
+  }
+
+  private computeExpandedSelectionSetAtType(type: CompositeType): SelectionSetAtType {
+    const expandedSelectionSet = this.expandedSelectionSet();
+    let selectionSet: SelectionSet;
+    // There is 2 case where we can just call `normalize` on `type` directly:
+    // 1. if `type` is an object: since `type` is a runtime of `typeCondition` then `typeCondition` is
+    //   either an interface of `type` or a union containing it.
+    // 2. if `typeCondition` is an union: that's because the only selections on a union are either `__typename`
+    //   or some other condition that intersects the union. Both are also guarateed to be ok for `type`
+    //   since `type` intersects union.
+    if (isObjectType(type) || isUnionType(this.typeCondition)) {
+      // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
+      // stops as soon as we traverse a field, so no point in being recursive.
+      selectionSet = expandedSelectionSet.normalize(type, { recursive: false });
+    } else {
+      // Otherwise, we just filter any top-level fragment that happens to not intersect with `type` runtimes.
+      // Note that `normalize` also do this for the case above, but `normalize` also can sometimes simplify some
+      // of the fragment that are kept, which don't apply here. And calling `normalize` would not be valid because
+      // one of its effect is to "rebase" on `type` which may be invalid here. Namely, we could have `type === I1`
+      // and the fragment be: `fragment X on I2 { f }`, and even having `runtimes(I1)` included in `runtimes(I2)`
+      // does not mean that `f` if a valid fild for `I1`.
+      const typeRuntimes = possibleRuntimeTypes(type);
+      const conditionRuntimes = possibleRuntimeTypes(this.typeCondition);
+      selectionSet = typeRuntimes.length === conditionRuntimes.length
+        ? expandedSelectionSet
+        : expandedSelectionSet.filter((s) =>
+          s.kind !== 'FragmentSelection' || !s.element.typeCondition || typeRuntimes.some((t) => t.name == s.element.typeCondition?.name)
+        );
+    }
+
+    const trimmed = expandedSelectionSet.minus(selectionSet);
+    return { selectionSet, trimmed : trimmed.isEmpty() ? undefined: trimmed };
   }
 
   /**
@@ -1165,6 +1193,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return (indent ?? '') + `fragment ${this.name} on ${this.typeCondition}${this.appliedDirectivesToString()} ${this.selectionSet.toString(false, true, indent)}`;
   }
 }
+
 
 export class NamedFragments {
   private readonly fragments = new MapWithCachedArrays<string, NamedFragmentDefinition>();
@@ -1591,11 +1620,9 @@ export class SelectionSet {
    * ```
    *
    * For this operation to be valid (to not throw), `parentType` must be such this selection set would
-   * be valid as a subselection of an inline fragment `... on parentType { <this selection set> }`,
-   * which is another way to say that the possible runtime types of `parentType` must intersect with
-   * those of `this.parentType` (and so `this.normalize(this.parentType)` is always valid and useful,
-   * but it is possible to pass a `parentType` that is more "restrictive" than the selection current
-   * parent type).
+   * be valid as a subselection of an inline fragment `... on parentType { <this selection set> }` (and
+   * so `this.normalize(this.parentType)` is always valid and useful, but it is possible to pass a `parentType`
+   * that is more "restrictive" than the selection current parent type).
    *
    * Passing the option `recursive == false` makes the normalization only apply at the top-level, removing
    * any unecessary top-level inline fragments, possibly multiple layers of them, but we never recurse
@@ -2883,7 +2910,7 @@ class InlineFragmentSelection extends FragmentSelection {
           // some, then:
           //  1. all it's directives should also be on the current element.
           //  2. the directives of this element should be the fragment condition.
-          // because if those 2 conditions are true, we cna replace the whole current inline fragment
+          // because if those 2 conditions are true, we can replace the whole current inline fragment
           // with the match spread and directives will still match.
           return fragment.appliedDirectives.length === 0
             || (
