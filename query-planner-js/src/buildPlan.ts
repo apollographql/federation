@@ -1397,6 +1397,8 @@ class FetchGroup {
         operationName: operation.name,
         operation: stripIgnoredCharacters(print(operationDocument)),
         variableUsages: [finder.fieldName()],
+        inputRewrites: this.inputRewrites.length === 0 ? undefined : this.inputRewrites,
+        outputRewrites: outputRewrites.length === 0 ? undefined : outputRewrites,
         inputs: [{
           selectedType: finderArg.type.toString(),
           selections: inputNodes ? trimSelectionNodes(inputNodes.selections) : [],

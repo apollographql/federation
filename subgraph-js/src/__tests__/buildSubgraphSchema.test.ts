@@ -1322,11 +1322,11 @@ describe('buildSubgraphSchema', () => {
       `);
     });
 
-    it('expands federation 2.4 correctly', async () => {
-      // For 2.4, we expect in everything from 2.2 plus:
+    it('expands federation 2.5 correctly', async () => {
+      // For 2.5, we expect in everything from 2.2 plus:
       // - the @interfaceObject directive
       // - the @tag directive to additionally have the SCHEMA location
-      await testVersion('2.4', `
+      await testVersion('2.5', `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
         {
@@ -1334,7 +1334,7 @@ describe('buildSubgraphSchema', () => {
         }
 
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+          @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
 
         directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 

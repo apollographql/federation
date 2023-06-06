@@ -46,7 +46,7 @@ export interface FetchNode {
   operationKind: OperationTypeNode;
   operationDocumentNode?: DocumentNode;
   // Optionally describe a number of "rewrites" that query plan executors should apply to the data that is sent as input of this fetch.
-  // Note that such rewrites should only impact the inputs of the fetch they are applied to (meaning that, as those inputs are collected 
+  // Note that such rewrites should only impact the inputs of the fetch they are applied to (meaning that, as those inputs are collected
   // from the current in-memory result, the rewrite should _not_ impact said in-memory results, only what is sent in the fetch).
   inputRewrites?: FetchDataRewrite[];
   // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is applied to the current in-memory results).
@@ -62,6 +62,12 @@ export interface SubgraphFetchNode {
   inputs: FetchInput[];
   operationName: string | undefined;
   operation: string;
+  // Optionally describe a number of "rewrites" that query plan executors should apply to the data that is sent as input of this fetch.
+  // Note that such rewrites should only impact the inputs of the fetch they are applied to (meaning that, as those inputs are collected
+  // from the current in-memory result, the rewrite should _not_ impact said in-memory results, only what is sent in the fetch).
+  inputRewrites?: FetchDataRewrite[];
+  // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is applied to the current in-memory results).
+  outputRewrites?: FetchDataRewrite[];
 }
 
 export interface FetchInput {

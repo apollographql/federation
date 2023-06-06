@@ -226,6 +226,6 @@ export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIden
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 4)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 5)));
 
 registerKnownFeature(JOIN_VERSIONS);

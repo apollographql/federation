@@ -24,7 +24,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -42,7 +42,7 @@ describe("composing graphs with @finder", () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(result.errors).toBeUndefined();
     expect(result.schema).toBeDefined();
-    const queryType = result.schema?.type("Query");
+    const queryType = result.schema?.type('Query');
     expect(queryType ? printType(queryType) : '').toMatchInlineSnapshot(`
     "type Query
       @join__type(graph: SUBGRAPHA)
@@ -60,7 +60,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -88,7 +88,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -120,7 +120,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -148,7 +148,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -176,7 +176,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -203,7 +203,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -230,7 +230,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -257,7 +257,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -282,7 +282,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -309,7 +309,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 
@@ -340,7 +340,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.4"
+            url: "https://specs.apollo.dev/federation/v2.5"
             import: ["@key", "@finder"]
           )
 

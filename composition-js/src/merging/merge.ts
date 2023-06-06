@@ -480,7 +480,7 @@ class Merger {
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
     if (this.errors.length === 0) {
-      this.interfaceImplemPostMergeValidations();
+      this.postMergeValidations();
 
       if (this.errors.length === 0) {
         try {
@@ -489,7 +489,7 @@ class Merger {
           // point back to the subgraphs in any way.
           // Given the subgraphs are valid and given how merging works (it takes the union of what is in the
           // subgraphs), there is only so much things that can be invalid in the supergraph at this point. We
-          // should make sure we add all such validation to `interfaceImplemPostMergeValidations` with good error messages (that points
+          // should make sure we add all such validation to `postMergeValidations` with good error messages (that points
           // to subgraphs appropriately). and then simply _assert_ that `Schema.validate()` doesn't throw as a sanity
           // check.
           this.merged.validate();
@@ -913,7 +913,7 @@ class Merger {
 
           // Note that we don't blindly add the field yet, that would be incorrect in many cases (and we
           // have a specific validation that return a user-friendly error in such incorrect cases, see
-          // `interfaceImplemPostMergeValidations`). We must first check that there is some subgraph that implement
+          // `postMergeValidations`). We must first check that there is some subgraph that implement
           // that field as an "interface object", since in that case the field will genuinely be provided
           // by that subgraph at runtime.
           if (this.isFieldProvidedByAnInterfaceObject(itfField.name, implementedItf.name)) {
@@ -2576,7 +2576,7 @@ class Merger {
 
   // TODO: the code here largely duplicate code that is in `internals-js/src/validate.ts`, except that when it detect an error, it
   // provides an error in terms of subgraph inputs (rather than what is merge). We could maybe try to save some of that duplication.
-  private interfaceImplemPostMergeValidations() {
+  private postMergeValidations() {
     for (const type of this.merged.types()) {
       if (!isObjectType(type) && !isInterfaceType(type)) {
         continue;

@@ -143,7 +143,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
         TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
       );
     }
-    if (version >= (new FeatureVersion(2, 4))) {
+    if (version >= (new FeatureVersion(2, 5))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.FINDER,
         locations: [DirectiveLocation.FIELD_DEFINITION],
@@ -157,6 +157,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
