@@ -50,7 +50,7 @@ import {
 } from "./definitions";
 import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
-import { isSubtype, sameType } from "./types";
+import { isSubtype, sameType, typesCanBeMerged } from "./types";
 import { assert, mapKeys, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 import { v1 as uuidv1 } from 'uuid';
@@ -115,7 +115,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   constructor(
     readonly definition: FieldDefinition<CompositeType>,
-    private readonly args?: TArgs,
+    readonly args?: TArgs,
     directives?: readonly Directive<any>[],
     readonly alias?: string,
   ) {
@@ -985,6 +985,8 @@ export class Operation {
   }
 }
 
+export type SelectionSetAtType = { selectionSet: SelectionSet, trimmed?: SelectionSet };
+
 export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmentDefinition> {
   private _selectionSet: SelectionSet | undefined;
 
@@ -994,7 +996,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
   private _fragmentUsages: Map<string, number> | undefined;
   private _includedFragmentNames: Set<string> | undefined;
 
-  private readonly expandedSelectionSetsAtTypesCache = new Map<string, SelectionSet>();
+  private readonly expandedSelectionSetsAtTypesCache = new Map<string, SelectionSetAtType>();
 
   constructor(
     schema: Schema,
@@ -1111,22 +1113,24 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * then if the current type is `T1`, then all we care about matching for this fragment is the `... on T1` part, and this method gives
    * us that part.
    */
-  expandedSelectionSetAtType(type: CompositeType): SelectionSet {
+  expandedSelectionSetAtType(type: CompositeType): SelectionSetAtType {
     const expandedSelectionSet = this.expandedSelectionSet();
 
     // First, if the candidate condition is an object or is the type passed, then there isn't any additional restriction to do.
     if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
-      return expandedSelectionSet;
+      return { selectionSet: expandedSelectionSet };
     }
 
-    let selectionAtType = this.expandedSelectionSetsAtTypesCache.get(type.name);
-    if (!selectionAtType) {
+    let cached = this.expandedSelectionSetsAtTypesCache.get(type.name);
+    if (!cached) {
       // Note that all we want is removing any top-level branches that don't apply due to the current type. There is no point
       // in going recursive however: any simplification due to `type` stops as soon as we traverse a field. And so we don't bother. 
-      selectionAtType = expandedSelectionSet.normalize(type, { recursive: false });
-      this.expandedSelectionSetsAtTypesCache.set(type.name, selectionAtType);
+      const selectionSetAtType = expandedSelectionSet.normalize(type, { recursive: false });
+      const trimmed = expandedSelectionSet.minus(selectionSetAtType);
+      cached = { selectionSet: selectionSetAtType, trimmed : trimmed.isEmpty() ? undefined: trimmed };
+      this.expandedSelectionSetsAtTypesCache.set(type.name, cached);
     }
-    return selectionAtType;
+    return cached;
   }
 
   /**
@@ -1445,6 +1449,22 @@ export class SelectionSet {
     return fields;
   }
 
+  fieldsByResponseName(): MultiMap<string, FieldSelection> {
+    const byResponseName = new MultiMap<string, FieldSelection>();
+    this.collectFieldsByResponseName(byResponseName);
+    return byResponseName;
+  }
+
+  private collectFieldsByResponseName(collector: MultiMap<string, FieldSelection>) {
+    for (const selection of this.selections()) {
+      if (selection.kind === 'FieldSelection') {
+        collector.add(selection.element.responseName(), selection);
+      } else {
+        selection.selectionSet.collectFieldsByResponseName(collector);
+      }
+    }
+  }
+
   usedVariables(): Variables {
     const collector = new VariableCollector();
     this.collectVariables(collector);
@@ -1698,51 +1718,6 @@ export class SelectionSet {
       : ContainsResult.STRICTLY_CONTAINED;
   }
 
-  // Please note that this method assumes that `candidate.canApplyAtType(parentType) === true` but it is left to the caller to
-  // validate this (`canApplyAtType` is not free, and we want to avoid repeating it multiple times).
-  diffWithNamedFragmentIfContained(
-    candidate: NamedFragmentDefinition,
-    parentType: CompositeType,
-    fragments: NamedFragments,
-  ): { contains: boolean, diff?: SelectionSet } {
-    const that = candidate.expandedSelectionSetAtType(parentType);
-    // It's possible that while the fragment technically applies at `parentType`, it's "rebasing" on
-    // `parentType` is empty, or contains only `__typename`. For instance, suppose we have
-    // a union `U = A | B | C`, and then a fragment:
-    // ```graphql
-    //   fragment F on U {
-    //     ... on A {
-    //       x
-    //     }
-    //     ... on b {
-    //       y
-    //     }
-    //   }
-    // ```
-    // It is then possible to apply `F` when the parent type is `C`, but this ends up selecting
-    // nothing at all.
-    //
-    // Returning `contains: true` in those cases is, while not 100% incorrect, at least not productive,
-    // and so we skip right away in that case. This is essentially an optimisation.
-    if (that.isEmpty() || (that.selections().length === 1 && that.selections()[0].isTypenameField())) {
-      return { contains: false };
-    }
-
-    if (this.contains(that)) {
-      // One subtlety here is that at "this" sub-selections may already have been optimized with some fragments. It's
-      // usually ok because `candidate` will also use those fragments, but one fragments that `candidate` can never be
-      // using is itself (the `contains` check is fine with this, but it's harder to deal in `minus`). So we expand
-      // the candidate we're currently looking at in "this" to avoid some issues.
-      let updatedThis = this.expandFragments(fragments.filter((f) => f.name !== candidate.name));
-      if (updatedThis !== this) {
-        updatedThis = updatedThis.normalize(parentType);
-      }
-      const diff = updatedThis.minus(that);
-      return { contains: true, diff: diff.isEmpty() ? undefined : diff };
-    }
-    return { contains: false };
-  }
-
   /**
    * Returns a selection set that correspond to this selection set but where any of the selections in the
    * provided selection set have been remove.
@@ -1762,6 +1737,28 @@ export class SelectionSet {
       }
     }
     return updated.toSelectionSet(this.parentType);
+  }
+
+  intersectionWith(that: SelectionSet): SelectionSet {
+    if (this.isEmpty()) {
+      return this;
+    }
+    if (that.isEmpty()) {
+      return that;
+    }
+
+    const intersection = new SelectionSetUpdates();
+    for (const [key, thisSelection] of this._keyedSelections) {
+      const thatSelection = that._keyedSelections.get(key);
+      if (thatSelection) {
+        const selection = thisSelection.intersectionWith(thatSelection);
+        if (selection) {
+          intersection.add(selection);
+        }
+      }
+    }
+
+    return intersection.toSelectionSet(this.parentType);
   }
 
   canRebaseOn(parentTypeToTest: CompositeType): boolean {
@@ -2316,6 +2313,21 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     return undefined;
   }
 
+  intersectionWith(that: Selection): TOwnType | undefined {
+    // If there is a subset, then we compute the intersection add that (if not empty).
+    // Otherwise, the intersection is this element.
+    if (this.selectionSet && that.selectionSet) {
+      const subSelectionSetIntersection = this.selectionSet.intersectionWith(that.selectionSet);
+      if (subSelectionSetIntersection.isEmpty()) {
+        return undefined;
+      } else {
+        return this.withUpdatedSelectionSet(subSelectionSetIntersection);
+      }
+    } else {
+      return this.us();
+    }
+  }
+
   protected tryOptimizeSubselectionWithFragments({
     parentType,
     subSelection,
@@ -2333,9 +2345,10 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     // If we find a candidate that applies to the whole `subSelection`, then we stop and only return
     // that one candidate. Otherwise, we cumulate in `applyingFragments` the list of fragments that
     // applies to a subset of `subSelection`.
-    const applyingFragments: NamedFragmentDefinition[] = [];
+    const applyingFragments: { fragment: NamedFragmentDefinition, atType: SelectionSetAtType }[] = [];
     for (const candidate of candidates) {
-      const fragmentSSet = candidate.expandedSelectionSetAtType(parentType);
+      const atType = candidate.expandedSelectionSetAtType(parentType);
+      const selectionSetAtType = atType.selectionSet;
       // It's possible that while the fragment technically applies at `parentType`, it's "rebasing" on
       // `parentType` is empty, or contains only `__typename`. For instance, suppose we have
       // a union `U = A | B | C`, and then a fragment:
@@ -2354,11 +2367,11 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
       //
       // Using `F` in those cases is, while not 100% incorrect, at least not productive, and so we
       // skip it that case. This is essentially an optimisation.
-      if (fragmentSSet.isEmpty() || (fragmentSSet.selections().length === 1 && fragmentSSet.selections()[0].isTypenameField())) {
+      if (selectionSetAtType.isEmpty() || (selectionSetAtType.selections().length === 1 && selectionSetAtType.selections()[0].isTypenameField())) {
         continue;
       }
 
-      const res = subSelection.contains(fragmentSSet);
+      const res = subSelection.contains(selectionSetAtType);
 
       if (res === ContainsResult.EQUAL) {
         if (canUseFullMatchingFragment(candidate)) {
@@ -2366,12 +2379,12 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
         }
         // If we're not going to replace the full thing, then same reasoning a below.
         if (candidate.appliedDirectives.length === 0) {
-          applyingFragments.push(candidate);
+          applyingFragments.push({ fragment: candidate, atType});
         }
       // Note that if a fragment applies to only a subset of the subSelection, then we really only can use
       // it if that fragment is defined _without_ directives.
       } else if (res === ContainsResult.STRICTLY_CONTAINED && candidate.appliedDirectives.length === 0) {
-        applyingFragments.push(candidate);
+        applyingFragments.push({ fragment: candidate, atType });
       }
     }
 
@@ -2380,7 +2393,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     }
 
     // We have found the list of fragments that applies to some subset of `subSelection`. In general, we
-    // want ot now produce the selection set with spread for those fragments plus any selection that is not
+    // want to now produce the selection set with spread for those fragments plus any selection that is not
     // covered by any of the fragments. For instance, suppose that `subselection` is `{ a b c d e }`
     // and we have found that `fragment F1 on X { a b c }` and `fragment F2 on X { c d }` applies, then
     // we will generate `{ ...F1 ...F2 e }`.
@@ -2427,21 +2440,91 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     // return `{ ...F3 ...F4 }` in that case, but it would be technically better to return only `F4`.
     // However, this feels niche, and it might be costly to verify such inclusions, so not doing it
     // for now.
-    const filteredApplyingFragments = applyingFragments.filter((f) => !applyingFragments.some((o) => o.includes(f.name)));
+    const filteredApplyingFragments = applyingFragments.filter(({ fragment }) => !applyingFragments.some((o) => o.fragment.includes(fragment.name)))
 
     let notCoveredByFragments = subSelection;
     const optimized = new SelectionSetUpdates();
-    // TODO: doing repeated calls to `minus` for every fragment is simple, but a `minusAll` method that
-    // takes the fragment selections at once would be more efficient in pratice.
-    for (const fragment of filteredApplyingFragments) {
-      // Note: we call `expandedSelectionSetAType` twice in this method for the applying fragments, but
-      // we know it's cached so rely on that fact.
-      notCoveredByFragments = notCoveredByFragments.minus(fragment.expandedSelectionSetAtType(parentType));
+    for (const { fragment, atType} of filteredApplyingFragments) {
+      const notCovered = subSelection.minus(atType.selectionSet);
+      if (atType.trimmed && !selectionSetsDoMerge(notCovered, atType.trimmed)) {
+        continue;
+      }
+      notCoveredByFragments = notCoveredByFragments.intersectionWith(notCovered);
       optimized.add(new FragmentSpreadSelection(parentType, fragments, fragment, []));
     }
 
     return optimized.add(notCoveredByFragments).toSelectionSet(parentType, fragments)
   }
+}
+
+function selectionSetsDoMerge(s1: SelectionSet, s2: SelectionSet): boolean {
+  const byResponseName1 = s1.fieldsByResponseName();
+  const byResponseName2 = s2.fieldsByResponseName();
+
+  for (const [responseName, selections1] of byResponseName1.entries()) {
+    const selections2 = byResponseName2.get(responseName);
+    if (!selections2) {
+      // No possible conflict on this response name to check.
+      continue;
+    }
+
+    // We're basically checking [FieldInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
+    // but were we know the selections in `selection1` (resp. in `selection2`) do merge together, so
+    // we only check for non-merging between a selection of `selection1` and one of `selection2`.
+    for (const selection1 of selections1) {
+      for (const selection2 of selections2) {
+        if (!fieldsCanMerge(selection1, selection2)) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function fieldsCanMerge(selection1: FieldSelection, selection2: FieldSelection): boolean {
+  const f1 = selection1.element;
+  const f2 = selection2.element;
+  // The `SameResponseShape` test that all fields must pass.
+  if (!typesCanBeMerged(f1.definition.type!, f2.definition.type!)) {
+    return false;
+  }
+
+  // Additional checks of `FieldsInSetCanMerge` when same parent type or one isn't object
+  const p1 = f1.parentType;
+  const p2 = f2.parentType;
+  if (sameType(p1, p2) || !isObjectType(p1) || !isObjectType(p2)) {
+    return f1.name === f2.name
+      && (f1.args ? !!f2.args && argumentsEquals(f1.args, f2.args) : !f2.args)
+      && (!selection1.selectionSet || !selection2.selectionSet || selectionSetsDoMerge(selection1.selectionSet, selection2.selectionSet));
+  } else if (selection1.selectionSet && selection2.selectionSet) {
+    return sameResponseShape(selection1.selectionSet, selection2.selectionSet);
+  } else {
+    return true;
+  }
+}
+
+function sameResponseShape(s1: SelectionSet, s2: SelectionSet): boolean {
+  const byResponseName1 = s1.fieldsByResponseName();
+  const byResponseName2 = s2.fieldsByResponseName();
+
+  for (const [responseName, selections1] of byResponseName1.entries()) {
+    const selections2 = byResponseName2.get(responseName);
+    if (!selections2) {
+      // No possible conflict on this response name to check.
+      continue;
+    }
+
+    for (const selection1 of selections1) {
+      for (const selection2 of selections2) {
+        if (!typesCanBeMerged(selection1.element.definition.type!, selection2.element.definition.type!)
+          || (selection1.selectionSet && selection2.selectionSet && !sameResponseShape(selection1.selectionSet, selection2.selectionSet))) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
 }
 
 export class FieldSelection extends AbstractSelection<Field<any>, undefined, FieldSelection> {

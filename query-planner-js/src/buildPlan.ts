@@ -31,7 +31,6 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
-  sameType,
   FederationMetadata,
   federationMetadata,
   entitiesFieldName,
@@ -51,7 +50,6 @@ import {
   mapValues,
   isInterfaceObjectType,
   isInterfaceType,
-  isNonNullType,
   Type,
   MutableSelectionSet,
   SelectionSetUpdates,
@@ -60,6 +58,7 @@ import {
   InterfaceType,
   FragmentSelection,
   possibleRuntimeTypes,
+  typesCanBeMerged,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1416,23 +1415,6 @@ function genAliasName(baseName: string, unavailableNames: Map<string, any>): str
     candidate = `${baseName}__alias_${++counter}`;
   }
   return candidate;
-}
-
-function typesCanBeMerged(t1: Type, t2: Type): boolean {
-  // This essentially follows the beginning of https://spec.graphql.org/draft/#SameResponseShape().
-  // That is, the types cannot be merged unless:
-  // - they have the same nullability and "list-ability", potentially recursively.
-  // - their base type is either both composite, or are the same type.
-  if (isNonNullType(t1)) {
-    return isNonNullType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
-  }
-  if (isListType(t1)) {
-    return isListType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
-  }
-  if (isCompositeType(t1)) {
-    return isCompositeType(t2);
-  }
-  return sameType(t1, t2);
 }
 
 type SelectionSetAtPath = {
