@@ -3136,7 +3136,10 @@ class FragmentSpreadSelection extends FragmentSelection {
   validate(): void {
     this.validateDeferAndStream();
 
-    // We don't do anything else because fragment definition are validated when created.
+    validate(
+      runtimeTypesIntersects(this.parentType, this.namedFragment.typeCondition),
+      () => `Fragment "${this.namedFragment.name}" cannot be spread inside type ${this.parentType} as the runtime types do not intersect ${this.namedFragment.typeCondition}`
+    );
   }
 
   toSelectionNode(): FragmentSpreadNode {
