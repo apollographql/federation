@@ -916,7 +916,7 @@ export class Operation {
 
   expandAllFragments(): Operation {
     // We clear up the fragments since we've expanded all.
-    // Also note that expanding fragment usually generate unecessary fragments/ineffecient selections, so it
+    // Also note that expanding fragment usually generate unecessary fragments/inefficient selections, so it
     // basically always make sense to normalize afterwards. Besides, fragment reuse (done by `optimize`) rely
     // on the fact that its input is normalized to work properly, so all the more reason to do it here.
     const expanded = this.selectionSet.expandFragments();
@@ -1135,7 +1135,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     // 1. if `type` is an object: since `type` is a runtime of `typeCondition` then `typeCondition` is
     //   either an interface of `type` or a union containing it.
     // 2. if `typeCondition` is an union: that's because the only selections on a union are either `__typename`
-    //   or some other condition that intersects the union. Both are also guarateed to be ok for `type`
+    //   or some other condition that intersects the union. Both are also guaranteed to be ok for `type`
     //   since `type` intersects union.
     if (isObjectType(type) || isUnionType(this.typeCondition)) {
       // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
@@ -1147,7 +1147,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
       // of the fragment that are kept, which don't apply here. And calling `normalize` would not be valid because
       // one of its effect is to "rebase" on `type` which may be invalid here. Namely, we could have `type === I1`
       // and the fragment be: `fragment X on I2 { f }`, and even having `runtimes(I1)` included in `runtimes(I2)`
-      // does not mean that `f` if a valid fild for `I1`.
+      // does not mean that `f` if a valid field for `I1`.
       const typeRuntimes = possibleRuntimeTypes(type);
       const conditionRuntimes = possibleRuntimeTypes(this.typeCondition);
       selectionSet = typeRuntimes.length === conditionRuntimes.length
@@ -2005,6 +2005,19 @@ export class SelectionSetUpdates {
   toSelectionSet(parentType: CompositeType, fragments?: NamedFragments): SelectionSet {
     return makeSelectionSet(parentType, this.keyedUpdates, fragments);
   }
+
+  toString() {
+    return '{\n'
+      + [...this.keyedUpdates.entries()].map(([k, updates]) => {
+        const updStr = updates.map((upd) =>
+        upd instanceof AbstractSelection
+          ? upd.toString()
+          : `${upd.path} -> ${upd.selections}`
+        );
+        return ` - ${k}: ${updStr}`;
+      }).join('\n')
+      +'\n\}'
+  }
 }
 
 function addToKeyedUpdates(keyedUpdates: MultiMap<string, SelectionUpdate>, selections: Selection | SelectionSet | readonly Selection[]) {
@@ -2577,6 +2590,9 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
   }
 
   withUpdatedComponents(field: Field<any>, selectionSet: SelectionSet | undefined): FieldSelection {
+    if (this.element === field && this.selectionSet === selectionSet) {
+      return this;
+    }
     return new FieldSelection(field, selectionSet);
   }
 
@@ -2715,28 +2731,41 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return !!this.selectionSet?.hasDefer();
   }
 
-  normalize(_: CompositeType, options?: { recursive? : boolean }): FieldSelection {
+  normalize(parentType: CompositeType, options?: { recursive? : boolean }): FieldSelection {
+    // This could be an interface field, and if we're normalizing on one of the implementation of that
+    // interface, we want to make sure we use the field of the implementation, as it may in particular
+    // have a more specific type which should propagate to the recursive call to normalize.
+
+    const definition = parentType === this.parentType
+      ? this.element.definition
+      : parentType.field(this.element.name);
+    assert(definition, `Cannot normalize ${this.element} at ${parentType} which does not have that field`)
+
+    const element = this.element.definition === definition ? this.element : this.element.withUpdatedDefinition(definition);
     if (!this.selectionSet) {
-      return this;
+      return this.withUpdatedElement(element);
     }
 
-    const base = this.element.baseType()
-    assert(isCompositeType(base), () => `Field ${this.element} should not have a sub-selection`);
-    const normalized = (options?.recursive ?? true) ? this.mapToSelectionSet((s) => s.normalize(base)) : this;
+    const base = element.baseType();
+    assert(isCompositeType(base), () => `Field ${element} should not have a sub-selection`);
+    const normalizedSubSelection = (options?.recursive ?? true) ? this.selectionSet.normalize(base) : this.selectionSet;
     // In rare caes, it's possible that everything in the sub-selection was trimmed away and so the
     // sub-selection is empty. Which suggest something may be wrong with this part of the query
     // intent, but the query was valid while keeping an empty sub-selection isn't. So in that
     // case, we just add some "non-included" __typename field just to keep the query valid.
-    if (normalized.selectionSet?.isEmpty()) {
-      return normalized.withUpdatedSelectionSet(selectionSetOfElement(
-        new Field(
-          base.typenameField()!,
-          undefined,
-          [new Directive('include', { 'if': false })],
+    if (normalizedSubSelection?.isEmpty()) {
+      return this.withUpdatedComponents(
+        element,
+        selectionSetOfElement(
+          new Field(
+            base.typenameField()!,
+            undefined,
+            [new Directive('include', { 'if': false })],
+          )
         )
-      ));
+      );
     } else {
-      return normalized;
+      return this.withUpdatedComponents(element, normalizedSubSelection);
     }
   }
 
@@ -2833,6 +2862,9 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 
   withUpdatedComponents(fragment: FragmentElement, selectionSet: SelectionSet): InlineFragmentSelection {
+    if (fragment === this.element && selectionSet === this.selectionSet) {
+      return this;
+    }
     return new InlineFragmentSelection(fragment, selectionSet);
   }
 
@@ -2977,7 +3009,7 @@ class InlineFragmentSelection extends FragmentSelection {
       : this.withUpdatedComponents(newElement, newSelection);
   }
 
-  normalize(currentType: CompositeType, options?: { recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
+  normalize(parentType: CompositeType, options?: { recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
     const recursive = options?.recursive ?? true;
     const thisCondition = this.element.typeCondition;
 
@@ -2985,9 +3017,9 @@ class InlineFragmentSelection extends FragmentSelection {
     // runtimes may be a subset. So first check if the selection should not be discarded on that account (that
     // is, we should not keep the selection if its condition runtimes don't intersect at all with those of
     // `currentType` as that would ultimately make an invalid selection set).
-    if (thisCondition && currentType !== this.parentType) {
+    if (thisCondition && parentType !== this.parentType) {
       const conditionRuntimes = possibleRuntimeTypes(thisCondition);
-      const typeRuntimes = possibleRuntimeTypes(currentType);
+      const typeRuntimes = possibleRuntimeTypes(parentType);
       if (!conditionRuntimes.some((t) => typeRuntimes.includes(t))) {
         return undefined;
       }
@@ -3001,8 +3033,8 @@ class InlineFragmentSelection extends FragmentSelection {
       // 2. if it's the same type as the current type: it's not restricting types further.
       // 3. if the current type is an object more generally: because in that case too the condition
       //   cannot be restricting things further (it's typically a less precise interface/union).
-      if (!thisCondition || currentType === this.element.typeCondition || isObjectType(currentType)) {
-        const normalized = this.selectionSet.normalize(currentType, options);
+      if (!thisCondition || parentType === this.element.typeCondition || isObjectType(parentType)) {
+        const normalized = this.selectionSet.normalize(parentType, options);
         return normalized.isEmpty() ? undefined : normalized;
       }
     }
@@ -3013,7 +3045,7 @@ class InlineFragmentSelection extends FragmentSelection {
     }
 
     // In all other cases, we recurse on the sub-selection.
-    const normalizedSelectionSet = this.selectionSet.normalize(thisCondition ?? currentType);
+    const normalizedSelectionSet = this.selectionSet.normalize(thisCondition ?? parentType);
 
     // First, could be that everything was unsatisfiable.
     if (normalizedSelectionSet.isEmpty()) {
@@ -3035,8 +3067,8 @@ class InlineFragmentSelection extends FragmentSelection {
     // 2. the sub-fragment is an object type,
     // 3. the sub-fragment type is a valid runtime of the current type.
     if (this.element.appliedDirectives.length === 0 && isAbstractType(thisCondition!)) {
-      assert(!isObjectType(currentType), () => `Should not have got here if ${currentType} is an object type`);
-      const currentRuntimes = possibleRuntimeTypes(currentType);
+      assert(!isObjectType(parentType), () => `Should not have got here if ${parentType} is an object type`);
+      const currentRuntimes = possibleRuntimeTypes(parentType);
       const liftableSelections: Selection[] = [];
       for (const selection of normalizedSelectionSet.selections()) {
         if (selection.kind === 'FragmentSelection'
