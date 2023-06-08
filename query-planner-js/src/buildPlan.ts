@@ -628,9 +628,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
           if (!prevCost) {
             return `Computed plan with cost ${cost}: ${p.tree}`;
           } else if (cost > prevCost) {
-            return `Found better with cost ${cost} (previous had cost ${prevCost}: ${p.tree}`;
-          } else {
             return `Ignoring plan with cost ${cost} (a better plan with cost ${prevCost} exists): ${p.tree}`
+          } else {
+            return `Found better with cost ${cost} (previous had cost ${prevCost}: ${p.tree}`;
           }
         });
       },

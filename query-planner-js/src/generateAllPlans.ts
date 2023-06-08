@@ -4,6 +4,7 @@ type Choices<T> = (T | undefined)[];
 
 type Partial<P, T> = {
   partial: P,
+  partialCost?: number,
   remaining: Choices<T>[],
   isRoot: boolean,
   index?: number,
@@ -68,6 +69,12 @@ export function generateAllPlansAndFindBest<P, E>({
   best: P,
   cost: number,
 }{
+  // Note: we save ourselves the computation of the cost of `initial` (we pass no `partialCost` in this initialisation).
+  // That's because `partialCost` is about exiting early when we've found at least one full plan and the cost of that
+  // plan is already smaller than the cost of a partial computation. But any plan is going be built from `initial` with
+  // at least one 'choice' added to it, all plans are guaranteed to be more costly than `initial` anyway. Note that
+  // save for `initial`, we always compute `partialCost` as the pros of exiting some branches early are large enough
+  // that it outweigth computing some costs unecessarily from time to time.
   const stack: Partial<P, E>[] = [{
     partial: initial,
     remaining: toAdd,
@@ -78,7 +85,14 @@ export function generateAllPlansAndFindBest<P, E>({
   let min: { best: P, cost: number } | undefined = undefined;
 
   while (stack.length > 0) {
-    const { partial, remaining, isRoot, index } = stack.pop()!;
+    const { partial, partialCost, remaining, isRoot, index } = stack.pop()!;
+
+    // If we've found some plan already, and the partial we have is already more costly than that,
+    // then no point continuing with it.
+    if (min !== undefined && partialCost !== undefined && partialCost >= min.cost) {
+      continue;
+    }
+
     const nextChoices = remaining[0];
     const otherChoices = remaining.slice(1);
 
@@ -86,20 +100,20 @@ export function generateAllPlansAndFindBest<P, E>({
     const { extracted, updatedChoices, isLast } = extract(pickedIndex, nextChoices);
 
     if (!isLast) {
-      // First, re-insert what correspond to all the choices that dot _not_ pick `extracted`.
+      // First, re-insert what correspond to all the choices that do _not_ pick `extracted`.
       insertInStack({
         partial,
         remaining: [updatedChoices].concat(otherChoices),
         isRoot,
         index: isRoot && index !== undefined && index < nextChoices.length - 1 ? index + 1 : undefined,
+        partialCost,
       }, stack);
     }
 
     const newPartial = addFct(partial, extracted);
+    const cost = costFct(newPartial);
     if (otherChoices.length === 0) {
-      // We have a complete plan. Compute the cost, check if it is best and based on that,
-      // provide it to `onGenerated` or discard it.
-      const cost = costFct(newPartial);
+      // We have a complete plan. If it is best, save it, otherwise, we're done with it.
       const isNewMin = min === undefined || cost < min.cost;
       onPlan(newPartial, cost, min?.cost);
       if (isNewMin) {
@@ -111,22 +125,15 @@ export function generateAllPlansAndFindBest<P, E>({
       continue;
     }
 
-    if (min !== undefined) {
-      // We're not done, but we've already generated a plan with a score, so we check if
-      // what we have so far is already more costly, and if it is, we skip this branch
-      // entirely.
-      const cost = costFct(newPartial);
-      if (cost >= min.cost) {
-        continue;
-      }
+    if (min === undefined || cost < min.cost) {
+      insertInStack({
+        partial: newPartial,
+        partialCost: cost,
+        remaining: otherChoices,
+        isRoot: false,
+        index,
+      }, stack);
     }
-
-    insertInStack({
-      partial: newPartial,
-      remaining: otherChoices,
-      isRoot: false,
-      index
-    }, stack);
   }
 
   assert(min, 'A plan should have been found');
