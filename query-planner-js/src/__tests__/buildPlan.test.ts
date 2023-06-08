@@ -6386,7 +6386,7 @@ test('does not error on some complex fetch group dependencies', () => {
         v2: V
 
         # Note: this field is not queried, but matters to the reproduction this test exists
-        # for because it prevents some optimisations that would happen without it (namely,
+        # for because it prevents some optimizations that would happen without it (namely,
         # without it, the planner would notice that everything after type T is guaranteed
         # to be local to the subgraph).
         user: User

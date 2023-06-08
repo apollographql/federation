@@ -733,6 +733,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       .closedBranches
       .slice(0, idxFirstOfLengthOne)
       .map(b => b.map(opt => PathTree.createFromOpPaths(federatedQueryGraph, root, flattenClosedPath(opt))));
+
     const { best, cost} = generateAllPlansAndFindBest({
       initial: { graph: initialDependencyGraph, tree: initialTree },
       toAdd: otherTrees,
@@ -794,6 +795,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
 type UnhandledGroups = [FetchGroup, UnhandledParentRelations][];
 type UnhandledParentRelations = ParentRelation[];
+
+function printUnhandled(u: UnhandledGroups): string {
+  return '[' + u.map(([g, relations]) =>
+    `${g.index} (missing: [${relations.map((r) => r.group.index).join(', ')}])`
+  ).join(', ') + ']';
+}
 
 /**
  * Used in `FetchDependencyGraph` to store, for a given group, information about one of its parent.
@@ -2514,10 +2521,9 @@ class FetchDependencyGraph {
       const { main, deferredGroups, unhandled } = this.processGroup(processor, group, handledConditions);
       processedNodes.push(main);
       allDeferredGroups.addAll(deferredGroups);
-      const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
-      toHandleNext = toHandleNext.concat(canHandle);
-      remainingNext = newRemaining;
+      remainingNext = this.mergeRemainings(remainingNext, unhandled, toHandleNext);
     }
+
     return {
       processed: processInParallel ? processor.reduceParallel(processedNodes) : processor.reduceSequence(processedNodes),
       next: toHandleNext,
@@ -2526,19 +2532,18 @@ class FetchDependencyGraph {
     };
   }
 
-  private mergeRemainings(r1: UnhandledGroups, r2: UnhandledGroups): [FetchGroup[], UnhandledGroups] {
+  private mergeRemainings(r1: UnhandledGroups, r2: UnhandledGroups, readyToHandle: FetchGroup[]): UnhandledGroups {
     const unhandled: UnhandledGroups = [];
-    const toHandle: FetchGroup[] = [];
     for (const [g, edges] of r1) {
       const newEdges = this.mergeRemaingsAndRemoveIfFound(g, edges, r2);
       if (newEdges.length == 0) {
-        toHandle.push(g);
+        readyToHandle.push(g);
       } else {
         unhandled.push([g, newEdges])
       }
     }
     unhandled.push(...r2);
-    return [toHandle, unhandled];
+    return unhandled;
   }
 
   private mergeRemaingsAndRemoveIfFound(group: FetchGroup, inEdges: UnhandledParentRelations, otherGroups: UnhandledGroups): UnhandledParentRelations {
@@ -2586,9 +2591,9 @@ class FetchDependencyGraph {
       // After the root groups, handled on the first iteration, we can process everything in parallel.
       processInParallel = true;
       mainSequence.push(processed);
-      const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
-      remainingNext = newRemaining;
-      nextGroups = canHandle.concat(next);
+      remainingNext = this.mergeRemainings(remainingNext, unhandled, next);
+      remainingNext = this.updateUnhandledOnProcessedGroups(nextGroups, remainingNext, next);
+      nextGroups = next;
       allDeferredGroups.addAll(deferredGroups);
     }
     return {
@@ -2597,6 +2602,26 @@ class FetchDependencyGraph {
       deferredGroups: allDeferredGroups,
     };
   }
+
+  private updateUnhandledOnProcessedGroups(
+    processed: readonly FetchGroup[],
+    currentUnhandled: UnhandledGroups,
+    readyToHandle: FetchGroup[],
+  ): UnhandledGroups {
+    const unhandled: UnhandledGroups = [];
+    for (const current of currentUnhandled) {
+      // Remove any of the processed groups from the unhandled edges of that group.
+      // And if there is no remaining edge, that group can be handled.
+      const newEdges = current[1].filter((edge) => !processed.includes(edge.group));
+      if (newEdges.length === 0) {
+        readyToHandle.push(current[0]);
+      } else {
+        unhandled.push([current[0], newEdges]);
+      }
+    }
+    return unhandled;
+  }
+
 
   private processRootGroups<TProcessed, TDeferred>({
     processor,
@@ -2622,7 +2647,10 @@ class FetchDependencyGraph {
       unhandled,
       deferredGroups,
     } = this.processRootMainGroups({ processor, rootsAreParallel, rootGroups, handledConditions });
-    assert(unhandled.length == 0, () => `Root groups ${rootGroups} should have no remaining groups unhandled, but got ${unhandled}`);
+    assert(
+      unhandled.length == 0,
+      () => `Root groups:\n${rootGroups.map((g) => ` - ${g}`).join('\n')}\nshould have no remaining groups unhandled, but got: ${printUnhandled(unhandled)}`
+    );
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     if (otherDeferGroups) {
       allDeferredGroups.addAll(otherDeferGroups);
