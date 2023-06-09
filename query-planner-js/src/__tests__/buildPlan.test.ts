@@ -4423,8 +4423,7 @@ describe('__typename handling', () => {
           t: T @shareable
         }
 
-        type T @key(fields: "id") {
-          id: ID!
+        type T {
           x: Int
         }
       `
@@ -4438,7 +4437,7 @@ describe('__typename handling', () => {
           t: T @shareable
         }
 
-        type T @key(fields: "id") {
+        type T {
           id: ID!
           y: Int
         }
@@ -6170,3 +6169,98 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   });
 });
 
+test('correctly generate plan built from some non-individually optimal branch options', () => {
+  // The idea of this test is that the query has 2 leaf fields, `t.x` and `t.y`, whose
+  // options are:
+  //  1. `t.x`:
+  //     a. S1(get t.x)
+  //     b. S2(get t.id) -> S3(get t.x using key id)
+  //  2. `t.y`:
+  //     a. S2(get t.id) -> S3(get t.y using key id)
+  //
+  // And the idea is that "individually", for just `t.x`, getting it all in `S1` using option a.,
+  // but for the whole plan, using option b. is actually better since it avoid querying `S1`
+  // entirely (and `S2`/`S2` have to be queried anyway).
+  //
+  // Anyway, this test make sure we do correctly generate the plan using 1.b and 2.a, and do
+  // not ignore 1.b in favor of 1.a in particular (which a bug did at one point).
+
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T @shareable
+      }
+
+      type T {
+        x: Int @shareable
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        t: T @shareable
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        x: Int @shareable
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        x
+        y
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+   QueryPlan {
+     Sequence {
+       Fetch(service: "Subgraph2") {
+         {
+           t {
+             __typename
+             id
+           }
+         }
+       },
+       Flatten(path: "t") {
+         Fetch(service: "Subgraph3") {
+           {
+             ... on T {
+               __typename
+               id
+             }
+           } =>
+           {
+             ... on T {
+               y
+               x
+             }
+           }
+         },
+       },
+     },
+   }
+  `);
+});
