@@ -69,12 +69,12 @@ export function generateAllPlansAndFindBest<P, E>({
   best: P,
   cost: number,
 }{
-  // Note: we save ourselves the computation of the cost of `initial` (we pass no `partialCost` in this initialisation).
+  // Note: we save ourselves the computation of the cost of `initial` (we pass no `partialCost` in this initialization).
   // That's because `partialCost` is about exiting early when we've found at least one full plan and the cost of that
   // plan is already smaller than the cost of a partial computation. But any plan is going be built from `initial` with
   // at least one 'choice' added to it, all plans are guaranteed to be more costly than `initial` anyway. Note that
   // save for `initial`, we always compute `partialCost` as the pros of exiting some branches early are large enough
-  // that it outweigth computing some costs unecessarily from time to time.
+  // that it outweight computing some costs unecessarily from time to time.
   const stack: Partial<P, E>[] = [{
     partial: initial,
     remaining: toAdd,

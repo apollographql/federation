@@ -280,6 +280,94 @@ function selectionIsFullyLocalFromAllVertices(
   return true;
 }
 
+/**
+ * Given 2 paths that are 2 different options to reach the same query leaf field, checks if one can be shown
+ * to be always "better" (more efficient/optimal) than the other one, and this regardless of any surrounding context (that
+ * is regardless of what the rest of the query plan would be for any other query leaf field.
+ *
+ * Note that this method is used on final options of a given "query path", so all the heuristics done within `GraphPath`
+ * to avoid unecessary option have already been applied (say, avoiding to consider a path that do 2 successives key jumps
+ * when there is a 1 jump equivalent, ...), so this focus on what can be done based on the fact that the path considered
+ * are "finished".
+ *
+ * @return -1 if `opt1` is known to be strictly better than `opt2`, 1 if it is `opt2` that is strictly better, and 0 if we
+ * cannot really guarantee anything (at least "out of context").
+ */
+export function compareOptionsComplexityOutOfContext<RV extends Vertex>(opt1: SimultaneousPaths<RV>, opt2: SimultaneousPaths<RV>): number {
+  // Currently, we only every compare single-path options. We may find smart things to do for multi-path options later,
+  // but unsure what currently.
+  if (opt1.length === 1) {
+    if (opt2.length === 1) {
+      return compareSinglePathOptionsComplexityOutOfContext(opt1[0], opt2[0]);
+    } else {
+      return compareSingleVsMultiPathOptionsComplexityOutOfContext(opt1[0], opt2);
+    }
+  } else if (opt2.length === 1) {
+    return -compareSingleVsMultiPathOptionsComplexityOutOfContext(opt2[0], opt1);
+  }
+  return 0;
+}
+
+function compareSinglePathOptionsComplexityOutOfContext<RV extends Vertex>(p1: OpGraphPath<RV>, p2: OpGraphPath<RV>): number {
+  // Currently, this method only handle the case where we have something like:
+  //  - `p1`: <some prefix> -[t]-> T(A)               -[u]-> U(A) -[x] -> Int(A)
+  //  - `p2`: <some prefix> -[t]-> T(A) -[key]-> T(B) -[u]-> U(B) -[x] -> Int(B)
+  // That is, we have 2 choices that are identical up to the "end", when one stays in the subgraph (p1, which stays in A)
+  // while the other use a key to another subgraph (p2, going to B).
+  //
+  // In such a case, whatever else the a query might be doing, it can never be "worst"
+  // to use `p1` than to use `p2` because both will force the same "fetch group" up to the
+  // end, but `p2` may force one more fetch that `p` does not.
+  // Do note that we say "may" above, because the rest of the plan may well have a forced
+  // choice like:
+  //  - `other`: <some prefix> -[t]-> T(A) -[key]-> T(B) -[u]-> U(B) -[y] -> Int(B)
+  // in which case the plan will have the jump from A to B after `t` whether we use `p1` or
+  // `p2`, but while in that particular case `p1` and `p2` are about comparable in term
+  // of performance, `p1` is still not worst than `p2` (and in other situtation, `p1` may
+  // genuinely be better).
+  //
+  // Note that this is in many ways just a generalization of a heuristic we use earlier for leaf field. That is,
+  // we will never get as input to this method something like:
+  //  - `p1`: <some prefix> -[t]-> T(A)               -[x] -> Int(A)
+  //  - `p2`: <some prefix> -[t]-> T(A) -[key]-> T(B) -[x] -> Int(B)
+  // because when the code is asked for option for `x` after `<some prefix> -[t]-> T(A)`, it notices that `x`
+  // is a leaf and is in `A`, so it doesn't ever look for alternative path. But this only work for direct
+  // leaf of an entity. In the example at the beginning, field `u` makes this not working, because when
+  // we compute choices for `u`, we don't yet know what comes after that, and so we have to take the option
+  // of going to subgraph `B` into account (it may very be that whatever comes after `u` is not in `A` for
+  // instance).
+  if (p1.tail.source !== p2.tail.source) {
+    const { thisJumps: p1Jumps, thatJumps: p2Jumps } = p1.findBiggestCommonPrefixAndCountMainSubgraphJumpsAfterIt(p2);
+    // As described above, we want to known if one of the path has no jumps at all (after the common prefix) while
+    // the other do have some.
+    if (p1Jumps === 0 && p2Jumps > 0) {
+      return -1;
+    } else if (p1Jumps > 0 && p2Jumps === 0) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+  return 0;
+}
+
+function compareSingleVsMultiPathOptionsComplexityOutOfContext<RV extends Vertex>(p1: OpGraphPath<RV>, p2s: SimultaneousPaths<RV>): number {
+  // This handle the same case than for the single-path only case, but compares the single path against
+  // each of the option of the multi-path, and only "ignore" the multi-path if all its paths can be ignored.
+  // Note that this happens less often than the single-path only case, but with @provides on an interface, you can
+  // have case where one the one side you can get something entirely on the current graph, but the type-exploded case
+  // has still be generated due to the leaf field not being the one just after "provided" interface.
+  for (const p2 of p2s) {
+    // Note: not sure if it is possible for a branch of the multi-path option to subsume the single-path one in practice, but
+    // if it does, we ignore it because it's not obvious that this is enough to get rid of `p1` (maybe `p1` is provably a bit
+    // costlier than one of the path of `p2s`, but `p2s` may have many paths and could still be collectively worst than `p1`).
+    if (compareSinglePathOptionsComplexityOutOfContext(p1, p2) >= 0) {
+      return 0;
+    }
+  }
+  return -1;
+}
+
 class QueryPlanningTraversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
@@ -338,6 +426,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     return this.bestPlan;
   }
 
+  private recordClosedBranch(closed: ClosedBranch<RV>) {
+    const maybeTrimmed = this.maybeEliminateStrictlyMoreCostlyPaths(closed);
+    debug.log(() => `Closed branch has ${maybeTrimmed.length} options (eliminated ${closed.length - maybeTrimmed.length} that could be proved as unecessary)`);
+    this.closedBranches.push(maybeTrimmed);
+  }
+
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
     const operation = selection.element;
     debug.group(() => `Handling open branch: ${operation}`);
@@ -376,7 +470,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.closedBranches.push(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
+          this.recordClosedBranch(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
@@ -418,7 +512,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
         //   as we should (we add `__typename` for abstract types on the "normal path" and so we add them too to
         //   named fragments; as such, we need them here too).
         const selectionSet = addTypenameFieldForAbstractTypes(addBackTypenameInAttachments(selection.selectionSet));
-        this.closedBranches.push(newOptions.map((opt) => ({ paths: opt.paths, selection: selectionSet })));
+        this.recordClosedBranch(newOptions.map((opt) => ({ paths: opt.paths, selection: selectionSet })));
       } else {
         for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
           this.stack.push(branch);
@@ -426,57 +520,62 @@ class QueryPlanningTraversal<RV extends Vertex> {
       }
       debug.groupEnd();
     } else {
-      const updated = this.maybeEliminateStrictlyMoreCostlyPaths(newOptions);
-      this.closedBranches.push(updated);
-      debug.groupEnd(() => `Branch finished with ${updated.length} options`);
+      this.recordClosedBranch(newOptions.map((opt) => ({ paths: opt.paths })));
+      debug.groupEnd(() => `Branch finished`);
     }
   }
 
-  // This method should be applied to "final" paths, that is when the tail of the paths is a leaf field.
-  // TODO: this method was added for cases where we had the following options:
-  //   1) _ -[f1]-> T1(A) -[f2]-> T2(A) -[f3]-> T3(A) -[f4]-> Int(A)
-  //   2) _ -[f1]-> T1(A) -[f2]-> T2(A) -[key]-> T2(B) -[f3]-> T3(B) -[f4] -> Int(B)
-  // where clearly the 2nd option is not necessary (we're in A up to T2 in both case, so staying in A is never
-  // going to be more expensive that going to B; note that if _other_ branches do jump to B after T2(A) for
-  // other fieleds, the option 2 might well lead to a plan _as_ efficient as with option 1, but it will
-  // not be _more_ efficient).
-  // Anyway, while the implementation does handle this case, I believe it's a bit over-generic and can
-  // eliminiate options we could want to keep. Double-check that and fix.
-  private maybeEliminateStrictlyMoreCostlyPaths(
-    options: SimultaneousPathsWithLazyIndirectPaths<RV>[]
-  ): ClosedBranch<RV> {
-    if (options.length === 1) {
-      return [{ paths: options[0].paths }];
+  /**
+   * This method is called on a closed branch, that is on all the possible options found
+   * to get a particular leaf of the query being planned. And when there is more than one
+   * option, it tries a last effort at checking an option can be shown to be less efficient
+   * than another one _whatever the rest of the query plan is_ (that is, whatever the options
+   * for any other leaf of the query are).
+   *
+   * In practice, this compare all pair of options and call the heuristics
+   * of `compareOptionsComplexityOutOfContext` on them to see if one strictly
+   * subsume the other (and if that's the case, the subsumed one is ignored).
+   */
+  private maybeEliminateStrictlyMoreCostlyPaths(branch: ClosedBranch<RV>): ClosedBranch<RV> {
+    if (branch.length <= 1) {
+      return branch;
     }
 
-    const singlePathOptions = options.filter(opt => opt.paths.length === 1);
-    if (singlePathOptions.length === 0) {
-      // we can't easily compare multi-path options
-      return options.map(opt => ({ paths: opt.paths }));
-    }
+    // Copying the branch because we're going to modify in place.
+    const toHandle = branch.concat();
 
-    let minJumps = Number.MAX_SAFE_INTEGER;
-    let withMinJumps: ClosedBranch<RV> = [];
-    for (const option of singlePathOptions) {
-      const jumps = option.paths[0].subgraphJumps();
-      const closedBranch = { paths: option.paths };
-      if (jumps < minJumps) {
-        minJumps = jumps;
-        withMinJumps = [closedBranch];
-      } else if (jumps === minJumps) {
-        withMinJumps.push(closedBranch);
+    const keptOptions: ClosedPath<RV>[] = [];
+    while (toHandle.length >= 2) {
+      const first = toHandle[0];
+      let shouldKeepFirst = true;
+      // We compare `first` to every other remaining. But we iterate from end to beginning
+      // because we may remove in place some of those we iterate on and that makes it safe.
+      for (let i = toHandle.length - 1 ; i >= 1; i--) {
+        const other = toHandle[i];
+        const cmp = compareOptionsComplexityOutOfContext(first.paths, other.paths);
+        if (cmp < 0) {
+          // This means that `first` is always better than `other`. So we eliminate `other`.
+          toHandle.splice(i, 1);
+        } else if (cmp > 0) {
+          // This means that `first` is always worst than `other`. So we eliminate `first` (
+          // and we're done with this inner loop).
+          toHandle.splice(0, 1);
+          shouldKeepFirst = false;
+          break;
+        }
+      }
+      if (shouldKeepFirst) {
+        // Means that we found no other option that make first unecessary. We mark first as kept,
+        // and remove it from our working set (which we know it hasn't yet).
+        keptOptions.push(first);
+        toHandle.splice(0, 1);
       }
     }
-
-    // We then look at multi-path options. We can exclude those if the path with the least amount of jumps is
-    // more than our minJumps
-    for (const option of singlePathOptions.filter(opt => opt.paths.length > 1)) {
-      const jumps = option.paths.reduce((acc, p) => Math.min(acc, p.subgraphJumps()), Number.MAX_SAFE_INTEGER);
-      if (jumps <= minJumps) {
-        withMinJumps.push({ paths: option.paths });
-      }
+    // We know toHandle has at most 1 element, but it may have one and we should keep it.
+    if (toHandle.length > 0) {
+      keptOptions.push(toHandle[0]);
     }
-    return withMinJumps;
+    return keptOptions;
   }
 
   private newDependencyGraph(): FetchDependencyGraph {
@@ -530,6 +629,14 @@ class QueryPlanningTraversal<RV extends Vertex> {
     return false;
   }
 
+  private sortOptionsInClosedBranches() {
+    this.closedBranches.forEach((branch) => branch.sort((p1, p2) => {
+      const p1Jumps = Math.max(...p1.paths.map((p) => p.subgraphJumps()));
+      const p2Jumps = Math.max(...p2.paths.map((p) => p.subgraphJumps()));
+      return p1Jumps - p2Jumps;
+    }));
+  }
+
   private computeBestPlanFromClosedBranches() {
     if (this.closedBranches.length === 0) {
       return;
@@ -543,6 +650,19 @@ class QueryPlanningTraversal<RV extends Vertex> {
     // that are known to be overriden by other ones.
     this.pruneClosedBranches();
 
+    // We now sort the options within each branch, putting those with the least amount of subgraph jumps first.
+    // The idea is that for each branch taken individually, the option with the least jumps is going to be
+    // the most efficient, and while it is not always the case that the best plan is built for those
+    // individual bests, they are still statistically more likely to be part of the best plan. So putting
+    // them first has 2 benefits for the rest of this method:
+    // 1. if we end up cutting some options of a branch below (due to having too many possible plans),
+    //   we'll cut the last option first (we `pop()`), so better cut what it the least likely to be good.
+    // 2. when we finally generate the plan, we use the cost of previously computed plans to cut computation
+    //   early when possible (see `generateAllPlansAndFindBest`), so there is a premium in generating good
+    //   plans early (it cuts more computation), and putting those more-likely-to-be-good options first helps
+    //   this.
+    this.sortOptionsInClosedBranches();
+
     // We're out of smart ideas for now, so we look at how many plans we'd have to generate, and if it's
     // "too much", we reduce it to something manageable by arbitrarilly throwing out options. This effectively
     // means that when a query has too many options, we give up on always finding the "best"
@@ -550,7 +670,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
     // TODO: currently, when we need to reduce options, we do so somewhat arbitrarilly. More
     // precisely, we reduce the branches with the most options first and then drop the last
     // option of the branch, repeating until we have a reasonable number of plans to consider.
-    // However, there is likely ways to drop options in a more "intelligent" way.
+    // The sorting we do about help making this slightly more likely to be a good choice, but
+    // there is likely more "smarts" we could add to this.
 
     // We sort branches by those that have the most options first.
     this.closedBranches.sort((b1, b2) => b1.length > b2.length ? -1 : (b1.length < b2.length ? 1 : 0));
