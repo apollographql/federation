@@ -6327,3 +6327,134 @@ test('correctly generate plan built from some non-individually optimal branch op
    }
   `);
 });
+
+test('does not error on some complex fetch group dependencies', () => {
+  // This test is a reproduction of a bug whereby planning on this example was raising an
+  // assertion error due to an incorrect handling of fetch group dependencies.
+
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        me: User @shareable
+      }
+
+      type User {
+        id: ID! @shareable
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        me: User @shareable
+      }
+
+      type User @key(fields: "id") {
+        id: ID!
+        p: Props
+      }
+
+      type Props {
+        id: ID! @shareable
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type Query {
+        me: User @shareable
+      }
+
+      type User {
+        id: ID! @shareable
+      }
+
+      type Props @key(fields: "id") {
+        id: ID!
+        v0: Int
+        t: T
+      }
+
+      type T {
+        id: ID!
+        v1: V
+        v2: V
+
+        # Note: this field is not queried, but matters to the reproduction this test exists
+        # for because it prevents some optimisations that would happen without it (namely,
+        # without it, the planner would notice that everything after type T is guaranteed
+        # to be local to the subgraph).
+        user: User
+      }
+
+      type V {
+        x: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      me {
+        p {
+          v0
+          t {
+            v1 {
+              x
+            }
+            v2 {
+              x
+            }
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph2") {
+          {
+            me {
+              p {
+                __typename
+                id
+              }
+            }
+          }
+        },
+        Flatten(path: "me.p") {
+          Fetch(service: "Subgraph3") {
+            {
+              ... on Props {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on Props {
+                v0
+                t {
+                  v1 {
+                    x
+                  }
+                  v2 {
+                    x
+                  }
+                }
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
