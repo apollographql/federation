@@ -866,12 +866,10 @@ export class Operation {
     readonly name?: string) {
   }
 
-  // Returns a copy of this operation with the provided updated selection set. Optionally, a new set of fragments
-  // can be also provided. If `newFragments` is undefined, then the existing fragments will be reused, but if it
-  // `null`, then the new operation will have no fragments.
-  private withUpdatedSelectionSet(newSelectionSet: SelectionSet, newFragments?: NamedFragments | null): Operation {
-    const fragments = newFragments === undefined ? this.fragments : (newFragments ?? undefined);
-    if (this.selectionSet === newSelectionSet && fragments === this.fragments) {
+  // Returns a copy of this operation with the provided updated selection set.
+  // Note that this method assumes that the existing `this.fragments` is still appropriate.
+  private withUpdatedSelectionSet(newSelectionSet: SelectionSet): Operation {
+    if (this.selectionSet === newSelectionSet) {
       return this;
     }
 
@@ -880,7 +878,23 @@ export class Operation {
       this.rootKind,
       newSelectionSet,
       this.variableDefinitions,
-      fragments,
+      this.fragments,
+      this.name
+    );
+  }
+
+  // Returns a copy of this operation with the provided updated selection set and fragments.
+  private withUpdatedSelectionSetAndFragments(newSelectionSet: SelectionSet, newFragments: NamedFragments | undefined): Operation {
+    if (this.selectionSet === newSelectionSet && newFragments === this.fragments) {
+      return this;
+    }
+
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      newSelectionSet,
+      this.variableDefinitions,
+      newFragments,
       this.name
     );
   }
@@ -908,10 +922,10 @@ export class Operation {
 
       // Expanding fragments could create some "inefficiencies" that we wouldn't have if we hadn't re-optimized
       // the fragments to de-optimize it later, so we do a final "normalize" pass to remove those.
-      optimizedSelection = optimizedSelection.normalize(optimizedSelection.parentType);
+      optimizedSelection = optimizedSelection.normalize({ parentType: optimizedSelection.parentType });
     }
 
-    return this.withUpdatedSelectionSet(optimizedSelection, finalFragments);
+    return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
   }
 
   expandAllFragments(): Operation {
@@ -920,11 +934,11 @@ export class Operation {
     // basically always make sense to normalize afterwards. Besides, fragment reuse (done by `optimize`) rely
     // on the fact that its input is normalized to work properly, so all the more reason to do it here.
     const expanded = this.selectionSet.expandFragments();
-    return this.withUpdatedSelectionSet(expanded.normalize(expanded.parentType), null);
+    return this.withUpdatedSelectionSetAndFragments(expanded.normalize({ parentType: expanded.parentType }), undefined);
   }
 
   normalize(): Operation {
-    return this.withUpdatedSelectionSet(this.selectionSet.normalize(this.selectionSet.parentType));
+    return this.withUpdatedSelectionSet(this.selectionSet.normalize({ parentType: this.selectionSet.parentType }));
   }
 
   /**
@@ -1024,7 +1038,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   expandedSelectionSet(): SelectionSet {
     if (!this._expandedSelectionSet) {
-      this._expandedSelectionSet = this.selectionSet.expandFragments().normalize(this.typeCondition);
+      this._expandedSelectionSet = this.selectionSet.expandFragments().normalize({ parentType: this.typeCondition });
     }
     return this._expandedSelectionSet;
   }
@@ -1140,7 +1154,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     if (isObjectType(type) || isUnionType(this.typeCondition)) {
       // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
       // stops as soon as we traverse a field, so no point in being recursive.
-      selectionSet = expandedSelectionSet.normalize(type, { recursive: false });
+      selectionSet = expandedSelectionSet.normalize({ parentType: type, recursive: false });
     } else {
       // Otherwise, we just filter any top-level fragment that happens to not intersect with `type` runtimes.
       // Note that `normalize` also do this for the case above, but `normalize` also can sometimes simplify some
@@ -1303,7 +1317,7 @@ export class NamedFragments {
     mapper: (selectionSet: SelectionSet) => SelectionSet | undefined,
   ): NamedFragments | undefined {
     return this.mapInDependencyOrder((fragment, newFragments) => {
-      const mappedSelectionSet = mapper(fragment.selectionSet.expandFragments().normalize(fragment.typeCondition));
+      const mappedSelectionSet = mapper(fragment.selectionSet.expandFragments().normalize({ parentType: fragment.typeCondition }));
       if (!mappedSelectionSet) {
         return undefined;
       }
@@ -1628,8 +1642,8 @@ export class SelectionSet {
    * any unecessary top-level inline fragments, possibly multiple layers of them, but we never recurse
    * inside the sub-selection of an selection that is not removed by the normalization.
    */
-  normalize(parentType: CompositeType, options?: { recursive? : boolean }): SelectionSet {
-    return this.lazyMap((selection) => selection.normalize(parentType, options), { parentType });
+  normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): SelectionSet {
+    return this.lazyMap((selection) => selection.normalize({ parentType, recursive }), { parentType });
   }
 
   /**
@@ -2335,7 +2349,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract expandFragments(updatedFragments: NamedFragments | undefined): TOwnType | readonly Selection[];
 
-  abstract normalize(parentType: CompositeType, options?: { recursive? : boolean }): TOwnType | SelectionSet | undefined;
+  abstract normalize(args: { parentType: CompositeType, recursive? : boolean }): TOwnType | SelectionSet | undefined;
 
   isFragmentSpread(): boolean {
     return false;
@@ -2731,7 +2745,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return !!this.selectionSet?.hasDefer();
   }
 
-  normalize(parentType: CompositeType, options?: { recursive? : boolean }): FieldSelection {
+  normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FieldSelection {
     // This could be an interface field, and if we're normalizing on one of the implementation of that
     // interface, we want to make sure we use the field of the implementation, as it may in particular
     // have a more specific type which should propagate to the recursive call to normalize.
@@ -2748,7 +2762,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
 
     const base = element.baseType();
     assert(isCompositeType(base), () => `Field ${element} should not have a sub-selection`);
-    const normalizedSubSelection = (options?.recursive ?? true) ? this.selectionSet.normalize(base) : this.selectionSet;
+    const normalizedSubSelection = (recursive ?? true) ? this.selectionSet.normalize({ parentType: base }) : this.selectionSet;
     // In rare caes, it's possible that everything in the sub-selection was trimmed away and so the
     // sub-selection is empty. Which suggest something may be wrong with this part of the query
     // intent, but the query was valid while keeping an empty sub-selection isn't. So in that
@@ -3009,8 +3023,7 @@ class InlineFragmentSelection extends FragmentSelection {
       : this.withUpdatedComponents(newElement, newSelection);
   }
 
-  normalize(parentType: CompositeType, options?: { recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
-    const recursive = options?.recursive ?? true;
+  normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
     const thisCondition = this.element.typeCondition;
 
     // This method assumes by contract that `currentType` runtimes intersects `this.parentType`'s, but `currentType`
@@ -3034,18 +3047,18 @@ class InlineFragmentSelection extends FragmentSelection {
       // 3. if the current type is an object more generally: because in that case too the condition
       //   cannot be restricting things further (it's typically a less precise interface/union).
       if (!thisCondition || parentType === this.element.typeCondition || isObjectType(parentType)) {
-        const normalized = this.selectionSet.normalize(parentType, options);
+        const normalized = this.selectionSet.normalize({ parentType, recursive });
         return normalized.isEmpty() ? undefined : normalized;
       }
     }
 
     // As we preserve the current fragment, the rest is about recursing. If we don't recurse, we're done
-    if (!recursive) {
+    if (!(recursive ?? true)) {
       return this;
     }
 
     // In all other cases, we recurse on the sub-selection.
-    const normalizedSelectionSet = this.selectionSet.normalize(thisCondition ?? parentType);
+    const normalizedSelectionSet = this.selectionSet.normalize({ parentType: thisCondition ?? parentType });
 
     // First, could be that everything was unsatisfiable.
     if (normalizedSelectionSet.isEmpty()) {
@@ -3158,7 +3171,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     assert(false, `Unsupported`);
   }
 
-  normalize(parentType: CompositeType): FragmentSelection  {
+  normalize({ parentType }: { parentType: CompositeType }): FragmentSelection  {
     // We must update the spread parent type if necessary since we're not going deeper,
     // or we'll be fundamentally losing context.
     assert(parentType.schema() === this.parentType.schema(), 'Should not try to normalize using a type from another schema');
