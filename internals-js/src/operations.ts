@@ -1162,15 +1162,27 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
       // one of its effect is to "rebase" on `type` which may be invalid here. Namely, we could have `type === I1`
       // and the fragment be: `fragment X on I2 { f }`, and even having `runtimes(I1)` included in `runtimes(I2)`
       // does not mean that `f` if a valid field for `I1`.
+      //
+      // Note: reminder here that this method assumes `this.canApplyAtType(type)` and that means that we already
+      // know that `typeRuntimes` is a (non-necessarily strict) subset of `conditionRuntimes`. And so if they
+      // have the same number of runtimes, then they have the same set of runtimes and no point doing any filtering.
       const typeRuntimes = possibleRuntimeTypes(type);
       const conditionRuntimes = possibleRuntimeTypes(this.typeCondition);
       selectionSet = typeRuntimes.length === conditionRuntimes.length
         ? expandedSelectionSet
         : expandedSelectionSet.filter((s) =>
-          s.kind !== 'FragmentSelection' || !s.element.typeCondition || typeRuntimes.some((t) => t.name == s.element.typeCondition?.name)
+          // We keep everything _but_ a fragment that do not intersect our type
+          !(s.kind === 'FragmentSelection' && s.element.typeCondition && !runtimeTypesIntersects(type, s.element.typeCondition))
         );
     }
 
+    // Note that `trimmed` is the difference of 2 selections that may not have been normalized on the same parent type,
+    // so in practice, it is possible that `trimmed` contains some of the selections that `selectionSet` contains, but
+    // that they have been simplified in `selectionSet` in such a way that the `minus` call does not see it. However,
+    // it is not trivial to deal with this, and it is fine given the usage of trimmed: it is used to detect potential
+    // field conflict when we decide to "use" this fragment, and `trimmed` is merely about making that conflict detection
+    // cheaper (by testing against a smaller selection), but we could use the full `expandedSelectionSet` instead of
+    // `trimmed` in practice.
     const trimmed = expandedSelectionSet.minus(selectionSet);
     return { selectionSet, trimmed : trimmed.isEmpty() ? undefined: trimmed };
   }
@@ -1694,17 +1706,26 @@ export class SelectionSet {
   }
 
   /**
-   * Returns the selection select from filtering out any selection that does not match the provided predicate.
+   * Returns the selection set resulting from filtering out any of the top-level selection that does not match the provided predicate.
    *
-   * Please that this method will expand *ALL* fragments as the result of applying it's filtering. You should
-   * call `optimize` on the result if you want to re-apply some fragments.
+   * Please that this method does not recurse within sub-selections.
    */
   filter(predicate: (selection: Selection) => boolean): SelectionSet {
-    return this.lazyMap((selection) => selection.filter(predicate));
+    return this.lazyMap((selection) => predicate(selection) ? selection : undefined);
+  }
+
+  /**
+   * Returns the selection set resulting from "recursively" filtering any selection that does not match the provided predicate.
+   * This method calls `predicate` on every selection of the selection set, not just top-level ones, and apply a "depth-first"
+   * strategy, meaning that when the predicate is call on a given selection, the it is guaranteed that filtering has happened
+   * on all the selections of its sub-selection.
+   */
+  filterRecursiveDepthFirst(predicate: (selection: Selection) => boolean): SelectionSet {
+    return this.lazyMap((selection) => selection.filterRecursiveDepthFirst(predicate));
   }
 
   withoutEmptyBranches(): SelectionSet | undefined {
-    const updated = this.filter((selection) => selection.selectionSet?.isEmpty() !== true);
+    const updated = this.filterRecursiveDepthFirst((selection) => selection.selectionSet?.isEmpty() !== true);
     return updated.isEmpty() ? undefined : updated;
   }
 
@@ -2498,10 +2519,37 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
     let notCoveredByFragments = subSelection;
     const optimized = new SelectionSetUpdates();
+    const addedTrimmedParts: SelectionSet[] = [];
     for (const { fragment, atType} of filteredApplyingFragments) {
+      // At this point, we known that the fragment, restricted to the current parent type, matches a subset of the
+      // sub-selection. However, there is still one case we we cannot use it that we need to check, and this is
+      // if using the fragment would create a field "conflict" (in the sense of the graphQL spec
+      // [`FieldsInSetCanMerge`](https://spec.graphql.org/draft/#FieldsInSetCanMerge())) and thus create an
+      // invalid selection. To be clear, `atType.selectionSet` cannot create a conflict, since it is a subset
+      // of `subSelection` and `subSelection` is valid. *But* there may be some part of the fragment that
+      // is not `atType.selectionSet` due to being "dead branches" for type `parentType`. And while those
+      // branches _are_ "dead" as far as execution goes, the `FieldsInSetCanMerge` validation does not take
+      // this into account (it's 1st step says "including visiting fragments and inline fragments" but has
+      // no logic regarding ignoring any fragment that may not apply due to the intersection of runtimes
+      // between multiple fragment being empty).
       const notCovered = subSelection.minus(atType.selectionSet);
-      if (atType.trimmed && !selectionSetsDoMerge(notCovered, atType.trimmed)) {
-        continue;
+      const trimmed = atType.trimmed;
+      if (trimmed) {
+        // We need to make sure the trimmed parts of `fragment` merges with the rest of the selection,
+        // but also that it merge with any of the trimmed parts of any fragment we have added already.
+        // Note: this last condition means that if 2 fragment conflict on their "trimmed" parts,
+        // then the choice of which is used is based on the fragment ordering, which may not be optimal.
+        // This feels niche enough that we keep it simple for now, but we can revise this decision if
+        // we run into real cases that justify it (but note that making it optimal would be a tad involved
+        // in general, as in theory you could have complex dependencies of fragments that conflict,
+        // even cycles, and you need to take the size of fragments into account to know what's best;
+        // and even then, this could even depend on overall usage, as it can be better ot reuse a
+        // fragment that is used in other places, than to use one for which it's the only usage (even
+        // if it save more in theory)).
+        if (!(selectionSetsDoMerge(notCovered, trimmed) && addedTrimmedParts.every((t) => selectionSetsDoMerge(t, trimmed)))) {
+          continue;
+        }
+        addedTrimmedParts.push(trimmed);
       }
       notCoveredByFragments = notCoveredByFragments.intersectionWith(notCovered);
       optimized.add(new FragmentSpreadSelection(parentType, fragments, fragment, []));
@@ -2647,12 +2695,12 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
       : this.withUpdatedSelectionSet(optimizedSelection);
   }
 
-  filter(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
+  filterRecursiveDepthFirst(predicate: (selection: Selection) => boolean): FieldSelection | undefined {
     if (!this.selectionSet) {
       return predicate(this) ? this : undefined;
     }
 
-    const updatedSelectionSet = this.selectionSet.filter(predicate);
+    const updatedSelectionSet = this.selectionSet.filterRecursiveDepthFirst(predicate);
     const thisWithFilteredSelectionSet = this.selectionSet === updatedSelectionSet
       ? this
       : new FieldSelection(this.element, updatedSelectionSet);
@@ -2839,11 +2887,10 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
     }
   }
   
-  filter(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
+  filterRecursiveDepthFirst(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
     // Note that we essentially expand all fragments as part of this.
-    const selectionSet = this.selectionSet;
-    const updatedSelectionSet = selectionSet.filter(predicate);
-    const thisWithFilteredSelectionSet = updatedSelectionSet === selectionSet
+    const updatedSelectionSet = this.selectionSet.filterRecursiveDepthFirst(predicate);
+    const thisWithFilteredSelectionSet = updatedSelectionSet === this.selectionSet
       ? this
       : new InlineFragmentSelection(this.element, updatedSelectionSet);
 
@@ -3026,10 +3073,10 @@ class InlineFragmentSelection extends FragmentSelection {
   normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
     const thisCondition = this.element.typeCondition;
 
-    // This method assumes by contract that `currentType` runtimes intersects `this.parentType`'s, but `currentType`
+    // This method assumes by contract that `parentType` runtimes intersects `this.parentType`'s, but `parentType`
     // runtimes may be a subset. So first check if the selection should not be discarded on that account (that
     // is, we should not keep the selection if its condition runtimes don't intersect at all with those of
-    // `currentType` as that would ultimately make an invalid selection set).
+    // `parentType` as that would ultimately make an invalid selection set).
     if (thisCondition && parentType !== this.parentType) {
       const conditionRuntimes = possibleRuntimeTypes(thisCondition);
       const typeRuntimes = possibleRuntimeTypes(parentType);
@@ -3065,13 +3112,16 @@ class InlineFragmentSelection extends FragmentSelection {
       if (this.element.appliedDirectives.length === 0) {
         return undefined;
       } else {
-        return this.withUpdatedSelectionSet(selectionSetOfElement(
-          new Field(
-            (this.element.typeCondition ?? this.parentType).typenameField()!,
-            undefined,
-            [new Directive('include', { 'if': false })],
+        return this.withUpdatedComponents(
+          this.element.rebaseOn(parentType),
+          selectionSetOfElement(
+            new Field(
+              (this.element.typeCondition ?? parentType).typenameField()!,
+              undefined,
+              [new Directive('include', { 'if': false })],
+            )
           )
-        ));
+        );
       }
     }
 
@@ -3106,11 +3156,13 @@ class InlineFragmentSelection extends FragmentSelection {
         newSet.add(this.withUpdatedSelectionSet(
           normalizedSelectionSet.filter((s) => !liftableSelections.includes(s)),
         ));
-        return newSet.toSelectionSet(this.parentType);
+        return newSet.toSelectionSet(parentType);
       }
     }
 
-    return this.selectionSet === normalizedSelectionSet ? this : this.withUpdatedSelectionSet(normalizedSelectionSet);
+    return this.selectionSet === normalizedSelectionSet
+      ? this
+      : this.withUpdatedComponents(this.element.rebaseOn(parentType), normalizedSelectionSet);
   }
 
   expandFragments(updatedFragments: NamedFragments | undefined): FragmentSelection {
