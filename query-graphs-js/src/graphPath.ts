@@ -232,20 +232,129 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.props.edgeIndexes.length;
   }
 
-  subgraphJumps(): number {
+  /**
+   * That method first look for the biggest common prefix to `this` and `that` (assuming that both path are build as choices
+   * of the same "query path"), and the count how many subgraph jumps each of the path has after said prefix.
+   *
+   * Note that this method always return someting but the biggest common prefix considered might well be empty. 
+   *
+   * Please note that this method assumes that the 2 paths have the same root, and will fail if that's not the case.
+   */
+  countSubgraphJumpsAfterLastCommonVertex(that: GraphPath<TTrigger, RV, TNullEdge>): {
+    thisJumps: number,
+    thatJumps: number
+  } {
+    const { vertex, index } = this.findLastCommonVertex(that);
+    return {
+      thisJumps: this.subgraphJumpsAtIdx(vertex, index),
+      thatJumps: that.subgraphJumpsAtIdx(vertex, index),
+    };
+  }
+
+  private findLastCommonVertex(that: GraphPath<TTrigger, RV, TNullEdge>): { vertex: Vertex, index: number } {
+    let vertex: Vertex = this.root;
+    assert(that.root === vertex, () => `Expected both path to start on the same root, but 'this' has root ${vertex} while 'that' has ${that.root}`);
+
+    const minSize = Math.min(this.size, that.size);
+    let index = 0;
+    for (; index < minSize; index++) {
+      const thisEdge = this.edgeAt(index, vertex);
+      const thatEdge = that.edgeAt(index, vertex);
+      if (thisEdge !== thatEdge) {
+        break;
+      }
+      if (thisEdge) {
+        vertex = thisEdge.tail;
+      }
+    }
+    return { vertex, index};
+  }
+
+  private subgraphJumpsAtIdx(vertex: Vertex, index: number): number {
     let jumps = 0;
-    let v: Vertex = this.root;
-    for (let i = 0; i < this.size; i++) {
+    let v: Vertex = vertex;
+    for (let i = index; i < this.size; i++) {
       const edge = this.edgeAt(i, v);
       if (!edge) {
         continue;
       }
-      if (edge.transition.kind === 'KeyResolution' || edge.transition.kind === 'RootTypeResolution') {
+      if (edge.changesSubgraph()) {
         ++jumps;
       }
       v = edge.tail;
     }
     return jumps;
+  }
+
+  subgraphJumps(): number {
+    return this.subgraphJumpsAtIdx(this.root, 0);
+  }
+
+  isEquivalentSaveForTypeExplosionTo(that: GraphPath<TTrigger, RV, TNullEdge>): boolean {
+    // We're looking a the specific case were both path are basically equivalent except
+    // for a single step of type-explosion, so if either the paths don't start and end in the
+    // same vertex, or if `other` is not exactly 1 more step than `this`, we're done.
+    if (this.root !== that.root || this.tail !== that.tail || this.size !== that.size - 1) {
+      return false;
+    }
+
+    // If that's true, then we get to our comparison.
+    let thisV: Vertex = this.root;
+    let thatV: Vertex = that.root;
+    for (let i = 0; i < this.size; i++) {
+      let thisEdge = this.edgeAt(i, thisV);
+      let thatEdge = that.edgeAt(i, thatV);
+      if (thisEdge !== thatEdge) {
+        // First difference. If it's not a "type-explosion", that is `that` is a cast from an
+        // interface to one of the implementation, then we're not in the case we're looking for.
+        if (!thisEdge || !thatEdge || !isInterfaceType(thatV.type) || thatEdge.transition.kind !== 'DownCast') {
+          return false;
+        }
+        thatEdge = that.edgeAt(i+1, thatEdge.tail);
+        if (!thatEdge) {
+          return false;
+        }
+        thisV = thisEdge.tail;
+        thatV = thatEdge.tail;
+
+        // At that point, we want both path to take the "same" key, but because one is starting
+        // from the interface while the other one from an implementation, they won't be technically
+        // the "same" edge object. So we check that both are key, to the same subgraph and type,
+        // and with the same condition.
+        if (thisEdge.transition.kind !== 'KeyResolution'
+          || thatEdge.transition.kind !== 'KeyResolution'
+          || thisEdge.tail.source !== thatEdge.tail.source
+          || thisV !== thatV
+          || !thisEdge.conditions!.equals(thatEdge.conditions!)
+        ) {
+          return false;
+        }
+
+        // So far, so good. `thisV` and `thatV` are positioned on the vertex after which the path
+        // must be equal again. So check that it's true, and if it is, we're good.
+        // Note that for `this`, the last edge we looked at was `i`, so the next is `i+1`. And
+        // for `that`, we've skipped over one more edge, so need to use `j+1`.
+        for (let j = i + 1; j < this.size; j++) {
+          thisEdge = this.edgeAt(j, thisV);
+          thatEdge = that.edgeAt(j+1, thatV);
+          if (thisEdge !== thatEdge) {
+            return false;
+          }
+          if (thisEdge) {
+            thisV = thisEdge.tail;
+            thatV = thatEdge!.tail;
+          }
+        }
+        return true;
+      }
+      if (thisEdge) {
+        thisV = thisEdge.tail;
+        thatV = thatEdge!.tail;
+      }
+    }
+    // If we get here, both path are actually exactly the same. So technically there is not additional
+    // type explosion, but they are equivalent and we can return `true`.
+    return true;
   }
 
   [Symbol.iterator](): PathIterator<TTrigger, TNullEdge> {
@@ -1814,6 +1923,35 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
           // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
           // had one when testing direct transitions above (in which case we have exited the method early).
           assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
+
+          // There is a special case we can deal with now. Namely, suppose we have a case where a query
+          // is reaching an interface I in a subgraph S1, we query some field of that interface x, and
+          // say that x is provided in subgraph S2 but by an @interfaceObject for I.
+          // As we look for direct options for I.x in S1 initially, as we didn't found `x`, we will have tried
+          // to type-explode I (in say implementation A and B). And in some case doing so is necessary, but
+          // it may also lead for the type-exploding option to look like:
+          //  [
+          //    I(S1) -[... on A]-> A(S1) -[key]-> I(S2) -[x] -> Int(S2),
+          //    I(S1) -[... on B]-> B(S1) -[key]-> I(S2) -[x] -> Int(S2),
+          //  ]
+          // But as we look at indirect option now (still from I in S1), we will note that we can also
+          // do:
+          //    I(S1) -[key]-> I(S2) -[x] -> Int(S2),
+          // And while both options are technically valid, the new one really subsume the first one: there
+          // is no point in type-exploding to take a key to the same exact subgraph if using the key
+          // on the interface directly works.
+          //
+          // So here, we look for that case and remove any type-exploding option that the new path
+          // render unecessary.
+          // Do note that we only make that check when the new option is a single-path option, because
+          // this gets kind of complicated otherwise.
+          if (pathWithNonCollecting.tailIsInterfaceObject()) {
+            for (const indirectOption of pathWithOperation) {
+              if (indirectOption.length === 1) {
+                options = options.filter((opt) => !opt.every((p) => indirectOption[0].isEquivalentSaveForTypeExplosionTo(p)));
+              }
+            }
+          }
           options = options.concat(pathWithOperation);
         }
         debug.groupEnd();
@@ -1852,6 +1990,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   debug.groupEnd(() => advanceOptionsToString(allOptions));
   return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext);
 }
+
 
 export function createInitialOptions<V extends Vertex>(
   initialPath: OpGraphPath<V>,
