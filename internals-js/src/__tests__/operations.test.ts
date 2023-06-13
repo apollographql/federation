@@ -1,12 +1,14 @@
 import {
   defaultRootName,
+  isCompositeType,
   Schema,
   SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { MutableSelectionSet, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
+import { MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation, SelectionSetAtType } from '../../dist/operations';
 import './matchers';
-import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, SelectionNode, SelectionSetNode } from 'graphql';
+import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
+import { assert } from '../utils';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -44,11 +46,7 @@ describe('fragments optimization', () => {
     expanded: string,
   }) {
     const operation = parseOperation(schema, query);
-    // We call `trimUnsatisfiableBranches` because the selections we care about in the query planner
-    // will effectively have had gone through that function (and even if that function wasn't called,
-    // the query planning algorithm would still end up removing unsatisfiable branches anyway), so
-    // it is a more interesting test.
-    const withoutFragments = operation.expandAllFragments().trimUnsatisfiableBranches();
+    const withoutFragments = operation.expandAllFragments();
 
     expect(withoutFragments.toString()).toMatchString(expanded);
 
@@ -120,7 +118,7 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
       {
         t {
@@ -132,22 +130,18 @@ describe('fragments optimization', () => {
             x
             y
           }
-          ... on I {
-            b
-          }
+          b
           u {
-            ... on U {
-              ... on I {
-                b
-              }
-              ... on T1 {
-                a
-                b
-              }
-              ... on T2 {
-                x
-                y
-              }
+            ... on I {
+              b
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
             }
           }
         }
@@ -256,7 +250,7 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const withoutFragments = parseOperation(schema, operation.toString(true, true));
+    const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
       {
         t {
@@ -264,10 +258,8 @@ describe('fragments optimization', () => {
             a
             b
             me {
-              ... on I {
-                b
-                c
-              }
+              b
+              c
             }
           }
           ... on T2 {
@@ -275,35 +267,31 @@ describe('fragments optimization', () => {
             y
           }
           u1 {
-            ... on U {
-              ... on I {
-                b
-                c
-              }
-              ... on T1 {
-                a
-                b
-              }
-              ... on T2 {
-                x
-                y
-              }
+            ... on I {
+              b
+              c
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
             }
           }
           u2 {
-            ... on U {
-              ... on I {
-                b
-                c
-              }
-              ... on T1 {
-                a
-                b
-              }
-              ... on T2 {
-                x
-                y
-              }
+            ... on I {
+              b
+              c
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
             }
           }
         }
@@ -1073,6 +1061,346 @@ describe('fragments optimization', () => {
       });
     });
   });
+
+  describe('does not generate invalid operations', () => {
+    test('due to conflict between selection and reused fragment', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T1
+          i: I
+        }
+
+        interface I {
+          id: ID!
+        }
+
+        interface WithF {
+          f(arg: Int): Int
+        }
+
+        type T1 implements I {
+          id: ID!
+          f(arg: Int): Int
+        }
+
+        type T2 implements I & WithF {
+          id: ID!
+          f(arg: Int): Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        query {
+          t1 {
+            id
+            f(arg: 0)
+          }
+          i {
+            ...F1
+          }
+        }
+
+        fragment F1 on I {
+          id
+          ... on WithF {
+            f(arg: 1)
+          }
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            id
+            f(arg: 0)
+          }
+          i {
+            id
+            ... on WithF {
+              f(arg: 1)
+            }
+          }
+        }
+      `);
+
+      // Note that technically, `t1` has return type `T1` which is a `I`, so `F1` can be spread
+      // within `t1`, and `t1 { ...F1 }` is just `t1 { id }` (because `T!` does not implement `WithF`),
+      // so that it would appear that it could be valid to optimize this query into:
+      //   {
+      //     t1 {
+      //       ...F1       // Notice the use of F1 here, which does expand to `id` in this context
+      //       f(arg: 0)
+      //     }
+      //     i {
+      //       ...F1
+      //     }
+      //   }
+      // And while doing this may look "dumb" in that toy example (we're replacing `id` with `...F1`
+      // which is longer so less optimal really), it's easy to expand this to example where re-using
+      // `F1` this way _does_ make things smaller.
+      //
+      // But the query above is actually invalid. And it is invalid because the validation of graphQL
+      // does not take into account the fact that the `... on WithF` part of `F1` is basically dead
+      // code within `t1`. And so it finds a conflict between `f(arg: 0)` and the `f(arg: 1)` in `F1`
+      // (even though, again, the later is statically known to never apply, but graphQL does not
+      // include such static analysis in its validation).
+      //
+      // And so this test does make sure we do not generate the query above (do not use `F1` in `t1`).
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment F1 on I {
+          id
+          ... on WithF {
+            f(arg: 1)
+          }
+        }
+
+        {
+          t1 {
+            id
+            f(arg: 0)
+          }
+          i {
+            ...F1
+          }
+        }
+      `);
+    });
+
+    test('due to conflict between the active selection of a reused fragment and the trimmed part of another fragments', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T1
+          i: I
+        }
+
+        interface I {
+          id: ID!
+        }
+
+        interface WithF {
+          f(arg: Int): Int
+        }
+
+        type T1 implements I {
+          id: ID!
+          f(arg: Int): Int
+        }
+
+        type T2 implements I & WithF {
+          id: ID!
+          f(arg: Int): Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        query {
+          t1 {
+            id
+            ...F1
+          }
+          i {
+            ...F2
+          }
+        }
+
+        fragment F1 on T1 {
+          f(arg: 0)
+        }
+
+        fragment F2 on I {
+          id
+          ... on WithF {
+            f(arg: 1)
+          }
+        }
+
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            id
+            f(arg: 0)
+          }
+          i {
+            id
+            ... on WithF {
+              f(arg: 1)
+            }
+          }
+        }
+      `);
+
+      // See the comments on the previous test. The only different here is that `F1` is applied
+      // first, and then we need to make sure we do not apply `F2` even though it's restriction
+      // inside `t1` matches its selection set.
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment F1 on T1 {
+          f(arg: 0)
+        }
+
+        fragment F2 on I {
+          id
+          ... on WithF {
+            f(arg: 1)
+          }
+        }
+
+        {
+          t1 {
+            ...F1
+            id
+          }
+          i {
+            ...F2
+          }
+        }
+      `);
+    });
+
+    test('due to conflict between the trimmed parts of 2 fragments', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T1
+          i1: I
+          i2: I
+        }
+
+        interface I {
+          id: ID!
+          a: Int
+          b: Int
+        }
+
+        interface WithF {
+          f(arg: Int): Int
+        }
+
+        type T1 implements I {
+          id: ID!
+          a: Int
+          b: Int
+          f(arg: Int): Int
+        }
+
+        type T2 implements I & WithF {
+          id: ID!
+          a: Int
+          b: Int
+          f(arg: Int): Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        query {
+          t1 {
+            id
+            a
+            b
+          }
+          i1 {
+            ...F1
+          }
+          i2 {
+            ...F2
+          }
+        }
+
+        fragment F1 on I {
+          id
+          a
+          ... on WithF {
+            f(arg: 0)
+          }
+        }
+
+        fragment F2 on I {
+          id
+          b
+          ... on WithF {
+            f(arg: 1)
+          }
+        }
+
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            id
+            a
+            b
+          }
+          i1 {
+            id
+            a
+            ... on WithF {
+              f(arg: 0)
+            }
+          }
+          i2 {
+            id
+            b
+            ... on WithF {
+              f(arg: 1)
+            }
+          }
+        }
+      `);
+
+      // Here, `F1` in `T1` reduces to `{ id a }` and F2 reduces to `{ id b }`, so theoretically both could be used
+      // within the first `T1` branch. But they can't both be used because their `... on WithF` part conflict,
+      // and even though that part is dead in `T1`, this would still be illegal graphQL.
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment F1 on I {
+          id
+          a
+          ... on WithF {
+            f(arg: 0)
+          }
+        }
+
+        fragment F2 on I {
+          id
+          b
+          ... on WithF {
+            f(arg: 1)
+          }
+        }
+
+        {
+          t1 {
+            ...F1
+            b
+          }
+          i1 {
+            ...F1
+          }
+          i2 {
+            ...F2
+          }
+        }
+      `);
+    });
+  });
 });
 
 describe('validations', () => {
@@ -1414,8 +1742,8 @@ describe('unsatisfiable branches removal', () => {
     }
   `);
 
-  const withoutUnsatisfiableBranches = (op: string) => {
-    return parseOperation(schema, op).trimUnsatisfiableBranches().toString(false, false)
+  const normalized = (op: string) => {
+    return parseOperation(schema, op).normalize().toString(false, false)
   };
 
 
@@ -1423,7 +1751,7 @@ describe('unsatisfiable branches removal', () => {
     '{ i { a } }',
     '{ i { ... on T1 { a b c } } }',
   ])('is identity if there is no unsatisfiable branches', (op) => {
-    expect(withoutUnsatisfiableBranches(op)).toBe(op);
+    expect(normalized(op)).toBe(op);
   });
 
   it.each([
@@ -1432,6 +1760,160 @@ describe('unsatisfiable branches removal', () => {
     { input: '{ i { ... on I { a ... on T2 { d } } } }', output: '{ i { a ... on T2 { d } } }' },
     { input: '{ i { ... on T2 { ... on I { a ... on J { b } } } } }', output: '{ i { ... on T2 { a } } }' },
   ])('removes unsatisfiable branches', ({input, output}) => {
-    expect(withoutUnsatisfiableBranches(input)).toBe(output);
+    expect(normalized(input)).toBe(output);
+  });
+});
+
+describe('named fragment selection set restrictions at type', () => {
+  const expandAtType = (frag: NamedFragmentDefinition, schema: Schema, typeName: string): SelectionSetAtType => {
+    const type = schema.type(typeName);
+    assert(type && isCompositeType(type), `Invalid type ${typeName}`)
+    // `expandedSelectionSetAtType` assumes it's argument passes `canApplyAtType`, so let's make sure we're
+    // not typo-ing something in our tests.
+    assert(frag.canApplyDirectlyAtType(type), `${frag.name} cannot be applied at type ${typeName}`);
+    return frag.expandedSelectionSetAtType(type);
+  }
+
+  test('for fragment on interfaces', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: I1
+      }
+
+      interface I1 {
+        x: Int
+      }
+
+      interface I2 {
+        x: Int
+      }
+
+      interface I3 {
+        x: Int
+      }
+
+      interface I4 {
+        x: Int
+      }
+
+      type T1 implements I1 & I2 & I4 {
+        x: Int
+      }
+
+      type T2 implements I1 & I3 & I4 {
+        x: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      {
+        t1 {
+          ...FonI1
+        }
+      }
+
+      fragment FonI1 on I1 {
+        x
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          x
+        }
+        ... on I2 {
+          x
+        }
+        ... on I3 {
+          x
+        }
+      }
+    `);
+
+    const frag = operation.fragments?.get('FonI1')!;
+
+    let { selectionSet, trimmed } = expandAtType(frag, schema, 'I1');
+    expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
+    expect(trimmed?.toString()).toBeUndefined();
+
+    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'T1'));
+    expect(selectionSet.toString()).toBe('{ x }');
+    // Note: one could remark that having `... on T1 { x }` in `trimmed` below is a tad weird: this is
+    // because in this case `normalized` removed that fragment and so when we do `normalized.mins(original)`,
+    // then it shows up. It a tad difficult to avoid this however and it's ok for what we do (`trimmed`
+    // is used to check for field conflict and and the only reason we use `trimmed` is to make things faster
+    // but we could use the `original` instead).
+    expect(trimmed?.toString()).toBe('{ ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
+  });
+
+  test('for fragment on unions', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: U1
+      }
+
+      union U1 = T1 | T2
+      union U2 = T1
+      union U3 = T2
+      union U4 = T1 | T2
+
+      type T1 {
+        x: Int
+        y: Int
+      }
+
+      type T2 {
+        z: Int
+        w: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      {
+        t1 {
+          ...FonU1
+        }
+      }
+
+      fragment FonU1 on U1 {
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          z
+        }
+        ... on U2 {
+          ... on T1 {
+            y
+          }
+        }
+        ... on U3 {
+          ... on T2 {
+            w
+          }
+        }
+      }
+    `);
+
+    const frag = operation.fragments?.get('FonU1')!;
+
+    // Note that with unions, the fragments inside the unions can be "lifted" and so they everyting normalize to just the
+    // possible runtimes.
+
+    let { selectionSet, trimmed } = expandAtType(frag, schema, 'U1');
+    expect(selectionSet.toString()).toBe('{ ... on T1 { x y } ... on T2 { z w } }');
+    expect(trimmed?.toString()).toBeUndefined();
+
+    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'U2'));
+    expect(selectionSet.toString()).toBe('{ ... on T1 { x y } }');
+    expect(trimmed?.toString()).toBe('{ ... on T2 { z w } }');
+
+    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'U3'));
+    expect(selectionSet.toString()).toBe('{ ... on T2 { z w } }');
+    expect(trimmed?.toString()).toBe('{ ... on T1 { x y } }');
+
+    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'T1'));
+    expect(selectionSet.toString()).toBe('{ x y }');
+    // Similar remarks that on interfaces
+    expect(trimmed?.toString()).toBe('{ ... on T1 { x y } ... on T2 { z w } }');
   });
 });

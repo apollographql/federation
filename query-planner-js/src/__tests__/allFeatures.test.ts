@@ -10,6 +10,7 @@ import {
   buildSchema,
   parseOperation,
 } from '@apollo/federation-internals';
+import { parse, validate } from 'graphql';
 
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
@@ -52,6 +53,7 @@ for (const directory of directories) {
           const givenQuery = () => {
             given(/^query$/im, (operationString: string) => {
               operation = parseOperation(schema, operationString);
+              expect(validate(schema.toGraphQLJSSchema(), parse(operationString))).toStrictEqual([]);
             });
           };
 

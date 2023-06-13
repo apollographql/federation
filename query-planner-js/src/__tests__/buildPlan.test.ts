@@ -5759,7 +5759,7 @@ test('does not error out handling fragments when interface subtyping is involved
   `);
 });
 
-describe("named fragments reuse", () => {
+describe("named fragments", () => {
   test('handles mix of fragments indirection and unions', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -5997,6 +5997,69 @@ describe("named fragments reuse", () => {
           
           fragment Fragment4 on I {
             id
+          }
+        },
+      }
+    `);
+  });
+
+  test('handles fragments with interface field subtyping', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t1: T1!
+        }
+
+        interface I {
+          id: ID!
+          other: I!
+        }
+
+        type T1 implements I {
+          id: ID!
+          other: T1!
+        }
+
+
+        type T2 implements I
+        {
+          id: ID!
+          other: T2!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      {
+        t1 {
+          ...Fragment1
+        }
+      }
+
+      fragment Fragment1 on I {
+        other {
+          ... on T1 {
+            id
+          }
+          ... on T2 {
+            id
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t1 {
+              other {
+                id
+              }
+            }
           }
         },
       }
