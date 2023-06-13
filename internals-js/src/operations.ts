@@ -1082,13 +1082,32 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
   }
 
   /**
-   * Whether this fragment may apply at the provided type, that is if either:
-   *  - its type condition is equal to the provided type.
-   *  - or the runtime types of the provided type include all of those of the fragment condition. 
+   * Whether this fragment may apply _directly_ at the provided type, meaning that the fragment sub-selection
+   * could be put directly inside a `... on type {}` inline fragment (_without_ re-adding the fragment condition
+   * that is), and both be valid and not "lose context".
+   *
+   * For that to be true, we need one of this to be true:
+   * 1. the runtime types of the fragment condition must be at least as general as those of the provided `type`.
+   *    Otherwise, putting it at `type` without its condition would "generalize" more than fragment meant to (and
+   *    so we'd "lose context"
+   * 2. either `type` and `this.typeCondition` are equal, or `type` is an object or `this.typeCondition` is a union
+   *    The idea is that, assuming our 1st point, then:
+   *    - if both are equal, things works trivially.
+   *    - if `type` is an object, `this.typeCondition` is either the same object, or a union/interface for which
+   *      type is a valid runtime. In all case, anything valid on `this.typeCondition` would apply to `type` too.
+   *    - if `this.typeCondition` is a union, then it's selection can only have fragments on object types at top-level
+   *      (save for `__typename`), and all those selection will work at `type` too.
+   *    But in any other case, both types must be abstract (if `this.typeCondition` is an object, the 1st condition
+   *    imply `type` can only be the same type) and we're in one of:
+   *    - `type` and `this.typeCondition` are both different interfaces (that intersect but are different).
+   *    - `type` is aunion and `this.typeCondition` an interface.
+   *       And in both cases, the selection of the fragment may selection an interface that is not valid at `type` (if `type`
+   *       is a union because a direct field is always wrong, and if `type` is another interface because that interface may
+   *       not have that particular field).
    *
    * @param type - the type at which we're looking at applying the fragment
    */
-  canApplyAtType(type: CompositeType): boolean {
+  canApplyDirectlyAtType(type: CompositeType): boolean {
     if (sameType(type, this.typeCondition)) {
       return true;
     }
@@ -1101,17 +1120,20 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
     const conditionRuntimes = possibleRuntimeTypes(this.typeCondition);
     const typeRuntimes = possibleRuntimeTypes(type);
-
-    // The fragment condition must be at least as general as the provided type (so that if we use the fragment
-    // inside `type`, then it doesn't add restriction that weren't there without the fragment).
+    // The fragment condition must be at least as general as the provided type (in other words, all of the
+    // runtimes of `type` must be in `conditionRuntimes`).
     // Note: the `length` test is technically redundant, but just avoid the more costly sub-set check if we
     // can cheaply show it's unnecessary.
-    return conditionRuntimes.length >= typeRuntimes.length
-     && typeRuntimes.every((t1) => conditionRuntimes.some((t2) => sameType(t1, t2)));
+    if (conditionRuntimes.length < typeRuntimes.length
+      || !typeRuntimes.every((t1) => conditionRuntimes.some((t2) => sameType(t1, t2)))) {
+      return false;
+    }
+
+    return isObjectType(type) || isUnionType(this.typeCondition);
   }
 
   /**
-   * This methods *assumes* that `this.canApplyAtType(type)` is `true` (and may crash if this is not true), and returns
+   * This methods *assumes* that `this.canApplyDirectlyAtType(type)` is `true` (and may crash if this is not true), and returns
    * a version fo this named fragment selection set that corresponds to the "expansion" of this named fragment at `type`
    *
    * The overall idea here is that if we have an interface I with 2 implementations T1 and T2, and we have a fragment like:
@@ -1129,7 +1151,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * us that part.
    */
   expandedSelectionSetAtType(type: CompositeType): SelectionSetAtType {
-    // First, if the candidate condition is an object or is the type passed, then there isn't anyrestriction to do.
+    // First, if the candidate condition is an object or is the type passed, then there isn't any restriction to do.
     if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
       return { selectionSet: this.expandedSelectionSet() };
     }
@@ -1144,37 +1166,9 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   private computeExpandedSelectionSetAtType(type: CompositeType): SelectionSetAtType {
     const expandedSelectionSet = this.expandedSelectionSet();
-    let selectionSet: SelectionSet;
-    // There is 2 case where we can just call `normalize` on `type` directly:
-    // 1. if `type` is an object: since `type` is a runtime of `typeCondition` then `typeCondition` is
-    //   either an interface of `type` or a union containing it.
-    // 2. if `typeCondition` is an union: that's because the only selections on a union are either `__typename`
-    //   or some other condition that intersects the union. Both are also guaranteed to be ok for `type`
-    //   since `type` intersects union.
-    if (isObjectType(type) || isUnionType(this.typeCondition)) {
-      // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
-      // stops as soon as we traverse a field, so no point in being recursive.
-      selectionSet = expandedSelectionSet.normalize({ parentType: type, recursive: false });
-    } else {
-      // Otherwise, we just filter any top-level fragment that happens to not intersect with `type` runtimes.
-      // Note that `normalize` also do this for the case above, but `normalize` also can sometimes simplify some
-      // of the fragment that are kept, which don't apply here. And calling `normalize` would not be valid because
-      // one of its effect is to "rebase" on `type` which may be invalid here. Namely, we could have `type === I1`
-      // and the fragment be: `fragment X on I2 { f }`, and even having `runtimes(I1)` included in `runtimes(I2)`
-      // does not mean that `f` if a valid field for `I1`.
-      //
-      // Note: reminder here that this method assumes `this.canApplyAtType(type)` and that means that we already
-      // know that `typeRuntimes` is a (non-necessarily strict) subset of `conditionRuntimes`. And so if they
-      // have the same number of runtimes, then they have the same set of runtimes and no point doing any filtering.
-      const typeRuntimes = possibleRuntimeTypes(type);
-      const conditionRuntimes = possibleRuntimeTypes(this.typeCondition);
-      selectionSet = typeRuntimes.length === conditionRuntimes.length
-        ? expandedSelectionSet
-        : expandedSelectionSet.filter((s) =>
-          // We keep everything _but_ a fragment that do not intersect our type
-          !(s.kind === 'FragmentSelection' && s.element.typeCondition && !runtimeTypesIntersects(type, s.element.typeCondition))
-        );
-    }
+    // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
+    // stops as soon as we traverse a field, so no point in being recursive.
+    const selectionSet = expandedSelectionSet.normalize({ parentType: type, recursive: false });
 
     // Note that `trimmed` is the difference of 2 selections that may not have been normalized on the same parent type,
     // so in practice, it is possible that `trimmed` contains some of the selections that `selectionSet` contains, but
@@ -1249,8 +1243,8 @@ export class NamedFragments {
     }
   }
 
-  maybeApplyingAtType(type: CompositeType): NamedFragmentDefinition[] {
-    return this.fragments.values().filter(f => f.canApplyAtType(type));
+  maybeApplyingDirectlyAtType(type: CompositeType): NamedFragmentDefinition[] {
+    return this.fragments.values().filter(f => f.canApplyDirectlyAtType(type));
   }
 
   get(name: string): NamedFragmentDefinition | undefined {
@@ -2414,7 +2408,12 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     fragments: NamedFragments,
     canUseFullMatchingFragment: (match: NamedFragmentDefinition) => boolean,
   }): SelectionSet | NamedFragmentDefinition {
-    let candidates = fragments.maybeApplyingAtType(parentType);
+    // We limit to fragments whose selection could be applied "directly" at `parentType`, meaning without taking the fragment condition
+    // into account. The idea being that if the fragment condition would be needed inside `parentType`, then that condition will not
+    // have been "normalized away" and so we want for this very call to be called on the fragment whose type _is_ the fragment condition (at
+    // which point, this `maybeApplyingDirectlyAtType` method will apply.
+    // Also note that this is because we have this restriction that calling `expandedSelectionSetAtType` is ok.
+    let candidates = fragments.maybeApplyingDirectlyAtType(parentType);
 
     // First, we check which of the candidates do apply inside `subSelection`, if any.
     // If we find a candidate that applies to the whole `subSelection`, then we stop and only return
@@ -3099,30 +3098,31 @@ class InlineFragmentSelection extends FragmentSelection {
       }
     }
 
-    // As we preserve the current fragment, the rest is about recursing. If we don't recurse, we're done
-    if (!(recursive ?? true)) {
-      return this;
-    }
+    // We preserve the current fragment, so we only recurse within the sub-selection if we're asked to be recusive.
+    // (note that even if we're not recursive, we may still have some "lifting" to do)
+    let normalizedSelectionSet: SelectionSet;
+    if (recursive ?? true) {
+      normalizedSelectionSet = this.selectionSet.normalize({ parentType: thisCondition ?? parentType });
 
-    // In all other cases, we recurse on the sub-selection.
-    const normalizedSelectionSet = this.selectionSet.normalize({ parentType: thisCondition ?? parentType });
-
-    // First, could be that everything was unsatisfiable.
-    if (normalizedSelectionSet.isEmpty()) {
-      if (this.element.appliedDirectives.length === 0) {
-        return undefined;
-      } else {
-        return this.withUpdatedComponents(
-          this.element.rebaseOn(parentType),
-          selectionSetOfElement(
-            new Field(
-              (this.element.typeCondition ?? parentType).typenameField()!,
-              undefined,
-              [new Directive('include', { 'if': false })],
+      // It could be that everything was unsatisfiable.
+      if (normalizedSelectionSet.isEmpty()) {
+        if (this.element.appliedDirectives.length === 0) {
+          return undefined;
+        } else {
+          return this.withUpdatedComponents(
+            this.element.rebaseOn(parentType),
+            selectionSetOfElement(
+              new Field(
+                (this.element.typeCondition ?? parentType).typenameField()!,
+                undefined,
+                [new Directive('include', { 'if': false })],
+              )
             )
-          )
-        );
+          );
+        }
       }
+    } else {
+      normalizedSelectionSet = this.selectionSet;
     }
 
     // Second, we check if some of the sub-selection fragments can be "lifted" outside of this fragment. This can happen if:
@@ -3160,7 +3160,7 @@ class InlineFragmentSelection extends FragmentSelection {
       }
     }
 
-    return this.selectionSet === normalizedSelectionSet
+    return this.parentType === parentType && this.selectionSet === normalizedSelectionSet
       ? this
       : this.withUpdatedComponents(this.element.rebaseOn(parentType), normalizedSelectionSet);
   }

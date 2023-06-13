@@ -1770,7 +1770,7 @@ describe('named fragment selection set restrictions at type', () => {
     assert(type && isCompositeType(type), `Invalid type ${typeName}`)
     // `expandedSelectionSetAtType` assumes it's argument passes `canApplyAtType`, so let's make sure we're
     // not typo-ing something in our tests.
-    assert(frag.canApplyAtType(type), `${frag.name} cannot be applied at type ${typeName}`);
+    assert(frag.canApplyDirectlyAtType(type), `${frag.name} cannot be applied at type ${typeName}`);
     return frag.expandedSelectionSetAtType(type);
   }
 
@@ -1832,19 +1832,6 @@ describe('named fragment selection set restrictions at type', () => {
     const frag = operation.fragments?.get('FonI1')!;
 
     let { selectionSet, trimmed } = expandAtType(frag, schema, 'I1');
-    expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
-    expect(trimmed?.toString()).toBeUndefined();
-
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'I2'));
-    expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on I2 { x } }');
-    expect(trimmed?.toString()).toBe('{ ... on T2 { x } ... on I3 { x } }');
-
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'I3'));
-    expect(selectionSet.toString()).toBe('{ x ... on T2 { x } ... on I3 { x } }');
-    expect(trimmed?.toString()).toBe('{ ... on T1 { x } ... on I2 { x } }');
-
-    // Note: I4 has the same runtimes than I1, so it's result should be basically the same than for `I1` itself
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'I4'));
     expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
     expect(trimmed?.toString()).toBeUndefined();
 
