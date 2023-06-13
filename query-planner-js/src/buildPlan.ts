@@ -337,7 +337,7 @@ function compareSinglePathOptionsComplexityOutOfContext<RV extends Vertex>(p1: O
   // of going to subgraph `B` into account (it may very be that whatever comes after `u` is not in `A` for
   // instance).
   if (p1.tail.source !== p2.tail.source) {
-    const { thisJumps: p1Jumps, thatJumps: p2Jumps } = p1.findBiggestCommonPrefixAndCountMainSubgraphJumpsAfterIt(p2);
+    const { thisJumps: p1Jumps, thatJumps: p2Jumps } = p1.countSubgraphJumpsAfterLastCommonVertex(p2);
     // As described above, we want to known if one of the path has no jumps at all (after the common prefix) while
     // the other do have some.
     if (p1Jumps === 0 && p2Jumps > 0) {

@@ -240,18 +240,18 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    *
    * Please note that this method assumes that the 2 paths have the same root, and will fail if that's not the case.
    */
-  findBiggestCommonPrefixAndCountMainSubgraphJumpsAfterIt(that: GraphPath<TTrigger, RV, TNullEdge>): {
+  countSubgraphJumpsAfterLastCommonVertex(that: GraphPath<TTrigger, RV, TNullEdge>): {
     thisJumps: number,
     thatJumps: number
   } {
-    const { vertex, index } = this.findBiggestCommonPrefixEndIndex(that);
+    const { vertex, index } = this.findLastCommonVertex(that);
     return {
       thisJumps: this.subgraphJumpsAtIdx(vertex, index),
       thatJumps: that.subgraphJumpsAtIdx(vertex, index),
     };
   }
 
-  private findBiggestCommonPrefixEndIndex(that: GraphPath<TTrigger, RV, TNullEdge>): { vertex: Vertex, index: number } {
+  private findLastCommonVertex(that: GraphPath<TTrigger, RV, TNullEdge>): { vertex: Vertex, index: number } {
     let vertex: Vertex = this.root;
     assert(that.root === vertex, () => `Expected both path to start on the same root, but 'this' has root ${vertex} while 'that' has ${that.root}`);
 
