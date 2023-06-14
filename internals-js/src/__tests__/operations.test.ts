@@ -1401,6 +1401,97 @@ describe('fragments optimization', () => {
       `);
     });
   });
+
+  test('does not leave unused fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      union U1 = T1 | T2 | T3
+      union U2 =      T2 | T3
+
+      type T1 {
+        x: Int
+      }
+
+      type T2 {
+        y: Int
+      }
+
+      type T3 {
+        z: Int
+      }
+    `);
+    const gqlSchema = schema.toGraphQLJSSchema();
+
+    const operation = parseOperation(schema, `
+      query {
+        t1 {
+          ...Outer
+        }
+      }
+
+      fragment Outer on U1 {
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          ... Inner
+        }
+        ... on T3 {
+          ... Inner
+        }
+      }
+
+      fragment Inner on U2 {
+        ... on T2 {
+          y
+        }
+      }
+    `);
+    expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+    const withoutFragments = operation.expandAllFragments();
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1 {
+          x
+        }
+      }
+    `);
+
+    // This is a bit of contrived example, but the reusing code will be able
+    // to figure out that the `Outer` fragment can be reused and will initially
+    // do so, but it's only use once, so it will expand it, which yields:
+    // {
+    //   t1 {
+    //     ... on T1 {
+    //       x
+    //     }
+    //     ... on T2 {
+    //       ... Inner
+    //     }
+    //     ... on T3 {
+    //       ... Inner
+    //     }
+    //   }
+    // }
+    // and so `Inner` will not be expanded (it's used twice). Except that
+    // the `normalize` code is apply then and will _remove_ both instances
+    // of `.... Inner`. Which is ok, but we must make sure the fragment
+    // itself is removed since it is not used now, which this test ensures.
+    const optimized = withoutFragments.optimize(operation.fragments!, 2);
+    expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+    expect(optimized.toString()).toMatchString(`
+      {
+        t1 {
+          x
+        }
+      }
+    `);
+  });
 });
 
 describe('validations', () => {
