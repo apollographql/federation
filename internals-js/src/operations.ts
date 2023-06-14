@@ -910,7 +910,7 @@ export class Operation {
       return this;
     }
 
-    const finalFragments = computeFragmentsToKeep(optimizedSelection, fragments, minUsagesToOptimize);
+    let finalFragments = computeFragmentsToKeep(optimizedSelection, fragments, minUsagesToOptimize);
 
     // If there is fragment usages and we're not keeping all fragments, we need to expand fragments.
     if (finalFragments !== null && finalFragments?.size !== fragments.size) {
@@ -923,6 +923,21 @@ export class Operation {
       // Expanding fragments could create some "inefficiencies" that we wouldn't have if we hadn't re-optimized
       // the fragments to de-optimize it later, so we do a final "normalize" pass to remove those.
       optimizedSelection = optimizedSelection.normalize({ parentType: optimizedSelection.parentType });
+
+      // And if we've expanded some fragments but kept others, then it's not 100% impossible that some
+      // fragment was used multiple times in some expanded fragment(s), but that post-expansion all of
+      // it's usages are "dead" branches that are removed by the final `normalize`. In that case though,
+      // we need to ensure we don't include the now-unused fragment in the final list of fragments.
+      // TODO: remark that the same reasoning could leave a single instance of a fragment usage, so if
+      // we really really want to never have less than `minUsagesToOptimize`, we could do some loop of
+      // `expand then normalize` unless all fragments are provably used enough. We don't bother, because
+      // leaving this is not a huge deal and it's not worth the complexity, but it could be that we can
+      // refactor all this later to avoid this case without additional complexity.
+      if (finalFragments) {
+        const usages = new Map<string, number>();
+        optimizedSelection.collectUsedFragmentNames(usages);
+        finalFragments = finalFragments.filter((f) => (usages.get(f.name) ?? 0) > 0);
+      }
     }
 
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
