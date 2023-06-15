@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.8
+### Patch Changes
+
+
+- Fix issue where subgraph fetches may have unused fragments (and are thus invalid). ([#2628](https://github.com/apollographql/federation/pull/2628))
+
+
+- Fix issues in code to reuse named fragments. One of the fixed issue would manifest as an assertion error with a message ([#2619](https://github.com/apollographql/federation/pull/2619))
+  looking like `Cannot add fragment of condition X (...) to parent type Y (...)`. Another would manifest itself by
+  generating an invalid subgraph fetch where a field conflicts with another version of that field that is in a reused
+  named fragment.
+
 ## 2.4.7
 ### Patch Changes
 
