@@ -903,6 +903,51 @@ describe('fragments optimization', () => {
     });
   });
 
+  test('handles fragments on union in context with limited intersection', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      union U = T1 | T2
+
+      type T1 {
+        x: Int
+      }
+
+      type T2 {
+        y: Int
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment OnU on U {
+          ... on T1 {
+            x
+          }
+          ... on T2 {
+            y
+          }
+        }
+
+        {
+          t1 {
+            ...OnU
+          }
+        }
+      `,
+      expanded: `
+        {
+          t1 {
+            x
+          }
+        }
+      `,
+    });
+  });
+
   describe('applied directives', () => {
     test('reuse fragments with directives on the fragment, but only when there is those directives', () => {
       const schema = parseSchema(`

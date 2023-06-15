@@ -1098,27 +1098,26 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   /**
    * Whether this fragment may apply _directly_ at the provided type, meaning that the fragment sub-selection
-   * could be put directly inside a `... on type {}` inline fragment (_without_ re-adding the fragment condition
-   * that is), and both be valid and not "lose context".
+   * (_without_ the fragment condition, hence the "directly") can be normalized at `type` and this without
+   * "widening" the runtime types to types that do not intersect the fragment condition.
    *
    * For that to be true, we need one of this to be true:
    * 1. the runtime types of the fragment condition must be at least as general as those of the provided `type`.
-   *    Otherwise, putting it at `type` without its condition would "generalize" more than fragment meant to (and
-   *    so we'd "lose context"
+   *    Otherwise, putting it at `type` without its condition would "generalize" more than the fragment meant to (and
+   *    so we'd "widen" the runtime types more than what the query meant to.
    * 2. either `type` and `this.typeCondition` are equal, or `type` is an object or `this.typeCondition` is a union
    *    The idea is that, assuming our 1st point, then:
    *    - if both are equal, things works trivially.
    *    - if `type` is an object, `this.typeCondition` is either the same object, or a union/interface for which
    *      type is a valid runtime. In all case, anything valid on `this.typeCondition` would apply to `type` too.
-   *    - if `this.typeCondition` is a union, then it's selection can only have fragments on object types at top-level
-   *      (save for `__typename`), and all those selection will work at `type` too.
+   *    - if `this.typeCondition` is a union, then it's selection can only have fragments at top-level
+   *      (no fields save for `__typename`), and normalising is always fine with top-level fragments.
    *    But in any other case, both types must be abstract (if `this.typeCondition` is an object, the 1st condition
    *    imply `type` can only be the same type) and we're in one of:
    *    - `type` and `this.typeCondition` are both different interfaces (that intersect but are different).
    *    - `type` is aunion and `this.typeCondition` an interface.
-   *       And in both cases, the selection of the fragment may selection an interface that is not valid at `type` (if `type`
-   *       is a union because a direct field is always wrong, and if `type` is another interface because that interface may
-   *       not have that particular field).
+   *    And in both cases, since `this.typeCondition` is an interface, the fragment selection set may have field selections
+   *    on that interface, and those fields may not be valid for `type`.
    *
    * @param type - the type at which we're looking at applying the fragment
    */
@@ -1192,7 +1191,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     // we know the non-trimmed parts cannot create field conflict issues so we're trying to build a smaller validator,
     // but it's ok if trimmed is not as small as it theoretically can be.
     const trimmed = expandedSelectionSet.minus(selectionSet);
-    const validator = trimmed.isEmpty() ? undefined : FieldsConflictValidator.build(trimmed);
+    const validator = trimmed.isEmpty() ? undefined : FieldsConflictValidator.build(trimmed).freeze();
     return { selectionSet, validator };
   }
 
@@ -1657,10 +1656,12 @@ export class SelectionSet {
    * }
    * ```
    *
-   * For this operation to be valid (to not throw), `parentType` must be such this selection set would
-   * be valid as a subselection of an inline fragment `... on parentType { <this selection set> }` (and
-   * so `this.normalize(this.parentType)` is always valid and useful, but it is possible to pass a `parentType`
-   * that is more "restrictive" than the selection current parent type).
+   * For this operation to be valid (to not throw), `parentType` must be such that every field selection in
+   * this selection set is such that the field parent type intersects `parentType` (there is no limitation
+   * on the fragment selections, though any fragment selections whose condition do not intersects `parentType`
+   * will be discarded). Note that `this.normalize(this.parentType)` is always valid and useful, but it is
+   * also possible to pass a `parentType` that is more "restrictive" than the selection current parent type
+   * (as long as the top-level fields of this selection set can be rebased on that type).
    *
    * Passing the option `recursive == false` makes the normalization only apply at the top-level, removing
    * any unecessary top-level inline fragments, possibly multiple layers of them, but we never recurse
@@ -2559,6 +2560,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 }
 
 class FieldsConflictValidator {
+  private frozen = false;
   private usedSpreadTrimmedPartAtLevel?: FieldsConflictValidator[];
 
   private constructor(
@@ -2581,9 +2583,15 @@ class FieldsConflictValidator {
         atLevel.set(responseName, atResponseName);
       }
       if (field.selectionSet) {
+        // It's unlikely that we've seen the same `field.element` as we don't particularly "intern" `Field` object (so even if the exact same field
+        // is used in 2 parts of a selection set, it will probably be a different `Field` object), so the `get` below will probably mostly return `undefined`,
+        // but it wouldn't be incorrect to re-use a `Field` object multiple side, so no reason not to handle that correctly. 
         let forField = atResponseName.get(field.element) ?? [];
         atResponseName.set(field.element, forField.concat(field.selectionSet.fieldsInSet()));
       } else {
+        // Note that whether a `FieldSelection` has `selectionSet` or not is entirely determined by whether the field type is a composite type
+        // or not, so even if we've seen a previous version of `field.element` before, we know it's guarantee to have had no `selectionSet`.
+        // So the `set` below may overwrite a previous entry, but it would be a `null` so no harm done.
         atResponseName.set(field.element, null);
       }
     }
@@ -2598,6 +2606,25 @@ class FieldsConflictValidator {
       byResponseName.set(name, atResponseName);
     }
     return new FieldsConflictValidator(byResponseName);
+  }
+
+  /**
+   * By default, `FieldsConflictValidator` is mutable because we sometimes need it to collect sub-validators for
+   * named fragments in `checkCanReuseFragmentAndTrackIt`, but we never mutate those "sub-validator" post
+   * building and shouldn't because they are cached and reused. To avoid unintentional mistake, we call
+   * this freezing method on those validators that should not be mutated, and if we misuse them, we'll throw an
+   * error.
+   */
+  freeze(): FieldsConflictValidator {
+    this.frozen = true;
+    for (const atResponseName of this.byResponseName.values()) {
+      for (const subValidator of atResponseName.values()) {
+        if (subValidator) {
+          subValidator.freeze();
+        }
+      }
+    }
+    return this;
   }
 
   forField(field: Field): FieldsConflictValidator {
@@ -2620,6 +2647,8 @@ class FieldsConflictValidator {
   // no logic regarding ignoring any fragment that may not apply due to the intersection of runtimes
   // between multiple fragment being empty).
   checkCanReuseFragmentAndTrackIt(fragment: FragmentRestrictionAtType): boolean {
+    assert(!this.frozen, 'This method should not have been called on a frozen validator');
+
     // No validator means that everything in the fragment selection was part of the selection we're optimizing
     // away (by using the fragment), and we know the original selection was ok, so nothing to check.
     const validator = fragment.validator;
@@ -2770,22 +2799,20 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     const fieldValidator = validator.forField(this.element);
 
     // First, see if we can reuse fragments for the selection of this field.
-    let optimizedSelection = this.selectionSet;
-    if (isCompositeType(fieldBaseType) && this.selectionSet) {
-      const optimized = this.tryOptimizeSubselectionWithFragments({
-        parentType: fieldBaseType,
-        subSelection: this.selectionSet,
-        fragments,
-        validator: fieldValidator,
-        // We can never apply a fragments that has directives on it at the field level.
-        canUseFullMatchingFragment: (fragment) => fragment.appliedDirectives.length === 0,
-      });
+    const optimized = this.tryOptimizeSubselectionWithFragments({
+      parentType: fieldBaseType,
+      subSelection: this.selectionSet,
+      fragments,
+      validator: fieldValidator,
+      // We can never apply a fragments that has directives on it at the field level.
+      canUseFullMatchingFragment: (fragment) => fragment.appliedDirectives.length === 0,
+    });
 
-      if (optimized instanceof NamedFragmentDefinition) {
-        optimizedSelection = selectionSetOf(fieldBaseType, new FragmentSpreadSelection(fieldBaseType, fragments, optimized, []));
-      } else {
-        optimizedSelection = optimized;
-      }
+    let optimizedSelection;
+    if (optimized instanceof NamedFragmentDefinition) {
+      optimizedSelection = selectionSetOf(fieldBaseType, new FragmentSpreadSelection(fieldBaseType, fragments, optimized, []));
+    } else {
+      optimizedSelection = optimized;
     }
 
     // Then, recurse inside the field sub-selection (note that if we matched some fragments above,
