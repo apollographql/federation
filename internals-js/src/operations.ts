@@ -1191,7 +1191,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     // we know the non-trimmed parts cannot create field conflict issues so we're trying to build a smaller validator,
     // but it's ok if trimmed is not as small as it theoretically can be.
     const trimmed = expandedSelectionSet.minus(selectionSet);
-    const validator = trimmed.isEmpty() ? undefined : FieldsConflictValidator.build(trimmed).freeze();
+    const validator = trimmed.isEmpty() ? undefined : FieldsConflictValidator.build(trimmed);
     return { selectionSet, validator };
   }
 
@@ -1569,7 +1569,7 @@ export class SelectionSet {
     // With that, `optimizeSelections` will correctly match on the `on Query` fragment; after which
     // we can unpack the final result.
     const wrapped = new InlineFragmentSelection(new FragmentElement(this.parentType, this.parentType), this);
-    const validator = FieldsConflictValidator.build(this);
+    const validator = FieldsConflictMultiBranchValidator.ofInitial(FieldsConflictValidator.build(this));
     const optimized = wrapped.optimize(fragments, validator);
 
     // Now, it's possible we matched a full fragment, in which case `optimized` will be just the named fragment,
@@ -1583,7 +1583,7 @@ export class SelectionSet {
   // Tries to match fragments inside each selections of this selection set, and this recursively. However, note that this
   // may not match fragments that would apply at top-level, so you should usually use `optimize` instead (this exists mostly
   // for the recursion).
-  optimizeSelections(fragments: NamedFragments, validator: FieldsConflictValidator): SelectionSet {
+  optimizeSelections(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): SelectionSet {
     return this.lazyMap((selection) => selection.optimize(fragments, validator));
   }
 
@@ -2328,7 +2328,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract key(): string;
 
-  abstract optimize(fragments: NamedFragments, validator: FieldsConflictValidator): Selection;
+  abstract optimize(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): Selection;
 
   abstract toSelectionNode(): SelectionNode;
 
@@ -2426,7 +2426,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     parentType: CompositeType,
     subSelection: SelectionSet,
     fragments: NamedFragments,
-    validator: FieldsConflictValidator,
+    validator: FieldsConflictMultiBranchValidator,
     canUseFullMatchingFragment: (match: NamedFragmentDefinition) => boolean,
   }): SelectionSet | NamedFragmentDefinition {
     // We limit to fragments whose selection could be applied "directly" at `parentType`, meaning without taking the fragment condition
@@ -2559,10 +2559,75 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
   }
 }
 
-class FieldsConflictValidator {
-  private frozen = false;
+class FieldsConflictMultiBranchValidator {
   private usedSpreadTrimmedPartAtLevel?: FieldsConflictValidator[];
 
+  constructor(
+    private readonly validators: FieldsConflictValidator[],
+  ) {
+  }
+
+  static ofInitial(validator: FieldsConflictValidator): FieldsConflictMultiBranchValidator {
+    return new FieldsConflictMultiBranchValidator([validator]);
+  }
+
+  forField(field: Field): FieldsConflictMultiBranchValidator {
+    const forAllBranches = this.validators.flatMap((vs) => vs.forField(field));
+    // As this is called on (non-leaf) field from the same query on which we have build the initial validators, we
+    // should find at least one validator.
+    assert(forAllBranches.length > 0, `Shoud have found at least one validator for ${field}`);
+    return new FieldsConflictMultiBranchValidator(forAllBranches);
+  }
+
+  // At this point, we known that the fragment, restricted to the current parent type, matches a subset of the
+  // sub-selection. However, there is still one case we we cannot use it that we need to check, and this is
+  // if using the fragment would create a field "conflict" (in the sense of the graphQL spec
+  // [`FieldsInSetCanMerge`](https://spec.graphql.org/draft/#FieldsInSetCanMerge())) and thus create an
+  // invalid selection. To be clear, `atType.selectionSet` cannot create a conflict, since it is a subset
+  // of `subSelection` and `subSelection` is valid. *But* there may be some part of the fragment that
+  // is not `atType.selectionSet` due to being "dead branches" for type `parentType`. And while those
+  // branches _are_ "dead" as far as execution goes, the `FieldsInSetCanMerge` validation does not take
+  // this into account (it's 1st step says "including visiting fragments and inline fragments" but has
+  // no logic regarding ignoring any fragment that may not apply due to the intersection of runtimes
+  // between multiple fragment being empty).
+  checkCanReuseFragmentAndTrackIt(fragment: FragmentRestrictionAtType): boolean {
+    // No validator means that everything in the fragment selection was part of the selection we're optimizing
+    // away (by using the fragment), and we know the original selection was ok, so nothing to check.
+    const validator = fragment.validator;
+    if (!validator) {
+      return true;
+    }
+
+    if (!this.validators.every((v) => v.doMergeWith(validator))) {
+      return false;
+    }
+
+    // We need to make sure the trimmed parts of `fragment` merges with the rest of the selection,
+    // but also that it merge with any of the trimmed parts of any fragment we have added already.
+    // Note: this last condition means that if 2 fragment conflict on their "trimmed" parts,
+    // then the choice of which is used can be based on the fragment ordering and selection order,
+    // which may not be optimal. This feels niche enough that we keep it simple for now, but we
+    // can revisit this decision if we run into real cases that justify it (but making it optimal
+    // would be a involved in general, as in theory you could have complex dependencies of fragments
+    // that conflict, even cycles, and you need to take the size of fragments into account to know
+    // what's best; and even then, this could even depend on overall usage, as it can be better to
+    // reuse a fragment that is used in other places, than to use one for which it's the only usage.
+    // Adding to all that the fact that conflict can happen in sibling branches).
+    if (this.usedSpreadTrimmedPartAtLevel) {
+      if (!this.usedSpreadTrimmedPartAtLevel.every((t) => validator.doMergeWith(t))) {
+        return false;
+      }
+    } else {
+      this.usedSpreadTrimmedPartAtLevel = [];
+    }
+
+    // We're good, but track the fragment
+    this.usedSpreadTrimmedPartAtLevel.push(validator);
+    return true;
+  }
+}
+
+class FieldsConflictValidator {
   private constructor(
     private readonly byResponseName: Map<string, Map<Field, FieldsConflictValidator | null>>,
   ) {
@@ -2608,80 +2673,12 @@ class FieldsConflictValidator {
     return new FieldsConflictValidator(byResponseName);
   }
 
-  /**
-   * By default, `FieldsConflictValidator` is mutable because we sometimes need it to collect sub-validators for
-   * named fragments in `checkCanReuseFragmentAndTrackIt`, but we never mutate those "sub-validator" post
-   * building and shouldn't because they are cached and reused. To avoid unintentional mistake, we call
-   * this freezing method on those validators that should not be mutated, and if we misuse them, we'll throw an
-   * error.
-   */
-  freeze(): FieldsConflictValidator {
-    this.frozen = true;
-    for (const atResponseName of this.byResponseName.values()) {
-      for (const subValidator of atResponseName.values()) {
-        if (subValidator) {
-          subValidator.freeze();
-        }
-      }
+  forField(field: Field): FieldsConflictValidator[] {
+    const byResponseName = this.byResponseName.get(field.responseName());
+    if (!byResponseName) {
+      return [];
     }
-    return this;
-  }
-
-  forField(field: Field): FieldsConflictValidator {
-    const validator = this.byResponseName.get(field.responseName())?.get(field);
-    // This should be called on validator built on the exact selection set from field this `field` is coming, so
-    // we should find it or the code is buggy.
-    assert(validator, () => `Should have found validator for ${field}`);
-    return validator;
-  }
-
-  // At this point, we known that the fragment, restricted to the current parent type, matches a subset of the
-  // sub-selection. However, there is still one case we we cannot use it that we need to check, and this is
-  // if using the fragment would create a field "conflict" (in the sense of the graphQL spec
-  // [`FieldsInSetCanMerge`](https://spec.graphql.org/draft/#FieldsInSetCanMerge())) and thus create an
-  // invalid selection. To be clear, `atType.selectionSet` cannot create a conflict, since it is a subset
-  // of `subSelection` and `subSelection` is valid. *But* there may be some part of the fragment that
-  // is not `atType.selectionSet` due to being "dead branches" for type `parentType`. And while those
-  // branches _are_ "dead" as far as execution goes, the `FieldsInSetCanMerge` validation does not take
-  // this into account (it's 1st step says "including visiting fragments and inline fragments" but has
-  // no logic regarding ignoring any fragment that may not apply due to the intersection of runtimes
-  // between multiple fragment being empty).
-  checkCanReuseFragmentAndTrackIt(fragment: FragmentRestrictionAtType): boolean {
-    assert(!this.frozen, 'This method should not have been called on a frozen validator');
-
-    // No validator means that everything in the fragment selection was part of the selection we're optimizing
-    // away (by using the fragment), and we know the original selection was ok, so nothing to check.
-    const validator = fragment.validator;
-    if (!validator) {
-      return true;
-    }
-
-    if (!this.doMergeWith(validator)) {
-      return false;
-    }
-
-    // We need to make sure the trimmed parts of `fragment` merges with the rest of the selection,
-    // but also that it merge with any of the trimmed parts of any fragment we have added already.
-    // Note: this last condition means that if 2 fragment conflict on their "trimmed" parts,
-    // then the choice of which is used can be based on the fragment ordering and selection order,
-    // which may not be optimal. This feels niche enough that we keep it simple for now, but we
-    // can revisit this decision if we run into real cases that justify it (but making it optimal
-    // would be a involved in general, as in theory you could have complex dependencies of fragments
-    // that conflict, even cycles, and you need to take the size of fragments into account to know
-    // what's best; and even then, this could even depend on overall usage, as it can be better to
-    // reuse a fragment that is used in other places, than to use one for which it's the only usage.
-    // Adding to all that the fact that conflict can happen in sibling branches).
-    if (this.usedSpreadTrimmedPartAtLevel) {
-      if (!this.usedSpreadTrimmedPartAtLevel.every((t) => validator.doMergeWith(t))) {
-        return false;
-      }
-    } else {
-      this.usedSpreadTrimmedPartAtLevel = [];
-    }
-
-    // We're good, but track the fragment
-    this.usedSpreadTrimmedPartAtLevel.push(validator);
-    return true;
+    return mapValues(byResponseName).filter((v): v is FieldsConflictValidator => !!v);
   }
 
   doMergeWith(that: FieldsConflictValidator): boolean {
@@ -2790,7 +2787,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return this.element.key();
   }
 
-  optimize(fragments: NamedFragments, validator: FieldsConflictValidator): Selection {
+  optimize(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): Selection {
     const fieldBaseType = baseType(this.element.definition.type!);
     if (!isCompositeType(fieldBaseType) || !this.selectionSet) {
       return this;
@@ -3117,7 +3114,7 @@ class InlineFragmentSelection extends FragmentSelection {
     };
   }
 
-  optimize(fragments: NamedFragments, validator: FieldsConflictValidator): FragmentSelection {
+  optimize(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): FragmentSelection {
     let optimizedSelection = this.selectionSet;
 
     // First, see if we can reuse fragments for the selection of this field.
@@ -3390,7 +3387,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     };
   }
 
-  optimize(_1: NamedFragments, _2: FieldsConflictValidator): FragmentSelection {
+  optimize(_1: NamedFragments, _2: FieldsConflictMultiBranchValidator): FragmentSelection {
     return this;
   }
 

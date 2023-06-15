@@ -1674,6 +1674,144 @@ describe('fragments optimization', () => {
         }
       `);
     });
+
+    test('due to conflict between 2 sibling branches', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: SomeV
+          i: I
+        }
+
+        interface I {
+          id: ID!
+        }
+
+        type T1 implements I {
+          id: ID!
+          t2: SomeV
+        }
+
+        type T2 implements I {
+          id: ID!
+          t2: SomeV
+        }
+
+        union SomeV = V1 | V2 | V3
+
+        type V1 {
+          x: String
+        }
+
+        type V2 {
+          y: String!
+        }
+
+        type V3 {
+          x: Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        fragment onV1V2 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V2 {
+            y
+          }
+        }
+
+        query {
+          t1 {
+            ...onV1V2
+          }
+          i {
+            ... on T1 {
+              t2 {
+                ... on V2 {
+                  y
+                }
+              }
+            }
+            ... on T2 {
+              t2 {
+                ... on V3 {
+                  x
+                }
+              }
+            }
+          }
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            ... on V1 {
+              x
+            }
+            ... on V2 {
+              y
+            }
+          }
+          i {
+            ... on T1 {
+              t2 {
+                ... on V2 {
+                  y
+                }
+              }
+            }
+            ... on T2 {
+              t2 {
+                ... on V3 {
+                  x
+                }
+              }
+            }
+          }
+        }
+      `);
+
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment onV1V2 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V2 {
+            y
+          }
+        }
+
+        {
+          t1 {
+            ...onV1V2
+          }
+          i {
+            ... on T1 {
+              t2 {
+                ... on V2 {
+                  y
+                }
+              }
+            }
+            ... on T2 {
+              t2 {
+                ... on V3 {
+                  x
+                }
+              }
+            }
+          }
+        }
+      `);
+    });
   });
 
   test('does not leave unused fragments', () => {
