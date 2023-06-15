@@ -1098,26 +1098,27 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   /**
    * Whether this fragment may apply _directly_ at the provided type, meaning that the fragment sub-selection
-   * (_without_ the fragment condition, hence the "directly") can be normalized at `type` and this without
-   * "widening" the runtime types to types that do not intersect the fragment condition.
+   * could be put directly inside a `... on type {}` inline fragment (_without_ re-adding the fragment condition
+   * that is), and both be valid and not "lose context".
    *
    * For that to be true, we need one of this to be true:
    * 1. the runtime types of the fragment condition must be at least as general as those of the provided `type`.
-   *    Otherwise, putting it at `type` without its condition would "generalize" more than the fragment meant to (and
-   *    so we'd "widen" the runtime types more than what the query meant to.
+   *    Otherwise, putting it at `type` without its condition would "generalize" more than fragment meant to (and
+   *    so we'd "lose context"
    * 2. either `type` and `this.typeCondition` are equal, or `type` is an object or `this.typeCondition` is a union
    *    The idea is that, assuming our 1st point, then:
    *    - if both are equal, things works trivially.
    *    - if `type` is an object, `this.typeCondition` is either the same object, or a union/interface for which
    *      type is a valid runtime. In all case, anything valid on `this.typeCondition` would apply to `type` too.
-   *    - if `this.typeCondition` is a union, then it's selection can only have fragments at top-level
-   *      (no fields save for `__typename`), and normalising is always fine with top-level fragments.
+   *    - if `this.typeCondition` is a union, then it's selection can only have fragments on object types at top-level
+   *      (save for `__typename`), and all those selection will work at `type` too.
    *    But in any other case, both types must be abstract (if `this.typeCondition` is an object, the 1st condition
    *    imply `type` can only be the same type) and we're in one of:
    *    - `type` and `this.typeCondition` are both different interfaces (that intersect but are different).
    *    - `type` is aunion and `this.typeCondition` an interface.
-   *    And in both cases, since `this.typeCondition` is an interface, the fragment selection set may have field selections
-   *    on that interface, and those fields may not be valid for `type`.
+   *       And in both cases, the selection of the fragment may selection an interface that is not valid at `type` (if `type`
+   *       is a union because a direct field is always wrong, and if `type` is another interface because that interface may
+   *       not have that particular field).
    *
    * @param type - the type at which we're looking at applying the fragment
    */
@@ -1569,7 +1570,7 @@ export class SelectionSet {
     // With that, `optimizeSelections` will correctly match on the `on Query` fragment; after which
     // we can unpack the final result.
     const wrapped = new InlineFragmentSelection(new FragmentElement(this.parentType, this.parentType), this);
-    const validator = FieldsConflictMultiBranchValidator.ofInitial(FieldsConflictValidator.build(this));
+    const validator = FieldsConflictValidator.build(this);
     const optimized = wrapped.optimize(fragments, validator);
 
     // Now, it's possible we matched a full fragment, in which case `optimized` will be just the named fragment,
@@ -1583,7 +1584,7 @@ export class SelectionSet {
   // Tries to match fragments inside each selections of this selection set, and this recursively. However, note that this
   // may not match fragments that would apply at top-level, so you should usually use `optimize` instead (this exists mostly
   // for the recursion).
-  optimizeSelections(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): SelectionSet {
+  optimizeSelections(fragments: NamedFragments, validator: FieldsConflictValidator): SelectionSet {
     return this.lazyMap((selection) => selection.optimize(fragments, validator));
   }
 
@@ -1656,12 +1657,10 @@ export class SelectionSet {
    * }
    * ```
    *
-   * For this operation to be valid (to not throw), `parentType` must be such that every field selection in
-   * this selection set is such that the field parent type intersects `parentType` (there is no limitation
-   * on the fragment selections, though any fragment selections whose condition do not intersects `parentType`
-   * will be discarded). Note that `this.normalize(this.parentType)` is always valid and useful, but it is
-   * also possible to pass a `parentType` that is more "restrictive" than the selection current parent type
-   * (as long as the top-level fields of this selection set can be rebased on that type).
+   * For this operation to be valid (to not throw), `parentType` must be such this selection set would
+   * be valid as a subselection of an inline fragment `... on parentType { <this selection set> }` (and
+   * so `this.normalize(this.parentType)` is always valid and useful, but it is possible to pass a `parentType`
+   * that is more "restrictive" than the selection current parent type).
    *
    * Passing the option `recursive == false` makes the normalization only apply at the top-level, removing
    * any unecessary top-level inline fragments, possibly multiple layers of them, but we never recurse
@@ -2328,7 +2327,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract key(): string;
 
-  abstract optimize(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): Selection;
+  abstract optimize(fragments: NamedFragments, validator: FieldsConflictValidator): Selection;
 
   abstract toSelectionNode(): SelectionNode;
 
@@ -2426,7 +2425,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     parentType: CompositeType,
     subSelection: SelectionSet,
     fragments: NamedFragments,
-    validator: FieldsConflictMultiBranchValidator,
+    validator: FieldsConflictValidator,
     canUseFullMatchingFragment: (match: NamedFragmentDefinition) => boolean,
   }): SelectionSet | NamedFragmentDefinition {
     // We limit to fragments whose selection could be applied "directly" at `parentType`, meaning without taking the fragment condition
@@ -2559,24 +2558,54 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
   }
 }
 
-class FieldsConflictMultiBranchValidator {
+class FieldsConflictValidator {
   private usedSpreadTrimmedPartAtLevel?: FieldsConflictValidator[];
 
-  constructor(
-    private readonly validators: FieldsConflictValidator[],
+  private constructor(
+    private readonly byResponseName: Map<string, Map<Field, FieldsConflictValidator | null>>,
   ) {
   }
 
-  static ofInitial(validator: FieldsConflictValidator): FieldsConflictMultiBranchValidator {
-    return new FieldsConflictMultiBranchValidator([validator]);
+  static build(s: SelectionSet): FieldsConflictValidator {
+    return FieldsConflictValidator.forLevel(s.fieldsInSet());
   }
 
-  forField(field: Field): FieldsConflictMultiBranchValidator {
-    const forAllBranches = this.validators.flatMap((vs) => vs.forField(field));
-    // As this is called on (non-leaf) field from the same query on which we have build the initial validators, we
-    // should find at least one validator.
-    assert(forAllBranches.length > 0, `Shoud have found at least one validator for ${field}`);
-    return new FieldsConflictMultiBranchValidator(forAllBranches);
+  private static forLevel(level: CollectedFieldsInSet): FieldsConflictValidator {
+    const atLevel = new Map<string, Map<Field, CollectedFieldsInSet | null>>();
+
+    for (const { field } of level) {
+      const responseName = field.element.responseName();
+      let atResponseName = atLevel.get(responseName);
+      if (!atResponseName) {
+        atResponseName = new Map<Field, CollectedFieldsInSet>();
+        atLevel.set(responseName, atResponseName);
+      }
+      if (field.selectionSet) {
+        let forField = atResponseName.get(field.element) ?? [];
+        atResponseName.set(field.element, forField.concat(field.selectionSet.fieldsInSet()));
+      } else {
+        atResponseName.set(field.element, null);
+      }
+    }
+
+    const byResponseName = new Map<string, Map<Field, FieldsConflictValidator | null>>();
+    for (const [name, level] of atLevel.entries()) {
+      const atResponseName = new Map<Field, FieldsConflictValidator | null>();
+      for (const [field, collectedFields] of level) {
+        const validator = collectedFields ? FieldsConflictValidator.forLevel(collectedFields) : null;
+        atResponseName.set(field, validator);
+      }
+      byResponseName.set(name, atResponseName);
+    }
+    return new FieldsConflictValidator(byResponseName);
+  }
+
+  forField(field: Field): FieldsConflictValidator {
+    const validator = this.byResponseName.get(field.responseName())?.get(field);
+    // This should be called on validator built on the exact selection set from field this `field` is coming, so
+    // we should find it or the code is buggy.
+    assert(validator, () => `Should have found validator for ${field}`);
+    return validator;
   }
 
   // At this point, we known that the fragment, restricted to the current parent type, matches a subset of the
@@ -2598,7 +2627,7 @@ class FieldsConflictMultiBranchValidator {
       return true;
     }
 
-    if (!this.validators.every((v) => v.doMergeWith(validator))) {
+    if (!this.doMergeWith(validator)) {
       return false;
     }
 
@@ -2624,61 +2653,6 @@ class FieldsConflictMultiBranchValidator {
     // We're good, but track the fragment
     this.usedSpreadTrimmedPartAtLevel.push(validator);
     return true;
-  }
-}
-
-class FieldsConflictValidator {
-  private constructor(
-    private readonly byResponseName: Map<string, Map<Field, FieldsConflictValidator | null>>,
-  ) {
-  }
-
-  static build(s: SelectionSet): FieldsConflictValidator {
-    return FieldsConflictValidator.forLevel(s.fieldsInSet());
-  }
-
-  private static forLevel(level: CollectedFieldsInSet): FieldsConflictValidator {
-    const atLevel = new Map<string, Map<Field, CollectedFieldsInSet | null>>();
-
-    for (const { field } of level) {
-      const responseName = field.element.responseName();
-      let atResponseName = atLevel.get(responseName);
-      if (!atResponseName) {
-        atResponseName = new Map<Field, CollectedFieldsInSet>();
-        atLevel.set(responseName, atResponseName);
-      }
-      if (field.selectionSet) {
-        // It's unlikely that we've seen the same `field.element` as we don't particularly "intern" `Field` object (so even if the exact same field
-        // is used in 2 parts of a selection set, it will probably be a different `Field` object), so the `get` below will probably mostly return `undefined`,
-        // but it wouldn't be incorrect to re-use a `Field` object multiple side, so no reason not to handle that correctly. 
-        let forField = atResponseName.get(field.element) ?? [];
-        atResponseName.set(field.element, forField.concat(field.selectionSet.fieldsInSet()));
-      } else {
-        // Note that whether a `FieldSelection` has `selectionSet` or not is entirely determined by whether the field type is a composite type
-        // or not, so even if we've seen a previous version of `field.element` before, we know it's guarantee to have had no `selectionSet`.
-        // So the `set` below may overwrite a previous entry, but it would be a `null` so no harm done.
-        atResponseName.set(field.element, null);
-      }
-    }
-
-    const byResponseName = new Map<string, Map<Field, FieldsConflictValidator | null>>();
-    for (const [name, level] of atLevel.entries()) {
-      const atResponseName = new Map<Field, FieldsConflictValidator | null>();
-      for (const [field, collectedFields] of level) {
-        const validator = collectedFields ? FieldsConflictValidator.forLevel(collectedFields) : null;
-        atResponseName.set(field, validator);
-      }
-      byResponseName.set(name, atResponseName);
-    }
-    return new FieldsConflictValidator(byResponseName);
-  }
-
-  forField(field: Field): FieldsConflictValidator[] {
-    const byResponseName = this.byResponseName.get(field.responseName());
-    if (!byResponseName) {
-      return [];
-    }
-    return mapValues(byResponseName).filter((v): v is FieldsConflictValidator => !!v);
   }
 
   doMergeWith(that: FieldsConflictValidator): boolean {
@@ -2787,7 +2761,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return this.element.key();
   }
 
-  optimize(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): Selection {
+  optimize(fragments: NamedFragments, validator: FieldsConflictValidator): Selection {
     const fieldBaseType = baseType(this.element.definition.type!);
     if (!isCompositeType(fieldBaseType) || !this.selectionSet) {
       return this;
@@ -2796,20 +2770,22 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     const fieldValidator = validator.forField(this.element);
 
     // First, see if we can reuse fragments for the selection of this field.
-    const optimized = this.tryOptimizeSubselectionWithFragments({
-      parentType: fieldBaseType,
-      subSelection: this.selectionSet,
-      fragments,
-      validator: fieldValidator,
-      // We can never apply a fragments that has directives on it at the field level.
-      canUseFullMatchingFragment: (fragment) => fragment.appliedDirectives.length === 0,
-    });
+    let optimizedSelection = this.selectionSet;
+    if (isCompositeType(fieldBaseType) && this.selectionSet) {
+      const optimized = this.tryOptimizeSubselectionWithFragments({
+        parentType: fieldBaseType,
+        subSelection: this.selectionSet,
+        fragments,
+        validator: fieldValidator,
+        // We can never apply a fragments that has directives on it at the field level.
+        canUseFullMatchingFragment: (fragment) => fragment.appliedDirectives.length === 0,
+      });
 
-    let optimizedSelection;
-    if (optimized instanceof NamedFragmentDefinition) {
-      optimizedSelection = selectionSetOf(fieldBaseType, new FragmentSpreadSelection(fieldBaseType, fragments, optimized, []));
-    } else {
-      optimizedSelection = optimized;
+      if (optimized instanceof NamedFragmentDefinition) {
+        optimizedSelection = selectionSetOf(fieldBaseType, new FragmentSpreadSelection(fieldBaseType, fragments, optimized, []));
+      } else {
+        optimizedSelection = optimized;
+      }
     }
 
     // Then, recurse inside the field sub-selection (note that if we matched some fragments above,
@@ -3114,7 +3090,7 @@ class InlineFragmentSelection extends FragmentSelection {
     };
   }
 
-  optimize(fragments: NamedFragments, validator: FieldsConflictMultiBranchValidator): FragmentSelection {
+  optimize(fragments: NamedFragments, validator: FieldsConflictValidator): FragmentSelection {
     let optimizedSelection = this.selectionSet;
 
     // First, see if we can reuse fragments for the selection of this field.
@@ -3387,7 +3363,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     };
   }
 
-  optimize(_1: NamedFragments, _2: FieldsConflictMultiBranchValidator): FragmentSelection {
+  optimize(_1: NamedFragments, _2: FieldsConflictValidator): FragmentSelection {
     return this;
   }
 
