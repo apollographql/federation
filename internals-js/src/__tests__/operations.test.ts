@@ -5,7 +5,7 @@ import {
   SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
-import { MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation, SelectionSetAtType } from '../../dist/operations';
+import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
 import { assert } from '../utils';
@@ -903,6 +903,51 @@ describe('fragments optimization', () => {
     });
   });
 
+  test('handles fragments on union in context with limited intersection', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      union U = T1 | T2
+
+      type T1 {
+        x: Int
+      }
+
+      type T2 {
+        y: Int
+      }
+    `);
+
+    testFragmentsRoundtrip({
+      schema,
+      query: `
+        fragment OnU on U {
+          ... on T1 {
+            x
+          }
+          ... on T2 {
+            y
+          }
+        }
+
+        {
+          t1 {
+            ...OnU
+          }
+        }
+      `,
+      expanded: `
+        {
+          t1 {
+            x
+          }
+        }
+      `,
+    });
+  });
+
   describe('applied directives', () => {
     test('reuse fragments with directives on the fragment, but only when there is those directives', () => {
       const schema = parseSchema(`
@@ -1400,6 +1445,373 @@ describe('fragments optimization', () => {
         }
       `);
     });
+
+    test('due to conflict between selection and reused fragment at different levels', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: SomeV
+          t2: SomeV
+        }
+
+        union SomeV = V1 | V2 | V3
+
+        type V1 {
+          x: String
+        }
+
+        type V2 {
+          y: String!
+        }
+
+        type V3 {
+          x: Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        fragment onV1V2 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V2 {
+            y
+          }
+        }
+
+        query {
+          t1 {
+            ...onV1V2
+          }
+          t2 {
+            ... on V2 {
+              y
+            }
+            ... on V3 {
+              x
+            }
+          }
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            ... on V1 {
+              x
+            }
+            ... on V2 {
+              y
+            }
+          }
+          t2 {
+            ... on V2 {
+              y
+            }
+            ... on V3 {
+              x
+            }
+          }
+        }
+      `);
+
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment onV1V2 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V2 {
+            y
+          }
+        }
+
+        {
+          t1 {
+            ...onV1V2
+          }
+          t2 {
+            ... on V2 {
+              y
+            }
+            ... on V3 {
+              x
+            }
+          }
+        }
+      `);
+    });
+
+    test('due to conflict between the trimmed parts of 2 fragments at different levels', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: SomeV
+          t2: SomeV
+          t3: OtherV
+        }
+
+        union SomeV = V1 | V2 | V3
+        union OtherV = V3
+
+        type V1 {
+          x: String
+        }
+
+        type V2 {
+          x: Int
+        }
+
+        type V3 {
+          y: String!
+          z: String!
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        fragment onV1V3 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V3 {
+            y
+          }
+        }
+
+        fragment onV2V3 on SomeV {
+          ... on V2 {
+            x
+          }
+          ... on V3 {
+            z
+          }
+        }
+
+        query {
+          t1 {
+            ...onV1V3
+          }
+          t2 {
+            ...onV2V3
+          }
+          t3 {
+            ... on V3 {
+              y
+              z
+            }
+          }
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            ... on V1 {
+              x
+            }
+            ... on V3 {
+              y
+            }
+          }
+          t2 {
+            ... on V2 {
+              x
+            }
+            ... on V3 {
+              z
+            }
+          }
+          t3 {
+            ... on V3 {
+              y
+              z
+            }
+          }
+        }
+      `);
+
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment onV1V3 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V3 {
+            y
+          }
+        }
+
+        fragment onV2V3 on SomeV {
+          ... on V2 {
+            x
+          }
+          ... on V3 {
+            z
+          }
+        }
+
+        {
+          t1 {
+            ...onV1V3
+          }
+          t2 {
+            ...onV2V3
+          }
+          t3 {
+            ...onV1V3
+            ... on V3 {
+              z
+            }
+          }
+        }
+      `);
+    });
+
+    test('due to conflict between 2 sibling branches', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: SomeV
+          i: I
+        }
+
+        interface I {
+          id: ID!
+        }
+
+        type T1 implements I {
+          id: ID!
+          t2: SomeV
+        }
+
+        type T2 implements I {
+          id: ID!
+          t2: SomeV
+        }
+
+        union SomeV = V1 | V2 | V3
+
+        type V1 {
+          x: String
+        }
+
+        type V2 {
+          y: String!
+        }
+
+        type V3 {
+          x: Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        fragment onV1V2 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V2 {
+            y
+          }
+        }
+
+        query {
+          t1 {
+            ...onV1V2
+          }
+          i {
+            ... on T1 {
+              t2 {
+                ... on V2 {
+                  y
+                }
+              }
+            }
+            ... on T2 {
+              t2 {
+                ... on V3 {
+                  x
+                }
+              }
+            }
+          }
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            ... on V1 {
+              x
+            }
+            ... on V2 {
+              y
+            }
+          }
+          i {
+            ... on T1 {
+              t2 {
+                ... on V2 {
+                  y
+                }
+              }
+            }
+            ... on T2 {
+              t2 {
+                ... on V3 {
+                  x
+                }
+              }
+            }
+          }
+        }
+      `);
+
+      const optimized = withoutFragments.optimize(operation.fragments!, 1);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment onV1V2 on SomeV {
+          ... on V1 {
+            x
+          }
+          ... on V2 {
+            y
+          }
+        }
+
+        {
+          t1 {
+            ...onV1V2
+          }
+          i {
+            ... on T1 {
+              t2 {
+                ... on V2 {
+                  y
+                }
+              }
+            }
+            ... on T2 {
+              t2 {
+                ... on V3 {
+                  x
+                }
+              }
+            }
+          }
+        }
+      `);
+    });
   });
 
   test('does not leave unused fragments', () => {
@@ -1856,7 +2268,7 @@ describe('unsatisfiable branches removal', () => {
 });
 
 describe('named fragment selection set restrictions at type', () => {
-  const expandAtType = (frag: NamedFragmentDefinition, schema: Schema, typeName: string): SelectionSetAtType => {
+  const expandAtType = (frag: NamedFragmentDefinition, schema: Schema, typeName: string): FragmentRestrictionAtType => {
     const type = schema.type(typeName);
     assert(type && isCompositeType(type), `Invalid type ${typeName}`)
     // `expandedSelectionSetAtType` assumes it's argument passes `canApplyAtType`, so let's make sure we're
@@ -1922,18 +2334,26 @@ describe('named fragment selection set restrictions at type', () => {
 
     const frag = operation.fragments?.get('FonI1')!;
 
-    let { selectionSet, trimmed } = expandAtType(frag, schema, 'I1');
+    let { selectionSet, validator } = expandAtType(frag, schema, 'I1');
     expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
-    expect(trimmed?.toString()).toBeUndefined();
+    expect(validator?.toString()).toBeUndefined();
 
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'T1'));
+    ({ selectionSet, validator } = expandAtType(frag, schema, 'T1'));
     expect(selectionSet.toString()).toBe('{ x }');
-    // Note: one could remark that having `... on T1 { x }` in `trimmed` below is a tad weird: this is
-    // because in this case `normalized` removed that fragment and so when we do `normalized.mins(original)`,
-    // then it shows up. It a tad difficult to avoid this however and it's ok for what we do (`trimmed`
-    // is used to check for field conflict and and the only reason we use `trimmed` is to make things faster
-    // but we could use the `original` instead).
-    expect(trimmed?.toString()).toBe('{ ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
+    // Note: one could remark that having `T1.x` in the `validator` below is a tad weird: this is
+    // because in this case `normalized` removed that fragment and so when we do `normalized.minus(original)`,
+    // then it shows up. It a tad difficult to avoid this however and it's ok for what we do (`validator`
+    // is used to check for field conflict and save for efficiency, we could use the `original` instead).
+    expect(validator?.toString()).toMatchString(`
+      {
+        x: [
+          T1.x
+          T2.x
+          I2.x
+          I3.x
+        ]
+      }
+    `);
   });
 
   test('for fragment on unions', () => {
@@ -1990,21 +2410,54 @@ describe('named fragment selection set restrictions at type', () => {
     // Note that with unions, the fragments inside the unions can be "lifted" and so they everyting normalize to just the
     // possible runtimes.
 
-    let { selectionSet, trimmed } = expandAtType(frag, schema, 'U1');
+    let { selectionSet, validator } = expandAtType(frag, schema, 'U1');
     expect(selectionSet.toString()).toBe('{ ... on T1 { x y } ... on T2 { z w } }');
-    expect(trimmed?.toString()).toBeUndefined();
+    expect(validator?.toString()).toBeUndefined();
 
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'U2'));
+    ({ selectionSet, validator } = expandAtType(frag, schema, 'U2'));
     expect(selectionSet.toString()).toBe('{ ... on T1 { x y } }');
-    expect(trimmed?.toString()).toBe('{ ... on T2 { z w } }');
+    expect(validator?.toString()).toMatchString(`
+      {
+        z: [
+          T2.z
+        ]
+        w: [
+          T2.w
+        ]
+      }
+    `);
 
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'U3'));
+    ({ selectionSet, validator } = expandAtType(frag, schema, 'U3'));
     expect(selectionSet.toString()).toBe('{ ... on T2 { z w } }');
-    expect(trimmed?.toString()).toBe('{ ... on T1 { x y } }');
+    expect(validator?.toString()).toMatchString(`
+      {
+        x: [
+          T1.x
+        ]
+        y: [
+          T1.y
+        ]
+      }
+    `);
 
-    ({ selectionSet, trimmed } = expandAtType(frag, schema, 'T1'));
+    ({ selectionSet, validator } = expandAtType(frag, schema, 'T1'));
     expect(selectionSet.toString()).toBe('{ x y }');
     // Similar remarks that on interfaces
-    expect(trimmed?.toString()).toBe('{ ... on T1 { x y } ... on T2 { z w } }');
+    expect(validator?.toString()).toMatchString(`
+      {
+        x: [
+          T1.x
+        ]
+        y: [
+          T1.y
+        ]
+        z: [
+          T2.z
+        ]
+        w: [
+          T2.w
+        ]
+      }
+    `);
   });
 });
