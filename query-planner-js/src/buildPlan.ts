@@ -64,7 +64,7 @@ import {
   advanceSimultaneousPathsWithOperation,
   Edge,
   emptyContext,
-  ExcludedEdges,
+  ExcludedDestinations,
   QueryGraph,
   GraphPath,
   isPathContext,
@@ -384,7 +384,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
-    excludedEdges: ExcludedEdges = [],
+    excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
@@ -399,7 +399,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       initialPath,
       initialContext,
       this.conditionResolver,
-      excludedEdges,
+      excludedDestinations,
       excludedConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
@@ -772,7 +772,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
   }
 
-  private resolveConditionPlan(edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionResolution {
+  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
     const bestPlan = new QueryPlanningTraversal(
       {
         ...this.parameters,
@@ -784,7 +784,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       'query',
       this.costFunction,
       context,
-      excludedEdges,
+      excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions)
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
@@ -814,6 +814,7 @@ const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: condit
 
 class GroupInputs {
   private readonly perType = new Map<string, MutableSelectionSet>();
+  onUpdateCallback: () => void = () => {};
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -830,6 +831,7 @@ class GroupInputs {
       this.perType.set(typeName, typeSelection);
     }
     typeSelection.updates().add(selection);
+    this.onUpdateCallback();
   }
 
   addAll(other: GroupInputs) {
@@ -913,6 +915,7 @@ class FetchGroup {
 
   private readonly inputRewrites: FetchDataRewrite[] = [];
 
+
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -928,7 +931,21 @@ class FetchGroup {
     // key for that. Having it here saves us from re-computing it more than once.
     readonly subgraphAndMergeAtKey?: string,
     private cachedCost?: number,
+    // Cache used to save unecessary recomputation of the `isUseless` method.
+    private isKnownUseful: boolean = false,
   ) {
+    if (this._inputs) {
+      this._inputs.onUpdateCallback = () => {
+        // We're trying to avoid the full recomputation of `isUseless` when we're already
+        // shown that the group is known useful (if it is shown useless, the group is removed,
+        // so we're not caching that result but it's ok). And `isUseless` basically checks if
+        // `inputs.contains(selection)`, so if a group is shown useful, it means that there
+        // is some selections not in the inputs, but as long as we add to selections (and we
+        // never remove from selections; `MutableSelectionSet` don't have removing methods),
+        // then this won't change. Only changing inputs may require some recomputation. 
+        this.isKnownUseful = false;
+      }
+    }
   }
 
   static create({
@@ -967,6 +984,7 @@ class FetchGroup {
     );
   }
 
+  // Clones everything on the group itself, but not it's `_parents` or `_children` links.
   cloneShallow(newDependencyGraph: FetchDependencyGraph): FetchGroup {
     return new FetchGroup(
       newDependencyGraph,
@@ -981,6 +999,7 @@ class FetchGroup {
       this.deferRef,
       this.subgraphAndMergeAtKey,
       this.cachedCost,
+      this.isKnownUseful,
     );
   }
 
@@ -1165,7 +1184,7 @@ class FetchGroup {
   // If a group is such that everything is fetches is already included in the inputs, then
   // this group does useless fetches.
   isUseless(): boolean {
-    if (!this.inputs || this.mustPreserveSelection) {
+    if (this.isKnownUseful || !this.inputs || this.mustPreserveSelection) {
       return false;
     }
 
@@ -1178,7 +1197,7 @@ class FetchGroup {
     // But the fetch above _is_ useless, it does only fetch its inputs, and we wouldn't catch this
     // if we do a raw inclusion check of `selection` into `inputs`
     //
-    // We only care about this problem at the top-level of the selections however, so we does that
+    // We only care about this problem at the top-level of the selections however, so we do that
     // top-level check manually (instead of just calling `this.inputs.contains(this.selection)`)
     // but fallback on `contains` for anything deeper.
 
@@ -1199,7 +1218,7 @@ class FetchGroup {
 
     const inputSelections = this.inputs.selectionSets().flatMap((s) => s.selections());
     // Checks that every selection is contained in the input selections.
-    return this.selection.selections().every((selection) => {
+    const isUseless = this.selection.selections().every((selection) => {
       const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
       if (!conditionInSupergraph) {
         // We're not in the @interfaceObject case described above. We just check that an input selection contains the
@@ -1240,6 +1259,9 @@ class FetchGroup {
       return implementationInputSelections.length > 0
         && implementationInputSelections.every((input) => input.selectionSet.contains(subSelectionSet));
     });
+
+    this.isKnownUseful = !isUseless;
+    return isUseless;
   }
 
   /**

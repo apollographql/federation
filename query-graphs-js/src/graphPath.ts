@@ -791,7 +791,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       return ` (${this.props.edgeTriggers[idx]}) `;
     }).join('');
     const deferStr = this.deferOnTail ? ` <defer='${this.deferOnTail.label}'>` : '';
-    return `${isRoot ? '' : this.root}${pathStr}${deferStr} (types: [${this.props.runtimeTypesOfTail.join(', ')}])`;
+    const typeStr = this.props.runtimeTypesOfTail.length > 0 ? ` (types: [${this.props.runtimeTypesOfTail.join(', ')}])` : '';
+    return `${isRoot ? '' : this.root}${pathStr}${deferStr}${typeStr}`;
   }
 }
 
@@ -866,7 +867,7 @@ export function traversePath(
 
 // Note that ConditionResolver are guaranteed to be only called for edge with conditions.
 export type ConditionResolver =
-  (edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions) => ConditionResolution;
+  (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => ConditionResolution;
 
 
 export type ConditionResolution = {
@@ -1169,30 +1170,28 @@ function createLazyTransitionOptions<V extends Vertex>(
   ));
 }
 
-// A set of excluded edges, that is a pair of a head vertex index and an edge index (since edge indexes are relative to their vertex).
-export type ExcludedEdges = readonly [number, number][];
+// A "set" of excluded destinations, that is subgraph name. Note that we use an array instead of set because this is used
+// in pretty hot paths (the whole path computation is CPU intensive) and will basically always be tiny (it's bounded
+// by the number of distinct key on a given type, so usually 2-3 max; even in completely unrealistic cases, it's hard bounded
+// by the number of subgraph), so array is going to perform a lot better than `Set` in practice.
+export type ExcludedDestinations = readonly string[];
 
-function isEdgeExcluded(edge: Edge, excluded: ExcludedEdges): boolean {
-  return excluded.some(([vIdx, eIdx]) => edge.head.index === vIdx && edge.index === eIdx);
+function isDestinationExcluded(destination: string, excluded: ExcludedDestinations): boolean {
+  return excluded.includes(destination);
 }
 
-export function sameExcludedEdges(ex1: ExcludedEdges, ex2: ExcludedEdges): boolean {
+export function sameExcludedDestinations(ex1: ExcludedDestinations, ex2: ExcludedDestinations): boolean {
   if (ex1 === ex2) {
     return true;
   }
   if (ex1.length !== ex2.length) {
     return false;
   }
-  for (let i = 0; i < ex1.length; ++i) {
-    if (ex1[i][0] !== ex2[i][0] || ex1[i][1] !== ex2[i][1]) {
-      return false;
-    }
-  }
-  return true;
+  return ex1.every((d) => ex2.includes(d));
 }
 
-function addEdgeExclusion(excluded: ExcludedEdges, newExclusion: Edge): ExcludedEdges {
-  return excluded.concat([[newExclusion.head.index, newExclusion.index]]);
+function addDestinationExclusion(excluded: ExcludedDestinations, destination: string): ExcludedDestinations {
+  return excluded.includes(destination) ? excluded : excluded.concat(destination);
 }
 
 export type ExcludedConditions = readonly SelectionSet[];
@@ -1233,7 +1232,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   path: GraphPath<TTrigger, V, TNullEdge>,
   context: PathContext,
   conditionResolver: ConditionResolver,
-  excludedEdges: ExcludedEdges,
+  excludedDestinations: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
@@ -1299,7 +1298,9 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     debug.group(() => `From ${toAdvance}:`);
     for (const edge of nextEdges) {
       debug.group(() => `Testing edge ${edge}`);
-      if (isEdgeExcluded(edge, excludedEdges)) {
+      const target = edge.tail;
+
+      if (isDestinationExcluded(target.source, excludedDestinations)) {
         debug.groupEnd(`Ignored: edge is excluded`);
         continue;
       }
@@ -1308,7 +1309,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       // (we've already checked for direct transition from that original subgraph). On exception though
       // is if we're just after a @defer, in which case re-entering the current subgraph is actually
       // a thing.
-      const target = edge.tail;
       if (target.source === originalSource && !toAdvance.deferOnTail) {
         debug.groupEnd('Ignored: edge get us back to our original source');
         continue;
@@ -1352,12 +1352,15 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       }
 
       debug.group(() => `Validating conditions ${edge.conditions}`);
+      // As we validate the condition for this edge, it might be necessary to jump to another subgraph, but if for that
+      // we need to jump to the same subgraph we're trying to get to, then it means there is another, shorter way to
+      // go to our destination and we can return that shorter path, not the one with the edge we're trying.
       const conditionResolution = canSatisfyConditions(
         toAdvance,
         edge,
         conditionResolver,
         context,
-        addEdgeExclusion(excludedEdges, edge),
+        addDestinationExclusion(excludedDestinations, target.source),
         excludedConditions,
       );
       if (conditionResolution.satisfied) {
@@ -1715,7 +1718,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   edge: Edge,
   conditionResolver: ConditionResolver,
   context: PathContext,
-  excludedEdges: ExcludedEdges,
+  excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions
 ): ConditionResolution {
   const conditions = edge.conditions;
@@ -1779,7 +1782,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
     readonly paths: SimultaneousPaths<V>,
     readonly context: PathContext,
     readonly conditionResolver: ConditionResolver,
-    readonly excludedNonCollectingEdges: ExcludedEdges = [],
+    readonly excludedNonCollectingEdges: ExcludedDestinations = [],
     readonly excludedConditionsOnNonCollectingEdges: ExcludedConditions = [],
   ) {
     this.lazilyComputedIndirectPaths = new Array(paths.length);
@@ -1842,6 +1845,40 @@ export function advanceOptionsToString(options: (SimultaneousPaths<any> | Simult
   return '[\n  ' + options.map(opt => Array.isArray(opt) ? simultaneousPathsToString(opt, "  ") : opt.toString()).join('\n  ') + '\n]';
 }
 
+// Given a list of just computed indirect paths and a field that we're trying to advance after those paths, this
+// method fields any path that should note be considered.
+//
+// Currently, this handle the case where the key used at the end of the indirect path contains (at top level) the field
+// being queried. Or to make this more concrete, if we're trying to collect field `id`, and the path last edge was using
+// key `id`, then we can ignore that path because this imply that there is a way to `id` "some other way" (also see
+// the `does not evaluate plans relying on a key field to fetch that same field` test in `buildPlan` for more details).
+function filterNonCollectingPathsForField<V extends Vertex>(
+  paths: OpIndirectPaths<V>,
+  field: Field,
+): OpIndirectPaths<V> {
+  // We only handle leafs. Things are more complex non-leaf.
+  if (!field.isLeafField()) {
+    return paths;
+  }
+
+  const filtered = paths.paths.filter((p) => {
+    const lastEdge = p.lastEdge();
+    if (!lastEdge || lastEdge.transition.kind !== 'KeyResolution') {
+      return true;
+    }
+
+    const conditions = lastEdge.conditions;
+    return !(conditions && conditions.containsTopLevelField(field));
+  });
+  return filtered.length === paths.paths.length
+    ? paths
+    : {
+      ...paths,
+      paths: filtered
+    };
+
+}
+
 // Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
 // being a set of simultaneous paths in the subgraphs (a single path in the simple case, but type exploding may make us explore multiple paths simultaneously).
 // The lists of options can be empty, which has the special meaning that the operation is guaranteed to have no results (it corresponds to unsatisfiable conditions),
@@ -1900,7 +1937,10 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     if (operation.kind === 'Field') {
       debug.group(`Computing indirect paths:`);
       // Then adds whatever options can be obtained by taking some non-collecting edges first.
-      const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
+      const pathsWithNonCollecting = filterNonCollectingPathsForField(
+        subgraphSimultaneousPaths.indirectOptions(updatedContext, i),
+        operation
+      );
       debug.groupEnd(() => pathsWithNonCollecting.paths.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.paths.length} indirect paths`);
       if (pathsWithNonCollecting.paths.length > 0) {
         debug.group('Validating indirect options:');
@@ -1996,7 +2036,7 @@ export function createInitialOptions<V extends Vertex>(
   initialPath: OpGraphPath<V>,
   initialContext: PathContext,
   conditionResolver: ConditionResolver,
-  excludedEdges: ExcludedEdges,
+  excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
 ): SimultaneousPathsWithLazyIndirectPaths<V>[] {
   const lazyInitialPath = new SimultaneousPathsWithLazyIndirectPaths(

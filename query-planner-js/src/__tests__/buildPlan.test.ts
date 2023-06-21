@@ -6247,7 +6247,6 @@ test('correctly generate plan built from some non-individually optimal branch op
   //
   // Anyway, this test make sure we do correctly generate the plan using 1.b and 2.a, and do
   // not ignore 1.b in favor of 1.a in particular (which a bug did at one point).
-
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -6457,4 +6456,91 @@ test('does not error on some complex fetch group dependencies', () => {
       },
     }
   `);
+});
+
+
+test('does not evaluate plans relying on a key field to fetch that same field', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "otherId") {
+        otherId: ID!
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") @key(fields: "otherId") {
+        id: ID!
+        otherId: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        id
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              otherId
+            }
+          }
+        },
+        Flatten(path: "t") {
+          Fetch(service: "Subgraph2") {
+            {
+              ... on T {
+                __typename
+                otherId
+              }
+            } =>
+            {
+              ... on T {
+                id
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+
+  // This is the main thing this test exists for: making sure we only evaluate a
+  // single plan for this example. And while it may be hard to see what other
+  // plans than the one above could be evaluated, some older version of the planner
+  // where considering a plan consisting of, from `Subgraph1`, fetching key `id`
+  // in `Subgraph2` using key `otherId`, and then using that `id` key to fetch
+  // ... field `id` in `Subgraph3`, not realizing that the `id` is what we ultimately
+  // want and so there is no point in considering path that use it as key. Anyway
+  // this test ensure this is not considered anymore (considering that later plan
+  // was not incorrect, but it was adding to the options to evaluate which in some
+  // cases could impact query planning performance quite a bit).
+  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
 });
