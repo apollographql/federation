@@ -43,25 +43,15 @@ import {
   RootPath,
   advancePathWithTransition,
   Transition,
-  OpGraphPath,
-  advanceSimultaneousPathsWithOperation,
-  ExcludedEdges,
   QueryGraphState,
-  ExcludedConditions,
   Unadvanceables,
   isUnadvanceable,
   Unadvanceable,
   noConditionsResolution,
-  ConditionResolution,
-  unsatisfiedConditionsResolution,
-  ConditionResolver,
-  cachingConditionResolver,
-  PathContext,
-  addConditionExclusion,
-  SimultaneousPathsWithLazyIndirectPaths,
-  advanceOptionsToString,
   TransitionPathWithLazyIndirectPaths,
   RootVertex,
+  simpleValidationConditionResolver,
+  ConditionResolver,
 } from "@apollo/query-graphs";
 import { CompositionHint, HINTS } from "./hints";
 import { ASTNode, GraphQLError, print } from "graphql";
@@ -330,7 +320,7 @@ export function computeSubgraphPaths(
 } {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
+    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: subgraphs, withCaching: true });
     const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
     const context = new ValidationContext(supergraphSchema);
     let state = initialState;
@@ -431,11 +421,11 @@ export class ValidationState {
     supergraphAPI: QueryGraph,
     kind: SchemaRootKind,
     subgraphs: QueryGraph,
-    conditionResolver: ConditionValidationResolver,
+    conditionResolver: ConditionResolver,
   }) {
     return new ValidationState(
       GraphPath.fromGraphRoot(supergraphAPI, kind)!,
-      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver.resolver)),
+      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver)),
     );
   }
 
@@ -586,7 +576,7 @@ function isSupersetOrEqual(maybeSuperset: string[], other: string[]): boolean {
 }
 
 class ValidationTraversal {
-  private readonly conditionResolver: ConditionValidationResolver;
+  private readonly conditionResolver: ConditionResolver;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
 
@@ -604,7 +594,11 @@ class ValidationTraversal {
     supergraphAPI: QueryGraph,
     subgraphs: QueryGraph
   ) {
-    this.conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
+    this.conditionResolver = simpleValidationConditionResolver({
+      supergraph: supergraphSchema,
+      queryGraph: subgraphs,
+      withCaching: true,
+    });
     supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraphAPI,
       kind,
@@ -678,89 +672,5 @@ class ValidationTraversal {
       }
     }
     debug.groupEnd();
-  }
-}
-
-class ConditionValidationState {
-  constructor(
-    // Selection that belongs to the condition we're validating.
-    readonly selection: Selection,
-    // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
-    readonly subgraphOptions: SimultaneousPathsWithLazyIndirectPaths[]
-  ) {}
-
-  toString(): string {
-    return `${this.selection} <=> ${advanceOptionsToString(this.subgraphOptions)}`;
-  }
-}
-
-class ConditionValidationResolver {
-  readonly resolver: ConditionResolver;
-
-  constructor(
-    private readonly supergraphSchema: Schema,
-    private readonly federatedQueryGraph: QueryGraph
-  ) {
-    this.resolver = cachingConditionResolver(
-      federatedQueryGraph,
-      (
-        edge: Edge,
-        context: PathContext,
-        excludedEdges: ExcludedEdges,
-        excludedConditions: ExcludedConditions
-      ) => this.validateConditions(edge, context, excludedEdges, excludedConditions)
-    );
-  }
-
-  private validateConditions(
-    edge: Edge,
-    context: PathContext,
-    excludedEdges: ExcludedEdges,
-    excludedConditions: ExcludedConditions
-  ): ConditionResolution {
-    const conditions = edge.conditions!;
-    excludedConditions = addConditionExclusion(excludedConditions, conditions);
-
-    const initialPath: OpGraphPath = GraphPath.create(this.federatedQueryGraph, edge.head);
-    const initialOptions = [new SimultaneousPathsWithLazyIndirectPaths([initialPath], context, this.resolver, excludedEdges, excludedConditions)];
-
-    const stack: ConditionValidationState[] = [];
-    for (const selection of conditions.selections()) {
-      stack.push(new ConditionValidationState(selection, initialOptions));
-    }
-
-    while (stack.length > 0) {
-      const state = stack.pop()!;
-      const newStates = this.advanceState(state);
-      if (newStates === null) {
-        return unsatisfiedConditionsResolution;
-      }
-      newStates.forEach(s => stack.push(s));
-    }
-    // If we exhaust the stack, it means we've been able to find "some" path for every possible selection in the condition, so the
-    // condition is validated. Note that we use a cost of 1 for all conditions as we don't care about efficiency.
-    return { satisfied: true, cost: 1 };
-  }
-
-  private advanceState(state: ConditionValidationState): ConditionValidationState[] | null {
-    let newOptions: SimultaneousPathsWithLazyIndirectPaths[] = [];
-    for (const paths of state.subgraphOptions) {
-      const pathsOptions = advanceSimultaneousPathsWithOperation(
-        this.supergraphSchema,
-        paths,
-        state.selection.element,
-      );
-      if (!pathsOptions) {
-        continue;
-      }
-      newOptions = newOptions.concat(pathsOptions);
-    }
-
-    // If we got no options, it means that particular selection of the conditions cannot be satisfied, so the
-    // overall condition cannot.
-    if (newOptions.length === 0) {
-      return null;
-    }
-    return state.selection.selectionSet ? state.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newOptions)) : [];
   }
 }

@@ -64,7 +64,7 @@ import {
   advanceSimultaneousPathsWithOperation,
   Edge,
   emptyContext,
-  ExcludedEdges,
+  ExcludedDestinations,
   QueryGraph,
   GraphPath,
   isPathContext,
@@ -384,7 +384,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
-    excludedEdges: ExcludedEdges = [],
+    excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
@@ -399,7 +399,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       initialPath,
       initialContext,
       this.conditionResolver,
-      excludedEdges,
+      excludedDestinations,
       excludedConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
@@ -772,7 +772,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
   }
 
-  private resolveConditionPlan(edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionResolution {
+  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
     const bestPlan = new QueryPlanningTraversal(
       {
         ...this.parameters,
@@ -784,7 +784,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       'query',
       this.costFunction,
       context,
-      excludedEdges,
+      excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions)
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
@@ -937,9 +937,9 @@ class FetchGroup {
     if (this._inputs) {
       this._inputs.onUpdateCallback = () => {
         // We're trying to avoid the full recomputation of `isUseless` when we're already
-        // shown that the group is known usefull (if it is shown useless, the group is removed,
+        // shown that the group is known useful (if it is shown useless, the group is removed,
         // so we're not caching that result but it's ok). And `isUseless` basically checks if
-        // `inputs.contains(selection)`, so if a group is shown usefull, it means that there
+        // `inputs.contains(selection)`, so if a group is shown useful, it means that there
         // is some selections not in the inputs, but as long as we add to selections (and we
         // never remove from selections; `MutableSelectionSet` don't have removing methods),
         // then this won't change. Only changing inputs may require some recomputation. 
@@ -1184,11 +1184,7 @@ class FetchGroup {
   // If a group is such that everything is fetches is already included in the inputs, then
   // this group does useless fetches.
   isUseless(): boolean {
-    if (!this.inputs || this.mustPreserveSelection) {
-      return false;
-    }
-
-    if (this.isKnownUseful) {
+    if (this.isKnownUseful || !this.inputs || this.mustPreserveSelection) {
       return false;
     }
 
@@ -1265,7 +1261,7 @@ class FetchGroup {
     });
 
     this.isKnownUseful = !isUseless;
-    return isUseless;;
+    return isUseless;
   }
 
   /**
