@@ -744,18 +744,21 @@ describe('buildQueryPlan', () => {
 
     it(`should not get confused by a fragment spread multiple times`, () => {
       const operationString = `#graphql
-        fragment Price on Product {
+        fragment PriceAndCountry on Product {
           price
+          details {
+            country
+          }
         }
 
         query {
           topProducts {
             __typename
             ... on Book {
-              ...Price
+              ...PriceAndCountry
             }
             ... on Furniture {
-              ...Price
+              ...PriceAndCountry
             }
           }
         }
@@ -770,16 +773,20 @@ describe('buildQueryPlan', () => {
                       topProducts {
                         __typename
                         ... on Book {
-                          ...Price
+                          ...PriceAndCountry
                         }
                         ... on Furniture {
-                          ...Price
+                          ...PriceAndCountry
                         }
                       }
                     }
                     
-                    fragment Price on Product {
+                    fragment PriceAndCountry on Product {
                       price
+                      details {
+                        __typename
+                        country
+                      }
                     }
                   },
                 }
