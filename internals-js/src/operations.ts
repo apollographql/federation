@@ -1359,7 +1359,7 @@ export class NamedFragments {
   }
 
   // When we rebase named fragments on a subgraph schema, only a subset of what the fragment handles may belong
-  // to that particular subgraph. And there is a few sub-cases where that subset is such that we basically need or
+  // to that particular subgraph. And there are a few sub-cases where that subset is such that we basically need or
   // want to consider to ignore the fragment for that subgraph, and that is when:
   // 1. the subset that apply is actually empty. The fragment wouldn't be valid in this case anyway.
   // 2. the subset is a single leaf field: in that case, using the one field directly is just shorter than using
@@ -2541,13 +2541,13 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
       }
 
       // As we check inclusion, we ignore the case where the fragment queries __typename but the subSelection does not.
-      // The rational is that querying `__typename` unecessarily is mostly harmess (it always works and it's super cheap)
-      // so we don't want to not use a fragment just to save querying a `__typename` in a few case. But the underlying
-      // context of why this matter is that the query planner always request __typename for abstract type, and will do
+      // The rational is that querying `__typename` unecessarily is mostly harmless (it always works and it's super cheap)
+      // so we don't want to not use a fragment just to save querying a `__typename` in a few cases. But the underlying
+      // context of why this matters is that the query planner always requests __typename for abstract type, and will do
       // so in fragments too, but we can have a field that _does_ return an abstract type within a fragment, but that
-      // _do not_ end up returning an abstract type when applied in a "more specific" context (think a fragment on
+      // _does not_ end up returning an abstract type when applied in a "more specific" context (think a fragment on
       // an interface I1 where a inside field returns another interface I2, but applied in the context of a implementation
-      // type of I1 where that particular field returns an implentation of I2 rather than I2 directly; we would have
+      // type of I1 where that particular field returns an implementation of I2 rather than I2 directly; we would have
       // added __typename to the fragment (because it's all interfaces), but the selection itself, which only deals
       // with object type, may not have __typename requested; using the fragment might still be a good idea, and
       // querying __typename needlessly is a very small price to pay for that).

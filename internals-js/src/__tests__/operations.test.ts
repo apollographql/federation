@@ -2546,7 +2546,7 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    // F1 reduces to nothing, and F2 reduces to just __typename so we should keep them.
+    // F1 reduces to nothing, and F2 reduces to just __typename so we shouldn't keep them.
     const rebased = fragments.rebaseOn(subgraph);
     expect(rebased?.toString('')).toMatchString(`
       fragment F3 on T {
@@ -2607,7 +2607,6 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    // F1 reduces to nothing, and F2 reduces to just __typename so we should keep them.
     const rebased = fragments.rebaseOn(subgraph);
     expect(rebased?.toString('')).toMatchString(`
       fragment TheQuery on Query {
