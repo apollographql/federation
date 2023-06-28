@@ -82,6 +82,7 @@ import { createObjectTypeSpecification, createScalarTypeSpecification, createUni
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./joinSpec";
+import { AuthenticatedSpecDefinition } from "./authenticatedSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -738,6 +739,10 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.INTERFACE_OBJECT);
   }
 
+  authenticatedDirective(): Post20FederationDirectiveDefinition<{}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.AUTHENTICATED);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -761,6 +766,11 @@ export class FederationMetadata {
     const interfaceObjectDirective = this.interfaceObjectDirective();
     if (isFederationDirectiveDefinedInSchema(interfaceObjectDirective)) {
       baseDirectives.push(interfaceObjectDirective);
+    }
+
+    const authenticatedDirective = this.authenticatedDirective();
+    if (isFederationDirectiveDefinedInSchema(authenticatedDirective)) {
+      baseDirectives.push(authenticatedDirective);
     }
 
     return baseDirectives;
@@ -986,6 +996,15 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     }
 
+    // If authenticated is redefined by the user, make sure the definition is compatible with what we expect
+    const authenticatedDirective = metadata.authenticatedDirective();
+    if (authenticatedDirective && isFederationDirectiveDefinedInSchema(authenticatedDirective)) {
+      const error = AuthenticatedSpecDefinition.checkCompatibleDirective(authenticatedDirective);
+      if (error) {
+        errorCollector.push(error);
+      }
+    }
+
     // While @shareable is "repeatable", this is only so one can use it on both a main
     // type definition _and_ possible other type extensions. But putting 2 @shareable
     // on the same type definition or field is both useless, and suggest some miscomprehension,
@@ -1117,7 +1136,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),

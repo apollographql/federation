@@ -4728,7 +4728,7 @@ describe('executeQueryPlan', () => {
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
 
-      let operation = parseOp(`
+      const operation = parseOp(`
         {
           ts {
             v
@@ -4736,7 +4736,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -4768,7 +4768,7 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "ts": Array [
@@ -4865,7 +4865,7 @@ describe('executeQueryPlan', () => {
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2, s3 ]);
 
-      let operation = parseOp(`
+      const operation = parseOp(`
         {
           ts {
             v
@@ -4873,7 +4873,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -4922,7 +4922,7 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "ts": Array [

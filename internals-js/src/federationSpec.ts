@@ -15,6 +15,7 @@ import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
+import { AUTHENTICATED_VERSIONS, AuthenticatedSpecDefinition } from "./authenticatedSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -34,6 +35,7 @@ export enum FederationDirectiveName {
   INACCESSIBLE = 'inaccessible',
   COMPOSE_DIRECTIVE = 'composeDirective',
   INTERFACE_OBJECT = 'interfaceObject',
+  AUTHENTICATED = 'authenticated',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -142,6 +144,16 @@ export class FederationSpecDefinition extends FeatureDefinition {
         TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
       );
     }
+
+    if (version >= (new FeatureVersion(2, 5))) {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.AUTHENTICATED,
+        locations: AuthenticatedSpecDefinition.locations,
+      }));
+      this.registerDirective(
+        AUTHENTICATED_VERSIONS.latest().spec
+      );
+    }
   }
 }
 
@@ -150,6 +162,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
