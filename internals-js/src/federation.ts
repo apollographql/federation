@@ -82,7 +82,6 @@ import { createObjectTypeSpecification, createScalarTypeSpecification, createUni
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./joinSpec";
-import { AuthenticatedSpecDefinition } from "./authenticatedSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -991,15 +990,6 @@ export class FederationBlueprint extends SchemaBlueprint {
     const tagDirective = metadata.tagDirective();
     if (tagDirective) {
       const error = tagSpec.checkCompatibleDirective(tagDirective);
-      if (error) {
-        errorCollector.push(error);
-      }
-    }
-
-    // If authenticated is redefined by the user, make sure the definition is compatible with what we expect
-    const authenticatedDirective = metadata.authenticatedDirective();
-    if (authenticatedDirective && isFederationDirectiveDefinedInSchema(authenticatedDirective)) {
-      const error = AuthenticatedSpecDefinition.checkCompatibleDirective(authenticatedDirective);
       if (error) {
         errorCollector.push(error);
       }

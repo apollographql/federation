@@ -1,4 +1,4 @@
-import { DirectiveLocation, GraphQLError } from "graphql";
+import { DirectiveLocation } from "graphql";
 import {
   CorePurpose,
   FeatureDefinition,
@@ -11,7 +11,6 @@ import {
   createDirectiveSpecification,
   DirectiveSpecification,
 } from "./directiveAndTypeSpecification";
-import { ERRORS } from "./error";
 import { registerKnownFeature } from "./knownCoreFeatures";
 
 export class AuthenticatedSpecDefinition extends FeatureDefinition {
@@ -24,8 +23,6 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
     DirectiveLocation.SCALAR,
     DirectiveLocation.ENUM,
   ];
-  private static readonly printedDefinition =
-    "directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM";
   public readonly spec: DirectiveSpecification = createDirectiveSpecification({
     name: AuthenticatedSpecDefinition.directiveName,
     locations: AuthenticatedSpecDefinition.locations,
@@ -49,21 +46,6 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
     schema: Schema
   ): DirectiveDefinition<{ name: string }> {
     return this.directive(schema, AuthenticatedSpecDefinition.directiveName)!;
-  }
-
-  public static checkCompatibleDirective(
-    definition: DirectiveDefinition
-  ): GraphQLError | undefined {
-    const hasArguments = Object.keys(definition.arguments()).length > 0;
-    const hasInvalidLocations = !definition.locations.every((loc) =>
-      AuthenticatedSpecDefinition.locations.includes(loc)
-    );
-    if (hasArguments || hasInvalidLocations) {
-      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err(
-        `Found invalid @authenticated directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${AuthenticatedSpecDefinition.printedDefinition}`
-      );
-    }
-    return undefined;
   }
 
   get defaultCorePurpose(): CorePurpose {
