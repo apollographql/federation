@@ -146,12 +146,8 @@ export class FederationSpecDefinition extends FeatureDefinition {
     }
 
     if (version >= (new FeatureVersion(2, 5))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.AUTHENTICATED,
-        locations: AuthenticatedSpecDefinition.locations,
-      }));
       this.registerDirective(
-        AUTHENTICATED_VERSIONS.latest().spec
+        AUTHENTICATED_VERSIONS.find(new FeatureVersion(1, 0))!.spec
       );
     }
   }
