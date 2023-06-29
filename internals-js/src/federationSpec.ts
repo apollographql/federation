@@ -15,7 +15,7 @@ import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
-import { AUTHENTICATED_VERSIONS, AuthenticatedSpecDefinition } from "./authenticatedSpec";
+import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
