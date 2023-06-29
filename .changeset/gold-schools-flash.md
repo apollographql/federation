@@ -20,8 +20,7 @@ directive @authenticated on
   | ENUM
 ```
 
-In order to compose your `@authenticated` usages, you must update your subgraph's federation spec version to v2.5 and add the new `@link` for the `@authenticated` directive like so:
+In order to compose your `@authenticated` usages, you must update your subgraph's federation spec version to v2.5 and add the `@authenticated` import to your existing imports like so:
 ```graphql
-@link(url: "https://specs.apollo.dev/federation/v2.5", import: [...])
-@link(url: "https://specs.apollo.dev/authenticated/v1.0, import: ["@authenticated"])
+@link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@authenticated"])
 ```
