@@ -4037,9 +4037,31 @@ describe('composition', () => {
         name: 'on-interface',
       };
 
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type AuthenticatedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            @authenticated
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
       const onScalar = {
         typeDefs: gql`
           scalar AuthenticatedScalar @authenticated
+
+          # we need this to exist in any other subgraph from where it's defined
+          # with @interfaceObject
+          interface AuthenticatedInterfaceObject
+            @key(fields: "id")
+            @authenticated
+          {
+            id: String!
+          }
         `,
         name: 'on-scalar',
       };
@@ -4093,6 +4115,7 @@ describe('composition', () => {
       const result = composeAsFed2Subgraphs([
         onObject,
         onInterface,
+        onInterfaceObject,
         onScalar,
         onEnum,
         onRootField,
@@ -4104,6 +4127,7 @@ describe('composition', () => {
       const authenticatedElements = [
         "AuthenticatedObject",
         "AuthenticatedInterface",
+        "AuthenticatedInterfaceObject",
         "AuthenticatedScalar",
         "AuthenticatedEnum",
         "Query.authenticatedRootField",
