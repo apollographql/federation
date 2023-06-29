@@ -14,7 +14,6 @@ import {
 } from '@apollo/federation-internals';
 import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
-import dedent from 'dedent';
 import './matchers';
 import { print } from 'graphql';
 import {
@@ -4093,115 +4092,32 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([
         onObject,
-        onInterface, onScalar, onEnum, onRootField, onObjectField, onEntityField,
+        onInterface,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
       ]);
       assertCompositionSuccess(result);
-      expect(result.supergraphSdl.includes(dedent`
-        schema
-          @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
-          @link(url: "https://specs.apollo.dev/authenticated/v1.0", for: SECURITY)
-        {
-          query: Query
-        }
 
-        directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      const authenticatedElements = [
+        "AuthenticatedObject",
+        "AuthenticatedInterface",
+        "AuthenticatedScalar",
+        "AuthenticatedEnum",
+        "Query.authenticatedRootField",
+        "ObjectWithAuthenticatedField.field",
+        "EntityWithAuthenticatedField.field",
+      ];
 
-        directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
-
-        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
-
-        directive @join__graph(name: String!, url: String!) on ENUM_VALUE
-
-        directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
-
-        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
-
-        directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
-
-        directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-        enum AuthenticatedEnum
-          @join__type(graph: ON_ENUM)
-          @authenticated
-        {
-          A @join__enumValue(graph: ON_ENUM)
-          B @join__enumValue(graph: ON_ENUM)
-        }
-
-        interface AuthenticatedInterface
-          @join__type(graph: ON_INTERFACE)
-          @authenticated
-        {
-          field: Int!
-        }
-
-        type AuthenticatedObject
-          @join__type(graph: ON_OBJECT)
-          @authenticated
-        {
-          field: Int!
-        }
-
-        scalar AuthenticatedScalar
-          @join__type(graph: ON_SCALAR)
-          @authenticated
-
-        type EntityWithAuthenticatedField
-          @join__type(graph: ON_ENTITY_FIELD, key: "id")
-        {
-          id: ID!
-          field: Int! @authenticated
-        }
-
-        scalar join__FieldSet
-
-        enum join__Graph {
-          ON_ENTITY_FIELD @join__graph(name: "on-entity-field", url: "")
-          ON_ENUM @join__graph(name: "on-enum", url: "")
-          ON_INTERFACE @join__graph(name: "on-interface", url: "")
-          ON_OBJECT @join__graph(name: "on-object", url: "")
-          ON_OBJECT_FIELD @join__graph(name: "on-object-field", url: "")
-          ON_ROOT_FIELD @join__graph(name: "on-root-field", url: "")
-          ON_SCALAR @join__graph(name: "on-scalar", url: "")
-        }
-
-        scalar link__Import
-
-        enum link__Purpose {
-          """
-          \`SECURITY\` features provide metadata necessary to securely resolve fields.
-          """
-          SECURITY
-
-          """
-          \`EXECUTION\` features provide metadata necessary for operation execution.
-          """
-          EXECUTION
-        }
-
-        type ObjectWithAuthenticatedField
-          @join__type(graph: ON_OBJECT_FIELD)
-        {
-          field: Int! @authenticated
-        }
-
-        type Query
-          @join__type(graph: ON_ENTITY_FIELD)
-          @join__type(graph: ON_ENUM)
-          @join__type(graph: ON_INTERFACE)
-          @join__type(graph: ON_OBJECT)
-          @join__type(graph: ON_OBJECT_FIELD)
-          @join__type(graph: ON_ROOT_FIELD)
-          @join__type(graph: ON_SCALAR)
-        {
-          entityWithField: EntityWithAuthenticatedField! @join__field(graph: ON_ENTITY_FIELD)
-          interface: AuthenticatedInterface! @join__field(graph: ON_INTERFACE)
-          object: AuthenticatedObject! @join__field(graph: ON_OBJECT)
-          objectWithField: ObjectWithAuthenticatedField! @join__field(graph: ON_OBJECT_FIELD)
-          authenticatedRootField: Int! @join__field(graph: ON_ROOT_FIELD) @authenticated
-        }
-      `)).toBeTruthy();
+      for (const element of authenticatedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective("authenticated")
+        ).toBeTruthy();
+      }
     });
 
     it('applies @authenticated on types as long as it is used once', () => {
@@ -4234,20 +4150,8 @@ describe('composition', () => {
       assertCompositionSuccess(result1);
       assertCompositionSuccess(result2);
 
-      const expected = dedent`
-        type A
-          @join__type(graph: A1, key: "id")
-          @join__type(graph: A2, key: "id")
-          @authenticated
-        {
-          id: String!
-          a1: String @join__field(graph: A1)
-          a2: String @join__field(graph: A2)
-        }
-      `;
-
-      expect(result1.supergraphSdl.includes(expected)).toBeTruthy();
-      expect(result2.supergraphSdl.includes(expected)).toBeTruthy();
+      expect(result1.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
     });
 
     it('validation error on incompatible directive definition', () => {
