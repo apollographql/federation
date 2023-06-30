@@ -758,6 +758,55 @@ describe("composition involving @override directive", () => {
     ]);
   });
 
+  it("does not allow @override on interface fields", () => {
+    const subgraph1 = {
+      name: "Subgraph1",
+      url: "https://Subgraph1",
+      typeDefs: gql`
+        type Query {
+          i1: I
+        }
+
+        interface I {
+          k: ID
+          a: Int @override(from: "Subgraph2")
+        }
+
+        type A implements I @key(fields: "k") {
+          k: ID
+          a: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: "Subgraph2",
+      url: "https://Subgraph2",
+      typeDefs: gql`
+        type Query {
+          i2: I
+        }
+
+        interface I {
+          k: ID
+          a: Int
+        }
+
+        type A implements I @key(fields: "k") {
+          k: ID
+          a: Int @external
+        }
+      `,
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeDefined();
+    expect(errors(result)).toContainEqual([
+      "OVERRIDE_ON_INTERFACE",
+      '@override cannot be used on field "I.a" on subgraph "Subgraph1": @override is not supported on interface type fields.',
+    ]);
+  });
+
   // At the moment, we've punted on @override support when interacting with @interfaceObject, so the
   // following tests mainly cover the various possible use and show that it currently correcly raise
   // some validation errors. We may lift some of those limitation in the future.
