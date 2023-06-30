@@ -1,10 +1,9 @@
 import {
   asFed2SubgraphDocument,
-  buildSchema,
-  extractSubgraphsFromSupergraph,
   Schema,
   ServiceDefinition,
-  Subgraphs
+  Subgraphs,
+  Supergraph
 } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess, CompositionOptions } from '../compose';
 
@@ -21,9 +20,9 @@ export function errors(r: CompositionResult): [string, string][] {
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
 export function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
   // Note that we could user `result.schema`, but reparsing to ensure we don't lose anything with printing/parsing.
-  const schema = buildSchema(result.supergraphSdl);
-  expect(schema.isCoreSchema()).toBeTruthy();
-  return [schema, schema.toAPISchema(), extractSubgraphsFromSupergraph(schema)];
+  const supergraph = Supergraph.build(result.supergraphSdl);
+  expect(supergraph.schema.isCoreSchema()).toBeTruthy();
+  return [supergraph.schema, supergraph.apiSchema(), supergraph.subgraphs()];
 }
 
 // Note that tests for composition involving fed1 subgraph are in `composeFed1Subgraphs.test.ts` so all the test of this
