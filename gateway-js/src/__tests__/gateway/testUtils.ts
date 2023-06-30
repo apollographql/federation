@@ -66,14 +66,22 @@ export async function startSubgraphsAndGateway(
     serviceList.push({ name: serviceDef.name, url });
   }
 
-  const gateway = new ApolloGateway({
-    serviceList,
-    ...config?.gatewayConfig,
-  });
-  const gatewayServer = new ApolloServer({
-    gateway,
-    ...config?.gatewayServerConfig,
-  });
+  let gateway: ApolloGateway;
+  let gatewayServer: ApolloServer;
+  try {
+    gateway = new ApolloGateway({
+      serviceList,
+      ...config?.gatewayConfig,
+    });
+    gatewayServer = new ApolloServer({
+      gateway,
+      ...config?.gatewayServerConfig,
+    });
+  } catch (e) {
+    await Promise.all(backendServers.map(s => s.stop()));
+    throw e;
+  }
+
   const { url: gatewayUrl } = await startStandaloneServer(gatewayServer, {
     listen: { port: 0 },
   });
