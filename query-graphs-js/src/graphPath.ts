@@ -232,20 +232,129 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.props.edgeIndexes.length;
   }
 
-  subgraphJumps(): number {
+  /**
+   * That method first look for the biggest common prefix to `this` and `that` (assuming that both path are build as choices
+   * of the same "query path"), and the count how many subgraph jumps each of the path has after said prefix.
+   *
+   * Note that this method always return someting but the biggest common prefix considered might well be empty. 
+   *
+   * Please note that this method assumes that the 2 paths have the same root, and will fail if that's not the case.
+   */
+  countSubgraphJumpsAfterLastCommonVertex(that: GraphPath<TTrigger, RV, TNullEdge>): {
+    thisJumps: number,
+    thatJumps: number
+  } {
+    const { vertex, index } = this.findLastCommonVertex(that);
+    return {
+      thisJumps: this.subgraphJumpsAtIdx(vertex, index),
+      thatJumps: that.subgraphJumpsAtIdx(vertex, index),
+    };
+  }
+
+  private findLastCommonVertex(that: GraphPath<TTrigger, RV, TNullEdge>): { vertex: Vertex, index: number } {
+    let vertex: Vertex = this.root;
+    assert(that.root === vertex, () => `Expected both path to start on the same root, but 'this' has root ${vertex} while 'that' has ${that.root}`);
+
+    const minSize = Math.min(this.size, that.size);
+    let index = 0;
+    for (; index < minSize; index++) {
+      const thisEdge = this.edgeAt(index, vertex);
+      const thatEdge = that.edgeAt(index, vertex);
+      if (thisEdge !== thatEdge) {
+        break;
+      }
+      if (thisEdge) {
+        vertex = thisEdge.tail;
+      }
+    }
+    return { vertex, index};
+  }
+
+  private subgraphJumpsAtIdx(vertex: Vertex, index: number): number {
     let jumps = 0;
-    let v: Vertex = this.root;
-    for (let i = 0; i < this.size; i++) {
+    let v: Vertex = vertex;
+    for (let i = index; i < this.size; i++) {
       const edge = this.edgeAt(i, v);
       if (!edge) {
         continue;
       }
-      if (edge.transition.kind === 'KeyResolution' || edge.transition.kind === 'RootTypeResolution') {
+      if (edge.changesSubgraph()) {
         ++jumps;
       }
       v = edge.tail;
     }
     return jumps;
+  }
+
+  subgraphJumps(): number {
+    return this.subgraphJumpsAtIdx(this.root, 0);
+  }
+
+  isEquivalentSaveForTypeExplosionTo(that: GraphPath<TTrigger, RV, TNullEdge>): boolean {
+    // We're looking a the specific case were both path are basically equivalent except
+    // for a single step of type-explosion, so if either the paths don't start and end in the
+    // same vertex, or if `other` is not exactly 1 more step than `this`, we're done.
+    if (this.root !== that.root || this.tail !== that.tail || this.size !== that.size - 1) {
+      return false;
+    }
+
+    // If that's true, then we get to our comparison.
+    let thisV: Vertex = this.root;
+    let thatV: Vertex = that.root;
+    for (let i = 0; i < this.size; i++) {
+      let thisEdge = this.edgeAt(i, thisV);
+      let thatEdge = that.edgeAt(i, thatV);
+      if (thisEdge !== thatEdge) {
+        // First difference. If it's not a "type-explosion", that is `that` is a cast from an
+        // interface to one of the implementation, then we're not in the case we're looking for.
+        if (!thisEdge || !thatEdge || !isInterfaceType(thatV.type) || thatEdge.transition.kind !== 'DownCast') {
+          return false;
+        }
+        thatEdge = that.edgeAt(i+1, thatEdge.tail);
+        if (!thatEdge) {
+          return false;
+        }
+        thisV = thisEdge.tail;
+        thatV = thatEdge.tail;
+
+        // At that point, we want both path to take the "same" key, but because one is starting
+        // from the interface while the other one from an implementation, they won't be technically
+        // the "same" edge object. So we check that both are key, to the same subgraph and type,
+        // and with the same condition.
+        if (thisEdge.transition.kind !== 'KeyResolution'
+          || thatEdge.transition.kind !== 'KeyResolution'
+          || thisEdge.tail.source !== thatEdge.tail.source
+          || thisV !== thatV
+          || !thisEdge.conditions!.equals(thatEdge.conditions!)
+        ) {
+          return false;
+        }
+
+        // So far, so good. `thisV` and `thatV` are positioned on the vertex after which the path
+        // must be equal again. So check that it's true, and if it is, we're good.
+        // Note that for `this`, the last edge we looked at was `i`, so the next is `i+1`. And
+        // for `that`, we've skipped over one more edge, so need to use `j+1`.
+        for (let j = i + 1; j < this.size; j++) {
+          thisEdge = this.edgeAt(j, thisV);
+          thatEdge = that.edgeAt(j+1, thatV);
+          if (thisEdge !== thatEdge) {
+            return false;
+          }
+          if (thisEdge) {
+            thisV = thisEdge.tail;
+            thatV = thatEdge!.tail;
+          }
+        }
+        return true;
+      }
+      if (thisEdge) {
+        thisV = thisEdge.tail;
+        thatV = thatEdge!.tail;
+      }
+    }
+    // If we get here, both path are actually exactly the same. So technically there is not additional
+    // type explosion, but they are equivalent and we can return `true`.
+    return true;
   }
 
   [Symbol.iterator](): PathIterator<TTrigger, TNullEdge> {
@@ -682,7 +791,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       return ` (${this.props.edgeTriggers[idx]}) `;
     }).join('');
     const deferStr = this.deferOnTail ? ` <defer='${this.deferOnTail.label}'>` : '';
-    return `${isRoot ? '' : this.root}${pathStr}${deferStr} (types: [${this.props.runtimeTypesOfTail.join(', ')}])`;
+    const typeStr = this.props.runtimeTypesOfTail.length > 0 ? ` (types: [${this.props.runtimeTypesOfTail.join(', ')}])` : '';
+    return `${isRoot ? '' : this.root}${pathStr}${deferStr}${typeStr}`;
   }
 }
 
@@ -757,7 +867,7 @@ export function traversePath(
 
 // Note that ConditionResolver are guaranteed to be only called for edge with conditions.
 export type ConditionResolver =
-  (edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions) => ConditionResolution;
+  (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => ConditionResolution;
 
 
 export type ConditionResolution = {
@@ -1060,30 +1170,28 @@ function createLazyTransitionOptions<V extends Vertex>(
   ));
 }
 
-// A set of excluded edges, that is a pair of a head vertex index and an edge index (since edge indexes are relative to their vertex).
-export type ExcludedEdges = readonly [number, number][];
+// A "set" of excluded destinations, that is subgraph name. Note that we use an array instead of set because this is used
+// in pretty hot paths (the whole path computation is CPU intensive) and will basically always be tiny (it's bounded
+// by the number of distinct key on a given type, so usually 2-3 max; even in completely unrealistic cases, it's hard bounded
+// by the number of subgraph), so array is going to perform a lot better than `Set` in practice.
+export type ExcludedDestinations = readonly string[];
 
-function isEdgeExcluded(edge: Edge, excluded: ExcludedEdges): boolean {
-  return excluded.some(([vIdx, eIdx]) => edge.head.index === vIdx && edge.index === eIdx);
+function isDestinationExcluded(destination: string, excluded: ExcludedDestinations): boolean {
+  return excluded.includes(destination);
 }
 
-export function sameExcludedEdges(ex1: ExcludedEdges, ex2: ExcludedEdges): boolean {
+export function sameExcludedDestinations(ex1: ExcludedDestinations, ex2: ExcludedDestinations): boolean {
   if (ex1 === ex2) {
     return true;
   }
   if (ex1.length !== ex2.length) {
     return false;
   }
-  for (let i = 0; i < ex1.length; ++i) {
-    if (ex1[i][0] !== ex2[i][0] || ex1[i][1] !== ex2[i][1]) {
-      return false;
-    }
-  }
-  return true;
+  return ex1.every((d) => ex2.includes(d));
 }
 
-function addEdgeExclusion(excluded: ExcludedEdges, newExclusion: Edge): ExcludedEdges {
-  return excluded.concat([[newExclusion.head.index, newExclusion.index]]);
+function addDestinationExclusion(excluded: ExcludedDestinations, destination: string): ExcludedDestinations {
+  return excluded.includes(destination) ? excluded : excluded.concat(destination);
 }
 
 export type ExcludedConditions = readonly SelectionSet[];
@@ -1124,7 +1232,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   path: GraphPath<TTrigger, V, TNullEdge>,
   context: PathContext,
   conditionResolver: ConditionResolver,
-  excludedEdges: ExcludedEdges,
+  excludedDestinations: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
@@ -1190,7 +1298,9 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     debug.group(() => `From ${toAdvance}:`);
     for (const edge of nextEdges) {
       debug.group(() => `Testing edge ${edge}`);
-      if (isEdgeExcluded(edge, excludedEdges)) {
+      const target = edge.tail;
+
+      if (isDestinationExcluded(target.source, excludedDestinations)) {
         debug.groupEnd(`Ignored: edge is excluded`);
         continue;
       }
@@ -1199,7 +1309,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       // (we've already checked for direct transition from that original subgraph). On exception though
       // is if we're just after a @defer, in which case re-entering the current subgraph is actually
       // a thing.
-      const target = edge.tail;
       if (target.source === originalSource && !toAdvance.deferOnTail) {
         debug.groupEnd('Ignored: edge get us back to our original source');
         continue;
@@ -1243,12 +1352,15 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       }
 
       debug.group(() => `Validating conditions ${edge.conditions}`);
+      // As we validate the condition for this edge, it might be necessary to jump to another subgraph, but if for that
+      // we need to jump to the same subgraph we're trying to get to, then it means there is another, shorter way to
+      // go to our destination and we can return that shorter path, not the one with the edge we're trying.
       const conditionResolution = canSatisfyConditions(
         toAdvance,
         edge,
         conditionResolver,
         context,
-        addEdgeExclusion(excludedEdges, edge),
+        addDestinationExclusion(excludedDestinations, target.source),
         excludedConditions,
       );
       if (conditionResolution.satisfied) {
@@ -1606,7 +1718,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   edge: Edge,
   conditionResolver: ConditionResolver,
   context: PathContext,
-  excludedEdges: ExcludedEdges,
+  excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions
 ): ConditionResolution {
   const conditions = edge.conditions;
@@ -1670,7 +1782,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
     readonly paths: SimultaneousPaths<V>,
     readonly context: PathContext,
     readonly conditionResolver: ConditionResolver,
-    readonly excludedNonCollectingEdges: ExcludedEdges = [],
+    readonly excludedNonCollectingEdges: ExcludedDestinations = [],
     readonly excludedConditionsOnNonCollectingEdges: ExcludedConditions = [],
   ) {
     this.lazilyComputedIndirectPaths = new Array(paths.length);
@@ -1733,6 +1845,40 @@ export function advanceOptionsToString(options: (SimultaneousPaths<any> | Simult
   return '[\n  ' + options.map(opt => Array.isArray(opt) ? simultaneousPathsToString(opt, "  ") : opt.toString()).join('\n  ') + '\n]';
 }
 
+// Given a list of just computed indirect paths and a field that we're trying to advance after those paths, this
+// method fields any path that should note be considered.
+//
+// Currently, this handle the case where the key used at the end of the indirect path contains (at top level) the field
+// being queried. Or to make this more concrete, if we're trying to collect field `id`, and the path last edge was using
+// key `id`, then we can ignore that path because this imply that there is a way to `id` "some other way" (also see
+// the `does not evaluate plans relying on a key field to fetch that same field` test in `buildPlan` for more details).
+function filterNonCollectingPathsForField<V extends Vertex>(
+  paths: OpIndirectPaths<V>,
+  field: Field,
+): OpIndirectPaths<V> {
+  // We only handle leafs. Things are more complex non-leaf.
+  if (!field.isLeafField()) {
+    return paths;
+  }
+
+  const filtered = paths.paths.filter((p) => {
+    const lastEdge = p.lastEdge();
+    if (!lastEdge || lastEdge.transition.kind !== 'KeyResolution') {
+      return true;
+    }
+
+    const conditions = lastEdge.conditions;
+    return !(conditions && conditions.containsTopLevelField(field));
+  });
+  return filtered.length === paths.paths.length
+    ? paths
+    : {
+      ...paths,
+      paths: filtered
+    };
+
+}
+
 // Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
 // being a set of simultaneous paths in the subgraphs (a single path in the simple case, but type exploding may make us explore multiple paths simultaneously).
 // The lists of options can be empty, which has the special meaning that the operation is guaranteed to have no results (it corresponds to unsatisfiable conditions),
@@ -1791,7 +1937,10 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     if (operation.kind === 'Field') {
       debug.group(`Computing indirect paths:`);
       // Then adds whatever options can be obtained by taking some non-collecting edges first.
-      const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
+      const pathsWithNonCollecting = filterNonCollectingPathsForField(
+        subgraphSimultaneousPaths.indirectOptions(updatedContext, i),
+        operation
+      );
       debug.groupEnd(() => pathsWithNonCollecting.paths.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.paths.length} indirect paths`);
       if (pathsWithNonCollecting.paths.length > 0) {
         debug.group('Validating indirect options:');
@@ -1814,6 +1963,35 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
           // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
           // had one when testing direct transitions above (in which case we have exited the method early).
           assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
+
+          // There is a special case we can deal with now. Namely, suppose we have a case where a query
+          // is reaching an interface I in a subgraph S1, we query some field of that interface x, and
+          // say that x is provided in subgraph S2 but by an @interfaceObject for I.
+          // As we look for direct options for I.x in S1 initially, as we didn't found `x`, we will have tried
+          // to type-explode I (in say implementation A and B). And in some case doing so is necessary, but
+          // it may also lead for the type-exploding option to look like:
+          //  [
+          //    I(S1) -[... on A]-> A(S1) -[key]-> I(S2) -[x] -> Int(S2),
+          //    I(S1) -[... on B]-> B(S1) -[key]-> I(S2) -[x] -> Int(S2),
+          //  ]
+          // But as we look at indirect option now (still from I in S1), we will note that we can also
+          // do:
+          //    I(S1) -[key]-> I(S2) -[x] -> Int(S2),
+          // And while both options are technically valid, the new one really subsume the first one: there
+          // is no point in type-exploding to take a key to the same exact subgraph if using the key
+          // on the interface directly works.
+          //
+          // So here, we look for that case and remove any type-exploding option that the new path
+          // render unecessary.
+          // Do note that we only make that check when the new option is a single-path option, because
+          // this gets kind of complicated otherwise.
+          if (pathWithNonCollecting.tailIsInterfaceObject()) {
+            for (const indirectOption of pathWithOperation) {
+              if (indirectOption.length === 1) {
+                options = options.filter((opt) => !opt.every((p) => indirectOption[0].isEquivalentSaveForTypeExplosionTo(p)));
+              }
+            }
+          }
           options = options.concat(pathWithOperation);
         }
         debug.groupEnd();
@@ -1853,11 +2031,12 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext);
 }
 
+
 export function createInitialOptions<V extends Vertex>(
   initialPath: OpGraphPath<V>,
   initialContext: PathContext,
   conditionResolver: ConditionResolver,
-  excludedEdges: ExcludedEdges,
+  excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
 ): SimultaneousPathsWithLazyIndirectPaths<V>[] {
   const lazyInitialPath = new SimultaneousPathsWithLazyIndirectPaths(

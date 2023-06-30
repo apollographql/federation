@@ -3613,7 +3613,6 @@ test('@defer only the key of an entity', () => {
           Fetch(service: "Subgraph1") {
             {
               t {
-                __typename
                 v0
                 id
               }

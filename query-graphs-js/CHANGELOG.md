@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.4.8
+### Patch Changes
+
+
+- Fix query planner heuristic that could lead to ignoring some valid option and yielding a non-optimal query plan. ([#2623](https://github.com/apollographql/federation/pull/2623))
+
+- Updated dependencies [[`62e0d254`](https://github.com/apollographql/federation/commit/62e0d254f92a6a259032cda5e1ce810ae6478022), [`7f1ef73e`](https://github.com/apollographql/federation/commit/7f1ef73ee00b82c9b4b1bbfd23f3be10e3a1e176)]:
+  - @apollo/federation-internals@2.4.8
+
 ## 2.4.7
 ### Patch Changes
 

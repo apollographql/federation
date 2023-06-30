@@ -4002,7 +4002,8 @@ describe('Named fragments preservation', () => {
         }
 
         type V {
-          v: Int
+          v1: Int
+          v2: Int
         }
 
       `
@@ -4026,7 +4027,8 @@ describe('Named fragments preservation', () => {
       }
 
       fragment OnV on V {
-        v
+        v1
+        v2
       }
     `);
 
@@ -4046,7 +4048,8 @@ describe('Named fragments preservation', () => {
           }
           
           fragment OnV on V {
-            v
+            v1
+            v2
           }
         },
       }
@@ -4423,8 +4426,7 @@ describe('__typename handling', () => {
           t: T @shareable
         }
 
-        type T @key(fields: "id") {
-          id: ID!
+        type T {
           x: Int
         }
       `
@@ -4438,7 +4440,7 @@ describe('__typename handling', () => {
           t: T @shareable
         }
 
-        type T @key(fields: "id") {
+        type T {
           id: ID!
           y: Int
         }
@@ -5760,7 +5762,7 @@ test('does not error out handling fragments when interface subtyping is involved
   `);
 });
 
-describe("named fragments reuse", () => {
+describe("named fragments", () => {
   test('handles mix of fragments indirection and unions', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -5857,16 +5859,19 @@ describe("named fragments reuse", () => {
         union U = T1 | T2
 
         interface I {
-          id: ID!
+          id1: ID!
+          id2: ID!
         }
 
         type T1 implements I {
-          id: ID!
+          id1: ID!
+          id2: ID!
           owner: Owner!
         }
 
         type T2 implements I {
-          id: ID!
+          id1: ID!
+          id2: ID!
         }
       `
     }
@@ -5877,7 +5882,8 @@ describe("named fragments reuse", () => {
         owner {
           u {
             ... on I {
-              id
+              id1
+              id2
             }
             ...Fragment1
             ...Fragment2
@@ -5895,7 +5901,7 @@ describe("named fragments reuse", () => {
 
       fragment Fragment2 on T2 {
         ...Fragment4
-        id
+        id1
       }
 
       fragment Fragment3 on OItf {
@@ -5903,7 +5909,8 @@ describe("named fragments reuse", () => {
       }
 
       fragment Fragment4 on I {
-        id
+        id1
+        id2
         __typename
       }
     `);
@@ -5931,7 +5938,8 @@ describe("named fragments reuse", () => {
           
           fragment Fragment4 on I {
             __typename
-            id
+            id1
+            id2
           }
         },
       }
@@ -5942,7 +5950,8 @@ describe("named fragments reuse", () => {
         owner {
           u {
             ... on I {
-              id
+              id1
+              id2
             }
             ...Fragment1
             ...Fragment2
@@ -5960,7 +5969,7 @@ describe("named fragments reuse", () => {
 
       fragment Fragment2 on T2 {
         ...Fragment4
-        id
+        id1
       }
 
       fragment Fragment3 on OItf {
@@ -5968,7 +5977,8 @@ describe("named fragments reuse", () => {
       }
 
       fragment Fragment4 on I {
-        id
+        id1
+        id2
       }
     `);
 
@@ -5997,8 +6007,324 @@ describe("named fragments reuse", () => {
           }
           
           fragment Fragment4 on I {
+            id1
+            id2
+          }
+        },
+      }
+    `);
+  });
+
+  test('handles fragments with interface field subtyping', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t1: T1!
+        }
+
+        interface I {
+          id: ID!
+          other: I!
+        }
+
+        type T1 implements I {
+          id: ID!
+          other: T1!
+        }
+
+
+        type T2 implements I
+        {
+          id: ID!
+          other: T2!
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(api, gql`
+      {
+        t1 {
+          ...Fragment1
+        }
+      }
+
+      fragment Fragment1 on I {
+        other {
+          ... on T1 {
             id
           }
+          ... on T2 {
+            id
+          }
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t1 {
+              other {
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  test('can reuse fragments in subgraph where they only partially apply in root fetch', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t1: T
+          t2: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v0: Int
+          v1: Int
+          v2: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v3: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t1 {
+          ...allTFields
+        }
+        t2 {
+          ...allTFields
+        }
+      }
+
+      fragment allTFields on T {
+        v0
+        v1
+        v2
+        v3
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t1 {
+                __typename
+                ...allTFields
+                id
+              }
+              t2 {
+                __typename
+                ...allTFields
+                id
+              }
+            }
+            
+            fragment allTFields on T {
+              v0
+              v1
+              v2
+            }
+          },
+          Parallel {
+            Flatten(path: "t1") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v3
+                  }
+                }
+              },
+            },
+            Flatten(path: "t2") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v3
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  test('can reuse fragments in subgraph where they only partially apply in entity fetch', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          u1: U
+          u2: U
+
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          v0: Int
+          v1: Int
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type U @key(fields: "id") {
+          id: ID!
+          v2: Int
+          v3: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          u1 {
+            ...allUFields
+          }
+          u2 {
+            ...allUFields
+          }
+        }
+      }
+
+      fragment allUFields on U {
+        v0
+        v1
+        v2
+        v3
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  u1 {
+                    __typename
+                    ...allUFields
+                    id
+                  }
+                  u2 {
+                    __typename
+                    ...allUFields
+                    id
+                  }
+                }
+              }
+              
+              fragment allUFields on U {
+                v0
+                v1
+              }
+            },
+          },
+          Parallel {
+            Flatten(path: "t.u1") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on U {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on U {
+                    v2
+                    v3
+                  }
+                }
+              },
+            },
+            Flatten(path: "t.u2") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on U {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on U {
+                    v2
+                    v3
+                  }
+                }
+              },
+            },
+          },
         },
       }
     `);
@@ -6170,3 +6496,315 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   });
 });
 
+test('correctly generate plan built from some non-individually optimal branch options', () => {
+  // The idea of this test is that the query has 2 leaf fields, `t.x` and `t.y`, whose
+  // options are:
+  //  1. `t.x`:
+  //     a. S1(get t.x)
+  //     b. S2(get t.id) -> S3(get t.x using key id)
+  //  2. `t.y`:
+  //     a. S2(get t.id) -> S3(get t.y using key id)
+  //
+  // And the idea is that "individually", for just `t.x`, getting it all in `S1` using option a.,
+  // but for the whole plan, using option b. is actually better since it avoid querying `S1`
+  // entirely (and `S2`/`S2` have to be queried anyway).
+  //
+  // Anyway, this test make sure we do correctly generate the plan using 1.b and 2.a, and do
+  // not ignore 1.b in favor of 1.a in particular (which a bug did at one point).
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T @shareable
+      }
+
+      type T {
+        x: Int @shareable
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        t: T @shareable
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+        x: Int @shareable
+        y: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        x
+        y
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+   QueryPlan {
+     Sequence {
+       Fetch(service: "Subgraph2") {
+         {
+           t {
+             __typename
+             id
+           }
+         }
+       },
+       Flatten(path: "t") {
+         Fetch(service: "Subgraph3") {
+           {
+             ... on T {
+               __typename
+               id
+             }
+           } =>
+           {
+             ... on T {
+               y
+               x
+             }
+           }
+         },
+       },
+     },
+   }
+  `);
+});
+
+test('does not error on some complex fetch group dependencies', () => {
+  // This test is a reproduction of a bug whereby planning on this example was raising an
+  // assertion error due to an incorrect handling of fetch group dependencies.
+
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        me: User @shareable
+      }
+
+      type User {
+        id: ID! @shareable
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        me: User @shareable
+      }
+
+      type User @key(fields: "id") {
+        id: ID!
+        p: Props
+      }
+
+      type Props {
+        id: ID! @shareable
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type Query {
+        me: User @shareable
+      }
+
+      type User {
+        id: ID! @shareable
+      }
+
+      type Props @key(fields: "id") {
+        id: ID!
+        v0: Int
+        t: T
+      }
+
+      type T {
+        id: ID!
+        v1: V
+        v2: V
+
+        # Note: this field is not queried, but matters to the reproduction this test exists
+        # for because it prevents some optimizations that would happen without it (namely,
+        # without it, the planner would notice that everything after type T is guaranteed
+        # to be local to the subgraph).
+        user: User
+      }
+
+      type V {
+        x: Int
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      me {
+        p {
+          v0
+          t {
+            v1 {
+              x
+            }
+            v2 {
+              x
+            }
+          }
+        }
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph2") {
+          {
+            me {
+              p {
+                __typename
+                id
+              }
+            }
+          }
+        },
+        Flatten(path: "me.p") {
+          Fetch(service: "Subgraph3") {
+            {
+              ... on Props {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on Props {
+                v0
+                t {
+                  v1 {
+                    x
+                  }
+                  v2 {
+                    x
+                  }
+                }
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
+
+
+test('does not evaluate plans relying on a key field to fetch that same field', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+      }
+
+      type T @key(fields: "otherId") {
+        otherId: ID!
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type T @key(fields: "id") @key(fields: "otherId") {
+        id: ID!
+        otherId: ID!
+      }
+    `
+  }
+
+  const subgraph3 = {
+    name: 'Subgraph3',
+    typeDefs: gql`
+      type T @key(fields: "id") {
+        id: ID!
+      }
+    `
+  }
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        id
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              otherId
+            }
+          }
+        },
+        Flatten(path: "t") {
+          Fetch(service: "Subgraph2") {
+            {
+              ... on T {
+                __typename
+                otherId
+              }
+            } =>
+            {
+              ... on T {
+                id
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+
+  // This is the main thing this test exists for: making sure we only evaluate a
+  // single plan for this example. And while it may be hard to see what other
+  // plans than the one above could be evaluated, some older version of the planner
+  // where considering a plan consisting of, from `Subgraph1`, fetching key `id`
+  // in `Subgraph2` using key `otherId`, and then using that `id` key to fetch
+  // ... field `id` in `Subgraph3`, not realizing that the `id` is what we ultimately
+  // want and so there is no point in considering path that use it as key. Anyway
+  // this test ensure this is not considered anymore (considering that later plan
+  // was not incorrect, but it was adding to the options to evaluate which in some
+  // cases could impact query planning performance quite a bit).
+  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+});

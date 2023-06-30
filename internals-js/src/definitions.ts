@@ -240,6 +240,10 @@ export function possibleRuntimeTypes(type: CompositeType): readonly ObjectType[]
 }
 
 export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): boolean {
+  if (t1 === t2) {
+    return true;
+  }
+
   const rt1 = possibleRuntimeTypes(t1);
   const rt2 = possibleRuntimeTypes(t2);
   for (const obj1 of rt1) {

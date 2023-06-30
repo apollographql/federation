@@ -42,9 +42,9 @@
     "federation-integration-testsuite-js"
   ],
   "devDependencies": {
-    "@apollo/cache-control-types": "1.0.2",
-    "@apollo/client": "3.7.15",
-    "@apollo/server": "4.7.1",
+    "@apollo/cache-control-types": "1.0.3",
+    "@apollo/client": "3.7.16",
+    "@apollo/server": "4.7.5",
     "@apollo/utils.fetcher": "2.0.1",
     "@changesets/changelog-github": "0.4.8",
     "@changesets/cli": "2.26.1",
@@ -62,14 +62,14 @@
     "@types/loglevel": "1.5.4",
     "@types/make-fetch-happen": "10.0.1",
     "@types/nock": "10.0.3",
-    "@types/node": "14.18.48",
+    "@types/node": "14.18.52",
     "@types/node-fetch": "2.6.4",
-    "@types/uuid": "9.0.1",
-    "@typescript-eslint/eslint-plugin": "5.59.8",
+    "@types/uuid": "9.0.2",
+    "@typescript-eslint/eslint-plugin": "5.60.1",
     "bunyan": "1.8.15",
     "cspell": "6.31.1",
-    "graphql": "16.6.0",
-    "graphql-http": "1.18.0",
+    "graphql": "16.7.1",
+    "graphql-http": "1.19.0",
     "graphql-tag": "2.12.6",
     "jest": "29.5.0",
     "jest-config": "29.5.0",
@@ -80,7 +80,7 @@
     "nock": "13.3.1",
     "node-fetch": "2.6.11",
     "prettier": "2.8.8",
-    "semver": "7.5.1",
+    "semver": "7.5.3",
     "strip-indent": "3.0.0",
     "ts-jest": "29.1.0",
     "ts-node": "10.9.1",
@@ -99,7 +99,7 @@
     ]
   },
   "volta": {
-    "node": "18.16.0",
-    "npm": "9.6.7"
+    "node": "18.16.1",
+    "npm": "9.7.2"
   }
 }
