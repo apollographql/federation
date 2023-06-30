@@ -4054,12 +4054,11 @@ describe('composition', () => {
         typeDefs: gql`
           scalar AuthenticatedScalar @authenticated
 
-          # we need this to exist in any other subgraph from where it's defined
-          # with @interfaceObject
-          interface AuthenticatedInterfaceObject
-            @key(fields: "id")
-            @authenticated
-          {
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply @authenticated to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface AuthenticatedInterfaceObject @key(fields: "id") {
             id: String!
           }
         `,
