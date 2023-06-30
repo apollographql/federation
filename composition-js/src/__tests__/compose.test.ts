@@ -4228,4 +4228,272 @@ describe('composition', () => {
       ]);
     });
   });
+
+  describe('@requiresScopes', () => {
+    it('comprehensive locations', () => {
+      const onObject = {
+        typeDefs: gql`
+          type Query {
+            object: ScopedObject!
+          }
+
+          type ScopedObject @requiresScopes(scopes: ["object"]) {
+            field: Int!
+          }
+        `,
+        name: 'on-object',
+      };
+
+      const onInterface = {
+        typeDefs: gql`
+          type Query {
+            interface: ScopedInterface!
+          }
+
+          interface ScopedInterface @requiresScopes(scopes: ["interface"]) {
+            field: Int!
+          }
+        `,
+        name: 'on-interface',
+      };
+
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type ScopedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            @requiresScopes(scopes: ["interfaceObject"])
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
+      const onScalar = {
+        typeDefs: gql`
+          scalar ScopedScalar @requiresScopes(scopes: ["scalar"])
+
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply @requiresScopes to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface ScopedInterfaceObject @key(fields: "id") {
+            id: String!
+          }
+        `,
+        name: 'on-scalar',
+      };
+
+      const onEnum = {
+        typeDefs: gql`
+          enum ScopedEnum @requiresScopes(scopes: ["enum"]) {
+            A
+            B
+          }
+        `,
+        name: 'on-enum',
+      };
+
+      const onRootField = {
+        typeDefs: gql`
+          type Query {
+            scopedRootField: Int! @requiresScopes(scopes: ["rootField"])
+          }
+        `,
+        name: 'on-root-field',
+      };
+
+      const onObjectField = {
+        typeDefs: gql`
+          type Query {
+            objectWithField: ObjectWithScopedField!
+          }
+
+          type ObjectWithScopedField {
+            field: Int! @requiresScopes(scopes: ["objectField"])
+          }
+        `,
+        name: 'on-object-field',
+      };
+
+      const onEntityField = {
+        typeDefs: gql`
+          type Query {
+            entityWithField: EntityWithScopedField!
+          }
+
+          type EntityWithScopedField @key(fields: "id") {
+            id: ID!
+            field: Int! @requiresScopes(scopes: ["entityField"])
+          }
+        `,
+        name: 'on-entity-field',
+      };
+
+      const result = composeAsFed2Subgraphs([
+        onObject,
+        onInterface,
+        onInterfaceObject,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
+      ]);
+      assertCompositionSuccess(result);
+
+      const scopedElements = [
+        "ScopedObject",
+        "ScopedInterface",
+        "ScopedInterfaceObject",
+        "ScopedScalar",
+        "ScopedEnum",
+        "Query.scopedRootField",
+        "ObjectWithScopedField.field",
+        "EntityWithScopedField.field",
+      ];
+
+      for (const element of scopedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective("requiresScopes")
+        ).toBeTruthy();
+      }
+    });
+
+    it('applies @requiresScopes on types as long as it is used once', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+          type A @key(fields: "id") @requiresScopes(scopes: ["a"]) {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      // checking composition in either order (not sure if this is necessary but
+      // it's not hurting anything)
+      const result1 = composeAsFed2Subgraphs([a1, a2]);
+      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      assertCompositionSuccess(result1);
+      assertCompositionSuccess(result2);
+
+      expect(result1.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
+    });
+
+    it('merges @requiresScopes lists', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @requiresScopes(scopes: ["a"]) @key(fields: "id") {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @requiresScopes(scopes: ["b"]) @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      const result = composeAsFed2Subgraphs([a1, a2]);
+      assertCompositionSuccess(result);
+      expect(
+        result.schema.type('A')
+          ?.appliedDirectivesOf('requiresScopes')
+          ?.[0]?.arguments()?.scopes).toStrictEqual(['a', 'b']
+      );
+    });
+
+    describe('validation errors', () => {
+      it('on incompatible directive location', () => {
+        const invalidDefinition = {
+          typeDefs: gql`
+            directive @requiresScopes(scopes: [String!]!) on ENUM_VALUE
+
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A @requiresScopes(scopes: [])
+            }
+          `,
+          name: 'invalidDefinition',
+        };
+        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        expect(errors(result)[0]).toEqual([
+          "DIRECTIVE_DEFINITION_INVALID",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": \"@requiresScopes\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
+        ]);
+      });
+
+      it('on incompatible args', () => {
+        const invalidDefinition = {
+          typeDefs: gql`
+            directive @requiresScopes(scopes: [String]!) on FIELD_DEFINITION
+
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A @requiresScopes(scopes: [])
+            }
+          `,
+          name: 'invalidDefinition',
+        };
+        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        expect(errors(result)[0]).toEqual([
+          "DIRECTIVE_DEFINITION_INVALID",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[String!]!\" but found type \"[String]!\"",
+        ]);
+      });
+
+      it('on invalid application', () => {
+        const invalidApplication = {
+          typeDefs: gql`
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A @requiresScopes(scopes: [])
+            }
+          `,
+          name: 'invalidApplication',
+        };
+        const result = composeAsFed2Subgraphs([invalidApplication]);
+        expect(errors(result)[0]).toEqual([
+          "INVALID_GRAPHQL",
+          "[invalidApplication] Directive \"@requiresScopes\" may not be used on ENUM_VALUE.",
+        ]);
+      });
+    });
+  });
 });

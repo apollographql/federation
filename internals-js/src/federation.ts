@@ -742,6 +742,10 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.AUTHENTICATED);
   }
 
+  requiresScopesDirective(): Post20FederationDirectiveDefinition<{scopes: string[]}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.REQUIRES_SCOPES);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -770,6 +774,11 @@ export class FederationMetadata {
     const authenticatedDirective = this.authenticatedDirective();
     if (isFederationDirectiveDefinedInSchema(authenticatedDirective)) {
       baseDirectives.push(authenticatedDirective);
+    }
+
+    const requiresScopesDirective = this.requiresScopesDirective();
+    if (isFederationDirectiveDefinedInSchema(requiresScopesDirective)) {
+      baseDirectives.push(requiresScopesDirective);
     }
 
     return baseDirectives;
@@ -1126,7 +1135,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
