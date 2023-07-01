@@ -509,7 +509,7 @@ async function executeFetch(
         }
 
 
-        for (let i = 0; i < entities.length; i++) {
+        for (let i = 0; i < receivedEntities.length; i++) {
           const receivedEntity = receivedEntities[i];
           applyRewrites(context.supergraphSchema, fetch.outputRewrites, receivedEntity);
           deepMerge(entities[representationToEntity[i]], receivedEntity);
