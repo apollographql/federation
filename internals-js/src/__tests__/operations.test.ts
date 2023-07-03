@@ -1904,6 +1904,122 @@ describe('fragments optimization', () => {
       }
     `);
   });
+
+  test('keeps fragments only used by other fragments (if they are used enough times)', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T
+        t2: T
+      }
+
+      type T {
+        a1: Int
+        a2: Int
+        b1: B
+        b2: B
+      }
+
+      type B {
+        x: Int
+        y: Int
+      }
+    `);
+    const gqlSchema = schema.toGraphQLJSSchema();
+
+    const operation = parseOperation(schema, `
+      query {
+        t1 {
+          ...TFields
+        }
+        t2 {
+          ...TFields
+        }
+      }
+
+      fragment TFields on T {
+        ...DirectFieldsOfT
+        b1 {
+          ...BFields
+        }
+        b2 {
+          ...BFields
+        }
+      }
+
+      fragment DirectFieldsOfT on T {
+        a1
+        a2
+      }
+
+      fragment BFields on B {
+        x
+        y
+      }
+    `);
+    expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+    const withoutFragments = operation.expandAllFragments();
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1 {
+          a1
+          a2
+          b1 {
+            x
+            y
+          }
+          b2 {
+            x
+            y
+          }
+        }
+        t2 {
+          a1
+          a2
+          b1 {
+            x
+            y
+          }
+          b2 {
+            x
+            y
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!, 2);
+    expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+    // The `DirectFieldsOfT` fragments should not be kept as it is used only once within `TFields`,
+    // but the `BFields` one should be kept.
+    expect(optimized.toString()).toMatchString(`
+      fragment BFields on B {
+        x
+        y
+      }
+ 
+      fragment TFields on T {
+        a1
+        a2
+        b1 {
+          ...BFields
+        }
+        b2 {
+          ...BFields
+        }
+      }
+
+      {
+        t1 {
+          ...TFields
+        }
+        t2 {
+          ...TFields
+        }
+      }
+    `);
+  });
 });
 
 describe('validations', () => {

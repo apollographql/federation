@@ -946,7 +946,9 @@ export class Operation {
       // refactor all this later to avoid this case without additional complexity.
       if (finalFragments) {
         const usages = new Map<string, number>();
+        // Collecting all usages, both in the selection and within other fragments.
         optimizedSelection.collectUsedFragmentNames(usages);
+        finalFragments.collectUsedFragmentNames(usages);
         finalFragments = finalFragments.filter((f) => (usages.get(f.name) ?? 0) > 0);
       }
     }
@@ -1282,6 +1284,15 @@ export class NamedFragments {
 
   definitions(): readonly NamedFragmentDefinition[] {
     return this.fragments.values();
+  }
+
+  /**
+   * Collect the usages of fragments that are used within the selection of other fragments.
+   */
+  collectUsedFragmentNames(collector: Map<string, number>) {
+    for (const fragment of this.definitions()) {
+      fragment.collectUsedFragmentNames(collector);
+    }
   }
 
   map(mapper: (def: NamedFragmentDefinition) => NamedFragmentDefinition): NamedFragments {
