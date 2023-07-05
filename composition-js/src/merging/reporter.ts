@@ -129,6 +129,7 @@ export class MismatchReporter {
         this.pushHint(new CompositionHint(
           code,
           message + distribution[0] + joinStrings(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
+          elementToString(supergraphElement, true),
           astNodes
         ));
       },

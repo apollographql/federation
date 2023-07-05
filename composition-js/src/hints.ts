@@ -235,6 +235,7 @@ export class CompositionHint {
   constructor(
     readonly definition: HintCodeDefinition,
     readonly message: string,
+    readonly coordinate: string | undefined,
     nodes?: readonly SubgraphASTNode[] | SubgraphASTNode
   ) {
     this.nodes = nodes
