@@ -1576,6 +1576,22 @@ export class Schema {
     this.isValidated = false;
   }
 
+  /**
+   * Marks the schema as validated _without running actual validation_.
+   * Should obviously only be called when we know the built schema must be valid.
+   *
+   * Note that if `validate` is called after this, then it will exit immediately without validation as
+   * the schema will have been marked as validated. However, if this schema is further modified, then
+   * `invalidate` will be called, after which `validate` would run validation again.
+   */
+  assumeValid() {
+    this.runWithBuiltInModificationAllowed(() => {
+      addIntrospectionFields(this);
+    });
+
+    this.isValidated = true;
+  }
+
   validate() {
     if (this.isValidated) {
       return;
@@ -1609,9 +1625,7 @@ export class Schema {
     const cloned = new Schema(builtIns ?? this.blueprint);
     copy(this, cloned);
     if (this.isValidated) {
-      // TODO: when we do actual validation, no point in redoing it, but we should
-      // at least call builtIns.onValidation() and set the proper isConstructed/isValidated flags.
-      cloned.validate();
+      cloned.assumeValid();
     }
     return cloned;
   }
