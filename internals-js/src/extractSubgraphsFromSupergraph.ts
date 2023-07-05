@@ -328,15 +328,46 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           }
           // Fall-through on purpose.
         case 'InputObjectType':
+          const typeApplications = type.appliedDirectivesOf(typeDirective);
+          // Note that we can have more that one `@join__type` for a given graph if there is multiple keys, so we collect
+          // the actual set of subgraphs defining the type.
+          const subgraphsDefiningType: Subgraph[] = [];
+          for (const app of typeApplications) {
+            const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(app.arguments().graph)!)!;
+            if (!subgraphsDefiningType.includes(subgraph)) {
+              subgraphsDefiningType.push(subgraph);
+            }
+          }
+
           for (const field of type.fields()) {
             const fieldApplications = field.appliedDirectivesOf(fieldDirective);
             if (!fieldApplications.length) {
-              // The meaning of having no join__field depends on whether the parent type has a join__owner.
-              // If it does, it means the field is only on that owner subgraph. Otherwise, we kind of don't
-              // know, so we add it to all subgraphs that have the parent type and, if the field base type
-              // is a named type, know that field type.
+              // Where there is no join__field, there is roughly 3 main cases:
+              // 1. if the type has an `@join__owner` directive (old fed1 supergraph), then the field belong to that owner subgraph.
+              // 2. otherwise, if the type has some `@join__type` directives (which it will have in post-"fed1" supergraph), then
+              //    the field is in all the supergraph in which the type is.
+              // 2. otherwise,  we kind of don't know, so we add it to all subgraphs that have the parent type and, if the
+              //    field base type is a named type, know that field type. Note that this last case only happens for old fed1
+              //    supergraphs which were lacking information and force a bit of guessing. All fed2 generated supergraph
+              //    use `@join__type` systematically on all types, and will always be case 2.
               const ownerApplications = ownerDirective ? type.appliedDirectivesOf(ownerDirective) : [];
-              if (!ownerApplications.length) {
+              if (ownerApplications.length > 0) {
+                assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`)
+                const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
+                const subgraphField = addSubgraphField(field, subgraph);
+                assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
+                continue;
+              }
+
+              if (subgraphsDefiningType.length > 0) {
+                const isShareable = isObjectType(type) && subgraphsDefiningType.length > 1;
+                for (const subgraph of subgraphsDefiningType) {
+                  const subgraphField = addSubgraphField(field, subgraph);
+                  if (subgraphField && isShareable) {
+                    subgraphField.applyDirective(subgraph.metadata().shareableDirective());
+                  }
+                }
+              } else {
                 const fieldBaseType = baseType(field.type!);
                 const isShareable = isObjectType(type) && subgraphs.values().filter((s) => s.schema.type(type.name)).length > 1;
                 for (const subgraph of subgraphs) {
@@ -347,11 +378,6 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                     }
                   }
                 }
-              } else {
-                assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`)
-                const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
-                const subgraphField = addSubgraphField(field, subgraph);
-                assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
               }
             } else {
               const isShareable = isObjectType(type)
