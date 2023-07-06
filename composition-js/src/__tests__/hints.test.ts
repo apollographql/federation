@@ -26,14 +26,14 @@ function mergeDocuments(...documents: DocumentNode[]): MergeResult {
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toRaiseHint(id: HintCodeDefinition, message: string): R;
+      toRaiseHint(id: HintCodeDefinition, message: string, coordinate: string | undefined): R;
       toNotRaiseHints(): R;
     }
   }
 }
 
 expect.extend({
-  toRaiseHint(mergeResult: MergeResult, expectedDefinition: HintCodeDefinition, expectedMessage: string) {
+  toRaiseHint(mergeResult: MergeResult, expectedDefinition: HintCodeDefinition, expectedMessage: string, expectedCoordinate: string | undefined) {
     if (mergeResult.errors) {
       return {
         message: () => `Expected subgraphs to merge but got errors: [${mergeResult.errors.map(e => e.message).join(', ')}]`,
@@ -55,8 +55,9 @@ expect.extend({
     }
     for (const hint of matchingHints) {
       const received = hint.message;
+      const receivedCoordinate = hint.coordinate
       const expected = formatExpectedToMatchReceived(expectedMessage, received);
-      if (this.equals(expected, received)) {
+      if (this.equals(expected, received) && this.equals(expectedCoordinate, receivedCoordinate)) {
         return {
           message: () => `Expected subgraphs merging to not raise hint ${expectedCode} with message '${expected}', but it did`,
           pass: true,
@@ -65,14 +66,18 @@ expect.extend({
     }
 
     if (matchingHints.length === 1) {
-      const received = matchingHints[0].message;
-      const expected = formatExpectedToMatchReceived(expectedMessage, received);
+      const receivedMessage = matchingHints[0].message;
+      const receivedCoordinate = matchingHints[0].coordinate;
+      const message = formatExpectedToMatchReceived(expectedMessage, receivedMessage);
+      const coordinate = formatExpectedToMatchReceived(expectedCoordinate || '', receivedCoordinate || '');
       return {
         message: () => (
           this.utils.matcherHint('toRaiseHint', undefined, undefined,)
           + '\n\n'
-          + `Found hint matching code ${expectedCode}, but messages don't match:\n`
-          + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true)
+          + `Found hint matching code ${expectedCode}, but messages or coordinates don't match:\n`
+          + this.utils.printDiffOrStringify(message, receivedMessage, 'Expected', 'Received', true)
+          + "\n\n"
+          + this.utils.printDiffOrStringify(coordinate, receivedCoordinate, 'Expected', 'Received', true)
         ),
         pass: false,
       };
@@ -82,10 +87,16 @@ expect.extend({
       message: () => (
         this.utils.matcherHint('toRaiseHint', undefined, undefined,)
         + '\n\n'
-        + `Found ${matchingHints.length} hint(s) matching code ${expectedCode}, but none had the expected message:\n`
+        + `Found ${matchingHints.length} hint(s) matching code ${expectedCode}, but none had the expected message or coordinate:\n`
         + matchingHints.map((h, i) => {
           const received = h.message;
           const expected = formatExpectedToMatchReceived(expectedMessage, received);
+          return `Hint ${i}:\n`
+            + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true)
+        }).join('\n\n')
+        + matchingHints.map((h, i) => {
+          const received = h.coordinate;
+          const expected = formatExpectedToMatchReceived(expectedMessage, received || '');
           return `Hint ${i}:\n`
             + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true)
         }).join('\n\n')
@@ -138,7 +149,8 @@ test('hints on merging field with nullable and non-nullable types', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
     'Type of field "T.f" is inconsistent but compatible across subgraphs: '
-    + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".'
+    + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".',
+    'T.f'
   );
 })
 
@@ -179,7 +191,8 @@ test('hints on merging field with subtype types', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
     'Type of field "T.f" is inconsistent but compatible across subgraphs: '
-    + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".'
+    + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".',
+    'T.f'
   );
 })
 
@@ -204,7 +217,8 @@ test('hints on merging argument with nullable and non-nullable types', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
     'Type of argument "T.f(a:)" is inconsistent but compatible across subgraphs: '
-    + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".'
+    + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".',
+    'T.f(a:)'
   );
 })
 
@@ -229,7 +243,8 @@ test('hints on merging argument with default value in only some subgraph', () =>
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_DEFAULT_VALUE_PRESENCE,
     'Argument "T.f(a:)" has a default value in only some subgraphs: '
-    + 'will not use a default in the supergraph (there is no default in subgraph "Subgraph2") but "T.f(a:)" has default value "foo" in subgraph "Subgraph1".'
+    + 'will not use a default in the supergraph (there is no default in subgraph "Subgraph2") but "T.f(a:)" has default value "foo" in subgraph "Subgraph1".',
+    'T.f(a:)'
   );
 })
 
@@ -256,7 +271,8 @@ test('hints on object being an entity in only some subgraph', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ENTITY,
     'Type "T" is declared as an entity (has a @key applied) in some but not all defining subgraphs: '
-    + 'it has no @key in subgraph "Subgraph2" but has some @key in subgraph "Subgraph1".'
+    + 'it has no @key in subgraph "Subgraph2" but has some @key in subgraph "Subgraph1".',
+    'T'
   );
 })
 
@@ -282,7 +298,8 @@ test('hints on field of object value type not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
     'Field "T.b" of non-entity object type "T" is defined in some but not all subgraphs that define "T": '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'T.b'
   );
 })
 
@@ -308,7 +325,8 @@ test('hints on field of interface value type not being in all subgraphs', () => 
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD,
     'Field "T.b" of interface type "T" is defined in some but not all subgraphs that define "T": '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'T.b'
   );
 })
 
@@ -357,7 +375,8 @@ test('hints on field of input object value type not being in all subgraphs', () 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_INPUT_OBJECT_FIELD,
-    'Input object field "b" will not be added to "T" in the supergraph as it does not appear in all subgraphs: it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    'Input object field "b" will not be added to "T" in the supergraph as it does not appear in all subgraphs: it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'T.b'
   );
 })
 
@@ -398,7 +417,8 @@ test('hints on union member not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_UNION_MEMBER,
     'Union type "T" includes member type "B" in some but not all defining subgraphs: '
-    + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'B'
   );
 })
 
@@ -423,7 +443,8 @@ test('hints on enum type not being used', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     HINTS.UNUSED_ENUM_TYPE,
-    'Enum type "T" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).'
+    'Enum type "T" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).',
+    'T'
   );
 })
 
@@ -449,7 +470,8 @@ test('hints on enum value of input enum type not being in all subgraphs', () => 
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
     'Value "V2" of enum type "T" will not be part of the supergraph as it is not defined in all the subgraphs defining "T": '
-    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'T.V2'
   );
 })
 
@@ -475,7 +497,8 @@ test('hints on enum value of output enum type not being in all subgraphs', () =>
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
     'Value "V2" of enum type "T" has been added to the supergraph but is only defined in a subset of the subgraphs defining "T": '
-    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'T.V2'
   );
 })
 
@@ -498,7 +521,8 @@ test.skip('hints on type system directives having inconsistent repeatable', () =
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_REPEATABLE,
     'Type system directive "@tag" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: '
-    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    '@tag'
   );
 })
 
@@ -523,7 +547,8 @@ test.skip('hints on type system directives having inconsistent locations', () =>
     HINTS.INCONSISTENT_TYPE_SYSTEM_DIRECTIVE_LOCATIONS,
     'Type system directive "@tag" has inconsistent locations across subgraphs '
     + 'and will use locations "FIELD_DEFINITION, INTERFACE" (union of all subgraphs) in the supergraph, but has: '
-    + 'location "FIELD_DEFINITION" in subgraph "Subgraph1" and location "INTERFACE" in subgraph "Subgraph2".'
+    + 'location "FIELD_DEFINITION" in subgraph "Subgraph1" and location "INTERFACE" in subgraph "Subgraph2".',
+    '@tag'
   );
 })
 
@@ -544,7 +569,8 @@ test('hints on executable directives not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_PRESENCE,
     'Executable directive "@t" will not be part of the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    '@t'
   );
 })
 
@@ -565,7 +591,8 @@ test('hints on executable directives having no locations intersection', () => {
   expect(result).toRaiseHint(
     HINTS.NO_EXECUTABLE_DIRECTIVE_LOCATIONS_INTERSECTION,
     'Executable directive "@t" has no location that is common to all subgraphs: '
-    + 'it will not appear in the supergraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
+    + 'it will not appear in the supergraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".',
+    '@t'
   );
 })
 
@@ -586,7 +613,8 @@ test('hints on executable directives having inconsistent repeatable', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_REPEATABLE,
     'Executable directive "@t" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
-    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1".'
+    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1".',
+    '@t'
   );
 })
 
@@ -608,7 +636,8 @@ test('hints on executable directives having inconsistent locations', () => {
     HINTS.INCONSISTENT_EXECUTABLE_DIRECTIVE_LOCATIONS,
     'Executable directive "@t" has inconsistent locations across subgraphs '
     + 'and will use location "FIELD" (intersection of all subgraphs) in the supergraph, but has: '
-    + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".'
+    + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".',
+    '@t'
   );
 })
 
@@ -629,7 +658,8 @@ test('hints on executable directives argument not being in all subgraphs', () =>
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
     'Optional argument "@t(a:)" will not be included in the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    '@t(a:)'
   );
 })
 
@@ -650,7 +680,8 @@ test('hints on field argument not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     HINTS.INCONSISTENT_ARGUMENT_PRESENCE,
     'Optional argument "Query.f(a:)" will not be included in the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+    'Query.f(a:)'
   );
 })
 
@@ -693,7 +724,8 @@ test('hints on inconsistent description for schema definition', () => {
     + 'In subgraph "Subgraph2", the description is:\n'
     + '  """\n'
     + '  Entry point for the API\n'
-    + '  """'
+    + '  """',
+    undefined
   );
 })
 
@@ -737,7 +769,8 @@ test('hints on inconsistent description for field', () => {
     + 'In subgraph "Subgraph1", the description is:\n'
     + '  """\n'
     + '  I don\'t know what I\'m doing\n'
-    + '  """'
+    + '  """',
+    'T.f'
   );
 });
 
@@ -763,6 +796,7 @@ describe('hint tests related to the @override directive', () => {
     expect(result).toRaiseHint(
       HINTS.FROM_SUBGRAPH_DOES_NOT_EXIST,
       `Source subgraph "Subgraph3" for field "T.f" on subgraph "Subgraph1" does not exist. Did you mean "Subgraph1" or "Subgraph2"?`,
+      'T.f'
     );
   });
 
@@ -787,6 +821,7 @@ describe('hint tests related to the @override directive', () => {
     expect(result).toRaiseHint(
       HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
       `Field "T.f" on subgraph "Subgraph1" no longer exists in the from subgraph. The @override directive can be removed.`,
+      'T.f'
     );
   });
 
@@ -812,6 +847,7 @@ describe('hint tests related to the @override directive', () => {
     expect(result).toRaiseHint(
       HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
       `Field "T.f" on subgraph "Subgraph2" is overridden. Consider removing it.`,
+      'T.f'
     );
   });
 
@@ -835,6 +871,7 @@ describe('hint tests related to the @override directive', () => {
     expect(result).toRaiseHint(
       HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
       `Field "T.id" on subgraph "Subgraph2" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+      'T.id'
     );
   });
 
@@ -859,6 +896,7 @@ describe('hint tests related to the @override directive', () => {
     expect(result).toRaiseHint(
       HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
       `Field "T.id" on subgraph "Subgraph1" is not resolved anymore by the from subgraph (it is marked "@external" in "Subgraph2"). The @override directive can be removed.`,
+      'T.id'
     );
   });
 });
@@ -870,13 +908,13 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
         a: String @shareable @deprecated(reason: "because")
       }
     `;
-  
+
     const subgraph2 = gql`
       type Query {
         a: String @shareable @deprecated(reason: "because")
       }
     `;
-  
+
     const result = mergeDocuments(subgraph1, subgraph2);
     expect(result).toNotRaiseHints();
   });
@@ -887,13 +925,13 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
         a: String @shareable @deprecated
       }
     `;
-  
+
     const subgraph2 = gql`
       type Query {
         a: String @shareable @deprecated
       }
     `;
-  
+
     const result = mergeDocuments(subgraph1, subgraph2);
     expect(result).toNotRaiseHints();
   });
@@ -904,13 +942,13 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
         a: String @shareable @deprecated(reason: "No longer supported")
       }
     `;
-  
+
     const subgraph2 = gql`
       type Query {
         a: String @shareable @deprecated
       }
     `;
-  
+
     const result = mergeDocuments(subgraph1, subgraph2);
     expect(result).toNotRaiseHints();
   });
@@ -921,18 +959,19 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
         a: String @shareable @deprecated(reason: "bad")
       }
     `;
-  
+
     const subgraph2 = gql`
       type Query {
         a: String @shareable @deprecated
       }
     `;
-  
+
     const result = mergeDocuments(subgraph1, subgraph2);
     expect(result).toRaiseHint(
       HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
       'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments. '
       + 'The supergraph will use arguments {reason: "bad"} (from subgraph "Subgraph1"), but found no arguments in subgraph "Subgraph2".',
+      'Query.a'
     );
   });
 
@@ -945,16 +984,17 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
 
       scalar Foo @specifiedBy(url: "http://FooSpec.com")
     `;
-  
+
     const subgraph2 = gql`
       scalar Foo @specifiedBy(url: "http://BarSpec.com")
     `;
-  
+
     const result = mergeDocuments(subgraph1, subgraph2);
     expect(result).toRaiseHint(
       HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
       'Non-repeatable directive @specifiedBy is applied to "Foo" in multiple subgraphs but with incompatible arguments. '
       + 'The supergraph will use arguments {url: "http://FooSpec.com"} (from subgraph "Subgraph1"), but found arguments {url: "http://BarSpec.com"} in subgraph "Subgraph2".',
+      'Foo'
     );
   });
 
@@ -965,7 +1005,7 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
         a: String @shareable @deprecated(reason: "because")
       }
     `;
-  
+
     const subgraph2 = gql`
       type Query {
         a: String @shareable @deprecated(reason: "Replaced by field 'b'")
@@ -977,19 +1017,20 @@ describe('on non-repeatable directives used with incompatible arguments', () => 
         a: String @shareable @deprecated
       }
     `;
-  
+
     const subgraph4 = gql`
       type Query {
         a: String @shareable @deprecated(reason: "Replaced by field 'b'")
       }
     `;
-  
+
     const result = mergeDocuments(subgraph1, subgraph2, subgraph3, subgraph4);
     expect(result).toRaiseHint(
       HINTS.INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
       'Non-repeatable directive @deprecated is applied to "Query.a" in multiple subgraphs but with incompatible arguments. '
       + 'The supergraph will use arguments {reason: "Replaced by field \'b\'"} (from subgraphs "Subgraph2" and "Subgraph4"), '
       + 'but found arguments {reason: "because"} in subgraph "Subgraph1" and no arguments in subgraph "Subgraph3".',
+      'Query.a'
     );
   });
 });
@@ -1060,6 +1101,7 @@ describe('when shared field has intersecting but non equal runtime types in diff
        - subgraph "B" should never resolve "Query.a" to an object of type "I3".
       Otherwise the @shareable contract will be broken.
       `,
+      'Query.a'
     );
   });
 
@@ -1131,6 +1173,7 @@ describe('when shared field has intersecting but non equal runtime types in diff
        - subgraph "B" should never resolve "E.s" to an object of type "C".
       Otherwise the @shareable contract will be broken.
       `,
+      'E.s',
     );
   });
 });

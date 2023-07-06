@@ -674,11 +674,13 @@ class Merger {
         // That said, we should decide if we want to bother here: maybe we can leave it to studio so handle a better experience (as
         // it can more UX wise).
         const name = dest instanceof NamedSchemaElement ? `Element "${dest.coordinate}"` : 'The schema definition';
+        const coordinate = dest instanceof NamedSchemaElement ? dest.coordinate : undefined;
         this.mismatchReporter.reportMismatchHint({
           code: HINTS.INCONSISTENT_DESCRIPTION,
           message: `${name} has inconsistent descriptions across subgraphs. `,
           supergraphElement: dest,
           subgraphElements: sources,
+          coordinate: coordinate,
           elementToString: elt => elt.description,
           supergraphElementPrinter: (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
           otherElementsPrinter: (desc: string, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc, '  ')}`,
@@ -832,6 +834,7 @@ class Merger {
         message: `Type "${dest}" is declared as an entity (has a @key applied) in some but not all defining subgraphs: `,
         supergraphElement: dest,
         subgraphElements: sources,
+        coordinate: dest.coordinate,
         // All we use the string of the next line for is to categorize source with a @key of the others.
         elementToString: type => type.hasAppliedDirective('key') ? 'yes' : 'no',
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
@@ -868,6 +871,7 @@ class Merger {
           message: `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          coordinate: field.coordinate,
           elementToString: type => type.field(field.name) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${field.coordinate}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -1650,6 +1654,7 @@ class Merger {
         message: `Type of ${elementKind} "${dest.coordinate}" is inconsistent but compatible across subgraphs: `,
         supergraphElement: dest,
         subgraphElements: sources,
+        coordinate: dest.coordinate,
         elementToString: field => field.type!.toString(),
         supergraphElementPrinter: (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
         otherElementsPrinter: (elt, subgraphs) => `${isInputPosition ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
@@ -1709,6 +1714,7 @@ class Merger {
             message: `Optional argument "${arg.coordinate}" will not be included in the supergraph as it does not appear in all subgraphs: `,
             supergraphElement: arg,
             subgraphElements: sources.map((s) => s ? s.argument(argName) : undefined),
+            coordinate: arg.coordinate,
             elementToString: _ => 'yes',
             supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
             otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -1785,6 +1791,7 @@ class Merger {
         message: `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         supergraphElement: dest,
         subgraphElements: sources,
+        coordinate: dest.coordinate,
         elementToString: arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined,
         supergraphElementPrinter: (_, subgraphs) => `will not use a default in the supergraph (there is no default in ${subgraphs}) but `,
         otherElementsPrinter: (elt, subgraphs) => `"${dest.coordinate}" has default value ${elt} in ${subgraphs}`
@@ -1930,6 +1937,7 @@ class Merger {
           message: `Union type "${dest}" includes member type "${memberName}" in some but not all defining subgraphs: `,
           supergraphElement: dest,
           subgraphElements: sources,
+          coordinate: memberName,
           elementToString: type => type.hasTypeMember(memberName) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${memberName}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2029,6 +2037,7 @@ class Merger {
           message: `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          coordinate: `${dest.coordinate}.${value}`,
           elementToString: (type) => type.value(value.name) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2076,6 +2085,7 @@ class Merger {
           message: `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          coordinate: `${dest.coordinate}.${valueName}`,
           elementToString: type => type.value(valueName) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2117,6 +2127,7 @@ class Merger {
             message: `Input object field "${destField.name}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
             supergraphElement: destField,
             subgraphElements: sources.map((s) => s ? s.field(name) : undefined),
+            coordinate: destField.coordinate,
             elementToString: _ => 'yes',
             // Note that the first callback is for element that are "like the supergraph" and we've pass `destField` which we havne't yet removed.
             supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
@@ -2268,6 +2279,7 @@ class Merger {
           message: `Executable directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
           supergraphElement: dest,
           subgraphElements: sources,
+          coordinate: dest.coordinate,
           elementToString: _ => 'yes',
           supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2302,6 +2314,7 @@ class Merger {
             message: `Executable directive "${dest}" has no location that is common to all subgraphs: `,
             supergraphElement: dest,
             subgraphElements: sources,
+            coordinate: dest.coordinate,
             elementToString: directive => locationString(this.extractExecutableLocations(directive)),
             // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
             // source that do not have the directive are not included).
@@ -2323,6 +2336,7 @@ class Merger {
         message: `Executable directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
         supergraphElement: dest,
         subgraphElements: sources,
+        coordinate: dest.coordinate,
         elementToString: directive => directive.repeatable ? 'yes' : 'no',
         supergraphElementPrinter: (_, subgraphs) => `it is not repeatable in ${subgraphs}`,
         otherElementsPrinter: (_, subgraphs) => ` but is repeatable in ${subgraphs}`,
@@ -2334,6 +2348,7 @@ class Merger {
         message: `Executable directive "${dest}" has inconsistent locations across subgraphs `,
         supergraphElement: dest,
         subgraphElements: sources,
+        coordinate: dest.coordinate,
         elementToString: directive => locationString(this.extractExecutableLocations(directive)),
         supergraphElementPrinter: (locs, subgraphs) => `and will use ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
         otherElementsPrinter: (locs, subgraphs) => `${locs} in ${subgraphs}`,
@@ -2486,6 +2501,7 @@ class Merger {
             message: `Non-repeatable directive @${name} is applied to "${(dest as any)['coordinate'] ?? dest}" in multiple subgraphs but with incompatible arguments. `,
             supergraphElement: dest,
             subgraphElements: sources,
+            coordinate: `${(dest as any)['coordinate'] ?? dest}`,
             elementToString: (elt) => {
               const args = elt.appliedDirectivesOf(name).pop()?.arguments();
               return args === undefined
