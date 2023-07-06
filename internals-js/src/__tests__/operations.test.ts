@@ -1997,6 +1997,95 @@ describe('fragments optimization', () => {
     `);
   });
 
+  test('does not leave fragments only used by unused fragments', () => {
+    // Similar to the previous test, but we artificially add a
+    // fragment that is only used by the fragment that is finally
+    // unused.
+
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      union U1 = T1 | T2 | T3
+      union U2 =      T2 | T3
+
+      type T1 {
+        x: Int
+      }
+
+      type T2 {
+        y1: Y
+        y2: Y
+      }
+
+      type T3 {
+        z: Int
+      }
+
+      type Y {
+        v: Int
+      }
+    `);
+    const gqlSchema = schema.toGraphQLJSSchema();
+
+    const operation = parseOperation(schema, `
+      query {
+        t1 {
+          ...Outer
+        }
+      }
+
+      fragment Outer on U1 {
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          ... Inner
+        }
+        ... on T3 {
+          ... Inner
+        }
+      }
+
+      fragment Inner on U2 {
+        ... on T2 {
+          y1 {
+            ...WillBeUnused
+          }
+          y2 {
+            ...WillBeUnused
+          }
+        }
+      }
+
+      fragment WillBeUnused on Y {
+        v
+      }
+    `);
+    expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+    const withoutFragments = operation.expandAllFragments();
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1 {
+          x
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!, 2);
+    expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+    expect(optimized.toString()).toMatchString(`
+      {
+        t1 {
+          x
+        }
+      }
+    `);
+  });
+
   test('keeps fragments only used by other fragments (if they are used enough times)', () => {
     const schema = parseSchema(`
       type Query {

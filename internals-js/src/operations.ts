@@ -945,11 +945,17 @@ export class Operation {
       // leaving this is not a huge deal and it's not worth the complexity, but it could be that we can
       // refactor all this later to avoid this case without additional complexity.
       if (finalFragments) {
-        const usages = new Map<string, number>();
-        // Collecting all usages, both in the selection and within other fragments.
-        optimizedSelection.collectUsedFragmentNames(usages);
-        finalFragments.collectUsedFragmentNames(usages);
-        finalFragments = finalFragments.filter((f) => (usages.get(f.name) ?? 0) > 0);
+        // Note that removing a fragment might lead to another fragment being unused, so we need to iterate
+        // until there is nothing more to remove, or we're out of fragments.
+        let beforeRemoval: NamedFragments;
+        do {
+          beforeRemoval = finalFragments;
+          const usages = new Map<string, number>();
+          // Collecting all usages, both in the selection and within other fragments.
+          optimizedSelection.collectUsedFragmentNames(usages);
+          finalFragments.collectUsedFragmentNames(usages);
+          finalFragments = finalFragments.filter((f) => (usages.get(f.name) ?? 0) > 0);
+        } while (finalFragments && finalFragments.size < beforeRemoval.size);
       }
     }
 
