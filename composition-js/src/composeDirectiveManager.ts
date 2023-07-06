@@ -175,7 +175,7 @@ export class ComposeDirectiveManager {
       this.pushHint(new CompositionHint(
         HINTS.DIRECTIVE_COMPOSITION_INFO,
         `Directive "@${directive.name}" should not be explicitly manually composed since it is a federation directive composed by default`,
-        directive.name,
+        `@${directive.name}`,
         composeInstance.sourceAST ? {
           ...composeInstance.sourceAST,
           subgraph: sg.name,
