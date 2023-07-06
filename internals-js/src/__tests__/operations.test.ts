@@ -1812,6 +1812,98 @@ describe('fragments optimization', () => {
         }
       `);
     });
+
+    test('when a spread inside an expanded fragment should be "normalized away"', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T1
+          i: I
+        }
+
+        interface I {
+          id: ID!
+        }
+
+        type T1 implements I {
+          id: ID!
+          a: Int
+        }
+
+        type T2 implements I {
+          id: ID!
+          b: Int
+          c: Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        {
+          t1 {
+            ...GetAll
+          }
+          i {
+            ...GetT2
+          }
+        }
+
+        fragment GetAll on I {
+           ... on T1 {
+             a
+           }
+           ...GetT2
+           ... on T2 {
+             c
+           }
+        }
+
+        fragment GetT2 on T2 {
+           b
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            a
+          }
+          i {
+            ... on T2 {
+              b
+            }
+          }
+        }
+      `);
+
+      // As we re-optimize, we will initially generated the initial query. But
+      // as we ask to only optimize fragments used more than once, the `GetAll`
+      // fragment will be re-expanded (`GetT2` will not because the code will say
+      // that it is used both in the expanded `GetAll` but also inside `i`).
+      // But because `GetAll` is within `t1: T1`, that expansion should actually
+      // get rid of anything `T2`-related.
+      // This test exists because a previous version of the code was not correctly
+      // "getting rid" of the `...GetT2` spread, keeping in the query, which is
+      // invalid (we cannot have `...GetT2` inside `t1`).
+      const optimized = withoutFragments.optimize(operation.fragments!, 2);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment GetT2 on T2 {
+          b
+        }
+
+        {
+          t1 {
+            a
+          }
+          i {
+            ...GetT2
+          }
+        }
+      `);
+    });
   });
 
   test('does not leave unused fragments', () => {
