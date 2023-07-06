@@ -3137,6 +3137,26 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
   abstract equals(that: Selection): boolean;
 
   abstract contains(that: Selection, options?: { ignoreMissingTypename?: boolean }): ContainsResult;
+
+  normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
+    const thisCondition = this.element.typeCondition;
+
+    // This method assumes by contract that `parentType` runtimes intersects `this.parentType`'s, but `parentType`
+    // runtimes may be a subset. So first check if the selection should not be discarded on that account (that
+    // is, we should not keep the selection if its condition runtimes don't intersect at all with those of
+    // `parentType` as that would ultimately make an invalid selection set).
+    if (thisCondition && parentType !== this.parentType) {
+      const conditionRuntimes = possibleRuntimeTypes(thisCondition);
+      const typeRuntimes = possibleRuntimeTypes(parentType);
+      if (!conditionRuntimes.some((t) => typeRuntimes.includes(t))) {
+        return undefined;
+      }
+    }
+
+    return this.normalizeKnowingItIntersects({ parentType, recursive });
+  }
+
+  protected abstract normalizeKnowingItIntersects({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined;
 }
 
 class InlineFragmentSelection extends FragmentSelection {
@@ -3317,20 +3337,8 @@ class InlineFragmentSelection extends FragmentSelection {
       : this.withUpdatedComponents(newElement, newSelection);
   }
 
-  normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
+  protected normalizeKnowingItIntersects({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
     const thisCondition = this.element.typeCondition;
-
-    // This method assumes by contract that `parentType` runtimes intersects `this.parentType`'s, but `parentType`
-    // runtimes may be a subset. So first check if the selection should not be discarded on that account (that
-    // is, we should not keep the selection if its condition runtimes don't intersect at all with those of
-    // `parentType` as that would ultimately make an invalid selection set).
-    if (thisCondition && parentType !== this.parentType) {
-      const conditionRuntimes = possibleRuntimeTypes(thisCondition);
-      const typeRuntimes = possibleRuntimeTypes(parentType);
-      if (!conditionRuntimes.some((t) => typeRuntimes.includes(t))) {
-        return undefined;
-      }
-    }
 
     // We know the condition is "valid", but it may not be useful. That said, if the condition has directives,
     // we preserve the fragment no matter what.
@@ -3472,7 +3480,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     assert(false, `Unsupported`);
   }
 
-  normalize({ parentType }: { parentType: CompositeType }): FragmentSelection  {
+  normalizeKnowingItIntersects({ parentType }: { parentType: CompositeType }): FragmentSelection {
     // We must update the spread parent type if necessary since we're not going deeper,
     // or we'll be fundamentally losing context.
     assert(parentType.schema() === this.parentType.schema(), 'Should not try to normalize using a type from another schema');
