@@ -66,16 +66,8 @@ export async function startSubgraphsAndGateway(
     serviceList.push({ name: serviceDef.name, url });
   }
 
-  const mockLogger = {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  };
-
   const gateway = new ApolloGateway({
     serviceList,
-    logger: mockLogger,
     ...config?.gatewayConfig,
   });
   const gatewayServer = new ApolloServer({

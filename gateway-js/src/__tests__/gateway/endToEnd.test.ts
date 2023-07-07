@@ -507,7 +507,6 @@ describe('end-to-end features', () => {
       supergraphSdl: new LocalCompose({
         localServiceList: [subgraphA],
       }),
-      logger: undefined,
     });
 
     try {
