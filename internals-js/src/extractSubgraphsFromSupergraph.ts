@@ -706,10 +706,11 @@ function extractSubgraphsFromFed1Supergraph({
     const typeApplications = type.appliedDirectivesOf(typeDirective);
     if (!typeApplications.length) {
       // Imply we don't know in which subgraph the type is, so we had it in all subgraph in which the type is reachable.
-      subgraphs
-        .values()
-        .filter((sg) => includeTypeInSubgraph(type, sg.name))
-        .map(sg => sg.schema).forEach(schema => schema.addType(newNamedType(type.kind, type.name)));
+      for (const subgraph of subgraphs) {
+        if (includeTypeInSubgraph(type, subgraph.name)) {
+          subgraph.schema.addType(newNamedType(type.kind, type.name));
+        }
+      }
     } else {
       for (const application of typeApplications) {
         const args = application.arguments();
@@ -743,7 +744,7 @@ function extractSubgraphsFromFed1Supergraph({
         // @ts-expect-error: we fall-through the inputObjectType for fields.
       case 'InterfaceType':
         for (const implementations of type.interfaceImplementations()) {
-          // There is no `@join__implements` in fed1 supergraphs, so we have to choice to but mark the
+          // There is no `@join__implements` in fed1 supergraphs, so we have no choice but to mark the
           // object/interface as implementing the interface in all subgraphs (at least those that contains
           // both types).
           const name = implementations.interface.name;
@@ -838,7 +839,7 @@ function extractSubgraphsFromFed1Supergraph({
     addExternalFields(subgraph, supergraph, true);
     removeInactiveProvidesAndRequires(subgraph.schema);
 
-    // We now do an additional path on all types because we sometimes added types to subgraphs without
+    // We now do an additional pass on all types because we sometimes added types to subgraphs without
     // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
     // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
     // didn't belong to the subgraph in the first) and we need to remove them.
@@ -878,29 +879,6 @@ function extractSubgraphsFromFed1Supergraph({
         copyDirectiveApplicationsInArguments: false,
         locationFilter: (loc) => isExecutableDirectiveLocation(loc),
       });
-    }
-  }
-
-  // TODO: Not sure that code is needed anymore (any field necessary to validate an interface will have been marked
-  // external)?
-
-  // We now make a pass on every field of every interface and check that all implementers do have that field (even if
-  // external). If not (which can happen because, again, the v0.1 spec had no information on where an interface was
-  // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
-  // of an extension and be only in a few subgraphs), we remove the field or the subgraph would be invalid.
-  for (const subgraph of subgraphs) {
-    for (const itf of subgraph.schema.interfaceTypes()) {
-      // We only look at objects because interfaces are handled by this own loop in practice.
-      const implementations = itf.possibleRuntimeTypes();
-      for (const field of itf.fields()) {
-        if (!implementations.every(implem => implem.field(field.name))) {
-          field.remove();
-        }
-      }
-      // And it may be that the interface wasn't part of the subgraph at all!
-      if (!itf.hasFields()) {
-        itf.remove();
-      }
     }
   }
 
