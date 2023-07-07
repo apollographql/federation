@@ -1812,6 +1812,98 @@ describe('fragments optimization', () => {
         }
       `);
     });
+
+    test('when a spread inside an expanded fragment should be "normalized away"', () => {
+      const schema = parseSchema(`
+        type Query {
+          t1: T1
+          i: I
+        }
+
+        interface I {
+          id: ID!
+        }
+
+        type T1 implements I {
+          id: ID!
+          a: Int
+        }
+
+        type T2 implements I {
+          id: ID!
+          b: Int
+          c: Int
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        {
+          t1 {
+            ...GetAll
+          }
+          i {
+            ...GetT2
+          }
+        }
+
+        fragment GetAll on I {
+           ... on T1 {
+             a
+           }
+           ...GetT2
+           ... on T2 {
+             c
+           }
+        }
+
+        fragment GetT2 on T2 {
+           b
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t1 {
+            a
+          }
+          i {
+            ... on T2 {
+              b
+            }
+          }
+        }
+      `);
+
+      // As we re-optimize, we will initially generated the initial query. But
+      // as we ask to only optimize fragments used more than once, the `GetAll`
+      // fragment will be re-expanded (`GetT2` will not because the code will say
+      // that it is used both in the expanded `GetAll` but also inside `i`).
+      // But because `GetAll` is within `t1: T1`, that expansion should actually
+      // get rid of anything `T2`-related.
+      // This test exists because a previous version of the code was not correctly
+      // "getting rid" of the `...GetT2` spread, keeping in the query, which is
+      // invalid (we cannot have `...GetT2` inside `t1`).
+      const optimized = withoutFragments.optimize(operation.fragments!, 2);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment GetT2 on T2 {
+          b
+        }
+
+        {
+          t1 {
+            a
+          }
+          i {
+            ...GetT2
+          }
+        }
+      `);
+    });
   });
 
   test('does not leave unused fragments', () => {
@@ -1900,6 +1992,211 @@ describe('fragments optimization', () => {
       {
         t1 {
           x
+        }
+      }
+    `);
+  });
+
+  test('does not leave fragments only used by unused fragments', () => {
+    // Similar to the previous test, but we artificially add a
+    // fragment that is only used by the fragment that is finally
+    // unused.
+
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      union U1 = T1 | T2 | T3
+      union U2 =      T2 | T3
+
+      type T1 {
+        x: Int
+      }
+
+      type T2 {
+        y1: Y
+        y2: Y
+      }
+
+      type T3 {
+        z: Int
+      }
+
+      type Y {
+        v: Int
+      }
+    `);
+    const gqlSchema = schema.toGraphQLJSSchema();
+
+    const operation = parseOperation(schema, `
+      query {
+        t1 {
+          ...Outer
+        }
+      }
+
+      fragment Outer on U1 {
+        ... on T1 {
+          x
+        }
+        ... on T2 {
+          ... Inner
+        }
+        ... on T3 {
+          ... Inner
+        }
+      }
+
+      fragment Inner on U2 {
+        ... on T2 {
+          y1 {
+            ...WillBeUnused
+          }
+          y2 {
+            ...WillBeUnused
+          }
+        }
+      }
+
+      fragment WillBeUnused on Y {
+        v
+      }
+    `);
+    expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+    const withoutFragments = operation.expandAllFragments();
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1 {
+          x
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!, 2);
+    expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+    expect(optimized.toString()).toMatchString(`
+      {
+        t1 {
+          x
+        }
+      }
+    `);
+  });
+
+  test('keeps fragments only used by other fragments (if they are used enough times)', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T
+        t2: T
+      }
+
+      type T {
+        a1: Int
+        a2: Int
+        b1: B
+        b2: B
+      }
+
+      type B {
+        x: Int
+        y: Int
+      }
+    `);
+    const gqlSchema = schema.toGraphQLJSSchema();
+
+    const operation = parseOperation(schema, `
+      query {
+        t1 {
+          ...TFields
+        }
+        t2 {
+          ...TFields
+        }
+      }
+
+      fragment TFields on T {
+        ...DirectFieldsOfT
+        b1 {
+          ...BFields
+        }
+        b2 {
+          ...BFields
+        }
+      }
+
+      fragment DirectFieldsOfT on T {
+        a1
+        a2
+      }
+
+      fragment BFields on B {
+        x
+        y
+      }
+    `);
+    expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+    const withoutFragments = operation.expandAllFragments();
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t1 {
+          a1
+          a2
+          b1 {
+            x
+            y
+          }
+          b2 {
+            x
+            y
+          }
+        }
+        t2 {
+          a1
+          a2
+          b1 {
+            x
+            y
+          }
+          b2 {
+            x
+            y
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!, 2);
+    expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+    // The `DirectFieldsOfT` fragments should not be kept as it is used only once within `TFields`,
+    // but the `BFields` one should be kept.
+    expect(optimized.toString()).toMatchString(`
+      fragment BFields on B {
+        x
+        y
+      }
+ 
+      fragment TFields on T {
+        a1
+        a2
+        b1 {
+          ...BFields
+        }
+        b2 {
+          ...BFields
+        }
+      }
+
+      {
+        t1 {
+          ...TFields
+        }
+        t2 {
+          ...TFields
         }
       }
     `);
