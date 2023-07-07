@@ -4430,6 +4430,39 @@ describe('composition', () => {
       );
     });
 
+    it('merges @requiresScopes lists (intersection)', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @requiresScopes(scopes: ["a", "b"]) @key(fields: "id") {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @requiresScopes(scopes: ["b", "c"]) @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      const result = composeAsFed2Subgraphs([a1, a2]);
+      assertCompositionSuccess(result);
+      expect(
+        result.schema.type('A')
+          ?.appliedDirectivesOf('requiresScopes')
+          ?.[0]?.arguments()?.scopes).toStrictEqual(['a', 'b', 'c']
+      );
+    });
+
     describe('validation errors', () => {
       it('on incompatible directive location', () => {
         const invalidDefinition = {
