@@ -1,4 +1,4 @@
-import { SubgraphASTNode } from "@apollo/federation-internals";
+import { NamedSchemaElement, SubgraphASTNode } from "@apollo/federation-internals";
 import { printLocation } from "graphql";
 
 export enum HintLevel {
@@ -231,16 +231,18 @@ export const HINTS = {
 
 export class CompositionHint {
   public readonly nodes?: readonly SubgraphASTNode[];
+  public readonly coordinate?: string;
 
   constructor(
     readonly definition: HintCodeDefinition,
     readonly message: string,
-    readonly coordinate: string | undefined,
+    readonly element: NamedSchemaElement<any, any, any> | undefined,
     nodes?: readonly SubgraphASTNode[] | SubgraphASTNode
   ) {
     this.nodes = nodes
       ? (Array.isArray(nodes) ? (nodes.length === 0 ? undefined : nodes) : [nodes])
       : undefined;
+    this.coordinate = element?.coordinate;
   }
 
   toString(): string {

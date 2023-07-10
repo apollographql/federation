@@ -299,7 +299,7 @@ test('hints on field of object value type not being in all subgraphs', () => {
     HINTS.INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
     'Field "T.b" of non-entity object type "T" is defined in some but not all subgraphs that define "T": '
     + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'T.b'
+    'T'
   );
 })
 
@@ -326,7 +326,7 @@ test('hints on field of interface value type not being in all subgraphs', () => 
     HINTS.INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD,
     'Field "T.b" of interface type "T" is defined in some but not all subgraphs that define "T": '
     + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'T.b'
+    'T'
   );
 })
 
@@ -418,7 +418,7 @@ test('hints on union member not being in all subgraphs', () => {
     HINTS.INCONSISTENT_UNION_MEMBER,
     'Union type "T" includes member type "B" in some but not all defining subgraphs: '
     + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'B'
+    'T'
   );
 })
 
@@ -471,7 +471,7 @@ test('hints on enum value of input enum type not being in all subgraphs', () => 
     HINTS.INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
     'Value "V2" of enum type "T" will not be part of the supergraph as it is not defined in all the subgraphs defining "T": '
     + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'T.V2'
+    'T'
   );
 })
 
@@ -498,7 +498,7 @@ test('hints on enum value of output enum type not being in all subgraphs', () =>
     HINTS.INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
     'Value "V2" of enum type "T" has been added to the supergraph but is only defined in a subset of the subgraphs defining "T": '
     + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'T.V2'
+    'T'
   );
 })
 
