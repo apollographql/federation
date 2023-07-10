@@ -7,7 +7,7 @@ import {
 import {
   Operation,
   Schema,
-  buildSchema,
+  Supergraph,
   parseOperation,
 } from '@apollo/federation-internals';
 import { parse, validate } from 'graphql';
@@ -40,9 +40,10 @@ for (const directory of directories) {
 
       beforeAll(() => {
         const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
-        schema = buildSchema(supergraphSdl);
+        const supergraph = Supergraph.build(supergraphSdl);
+        schema = supergraph.schema;
         const exposeDocumentNodeInFetchNode = feature.title.endsWith("(with ExposeDocumentNodeInFetchNode)");
-        queryPlanner = new QueryPlanner(schema, { exposeDocumentNodeInFetchNode: exposeDocumentNodeInFetchNode});
+        queryPlanner = new QueryPlanner(supergraph, { exposeDocumentNodeInFetchNode });
       });
 
       feature.scenarios.forEach((scenario) => {

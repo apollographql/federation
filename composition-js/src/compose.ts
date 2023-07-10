@@ -10,6 +10,7 @@ import {
   upgradeSubgraphsIfNecessary,
   SubtypingRule,
   assert,
+  Supergraph,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -65,10 +66,10 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
 
-  const supergraphSchema = mergeResult.supergraph;
-  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraphSchema);
-  const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
-  const { errors, hints } = validateGraphComposition(supergraphSchema, supergraphQueryGraph, federatedQueryGraph);
+  const supergraph = new Supergraph(mergeResult.supergraph);
+  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
+  const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
+  const { errors, hints } = validateGraphComposition(supergraph.schema, supergraphQueryGraph, federatedQueryGraph);
   if (errors) {
     return { errors };
   }
@@ -77,7 +78,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   let supergraphSdl;
   try {
     supergraphSdl = printSchema(
-      supergraphSchema,
+      supergraph.schema,
       options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
@@ -85,7 +86,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   }
 
   return {
-    schema: supergraphSchema,
+    schema: supergraph.schema,
     supergraphSdl,
     hints: mergeResult.hints.concat(hints ?? []),
   };

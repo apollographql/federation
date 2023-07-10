@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, FEDERATION2_LINK_WITH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs } from '@apollo/federation-internals';
+import { FEDERATION2_LINK_WITH_FULL_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs, Supergraph } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -16,9 +16,9 @@ function errors(r: CompositionResult): [string, string][] {
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
 function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
   // Note that we could user `result.schema`, but re-parsing to ensure we don't lose anything with printing/parsing.
-  const schema = buildSchema(result.supergraphSdl);
-  expect(schema.isCoreSchema()).toBeTruthy();
-  return [schema, schema.toAPISchema(), extractSubgraphsFromSupergraph(schema)];
+  const supergraph = Supergraph.build(result.supergraphSdl);
+  expect(supergraph.schema.isCoreSchema()).toBeTruthy();
+  return [supergraph.schema, supergraph.apiSchema(), supergraph.subgraphs()];
 }
 
 describe('basic type extensions', () => {

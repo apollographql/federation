@@ -1,5 +1,5 @@
 import { QueryPlanner } from '@apollo/query-planner';
-import { assert, buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
+import { assert, operationFromDocument, ServiceDefinition, Supergraph } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
@@ -3124,8 +3124,8 @@ describe('Field covariance and type-explosion', () => {
       }
     `;
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -3277,8 +3277,8 @@ describe('handles non-intersecting fragment conditions', () => {
       }
     `
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -3581,8 +3581,8 @@ describe('Fed1 supergraph handling', () => {
       }
     `;
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`

@@ -1,4 +1,4 @@
-import { buildSupergraphSchema, extractSubgraphsFromSupergraph, InputObjectType } from "..";
+import { Supergraph, InputObjectType } from "..";
 
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
@@ -95,8 +95,7 @@ test('handles types having no fields referenced by other objects in a subgraph c
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(3);
 
   const [a, b, c] = subgraphs.values().map((s) => s.schema);
@@ -202,8 +201,7 @@ test('handles types having no fields referenced by other interfaces in a subgrap
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(3);
 
   const [a, b, c] = subgraphs.values().map((s) => s.schema);
@@ -303,8 +301,7 @@ test('handles types having no fields referenced by other unions in a subgraph co
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(2);
 
   const [a, b] = subgraphs.values().map((s) => s.schema);
@@ -412,8 +409,7 @@ test('handles types having only some of their fields removed in a subgraph corre
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(3);
 
   const [a, b, c] = subgraphs.values().map((s) => s.schema);
@@ -518,8 +514,7 @@ test('handles unions types having no members in a subgraph correctly', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(2);
 
   const [a, b] = subgraphs.values().map((s) => s.schema);
@@ -586,8 +581,7 @@ test('preserves default values of input object fields', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
 
   const subgraph = subgraphs.get('service')
   const inputType = subgraph?.schema.type('Input') as InputObjectType | undefined
@@ -650,8 +644,7 @@ test('throw meaningful error for invalid federation directive fieldSet', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  expect(() => extractSubgraphsFromSupergraph(schema)).toThrow(
+  expect(() => Supergraph.build(supergraph).subgraphs()).toThrow(
     'Error extracting subgraph "serviceB" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
     + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph.\n'
     + '\n'
@@ -737,8 +730,7 @@ test('throw meaningful error for type erased from supergraph due to extending an
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  expect(() => extractSubgraphsFromSupergraph(schema)).toThrow(
+  expect(() => Supergraph.build(supergraph).subgraphs()).toThrow(
     'Error extracting subgraphs from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
     + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph.\n'
     + '\n'

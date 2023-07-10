@@ -59,6 +59,7 @@ import {
   FragmentSelection,
   possibleRuntimeTypes,
   typesCanBeMerged,
+  Supergraph,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -2895,13 +2896,13 @@ export class QueryPlanner {
   private readonly inconsistentAbstractTypesRuntimes = new Set<string>();
 
   constructor(
-    public readonly supergraphSchema: Schema,
+    public readonly supergraph: Supergraph,
     config?: QueryPlannerConfig
   ) {
     this.config = enforceQueryPlannerConfigDefaults(config);
     // Validating post default-setting to catch any fat-fingering of the defaults themselves.
     validateQueryPlannerConfig(this.config);
-    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
+    this.federatedQueryGraph = buildFederatedQueryGraph(supergraph, true);
     this.collectInterfaceTypesWithInterfaceObjects();
     this.collectInconsistentAbstractTypesRuntimes();
 
@@ -2916,7 +2917,7 @@ export class QueryPlanner {
       return !!typeInSchema && isInterfaceObjectType(typeInSchema);
     }
 
-    for (const itfType of this.supergraphSchema.interfaceTypes()) {
+    for (const itfType of this.supergraph.schema.interfaceTypes()) {
       if (mapValues(this.federatedQueryGraph.sources).some((s) => isInterfaceObject(itfType.name, s))) {
         this.interfaceTypesWithInterfaceObjects.add(itfType.name);
       }
@@ -2950,7 +2951,7 @@ export class QueryPlanner {
       return false;
     }
 
-    for (const type of this.supergraphSchema.types()) {
+    for (const type of this.supergraph.schema.types()) {
       if (!isAbstractType(type)) {
         continue;
       }
@@ -3041,7 +3042,7 @@ export class QueryPlanner {
     });
 
     const parameters: PlanningParameters<RootVertex> = {
-      supergraphSchema: this.supergraphSchema,
+      supergraphSchema: this.supergraph.schema,
       federatedQueryGraph: this.federatedQueryGraph,
       operation,
       processor,
