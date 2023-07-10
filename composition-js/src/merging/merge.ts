@@ -2029,6 +2029,7 @@ class Merger {
           message: `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          targetedElement: value,
           elementToString: (type) => type.value(value.name) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2039,7 +2040,7 @@ class Merger {
         value.remove();
       }
     } else if (position === 'Output') {
-      this.hintOnInconsistentOutputEnumValue(sources, dest, value.name);
+      this.hintOnInconsistentOutputEnumValue(sources, dest, value);
     }
   }
 
@@ -2066,8 +2067,9 @@ class Merger {
   private hintOnInconsistentOutputEnumValue(
     sources: (EnumType | undefined)[],
     dest: EnumType,
-    valueName: string
+    value: EnumValue,
   ) {
+    const valueName: string = value.name
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.value(valueName)) {
@@ -2076,6 +2078,7 @@ class Merger {
           message: `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          targetedElement: value,
           elementToString: type => type.value(valueName) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,

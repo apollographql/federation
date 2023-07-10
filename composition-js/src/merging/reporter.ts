@@ -101,6 +101,7 @@ export class MismatchReporter {
     message,
     supergraphElement,
     subgraphElements,
+    targetedElement,
     elementToString,
     supergraphElementPrinter,
     otherElementsPrinter,
@@ -112,6 +113,7 @@ export class MismatchReporter {
     message: string,
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
+    targetedElement?: NamedSchemaElement<any, any, any>
     elementToString: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string, subgraphs: string) => string,
@@ -129,7 +131,7 @@ export class MismatchReporter {
         this.pushHint(new CompositionHint(
           code,
           message + distribution[0] + joinStrings(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
-          (supergraphElement instanceof NamedSchemaElement) ? supergraphElement as NamedSchemaElement<any, any, any> : undefined,
+          targetedElement ?? ((supergraphElement instanceof NamedSchemaElement) ? supergraphElement as NamedSchemaElement<any, any, any> : undefined),
           astNodes
         ));
       },

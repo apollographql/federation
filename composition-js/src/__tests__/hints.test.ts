@@ -471,7 +471,7 @@ test('hints on enum value of input enum type not being in all subgraphs', () => 
     HINTS.INCONSISTENT_ENUM_VALUE_FOR_INPUT_ENUM,
     'Value "V2" of enum type "T" will not be part of the supergraph as it is not defined in all the subgraphs defining "T": '
     + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'T'
+    'T.V2'
   );
 })
 
@@ -498,7 +498,7 @@ test('hints on enum value of output enum type not being in all subgraphs', () =>
     HINTS.INCONSISTENT_ENUM_VALUE_FOR_OUTPUT_ENUM,
     'Value "V2" of enum type "T" has been added to the supergraph but is only defined in a subset of the subgraphs defining "T": '
     + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-    'T'
+    'T.V2'
   );
 })
 
