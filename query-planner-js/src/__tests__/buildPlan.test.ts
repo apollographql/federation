@@ -6722,7 +6722,6 @@ test('does not error on some complex fetch group dependencies', () => {
   `);
 });
 
-
 test('does not evaluate plans relying on a key field to fetch that same field', () => {
   const subgraph1 = {
     name: 'Subgraph1',
@@ -6807,4 +6806,73 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
   // was not incorrect, but it was adding to the options to evaluate which in some
   // cases could impact query planning performance quite a bit).
   expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+});
+
+test('avoid considering indirect paths from the root when a more direct one exists', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T @shareable
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: Int @shareable
+      }
+    `
+  }
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      type Query {
+        t: T @shareable
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        v0: Int @shareable
+        v1: Int
+      }
+    `
+  }
+
+  // Each of id/v0 can have 2 options each, so that's 4 combinations. If we were to consider 2 options for each
+  // v1 value however, that would multiple it by 2 each times, so it would 32 possibilities. We limit the number of
+  // evaluated plans just above our expected number of 4 so that if we exceed it, the generated plan will be sub-optimal.
+  const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph1, subgraph2], { debug: { maxEvaluatedPlans: 6 } });
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        id
+        v0
+        a0: v1
+        a1: v1
+        a2: v1
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Fetch(service: "Subgraph2") {
+        {
+          t {
+            a0: v1
+            a1: v1
+            a2: v1
+            id
+            v0
+          }
+        }
+      },
+    }
+  `);
+
+  // As said above, we legit have 2 options for `id` and `v0`, and we cannot know which are best before we evaluate the
+  // plans completely. But for the multiple `v1`, we should recognize that going through the 1st subgraph (and taking a
+  // key) is never exactly a good idea.
+  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(4);
 });
