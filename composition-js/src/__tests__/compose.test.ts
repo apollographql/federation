@@ -2,6 +2,7 @@ import {
   asFed2SubgraphDocument,
   assert,
   buildSubgraph,
+  DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
   defaultPrintOptions,
   FEDERATION2_LINK_WITH_FULL_IMPORTS,
   inaccessibleIdentity,
@@ -4010,6 +4011,14 @@ describe('composition', () => {
   });
 
   describe('@authenticated', () => {
+    // We need to override the default supported features to include the
+    // @authenticated feature, since it's not part of the default supported
+    // features.
+    const supportedFeatures = new Set([
+      ...DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
+      'https://specs.apollo.dev/authenticated/v1.0'
+    ]);
+
     it('comprehensive locations', () => {
       const onObject = {
         typeDefs: gql`
@@ -4120,7 +4129,7 @@ describe('composition', () => {
         onRootField,
         onObjectField,
         onEntityField,
-      ]);
+      ], { supportedFeatures });
       assertCompositionSuccess(result);
 
       const authenticatedElements = [
@@ -4168,8 +4177,8 @@ describe('composition', () => {
 
       // checking composition in either order (not sure if this is necessary but
       // it's not hurting anything)
-      const result1 = composeAsFed2Subgraphs([a1, a2]);
-      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      const result1 = composeAsFed2Subgraphs([a1, a2], { supportedFeatures });
+      const result2 = composeAsFed2Subgraphs([a2, a1], { supportedFeatures });
       assertCompositionSuccess(result1);
       assertCompositionSuccess(result2);
 
@@ -4192,7 +4201,7 @@ describe('composition', () => {
         `,
         name: 'invalidDefinition',
       };
-      const result = composeAsFed2Subgraphs([invalidDefinition]);
+      const result = composeAsFed2Subgraphs([invalidDefinition], { supportedFeatures });
       expect(errors(result)[0]).toEqual([
         "DIRECTIVE_DEFINITION_INVALID",
         "[invalidDefinition] Invalid definition for directive \"@authenticated\": \"@authenticated\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
@@ -4212,7 +4221,7 @@ describe('composition', () => {
         `,
         name: 'invalidApplication',
       };
-      const result = composeAsFed2Subgraphs([invalidApplication]);
+      const result = composeAsFed2Subgraphs([invalidApplication], { supportedFeatures });
       expect(errors(result)[0]).toEqual([
         "INVALID_GRAPHQL",
         "[invalidApplication] Directive \"@authenticated\" may not be used on ENUM_VALUE.",

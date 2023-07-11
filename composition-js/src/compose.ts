@@ -36,9 +36,8 @@ export interface CompositionSuccess {
 
 export interface CompositionOptions {
   sdlPrintOptions?: PrintOptions;
-
-
-  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
+  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[];
+  supportedFeatures?: Set<string>;
 }
 
 function validateCompositionOptions(options: CompositionOptions) {
@@ -66,7 +65,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
 
-  const supergraph = new Supergraph(mergeResult.supergraph);
+  const supergraph = new Supergraph(mergeResult.supergraph, options.supportedFeatures);
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
   const { errors, hints } = validateGraphComposition(supergraph.schema, supergraphQueryGraph, federatedQueryGraph);
