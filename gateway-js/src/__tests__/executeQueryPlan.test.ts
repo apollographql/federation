@@ -18,7 +18,7 @@ import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServer } from '@apollo/server';
 import { getFederatedTestingSchema } from './execution-utils';
-import { Schema, Operation, parseOperation, buildSchemaFromAST, arrayEquals } from '@apollo/federation-internals';
+import { Schema, Operation, parseOperation, arrayEquals, Supergraph } from '@apollo/federation-internals';
 import {
   addResolversToSchema,
   GraphQLResolverMap,
@@ -1270,10 +1270,11 @@ describe('executeQueryPlan', () => {
 
   describe('@inaccessible', () => {
     it(`should not include @inaccessible fields in introspection`, async () => {
-      schema = buildSchemaFromAST(superGraphWithInaccessible);
+      const supergraph = Supergraph.build(superGraphWithInaccessible);
+      schema = supergraph.schema;
 
       const operation = parseOp(`${getIntrospectionQuery()}`, schema);
-      queryPlanner = new QueryPlanner(schema);
+      queryPlanner = new QueryPlanner(supergraph);
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
@@ -1303,9 +1304,10 @@ describe('executeQueryPlan', () => {
 
       const operation = parseOp(operationString);
 
-      schema = buildSchemaFromAST(superGraphWithInaccessible);
+      const supergraph = Supergraph.build(superGraphWithInaccessible);
+      schema = supergraph.schema;
 
-      queryPlanner = new QueryPlanner(schema);
+      queryPlanner = new QueryPlanner(supergraph);
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);
@@ -1382,9 +1384,10 @@ describe('executeQueryPlan', () => {
 
       // Vehicle ID #1 is a "Car" type.
       // This supergraph marks the "Car" type as inaccessible.
-      schema = buildSchemaFromAST(superGraphWithInaccessible);
+      const supergraph = Supergraph.build(superGraphWithInaccessible);
+      schema = supergraph.schema;
 
-      queryPlanner = new QueryPlanner(schema);
+      queryPlanner = new QueryPlanner(supergraph);
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);

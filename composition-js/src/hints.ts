@@ -30,7 +30,7 @@ function makeCodeDefinition({
     level: { value: level, name: HintLevel[level]},
     description,
   });
-};
+}
 
 const INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE = makeCodeDefinition({
   code: 'INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE',

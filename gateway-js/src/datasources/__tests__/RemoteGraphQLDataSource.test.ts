@@ -222,6 +222,24 @@ describe('constructing requests', () => {
       });
     });
   });
+
+  it('stringifies a request with `application/graphql-response+json` content type', async () => {
+    const DataSource = new RemoteGraphQLDataSource({
+      url: 'https://api.example.com/foo',
+      apq: false,
+    });
+
+    nock('https://api.example.com')
+      .post('/foo', { query: '{ me { name } }' })
+      .reply(200, { data: { me: 'james' } }, {'content-type': 'application/graphql-response+json'});
+
+    const { data } = await DataSource.process({
+      ...defaultProcessOptions,
+      request: { query: '{ me { name } }' },
+    });
+
+    expect(data).toEqual({ me: 'james' });
+  });
 });
 
 describe('fetcher', () => {

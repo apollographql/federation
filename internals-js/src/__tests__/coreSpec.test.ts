@@ -3,7 +3,7 @@ import gql from "graphql-tag";
 import { buildSubgraph } from "../federation";
 import { assert } from "../utils";
 import { buildSchemaFromAST } from "../buildSchema";
-import { removeAllCoreFeatures } from "../coreSpec";
+import { removeAllCoreFeatures, FeatureDefinitions, FeatureVersion, FeatureDefinition, FeatureUrl } from "../coreSpec";
 import { errorCauses } from "../error";
 
 function expectErrors(
@@ -210,3 +210,36 @@ describe('removeAllCoreFeatures', () => {
     expect(schema.elementByCoordinate("@foo__quz")).toBeUndefined();
   });
 });
+
+class TestFeatureDefinition extends FeatureDefinition {
+  constructor(version: FeatureVersion, fedVersion?: FeatureVersion) {
+    super(new FeatureUrl('test', 'test', version), fedVersion);
+  }
+}
+
+describe('getMinimumRequiredVersion tests', () => {
+  it('various combinations', () => {
+    const versions = new FeatureDefinitions<TestFeatureDefinition>('test')
+      .add(new TestFeatureDefinition(new FeatureVersion(0, 1)))
+      .add(new TestFeatureDefinition(new FeatureVersion(0, 2), new FeatureVersion(1, 0)))
+      .add(new TestFeatureDefinition(new FeatureVersion(0, 3), new FeatureVersion(2,0)))
+      .add(new TestFeatureDefinition(new FeatureVersion(0, 4), new FeatureVersion(2,1)))
+      .add(new TestFeatureDefinition(new FeatureVersion(0, 5), new FeatureVersion(2,2)));
+
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(0, 1)).version).toEqual(new FeatureVersion(0, 1));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(1, 0)).version).toEqual(new FeatureVersion(0, 2));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(1, 1)).version).toEqual(new FeatureVersion(0, 2));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 0)).version).toEqual(new FeatureVersion(0, 3));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 1)).version).toEqual(new FeatureVersion(0, 4));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 2)).version).toEqual(new FeatureVersion(0, 5));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 3)).version).toEqual(new FeatureVersion(0, 5));
+
+    // now add a new major version and test again. All previous version should be forced to the new major
+    versions.add(new TestFeatureDefinition(new FeatureVersion(1, 0), new FeatureVersion(2, 4)));
+    versions.add(new TestFeatureDefinition(new FeatureVersion(1, 1), new FeatureVersion(2, 5)));
+
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 3)).version).toEqual(new FeatureVersion(1, 0));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 4)).version).toEqual(new FeatureVersion(1, 0));
+    expect(versions.getMinimumRequiredVersion(new FeatureVersion(2, 5)).version).toEqual(new FeatureVersion(1, 1));
+  })
+})

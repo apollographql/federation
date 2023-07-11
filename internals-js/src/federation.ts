@@ -1073,7 +1073,7 @@ function findUnusedNamedForLinkDirective(schema: Schema): string | undefined {
   // The schema already defines a directive named `@link` so we need to use an alias.
   // To keep it simple, we add a number in the end (so we try `@link1`, and if that's taken `@link2`, ...)
   const baseName = linkSpec.url.name;
-  let n = 1;
+  const n = 1;
   for (;;) {
     const candidate = baseName + n;
     if (!schema.directive(candidate)) {
