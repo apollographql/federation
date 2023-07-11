@@ -30,13 +30,14 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
     supergraphSpecification: () => AUTHENTICATED_VERSIONS.latest(),
   });
 
-  constructor(version: FeatureVersion) {
+  constructor(version: FeatureVersion, minimumFederationVersion: FeatureVersion) {
     super(
       new FeatureUrl(
         AuthenticatedSpecDefinition.identity,
         AuthenticatedSpecDefinition.directiveName,
         version
-      )
+      ),
+      minimumFederationVersion,
     );
 
     this.registerDirective(this.spec);
@@ -56,6 +57,11 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
 export const AUTHENTICATED_VERSIONS =
   new FeatureDefinitions<AuthenticatedSpecDefinition>(
     AuthenticatedSpecDefinition.identity
-  ).add(new AuthenticatedSpecDefinition(new FeatureVersion(1, 0)));
+  ).add(
+    new AuthenticatedSpecDefinition(
+      new FeatureVersion(1, 0),
+      new FeatureVersion(2, 5),
+    ),
+  );
 
 registerKnownFeature(AUTHENTICATED_VERSIONS);
