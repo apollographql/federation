@@ -1166,6 +1166,7 @@ class Merger {
         this.hints.push(new CompositionHint(
           HINTS.FROM_SUBGRAPH_DOES_NOT_EXIST,
           `Source subgraph "${sourceSubgraphName}" for field "${dest.coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
+          dest,
           overridingSubgraphASTNode,
         ));
       } else if (sourceSubgraphName === subgraphName) {
@@ -1182,6 +1183,7 @@ class Merger {
         this.hints.push(new CompositionHint(
           HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
           `Field "${dest.coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
+          dest,
           overridingSubgraphASTNode,
         ));
       } else {
@@ -1224,6 +1226,7 @@ class Merger {
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
               `Field "${dest.coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
+              dest,
               overridingSubgraphASTNode,
             ));
           } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
@@ -1231,6 +1234,7 @@ class Merger {
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
               `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+              dest,
               overriddenSubgraphASTNode,
             ));
           } else {
@@ -1238,6 +1242,7 @@ class Merger {
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
               `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
+              dest,
               overriddenSubgraphASTNode,
             ));
           }
@@ -1969,6 +1974,7 @@ class Merger {
       this.hints.push(new CompositionHint(
         HINTS.UNUSED_ENUM_TYPE,
         `Enum type "${dest}" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).`,
+        dest
       ));
     }
 
@@ -2046,6 +2052,7 @@ class Merger {
           message: `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          targetedElement: value,
           elementToString: (type) => type.value(value.name) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2056,7 +2063,7 @@ class Merger {
         value.remove();
       }
     } else if (position === 'Output') {
-      this.hintOnInconsistentOutputEnumValue(sources, dest, value.name);
+      this.hintOnInconsistentOutputEnumValue(sources, dest, value);
     }
   }
 
@@ -2083,8 +2090,9 @@ class Merger {
   private hintOnInconsistentOutputEnumValue(
     sources: (EnumType | undefined)[],
     dest: EnumType,
-    valueName: string
+    value: EnumValue,
   ) {
+    const valueName: string = value.name
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.value(valueName)) {
@@ -2093,6 +2101,7 @@ class Merger {
           message: `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          targetedElement: value,
           elementToString: type => type.value(valueName) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2491,6 +2500,7 @@ class Merger {
           this.mismatchReporter.pushHint(new CompositionHint(
             HINTS.MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
             `Directive @${name} is applied to "${(dest as any)['coordinate'] ?? dest}" in multiple subgraphs with different arguments. Merging strategies used by arguments: ${info.argumentsMerger}`,
+            undefined,
           ));
         } else {
           const idx = indexOfMax(counts);
