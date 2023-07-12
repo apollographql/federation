@@ -16,7 +16,7 @@ import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS, AuthenticatedSpecDefinition } from "./authenticatedSpec";
-import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
+import { REQUIRES_SCOPES_VERSIONS, RequiresScopesSpecDefinition } from "./requiresScopesSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -158,7 +158,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
       const requiresScopesDirective = REQUIRES_SCOPES_VERSIONS
         .find(new FeatureVersion(0, 1))
-        ?.directiveSpec(AuthenticatedSpecDefinition.directiveName);
+        ?.directiveSpec(RequiresScopesSpecDefinition.directiveName);
 
       if (requiresScopesDirective) {
         this.registerDirective(requiresScopesDirective);

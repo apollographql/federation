@@ -4231,7 +4231,7 @@ describe('composition', () => {
 
   describe('@requiresScopes', () => {
     // We need to override the default supported features to include the
-    // @authenticated feature, since it's not part of the default supported
+    // @requiresScopes feature, since it's not part of the default supported
     // features.
     const supportedFeatures = new Set([
       ...DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
