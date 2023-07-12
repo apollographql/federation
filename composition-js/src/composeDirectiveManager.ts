@@ -171,6 +171,7 @@ export class ComposeDirectiveManager {
     const directivesComposedByDefault = [
       sg.metadata().tagDirective(),
       sg.metadata().inaccessibleDirective(),
+      sg.metadata().authenticatedDirective(),
     ].map(d => d.name);
     if (directivesComposedByDefault.includes(directive.name)) {
       this.pushHint(new CompositionHint(
