@@ -4230,6 +4230,14 @@ describe('composition', () => {
   });
 
   describe('@requiresScopes', () => {
+    // We need to override the default supported features to include the
+    // @authenticated feature, since it's not part of the default supported
+    // features.
+    const supportedFeatures = new Set([
+      ...DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
+      'https://specs.apollo.dev/requiresScopes/v0.1',
+    ]);
+
     it('comprehensive locations', () => {
       const onObject = {
         typeDefs: gql`
@@ -4340,7 +4348,7 @@ describe('composition', () => {
         onRootField,
         onObjectField,
         onEntityField,
-      ]);
+      ], { supportedFeatures });
       assertCompositionSuccess(result);
 
       const scopedElements = [
@@ -4388,8 +4396,8 @@ describe('composition', () => {
 
       // checking composition in either order (not sure if this is necessary but
       // it's not hurting anything)
-      const result1 = composeAsFed2Subgraphs([a1, a2]);
-      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      const result1 = composeAsFed2Subgraphs([a1, a2], { supportedFeatures });
+      const result2 = composeAsFed2Subgraphs([a2, a1], { supportedFeatures });
       assertCompositionSuccess(result1);
       assertCompositionSuccess(result2);
 
@@ -4421,7 +4429,7 @@ describe('composition', () => {
         name: 'a2',
       };
 
-      const result = composeAsFed2Subgraphs([a1, a2]);
+      const result = composeAsFed2Subgraphs([a1, a2], { supportedFeatures });
       assertCompositionSuccess(result);
       expect(
         result.schema.type('A')
@@ -4454,7 +4462,7 @@ describe('composition', () => {
         name: 'a2',
       };
 
-      const result = composeAsFed2Subgraphs([a1, a2]);
+      const result = composeAsFed2Subgraphs([a1, a2], { supportedFeatures });
       assertCompositionSuccess(result);
       expect(
         result.schema.type('A')
@@ -4479,7 +4487,7 @@ describe('composition', () => {
           `,
           name: 'invalidDefinition',
         };
-        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        const result = composeAsFed2Subgraphs([invalidDefinition], { supportedFeatures });
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
           "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": \"@requiresScopes\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
@@ -4501,7 +4509,7 @@ describe('composition', () => {
           `,
           name: 'invalidDefinition',
         };
-        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        const result = composeAsFed2Subgraphs([invalidDefinition], { supportedFeatures });
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
           "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[String!]!\" but found type \"[String]!\"",
@@ -4521,7 +4529,7 @@ describe('composition', () => {
           `,
           name: 'invalidApplication',
         };
-        const result = composeAsFed2Subgraphs([invalidApplication]);
+        const result = composeAsFed2Subgraphs([invalidApplication], { supportedFeatures });
         expect(errors(result)[0]).toEqual([
           "INVALID_GRAPHQL",
           "[invalidApplication] Directive \"@requiresScopes\" may not be used on ENUM_VALUE.",
