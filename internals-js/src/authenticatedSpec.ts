@@ -54,7 +54,7 @@ export const AUTHENTICATED_VERSIONS =
     AuthenticatedSpecDefinition.identity
   ).add(
     new AuthenticatedSpecDefinition(
-      new FeatureVersion(1, 0),
+      new FeatureVersion(0, 1),
       new FeatureVersion(2, 5),
     ),
   );

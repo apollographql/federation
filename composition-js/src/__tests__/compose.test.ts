@@ -4016,7 +4016,7 @@ describe('composition', () => {
     // features.
     const supportedFeatures = new Set([
       ...DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
-      'https://specs.apollo.dev/authenticated/v1.0'
+      'https://specs.apollo.dev/authenticated/v0.1',
     ]);
 
     it('comprehensive locations', () => {

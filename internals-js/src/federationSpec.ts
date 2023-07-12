@@ -147,7 +147,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version >= (new FeatureVersion(2, 5))) {
       const authenticatedDirective = AUTHENTICATED_VERSIONS
-        .find(new FeatureVersion(1, 0))
+        .find(new FeatureVersion(0, 1))
         ?.directiveSpec(AuthenticatedSpecDefinition.directiveName);
 
       if (authenticatedDirective) this.registerDirective(authenticatedDirective);

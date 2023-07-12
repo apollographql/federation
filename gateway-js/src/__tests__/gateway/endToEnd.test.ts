@@ -508,7 +508,7 @@ describe('end-to-end features', () => {
     });
 
     await expect(gateway.load()).rejects.toThrowError(
-      "feature https://specs.apollo.dev/authenticated/v1.0 is for: SECURITY but is unsupported"
+      "feature https://specs.apollo.dev/authenticated/v0.1 is for: SECURITY but is unsupported"
     );
   });
 });
