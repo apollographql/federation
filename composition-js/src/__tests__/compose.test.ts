@@ -4405,7 +4405,7 @@ describe('composition', () => {
       expect(result2.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
     });
 
-    it('merges @requiresScopes lists', () => {
+    it('merges @requiresScopes lists (simple union)', () => {
       const a1 = {
         typeDefs: gql`
           type Query {
@@ -4438,7 +4438,7 @@ describe('composition', () => {
       );
     });
 
-    it('merges @requiresScopes lists (intersection)', () => {
+    it('merges @requiresScopes lists (deduplicates intersecting scopes)', () => {
       const a1 = {
         typeDefs: gql`
           type Query {
