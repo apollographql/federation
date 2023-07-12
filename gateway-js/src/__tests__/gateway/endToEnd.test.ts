@@ -6,6 +6,7 @@ import { startSubgraphsAndGateway, Services } from './testUtils'
 import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import { QueryPlan } from '@apollo/query-planner';
 import { createHash } from '@apollo/utils.createhash';
+import { ApolloGateway, LocalCompose } from '@apollo/gateway';
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
@@ -482,5 +483,32 @@ describe('end-to-end features', () => {
         ],
       }
     `);
+  });
+
+  it('explicitly errors on @authenticated import', async () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.5"
+            import: ["@authenticated"]
+          )
+
+        type Query {
+          a: Int @authenticated
+        }
+      `,
+    };
+
+    const gateway = new ApolloGateway({
+      supergraphSdl: new LocalCompose({
+        localServiceList: [subgraphA],
+      }),
+    });
+
+    await expect(gateway.load()).rejects.toThrowError(
+      "feature https://specs.apollo.dev/authenticated/v0.1 is for: SECURITY but is unsupported"
+    );
   });
 });
