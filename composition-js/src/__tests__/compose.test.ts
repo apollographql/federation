@@ -4475,7 +4475,8 @@ describe('composition', () => {
       it('on incompatible directive location', () => {
         const invalidDefinition = {
           typeDefs: gql`
-            directive @requiresScopes(scopes: [String!]!) on ENUM_VALUE
+            scalar Scope
+            directive @requiresScopes(scopes: [Scope!]!) on ENUM_VALUE
 
             type Query {
               a: Int
@@ -4497,7 +4498,8 @@ describe('composition', () => {
       it('on incompatible args', () => {
         const invalidDefinition = {
           typeDefs: gql`
-            directive @requiresScopes(scopes: [String]!) on FIELD_DEFINITION
+            scalar Scope
+            directive @requiresScopes(scopes: [Scope]!) on FIELD_DEFINITION
 
             type Query {
               a: Int
@@ -4512,7 +4514,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([invalidDefinition], { supportedFeatures });
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
-          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[String!]!\" but found type \"[String]!\"",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[Scope!]!\" but found type \"[Scope]!\"",
         ]);
       });
 
