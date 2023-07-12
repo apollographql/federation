@@ -152,11 +152,17 @@ export class FederationSpecDefinition extends FeatureDefinition {
         .find(new FeatureVersion(0, 1))
         ?.directiveSpec(AuthenticatedSpecDefinition.directiveName);
 
-      if (authenticatedDirective) this.registerDirective(authenticatedDirective);
+      if (authenticatedDirective) {
+        this.registerDirective(authenticatedDirective);
+      }
 
-      this.registerDirective(
-        REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(1, 0))!.spec
-      );
+      const requiresScopesDirective = REQUIRES_SCOPES_VERSIONS
+        .find(new FeatureVersion(0, 1))
+        ?.directiveSpec(AuthenticatedSpecDefinition.directiveName);
+
+      if (requiresScopesDirective) {
+        this.registerDirective(requiresScopesDirective);
+      }
     }
   }
 }
