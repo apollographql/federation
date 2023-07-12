@@ -173,6 +173,7 @@ export class ComposeDirectiveManager {
       sg.metadata().tagDirective(),
       sg.metadata().inaccessibleDirective(),
       sg.metadata().authenticatedDirective(),
+      sg.metadata().requiresScopesDirective(),
     ].map(d => d.name);
     if (directivesComposedByDefault.includes(directive.name)) {
       this.pushHint(new CompositionHint(
