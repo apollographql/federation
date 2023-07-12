@@ -7,28 +7,12 @@ import {
   FeatureVersion,
 } from "./coreSpec";
 import { DirectiveDefinition, Schema } from "./definitions";
-import {
-  createDirectiveSpecification,
-  DirectiveSpecification,
-} from "./directiveAndTypeSpecification";
+import { createDirectiveSpecification } from "./directiveAndTypeSpecification";
 import { registerKnownFeature } from "./knownCoreFeatures";
 
 export class AuthenticatedSpecDefinition extends FeatureDefinition {
   public static readonly directiveName = "authenticated";
   public static readonly identity = `https://specs.apollo.dev/${AuthenticatedSpecDefinition.directiveName}`;
-  public static readonly locations: DirectiveLocation[] = [
-    DirectiveLocation.FIELD_DEFINITION,
-    DirectiveLocation.OBJECT,
-    DirectiveLocation.INTERFACE,
-    DirectiveLocation.SCALAR,
-    DirectiveLocation.ENUM,
-  ];
-  public readonly spec: DirectiveSpecification = createDirectiveSpecification({
-    name: AuthenticatedSpecDefinition.directiveName,
-    locations: AuthenticatedSpecDefinition.locations,
-    composes: true,
-    supergraphSpecification: () => AUTHENTICATED_VERSIONS.latest(),
-  });
 
   constructor(version: FeatureVersion, minimumFederationVersion: FeatureVersion) {
     super(
@@ -40,7 +24,18 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
       minimumFederationVersion,
     );
 
-    this.registerDirective(this.spec);
+    this.registerDirective(createDirectiveSpecification({
+      name: AuthenticatedSpecDefinition.directiveName,
+      locations: [
+        DirectiveLocation.FIELD_DEFINITION,
+        DirectiveLocation.OBJECT,
+        DirectiveLocation.INTERFACE,
+        DirectiveLocation.SCALAR,
+        DirectiveLocation.ENUM,
+      ],
+      composes: true,
+      supergraphSpecification: () => AUTHENTICATED_VERSIONS.latest(),
+    }));
   }
 
   authenticatedDirective(

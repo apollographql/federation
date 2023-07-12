@@ -15,7 +15,7 @@ import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
-import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
+import { AUTHENTICATED_VERSIONS, AuthenticatedSpecDefinition } from "./authenticatedSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -146,9 +146,11 @@ export class FederationSpecDefinition extends FeatureDefinition {
     }
 
     if (version >= (new FeatureVersion(2, 5))) {
-      this.registerDirective(
-        AUTHENTICATED_VERSIONS.find(new FeatureVersion(1, 0))!.spec
-      );
+      const authenticatedDirective = AUTHENTICATED_VERSIONS
+        .find(new FeatureVersion(1, 0))
+        ?.directiveSpec(AuthenticatedSpecDefinition.directiveName);
+
+      if (authenticatedDirective) this.registerDirective(authenticatedDirective);
     }
   }
 }
