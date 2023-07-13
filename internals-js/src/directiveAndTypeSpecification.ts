@@ -99,9 +99,7 @@ export function createDirectiveSpecification({
           // Note that we've built `argStrategies` from the declared args and checked that all argument had a strategy, so it would be
           // a bug in the code if we didn't get a strategy (not an issue in the directive declaration).
           assert(strategy, () => `Should have a strategy for ${argName}`);
-          console.log(`Strategy=${strategy}`);
           const argType = type(schema, feature);
-          console.log(`argType=${argType}`);
           // By the time we call this, the directive should have been added to the schema and so getting the type should not raise errors.
           assert(!Array.isArray(argType), () => `Should have gotten error getting type for @${name}(${argName}:), but got ${argType}`)
           const { valid, supportedMsg } = strategy.isTypeSupported(schema, argType);
