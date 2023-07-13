@@ -134,7 +134,7 @@ interface GatewayConfigBase {
    * Whether to validate the supergraphs received from either the static configuration or the
    * configured supergraph manager.
    *
-   * When enables, this run validations ot make sure the supergraph SDL is full valid graphQL
+   * When enables, this run validations to make sure the supergraph SDL is full valid graphQL
    * and it equally validates the subgraphs extracted from that supergraph. Note that even when
    * this is disabled, the supergraph SDL still needs to be valid graphQL syntax and essentially
    * be a valid supergraph for the gateway to be able to use it, and so this option is not
