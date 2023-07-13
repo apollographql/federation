@@ -15,7 +15,8 @@ import { TAG_VERSIONS } from "./tagSpec";
 import { federationMetadata } from "./federation";
 import { registerKnownFeature } from "./knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
-import { AUTHENTICATED_VERSIONS, AuthenticatedSpecDefinition } from "./authenticatedSpec";
+import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
+import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -36,6 +37,7 @@ export enum FederationDirectiveName {
   COMPOSE_DIRECTIVE = 'composeDirective',
   INTERFACE_OBJECT = 'interfaceObject',
   AUTHENTICATED = 'authenticated',
+  REQUIRES_SCOPES = 'requiresScopes',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -118,7 +120,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
       repeatable: version >= (new FeatureVersion(2, 2)),
     }));
 
-    this.registerDirective(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version).inaccessibleDirectiveSpec);
+    this.registerSubFeature(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version));
 
     this.registerDirective(createDirectiveSpecification({
       name: FederationDirectiveName.OVERRIDE,
@@ -140,17 +142,12 @@ export class FederationSpecDefinition extends FeatureDefinition {
         name: FederationDirectiveName.INTERFACE_OBJECT,
         locations: [DirectiveLocation.OBJECT],
       }));
-      this.registerDirective(
-        TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
-      );
+      this.registerSubFeature(TAG_VERSIONS.find(new FeatureVersion(0, 3))!);
     }
 
     if (version >= (new FeatureVersion(2, 5))) {
-      const authenticatedDirective = AUTHENTICATED_VERSIONS
-        .find(new FeatureVersion(0, 1))
-        ?.directiveSpec(AuthenticatedSpecDefinition.directiveName);
-
-      if (authenticatedDirective) this.registerDirective(authenticatedDirective);
+      this.registerSubFeature(AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!);
+      this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }

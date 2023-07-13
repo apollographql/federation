@@ -1,6 +1,7 @@
 import { ASTNode, DirectiveLocation, GraphQLError } from "graphql";
 import {
   ArgumentDefinition,
+  CoreFeature,
   DirectiveDefinition,
   EnumType,
   InputType,
@@ -26,13 +27,13 @@ import { FeatureDefinition, FeatureVersion } from "./coreSpec";
 
 export type DirectiveSpecification = {
   name: string,
-  checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => GraphQLError[],
+  checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => GraphQLError[],
   composition?: DirectiveCompositionSpecification,
 }
 
 export type DirectiveCompositionSpecification = {
   supergraphSpecification: (federationVersion: FeatureVersion) => FeatureDefinition,
-  argumentsMerger?: (schema: Schema) => ArgumentMerger | GraphQLError,
+  argumentsMerger?: (schema: Schema, feature: CoreFeature) => ArgumentMerger | GraphQLError,
 }
 
 export type ArgumentMerger = {
@@ -42,12 +43,12 @@ export type ArgumentMerger = {
 
 export type TypeSpecification = {
   name: string,
-  checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => GraphQLError[],
+  checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => GraphQLError[],
 }
 
 export type ArgumentSpecification = {
   name: string,
-  type: (schema: Schema, nameInSchema?: string) => InputType | GraphQLError[],
+  type: (schema: Schema, feature?: CoreFeature) => InputType | GraphQLError[],
   defaultValue?: any,
 }
 
@@ -86,11 +87,11 @@ export function createDirectiveSpecification({
   if (composes) {
     assert(supergraphSpecification, `Should provide a @link specification to use in supergraph for directive @${name} if it composes`);
     const argStrategies = new Map(args.filter((arg) => arg.compositionStrategy).map((arg) => [arg.name, arg.compositionStrategy!]));
-    let argumentsMerger: ((schema: Schema) => ArgumentMerger | GraphQLError) | undefined = undefined;
+    let argumentsMerger: ((schema: Schema, feature: CoreFeature) => ArgumentMerger | GraphQLError) | undefined = undefined;
     if (argStrategies.size > 0) {
       assert(!repeatable, () => `Invalid directive specification for @${name}: @${name} is repeatable and should not define composition strategy for its arguments`);
       assert(argStrategies.size === args.length, () => `Invalid directive specification for @${name}: not all arguments define a composition strategy`);
-      argumentsMerger = (schema) => {
+      argumentsMerger = (schema, feature) => {
         // Validate that the arguments have compatible types with the declared strategies (a bit unfortunate that we can't do this until
         // we have a schema but well, not a huge deal either).
         for (const { name: argName, type } of args) {
@@ -98,14 +99,14 @@ export function createDirectiveSpecification({
           // Note that we've built `argStrategies` from the declared args and checked that all argument had a strategy, so it would be
           // a bug in the code if we didn't get a strategy (not an issue in the directive declaration).
           assert(strategy, () => `Should have a strategy for ${argName}`);
-          const argType = type(schema);
+          const argType = type(schema, feature);
           // By the time we call this, the directive should have been added to the schema and so getting the type should not raise errors.
           assert(!Array.isArray(argType), () => `Should have gotten error getting type for @${name}(${argName}:), but got ${argType}`)
-          const strategyTypes = strategy.supportedTypes(schema);
-          if (!strategyTypes.some((t) => sameType(t, argType))) {
+          const { valid, supportedMsg } = strategy.isTypeSupported(schema, argType);
+          if (!valid) {
             return new GraphQLError(
               `Invalid composition strategy ${strategy.name} for argument @${name}(${argName}:) of type ${argType}; `
-              + `${strategy.name} only supports type(s) ${strategyTypes.join(', ')}`
+              + `${strategy.name} only supports ${supportedMsg}`
             );
           }
         };
@@ -133,11 +134,11 @@ export function createDirectiveSpecification({
   return {
     name,
     composition,
-    checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
-      const actualName = nameInSchema ?? name;
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.directiveNameInSchema(name) ?? name;
       const { resolvedArgs, errors } = args.reduce<{ resolvedArgs: (ResolvedArgumentSpecification & { compositionStrategy?: ArgumentCompositionStrategy })[], errors: GraphQLError[] }>(
         ({ resolvedArgs, errors }, arg) => {
-          const typeOrErrors = arg.type(schema, actualName);
+          const typeOrErrors = arg.type(schema, feature);
           if (Array.isArray(typeOrErrors)) {
             errors.push(...typeOrErrors);
           } else {
@@ -169,8 +170,8 @@ export function createDirectiveSpecification({
 export function createScalarTypeSpecification({ name }: { name: string }): TypeSpecification {
   return {
     name,
-    checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
-      const actualName = nameInSchema ?? name;
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.typeNameInSchema(name) ?? name;
       const existing = schema.type(actualName);
       if (existing) {
         return ensureSameTypeKind('ScalarType', existing);
@@ -191,8 +192,8 @@ export function createObjectTypeSpecification({
 }): TypeSpecification {
   return {
     name,
-    checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
-      const actualName = nameInSchema ?? name;
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.typeNameInSchema(name) ?? name;
       const expectedFields = fieldsFct(schema);
       const existing = schema.type(actualName);
       if (existing) {
@@ -252,8 +253,8 @@ export function createUnionTypeSpecification({
 }): TypeSpecification {
   return {
     name,
-    checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
-      const actualName = nameInSchema ?? name;
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.typeNameInSchema(name) ?? name;
       const existing = schema.type(actualName);
       const expectedMembers = membersFct(schema).sort((n1, n2) => n1.localeCompare(n2));
       if (expectedMembers.length === 0) {
@@ -301,8 +302,8 @@ export function createEnumTypeSpecification({
 }): TypeSpecification {
   return {
     name,
-    checkOrAdd: (schema: Schema, nameInSchema?: string, asBuiltIn?: boolean) => {
-      const actualName = nameInSchema ?? name;
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.typeNameInSchema(name) ?? name;
       const existing = schema.type(actualName);
       const expectedValueNames = values.map((v) => v.name).sort((n1, n2) => n1.localeCompare(n2));
       if (existing) {

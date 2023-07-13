@@ -485,18 +485,20 @@ describe('end-to-end features', () => {
     `);
   });
 
-  it('explicitly errors on @authenticated import', async () => {
+  it('explicitly errors on for: SECURITY imports', async () => {
     const subgraphA = {
       name: 'A',
+      url: 'https://A',
       typeDefs: gql`
         extend schema
           @link(
             url: "https://specs.apollo.dev/federation/v2.5"
-            import: ["@authenticated"]
+            import: ["@authenticated", "@requiresScopes"]
           )
 
         type Query {
           a: Int @authenticated
+          b: Int @requiresScopes(scopes: ["read:foo"])
         }
       `,
     };
@@ -507,8 +509,18 @@ describe('end-to-end features', () => {
       }),
     });
 
-    await expect(gateway.load()).rejects.toThrowError(
-      "feature https://specs.apollo.dev/authenticated/v0.1 is for: SECURITY but is unsupported"
-    );
+    try {
+      await gateway.load();
+    } catch (e) {
+      expect(e.message).toMatch(
+        'feature https://specs.apollo.dev/authenticated/v0.1 is for: SECURITY but is unsupported',
+      );
+      expect(e.message).toMatch(
+        'feature https://specs.apollo.dev/requiresScopes/v0.1 is for: SECURITY but is unsupported',
+      );
+      return;
+    }
+    // If we reach here, we didn't hit the catch block above like we'd expected
+    throw new Error('Expected an error to be thrown');
   });
 });

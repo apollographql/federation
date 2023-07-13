@@ -561,10 +561,11 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
     args?: TApplicationArgs,
     asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
-    let name: string;
+    let toAdd: Directive<TOwnType, TApplicationArgs>;
     if (typeof nameOrDef === 'string') {
       this.checkUpdate();
-      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDef, args);
+      toAdd = new Directive<TOwnType, TApplicationArgs>(nameOrDef, args ?? Object.create(null));
+      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), toAdd);
       if (!def) {
         throw this.schema().blueprint.onGraphQLJSValidationError(
           this.schema(),
@@ -574,12 +575,10 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       if (Array.isArray(def)) {
         throw ErrGraphQLValidationFailed(def);
       }
-      name = nameOrDef;
     } else {
       this.checkUpdate(nameOrDef);
-      name = nameOrDef.name;
+      toAdd = new Directive<TOwnType, TApplicationArgs>(nameOrDef.name, args ?? Object.create(null));
     }
-    const toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
     Element.prototype['setParent'].call(toAdd, this);
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
     if (this._appliedDirectives) {
@@ -907,7 +906,7 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 }
 
 export class SchemaBlueprint {
-  onMissingDirectiveDefinition(_schema: Schema, _name: string, _args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
+  onMissingDirectiveDefinition(_schema: Schema, _directive: Directive): DirectiveDefinition | GraphQLError[] | undefined {
     // No-op by default, but used for federation.
     return undefined;
   }

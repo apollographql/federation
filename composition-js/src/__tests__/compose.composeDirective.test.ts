@@ -261,7 +261,7 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@tag', '@inaccessible', '@authenticated',
+    '@tag', '@inaccessible', '@authenticated', '@requiresScopes',
   ])('federation directives that result in a hint', (directive) => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
@@ -282,7 +282,7 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@tag', '@inaccessible', '@authenticated',
+    '@tag', '@inaccessible', '@authenticated', '@requiresScopes',
   ])('federation directives (with rename) that result in a hint', (directive) => {
     const subgraphA = {
       name: 'subgraphA',

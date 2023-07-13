@@ -68,6 +68,9 @@ import {
   linkDirectiveDefaultName,
   linkIdentity,
   FeatureUrl,
+  CoreImport,
+  extractCoreFeatureImports,
+  CoreOrLinkDirectiveArgs,
 } from "./coreSpec";
 import {
   FEDERATION_VERSIONS,
@@ -112,6 +115,24 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
 const ALL_DEFAULT_FEDERATION_DIRECTIVE_NAMES: string[] = Object.values(FederationDirectiveName);
+
+/**
+ * Federation 1 has that specificity that it wasn't using @link to name-space federation elements,
+ * and so to "distinguish" the few federation type names, it prefixed those with a `_`. That is,
+ * the `FieldSet` type was named `_FieldSet` in federation1. To handle this without too much effort,
+ * we use a fake `CoreFeature` with imports for all the fed1 types to use those specific "aliases"
+ * and we pass it when adding those types. This allows to reuse the same `TypeSpecification` objects
+ * for both fed1 and fed2. Note that in the object below, all that is used is the imports, the rest
+ * is just filling the blanks.
+ */
+const FAKE_FED1_CORE_FEATURE_TO_RENAME_TYPES: CoreFeature = new CoreFeature(
+  new FeatureUrl('<fed1>', 'fed1', new FeatureVersion(0, 1)),
+  'fed1',
+  new Directive('fed1'),
+  FEDERATION1_TYPES.map((spec) => ({ name: spec.name, as: '_' + spec.name})),
+);
+
+
 function validateFieldSetSelections({
   directiveName,
   selectionSet,
@@ -742,6 +763,10 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.AUTHENTICATED);
   }
 
+  requiresScopesDirective(): Post20FederationDirectiveDefinition<{scopes: string[]}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.REQUIRES_SCOPES);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -772,6 +797,11 @@ export class FederationMetadata {
       baseDirectives.push(authenticatedDirective);
     }
 
+    const requiresScopesDirective = this.requiresScopesDirective();
+    if (isFederationDirectiveDefinedInSchema(requiresScopesDirective)) {
+      baseDirectives.push(requiresScopesDirective);
+    }
+
     return baseDirectives;
   }
 
@@ -793,16 +823,33 @@ export class FederationMetadata {
   }
 
   allFederationTypes(): NamedType[] {
-    const baseTypes: NamedType[] = [
+    // We manually include the `_Any`, `_Service` and `Entity` types because there are not strictly
+    // speaking part of the federation @link spec.
+    const fedTypes: NamedType[] = [
       this.anyType(),
       this.serviceType(),
-      this.fieldSetType(),
     ];
+
+    const fedFeature = this.federationFeature();
+    if (fedFeature) {
+      const featureDef = FEDERATION_VERSIONS.find(fedFeature.url.version);
+      assert(featureDef, () => `Federation spec should be known, but got ${fedFeature.url}`);
+      for (const typeSpec of featureDef.typeSpecs()) {
+        const type = this.schema.type(fedFeature.typeNameInSchema(typeSpec.name));
+        if (type) {
+          fedTypes.push(type);
+        }
+      }
+    } else {
+      // Fed1: the only type we had was _FieldSet.
+      fedTypes.push(this.fieldSetType());
+    }
+
     const entityType = this.entityType();
     if (entityType) {
-      baseTypes.push(entityType);
+      fedTypes.push(entityType);
     }
-    return baseTypes;
+    return fedTypes;
   }
 }
 
@@ -840,14 +887,20 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
   }
 
-  onMissingDirectiveDefinition(schema: Schema, name: string, args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
-    if (name === linkDirectiveDefaultName) {
+  onMissingDirectiveDefinition(schema: Schema, directive: Directive): DirectiveDefinition | GraphQLError[] | undefined {
+    if (directive.name === linkDirectiveDefaultName) {
+      const args = directive.arguments();
       const url = args && (args['url'] as string | undefined);
-      const as = url && url.startsWith(linkSpec.identity) ? (args['as'] as string | undefined) : undefined;
-      const errors = linkSpec.addDefinitionsToSchema(schema, as);
-      return errors.length > 0 ? errors : schema.directive(name);
+      let as: string | undefined = undefined;
+      let imports: CoreImport[] = [];
+      if (url && url.startsWith(linkSpec.identity)) {
+        as = args['as'] as string | undefined;
+        imports = extractCoreFeatureImports(linkSpec.url, directive as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>);
+      }
+      const errors = linkSpec.addDefinitionsToSchema(schema, as, imports);
+      return errors.length > 0 ? errors : schema.directive(directive.name);
     }
-    return super.onMissingDirectiveDefinition(schema, name, args);
+    return super.onMissingDirectiveDefinition(schema, directive);
   }
 
   ignoreParsedField(type: NamedType, fieldName: string): boolean {
@@ -1126,7 +1179,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
@@ -1352,7 +1405,7 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     }
   }
 
-  const errors = FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, '_' + spec.name))
+  const errors = FEDERATION1_TYPES.map((spec) => spec.checkOrAdd(schema, FAKE_FED1_CORE_FEATURE_TO_RENAME_TYPES))
     .concat(FEDERATION1_DIRECTIVES.map((spec) => spec.checkOrAdd(schema)))
     .flat();
 

@@ -332,7 +332,7 @@ class Merger {
     return this.joinSpec.populateGraphEnum(this.merged, this.subgraphs);
   }
 
-  private validateAndMaybeAddSpec({feature, name, definitionsPerSubgraph, compositionSpec}: CoreDirectiveInSubgraphs) {
+  private validateAndMaybeAddSpec({url, name, definitionsPerSubgraph, compositionSpec}: CoreDirectiveInSubgraphs) {
     // Not composition specification means that it shouldn't be composed.
     if (!compositionSpec) {
       return;
@@ -350,7 +350,7 @@ class Merger {
       } else if (nameInSupergraph !== directive.name) {
         this.mismatchReporter.reportMismatchError(
           ERRORS.LINK_IMPORT_NAME_MISMATCH,
-          `The "@${name}" directive (from ${feature}) is imported with mismatched name between subgraphs: it is imported as `,
+          `The "@${name}" directive (from ${url}) is imported with mismatched name between subgraphs: it is imported as `,
           directive,
           this.subgraphs.values().map((s) => definitionsPerSubgraph.get(s.name)),
           (def) => `"@${def.name}"`,
@@ -365,7 +365,9 @@ class Merger {
       const specInSupergraph = compositionSpec.supergraphSpecification(this.latestFedVersionUsed);
       const errors = this.linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph, specInSupergraph.defaultCorePurpose);
       assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
-      const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged);
+      const feature = this.merged?.coreFeatures?.getByIdentity(specInSupergraph.url.identity);
+      assert(feature, 'Should have found the feature we just added');
+      const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged, feature);
       if (argumentsMerger instanceof GraphQLError) {
         // That would mean we made a mistake in the declaration of a hard-coded directive, so we just throw right away so this can be caught and corrected.
         throw argumentsMerger;
