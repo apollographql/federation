@@ -87,25 +87,25 @@ export class Supergraph {
   constructor(
     readonly schema: Schema,
     supportedFeatures: Set<string> = DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
-    private readonly assumeValid: boolean = false,
+    private readonly shouldValidate: boolean = true,
   ) {
     const [coreFeatures] = validateSupergraph(schema);
     checkFeatureSupport(coreFeatures, supportedFeatures);
-    if (assumeValid) {
-      schema.assumeValid();
-    } else {
+    if (shouldValidate) {
       schema.validate();
+    } else {
+      schema.assumeValid();
     }
     this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema);
   }
 
-  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, assumeValid?: boolean }) {
+  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, validateSupergraph?: boolean }) {
     // We delay validation because `checkFeatureSupport` in the constructor gives slightly more useful errors if, say, 'for' is used with core v0.1.
     const schema = typeof supergraphSdl === 'string'
       ? buildSchema(supergraphSdl, { validate: false })
       : buildSchemaFromAST(supergraphSdl, { validate: false });
 
-    return new Supergraph(schema, options?.supportedFeatures, options?.assumeValid);
+    return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph);
   }
 
   /**
@@ -123,7 +123,7 @@ export class Supergraph {
       // Note that `extractSubgraphsFromSupergraph` redo a little bit of work we're already one, like validating
       // the supergraph. We could refactor things to avoid it, but it's completely negligible in practice so we
       // can leave that to "some day, maybe".
-      this._subgraphs = extractSubgraphsFromSupergraph(this.schema, !this.assumeValid);
+      this._subgraphs = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
     }
     return this._subgraphs;
   }

@@ -146,7 +146,7 @@ interface GatewayConfigBase {
    * for development (mostly to provide better error messages when provided with an incorrect
    * supergraph).
    */
-  validateReceivedSupergraphs?: boolean;
+  validateSupergraph?: boolean;
 }
 
 // TODO(trevor:removeServiceList)

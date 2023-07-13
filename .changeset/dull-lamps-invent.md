@@ -13,5 +13,5 @@ schema) and mainly only serves in catching bugs early in the supergraph handling
 provide slightly better messages when a corrupted supergraph is received, neither of which is worth the cost in
 production environment.
 
-A new `validateReceivedSupergraphs` option is also introduced in the gateway configuration to force this behaviour.
+A new `validateSupergraph` option is also introduced in the gateway configuration to force this behaviour.
   
