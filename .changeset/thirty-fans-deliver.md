@@ -14,9 +14,9 @@ Users may now compose `@requiresScopes` applications from their subgraphs into a
 The directive is defined as follows:
 
 ```graphql
-scalar Scope
+scalar federation__Scope
 
-directive @requiresScopes(scopes: [Scope!]!) on
+directive @requiresScopes(scopes: [federation__Scope!]!) on
   | FIELD_DEFINITION
   | OBJECT
   | INTERFACE
