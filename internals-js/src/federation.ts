@@ -1690,6 +1690,15 @@ export class Subgraph {
     }
   }
 
+  /**
+   * Same as `Schema.assumeValid`. Use carefully.
+   */
+  assumeValid(): Subgraph {
+    this.addFederationOperations();
+    this.schema.assumeValid();
+    return this;
+  }
+
   validate(): Subgraph {
     try {
       this.addFederationOperations();
