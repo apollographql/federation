@@ -2,6 +2,7 @@ import {
   asFed2SubgraphDocument,
   assert,
   buildSubgraph,
+  DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
   defaultPrintOptions,
   FEDERATION2_LINK_WITH_FULL_IMPORTS,
   inaccessibleIdentity,
@@ -4006,6 +4007,225 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
+    });
+  });
+
+  describe('@authenticated', () => {
+    // We need to override the default supported features to include the
+    // @authenticated feature, since it's not part of the default supported
+    // features.
+    const supportedFeatures = new Set([
+      ...DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
+      'https://specs.apollo.dev/authenticated/v0.1',
+    ]);
+
+    it('comprehensive locations', () => {
+      const onObject = {
+        typeDefs: gql`
+          type Query {
+            object: AuthenticatedObject!
+          }
+
+          type AuthenticatedObject @authenticated {
+            field: Int!
+          }
+        `,
+        name: 'on-object',
+      };
+
+      const onInterface = {
+        typeDefs: gql`
+          type Query {
+            interface: AuthenticatedInterface!
+          }
+
+          interface AuthenticatedInterface @authenticated {
+            field: Int!
+          }
+        `,
+        name: 'on-interface',
+      };
+
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type AuthenticatedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            @authenticated
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
+      const onScalar = {
+        typeDefs: gql`
+          scalar AuthenticatedScalar @authenticated
+
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply @authenticated to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface AuthenticatedInterfaceObject @key(fields: "id") {
+            id: String!
+          }
+        `,
+        name: 'on-scalar',
+      };
+
+      const onEnum = {
+        typeDefs: gql`
+          enum AuthenticatedEnum @authenticated {
+            A
+            B
+          }
+        `,
+        name: 'on-enum',
+      };
+
+      const onRootField = {
+        typeDefs: gql`
+          type Query {
+            authenticatedRootField: Int! @authenticated
+          }
+        `,
+        name: 'on-root-field',
+      };
+
+      const onObjectField = {
+        typeDefs: gql`
+          type Query {
+            objectWithField: ObjectWithAuthenticatedField!
+          }
+
+          type ObjectWithAuthenticatedField {
+            field: Int! @authenticated
+          }
+        `,
+        name: 'on-object-field',
+      };
+
+      const onEntityField = {
+        typeDefs: gql`
+          type Query {
+            entityWithField: EntityWithAuthenticatedField!
+          }
+
+          type EntityWithAuthenticatedField @key(fields: "id") {
+            id: ID!
+            field: Int! @authenticated
+          }
+        `,
+        name: 'on-entity-field',
+      };
+
+      const result = composeAsFed2Subgraphs([
+        onObject,
+        onInterface,
+        onInterfaceObject,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
+      ], { supportedFeatures });
+      assertCompositionSuccess(result);
+
+      const authenticatedElements = [
+        "AuthenticatedObject",
+        "AuthenticatedInterface",
+        "AuthenticatedInterfaceObject",
+        "AuthenticatedScalar",
+        "AuthenticatedEnum",
+        "Query.authenticatedRootField",
+        "ObjectWithAuthenticatedField.field",
+        "EntityWithAuthenticatedField.field",
+      ];
+
+      for (const element of authenticatedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective("authenticated")
+        ).toBeTruthy();
+      }
+    });
+
+    it('applies @authenticated on types as long as it is used once', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+          type A @key(fields: "id") @authenticated {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      // checking composition in either order (not sure if this is necessary but
+      // it's not hurting anything)
+      const result1 = composeAsFed2Subgraphs([a1, a2], { supportedFeatures });
+      const result2 = composeAsFed2Subgraphs([a2, a1], { supportedFeatures });
+      assertCompositionSuccess(result1);
+      assertCompositionSuccess(result2);
+
+      expect(result1.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+    });
+
+    it('validation error on incompatible directive definition', () => {
+      const invalidDefinition = {
+        typeDefs: gql`
+          directive @authenticated on ENUM_VALUE
+
+          type Query {
+            a: Int
+          }
+
+          enum E {
+            A @authenticated
+          }
+        `,
+        name: 'invalidDefinition',
+      };
+      const result = composeAsFed2Subgraphs([invalidDefinition], { supportedFeatures });
+      expect(errors(result)[0]).toEqual([
+        "DIRECTIVE_DEFINITION_INVALID",
+        "[invalidDefinition] Invalid definition for directive \"@authenticated\": \"@authenticated\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
+      ]);
+    });
+
+    it('validation error on invalid application', () => {
+      const invalidApplication = {
+        typeDefs: gql`
+          type Query {
+            a: Int
+          }
+
+          enum E {
+            A @authenticated
+          }
+        `,
+        name: 'invalidApplication',
+      };
+      const result = composeAsFed2Subgraphs([invalidApplication], { supportedFeatures });
+      expect(errors(result)[0]).toEqual([
+        "INVALID_GRAPHQL",
+        "[invalidApplication] Directive \"@authenticated\" may not be used on ENUM_VALUE.",
+      ]);
     });
   });
 });

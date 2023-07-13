@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.4.9
+### Patch Changes
+
+
+- Try reusing named fragments in subgraph fetches even if those fragment only apply partially to the subgraph. Before this change, only named fragments that were applying entirely to a subgraph were tried, leading to less reuse that expected. Concretely, this change can sometimes allow the generation of smaller subgraph fetches. ([#2639](https://github.com/apollographql/federation/pull/2639))
+
+- Updated dependencies [[`7ac83456`](https://github.com/apollographql/federation/commit/7ac834568d57a9b9e63002353543d32f6e97b4a5), [`d60349b3`](https://github.com/apollographql/federation/commit/d60349b3fa7e5ba1f64c1727d88dc6faec21a38a), [`1bb7c512`](https://github.com/apollographql/federation/commit/1bb7c5129c7b07627ea33684b538fda8a83b8da8), [`02eab3ac`](https://github.com/apollographql/federation/commit/02eab3ac4a0514bef8f9253a9e43418ba1c17843), [`fd4545c2`](https://github.com/apollographql/federation/commit/fd4545c27ef343ad14436f9541f539ef80bacafa)]:
+  - @apollo/query-planner@2.4.9
+  - @apollo/federation-internals@2.4.9
+  - @apollo/composition@2.4.9
+
 ## 2.4.8
 ### Patch Changes
 
