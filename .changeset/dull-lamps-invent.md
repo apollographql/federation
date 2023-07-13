@@ -1,9 +1,9 @@
 ---
-"@apollo/query-planner": patch
-"@apollo/query-graphs": patch
-"@apollo/composition": patch
-"@apollo/federation-internals": patch
-"@apollo/gateway": patch
+"@apollo/query-planner": minor
+"@apollo/query-graphs": minor
+"@apollo/composition": minor
+"@apollo/federation-internals": minor
+"@apollo/gateway": minor
 ---
 
 Do not run the full suite of graphQL validations on supergraphs and their extracted subgraphs by default in production environment.
