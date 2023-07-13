@@ -4497,6 +4497,31 @@ describe('composition', () => {
       `);
     });
 
+    it('composes with existing `Scope` scalar definitions in subgraphs', () => {
+      const a = {
+        typeDefs: gql`
+          scalar Scope
+          type Query {
+            x: Int @requiresScopes(scopes: ["a", "b"])
+          }
+        `,
+        name: 'a',
+      };
+
+      const b = {
+        typeDefs: gql`
+          scalar Scope @specifiedBy(url: "not-the-apollo-spec")
+          type Query {
+            y: Int @requiresScopes(scopes: ["a", "b"])
+          }
+        `,
+        name: 'b',
+      };
+
+      const result = composeAsFed2Subgraphs([a, b]);
+      assertCompositionSuccess(result);
+    });
+
     describe('validation errors', () => {
       it('on incompatible directive location', () => {
         const invalidDefinition = {
