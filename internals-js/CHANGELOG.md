@@ -1,5 +1,29 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.9
+### Patch Changes
+
+
+- Improves query planning time in some situations where entities use multiple keys. ([#2610](https://github.com/apollographql/federation/pull/2610))
+
+
+- Try reusing named fragments in subgraph fetches even if those fragment only apply partially to the subgraph. Before this change, only named fragments that were applying entirely to a subgraph were tried, leading to less reuse that expected. Concretely, this change can sometimes allow the generation of smaller subgraph fetches. ([#2639](https://github.com/apollographql/federation/pull/2639))
+
+
+- Fix issue in the code to reuse fragments that, in some rare circumstances, could led to invalid queries where a named ([#2659](https://github.com/apollographql/federation/pull/2659))
+  spread was use in an invalid position. If triggered, this resulted in an subgraph fetch whereby a named spread was
+  used inside a sub-selection even though the spread condition did not intersect the parent type (the exact error message
+  would depend on the client library used to handle subgraph fetches, but with GraphQL-js, the error message had the
+  form "Fragment <F> cannot be spread here as objects of type <X> can never be of type <Y>").
+
+- Fix regression in named fragment reuse introduced by 2.4.8 that caused fragments that were only used by other fragments ([#2648](https://github.com/apollographql/federation/pull/2648))
+  to not be reused, even if they are making the overall query smaller and thus should be reused.
+
+- Fix unnecessary busy work in the code extracting subgraphs from supergraphs. This code is executing when a new ([#2654](https://github.com/apollographql/federation/pull/2654))
+  supergraph is deployed, and can impact gateway clients when it runs. This is often not a problem, but for
+  large supergraphs with lots of subgraphs, an obvious inefficiency could make the code take much longer than
+  it should have.
+
 ## 2.4.8
 ### Patch Changes
 
