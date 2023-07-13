@@ -30,31 +30,20 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
       )
     );
 
-    const scopeTypeSpec = createScalarTypeSpecification({ name: RequiresScopesTypeName.SCOPE });
-    this.registerType(scopeTypeSpec);
+    this.registerType(createScalarTypeSpecification({ name: RequiresScopesTypeName.SCOPE }));
 
     this.registerDirective(createDirectiveSpecification({
       name: RequiresScopesSpecDefinition.directiveName,
       args: [{
         name: 'scopes',
-        type: (schema, nameInSchema) => {
-          const scopeName = `${nameInSchema ?? this.url.name}__${scopeTypeSpec.name}`;
-          const errors = scopeTypeSpec.checkOrAdd(schema, scopeName);
-          if (errors.length > 0) {
-            return errors;
-          }
-
+        type: (schema, feature) => {
+          assert(feature, "Shouldn't be added without being attached to a @link spec");
+          const scopeName = feature.typeNameInSchema(RequiresScopesTypeName.SCOPE);
           const scopeType = schema.type(scopeName);
-          assert(scopeType, `Expected \`${scopeName}\` to be defined`);
+          assert(scopeType, () => `Expected "${scopeName}" to be defined`);
           return new NonNullType(new ListType(new NonNullType(scopeType)));
         },
-        compositionStrategy: {
-          name: 'SCOPE_UNION',
-          supportedTypes: (schema: Schema) => [
-            new NonNullType(new ListType(new NonNullType(schema.type(RequiresScopesTypeName.SCOPE)!))),
-          ],
-          mergeValues: ARGUMENT_COMPOSITION_STRATEGIES.UNION.mergeValues,
-        },
+        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.UNION,
       }],
       locations: [
         DirectiveLocation.FIELD_DEFINITION,
@@ -66,11 +55,7 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
       composes: true,
       supergraphSpecification: () => REQUIRES_SCOPES_VERSIONS.latest(),
     }));
-
-    this.registerType(createScalarTypeSpecification({ name: 'Scope' }));
   }
-
-
 
   requiresScopesDirective(
     schema: Schema

@@ -1,38 +1,61 @@
-import { InputType, ListType, NonNullType, Schema } from "./definitions"
+import { InputType, NonNullType, Schema, isListType, isNonNullType } from "./definitions"
+import { sameType } from "./types";
+import { valueEquals } from "./values";
+
+type TypeSupportValidator = (schema: Schema, type: InputType) => { valid: boolean, supportedMsg?: string };
 
 export type ArgumentCompositionStrategy = {
   name: string,
-  supportedTypes: (schema: Schema) => InputType[],
+  isTypeSupported: TypeSupportValidator,
   mergeValues: (values: any[]) => any,
+}
+
+function supportFixedTypes(types: (schema: Schema) => InputType[]): TypeSupportValidator {
+  return (schema, type) => {
+    const supported = types(schema);
+    if (!supported.some((t) => sameType(t, type))) {
+      return { valid: false, supportedMsg: `type(s) ${supported.join(', ')}` };
+    }
+    return { valid: true };
+  };
+}
+
+function supportAnyNonNullArray(): TypeSupportValidator {
+  return (_, type) => {
+    if (!isNonNullType(type) || !isListType(type.ofType)) {
+      return { valid: false, supportedMsg: 'non nullable list types of any type'};
+    }
+    return { valid: true };
+  };
 }
 
 export const ARGUMENT_COMPOSITION_STRATEGIES = {
   MAX: {
     name: 'MAX',
-    supportedTypes: (schema: Schema) => [new NonNullType(schema.intType())],
+    isTypeSupported: supportFixedTypes((schema: Schema) => [new NonNullType(schema.intType())]),
     mergeValues: (values: any[]) => Math.max(...values),
   },
   MIN: {
     name: 'MIN',
-    supportedTypes: (schema: Schema) => [new NonNullType(schema.intType())],
+    isTypeSupported: supportFixedTypes((schema: Schema) => [new NonNullType(schema.intType())]),
     mergeValues: (values: any[]) => Math.min(...values),
   },
   SUM: {
     name: 'SUM',
-    supportedTypes: (schema: Schema) => [new NonNullType(schema.intType())],
+    isTypeSupported: supportFixedTypes((schema: Schema) => [new NonNullType(schema.intType())]),
     mergeValues: (values: any[]) => values.reduce((acc, val) => acc + val, 0),
   },
   INTERSECTION: {
     name: 'INTERSECTION',
-    supportedTypes: (schema: Schema) => schema.builtInScalarTypes().map((t) => new NonNullType(new ListType(new NonNullType(t)))),
-    mergeValues: (values: any[]) => values.reduce((acc, val) => acc.filter((v: any) => val.includes(v)), values[0]),
+    isTypeSupported: supportAnyNonNullArray(),
+    mergeValues: (values: any[]) => values.reduce((acc, val) => acc.filter((v1: any) => val.some((v2: any) => valueEquals(v1, v2))), values[0]),
   },
   UNION: {
     name: 'UNION',
-    supportedTypes: (schema: Schema) => schema.builtInScalarTypes().map((t) => new NonNullType(new ListType(new NonNullType(t)))),
+    isTypeSupported: supportAnyNonNullArray(),
     mergeValues: (values: any[]) =>
       values.reduce((acc, val) => {
-        const newValues = val.filter((v: any) => !acc.includes(v));
+        const newValues = val.filter((v1: any) => !acc.some((v2: any) => valueEquals(v1, v2)));
         return acc.concat(newValues);
       }, []),
   },

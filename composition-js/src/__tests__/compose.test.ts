@@ -1,6 +1,7 @@
 import {
   asFed2SubgraphDocument,
   assert,
+  AuthenticatedSpecDefinition,
   buildSubgraph,
   DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
   defaultPrintOptions,
@@ -10,8 +11,10 @@ import {
   isObjectType,
   ObjectType,
   orderPrintedDefinitions,
+  printDirectiveDefinition,
   printSchema,
   printType,
+  RequiresScopesSpecDefinition,
 } from '@apollo/federation-internals';
 import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
@@ -4152,6 +4155,26 @@ describe('composition', () => {
       }
     });
 
+    it('@authenticated has correct definition in the supergraph', () => {
+      const a = {
+        typeDefs: gql`
+          type Query {
+            x: Int @authenticated
+          }
+        `,
+        name: 'a',
+      };
+
+      const result = composeAsFed2Subgraphs([a], { supportedFeatures });
+      assertCompositionSuccess(result);
+      expect(result.schema.coreFeatures?.getByIdentity(AuthenticatedSpecDefinition.identity)?.url.toString()).toBe(
+        "https://specs.apollo.dev/authenticated/v0.1"
+      );
+      expect(printDirectiveDefinition(result.schema.directive('authenticated')!)).toMatchString(`
+        directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      `);
+    });
+
     it('applies @authenticated on types as long as it is used once', () => {
       const a1 = {
         typeDefs: gql`
@@ -4471,12 +4494,32 @@ describe('composition', () => {
       );
     });
 
+    it('@requiresScopes has correct definition in the supergraph', () => {
+      const a = {
+        typeDefs: gql`
+          type Query {
+            x: Int @requiresScopes(scopes: ["a", "b"])
+          }
+        `,
+        name: 'a',
+      };
+
+      const result = composeAsFed2Subgraphs([a], { supportedFeatures });
+      assertCompositionSuccess(result);
+      expect(result.schema.coreFeatures?.getByIdentity(RequiresScopesSpecDefinition.identity)?.url.toString()).toBe(
+        "https://specs.apollo.dev/requiresScopes/v0.1"
+      );
+      expect(printDirectiveDefinition(result.schema.directive('requiresScopes')!)).toMatchString(`
+        directive @requiresScopes(scopes: [requiresScopes__Scope!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      `);
+    });
+
     describe('validation errors', () => {
       it('on incompatible directive location', () => {
         const invalidDefinition = {
           typeDefs: gql`
-            scalar Scope
-            directive @requiresScopes(scopes: [Scope!]!) on ENUM_VALUE
+            scalar federation__Scope
+            directive @requiresScopes(scopes: [federation__Scope!]!) on ENUM_VALUE
 
             type Query {
               a: Int
@@ -4498,8 +4541,8 @@ describe('composition', () => {
       it('on incompatible args', () => {
         const invalidDefinition = {
           typeDefs: gql`
-            scalar Scope
-            directive @requiresScopes(scopes: [Scope]!) on FIELD_DEFINITION
+            scalar federation__Scope
+            directive @requiresScopes(scopes: [federation__Scope]!) on FIELD_DEFINITION
 
             type Query {
               a: Int
@@ -4514,7 +4557,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([invalidDefinition], { supportedFeatures });
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
-          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[Scope!]!\" but found type \"[Scope]!\"",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[federation__Scope!]!\" but found type \"[federation__Scope]!\"",
         ]);
       });
 

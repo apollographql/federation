@@ -20,3 +20,5 @@ export * from './graphQLJSSchemaToAST';
 export * from './directiveAndTypeSpecification';
 export { coreFeatureDefinitionIfKnown } from './knownCoreFeatures';
 export * from './argumentCompositionStrategies';
+export * from './authenticatedSpec';
+export * from './requiresScopesSpec';
