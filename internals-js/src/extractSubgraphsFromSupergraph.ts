@@ -193,7 +193,7 @@ function typesUsedInFederationDirective(fieldSet: string | undefined, parentType
   return usedTypes;
 }
 
-export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
+export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtractedSubgraphs: boolean = true): Subgraphs {
   const [coreFeatures, joinSpec] = validateSupergraph(supergraph);
   const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
   try {
@@ -229,11 +229,15 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     // We're done with the subgraphs, so call validate (which, amongst other things, sets up the _entities query field, which ensures
     // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
     for (const subgraph of subgraphs) {
-      try {
-        subgraph.validate();
-      } catch (e) {
-        // This is going to be caught directly by the enclosing try-catch, but this is so we indicate the subgraph having the issue.
-        throw new SubgraphExtractionError(e, subgraph);
+      if (validateExtractedSubgraphs) {
+        try {
+          subgraph.validate();
+        } catch (e) {
+          // This is going to be caught directly by the enclosing try-catch, but this is so we indicate the subgraph having the issue.
+          throw new SubgraphExtractionError(e, subgraph);
+        }
+      } else {
+        subgraph.assumeValid();
       }
     }
 

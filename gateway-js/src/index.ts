@@ -634,7 +634,8 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
-    const supergraph = Supergraph.build(supergraphSdl);
+    const validateSupergraph = this.config.validateSupergraph ?? process.env.NODE_ENV !== 'production';
+    const supergraph = Supergraph.build(supergraphSdl, { validateSupergraph });
     this.createServices(supergraph.subgraphsMetadata());
 
     return {
