@@ -14,13 +14,17 @@ Users may now compose `@requiresScopes` applications from their subgraphs into a
 The directive is defined as follows:
 
 ```graphql
-directive @requiresScopes on
+scalar Scope
+
+directive @requiresScopes(scopes: [Scope!]!) on
   | FIELD_DEFINITION
   | OBJECT
   | INTERFACE
   | SCALAR
   | ENUM
 ```
+
+The `Scope` scalar is effectively a `String`, similar to the `FieldSet` type.
 
 In order to compose your `@requiresScopes` usages, you must update your subgraph's federation spec version to v2.5 and add the `@requiresScopes` import to your existing imports like so:
 ```graphql
