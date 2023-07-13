@@ -86,10 +86,12 @@ export class Supergraph {
 
   constructor(
     readonly schema: Schema,
-    supportedFeatures: Set<string> = DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
+    supportedFeatures: Set<string> | null = DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
   ) {
     const [coreFeatures] = validateSupergraph(schema);
-    checkFeatureSupport(coreFeatures, supportedFeatures);
+    if (supportedFeatures !== null) {
+      checkFeatureSupport(coreFeatures, supportedFeatures);
+    }
     schema.validate();
     this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema);
   }
