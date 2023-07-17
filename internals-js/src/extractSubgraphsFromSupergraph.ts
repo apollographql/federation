@@ -511,7 +511,7 @@ function extractUnionTypeContent(args: ExtractArguments, info: TypeInfo<UnionTyp
         const args = application.arguments();
         const { type: subgraphType, subgraph } = subgraphsInfo.get(args.graph)!;
         // Note that object types in the supergraph are guaranteed to be object types in subgraphs.
-        // We also know that the type must exist in this case (we don't generate broken @join_unionMember). 
+        // We also know that the type must exist in this case (we don't generate broken @join_unionMember).
         subgraphType.addType(subgraph.schema.type(args.member) as ObjectType);
       }
     }
@@ -539,6 +539,8 @@ function extractSubgraphsFromFed2Supergraph(args: ExtractArguments) {
   const allExecutableDirectives = args.supergraph.directives().filter((def) => def.hasExecutableLocations());
   for (const subgraph of args.subgraphs) {
     removeInactiveProvidesAndRequires(subgraph.schema);
+
+    removeUnusedTypesFromSubgraph(subgraph.schema);
 
     for (const definition of allExecutableDirectives) {
       // Note that we skip any potentially applied directives in the argument of the copied definition, because as said
@@ -843,30 +845,7 @@ function extractSubgraphsFromFed1Supergraph({
     addExternalFields(subgraph, supergraph, true);
     removeInactiveProvidesAndRequires(subgraph.schema);
 
-    // We now do an additional pass on all types because we sometimes added types to subgraphs without
-    // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
-    // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
-    // didn't belong to the subgraph in the first) and we need to remove them.
-    // Note that need to do this _after_ the `addExternalFields` call above since it may have added (external) fields
-    // to some of the types.
-    for (const type of subgraph.schema.types()) {
-      switch (type.kind) {
-        case 'ObjectType':
-        case 'InterfaceType':
-        case 'InputObjectType':
-          if (!type.hasFields()) {
-            // Note that we have to use removeRecursive or this could leave the subgraph invalid. But if the
-            // type was not in this subgraphs, nothing that depends on it should be either.
-            type.removeRecursive();
-          }
-          break;
-        case 'UnionType':
-          if (type.membersCount() === 0) {
-            type.removeRecursive();
-          }
-          break;
-      }
-    }
+    removeUnusedTypesFromSubgraph(subgraph.schema);
 
     // Lastly, we add all the "executable" directives from the supergraph to each subgraphs, as those may be part
     // of a query and end up in any subgraph fetches. We do this "last" to make sure that if one of the directive
@@ -1066,5 +1045,32 @@ function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | Int
   if (!isSubtype(itfField.type!, toModify.type!)) {
     assert(isSubtype(toModify.type!, itfField.type!), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
     toModify.type = itfField.type!;
+  }
+}
+
+function removeUnusedTypesFromSubgraph(schema: Schema) {
+  // We now do an additional path on all types because we sometimes added types to subgraphs without
+  // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
+  // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
+  // didn't belong to the subgraph in the first) and we need to remove them.
+  // Note that need to do this _after_ the `addExternalFields` call above since it may have added (external) fields
+  // to some of the types.
+  for (const type of schema.types()) {
+    switch (type.kind) {
+      case 'ObjectType':
+      case 'InterfaceType':
+      case 'InputObjectType':
+        if (!type.hasFields()) {
+          // Note that we have to use removeRecursive or this could leave the subgraph invalid. But if the
+          // type was not in this subgraphs, nothing that depends on it should be either.
+          type.removeRecursive();
+        }
+        break;
+      case 'UnionType':
+        if (type.membersCount() === 0) {
+          type.removeRecursive();
+        }
+        break;
+    }
   }
 }
