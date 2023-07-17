@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.4.10
+### Patch Changes
+
+
+- Revert #2639 from v2.4.9 ([#2681](https://github.com/apollographql/federation/pull/2681))
+  
+  PR #2639 attempts to resolve issues with query fragment reuse, but we've since turned up multiple issues (at least 1 of which is a regression - see #2680. For now, this reverts it until we resolve the regression for a future patch release.
+
 ## 2.4.9
 ### Patch Changes
 
