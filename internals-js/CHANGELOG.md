@@ -1,5 +1,72 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.5.0
+### Minor Changes
+
+
+- Do not run the full suite of graphQL validations on supergraphs and their extracted subgraphs by default in production environment. ([#2657](https://github.com/apollographql/federation/pull/2657))
+  
+  Running those validations on every updates of the schema takes a non-negligible amount of time (especially on large
+  schema) and mainly only serves in catching bugs early in the supergraph handling code, and in some limited cases,
+  provide slightly better messages when a corrupted supergraph is received, neither of which is worth the cost in
+  production environment.
+  
+  A new `validateSupergraph` option is also introduced in the gateway configuration to force this behaviour.
+
+- For CoreSpecDefintions that opt in, we've added the ability to tie the core spec version to a particular federation version. That means that if there's a new version of, say, the join spec, you won't necessarily get the new version in the supergraph schema if no subgraph requires it. ([#2528](https://github.com/apollographql/federation/pull/2528))
+
+
+- Introduce the new `@authenticated` directive for composition ([#2644](https://github.com/apollographql/federation/pull/2644))
+  
+  > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@authenticated` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+  
+  Users may now compose `@authenticated` applications from their subgraphs into a supergraph. This addition will support a future version of Apollo Router that enables authenticated access to specific types and fields via directive applications.
+  
+  The directive is defined as follows:
+  
+  ```graphql
+  directive @authenticated on
+    | FIELD_DEFINITION
+    | OBJECT
+    | INTERFACE
+    | SCALAR
+    | ENUM
+  ```
+  
+  In order to compose your `@authenticated` usages, you must update your subgraph's federation spec version to v2.5 and add the `@authenticated` import to your existing imports like so:
+  ```graphql
+  @link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@authenticated"])
+  ```
+
+- Refactor/cleanup code that extract subgraphs schema from the supergraph during query planning. ([#2655](https://github.com/apollographql/federation/pull/2655))
+
+
+- Introduce the new `@requiresScopes` directive for composition ([#2649](https://github.com/apollographql/federation/pull/2649))
+  
+  > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@requiresScopes` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+  
+  Users may now compose `@requiresScopes` applications from their subgraphs into a supergraph. This addition will support a future version of Apollo Router that enables scoped access to specific types and fields via directive applications.
+  
+  The directive is defined as follows:
+  
+  ```graphql
+  scalar federation__Scope
+  
+  directive @requiresScopes(scopes: [federation__Scope!]!) on
+    | FIELD_DEFINITION
+    | OBJECT
+    | INTERFACE
+    | SCALAR
+    | ENUM
+  ```
+  
+  The `Scope` scalar is effectively a `String`, similar to the `FieldSet` type.
+  
+  In order to compose your `@requiresScopes` usages, you must update your subgraph's federation spec version to v2.5 and add the `@requiresScopes` import to your existing imports like so:
+  ```graphql
+  @link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@requiresScopes"])
+  ```
+
 ## 2.4.10
 ### Patch Changes
 

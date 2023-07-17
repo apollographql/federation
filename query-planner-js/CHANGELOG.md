@@ -1,5 +1,50 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.5.0
+### Minor Changes
+
+
+- Do not run the full suite of graphQL validations on supergraphs and their extracted subgraphs by default in production environment. ([#2657](https://github.com/apollographql/federation/pull/2657))
+  
+  Running those validations on every updates of the schema takes a non-negligible amount of time (especially on large
+  schema) and mainly only serves in catching bugs early in the supergraph handling code, and in some limited cases,
+  provide slightly better messages when a corrupted supergraph is received, neither of which is worth the cost in
+  production environment.
+  
+  A new `validateSupergraph` option is also introduced in the gateway configuration to force this behaviour.
+
+- Introduce the new `@requiresScopes` directive for composition ([#2649](https://github.com/apollographql/federation/pull/2649))
+  
+  > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@requiresScopes` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+  
+  Users may now compose `@requiresScopes` applications from their subgraphs into a supergraph. This addition will support a future version of Apollo Router that enables scoped access to specific types and fields via directive applications.
+  
+  The directive is defined as follows:
+  
+  ```graphql
+  scalar federation__Scope
+  
+  directive @requiresScopes(scopes: [federation__Scope!]!) on
+    | FIELD_DEFINITION
+    | OBJECT
+    | INTERFACE
+    | SCALAR
+    | ENUM
+  ```
+  
+  The `Scope` scalar is effectively a `String`, similar to the `FieldSet` type.
+  
+  In order to compose your `@requiresScopes` usages, you must update your subgraph's federation spec version to v2.5 and add the `@requiresScopes` import to your existing imports like so:
+  ```graphql
+  @link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@requiresScopes"])
+  ```
+
+### Patch Changes
+
+- Updated dependencies [[`fe1e3d7b`](https://github.com/apollographql/federation/commit/fe1e3d7b13ed76ac81e8fd6d911f4497995c59aa), [`6b18af50`](https://github.com/apollographql/federation/commit/6b18af50910872049938386b82ad40703d934f68), [`9396c0d6`](https://github.com/apollographql/federation/commit/9396c0d686092c06fa89f8512378610bfe4154cc), [`2b5796a9`](https://github.com/apollographql/federation/commit/2b5796a962b3478961f9486c28f5cfd161fafbb0), [`4f3c3b9e`](https://github.com/apollographql/federation/commit/4f3c3b9eedb5dacb6dee29aa21bb74cdd1244732)]:
+  - @apollo/query-graphs@2.5.0
+  - @apollo/federation-internals@2.5.0
+
 ## 2.4.10
 ### Patch Changes
 
