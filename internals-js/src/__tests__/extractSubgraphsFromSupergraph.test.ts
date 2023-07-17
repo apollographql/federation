@@ -1,4 +1,4 @@
-import { Supergraph, InputObjectType } from "..";
+import { Supergraph, InputObjectType, ObjectType } from "..";
 
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
@@ -812,6 +812,6 @@ test('types that are empty because of overridden fields are erased', () => {
   const subgraphs = Supergraph.build(supergraph).subgraphs();
 
   const subgraph = subgraphs.get('b');
-  const inputType = subgraph?.schema.type('User') as InputObjectType | undefined;
-  expect(inputType).toBeUndefined();
+  const userType = subgraph?.schema.type('User') as ObjectType | undefined;
+  expect(userType).toBeUndefined();
 });
