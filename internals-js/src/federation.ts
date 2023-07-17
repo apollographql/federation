@@ -1193,8 +1193,11 @@ export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://
  * @param document - the document to "augment".
  * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or
  *   added to the schema definition. Defaults to `true` (added as an extension), as this mimics what we tends to write manually.
+ * @param options.includeAllImports - defines whether we should auto import ALL latest federation v2 directive definitions or include
+ *   only limited set of directives (i.e. federation v2.4 definitions)
  */
-export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension: boolean }): DocumentNode {
+export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension?: boolean, includeAllImports?: boolean }): DocumentNode {
+  const importedDirectives = options?.includeAllImports ? federationSpec.directiveSpecs() : autoExpandedFederationSpec.directiveSpecs();
   const directiveToAdd: ConstDirectiveNode = ({
     kind: Kind.DIRECTIVE,
     name: { kind: Kind.NAME, value: linkDirectiveDefaultName },
@@ -1207,7 +1210,7 @@ export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAs
       {
         kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: 'import' },
-        value: { kind: Kind.LIST, values: autoExpandedFederationSpec.directiveSpecs().map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
+        value: { kind: Kind.LIST, values: importedDirectives.map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
       }
     ]
   });

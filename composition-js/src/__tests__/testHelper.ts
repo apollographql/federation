@@ -34,6 +34,6 @@ export function composeAsFed2Subgraphs(services: ServiceDefinition[], options: C
 export function asFed2Service(service: ServiceDefinition): ServiceDefinition {
   return {
     ...service,
-    typeDefs: asFed2SubgraphDocument(service.typeDefs)
+    typeDefs: asFed2SubgraphDocument(service.typeDefs, { includeAllImports: true })
   };
 }
