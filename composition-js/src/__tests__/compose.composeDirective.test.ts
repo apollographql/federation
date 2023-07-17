@@ -998,4 +998,37 @@ describe('composing custom core directives', () => {
     const appliedDirectives = schema.elementByCoordinate('Query.shared')?.appliedDirectives;
     expect(appliedDirectives?.map(d => [d.name, d.arguments()])).toMatchObject([['auth', { scope: 'VIEWER'}], ['auth', {}]]);
   });
+
+  it('existing @authenticated directive with fed 1', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @authenticated(scope: [String!]) repeatable on FIELD_DEFINITION
+
+        extend type Foo @key(fields: "id") {
+          id: ID!
+          protected: String @authenticated(scope: ["foo"])
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          foo: Foo
+        }
+
+        type Foo @key(fields: "id") {
+          id: ID!
+          name: String!
+        }
+        `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
+    expect(authenticatedDirectiveExists).toBeUndefined();
+  });
 });
