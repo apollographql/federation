@@ -85,11 +85,7 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
 
   abstract asPathElement(): string | undefined;
 
-  abstract rebaseOn(args: { parentType: CompositeType, errorIfCannotRebase: boolean }): T | undefined;
-
-  rebaseOnOrError(parentType: CompositeType): T {
-    return this.rebaseOn({ parentType, errorIfCannotRebase: true })!;
-  }
+  abstract rebaseOn(parentType: CompositeType): T;
 
   abstract withUpdatedDirectives(newDirectives: readonly Directive<any>[]): T;
 
@@ -294,7 +290,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     }
   }
 
-  rebaseOn({ parentType, errorIfCannotRebase }: { parentType: CompositeType, errorIfCannotRebase: boolean }): Field<TArgs> | undefined {
+  rebaseOn(parentType: CompositeType): Field<TArgs> {
     const fieldParent = this.definition.parent;
     if (parentType === fieldParent) {
       return this;
@@ -304,16 +300,12 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       return this.withUpdatedDefinition(parentType.typenameField()!);
     }
 
+    validate(
+      this.canRebaseOn(parentType),
+      () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${parentType}"`
+    );
     const fieldDef = parentType.field(this.name);
-    const canRebase = this.canRebaseOn(parentType) && fieldDef;
-    if (!canRebase) {
-      validate(
-        !errorIfCannotRebase,
-        () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${parentType}"`
-      );
-      return undefined;
-    }
-
+    validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${parentType}" (that does not declare that field)`);
     return this.withUpdatedDefinition(fieldDef);
   }
 
@@ -474,7 +466,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     return newFragment;
   }
 
-  rebaseOn({ parentType, errorIfCannotRebase }: { parentType: CompositeType, errorIfCannotRebase: boolean }): FragmentElement | undefined {
+  rebaseOn(parentType: CompositeType): FragmentElement {
     const fragmentParent = this.parentType;
     const typeCondition = this.typeCondition;
     if (parentType === fragmentParent) {
@@ -485,13 +477,10 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     // to update the source type of the fragment, but also "rebase" the condition to the selection set
     // schema.
     const { canRebase, rebasedCondition } = this.canRebaseOn(parentType);
-    if (!canRebase) {
-      validate(
-        !errorIfCannotRebase,
-        () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to parent type "${parentType}" (runtimes: ${possibleRuntimeTypes(parentType)})`
-      );
-      return undefined;
-    }
+    validate(
+      canRebase,
+      () => `Cannot add fragment of condition "${typeCondition}" (runtimes: [${possibleRuntimeTypes(typeCondition!)}]) to parent type "${parentType}" (runtimes: ${possibleRuntimeTypes(parentType)})`
+    );
     return this.withUpdatedTypes(parentType, rebasedCondition);
   }
 
@@ -708,7 +697,7 @@ export type RootOperationPath = {
   path: OperationPath
 }
 
-// Computes for every fragment, which other fragments use it (so the reverse of it's dependencies, the other fragment it uses). 
+// Computes for every fragment, which other fragments use it (so the reverse of it's dependencies, the other fragment it uses).
 function computeFragmentsDependents(fragments: NamedFragments): SetMultiMap<string, string> {
   const reverseDeps = new SetMultiMap<string, string>();
   for (const fragment of fragments.definitions()) {
@@ -1243,7 +1232,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
   }
 
   toString(indent?: string): string {
-    return `fragment ${this.name} on ${this.typeCondition}${this.appliedDirectivesToString()} ${this.selectionSet.toString(false, true, indent)}`;
+    return (indent ?? '') + `fragment ${this.name} on ${this.typeCondition}${this.appliedDirectivesToString()} ${this.selectionSet.toString(false, true, indent)}`;
   }
 }
 
@@ -1374,39 +1363,21 @@ export class NamedFragments {
     });
   }
 
-  // When we rebase named fragments on a subgraph schema, only a subset of what the fragment handles may belong
-  // to that particular subgraph. And there are a few sub-cases where that subset is such that we basically need or
-  // want to consider to ignore the fragment for that subgraph, and that is when:
-  // 1. the subset that apply is actually empty. The fragment wouldn't be valid in this case anyway.
-  // 2. the subset is a single leaf field: in that case, using the one field directly is just shorter than using
-  //   the fragment, so we consider the fragment don't really apply to that subgraph. Technically, using the
-  //   fragment could still be of value if the fragment name is a lot smaller than the one field name, but it's
-  //   enough of a niche case that we ignore it. Note in particular that one sub-case of this rule that is likely
-  //   to be common is when the subset ends up being just `__typename`: this would basically mean the fragment
-  //   don't really apply to the subgraph, and that this will ensure this is the case.
-  private selectionSetIsWorthUsing(selectionSet: SelectionSet): boolean {
-    const selections = selectionSet.selections();
-    if (selections.length === 0) {
-      return false;
-    }
-    if (selections.length === 1) {
-      const s = selections[0];
-      return !(s.kind === 'FieldSelection' && s.element.isLeafField());
-    }
-    return true;
-  }
-
   rebaseOn(schema: Schema): NamedFragments | undefined {
     return this.mapInDependencyOrder((fragment, newFragments) => {
       const rebasedType = schema.type(fragment.selectionSet.parentType.name);
-      if (!rebasedType || !isCompositeType(rebasedType)) {
+      try {
+        if (!rebasedType || !isCompositeType(rebasedType)) {
+          return undefined;
+        }
+
+        const rebasedSelection = fragment.selectionSet.rebaseOn(rebasedType, newFragments);
+        return new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection);
+      } catch (e) {
+        // This means we cannot rebase this selection on the schema and thus cannot reuse that fragment on that
+        // particular schema.
         return undefined;
       }
-
-      const rebasedSelection = fragment.selectionSet.rebaseOn({ parentType: rebasedType, fragments: newFragments, errorIfCannotRebase: false });
-      return this.selectionSetIsWorthUsing(rebasedSelection)
-        ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
-        : undefined;;
     });
   }
 
@@ -1505,7 +1476,7 @@ class DeferNormalizer {
 }
 
 export enum ContainsResult {
-  // Note: enum values are numbers in the end, and 0 means false in JS, so we should keep `NOT_CONTAINED` first 
+  // Note: enum values are numbers in the end, and 0 means false in JS, so we should keep `NOT_CONTAINED` first
   // so that using the result of `contains` as a boolean works.
   NOT_CONTAINED,
   STRICTLY_CONTAINED,
@@ -1542,20 +1513,6 @@ export class SelectionSet {
   // Returns whether the selection contains a _non-aliased_ selection of __typename.
   hasTopLevelTypenameField(): boolean {
     return this._keyedSelections.has(typenameFieldName);
-  }
-
-  withoutTopLevelTypenameField(): SelectionSet {
-    if (!this.hasTopLevelTypenameField) {
-      return this;
-    }
-
-    const newKeyedSelections = new Map<string, Selection>();
-    for (const [key, selection] of this._keyedSelections) {
-      if (key !== typenameFieldName) {
-        newKeyedSelections.set(key, selection);
-      }
-    }
-    return new SelectionSet(this.parentType, newKeyedSelections);
   }
 
   fieldsInSet(): CollectedFieldsInSet {
@@ -1652,7 +1609,7 @@ export class SelectionSet {
   }
 
   /**
-   * Applies some normalization rules to this selection set in the context of the provided `parentType`. 
+   * Applies some normalization rules to this selection set in the context of the provided `parentType`.
    *
    * Normalization mostly removes unecessary/redundant inline fragments, so that for instance, with
    * schema:
@@ -1802,25 +1759,14 @@ export class SelectionSet {
     return updated.isEmpty() ? undefined : updated;
   }
 
-  rebaseOn({
-    parentType,
-    fragments,
-    errorIfCannotRebase,
-  }: {
-    parentType: CompositeType,
-    fragments: NamedFragments | undefined
-    errorIfCannotRebase: boolean,
-  }): SelectionSet {
+  rebaseOn(parentType: CompositeType, fragments: NamedFragments | undefined): SelectionSet {
     if (this.parentType === parentType) {
       return this;
     }
 
     const newSelections = new Map<string, Selection>();
     for (const selection of this.selections()) {
-      const rebasedSelection = selection.rebaseOn({ parentType, fragments, errorIfCannotRebase });
-      if (rebasedSelection) {
-        newSelections.set(selection.key(), rebasedSelection);
-      }
+      newSelections.set(selection.key(), selection.rebaseOn(parentType, fragments));
     }
 
     return new SelectionSet(parentType, newSelections);
@@ -1844,25 +1790,15 @@ export class SelectionSet {
     return true;
   }
 
-  contains(that: SelectionSet, options?: { ignoreMissingTypename?: boolean }): ContainsResult {
-    const ignoreMissingTypename = options?.ignoreMissingTypename ?? false;
+  contains(that: SelectionSet): ContainsResult {
     if (that._selections.length > this._selections.length) {
-      // If `that` has more selections but we're ignoring missing __typename, then in the case where
-      // `that` has a __typename but `this` does not, then we need the length of `that` to be at
-      // least 2 more than that of `this` to be able to conclude there is no contains.
-      if (!ignoreMissingTypename || that._selections.length > this._selections.length + 1 || this.hasTopLevelTypenameField() || !that.hasTopLevelTypenameField()) {
-        return ContainsResult.NOT_CONTAINED;
-      }
+      return ContainsResult.NOT_CONTAINED;
     }
 
     let isEqual = true;
     for (const [key, thatSelection] of that._keyedSelections) {
-      if (key === typenameFieldName && ignoreMissingTypename) {
-        continue;
-      }
-
       const thisSelection = this._keyedSelections.get(key);
-      const selectionResult = thisSelection?.contains(thatSelection, options);
+      const selectionResult = thisSelection?.contains(thatSelection);
       if (selectionResult === undefined || selectionResult === ContainsResult.NOT_CONTAINED) {
         return ContainsResult.NOT_CONTAINED;
       }
@@ -2228,10 +2164,10 @@ function makeSelection(parentType: CompositeType, updates: SelectionUpdate[], fr
 
   // Optimize for the simple case of a single selection, as we don't have to do anything complex to merge the sub-selections.
   if (updates.length === 1 && first instanceof AbstractSelection) {
-    return first.rebaseOnOrError({ parentType, fragments });
+    return first.rebaseOn(parentType, fragments);
   }
 
-  const element = updateElement(first).rebaseOnOrError(parentType);
+  const element = updateElement(first).rebaseOn(parentType);
   const subSelectionParentType = element.kind === 'Field' ? element.baseType() : element.castedType();
   if (!isCompositeType(subSelectionParentType)) {
     // This is a leaf, so all updates should correspond ot the same field and we just use the first.
@@ -2279,7 +2215,7 @@ function makeSelectionSet(parentType: CompositeType, keyedUpdates: MultiMap<stri
 }
 
 /**
- * A simple wrapper over a `SelectionSetUpdates` that allows to conveniently build a selection set, then add some more updates and build it again, etc... 
+ * A simple wrapper over a `SelectionSetUpdates` that allows to conveniently build a selection set, then add some more updates and build it again, etc...
  */
 export class MutableSelectionSet<TMemoizedValue extends { [key: string]: any } = {}> {
   private computed: SelectionSet | undefined;
@@ -2420,11 +2356,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract validate(variableDefinitions: VariableDefinitions): void;
 
-  abstract rebaseOn(args: { parentType: CompositeType, fragments: NamedFragments | undefined, errorIfCannotRebase: boolean}): TOwnType | undefined;
-
-  rebaseOnOrError({ parentType, fragments }: { parentType: CompositeType, fragments: NamedFragments | undefined }): TOwnType {
-    return this.rebaseOn({ parentType, fragments, errorIfCannotRebase: true})!;
-  }
+  abstract rebaseOn(parentType: CompositeType, fragments: NamedFragments | undefined): TOwnType;
 
   get parentType(): CompositeType {
     return this.element.parentType;
@@ -2524,7 +2456,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     // have been "normalized away" and so we want for this very call to be called on the fragment whose type _is_ the fragment condition (at
     // which point, this `maybeApplyingDirectlyAtType` method will apply.
     // Also note that this is because we have this restriction that calling `expandedSelectionSetAtType` is ok.
-    let candidates = fragments.maybeApplyingDirectlyAtType(parentType);
+    const candidates = fragments.maybeApplyingDirectlyAtType(parentType);
     if (candidates.length === 0) {
       return subSelection;
     }
@@ -2535,7 +2467,8 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     // applies to a subset of `subSelection`.
     const applyingFragments: { fragment: NamedFragmentDefinition, atType: FragmentRestrictionAtType }[] = [];
     for (const candidate of candidates) {
-      let atType = candidate.expandedSelectionSetAtType(parentType);
+      const atType = candidate.expandedSelectionSetAtType(parentType);
+      const selectionSetAtType = atType.selectionSet;
       // It's possible that while the fragment technically applies at `parentType`, it's "rebasing" on
       // `parentType` is empty, or contains only `__typename`. For instance, suppose we have
       // a union `U = A | B | C`, and then a fragment:
@@ -2554,22 +2487,11 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
       //
       // Using `F` in those cases is, while not 100% incorrect, at least not productive, and so we
       // skip it that case. This is essentially an optimisation.
-      if (atType.selectionSet.isEmpty() || (atType.selectionSet.selections().length === 1 && atType.selectionSet.selections()[0].isTypenameField())) {
+      if (selectionSetAtType.isEmpty() || (selectionSetAtType.selections().length === 1 && selectionSetAtType.selections()[0].isTypenameField())) {
         continue;
       }
 
-      // As we check inclusion, we ignore the case where the fragment queries __typename but the subSelection does not.
-      // The rational is that querying `__typename` unecessarily is mostly harmless (it always works and it's super cheap)
-      // so we don't want to not use a fragment just to save querying a `__typename` in a few cases. But the underlying
-      // context of why this matters is that the query planner always requests __typename for abstract type, and will do
-      // so in fragments too, but we can have a field that _does_ return an abstract type within a fragment, but that
-      // _does not_ end up returning an abstract type when applied in a "more specific" context (think a fragment on
-      // an interface I1 where a inside field returns another interface I2, but applied in the context of a implementation
-      // type of I1 where that particular field returns an implementation of I2 rather than I2 directly; we would have
-      // added __typename to the fragment (because it's all interfaces), but the selection itself, which only deals
-      // with object type, may not have __typename requested; using the fragment might still be a good idea, and
-      // querying __typename needlessly is a very small price to pay for that).
-      const res = subSelection.contains(atType.selectionSet, { ignoreMissingTypename: true });
+      const res = subSelection.contains(selectionSetAtType);
 
       if (res === ContainsResult.EQUAL) {
         if (canUseFullMatchingFragment(candidate)) {
@@ -2751,7 +2673,7 @@ class FieldsConflictValidator {
         // It's unlikely that we've seen the same `field.element` as we don't particularly "intern" `Field` object (so even if the exact same field
         // is used in 2 parts of a selection set, it will probably be a different `Field` object), so the `get` below will probably mostly return `undefined`,
         // but it wouldn't be incorrect to re-use a `Field` object multiple side, so no reason not to handle that correctly.
-        let forField = atResponseName.get(field.element) ?? [];
+        const forField = atResponseName.get(field.element) ?? [];
         atResponseName.set(field.element, forField.concat(field.selectionSet.fieldsInSet()));
       } else {
         // Note that whether a `FieldSelection` has `selectionSet` or not is entirely determined by whether the field type is a composite type
@@ -2946,30 +2868,18 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
   }
 
   /**
-   * Returns a field selection "equivalent" to the one represented by this object, but such that its parent type 
+   * Returns a field selection "equivalent" to the one represented by this object, but such that its parent type
    * is the one provided as argument.
    *
    * Obviously, this operation will only succeed if this selection (both the field itself and its subselections)
    * make sense from the provided parent type. If this is not the case, this method will throw.
    */
-  rebaseOn({
-    parentType,
-    fragments,
-    errorIfCannotRebase,
-  }: {
-    parentType: CompositeType,
-    fragments: NamedFragments | undefined,
-    errorIfCannotRebase: boolean,
-  }): FieldSelection | undefined {
+  rebaseOn(parentType: CompositeType, fragments: NamedFragments | undefined): FieldSelection {
     if (this.element.parentType === parentType) {
       return this;
     }
 
-    const rebasedElement = this.element.rebaseOn({ parentType, errorIfCannotRebase });
-    if (!rebasedElement) {
-      return undefined;
-    }
-
+    const rebasedElement = this.element.rebaseOn(parentType);
     if (!this.selectionSet) {
       return this.withUpdatedElement(rebasedElement);
     }
@@ -2980,8 +2890,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     }
 
     validate(isCompositeType(rebasedBase), () => `Cannot rebase field selection ${this} on ${parentType}: rebased field base return type ${rebasedBase} is not composite`);
-    const rebasedSelectionSet = this.selectionSet.rebaseOn({ parentType: rebasedBase, fragments, errorIfCannotRebase });
-    return rebasedSelectionSet.isEmpty() ? undefined : this.withUpdatedComponents(rebasedElement, rebasedSelectionSet);
+    return this.withUpdatedComponents(rebasedElement, this.selectionSet.rebaseOn(rebasedBase, fragments));
   }
 
   /**
@@ -3088,7 +2997,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return !!that.selectionSet && this.selectionSet.equals(that.selectionSet);
   }
 
-  contains(that: Selection, options?: { ignoreMissingTypename?: boolean }): ContainsResult {
+  contains(that: Selection): ContainsResult {
     if (!(that instanceof FieldSelection) || !this.element.equals(that.element)) {
       return ContainsResult.NOT_CONTAINED;
     }
@@ -3098,7 +3007,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
       return ContainsResult.EQUAL;
     }
     assert(that.selectionSet, '`this` and `that` have the same element, so if one has sub-selection, the other one should too')
-    return this.selectionSet.contains(that.selectionSet, options);
+    return this.selectionSet.contains(that.selectionSet);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
@@ -3125,7 +3034,7 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
       );
     }
   }
-  
+
   filterRecursiveDepthFirst(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
     // Note that we essentially expand all fragments as part of this.
     const updatedSelectionSet = this.selectionSet.filterRecursiveDepthFirst(predicate);
@@ -3135,14 +3044,14 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
 
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
- 
+
   hasDefer(): boolean {
     return this.element.hasDefer() || this.selectionSet.hasDefer();
   }
 
   abstract equals(that: Selection): boolean;
 
-  abstract contains(that: Selection, options?: { ignoreMissingTypename?: boolean }): ContainsResult;
+  abstract contains(that: Selection): ContainsResult;
 
   normalize({ parentType, recursive }: { parentType: CompositeType, recursive? : boolean }): FragmentSelection | SelectionSet | undefined {
     const thisCondition = this.element.typeCondition;
@@ -3199,31 +3108,18 @@ class InlineFragmentSelection extends FragmentSelection {
     this.selectionSet.validate(variableDefinitions);
   }
 
-  rebaseOn({
-    parentType,
-    fragments,
-    errorIfCannotRebase,
-  }: {
-    parentType: CompositeType,
-    fragments: NamedFragments | undefined,
-    errorIfCannotRebase: boolean,
-  }): FragmentSelection | undefined {
+  rebaseOn(parentType: CompositeType, fragments: NamedFragments | undefined): FragmentSelection {
     if (this.parentType === parentType) {
       return this;
     }
 
-    const rebasedFragment = this.element.rebaseOn({ parentType, errorIfCannotRebase });
-    if (!rebasedFragment) {
-      return undefined;
-    }
-
+    const rebasedFragment = this.element.rebaseOn(parentType);
     const rebasedCastedType = rebasedFragment.castedType();
     if (rebasedCastedType === this.selectionSet.parentType) {
       return this.withUpdatedElement(rebasedFragment);
     }
 
-    const rebasedSelectionSet = this.selectionSet.rebaseOn({ parentType: rebasedCastedType, fragments, errorIfCannotRebase });
-    return rebasedSelectionSet.isEmpty() ? undefined : this.withUpdatedComponents(rebasedFragment, rebasedSelectionSet);
+    return this.withUpdatedComponents(rebasedFragment, this.selectionSet.rebaseOn(rebasedCastedType, fragments));
   }
 
   canAddTo(parentType: CompositeType): boolean {
@@ -3372,8 +3268,7 @@ class InlineFragmentSelection extends FragmentSelection {
           return undefined;
         } else {
           return this.withUpdatedComponents(
-            // We should be able to rebase, or there is a bug, so error if that is the case.
-            this.element.rebaseOnOrError(parentType),
+            this.element.rebaseOn(parentType),
             selectionSetOfElement(
               new Field(
                 (this.element.typeCondition ?? parentType).typenameField()!,
@@ -3425,7 +3320,7 @@ class InlineFragmentSelection extends FragmentSelection {
 
     return this.parentType === parentType && this.selectionSet === normalizedSelectionSet
       ? this
-      : this.withUpdatedComponents(this.element.rebaseOnOrError(parentType), normalizedSelectionSet);
+      : this.withUpdatedComponents(this.element.rebaseOn(parentType), normalizedSelectionSet);
   }
 
   expandFragments(updatedFragments: NamedFragments | undefined): FragmentSelection {
@@ -3442,12 +3337,12 @@ class InlineFragmentSelection extends FragmentSelection {
       && this.selectionSet.equals(that.selectionSet);
   }
 
-  contains(that: Selection, options?: { ignoreMissingTypename?: boolean }): ContainsResult {
+  contains(that: Selection): ContainsResult {
     if (!(that instanceof FragmentSelection) || !this.element.equals(that.element)) {
       return ContainsResult.NOT_CONTAINED;
     }
 
-    return this.selectionSet.contains(that.selectionSet, options);
+    return this.selectionSet.contains(that.selectionSet);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
@@ -3490,7 +3385,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     // We must update the spread parent type if necessary since we're not going deeper,
     // or we'll be fundamentally losing context.
     assert(parentType.schema() === this.parentType.schema(), 'Should not try to normalize using a type from another schema');
-    return this.rebaseOnOrError({ parentType, fragments: this.fragments });
+    return this.rebaseOn(parentType, this.fragments);
   }
 
   validate(): void {
@@ -3526,15 +3421,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this;
   }
 
-  rebaseOn({
-    parentType,
-    fragments,
-    errorIfCannotRebase,
-  }: {
-    parentType: CompositeType,
-    fragments: NamedFragments | undefined,
-    errorIfCannotRebase: boolean,
-  }): FragmentSelection | undefined {
+  rebaseOn(parentType: CompositeType, fragments: NamedFragments | undefined): FragmentSelection {
     // We preserve the parent type here, to make sure we don't lose context, but we actually don't
     // want to expand the spread  as that would compromise the code that optimize subgraph fetches to re-use named
     // fragments.
@@ -3554,14 +3441,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     assert(fragments || this.parentType.schema() === parentType.schema(), `Must provide fragments is rebasing on other schema`);
     const newFragments = fragments ?? this.fragments;
     const namedFragment = newFragments.get(this.namedFragment.name);
-    // If we're rebasing on another schema (think a subgraph), then named fragments will have been rebased on that, and some
-    // of them may not contain anything that is on that subgraph, in which case they will not have been included at all.
-    // If so, then as long as we're not ask to error if we cannot rebase, then we're happy to skip that spread (since again,
-    // it expands to nothing that apply on the schema).
-    if (!namedFragment) {
-      validate(!errorIfCannotRebase, () => `Cannot rebase ${this.toString(false)} if it isn't part of the provided fragments`);
-      return undefined;
-    }
+    assert(namedFragment, () => `Cannot rebase ${this} if it isn't part of the provided fragments`);
     return new FragmentSpreadSelection(
       parentType,
       newFragments,
@@ -3617,7 +3497,7 @@ class FragmentSpreadSelection extends FragmentSelection {
       && sameDirectiveApplications(this.spreadDirectives, that.spreadDirectives);
   }
 
-  contains(that: Selection, options?: { ignoreMissingTypename?: boolean }): ContainsResult {
+  contains(that: Selection): ContainsResult {
     if (this.equals(that)) {
       return ContainsResult.EQUAL;
     }
@@ -3626,7 +3506,7 @@ class FragmentSpreadSelection extends FragmentSelection {
       return ContainsResult.NOT_CONTAINED;
     }
 
-    return this.selectionSet.contains(that.selectionSet, options);
+    return  this.selectionSet.contains(that.selectionSet);
   }
 
   toString(expandFragments: boolean = true, indent?: string): string {
