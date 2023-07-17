@@ -1,4 +1,4 @@
-import { FEDERATION2_LINK_WITH_FULL_IMPORTS } from '..';
+import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS } from '..';
 import { ObjectType } from '../definitions';
 import { buildSubgraph, Subgraphs } from '../federation';
 import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
@@ -92,7 +92,7 @@ test('upgrade complex schema', () => {
 
   expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
     schema
-      ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
     {
       query: Query
     }
@@ -148,7 +148,7 @@ test('update federation directive non-string arguments', () => {
 
   expect(res.subgraphs?.get('s')?.toString()).toMatchString(`
     schema
-      ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
     {
       query: Query
     }

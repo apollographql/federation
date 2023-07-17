@@ -4,7 +4,7 @@ import {
   AuthenticatedSpecDefinition,
   buildSubgraph,
   defaultPrintOptions,
-  FEDERATION2_LINK_WITH_FULL_IMPORTS,
+  FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
   isObjectType,
@@ -485,7 +485,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -502,7 +502,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -557,7 +557,7 @@ describe('composition', () => {
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -576,7 +576,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -4589,5 +4589,41 @@ describe('composition', () => {
         ]);
       });
     });
+  });
+
+  it('existing @authenticated directive with fed 1', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @authenticated(scope: [String!]) repeatable on FIELD_DEFINITION
+
+        extend type Foo @key(fields: "id") {
+          id: ID!
+          protected: String @authenticated(scope: ["foo"])
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          foo: Foo
+        }
+
+        type Foo @key(fields: "id") {
+          id: ID!
+          name: String!
+        }
+        `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([]);
+    const { schema } = result;
+    expect(schema).toBeDefined();
+    assert(schema, 'schema does not exist');
+    const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
+    expect(authenticatedDirectiveExists).toBeUndefined();
   });
 });

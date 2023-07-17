@@ -89,6 +89,9 @@ import { joinIdentity } from "./joinSpec";
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
 const federationSpec = FEDERATION_VERSIONS.latest();
+// Some users rely on auto-expanding fed v1 graphs with fed v2 directives. While technically we should only expand @tag
+// directive from v2 definitions, we will continue expanding other directives (up to v2.4) to ensure backwards compatibility.
+const autoExpandedFederationSpec = FEDERATION_VERSIONS.find(new FeatureVersion(2, 4))!;
 
 // We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
 // in the "federated query graph" without worrying about conflict (see `FEDERATED_GRAPH_ROOT_SOURCE` in `querygraph.ts`).
@@ -1168,7 +1171,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
     core.coreItself.nameInSchema,
     {
       url: federationSpec.url.toString(),
-      import: federationSpec.directiveSpecs().map((spec) => `@${spec.name}`),
+      import: autoExpandedFederationSpec.directiveSpecs().map((spec) => `@${spec.name}`),
     }
   );
   const errors = completeSubgraphSchema(schema);
@@ -1180,6 +1183,8 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
 export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes"])';
+// This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
@@ -1188,8 +1193,11 @@ export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apo
  * @param document - the document to "augment".
  * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or
  *   added to the schema definition. Defaults to `true` (added as an extension), as this mimics what we tends to write manually.
+ * @param options.includeAllImports - defines whether we should auto import ALL latest federation v2 directive definitions or include
+ *   only limited set of directives (i.e. federation v2.4 definitions)
  */
-export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension: boolean }): DocumentNode {
+export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension?: boolean, includeAllImports?: boolean }): DocumentNode {
+  const importedDirectives = options?.includeAllImports ? federationSpec.directiveSpecs() : autoExpandedFederationSpec.directiveSpecs();
   const directiveToAdd: ConstDirectiveNode = ({
     kind: Kind.DIRECTIVE,
     name: { kind: Kind.NAME, value: linkDirectiveDefaultName },
@@ -1202,7 +1210,7 @@ export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAs
       {
         kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: 'import' },
-        value: { kind: Kind.LIST, values: federationSpec.directiveSpecs().map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
+        value: { kind: Kind.LIST, values: importedDirectives.map((spec) => ({ kind: Kind.STRING, value: `@${spec.name}` })) }
       }
     ]
   });
