@@ -4542,7 +4542,7 @@ function inputsForRequire(
       assert(supergraphItfType && isInterfaceType(supergraphItfType), () => `Type ${entityType} should be an interface in the supergraph`);
       // Note: we are rebasing on another schema below, but we also known that we're working on a full expanded
       // selection set (no spread), so passing undefined is actually correct.
-      keyConditionAsInput = keyConditionAsInput.rebaseOn({ parentType: supergraphItfType, fragments: undefined, errorIfCannotRebase: true });
+      keyConditionAsInput = keyConditionAsInput.rebaseOn(supergraphItfType, undefined);
     }
     fullSelectionSet.updates().add(keyConditionAsInput);
 

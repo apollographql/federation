@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.4.10
+### Patch Changes
+
+
+- Revert #2639 from v2.4.9 ([#2681](https://github.com/apollographql/federation/pull/2681))
+  
+  PR #2639 attempts to resolve issues with query fragment reuse, but we've since turned up multiple issues (at least 1 of which is a regression - see #2680. For now, this reverts it until we resolve the regression for a future patch release.
+- Updated dependencies [[`b6be9f96`](https://github.com/apollographql/federation/commit/b6be9f9650a69f6214d806d66b198729560da3dc)]:
+  - @apollo/federation-internals@2.4.10
+  - @apollo/query-graphs@2.4.10
+
 ## 2.4.9
 ### Patch Changes
 
