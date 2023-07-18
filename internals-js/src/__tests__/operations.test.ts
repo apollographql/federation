@@ -2758,3 +2758,405 @@ describe('named fragment selection set restrictions at type', () => {
     `);
   });
 });
+
+describe('named fragment rebasing on subgraphs', () => {
+  test('it skips unknown fields', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        v0: Int
+        v1: Int
+        v2: Int
+        u1: U
+        u2: U
+      }
+
+      type U {
+        v3: Int
+        v4: Int
+        v5: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        t {
+          ...FragOnT
+        }
+      }
+
+      fragment FragOnT on T {
+        v0
+        v1
+        v2
+        u1 {
+          v3
+          v4
+          v5
+        }
+        u2 {
+          v4
+          v5
+        }
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = parseSchema(`
+      type Query {
+        _: Int
+      }
+
+      type T {
+        v1: Int
+        u1: U
+      }
+
+      type U {
+        v3: Int
+        v5: Int
+      }
+    `);
+
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment FragOnT on T {
+        v1
+        u1 {
+          v3
+          v5
+        }
+      }
+    `);
+  });
+
+  test('it skips unknown type (on condition)', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+        u: U
+      }
+
+      type T {
+        x: Int
+        y: Int
+      }
+
+      type U {
+        x: Int
+        y: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        t {
+          ...FragOnT
+        }
+        u {
+          ...FragOnU
+        }
+      }
+
+      fragment FragOnT on T {
+        x
+        y
+      }
+
+      fragment FragOnU on U {
+        x
+        y
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        x: Int
+        y: Int
+      }
+    `);
+
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment FragOnT on T {
+        x
+        y
+      }
+    `);
+  });
+
+  test('it skips unknown type (used inside fragment)', () => {
+    const schema = parseSchema(`
+      type Query {
+        i: I
+      }
+
+      interface I {
+        id: ID!
+        otherId: ID!
+      }
+
+      type T1 implements I {
+        id: ID!
+        otherId: ID!
+        x: Int
+      }
+
+      type T2 implements I {
+        id: ID!
+        otherId: ID!
+        y: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        i {
+          ...FragOnI
+        }
+      }
+
+      fragment FragOnI on I {
+         id
+         otherId
+         ... on T1 {
+           x
+         }
+         ... on T2 {
+           y
+         }
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = parseSchema(`
+      type Query {
+        i: I
+      }
+
+      interface I {
+        id: ID!
+      }
+
+      type T2 implements I {
+        id: ID!
+        y: Int
+      }
+    `);
+
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment FragOnI on I {
+        id
+        ... on T2 {
+          y
+        }
+      }
+    `);
+  });
+
+  test('it skips fragments with no selection or trivial ones applying', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a: Int
+        b: Int
+        c: Int
+        d: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        t {
+          ...F1
+          ...F2
+          ...F3
+        }
+      }
+
+      fragment F1 on T {
+         a
+         b
+      }
+
+      fragment F2 on T {
+         __typename
+         a
+         b
+      }
+
+      fragment F3 on T {
+         __typename
+         a
+         b
+         c
+         d
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        c: Int
+        d: Int
+      }
+    `);
+
+    // F1 reduces to nothing, and F2 reduces to just __typename so we shouldn't keep them.
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment F3 on T {
+        __typename
+        c
+        d
+      }
+    `);
+  });
+
+  test('it handles skipped fragments used by other fragments', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        x: Int
+        u: U
+      }
+
+      type U {
+        y: Int
+        z: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        ...TheQuery
+      }
+
+      fragment TheQuery on Query {
+        t {
+          x
+          ...GetU
+        }
+      }
+
+      fragment GetU on T {
+         u {
+           y
+           z
+         }
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        x: Int
+      }
+    `);
+
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment TheQuery on Query {
+        t {
+          x
+        }
+      }
+    `);
+  });
+
+  test('it handles fields whose type is a subtype in the subgarph', () => {
+    const schema = parseSchema(`
+      type Query {
+        t: I
+      }
+
+      interface I {
+         x: Int
+         y: Int
+      }
+
+      type T implements I {
+         x: Int
+         y: Int
+         z: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        ...TQuery
+      }
+
+      fragment TQuery on Query {
+        t {
+          x
+          y
+          ... on T {
+            z
+          }
+        }
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = parseSchema(`
+      type Query {
+        t: T
+      }
+
+      type T {
+         x: Int
+         y: Int
+         z: Int
+      }
+    `);
+
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment TQuery on Query {
+        t {
+          x
+          y
+          ... on T {
+            z
+          }
+        }
+      }
+    `);
+  });
+});
