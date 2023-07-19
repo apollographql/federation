@@ -1020,6 +1020,10 @@ describe('fragments optimization', () => {
           v {
             t {
               ...TFrag
+              a {
+                __typename
+                id
+              }
             }
           }
         }
