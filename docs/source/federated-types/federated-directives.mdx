@@ -661,3 +661,71 @@ If any of these requirements is not met, composition fails.
 
 </tbody>
 </table>
+
+## Security
+
+### `@authenticated`
+
+> ⚠️ **This directive is available in Apollo Federation 2.5 and later.**
+> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+```graphql
+directive @authenticated on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+Indicates to composition that target element is accessible only to the authenticated supergraph users. For more granular access control see [`@requiresScope`](#requiresScope) directive below. See [JWT Authentication in the Apollo Router](/router/configuration/authn-jwt) for additional details.
+
+### `@requiresScope`
+
+> ⚠️ **This directive is available in Apollo Federation 2.5 and later.**
+> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+```graphql
+directive @requiresScopes(scopes: [federation__Scope!]!) on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+Indicates to composition that target element is accessible only to the authenticated supergraph users with appropriate JWT scope. See [JWT Authentication in the Apollo Router](/router/configuration/authn-jwt) for additional details.
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `scopes`
+
+`[federation__Scope!]!`
+
+</td>
+<td>
+
+**Required.** List of JWT scopes that have to be granted to the user in order to access the underlying element data.
+
+</td>
+</tr>
+
+</tbody>
+</table>

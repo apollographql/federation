@@ -30,6 +30,7 @@ union _Entity
 scalar _Any
 scalar FieldSet
 scalar link__Import
+scalar federation__Scope
 
 enum link__Purpose {
   """
@@ -63,6 +64,8 @@ directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJEC
 directive @override(from: String!) on FIELD_DEFINITION
 directive @composeDirective(name: String!) repeatable on SCHEMA
 directive @interfaceObject on OBJECT
+directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+directive @requiresScopes(scopes: [federation__Scope!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 
 # This definition is required only for libraries that don't support
 # GraphQL's built-in `extend` keyword
@@ -444,6 +447,10 @@ An `_Any` is serialized as a JSON object, like so:
 This string-serialized scalar represents a set of fields that's passed to a federated directive, such as `@key`, `@requires`, or `@provides`.
 
 Grammatically, a `FieldSet` is a [selection set](http://spec.graphql.org/draft/#sec-Selection-Sets) minus the outermost curly braces. It can represent a single field (`"upc"`), multiple fields (`"id countryCode"`), and even nested selection sets (`"id organization { id }"`).
+
+#### `scalar Scope`
+
+This string-serialized scalar represents a JWT scope.
 
 ### Directives
 

@@ -21,6 +21,134 @@ This article describes notable changes and additions introduced in each minor ve
 
 - **If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/),** consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
 
+## v2.5
+
+<hr/>
+
+<CodeColumns cols="3">
+
+<div>
+
+First release
+
+**July 2023**
+
+</div>
+
+<div>
+
+Available in GraphOS?
+
+**No**
+
+</div>
+
+<div>
+
+Minimum router version
+
+**`TBD`**
+
+</div>
+
+</CodeColumns>
+
+<hr/>
+
+#### Directive changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@authenticated`
+
+</td>
+<td>
+
+> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+Introduced. [Learn more.](/router/configuration/authn-jwt)
+
+```graphql
+directive @authenticated on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+</td>
+</tr>
+
+<tr>
+<tr>
+<td>
+
+##### `@requiresScope`
+
+</td>
+<td>
+
+> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+Introduced. [Learn more.](/router/configuration/authn-jwt)
+
+```graphql
+directive @requiresScopes(scopes: [Scope!]!) on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+</td>
+</tr>
+
+<tr>
+</tbody>
+</table>
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Scope
+
+</td>
+<td>
+
+- Custom scalar representing a JWT scope. Used by new `@requiresScope` directive.
+
+</td>
+</tr>
+</tbody>
+</table>
+
 ## v2.4
 
 <hr/>
@@ -73,6 +201,10 @@ Subscriptions
 
 </td>
 <td>
+
+> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
 - Composition now supports defining the `Subscription` type in subgraph schemas.
 - Use of GraphQL subscriptions with a federated graph requires a compatible version of the Apollo Router. [See details.](/router/executing-operations/subscription-support/#prerequisites)
