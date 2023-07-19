@@ -1859,7 +1859,9 @@ export class SelectionSet {
     let didIgnoreTypename = false;
     for (const [key, thatSelection] of that._keyedSelections) {
       if (key === typenameFieldName && ignoreMissingTypename) {
-        didIgnoreTypename = true;
+        if (!this._keyedSelections.has(typenameFieldName)) {
+          didIgnoreTypename = true;
+        }
         continue;
       }
 

@@ -5923,9 +5923,7 @@ describe("named fragments", () => {
             owner {
               u {
                 __typename
-                ... on I {
-                  ...Fragment4
-                }
+                ...Fragment4
                 ... on T1 {
                   owner {
                     v0
