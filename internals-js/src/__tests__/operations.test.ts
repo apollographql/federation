@@ -35,7 +35,7 @@ function astSSet(...selections: SelectionNode[]): SelectionSetNode {
 
 describe('fragments optimization', () => {
   // Takes a query with fragments as inputs, expand all those fragments, and ensures that all the
-  // fragments gets optimized back, and that we get back the exact same query. 
+  // fragments gets optimized back, and that we get back the exact same query.
   function testFragmentsRoundtrip({
     schema,
     query,
@@ -946,6 +946,85 @@ describe('fragments optimization', () => {
         }
       `,
     });
+  });
+
+  test('off by 1 error', () => {
+    const schema = buildSchema(`#graphql
+      type Query {
+        t: T
+      }
+      type T {
+        id: String!
+        a: A
+        v: V
+      }
+      type A {
+        id: String!
+      }
+      type V {
+        t: T!
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      {
+        t {
+          ...TFrag
+          v {
+            t {
+              id
+              a {
+                __typename
+                id
+              }
+            }
+          }
+        }
+      }
+
+      fragment TFrag on T {
+        __typename
+        id
+      }
+    `);
+
+    const withoutFragments = operation.expandAllFragments();
+    expect(withoutFragments.toString()).toMatchString(`
+      {
+        t {
+          __typename
+          id
+          v {
+            t {
+              id
+              a {
+                __typename
+                id
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const optimized = withoutFragments.optimize(operation.fragments!);
+    expect(optimized.toString()).toMatchString(`
+      fragment TFrag on T {
+        __typename
+        id
+      }
+
+      {
+        t {
+          ...TFrag
+          v {
+            t {
+              ...TFrag
+            }
+          }
+        }
+      }
+    `);
   });
 
   describe('applied directives', () => {
@@ -2179,7 +2258,7 @@ describe('fragments optimization', () => {
         x
         y
       }
- 
+
       fragment TFields on T {
         a1
         a2
