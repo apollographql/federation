@@ -662,12 +662,12 @@ If any of these requirements is not met, composition fails.
 </tbody>
 </table>
 
-## Security
+## Controlling access
 
 ### `@authenticated`
 
 > ⚠️ **This directive is available in Apollo Federation 2.5 and later.**
-> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
 >
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
@@ -680,12 +680,12 @@ directive @authenticated on
   | ENUM
 ```
 
-Indicates to composition that target element is accessible only to the authenticated supergraph users. For more granular access control see [`@requiresScope`](#requiresScope) directive below. See [JWT Authentication in the Apollo Router](/router/configuration/authn-jwt) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScope`](#requiresScope) directive below. Refer to the [Apollo Router article](/router/configuration/authorization#authenticated) for additional details.
 
 ### `@requiresScope`
 
 > ⚠️ **This directive is available in Apollo Federation 2.5 and later.**
-> ⚠️ **This is an [Enterprise feature](/router/enterprise-features) of the Apollo Router.** It requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
+> **Is is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).</br>
 >
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
@@ -698,7 +698,7 @@ directive @requiresScopes(scopes: [federation__Scope!]!) on
   | ENUM
 ```
 
-Indicates to composition that target element is accessible only to the authenticated supergraph users with appropriate JWT scope. See [JWT Authentication in the Apollo Router](/router/configuration/authn-jwt) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [Apollo Router article](/router/configuration/authorization#requiresscopes) for additional details.
 
 #### Arguments
 
@@ -722,7 +722,7 @@ Indicates to composition that target element is accessible only to the authentic
 </td>
 <td>
 
-**Required.** List of JWT scopes that have to be granted to the user in order to access the underlying element data.
+**Required.** List of JWT scopes that must be granted to the user in order to access the underlying element data.
 
 </td>
 </tr>
