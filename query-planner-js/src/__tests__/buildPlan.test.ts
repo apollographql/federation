@@ -1,5 +1,5 @@
 import { QueryPlanner } from '@apollo/query-planner';
-import { assert, buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
+import { assert, operationFromDocument, ServiceDefinition, Supergraph } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
@@ -302,7 +302,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         doSomething {
@@ -432,7 +432,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -626,7 +626,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -856,7 +856,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -1074,7 +1074,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -1752,7 +1752,7 @@ describe('@requires', () => {
 
     const [api, queryPlanner] = composeAndCreatePlanner(...subgraphs);
     // Ensures that if we only ask `outer`, we get everything needed in between.
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       {
         t {
           v${totalRequires}
@@ -1760,7 +1760,7 @@ describe('@requires', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    const plan = queryPlanner.buildQueryPlan(operation);
     const dependentFetches: string[] = [];
     for (let i = 2; i <= totalRequires; i++) {
       dependentFetches.push(`${i === 2 ? '' : '          '}Flatten(path: "t") {
@@ -3124,8 +3124,8 @@ describe('Field covariance and type-explosion', () => {
       }
     `;
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -3277,8 +3277,8 @@ describe('handles non-intersecting fragment conditions', () => {
       }
     `
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -3581,8 +3581,8 @@ describe('Fed1 supergraph handling', () => {
       }
     `;
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -4002,14 +4002,15 @@ describe('Named fragments preservation', () => {
         }
 
         type V {
-          v: Int
+          v1: Int
+          v2: Int
         }
 
       `
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       {
         t {
           ...OnT
@@ -4026,7 +4027,8 @@ describe('Named fragments preservation', () => {
       }
 
       fragment OnV on V {
-        v
+        v1
+        v2
       }
     `);
 
@@ -4046,7 +4048,8 @@ describe('Named fragments preservation', () => {
           }
           
           fragment OnV on V {
-            v
+            v1
+            v2
           }
         },
       }
@@ -4070,7 +4073,7 @@ describe('Named fragments preservation', () => {
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       query test($if: Boolean) {
         t {
           id
@@ -4119,7 +4122,7 @@ describe('Named fragments preservation', () => {
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       query test($test1: Boolean, $test2: Boolean) {
         t {
           id
@@ -4579,15 +4582,15 @@ describe('mutations', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
       mutation {
         m2
         m1
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -5856,16 +5859,19 @@ describe("named fragments", () => {
         union U = T1 | T2
 
         interface I {
-          id: ID!
+          id1: ID!
+          id2: ID!
         }
 
         type T1 implements I {
-          id: ID!
+          id1: ID!
+          id2: ID!
           owner: Owner!
         }
 
         type T2 implements I {
-          id: ID!
+          id1: ID!
+          id2: ID!
         }
       `
     }
@@ -5876,7 +5882,8 @@ describe("named fragments", () => {
         owner {
           u {
             ... on I {
-              id
+              id1
+              id2
             }
             ...Fragment1
             ...Fragment2
@@ -5894,7 +5901,7 @@ describe("named fragments", () => {
 
       fragment Fragment2 on T2 {
         ...Fragment4
-        id
+        id1
       }
 
       fragment Fragment3 on OItf {
@@ -5902,7 +5909,8 @@ describe("named fragments", () => {
       }
 
       fragment Fragment4 on I {
-        id
+        id1
+        id2
         __typename
       }
     `);
@@ -5930,7 +5938,8 @@ describe("named fragments", () => {
           
           fragment Fragment4 on I {
             __typename
-            id
+            id1
+            id2
           }
         },
       }
@@ -5941,7 +5950,8 @@ describe("named fragments", () => {
         owner {
           u {
             ... on I {
-              id
+              id1
+              id2
             }
             ...Fragment1
             ...Fragment2
@@ -5959,7 +5969,7 @@ describe("named fragments", () => {
 
       fragment Fragment2 on T2 {
         ...Fragment4
-        id
+        id1
       }
 
       fragment Fragment3 on OItf {
@@ -5967,7 +5977,8 @@ describe("named fragments", () => {
       }
 
       fragment Fragment4 on I {
-        id
+        id1
+        id2
       }
     `);
 
@@ -5996,7 +6007,8 @@ describe("named fragments", () => {
           }
           
           fragment Fragment4 on I {
-            id
+            id1
+            id2
           }
         },
       }
@@ -6061,6 +6073,258 @@ describe("named fragments", () => {
               }
             }
           }
+        },
+      }
+    `);
+  });
+
+  test('can reuse fragments in subgraph where they only partially apply in root fetch', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t1: T
+          t2: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          v0: Int
+          v1: Int
+          v2: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          v3: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        t1 {
+          ...allTFields
+        }
+        t2 {
+          ...allTFields
+        }
+      }
+
+      fragment allTFields on T {
+        v0
+        v1
+        v2
+        v3
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t1 {
+                __typename
+                ...allTFields
+                id
+              }
+              t2 {
+                __typename
+                ...allTFields
+                id
+              }
+            }
+            
+            fragment allTFields on T {
+              v0
+              v1
+              v2
+            }
+          },
+          Parallel {
+            Flatten(path: "t1") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v3
+                  }
+                }
+              },
+            },
+            Flatten(path: "t2") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    v3
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  test('can reuse fragments in subgraph where they only partially apply in entity fetch', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          u1: U
+          u2: U
+
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          v0: Int
+          v1: Int
+        }
+      `
+    }
+
+    const subgraph3 = {
+      name: 'Subgraph3',
+      typeDefs: gql`
+        type U @key(fields: "id") {
+          id: ID!
+          v2: Int
+          v3: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    const operation = operationFromDocument(api, gql`
+      {
+        t {
+          u1 {
+            ...allUFields
+          }
+          u2 {
+            ...allUFields
+          }
+        }
+      }
+
+      fragment allUFields on U {
+        v0
+        v1
+        v2
+        v3
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  u1 {
+                    __typename
+                    ...allUFields
+                    id
+                  }
+                  u2 {
+                    __typename
+                    ...allUFields
+                    id
+                  }
+                }
+              }
+              
+              fragment allUFields on U {
+                v0
+                v1
+              }
+            },
+          },
+          Parallel {
+            Flatten(path: "t.u1") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on U {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on U {
+                    v2
+                    v3
+                  }
+                }
+              },
+            },
+            Flatten(path: "t.u2") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on U {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on U {
+                    v2
+                    v3
+                  }
+                }
+              },
+            },
+          },
         },
       }
     `);

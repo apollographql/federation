@@ -2,8 +2,8 @@ import {
   Field,
   FieldDefinition,
   Schema,
+  Supergraph,
   assert,
-  buildSupergraphSchema,
 } from "@apollo/federation-internals";
 import {
   GraphPath,
@@ -50,10 +50,10 @@ function parseSupergraph(subgraphs: number, schema: string): { supergraph: Schem
   `;
 
   try {
-    const supergraph = buildSupergraphSchema(header + schema)[0];
+    const supergraph = Supergraph.build(header + schema);
     return {
-      supergraph,
-      api: supergraph.toAPISchema(),
+      supergraph: supergraph.schema,
+      api: supergraph.apiSchema(),
       queryGraph: buildFederatedQueryGraph(supergraph, true),
     };
   } catch (e) {

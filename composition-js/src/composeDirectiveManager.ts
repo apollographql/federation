@@ -62,6 +62,8 @@ const DISALLOWED_IDENTITIES = [
   'https://specs.apollo.dev/tag',
   'https://specs.apollo.dev/inaccessible',
   'https://specs.apollo.dev/federation',
+  'https://specs.apollo.dev/authenticated',
+  'https://specs.apollo.dev/requiresScopes',
 ];
 
 export class ComposeDirectiveManager {
@@ -143,6 +145,7 @@ export class ComposeDirectiveManager {
           this.pushHint(new CompositionHint(
             HINTS.DIRECTIVE_COMPOSITION_INFO,
             `Non-composed core feature "${coreIdentity}" has major version mismatch across subgraphs`,
+            undefined,
             this.coreFeatureASTs(coreIdentity),
           ));
           raisedHint = true;
@@ -169,11 +172,14 @@ export class ComposeDirectiveManager {
     const directivesComposedByDefault = [
       sg.metadata().tagDirective(),
       sg.metadata().inaccessibleDirective(),
+      sg.metadata().authenticatedDirective(),
+      sg.metadata().requiresScopesDirective(),
     ].map(d => d.name);
     if (directivesComposedByDefault.includes(directive.name)) {
       this.pushHint(new CompositionHint(
         HINTS.DIRECTIVE_COMPOSITION_INFO,
         `Directive "@${directive.name}" should not be explicitly manually composed since it is a federation directive composed by default`,
+        directive,
         composeInstance.sourceAST ? {
           ...composeInstance.sourceAST,
           subgraph: sg.name,
@@ -390,6 +396,7 @@ export class ComposeDirectiveManager {
         this.pushHint(new CompositionHint(
           HINTS.DIRECTIVE_COMPOSITION_WARN,
           `Composed directive "@${name}" is named differently in a subgraph that doesn't export it. Consistent naming will be required to export it.`,
+          undefined,
           subgraphsWithDifferentNaming
             .map((subgraph : Subgraph): SubgraphASTNode | undefined => {
               const ast = subgraph.schema.coreFeatures?.getByIdentity(items[0].feature.url.identity)?.directive.sourceAST;

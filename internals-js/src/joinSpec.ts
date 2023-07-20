@@ -30,9 +30,27 @@ function sanitizeGraphQLName(name: string) {
   return toUpper;
 }
 
+export type JoinTypeDirectiveArguments = {
+  graph: string,
+  key?: string,
+  extension?: boolean,
+  resolvable?: boolean,
+  isInterfaceObject?: boolean
+};
+
+export type JoinFieldDirectiveArguments = {
+  graph?: string,
+  requires?: string,
+  provides?: string,
+  override?: string,
+  type?: string,
+  external?: boolean,
+  usedOverridden?: boolean,
+}
+
 export class JoinSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion) {
-    super(new FeatureUrl(joinIdentity, 'join', version));
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+    super(new FeatureUrl(joinIdentity, 'join', version), minimumFederationVersion);
   }
 
   private isV01() {
@@ -174,7 +192,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'graph')!;
   }
 
-  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string, extension?: boolean, resolvable?: boolean, isInterfaceObject?: boolean}> {
+  typeDirective(schema: Schema): DirectiveDefinition<JoinTypeDirectiveArguments> {
     return this.directive(schema, 'type')!;
   }
 
@@ -182,15 +200,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'implements');
   }
 
-  fieldDirective(schema: Schema): DirectiveDefinition<{
-    graph?: string,
-    requires?: string,
-    provides?: string,
-    override?: string,
-    type?: string,
-    external?: boolean,
-    usedOverridden?: boolean,
-  }> {
+  fieldDirective(schema: Schema): DirectiveDefinition<JoinFieldDirectiveArguments> {
     return this.directive(schema, 'field')!;
   }
 
@@ -220,6 +230,6 @@ export class JoinSpecDefinition extends FeatureDefinition {
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 3)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)));
 
 registerKnownFeature(JOIN_VERSIONS);

@@ -1,5 +1,29 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.5.1
+### Patch Changes
+
+- Updated dependencies [[`b9052fdd`](https://github.com/apollographql/federation/commit/b9052fddfcd2cae1ea750aaea27f0a0b24f4e691)]:
+  - @apollo/federation-internals@2.5.1
+
+## 2.5.0
+### Minor Changes
+
+
+- Do not run the full suite of graphQL validations on supergraphs and their extracted subgraphs by default in production environment. ([#2657](https://github.com/apollographql/federation/pull/2657))
+  
+  Running those validations on every updates of the schema takes a non-negligible amount of time (especially on large
+  schema) and mainly only serves in catching bugs early in the supergraph handling code, and in some limited cases,
+  provide slightly better messages when a corrupted supergraph is received, neither of which is worth the cost in
+  production environment.
+  
+  A new `validateSupergraph` option is also introduced in the gateway configuration to force this behaviour.
+
+### Patch Changes
+
+- Updated dependencies [[`fe1e3d7b`](https://github.com/apollographql/federation/commit/fe1e3d7b13ed76ac81e8fd6d911f4497995c59aa), [`6b18af50`](https://github.com/apollographql/federation/commit/6b18af50910872049938386b82ad40703d934f68), [`9396c0d6`](https://github.com/apollographql/federation/commit/9396c0d686092c06fa89f8512378610bfe4154cc), [`2b5796a9`](https://github.com/apollographql/federation/commit/2b5796a962b3478961f9486c28f5cfd161fafbb0), [`4f3c3b9e`](https://github.com/apollographql/federation/commit/4f3c3b9eedb5dacb6dee29aa21bb74cdd1244732)]:
+  - @apollo/federation-internals@2.5.0
+
 ## 2.4.10
 ### Patch Changes
 

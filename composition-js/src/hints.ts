@@ -1,4 +1,4 @@
-import { SubgraphASTNode } from "@apollo/federation-internals";
+import { NamedSchemaElement, SubgraphASTNode } from "@apollo/federation-internals";
 import { printLocation } from "graphql";
 
 export enum HintLevel {
@@ -30,7 +30,7 @@ function makeCodeDefinition({
     level: { value: level, name: HintLevel[level]},
     description,
   });
-};
+}
 
 const INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE = makeCodeDefinition({
   code: 'INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE',
@@ -231,15 +231,18 @@ export const HINTS = {
 
 export class CompositionHint {
   public readonly nodes?: readonly SubgraphASTNode[];
+  public readonly coordinate?: string;
 
   constructor(
     readonly definition: HintCodeDefinition,
     readonly message: string,
+    readonly element: NamedSchemaElement<any, any, any> | undefined,
     nodes?: readonly SubgraphASTNode[] | SubgraphASTNode
   ) {
     this.nodes = nodes
       ? (Array.isArray(nodes) ? (nodes.length === 0 ? undefined : nodes) : [nodes])
       : undefined;
+    this.coordinate = element?.coordinate;
   }
 
   toString(): string {

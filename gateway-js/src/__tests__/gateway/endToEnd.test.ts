@@ -6,6 +6,7 @@ import { startSubgraphsAndGateway, Services } from './testUtils'
 import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import { QueryPlan } from '@apollo/query-planner';
 import { createHash } from '@apollo/utils.createhash';
+import { ApolloGateway, LocalCompose } from '@apollo/gateway';
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');
@@ -482,5 +483,44 @@ describe('end-to-end features', () => {
         ],
       }
     `);
+  });
+
+  it('explicitly errors on for: SECURITY imports', async () => {
+    const subgraphA = {
+      name: 'A',
+      url: 'https://A',
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.5"
+            import: ["@authenticated", "@requiresScopes"]
+          )
+
+        type Query {
+          a: Int @authenticated
+          b: Int @requiresScopes(scopes: ["read:foo"])
+        }
+      `,
+    };
+
+    const gateway = new ApolloGateway({
+      supergraphSdl: new LocalCompose({
+        localServiceList: [subgraphA],
+      }),
+    });
+
+    try {
+      await gateway.load();
+    } catch (e) {
+      expect(e.message).toMatch(
+        'feature https://specs.apollo.dev/authenticated/v0.1 is for: SECURITY but is unsupported',
+      );
+      expect(e.message).toMatch(
+        'feature https://specs.apollo.dev/requiresScopes/v0.1 is for: SECURITY but is unsupported',
+      );
+      return;
+    }
+    // If we reach here, we didn't hit the catch block above like we'd expected
+    throw new Error('Expected an error to be thrown');
   });
 });

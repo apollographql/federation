@@ -3,7 +3,7 @@ import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
 import gql from 'graphql-tag';
 import './matchers';
-import { FEDERATION2_LINK_WITH_FULL_IMPORTS } from '@apollo/federation-internals';
+import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS } from '@apollo/federation-internals';
 
 describe('printSubgraphSchema', () => {
   it('prints a subgraph correctly', () => {
@@ -15,7 +15,7 @@ describe('printSubgraphSchema', () => {
       }
 
       extend schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
 
       directive @stream on FIELD
 
@@ -110,7 +110,7 @@ describe('printSubgraphSchema', () => {
     const schema = buildSubgraphSchema(fixtures[5].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchString(`
       extend schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
 
       directive @stream on FIELD
 

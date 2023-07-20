@@ -1,13 +1,13 @@
 import { assertCompositionSuccess, composeAsFed2Subgraphs } from "./testHelper";
 import gql from 'graphql-tag';
-import { asFed2SubgraphDocument, buildSubgraph, buildSupergraphSchema, extractSubgraphsFromSupergraph, ServiceDefinition } from "@apollo/federation-internals";
+import { asFed2SubgraphDocument, buildSubgraph, ServiceDefinition, Supergraph } from "@apollo/federation-internals";
 import './matchers';
 
 function composeAndTestReversibility(subgraphs: ServiceDefinition[]) {
   const result = composeAsFed2Subgraphs(subgraphs);
   assertCompositionSuccess(result);
 
-  const extracted = extractSubgraphsFromSupergraph(buildSupergraphSchema(result.supergraphSdl)[0]);
+  const extracted = Supergraph.build(result.supergraphSdl).subgraphs();
   for (const expectedSubgraph of subgraphs) {
     const actual = extracted.get(expectedSubgraph.name)!;
     // Note: the subgraph extracted from the supergraph are created with their `@link` on the schema definition, not as an extension (no
