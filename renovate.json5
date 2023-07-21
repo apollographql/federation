@@ -141,5 +141,10 @@
       "matchPackagePatterns": ["^@graphql-codegen"],
       "allowedVersions": "3.x",
     },
+    // @typescript-eslint/*@6 drops support for node 14
+    {
+      "matchPackageNames": ["@typescript-eslint/eslint-plugin"],
+      "allowedVersions": "5.x",
+    }
   ]
 }
