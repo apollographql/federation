@@ -50,10 +50,10 @@ import {
   LocalCompose,
 } from './supergraphManagers';
 import {
-  buildSupergraphSchema,
   operationFromDocument,
   Schema,
   ServiceDefinition,
+  Supergraph,
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
 import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
@@ -507,7 +507,7 @@ export class ApolloGateway implements GatewayInterface {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const { supergraphSchema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
+    const { supergraph, supergraphSdl } = this.createSchemaFromSupergraphSdl(
       result.supergraphSdl,
     );
 
@@ -521,14 +521,14 @@ export class ApolloGateway implements GatewayInterface {
 
     this.compositionId = result.id;
     this.supergraphSdl = supergraphSdl;
-    this.supergraphSchema = supergraphSchema.toGraphQLJSSchema();
+    this.supergraphSchema = supergraph.schema.toGraphQLJSSchema();
 
     if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.updateWithSchemaAndNotify(supergraphSchema, supergraphSdl);
+      this.updateWithSchemaAndNotify(supergraph, supergraphSdl);
 
       if (this.experimental_didUpdateSupergraph) {
         this.experimental_didUpdateSupergraph(
@@ -553,15 +553,15 @@ export class ApolloGateway implements GatewayInterface {
   //       ensure we do not forget to update some of that state, and to avoid scenarios where
   //       concurrently executing code sees partially-updated state.
   private updateWithSchemaAndNotify(
-    coreSchema: Schema,
-    coreSupergraphSdl: string,
+    supergraph: Supergraph,
+    supergraphSdl: string,
     // Once we remove the deprecated onSchemaChange() method, we can remove this.
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     this.queryPlanStore.clear();
-    this.apiSchema = coreSchema.toAPISchema();
+    this.apiSchema = supergraph.apiSchema();
     this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
-    this.queryPlanner = new QueryPlanner(coreSchema, this.config.queryPlannerConfig);
+    this.queryPlanner = new QueryPlanner(supergraph, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema
     if (!legacyDontNotifyOnSchemaChangeListeners) {
@@ -583,7 +583,7 @@ export class ApolloGateway implements GatewayInterface {
       try {
         listener({
           apiSchema: this.schema!,
-          coreSupergraphSdl,
+          coreSupergraphSdl: supergraphSdl,
         });
       } catch (e) {
         this.logger.error(
@@ -629,16 +629,17 @@ export class ApolloGateway implements GatewayInterface {
 
   private serviceListFromSupergraphSdl(
     supergraphSdl: string,
-  ): Omit<ServiceDefinition, 'typeDefs'>[] {
-    return buildSupergraphSchema(supergraphSdl)[1];
+  ): readonly Omit<ServiceDefinition, 'typeDefs'>[] {
+    return Supergraph.build(supergraphSdl).subgraphsMetadata();
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
-    const [schema, serviceList] = buildSupergraphSchema(supergraphSdl);
-    this.createServices(serviceList);
+    const validateSupergraph = this.config.validateSupergraph ?? process.env.NODE_ENV !== 'production';
+    const supergraph = Supergraph.build(supergraphSdl, { validateSupergraph });
+    this.createServices(supergraph.subgraphsMetadata());
 
     return {
-      supergraphSchema: schema,
+      supergraph,
       supergraphSdl,
     };
   }
@@ -704,7 +705,7 @@ export class ApolloGateway implements GatewayInterface {
         });
   }
 
-  private createServices(services: ServiceEndpointDefinition[]) {
+  private createServices(services: readonly ServiceEndpointDefinition[]) {
     for (const serviceDef of services) {
       this.getOrCreateDataSource(serviceDef);
     }

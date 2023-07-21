@@ -1,5 +1,5 @@
 import { composeServices } from '@apollo/composition';
-import { asFed2SubgraphDocument, assert, buildSupergraphSchema, isDefined, operationFromDocument, Schema } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, assert, isDefined, operationFromDocument, Schema, Supergraph } from '@apollo/federation-internals';
 import fs from 'fs';
 import gql from 'graphql-tag';
 import path from 'path';
@@ -150,7 +150,7 @@ export function generateTestSupergraph(v: string) {
 
 type TestSupergraph = {
   version: string,
-  supergraph: Schema,
+  supergraph: Supergraph,
   api: Schema,
 }
 
@@ -160,11 +160,11 @@ function listTestSupergraphs(): TestSupergraph[] {
       return undefined;
     }
     const version = file.slice('testSupergraph_'.length, file.length - '.graphql'.length);
-    const supergraph = buildSupergraphSchema(fs.readFileSync(path.join(testSupergraphDir, file), 'utf8'))[0];
+    const supergraph = Supergraph.build(fs.readFileSync(path.join(testSupergraphDir, file), 'utf8'));
     return {
       version,
       supergraph,
-      api: supergraph.toAPISchema(),
+      api: supergraph.apiSchema(),
     };
   }).filter(isDefined);
 }

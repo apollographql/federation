@@ -17,7 +17,7 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { composeServices } from '@apollo/composition';
-import { buildSchema, Operation, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
+import { buildSchema, Operation, operationFromDocument, ServiceDefinition, Supergraph } from '@apollo/federation-internals';
 import { GatewayExecutionResult, GatewayGraphQLRequest } from '@apollo/server-gateway-interface';
 
 const prettyFormat = require('pretty-format');
@@ -93,7 +93,7 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlanner = new QueryPlanner(compositionResult.schema);
+  const queryPlanner = new QueryPlanner(new Supergraph(compositionResult.schema));
   const schema = buildSchema(compositionResult.supergraphSdl);
 
   const serviceMap = Object.fromEntries(

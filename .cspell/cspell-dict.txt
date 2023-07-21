@@ -221,6 +221,7 @@ subraph
 subraphs
 Substrat
 sugraph
+supergraph
 svitejs
 Sylvain
 sylvain

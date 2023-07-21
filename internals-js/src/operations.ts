@@ -708,7 +708,7 @@ export type RootOperationPath = {
   path: OperationPath
 }
 
-// Computes for every fragment, which other fragments use it (so the reverse of it's dependencies, the other fragment it uses). 
+// Computes for every fragment, which other fragments use it (so the reverse of it's dependencies, the other fragment it uses).
 function computeFragmentsDependents(fragments: NamedFragments): SetMultiMap<string, string> {
   const reverseDeps = new SetMultiMap<string, string>();
   for (const fragment of fragments.definitions()) {
@@ -1406,7 +1406,7 @@ export class NamedFragments {
       const rebasedSelection = fragment.selectionSet.rebaseOn({ parentType: rebasedType, fragments: newFragments, errorIfCannotRebase: false });
       return this.selectionSetIsWorthUsing(rebasedSelection)
         ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
-        : undefined;;
+        : undefined;
     });
   }
 
@@ -1505,7 +1505,7 @@ class DeferNormalizer {
 }
 
 export enum ContainsResult {
-  // Note: enum values are numbers in the end, and 0 means false in JS, so we should keep `NOT_CONTAINED` first 
+  // Note: enum values are numbers in the end, and 0 means false in JS, so we should keep `NOT_CONTAINED` first
   // so that using the result of `contains` as a boolean works.
   NOT_CONTAINED,
   STRICTLY_CONTAINED,
@@ -1652,7 +1652,7 @@ export class SelectionSet {
   }
 
   /**
-   * Applies some normalization rules to this selection set in the context of the provided `parentType`. 
+   * Applies some normalization rules to this selection set in the context of the provided `parentType`.
    *
    * Normalization mostly removes unecessary/redundant inline fragments, so that for instance, with
    * schema:
@@ -1856,8 +1856,12 @@ export class SelectionSet {
     }
 
     let isEqual = true;
+    let didIgnoreTypename = false;
     for (const [key, thatSelection] of that._keyedSelections) {
       if (key === typenameFieldName && ignoreMissingTypename) {
+        if (!this._keyedSelections.has(typenameFieldName)) {
+          didIgnoreTypename = true;
+        }
         continue;
       }
 
@@ -1869,7 +1873,7 @@ export class SelectionSet {
       isEqual &&= selectionResult === ContainsResult.EQUAL;
     }
 
-    return isEqual && that._selections.length === this._selections.length
+    return isEqual && that._selections.length === (this._selections.length + (didIgnoreTypename ? 1 : 0))
       ? ContainsResult.EQUAL
       : ContainsResult.STRICTLY_CONTAINED;
   }
@@ -2279,7 +2283,7 @@ function makeSelectionSet(parentType: CompositeType, keyedUpdates: MultiMap<stri
 }
 
 /**
- * A simple wrapper over a `SelectionSetUpdates` that allows to conveniently build a selection set, then add some more updates and build it again, etc... 
+ * A simple wrapper over a `SelectionSetUpdates` that allows to conveniently build a selection set, then add some more updates and build it again, etc...
  */
 export class MutableSelectionSet<TMemoizedValue extends { [key: string]: any } = {}> {
   private computed: SelectionSet | undefined;
@@ -2524,7 +2528,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     // have been "normalized away" and so we want for this very call to be called on the fragment whose type _is_ the fragment condition (at
     // which point, this `maybeApplyingDirectlyAtType` method will apply.
     // Also note that this is because we have this restriction that calling `expandedSelectionSetAtType` is ok.
-    let candidates = fragments.maybeApplyingDirectlyAtType(parentType);
+    const candidates = fragments.maybeApplyingDirectlyAtType(parentType);
     if (candidates.length === 0) {
       return subSelection;
     }
@@ -2535,7 +2539,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
     // applies to a subset of `subSelection`.
     const applyingFragments: { fragment: NamedFragmentDefinition, atType: FragmentRestrictionAtType }[] = [];
     for (const candidate of candidates) {
-      let atType = candidate.expandedSelectionSetAtType(parentType);
+      const atType = candidate.expandedSelectionSetAtType(parentType);
       // It's possible that while the fragment technically applies at `parentType`, it's "rebasing" on
       // `parentType` is empty, or contains only `__typename`. For instance, suppose we have
       // a union `U = A | B | C`, and then a fragment:
@@ -2646,7 +2650,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
     let notCoveredByFragments = subSelection;
     const optimized = new SelectionSetUpdates();
-    for (const { fragment, atType} of filteredApplyingFragments) {
+    for (const { fragment, atType } of filteredApplyingFragments) {
       if (!validator.checkCanReuseFragmentAndTrackIt(atType)) {
         continue;
       }
@@ -2751,7 +2755,7 @@ class FieldsConflictValidator {
         // It's unlikely that we've seen the same `field.element` as we don't particularly "intern" `Field` object (so even if the exact same field
         // is used in 2 parts of a selection set, it will probably be a different `Field` object), so the `get` below will probably mostly return `undefined`,
         // but it wouldn't be incorrect to re-use a `Field` object multiple side, so no reason not to handle that correctly.
-        let forField = atResponseName.get(field.element) ?? [];
+        const forField = atResponseName.get(field.element) ?? [];
         atResponseName.set(field.element, forField.concat(field.selectionSet.fieldsInSet()));
       } else {
         // Note that whether a `FieldSelection` has `selectionSet` or not is entirely determined by whether the field type is a composite type
@@ -2946,7 +2950,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
   }
 
   /**
-   * Returns a field selection "equivalent" to the one represented by this object, but such that its parent type 
+   * Returns a field selection "equivalent" to the one represented by this object, but such that its parent type
    * is the one provided as argument.
    *
    * Obviously, this operation will only succeed if this selection (both the field itself and its subselections)
@@ -3125,7 +3129,7 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
       );
     }
   }
-  
+
   filterRecursiveDepthFirst(predicate: (selection: Selection) => boolean): FragmentSelection | undefined {
     // Note that we essentially expand all fragments as part of this.
     const updatedSelectionSet = this.selectionSet.filterRecursiveDepthFirst(predicate);
@@ -3135,7 +3139,7 @@ export abstract class FragmentSelection extends AbstractSelection<FragmentElemen
 
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
- 
+
   hasDefer(): boolean {
     return this.element.hasDefer() || this.selectionSet.hasDefer();
   }

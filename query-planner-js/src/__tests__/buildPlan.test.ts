@@ -1,5 +1,5 @@
 import { QueryPlanner } from '@apollo/query-planner';
-import { assert, buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
+import { assert, operationFromDocument, ServiceDefinition, Supergraph } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
@@ -302,7 +302,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         doSomething {
@@ -432,7 +432,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -626,7 +626,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -856,7 +856,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -1074,7 +1074,7 @@ describe('@provides', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -1752,7 +1752,7 @@ describe('@requires', () => {
 
     const [api, queryPlanner] = composeAndCreatePlanner(...subgraphs);
     // Ensures that if we only ask `outer`, we get everything needed in between.
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       {
         t {
           v${totalRequires}
@@ -1760,7 +1760,7 @@ describe('@requires', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    const plan = queryPlanner.buildQueryPlan(operation);
     const dependentFetches: string[] = [];
     for (let i = 2; i <= totalRequires; i++) {
       dependentFetches.push(`${i === 2 ? '' : '          '}Flatten(path: "t") {
@@ -3124,8 +3124,8 @@ describe('Field covariance and type-explosion', () => {
       }
     `;
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -3277,8 +3277,8 @@ describe('handles non-intersecting fragment conditions', () => {
       }
     `
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -3581,8 +3581,8 @@ describe('Fed1 supergraph handling', () => {
       }
     `;
 
-    const supergraph = buildSchema(supergraphSdl);
-    const api = supergraph.toAPISchema();
+    const supergraph = Supergraph.build(supergraphSdl);
+    const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
     const operation = operationFromDocument(api, gql`
@@ -4010,7 +4010,7 @@ describe('Named fragments preservation', () => {
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       {
         t {
           ...OnT
@@ -4073,7 +4073,7 @@ describe('Named fragments preservation', () => {
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       query test($if: Boolean) {
         t {
           id
@@ -4122,7 +4122,7 @@ describe('Named fragments preservation', () => {
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(api, gql`
       query test($test1: Boolean, $test2: Boolean) {
         t {
           id
@@ -4582,15 +4582,15 @@ describe('mutations', () => {
       `
     }
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
       mutation {
         m2
         m1
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {

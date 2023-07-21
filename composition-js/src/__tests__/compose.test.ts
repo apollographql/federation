@@ -1,16 +1,19 @@
 import {
   asFed2SubgraphDocument,
   assert,
+  AuthenticatedSpecDefinition,
   buildSubgraph,
   defaultPrintOptions,
-  FEDERATION2_LINK_WITH_FULL_IMPORTS,
+  FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
   isObjectType,
   ObjectType,
   orderPrintedDefinitions,
+  printDirectiveDefinition,
   printSchema,
   printType,
+  RequiresScopesSpecDefinition,
 } from '@apollo/federation-internals';
 import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
@@ -482,7 +485,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -499,7 +502,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -554,7 +557,7 @@ describe('composition', () => {
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -573,7 +576,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -4007,5 +4010,620 @@ describe('composition', () => {
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
     });
+  });
+
+  describe('@authenticated', () => {
+    it('comprehensive locations', () => {
+      const onObject = {
+        typeDefs: gql`
+          type Query {
+            object: AuthenticatedObject!
+          }
+
+          type AuthenticatedObject @authenticated {
+            field: Int!
+          }
+        `,
+        name: 'on-object',
+      };
+
+      const onInterface = {
+        typeDefs: gql`
+          type Query {
+            interface: AuthenticatedInterface!
+          }
+
+          interface AuthenticatedInterface @authenticated {
+            field: Int!
+          }
+        `,
+        name: 'on-interface',
+      };
+
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type AuthenticatedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            @authenticated
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
+      const onScalar = {
+        typeDefs: gql`
+          scalar AuthenticatedScalar @authenticated
+
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply @authenticated to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface AuthenticatedInterfaceObject @key(fields: "id") {
+            id: String!
+          }
+        `,
+        name: 'on-scalar',
+      };
+
+      const onEnum = {
+        typeDefs: gql`
+          enum AuthenticatedEnum @authenticated {
+            A
+            B
+          }
+        `,
+        name: 'on-enum',
+      };
+
+      const onRootField = {
+        typeDefs: gql`
+          type Query {
+            authenticatedRootField: Int! @authenticated
+          }
+        `,
+        name: 'on-root-field',
+      };
+
+      const onObjectField = {
+        typeDefs: gql`
+          type Query {
+            objectWithField: ObjectWithAuthenticatedField!
+          }
+
+          type ObjectWithAuthenticatedField {
+            field: Int! @authenticated
+          }
+        `,
+        name: 'on-object-field',
+      };
+
+      const onEntityField = {
+        typeDefs: gql`
+          type Query {
+            entityWithField: EntityWithAuthenticatedField!
+          }
+
+          type EntityWithAuthenticatedField @key(fields: "id") {
+            id: ID!
+            field: Int! @authenticated
+          }
+        `,
+        name: 'on-entity-field',
+      };
+
+      const result = composeAsFed2Subgraphs([
+        onObject,
+        onInterface,
+        onInterfaceObject,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
+      ]);
+      assertCompositionSuccess(result);
+
+      const authenticatedElements = [
+        "AuthenticatedObject",
+        "AuthenticatedInterface",
+        "AuthenticatedInterfaceObject",
+        "AuthenticatedScalar",
+        "AuthenticatedEnum",
+        "Query.authenticatedRootField",
+        "ObjectWithAuthenticatedField.field",
+        "EntityWithAuthenticatedField.field",
+      ];
+
+      for (const element of authenticatedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective("authenticated")
+        ).toBeTruthy();
+      }
+    });
+
+    it('@authenticated has correct definition in the supergraph', () => {
+      const a = {
+        typeDefs: gql`
+          type Query {
+            x: Int @authenticated
+          }
+        `,
+        name: 'a',
+      };
+
+      const result = composeAsFed2Subgraphs([a]);
+      assertCompositionSuccess(result);
+      expect(result.schema.coreFeatures?.getByIdentity(AuthenticatedSpecDefinition.identity)?.url.toString()).toBe(
+        "https://specs.apollo.dev/authenticated/v0.1"
+      );
+      expect(printDirectiveDefinition(result.schema.directive('authenticated')!)).toMatchString(`
+        directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      `);
+    });
+
+    it('applies @authenticated on types as long as it is used once', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+          type A @key(fields: "id") @authenticated {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      // checking composition in either order (not sure if this is necessary but
+      // it's not hurting anything)
+      const result1 = composeAsFed2Subgraphs([a1, a2]);
+      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      assertCompositionSuccess(result1);
+      assertCompositionSuccess(result2);
+
+      expect(result1.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+    });
+
+    it('validation error on incompatible directive definition', () => {
+      const invalidDefinition = {
+        typeDefs: gql`
+          directive @authenticated on ENUM_VALUE
+
+          type Query {
+            a: Int
+          }
+
+          enum E {
+            A @authenticated
+          }
+        `,
+        name: 'invalidDefinition',
+      };
+      const result = composeAsFed2Subgraphs([invalidDefinition]);
+      expect(errors(result)[0]).toEqual([
+        "DIRECTIVE_DEFINITION_INVALID",
+        "[invalidDefinition] Invalid definition for directive \"@authenticated\": \"@authenticated\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
+      ]);
+    });
+
+    it('validation error on invalid application', () => {
+      const invalidApplication = {
+        typeDefs: gql`
+          type Query {
+            a: Int
+          }
+
+          enum E {
+            A @authenticated
+          }
+        `,
+        name: 'invalidApplication',
+      };
+      const result = composeAsFed2Subgraphs([invalidApplication]);
+      expect(errors(result)[0]).toEqual([
+        "INVALID_GRAPHQL",
+        "[invalidApplication] Directive \"@authenticated\" may not be used on ENUM_VALUE.",
+      ]);
+    });
+  });
+
+  describe('@requiresScopes', () => {
+    it('comprehensive locations', () => {
+      const onObject = {
+        typeDefs: gql`
+          type Query {
+            object: ScopedObject!
+          }
+
+          type ScopedObject @requiresScopes(scopes: ["object"]) {
+            field: Int!
+          }
+        `,
+        name: 'on-object',
+      };
+
+      const onInterface = {
+        typeDefs: gql`
+          type Query {
+            interface: ScopedInterface!
+          }
+
+          interface ScopedInterface @requiresScopes(scopes: ["interface"]) {
+            field: Int!
+          }
+        `,
+        name: 'on-interface',
+      };
+
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type ScopedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            @requiresScopes(scopes: ["interfaceObject"])
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
+      const onScalar = {
+        typeDefs: gql`
+          scalar ScopedScalar @requiresScopes(scopes: ["scalar"])
+
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply @requiresScopes to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface ScopedInterfaceObject @key(fields: "id") {
+            id: String!
+          }
+        `,
+        name: 'on-scalar',
+      };
+
+      const onEnum = {
+        typeDefs: gql`
+          enum ScopedEnum @requiresScopes(scopes: ["enum"]) {
+            A
+            B
+          }
+        `,
+        name: 'on-enum',
+      };
+
+      const onRootField = {
+        typeDefs: gql`
+          type Query {
+            scopedRootField: Int! @requiresScopes(scopes: ["rootField"])
+          }
+        `,
+        name: 'on-root-field',
+      };
+
+      const onObjectField = {
+        typeDefs: gql`
+          type Query {
+            objectWithField: ObjectWithScopedField!
+          }
+
+          type ObjectWithScopedField {
+            field: Int! @requiresScopes(scopes: ["objectField"])
+          }
+        `,
+        name: 'on-object-field',
+      };
+
+      const onEntityField = {
+        typeDefs: gql`
+          type Query {
+            entityWithField: EntityWithScopedField!
+          }
+
+          type EntityWithScopedField @key(fields: "id") {
+            id: ID!
+            field: Int! @requiresScopes(scopes: ["entityField"])
+          }
+        `,
+        name: 'on-entity-field',
+      };
+
+      const result = composeAsFed2Subgraphs([
+        onObject,
+        onInterface,
+        onInterfaceObject,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
+      ]);
+      assertCompositionSuccess(result);
+
+      const scopedElements = [
+        "ScopedObject",
+        "ScopedInterface",
+        "ScopedInterfaceObject",
+        "ScopedScalar",
+        "ScopedEnum",
+        "Query.scopedRootField",
+        "ObjectWithScopedField.field",
+        "EntityWithScopedField.field",
+      ];
+
+      for (const element of scopedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective("requiresScopes")
+        ).toBeTruthy();
+      }
+    });
+
+    it('applies @requiresScopes on types as long as it is used once', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+          type A @key(fields: "id") @requiresScopes(scopes: ["a"]) {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      // checking composition in either order (not sure if this is necessary but
+      // it's not hurting anything)
+      const result1 = composeAsFed2Subgraphs([a1, a2]);
+      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      assertCompositionSuccess(result1);
+      assertCompositionSuccess(result2);
+
+      expect(result1.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
+    });
+
+    it('merges @requiresScopes lists (simple union)', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @requiresScopes(scopes: ["a"]) @key(fields: "id") {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @requiresScopes(scopes: ["b"]) @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      const result = composeAsFed2Subgraphs([a1, a2]);
+      assertCompositionSuccess(result);
+      expect(
+        result.schema.type('A')
+          ?.appliedDirectivesOf('requiresScopes')
+          ?.[0]?.arguments()?.scopes).toStrictEqual(['a', 'b']
+      );
+    });
+
+    it('merges @requiresScopes lists (deduplicates intersecting scopes)', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @requiresScopes(scopes: ["a", "b"]) @key(fields: "id") {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @requiresScopes(scopes: ["b", "c"]) @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      const result = composeAsFed2Subgraphs([a1, a2]);
+      assertCompositionSuccess(result);
+      expect(
+        result.schema.type('A')
+          ?.appliedDirectivesOf('requiresScopes')
+          ?.[0]?.arguments()?.scopes).toStrictEqual(['a', 'b', 'c']
+      );
+    });
+
+    it('@requiresScopes has correct definition in the supergraph', () => {
+      const a = {
+        typeDefs: gql`
+          type Query {
+            x: Int @requiresScopes(scopes: ["a", "b"])
+          }
+        `,
+        name: 'a',
+      };
+
+      const result = composeAsFed2Subgraphs([a]);
+      assertCompositionSuccess(result);
+      expect(result.schema.coreFeatures?.getByIdentity(RequiresScopesSpecDefinition.identity)?.url.toString()).toBe(
+        "https://specs.apollo.dev/requiresScopes/v0.1"
+      );
+      expect(printDirectiveDefinition(result.schema.directive('requiresScopes')!)).toMatchString(`
+        directive @requiresScopes(scopes: [requiresScopes__Scope!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      `);
+    });
+
+    it('composes with existing `Scope` scalar definitions in subgraphs', () => {
+      const a = {
+        typeDefs: gql`
+          scalar Scope
+          type Query {
+            x: Int @requiresScopes(scopes: ["a", "b"])
+          }
+        `,
+        name: 'a',
+      };
+
+      const b = {
+        typeDefs: gql`
+          scalar Scope @specifiedBy(url: "not-the-apollo-spec")
+          type Query {
+            y: Int @requiresScopes(scopes: ["a", "b"])
+          }
+        `,
+        name: 'b',
+      };
+
+      const result = composeAsFed2Subgraphs([a, b]);
+      assertCompositionSuccess(result);
+    });
+
+    describe('validation errors', () => {
+      it('on incompatible directive location', () => {
+        const invalidDefinition = {
+          typeDefs: gql`
+            scalar federation__Scope
+            directive @requiresScopes(scopes: [federation__Scope!]!) on ENUM_VALUE
+
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A @requiresScopes(scopes: [])
+            }
+          `,
+          name: 'invalidDefinition',
+        };
+        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        expect(errors(result)[0]).toEqual([
+          "DIRECTIVE_DEFINITION_INVALID",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": \"@requiresScopes\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
+        ]);
+      });
+
+      it('on incompatible args', () => {
+        const invalidDefinition = {
+          typeDefs: gql`
+            scalar federation__Scope
+            directive @requiresScopes(scopes: [federation__Scope]!) on FIELD_DEFINITION
+
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A @requiresScopes(scopes: [])
+            }
+          `,
+          name: 'invalidDefinition',
+        };
+        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        expect(errors(result)[0]).toEqual([
+          "DIRECTIVE_DEFINITION_INVALID",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[federation__Scope!]!\" but found type \"[federation__Scope]!\"",
+        ]);
+      });
+
+      it('on invalid application', () => {
+        const invalidApplication = {
+          typeDefs: gql`
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A @requiresScopes(scopes: [])
+            }
+          `,
+          name: 'invalidApplication',
+        };
+        const result = composeAsFed2Subgraphs([invalidApplication]);
+        expect(errors(result)[0]).toEqual([
+          "INVALID_GRAPHQL",
+          "[invalidApplication] Directive \"@requiresScopes\" may not be used on ENUM_VALUE.",
+        ]);
+      });
+    });
+  });
+
+  it('existing @authenticated directive with fed 1', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @authenticated(scope: [String!]) repeatable on FIELD_DEFINITION
+
+        extend type Foo @key(fields: "id") {
+          id: ID!
+          protected: String @authenticated(scope: ["foo"])
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          foo: Foo
+        }
+
+        type Foo @key(fields: "id") {
+          id: ID!
+          name: String!
+        }
+        `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([]);
+    const { schema } = result;
+    expect(schema).toBeDefined();
+    assert(schema, 'schema does not exist');
+    const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
+    expect(authenticatedDirectiveExists).toBeUndefined();
   });
 });

@@ -1,5 +1,48 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.5.1
+### Patch Changes
+
+- Updated dependencies [[`b9052fdd`](https://github.com/apollographql/federation/commit/b9052fddfcd2cae1ea750aaea27f0a0b24f4e691)]:
+  - @apollo/federation-internals@2.5.1
+
+## 2.5.0
+### Minor Changes
+
+
+- Introduce the new `@authenticated` directive for composition ([#2644](https://github.com/apollographql/federation/pull/2644))
+  
+  > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@authenticated` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+  
+  Users may now compose `@authenticated` applications from their subgraphs into a supergraph. This addition will support a future version of Apollo Router that enables authenticated access to specific types and fields via directive applications.
+  
+  The directive is defined as follows:
+  
+  ```graphql
+  directive @authenticated on
+    | FIELD_DEFINITION
+    | OBJECT
+    | INTERFACE
+    | SCALAR
+    | ENUM
+  ```
+  
+  In order to compose your `@authenticated` usages, you must update your subgraph's federation spec version to v2.5 and add the `@authenticated` import to your existing imports like so:
+  ```graphql
+  @link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@authenticated"])
+  ```
+
+### Patch Changes
+
+- Updated dependencies [[`fe1e3d7b`](https://github.com/apollographql/federation/commit/fe1e3d7b13ed76ac81e8fd6d911f4497995c59aa), [`6b18af50`](https://github.com/apollographql/federation/commit/6b18af50910872049938386b82ad40703d934f68), [`9396c0d6`](https://github.com/apollographql/federation/commit/9396c0d686092c06fa89f8512378610bfe4154cc), [`2b5796a9`](https://github.com/apollographql/federation/commit/2b5796a962b3478961f9486c28f5cfd161fafbb0), [`4f3c3b9e`](https://github.com/apollographql/federation/commit/4f3c3b9eedb5dacb6dee29aa21bb74cdd1244732)]:
+  - @apollo/federation-internals@2.5.0
+
+## 2.4.10
+### Patch Changes
+
+- Updated dependencies [[`b6be9f96`](https://github.com/apollographql/federation/commit/b6be9f9650a69f6214d806d66b198729560da3dc)]:
+  - @apollo/federation-internals@2.4.10
+
 ## 2.4.9
 ### Patch Changes
 

@@ -1,7 +1,7 @@
 import { assert, coreFeatureDefinitionIfKnown, DirectiveCompositionSpecification, DirectiveDefinition, FeatureUrl, isDefined, mapValues, Subgraphs } from "@apollo/federation-internals";
 
 export type CoreDirectiveInSubgraphs = {
-  feature: FeatureUrl,
+  url: FeatureUrl,
   name: string,
   definitionsPerSubgraph: Map<string, DirectiveDefinition>,
   compositionSpec: DirectiveCompositionSpecification,
@@ -37,12 +37,12 @@ export function collectCoreDirectivesToCompose(
       let forVersion = forFeature.get(major);
       if (forVersion) {
         // Update the url if we've found a more recent minor for that major
-        if (url.version.compareTo(forVersion.feature.version) > 0) {
-          forVersion.feature = url;
+        if (url.version.compareTo(forVersion.url.version) > 0) {
+          forVersion.url = url;
         }
       } else {
         forVersion = {
-          feature: url,
+          url,
           name: source.nameInFeature,
           definitionsPerSubgraph: new Map(),
         }
@@ -55,7 +55,7 @@ export function collectCoreDirectivesToCompose(
   return mapValues(directivesPerFeatureAndVersion)
     .flatMap((perVersion) => mapValues(perVersion))
     .map((d) => {
-      const featureDefinition = coreFeatureDefinitionIfKnown(d.feature);
+      const featureDefinition = coreFeatureDefinitionIfKnown(d.url);
       const compositionSpec = featureDefinition?.compositionSpecification(d.name);
       if (!compositionSpec) {
         return undefined;

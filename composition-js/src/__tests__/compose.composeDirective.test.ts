@@ -261,7 +261,7 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@tag', '@inaccessible',
+    '@tag', '@inaccessible', '@authenticated', '@requiresScopes',
   ])('federation directives that result in a hint', (directive) => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
@@ -282,13 +282,13 @@ describe('composing custom core directives', () => {
   });
 
   it.each([
-    '@tag', '@inaccessible',
+    '@tag', '@inaccessible', '@authenticated', '@requiresScopes',
   ])('federation directives (with rename) that result in a hint', (directive) => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
       extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.1", import: [{ name: "@key" }, { name: "@composeDirective" } , { name: "${directive}", as: "@apolloDirective" }])
+        @link(url: "https://specs.apollo.dev/federation/v2.5", import: [{ name: "@key" }, { name: "@composeDirective" } , { name: "${directive}", as: "@apolloDirective" }])
         @link(url: "https://specs.apollo.dev/link/v1.0")
         @composeDirective(name: "@apolloDirective")
 
