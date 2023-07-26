@@ -57,6 +57,7 @@ import {
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
 import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
+import { assert } from './utilities/assert';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -137,6 +138,7 @@ export class ApolloGateway implements GatewayInterface {
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
   private supergraphSchema?: GraphQLSchema;
+  private subgraphs?: readonly { name: string; url: string }[];
   private compositionId?: string;
   private state: GatewayState;
   private _supergraphManager?: SupergraphManager;
@@ -190,8 +192,8 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
-    if(this.config.queryPlannerConfig?.cache){
-      return this.config.queryPlannerConfig?.cache
+    if (this.config.queryPlannerConfig?.cache) {
+      return this.config.queryPlannerConfig?.cache;
     }
     // Create ~about~ a 30MiB InMemoryLRUCache (or 50MiB if the full operation ASTs are
     // enabled in query plans as this requires plans to use more memory). This is
@@ -199,7 +201,10 @@ export class ApolloGateway implements GatewayInterface {
     // only using JSON.stringify on the DocumentNode (and thus doesn't account
     // for unicode characters, etc.), but it should do a reasonable job at
     // providing a caching document store for most operations.
-    const defaultSize = this.config.queryPlannerConfig?.exposeDocumentNodeInFetchNode ? 50 : 30;
+    const defaultSize = this.config.queryPlannerConfig
+      ?.exposeDocumentNodeInFetchNode
+      ? 50
+      : 30;
     return new InMemoryLRUCache<QueryPlan>({
       maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || defaultSize),
       sizeCalculation: approximateObjectSize,
@@ -239,8 +244,8 @@ export class ApolloGateway implements GatewayInterface {
     if (isManagedConfig(this.config) && 'pollIntervalInMs' in this.config) {
       this.logger.warn(
         'The `pollIntervalInMs` option is deprecated and will be removed in a future version of `@apollo/gateway`. ' +
-        'Please migrate to the equivalent `fallbackPollIntervalInMs` configuration option. ' +
-        'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
+          'Please migrate to the equivalent `fallbackPollIntervalInMs` configuration option. ' +
+          'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
       );
     }
   }
@@ -466,8 +471,9 @@ export class ApolloGateway implements GatewayInterface {
    * @throws Error
    * when any subgraph fails the health check
    */
-  private async externalSubgraphHealthCheckCallback(supergraphSdl: string) {
-    const serviceList = this.serviceListFromSupergraphSdl(supergraphSdl);
+  private async externalSubgraphHealthCheckCallback() {
+    const serviceList = this.subgraphs;
+    assert(serviceList, "subgraph list extracted from supergraph sdl must be present");
     // Here we need to construct new datasources based on the new schema info
     // so we can check the health of the services we're _updating to_.
     const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
@@ -507,21 +513,23 @@ export class ApolloGateway implements GatewayInterface {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const { supergraph, supergraphSdl } = this.createSchemaFromSupergraphSdl(
-      result.supergraphSdl,
-    );
+    const { supergraph, supergraphSdl, subgraphs } =
+      this.createSchemaFromSupergraphSdl(result.supergraphSdl);
 
     const previousSchema = this.schema;
     const previousSupergraphSdl = this.supergraphSdl;
     const previousCompositionId = this.compositionId;
 
     if (previousSchema) {
-      this.logger.info(`Updated Supergraph SDL was found [Composition ID ${this.compositionId} => ${result.id}]`);
+      this.logger.info(
+        `Updated Supergraph SDL was found [Composition ID ${this.compositionId} => ${result.id}]`,
+      );
     }
 
     this.compositionId = result.id;
     this.supergraphSdl = supergraphSdl;
     this.supergraphSchema = supergraph.schema.toGraphQLJSSchema();
+    this.subgraphs = subgraphs;
 
     if (!supergraphSdl) {
       this.logger.error(
@@ -561,7 +569,10 @@ export class ApolloGateway implements GatewayInterface {
     this.queryPlanStore.clear();
     this.apiSchema = supergraph.apiSchema();
     this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
-    this.queryPlanner = new QueryPlanner(supergraph, this.config.queryPlannerConfig);
+    this.queryPlanner = new QueryPlanner(
+      supergraph,
+      this.config.queryPlannerConfig,
+    );
 
     // Notify onSchemaChange listeners of the updated schema
     if (!legacyDontNotifyOnSchemaChangeListeners) {
@@ -627,20 +638,17 @@ export class ApolloGateway implements GatewayInterface {
     );
   }
 
-  private serviceListFromSupergraphSdl(
-    supergraphSdl: string,
-  ): readonly Omit<ServiceDefinition, 'typeDefs'>[] {
-    return Supergraph.build(supergraphSdl).subgraphsMetadata();
-  }
-
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
-    const validateSupergraph = this.config.validateSupergraph ?? process.env.NODE_ENV !== 'production';
+    const validateSupergraph =
+      this.config.validateSupergraph ?? process.env.NODE_ENV !== 'production';
     const supergraph = Supergraph.build(supergraphSdl, { validateSupergraph });
-    this.createServices(supergraph.subgraphsMetadata());
+    const subgraphs = supergraph.subgraphsMetadata();
+    this.createServices(subgraphs);
 
     return {
       supergraph,
       supergraphSdl,
+      subgraphs,
     };
   }
 
@@ -755,8 +763,11 @@ export class ApolloGateway implements GatewayInterface {
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
-          const queryPlanStoreKey = request.operationName ?
-            createHash('sha256').update(queryHash).update(request.operationName).digest('hex')
+          const queryPlanStoreKey = request.operationName
+            ? createHash('sha256')
+                .update(queryHash)
+                .update(request.operationName)
+                .digest('hex')
             : queryHash;
           const operationContext = buildOperationContext({
             schema: this.schema!,
