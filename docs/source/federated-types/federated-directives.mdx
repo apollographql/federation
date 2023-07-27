@@ -168,9 +168,11 @@ The default value is `true`.
 </tbody>
 </table>
 
+<MinVersion version="2.3">
+
 ### `@interfaceObject`
 
-> **⚠️ This directive is available in Apollo Federation 2.3 and later.**
+</MinVersion>
 
 ```graphql
 directive @interfaceObject on OBJECT
@@ -588,9 +590,11 @@ type Employee implements User @tag(name: "team-admin") {
 
 ## Managing custom directives
 
+<MinVersion version="2.1">
+
 ### `@composeDirective`
 
-> **⚠️ This directive is available in Apollo Federation 2.1 and later.**
+</MinVersion>
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
