@@ -465,7 +465,9 @@ if (!isMainThread) {
         const update = (_supergraphSdl: string) => {
           supergraphSdl = _supergraphSdl;
 
+          console.time('SUPERGRAPH BUILD');
           supergraph = Supergraph.build(supergraphSdl);
+          console.timeEnd('SUPERGRAPH BUILD');
           apiSchema = supergraph.apiSchema();
           schema = apiSchema.toGraphQLJSSchema();
           supergraphSchema = supergraph.schema.toGraphQLJSSchema();
