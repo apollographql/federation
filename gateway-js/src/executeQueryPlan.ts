@@ -273,6 +273,9 @@ export async function executeQueryPlan(
         finally {
           span.end()
         }
+        if(errors.length > 0) {
+          span.setStatus({ code:SpanStatusCode.ERROR });
+        }
         return errors.length === 0 ? { data } : { errors, data };
       });
 
