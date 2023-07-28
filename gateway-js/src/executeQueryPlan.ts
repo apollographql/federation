@@ -88,7 +88,7 @@ function makeIntrospectionQueryDocument(
   const usedVariables = collectUsedVariables(introspectionSelection);
   const usedVariableDefinitions = variableDefinitions?.filter((def) => usedVariables.has(def.variable.name.value));
   assert(
-    usedVariables.size === (usedVariableDefinitions?.length ?? 0), 
+    usedVariables.size === (usedVariableDefinitions?.length ?? 0),
     () => `Should have found all used variables ${[...usedVariables]} in definitions ${JSON.stringify(variableDefinitions)}`,
   );
   return {
@@ -273,9 +273,6 @@ export async function executeQueryPlan(
         finally {
           span.end()
         }
-        if(errors.length > 0) {
-          span.setStatus({ code:SpanStatusCode.ERROR });
-        }
         return errors.length === 0 ? { data } : { errors, data };
       });
 
@@ -381,7 +378,7 @@ async function executeNode(
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
     case 'Condition': {
-      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables); 
+      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables);
       const pickedBranch = condition ? node.ifClause : node.elseClause;
       let branchTraceNode: Trace.QueryPlanNode | undefined = undefined;
       if (pickedBranch) {
