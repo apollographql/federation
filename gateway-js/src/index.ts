@@ -41,7 +41,7 @@ import {
   SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
+import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
@@ -745,13 +745,9 @@ export class ApolloGateway implements GatewayInterface {
   public executor = async (
     requestContext: GatewayGraphQLRequestContext,
   ): Promise<GatewayExecutionResult> => {
-    const spanAttributes = requestContext.operationName
-      ? { operationName: requestContext.operationName }
-      : {};
-
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
-      { attributes: spanAttributes },
+      { attributes: requestContextSpanAttributes(requestContext) },
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
