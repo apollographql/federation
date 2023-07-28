@@ -772,6 +772,7 @@ export class ApolloGateway implements GatewayInterface {
           );
 
           if (validationErrors.length > 0) {
+            span.recordException(validationErrors[0]);
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
@@ -790,6 +791,7 @@ export class ApolloGateway implements GatewayInterface {
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {
+                  span.recordException(err);
                   span.setStatus({ code: SpanStatusCode.ERROR });
                   throw err;
                 } finally {
@@ -870,10 +872,12 @@ export class ApolloGateway implements GatewayInterface {
             };
           }
           if (response.errors) {
+            span.recordException(response.errors[0]);
             span.setStatus({ code: SpanStatusCode.ERROR });
           }
           return response;
         } catch (err) {
+          span.recordException(err);
           span.setStatus({ code: SpanStatusCode.ERROR });
           throw err;
         } finally {
@@ -902,10 +906,12 @@ export class ApolloGateway implements GatewayInterface {
         );
 
         if (errors) {
+          span.recordException(errors[0]);
           span.setStatus({ code: SpanStatusCode.ERROR });
         }
         return errors || [];
       } catch (err) {
+        span.recordException(err);
         span.setStatus({ code: SpanStatusCode.ERROR });
         throw err;
       } finally {
