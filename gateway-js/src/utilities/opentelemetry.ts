@@ -1,6 +1,7 @@
 import opentelemetry from '@opentelemetry/api';
 import type { Attributes } from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import { OperationContext } from '../operationContext';
 
 export enum OpenTelemetrySpanNames {
   REQUEST = 'gateway.request',
@@ -20,6 +21,7 @@ export interface SpanAttributes extends Attributes {
    */
   operationName?: string;
   'graphql.operation.name'?: string;
+  'graphql.operation.type'?: string;
   'graphql.document'?: string;
 }
 
@@ -34,6 +36,18 @@ export function requestContextSpanAttributes(
   }
   if (requestContext.source) {
     spanAttributes["graphql.document"] = requestContext.source;
+  }
+
+  return spanAttributes;
+}
+
+export function operationContextSpanAttributes(
+  operationContext: OperationContext
+): SpanAttributes {
+  const spanAttributes: SpanAttributes = {};
+
+  if (operationContext.operation.operation) {
+    spanAttributes["graphql.operation.type"] = operationContext.operation.operation;
   }
 
   return spanAttributes;

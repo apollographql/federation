@@ -41,7 +41,7 @@ import {
   SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes } from './utilities/opentelemetry';
+import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes, operationContextSpanAttributes } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
@@ -759,6 +759,8 @@ export class ApolloGateway implements GatewayInterface {
             operationDocument: document,
             operationName: request.operationName,
           });
+
+          span.setAttributes(operationContextSpanAttributes(operationContext));
 
           // No need to build a query plan if we know the request is invalid beforehand
           // In the future, this should be controlled by the requestPipeline
