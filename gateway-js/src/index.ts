@@ -768,7 +768,7 @@ export class ApolloGateway implements GatewayInterface {
           );
 
           if (validationErrors.length > 0) {
-            span.recordException(validationErrors[0]);
+            validationErrors.forEach(error => span.recordException(error));
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
@@ -868,7 +868,7 @@ export class ApolloGateway implements GatewayInterface {
             };
           }
           if (response.errors) {
-            span.recordException(response.errors[0]);
+            response.errors.forEach(error => span.recordException(error));
             span.setStatus({ code: SpanStatusCode.ERROR });
           }
           return response;
@@ -902,7 +902,7 @@ export class ApolloGateway implements GatewayInterface {
         );
 
         if (errors) {
-          span.recordException(errors[0]);
+          errors.forEach(error => span.recordException(error));
           span.setStatus({ code: SpanStatusCode.ERROR });
         }
         return errors || [];

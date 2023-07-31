@@ -239,7 +239,7 @@ export async function executeQueryPlan(
           // Note that this behavior is also what the router does (and in fact, the exact name of the `extensions` we use,
           // "valueCompletion", comes from the router and we use it for alignment.
           if (errors.length === 0 && postProcessingErrors.length > 0) {
-            span.recordException(postProcessingErrors[0]);
+            postProcessingErrors.forEach(error => span.recordException(error));
             span.setStatus({ code:SpanStatusCode.ERROR });
             return { extensions: { "valueCompletion":  postProcessingErrors }, data };
           }
@@ -282,7 +282,7 @@ export async function executeQueryPlan(
       });
 
       if(result.errors) {
-        span.recordException(result.errors[0]);
+        result.errors.forEach(error => span.recordException(error));
         span.setStatus({ code:SpanStatusCode.ERROR });
       }
       return result;
