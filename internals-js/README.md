@@ -1,6 +1,6 @@
 # @apollo/federation-internals
 
-Apollo Federation internal utilities. This package may ship breaking changes and does not hold the same semver guarentees as our other Federation pacakges.
+This is an **internal** package for core Federation components. This package may ship breaking changes at any time and does not make the same efforts to avoid breaking changes as our other Federation packages.
 
 If you are looking to create a subgraph in JavaScript, use [Apollo Server with @apollo/subgraph](https://www.apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup).
 
