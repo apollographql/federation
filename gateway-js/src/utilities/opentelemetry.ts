@@ -1,4 +1,5 @@
 import opentelemetry from '@opentelemetry/api';
+import type { Attributes } from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 
 export enum OpenTelemetrySpanNames {
@@ -13,11 +14,23 @@ export enum OpenTelemetrySpanNames {
 const { name, version } = require('../../package.json');
 export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
 
-export function requestContextSpanAttributes(requestContext: GatewayGraphQLRequestContext): {[key: string]: any} {
-  const spanAttributes: {[key: string]: any} = {};
+export interface SpanAttributes extends Attributes {
+  /**
+   * @deprecated in favor of `graphql.operation.name`
+   */
+  operationName?: string;
+  'graphql.operation.name'?: string;
+  'graphql.document'?: string;
+}
+
+export function requestContextSpanAttributes(
+  requestContext: GatewayGraphQLRequestContext
+): SpanAttributes {
+  const spanAttributes: SpanAttributes = {};
 
   if (requestContext.operationName) {
     spanAttributes["operationName"] = requestContext.operationName;
+    spanAttributes["graphql.operation.name"] = requestContext.operationName;
   }
   if (requestContext.source) {
     spanAttributes["graphql.document"] = requestContext.source;
