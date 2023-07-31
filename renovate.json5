@@ -145,6 +145,11 @@
     {
       "matchPackageNames": ["@typescript-eslint/eslint-plugin"],
       "allowedVersions": "5.x",
+    },
+    // make-fetch-happen@12 drops support for node 14
+    {
+      "matchPackageNames": ["make-fetch-happen"],
+      "allowedVersions": "11.x",
     }
   ]
 }
