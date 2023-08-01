@@ -54,7 +54,7 @@
     },
     "Debugging & Metrics": {
       "Error codes": "/errors",
-      "Composition hints": "/hints",
+      "Composition linting": "https://www.apollographql.com/docs/graphos/delivery/linter-rules",
       "Federated trace data": "/metrics",
       "OpenTelemetry": "/opentelemetry"
     },
