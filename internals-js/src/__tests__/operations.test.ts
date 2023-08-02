@@ -9,6 +9,7 @@ import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
 import { assert } from '../utils';
+import gql from 'graphql-tag';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -2518,6 +2519,30 @@ describe('basic operations', () => {
       ['B', 'b2'],
       ['T', 'v2'],
     ]);
+  })
+
+  test('fields are keyed on both name and directive applications', () => {
+    const operation = operationFromDocument(schema, gql`
+      query Test($skipIf: Boolean!) {
+        t {
+          v1
+        }
+        t @skip(if: $skipIf) {
+          v2
+        }
+      }
+    `);
+
+    expect(operation.toString()).toMatch(`
+      query Test($skipIf: Boolean!) {
+        t {
+          v1
+        }
+        t @skip(if: $skipIf) {
+          v2
+        }
+      }
+    `);
   })
 });
 
