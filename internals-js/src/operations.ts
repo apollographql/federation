@@ -146,7 +146,8 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   key(): string {
-    return this.responseName();
+    const appliedDirectives = this.appliedDirectivesToString();
+    return this.responseName() + appliedDirectives;
   }
 
   asPathElement(): string {
@@ -3787,16 +3788,19 @@ function operationFromAST({
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const fragmentsIfAny = fragments.isEmpty() ? undefined : fragments;
+
+  const parsed = parseSelectionSet({
+    parentType: rootType.type,
+    source: operation.selectionSet,
+    variableDefinitions,
+    fragments: fragmentsIfAny,
+    validate: validateInput,
+  });
+
   return new Operation(
     schema,
     operation.operation,
-    parseSelectionSet({
-      parentType: rootType.type,
-      source: operation.selectionSet,
-      variableDefinitions,
-      fragments: fragmentsIfAny,
-      validate: validateInput,
-    }),
+    parsed,
     variableDefinitions,
     fragmentsIfAny,
     operation.name?.value

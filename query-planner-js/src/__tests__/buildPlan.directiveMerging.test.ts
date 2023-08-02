@@ -8,7 +8,7 @@ describe('merging @skip / @include directives', () => {
     typeDefs: gql`
       type Query {
         hello: Hello!
-        extraFieldPreventSkipNode: String!
+        extraFieldToPreventSkipIncludeNodes: String!
       }
 
       type Hello {
@@ -29,7 +29,7 @@ describe('merging @skip / @include directives', () => {
           hello {
             world
           }
-          extraFieldPreventSkipNode
+          extraFieldToPreventSkipIncludeNodes
         }
 
         fragment ConditionalSkipFragment on Query {
@@ -47,9 +47,11 @@ describe('merging @skip / @include directives', () => {
           {
             hello @skip(if: $skipField) {
               goodbye
+            }
+            hello {
               world
             }
-            extraFieldPreventSkipNode
+            extraFieldToPreventSkipIncludeNodes
           }
         },
       }
@@ -67,7 +69,7 @@ describe('merging @skip / @include directives', () => {
           hello {
             goodbye
           }
-          extraFieldPreventSkipNode
+          extraFieldToPreventSkipIncludeNodes
         }
       `,
     );
@@ -79,9 +81,109 @@ describe('merging @skip / @include directives', () => {
           {
             hello @skip(if: $skipField) {
               world
+            }
+            hello {
               goodbye
             }
-            extraFieldPreventSkipNode
+            extraFieldToPreventSkipIncludeNodes
+          }
+        },
+      }
+    `);
+  });
+
+  it('multiple applications identical', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Test($skipField: Boolean!, $includeField: Boolean!) {
+          hello @skip(if: $skipField) @include(if: $includeField) {
+            world
+          }
+          hello @skip(if: $skipField) @include(if: $includeField) {
+            goodbye
+          }
+          extraFieldToPreventSkipIncludeNodes
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            hello @skip(if: $skipField) @include(if: $includeField) {
+              world
+              goodbye
+            }
+            extraFieldToPreventSkipIncludeNodes
+          }
+        },
+      }
+    `);
+  });
+
+  it('multiple applications differing order', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Test($skipField: Boolean!, $includeField: Boolean!) {
+          hello @skip(if: $skipField) @include(if: $includeField) {
+            world
+          }
+          hello @include(if: $includeField) @skip(if: $skipField) {
+            goodbye
+          }
+          extraFieldToPreventSkipIncludeNodes
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            hello @include(if: $includeField) @skip(if: $skipField) {
+              world
+              goodbye
+            }
+            extraFieldToPreventSkipIncludeNodes
+          }
+        },
+      }
+    `);
+  });
+
+  it('multiple applications differing quantity', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Test($skipField: Boolean!, $includeField: Boolean!) {
+          hello @skip(if: $skipField) @include(if: $includeField) {
+            world
+          }
+          hello @include(if: $includeField) {
+            goodbye
+          }
+          extraFieldToPreventSkipIncludeNodes
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            hello @skip(if: $skipField) @include(if: $includeField) {
+              world
+            }
+            hello @include(if: $includeField) {
+              goodbye
+            }
+            extraFieldToPreventSkipIncludeNodes
           }
         },
       }
