@@ -186,7 +186,33 @@ exports[`opentelemetry with local data receives spans on validation failure 1`] 
     "attributes": {
       "operationName": "InvalidVariables",
       "graphql.operation.name": "InvalidVariables",
-      "graphql.document": "#graphql\\n      query InvalidVariables($first: Int!) {\\n        topReviews(first: $first) {\\n          body\\n        }\\n      }\\n    ",
+      "graphql.document": "#graphql\\n      query InvalidVariables($first: Int!, $second: Int!) {\\n        topReviews(first: $first) {\\n          body\\n        }\\n      }",
+      "graphql.operation.type": "query"
+    },
+    "children": [
+      {
+        "name": "gateway.validate",
+        "attributes": {},
+        "children": [],
+        "status": {
+          "code": 2
+        }
+      }
+    ],
+    "status": {
+      "code": 2
+    }
+  }
+]
+`;
+
+exports[`opentelemetry with local data with includeDocument set to false does not include the source document 1`] = `
+[
+  {
+    "name": "gateway.request",
+    "attributes": {
+      "operationName": "InvalidVariables",
+      "graphql.operation.name": "InvalidVariables",
       "graphql.operation.type": "query"
     },
     "children": [

@@ -41,7 +41,7 @@ import {
   SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes, operationContextSpanAttributes } from './utilities/opentelemetry';
+import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes, operationContextSpanAttributes, recordExceptions } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
@@ -747,7 +747,7 @@ export class ApolloGateway implements GatewayInterface {
   ): Promise<GatewayExecutionResult> => {
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
-      { attributes: requestContextSpanAttributes(requestContext) },
+      { attributes: requestContextSpanAttributes(requestContext, this.config.telemetry) },
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
@@ -770,7 +770,7 @@ export class ApolloGateway implements GatewayInterface {
           );
 
           if (validationErrors.length > 0) {
-            validationErrors.forEach(error => span.recordException(error));
+            recordExceptions(span, validationErrors, this.config.telemetry);
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
@@ -789,7 +789,7 @@ export class ApolloGateway implements GatewayInterface {
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {
-                  span.recordException(err);
+                  recordExceptions(span, [err], this.config.telemetry);
                   span.setStatus({ code: SpanStatusCode.ERROR });
                   throw err;
                 } finally {
@@ -831,6 +831,7 @@ export class ApolloGateway implements GatewayInterface {
             operationContext,
             this.supergraphSchema!,
             this.apiSchema!,
+            this.config.telemetry
           );
 
           const shouldShowQueryPlan =
@@ -870,12 +871,12 @@ export class ApolloGateway implements GatewayInterface {
             };
           }
           if (response.errors) {
-            response.errors.forEach(error => span.recordException(error));
+            recordExceptions(span, response.errors, this.config.telemetry);
             span.setStatus({ code: SpanStatusCode.ERROR });
           }
           return response;
         } catch (err) {
-          span.recordException(err);
+          recordExceptions(span, [err], this.config.telemetry);
           span.setStatus({ code: SpanStatusCode.ERROR });
           throw err;
         } finally {
@@ -904,12 +905,12 @@ export class ApolloGateway implements GatewayInterface {
         );
 
         if (errors) {
-          errors.forEach(error => span.recordException(error));
+          recordExceptions(span, errors, this.config.telemetry);
           span.setStatus({ code: SpanStatusCode.ERROR });
         }
         return errors || [];
       } catch (err) {
-        span.recordException(err);
+        recordExceptions(span, [err], this.config.telemetry);
         span.setStatus({ code: SpanStatusCode.ERROR });
         throw err;
       } finally {

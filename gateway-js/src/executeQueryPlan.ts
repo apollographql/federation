@@ -31,7 +31,7 @@ import {
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
-import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
+import { OpenTelemetryConfig, OpenTelemetrySpanNames, recordExceptions, tracer } from "./utilities/opentelemetry";
 import { assert, defaultRootName, errorCodeDef, ERRORS, Operation, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 import { computeResponse } from './resultShaping';
@@ -88,7 +88,7 @@ function makeIntrospectionQueryDocument(
   const usedVariables = collectUsedVariables(introspectionSelection);
   const usedVariableDefinitions = variableDefinitions?.filter((def) => usedVariables.has(def.variable.name.value));
   assert(
-    usedVariables.size === (usedVariableDefinitions?.length ?? 0), 
+    usedVariables.size === (usedVariableDefinitions?.length ?? 0),
     () => `Should have found all used variables ${[...usedVariables]} in definitions ${JSON.stringify(variableDefinitions)}`,
   );
   return {
@@ -134,6 +134,7 @@ export async function executeQueryPlan(
   operationContext: OperationContext,
   supergraphSchema: GraphQLSchema,
   apiSchema: Schema,
+  telemetryConfig?: OpenTelemetryConfig
 ): Promise<GatewayExecutionResult> {
 
   const logger = requestContext.logger || console;
@@ -201,6 +202,7 @@ export async function executeQueryPlan(
             fullResult: unfilteredData,
           },
           captureTraces,
+          telemetryConfig
         );
         if (captureTraces) {
           requestContext.metrics!.queryPlanTrace = traceNode;
@@ -239,12 +241,12 @@ export async function executeQueryPlan(
           // Note that this behavior is also what the router does (and in fact, the exact name of the `extensions` we use,
           // "valueCompletion", comes from the router and we use it for alignment.
           if (errors.length === 0 && postProcessingErrors.length > 0) {
-            postProcessingErrors.forEach(error => span.recordException(error));
+            recordExceptions(span, postProcessingErrors, telemetryConfig);
             span.setStatus({ code:SpanStatusCode.ERROR });
             return { extensions: { "valueCompletion":  postProcessingErrors }, data };
           }
         } catch (error) {
-          span.recordException(error);
+          recordExceptions(span, [error], telemetryConfig);
           span.setStatus({ code:SpanStatusCode.ERROR });
           if (error instanceof GraphQLError) {
             return { errors: [error] };
@@ -282,13 +284,13 @@ export async function executeQueryPlan(
       });
 
       if(result.errors) {
-        result.errors.forEach(error => span.recordException(error));
+        recordExceptions(span, result.errors, telemetryConfig);
         span.setStatus({ code:SpanStatusCode.ERROR });
       }
       return result;
     }
     catch (err) {
-      span.recordException(err)
+      recordExceptions(span, [err], telemetryConfig)
       span.setStatus({ code:SpanStatusCode.ERROR });
       throw err;
     }
@@ -307,6 +309,7 @@ async function executeNode(
   node: PlanNode,
   currentCursor: ResultCursor | undefined,
   captureTraces: boolean,
+  telemetryConfig?: OpenTelemetryConfig
 ): Promise<Trace.QueryPlanNode> {
   if (!currentCursor) {
     // XXX I don't understand `results` threading well enough to understand when this happens
@@ -327,6 +330,7 @@ async function executeNode(
           childNode,
           currentCursor,
           captureTraces,
+          telemetryConfig
         );
         traceNode.nodes.push(childTraceNode!);
       }
@@ -340,6 +344,7 @@ async function executeNode(
             childNode,
             currentCursor,
             captureTraces,
+            telemetryConfig
           ),
         ),
       );
@@ -363,6 +368,7 @@ async function executeNode(
             node.node,
             moveIntoCursor(currentCursor, node.path),
             captureTraces,
+            telemetryConfig
           ),
         }),
       });
@@ -378,6 +384,7 @@ async function executeNode(
           node,
           currentCursor,
           captureTraces ? traceNode : null,
+          telemetryConfig
         );
       } catch (error) {
         context.errors.push(error);
@@ -385,7 +392,7 @@ async function executeNode(
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
     case 'Condition': {
-      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables); 
+      const condition = evaluateCondition(node, context.operation.variableDefinitions, context.requestContext.request.variables);
       const pickedBranch = condition ? node.ifClause : node.elseClause;
       let branchTraceNode: Trace.QueryPlanNode | undefined = undefined;
       if (pickedBranch) {
@@ -393,7 +400,8 @@ async function executeNode(
           context,
           pickedBranch,
           currentCursor,
-          captureTraces
+          captureTraces,
+          telemetryConfig
         );
       }
 
@@ -416,6 +424,7 @@ async function executeFetch(
   fetch: FetchNode,
   currentCursor: ResultCursor,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
+  telemetryConfig?: OpenTelemetryConfig
 ): Promise<void> {
 
   const logger = context.requestContext.logger || console;
@@ -521,7 +530,7 @@ async function executeFetch(
       }
     }
     catch (err) {
-      span.recordException(err);
+      recordExceptions(span, [err], telemetryConfig)
       span.setStatus({ code:SpanStatusCode.ERROR });
       throw err;
     }

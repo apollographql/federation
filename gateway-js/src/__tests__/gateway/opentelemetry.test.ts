@@ -33,7 +33,12 @@ describe('opentelemetry', () => {
 
   describe('with local data', () =>
   {
-    async function gateway() {
+    async function gateway(
+      telemetryConfig?: {
+        includeDocument?: boolean,
+        recordExceptions?: boolean | number
+      }
+    ) {
       const localDataSources = Object.fromEntries(
         fixtures.map((f) => [
           f.name,
@@ -45,10 +50,32 @@ describe('opentelemetry', () => {
         buildService(service) {
           return localDataSources[service.name];
         },
+        telemetry: telemetryConfig || {
+          includeDocument: true,
+          recordExceptions: true
+        }
       });
 
       const {executor} = await gateway.load();
       return executor;
+    }
+
+    const executeValidationFailure = async (
+      telemetryConfig?: {
+        includeDocument?: boolean,
+        recordExceptions?: boolean | number
+      }
+    ) => {
+      const executor = await gateway(telemetryConfig);
+
+      const source = `#graphql
+      query InvalidVariables($first: Int!, $second: Int!) {
+        topReviews(first: $first) {
+          body
+        }
+      }`;
+
+      await execute(executor, source, { upc: '1' }, 'InvalidVariables');
     }
 
     it('receives spans on success', async () => {
@@ -71,22 +98,14 @@ describe('opentelemetry', () => {
     });
 
     it('receives spans on validation failure', async () => {
-      const executor = await gateway();
-      const source = `#graphql
-      query InvalidVariables($first: Int!) {
-        topReviews(first: $first) {
-          body
-        }
-      }
-    `;
+      await executeValidationFailure();
 
-      await execute(executor, source, { upc: '1' }, 'InvalidVariables');
       const spans = inMemorySpans.getFinishedSpans()
       expect(spans).toMatchSnapshot();
       const validationSpan = spans.find((span) =>
         span.name === 'gateway.validate');
 
-      expect(validationSpan?.events.length).toBeGreaterThan(0)
+      expect(validationSpan?.events.length).toEqual(2)
     });
 
     it('receives spans on plan failure', async () => {
@@ -108,8 +127,38 @@ describe('opentelemetry', () => {
       const planSpan = spans.find((span) =>
         span.name === 'gateway.plan');
 
-      expect(planSpan?.events.length).toBeGreaterThan(0)
+      expect(planSpan?.events.length).toEqual(1)
     });
+
+    describe('with recordExceptions set to a number', () => {
+      it('receives at most that number of exception events', async () => {
+        await executeValidationFailure({recordExceptions: 1})
+        const spans = inMemorySpans.getFinishedSpans()
+        const validationSpan = spans.find((span) =>
+          span.name === 'gateway.validate');
+
+        expect(validationSpan?.events.length).toEqual(1)
+      })
+    })
+
+    describe('with recordExceptions set to false', () => {
+      it('receives no exception events', async () => {
+        await executeValidationFailure({recordExceptions: false})
+        const spans = inMemorySpans.getFinishedSpans()
+        const validationSpan = spans.find((span) =>
+          span.name === 'gateway.validate');
+
+        expect(validationSpan?.events.length).toEqual(0)
+      })
+    })
+
+    describe('with includeDocument set to false', () => {
+      it('does not include the source document', async () => {
+        await executeValidationFailure({recordExceptions: false})
+        const spans = inMemorySpans.getFinishedSpans()
+        expect(spans).toMatchSnapshot();
+      })
+    })
   });
 
 
@@ -119,6 +168,10 @@ describe('opentelemetry', () => {
       fetcher: () => {
         throw Error('Nooo');
       },
+      telemetry: {
+        includeDocument: true,
+        recordExceptions: true
+      }
     });
 
     const { executor } = await gateway.load();
@@ -137,6 +190,6 @@ describe('opentelemetry', () => {
     const fetchSpan = spans.find((span) =>
       span.name === 'gateway.fetch');
 
-    expect(fetchSpan?.events.length).toBeGreaterThan(0)
+    expect(fetchSpan?.events.length).toEqual(1)
   });
 });
