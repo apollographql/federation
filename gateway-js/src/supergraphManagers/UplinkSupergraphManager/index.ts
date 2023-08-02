@@ -64,6 +64,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     UplinkSupergraphManager.DEFAULT_REQUEST_TIMEOUT_MS;
   private initialMaxRetries: number;
   private pollIntervalMs: number = UplinkSupergraphManager.MIN_POLL_INTERVAL_MS;
+  private fallbackPollIntervalInMs?: number;
   private logger: Logger;
   private update?: SupergraphSdlUpdateFunction;
   private shouldRunSubgraphHealthcheck: boolean = false;
@@ -117,6 +118,7 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.initialMaxRetries = initialMaxRetries ?? this.maxRetries;
 
     this.pollIntervalMs = fallbackPollIntervalInMs ?? this.pollIntervalMs;
+    this.fallbackPollIntervalInMs = fallbackPollIntervalInMs;
     if (this.pollIntervalMs < UplinkSupergraphManager.MIN_POLL_INTERVAL_MS) {
       this.logger.warn(
         'Polling Apollo services at a frequency of less than once per 10 seconds (10000) is disallowed. Instead, the minimum allowed pollInterval of 10000 will be used. Please reconfigure your `fallbackPollIntervalInMs` accordingly. If this is problematic for your team, please contact support.',
@@ -229,6 +231,17 @@ export class UplinkSupergraphManager implements SupergraphManager {
       supergraphSdl = result.supergraphSdl;
       if (result?.minDelaySeconds) {
         this.pollIntervalMs = result.minDelaySeconds * 1000;
+
+        // We only want to take the max of the two _if_ a fallback interval is
+        // configured. If we take the max above unconditionally, then a gateway
+        // with an unconfigured fallback interval will only ever lengthen its
+        // poll interval rather than adapt to changes coming from Uplink.
+        if (this.fallbackPollIntervalInMs) {
+          this.pollIntervalMs = Math.max(
+            this.pollIntervalMs,
+            this.fallbackPollIntervalInMs,
+          );
+        }
       }
     } catch (e) {
       this.logger.debug(

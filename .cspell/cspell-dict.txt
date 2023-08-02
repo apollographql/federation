@@ -240,6 +240,7 @@ unaliased
 uncacheable
 uncesssary
 uncomposable
+unconfigured
 undici
 unecesasry
 unecessarally
