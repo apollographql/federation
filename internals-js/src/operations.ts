@@ -3787,19 +3787,16 @@ function operationFromAST({
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const fragmentsIfAny = fragments.isEmpty() ? undefined : fragments;
-
-  const parsed = parseSelectionSet({
-    parentType: rootType.type,
-    source: operation.selectionSet,
-    variableDefinitions,
-    fragments: fragmentsIfAny,
-    validate: validateInput,
-  });
-
   return new Operation(
     schema,
     operation.operation,
-    parsed,
+    parseSelectionSet({
+      parentType: rootType.type,
+      source: operation.selectionSet,
+      variableDefinitions,
+      fragments: fragmentsIfAny,
+      validate: validateInput,
+    }),
     variableDefinitions,
     fragmentsIfAny,
     operation.name?.value
