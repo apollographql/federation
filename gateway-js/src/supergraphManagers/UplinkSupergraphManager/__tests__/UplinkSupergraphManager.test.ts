@@ -72,32 +72,8 @@ describe('UplinkSupergraphManager', () => {
   });
 
   describe('fallbackPollIntervalInMs', () => {
-    beforeEach(() => {
-      nockBeforeEach();
-      // This explicitly mocks only `setTimeout` and `clearTimeout`
-      jest.useFakeTimers({
-        doNotFake: [
-          'Date',
-          'hrtime',
-          'nextTick',
-          'performance',
-          'queueMicrotask',
-          'requestAnimationFrame',
-          'cancelAnimationFrame',
-          'requestIdleCallback',
-          'cancelIdleCallback',
-          'setImmediate',
-          'clearImmediate',
-          'setInterval',
-          'clearInterval',
-        ],
-      });
-    });
-
-    afterEach(() => {
-      nockAfterEach();
-      jest.useRealTimers();
-    });
+    beforeEach(nockBeforeEach);
+    afterEach(nockAfterEach);
 
     it('uses the provided fallback interval when Uplink provides a shorter interval', async () => {
       // These are the two interesting values for the test. We just want to make
