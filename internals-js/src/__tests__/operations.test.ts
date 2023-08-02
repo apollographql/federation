@@ -2533,7 +2533,7 @@ describe('basic operations', () => {
       }
     `);
 
-    expect(operation.toString()).toMatch(`
+    expect(operation.toString()).toMatchString(`
       query Test($skipIf: Boolean!) {
         t {
           v1
