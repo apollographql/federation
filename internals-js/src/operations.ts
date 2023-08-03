@@ -146,7 +146,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   key(): string {
-    return this.responseName();
+    return this.responseName() + this.appliedDirectivesToString();
   }
 
   asPathElement(): string {
