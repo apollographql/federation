@@ -57,6 +57,34 @@ type Organization {
 }
 ```
 
+### Mismatched `@key`s
+
+Conventionally, `@key` fields for an entity are the same between subgraphs, but this isn't required.
+
+For example, you could define a `Product` entity shared between products and inventory subgraphs, one with the `id` field as the `@key` field, and one with `sku` as the `@key` field:
+
+<CodeColumns>
+
+```graphql title="Products subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql title="Inventory subgraph"
+type Product @key(fields: "sku") {
+  sku: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+As long as `id` is a unique identifier within the products subgraph, and `sku` is a unique identifier for the same product in the inventory subgraph, the subgraphs can resolve the `Product` type.
+In other words, **each key declaration is specific to the subgraph it belongs to** and you don't need to match `@key` fields between graphs.
+
 ## Migrating entities and fields
 
 As your supergraph grows, you might want to move parts of an entity to a different subgraph. This section describes how to perform these migrations safely.
