@@ -46,7 +46,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
 
-  test('can use a @key on an @interfaceObject type', () => {
+  test('can use a @key on an @interfaceObject type', async () => {
     // Start by ensuring we can use the key on an @interfaceObject type
     const operation = operationFromDocument(api, gql`
       {
@@ -57,7 +57,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -90,7 +90,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     `);
     });
 
-  test('can use a @key on an interface "from" an @interfaceObject type', () => {
+  test('can use a @key on an interface "from" an @interfaceObject type', async () => {
     const operation = operationFromDocument(api, gql`
       {
         iFromS2 {
@@ -100,7 +100,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -134,7 +134,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     `);
   });
 
-  test('only uses an @interfaceObject if it can', () => {
+  test('only uses an @interfaceObject if it can', async () => {
     const operation = operationFromDocument(api, gql`
       {
         iFromS2 {
@@ -143,7 +143,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S2") {
@@ -157,7 +157,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     `);
   });
 
-  test('does not rely on an @interfaceObject directly for `__typename`', () => {
+  test('does not rely on an @interfaceObject directly for `__typename`', async () => {
     const operation = operationFromDocument(api, gql`
       {
         iFromS2 {
@@ -167,7 +167,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -200,7 +200,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     `);
   });
 
-  test('does not rely on an @interfaceObject directly if a specific implementation is requested', () => {
+  test('does not rely on an @interfaceObject directly if a specific implementation is requested', async () => {
     // Even though `y` is part of the interface and accessible from the 2nd subgraph, the
     // fact that we "filter" a single implementation should act as if `__typename` was queried
     // (effectively, the gateway/router need that `__typename` to decide if the returned data
@@ -215,7 +215,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -262,7 +262,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     `);
   });
 
-  test('can use a @key on an @interfaceObject type even for a concrete implementation', () => {
+  test('can use a @key on an @interfaceObject type even for a concrete implementation', async () => {
     const operation = operationFromDocument(api, gql`
       {
         iFromS1 {
@@ -273,7 +273,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -317,7 +317,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     expect(rewrite.setValueTo).toBe('I');
   });
 
-  test('handles query of an interface field (that is not on the `@interfaceObject`) for a specific implementation when query starts on the @interfaceObject', () => {
+  test('handles query of an interface field (that is not on the `@interfaceObject`) for a specific implementation when query starts on the @interfaceObject', async () => {
     // Here, we start on S2, but `x` is only in S1. Further, while `x` is on the `I` interface, we only query it for `A`.
     const operation = operationFromDocument(api, gql`
       {
@@ -329,7 +329,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -365,7 +365,7 @@ describe('basic @key on interface/@interfaceObject handling', () => {
   });
 });
 
-it('avoids buffering @interfaceObject results that may have to filtered with lists', () => {
+it('avoids buffering @interfaceObject results that may have to filtered with lists', async () => {
   const subgraph1 = {
     name: 'S1',
     typeDefs: gql`
@@ -412,7 +412,7 @@ it('avoids buffering @interfaceObject results that may have to filtered with lis
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -462,7 +462,7 @@ it('avoids buffering @interfaceObject results that may have to filtered with lis
   `);
 });
 
-it('handles @requires on concrete type of field provided by interface object', () => {
+it('handles @requires on concrete type of field provided by interface object', async () => {
   const subgraph1 = {
     name: 'S1',
     typeDefs: gql`
@@ -510,7 +510,7 @@ it('handles @requires on concrete type of field provided by interface object', (
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -561,7 +561,7 @@ it('handles @requires on concrete type of field provided by interface object', (
   `);
 });
 
-it('handles @interfaceObject in nested entity', () => {
+it('handles @interfaceObject in nested entity', async () => {
   const subgraph1 = {
     name: 'S1',
     typeDefs: gql`
@@ -614,7 +614,7 @@ it('handles @interfaceObject in nested entity', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {

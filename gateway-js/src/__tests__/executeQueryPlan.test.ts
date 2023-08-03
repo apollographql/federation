@@ -38,7 +38,7 @@ describe('executeQueryPlan', () => {
     return parseOperation((operationSchema ?? schema), operation);
   }
 
-  const buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
+  const buildPlan = async (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): Promise<QueryPlan> => {
     const op = typeof operation === 'string' ? parseOp(operation, operationSchema): operation;
     return (operationQueryPlanner ?? queryPlanner).buildQueryPlan(op);
   }
@@ -68,7 +68,7 @@ describe('executeQueryPlan', () => {
 
   async function executeOperation(operationString: string, requestContext?: GatewayGraphQLRequestContext): Promise<GatewayExecutionResult> {
       const operation = parseOp(operationString);
-      const queryPlan = buildPlan(operation);
+      const queryPlan = await buildPlan(operation);
       return executePlan(queryPlan, operation, requestContext);
   }
 
@@ -266,7 +266,7 @@ describe('executeQueryPlan', () => {
         schema,
       );
 
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
 
       const response = await executePlan(
         queryPlan,
@@ -424,7 +424,7 @@ describe('executeQueryPlan', () => {
         schema,
       );
 
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
 
       const response = await executePlan(
         queryPlan,
@@ -1275,7 +1275,7 @@ describe('executeQueryPlan', () => {
 
       const operation = parseOp(`${getIntrospectionQuery()}`, schema);
       queryPlanner = new QueryPlanner(supergraph);
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data).toHaveProperty('__schema');
@@ -1308,7 +1308,7 @@ describe('executeQueryPlan', () => {
       schema = supergraph.schema;
 
       queryPlanner = new QueryPlanner(supergraph);
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);
       expect(response.data).toBeUndefined();
@@ -1388,7 +1388,7 @@ describe('executeQueryPlan', () => {
       schema = supergraph.schema;
 
       queryPlanner = new QueryPlanner(supergraph);
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
 
       const response = await executePlan(queryPlan, operation, undefined, schema);
 
@@ -1463,7 +1463,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1558,7 +1558,7 @@ describe('executeQueryPlan', () => {
           }
           `, schema);
 
-        const queryPlan = buildPlan(operation, queryPlanner);
+        const queryPlan = await buildPlan(operation, queryPlanner);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -1667,7 +1667,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1768,7 +1768,7 @@ describe('executeQueryPlan', () => {
           }
           `, schema);
 
-        const queryPlan = buildPlan(operation, queryPlanner);
+        const queryPlan = await buildPlan(operation, queryPlanner);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -1921,7 +1921,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2126,7 +2126,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      let queryPlan = await buildPlan(operation, queryPlanner);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2183,7 +2183,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      queryPlan = buildPlan(operation, queryPlanner);
+      queryPlan = await buildPlan(operation, queryPlanner);
 
       // TODO: we're actually type-exploding in this case because currently, as soon as we need to type-explode, we do
       // so into all the runtime types, while here it could make sense to only type-explode into the direct sub-types=
@@ -2297,7 +2297,7 @@ describe('executeQueryPlan', () => {
         }
       }
       `, schema);
-    let queryPlan = buildPlan(operation, queryPlanner);
+    let queryPlan = await buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S1") {
@@ -2333,7 +2333,7 @@ describe('executeQueryPlan', () => {
         }
       }
       `, schema);
-    queryPlan = buildPlan(operation, queryPlanner);
+    queryPlan = await buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S1") {
@@ -2371,7 +2371,7 @@ describe('executeQueryPlan', () => {
       }
       `, schema);
 
-    queryPlan = buildPlan(operation, queryPlanner);
+    queryPlan = await buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S1") {
@@ -2408,7 +2408,7 @@ describe('executeQueryPlan', () => {
     // (and all we know it can't be a `MyTypeC`) or to `null`. In particular, the end response should be
     // the same than in the previous example with `MyTypeB` since from the end-use POV, this is the same
     // example.
-    queryPlan = buildPlan(operation, queryPlanner);
+    queryPlan = await buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S1") {
@@ -2502,7 +2502,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -2651,7 +2651,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -2800,7 +2800,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -2949,7 +2949,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -3143,7 +3143,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -3294,7 +3294,7 @@ describe('executeQueryPlan', () => {
           }
         }
       `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -3488,7 +3488,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -3602,7 +3602,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -3726,7 +3726,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -3919,7 +3919,7 @@ describe('executeQueryPlan', () => {
       const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([ subgraph1, subgraph2 ]);
       return async (op: string): Promise<{ plan: QueryPlan, response: GatewayExecutionResult }> => {
         const operation = parseOp(op, schema);
-        const plan = buildPlan(operation, queryPlanner);
+        const plan = await buildPlan(operation, queryPlanner);
         const response = await executePlan(plan, operation, undefined, schema, serviceMap);
         return { plan, response };
       };
@@ -4503,7 +4503,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      let queryPlan = await buildPlan(operation, queryPlanner);
       // We're going check again with almost the query but requesting the `id` field. And the
       // plan should be exactly the same since `id` gets queried here anyway as a by-product already.
       const expectedPlan = `
@@ -4564,7 +4564,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      queryPlan = buildPlan(operation, queryPlanner);
+      queryPlan = await buildPlan(operation, queryPlanner);
       // As said above, we should get the same plan as the previous time.
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
@@ -4594,7 +4594,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      queryPlan = buildPlan(operation, queryPlanner);
+      queryPlan = await buildPlan(operation, queryPlanner);
       // The plan is almost the exact same as the previous one, but in this case we do end up asking for __typename
       // within `... on Book` on the 2nd fetch. Which is not really necessary since we already have the __typename
       // above, and we could optimise it, but unclear it's even worth the effort.
@@ -4657,7 +4657,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      queryPlan = buildPlan(operation, queryPlanner);
+      queryPlan = await buildPlan(operation, queryPlanner);
       // As said above, we should get the same plan as the previous time.
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
@@ -4736,7 +4736,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      let queryPlan = await buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -4873,7 +4873,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      let queryPlan = await buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -5030,7 +5030,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      let queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -5110,7 +5110,7 @@ describe('executeQueryPlan', () => {
         `, schema);
 
       global.console = require('console');
-      queryPlan = buildPlan(operation, queryPlanner);
+      queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -5262,7 +5262,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -5404,7 +5404,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -5541,7 +5541,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -5663,7 +5663,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       // Here, the presence of the @provides "forces" the query planner to check type-explosion, and as type-exploding
       // is the most efficient solution, it is chosen. But as this result in `f` being queried twice at the same level
       // without the same type (it is non-nullable in B, not in A, which is invalid GraphQL in that case), we must make
@@ -5791,7 +5791,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       // In the 2nd fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -5960,7 +5960,7 @@ describe('executeQueryPlan', () => {
           }
         }
         `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = await buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -6092,7 +6092,7 @@ describe('executeQueryPlan', () => {
       }
       `, schema);
 
-    const queryPlan = buildPlan(operation, queryPlanner);
+    const queryPlan = await buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {

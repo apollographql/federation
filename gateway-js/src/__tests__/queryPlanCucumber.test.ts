@@ -32,8 +32,8 @@ features.forEach((feature) => {
         }
 
         const thenQueryPlanShouldBe = () => {
-          then(/^query plan$/i, (expectedQueryPlan: string) => {
-            queryPlan = queryPlanner.buildQueryPlan(operationFromDocument(schema, operationDocument));
+          then(/^query plan$/i, async (expectedQueryPlan: string) => {
+            queryPlan = await queryPlanner.buildQueryPlan(operationFromDocument(schema, operationDocument));
 
             const parsedExpectedPlan = JSON.parse(expectedQueryPlan);
 

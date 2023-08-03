@@ -7,7 +7,7 @@ import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './t
 import { enforceQueryPlannerConfigDefaults } from '../config';
 
 describe('shareable root fields', () => {
-  test('can use same root operation from multiple subgraphs in parallel', () => {
+  test('can use same root operation from multiple subgraphs in parallel', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -46,7 +46,7 @@ describe('shareable root fields', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Note that even though we have keys, it is faster to query both
     // subgraphs in parallel for each property than querying one first
     // and then using the key.
@@ -72,7 +72,7 @@ describe('shareable root fields', () => {
     `);
   });
 
-  test('handles root operation shareable in many subgraphs', () => {
+  test('handles root operation shareable in many subgraphs', async () => {
     const fieldCount = 4;
     const fields = [...Array(fieldCount).keys()].map((i) => `f${i}`);
     const subgraph1 = {
@@ -120,7 +120,7 @@ describe('shareable root fields', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -156,7 +156,7 @@ describe('shareable root fields', () => {
   });
 });
 
-test('pick keys that minimize fetches', () => {
+test('pick keys that minimize fetches', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -214,7 +214,7 @@ test('pick keys that minimize fetches', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   // We want to make sure we use the key on Transfer just once, not 2 fetches using the keys
   // on Country.
   expect(plan).toMatchInlineSnapshot(`
@@ -268,7 +268,7 @@ test('pick keys that minimize fetches', () => {
 });
 
 describe('@provides', () => {
-  it('works with nested provides', () => {
+  it('works with nested provides', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -315,7 +315,7 @@ describe('@provides', () => {
       }
       `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
     // go the the second subgraph.
     expect(plan).toMatchInlineSnapshot(`
@@ -365,7 +365,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -383,7 +383,7 @@ describe('@provides', () => {
       `);
   });
 
-  it('works on interfaces', () => {
+  it('works on interfaces', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -443,7 +443,7 @@ describe('@provides', () => {
       }
       `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
     // go the the second subgraph.
     expect(plan).toMatchInlineSnapshot(`
@@ -505,7 +505,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -533,7 +533,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -586,7 +586,7 @@ describe('@provides', () => {
       `);
   });
 
-  it('works on unions', () => {
+  it('works on unions', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -641,7 +641,7 @@ describe('@provides', () => {
       }
       `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
     // go the the second subgraph.
     expect(plan).toMatchInlineSnapshot(`
@@ -703,7 +703,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -737,7 +737,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -790,7 +790,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -811,7 +811,7 @@ describe('@provides', () => {
       `);
   });
 
-  it('allow providing fields for only some subtype', () => {
+  it('allow providing fields for only some subtype', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -866,7 +866,7 @@ describe('@provides', () => {
       }
       `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
     // go the the second subgraph.
     expect(plan).toMatchInlineSnapshot(`
@@ -924,7 +924,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -952,7 +952,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1000,7 +1000,7 @@ describe('@provides', () => {
       }
       `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -1017,7 +1017,7 @@ describe('@provides', () => {
       `);
   });
 
-  it('works with type-condition, even for types only reachable by the @provides', () => {
+  it('works with type-condition, even for types only reachable by the @provides', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1091,7 +1091,7 @@ describe('@provides', () => {
       }
       `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
     // go the the second subgraph for everything.
     expect(plan).toMatchInlineSnapshot(`
@@ -1150,7 +1150,7 @@ describe('@provides', () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1193,7 +1193,7 @@ describe('@provides', () => {
 });
 
 describe('@requires', () => {
-  it('handles multiple requires within the same entity fetch', () => {
+  it('handles multiple requires within the same entity fetch', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1253,7 +1253,7 @@ describe('@requires', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
     // into the same fetch group. But note that because the type for `f` differs, the 2nd instance
     // gets aliased (or the fetch would be invalid graphQL).
@@ -1309,7 +1309,7 @@ describe('@requires', () => {
     `);
   });
 
-  test('handles multiple requires involving different nestedness', () => {
+  test('handles multiple requires involving different nestedness', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1361,7 +1361,7 @@ describe('@requires', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
     // into the same fetch group.
     expect(plan).toMatchInlineSnapshot(`
@@ -1423,7 +1423,7 @@ describe('@requires', () => {
     `);
   })
 
-  it('handles simple require chain (require that depends on another require)', () => {
+  it('handles simple require chain (require that depends on another require)', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1470,7 +1470,7 @@ describe('@requires', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1533,7 +1533,7 @@ describe('@requires', () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1583,7 +1583,7 @@ describe('@requires', () => {
     `);
   });
 
-  it('handles require chain not ending in original group', () => {
+  it('handles require chain not ending in original group', async () => {
     // This is somewhat simiar to the 'simple require chain' case, but the chain does not
     // end in the group in which the query start
     const subgraph1 = {
@@ -1641,7 +1641,7 @@ describe('@requires', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     const expectedPlan = `
       QueryPlan {
         Sequence {
@@ -1716,11 +1716,11 @@ describe('@requires', () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(expectedPlan);
   });
 
-  it('handles longer require chain (a chain of 10 requires)', () => {
+  it('handles longer require chain (a chain of 10 requires)', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1760,7 +1760,7 @@ describe('@requires', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     const dependentFetches: string[] = [];
     for (let i = 2; i <= totalRequires; i++) {
       dependentFetches.push(`${i === 2 ? '' : '          '}Flatten(path: "t") {
@@ -1800,7 +1800,7 @@ describe('@requires', () => {
     expect(plan).toMatchInlineSnapshot(expectedPlan);
   });
 
-  it('handles complex require chain', () => {
+  it('handles complex require chain', async () => {
     // Another "require chain" test but with more complexity as we have a require on multiple fields, some of which being
     // nested, and having requirements of their own.
     const subgraph1 = {
@@ -1923,7 +1923,7 @@ describe('@requires', () => {
     //
     // The 2nd step is the most involved, but it's just gathering the "outer" requirements in parallel,
     // while satisfying the "inner" requirements in each branch.
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2101,7 +2101,7 @@ describe('@requires', () => {
     `);
   });
 
-  it('planning does not modify the underlying query graph', () => {
+  it('planning does not modify the underlying query graph', async () => {
     // Test the fixes for issue #1750. Before that fix, the 2nd query planned in this
     // test was unexpectedly mutating some edge conditions of the query planner underlying
     // query graph, resulting in the last assertion of this test failing (despite the
@@ -2160,7 +2160,7 @@ describe('@requires', () => {
       }
     `);
 
-    const plan1 = queryPlanner.buildQueryPlan(op2);
+    const plan1 = await queryPlanner.buildQueryPlan(op2);
     const expectedPlan = `
       QueryPlan {
         Sequence {
@@ -2198,7 +2198,7 @@ describe('@requires', () => {
     `;
     expect(plan1).toMatchInlineSnapshot(expectedPlan);
 
-    const plan2 = queryPlanner.buildQueryPlan(op1);
+    const plan2 = await queryPlanner.buildQueryPlan(op1);
     expect(plan2).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2238,11 +2238,11 @@ describe('@requires', () => {
       }
     `);
 
-    const plan3 = queryPlanner.buildQueryPlan(op2);
+    const plan3 = await queryPlanner.buildQueryPlan(op2);
     expect(plan3).toMatchInlineSnapshot(expectedPlan);
   });
 
-  it('handes diamond-shape depedencies', () => {
+  it('handes diamond-shape depedencies', async () => {
     // The idea of this test is that to be able to fulfill the @require in subgraph D, we need
     // both values from C for the @require and values from B for the key itself, but both
     // B and C can be queried directly after the initial query to A. This make the optimal query
@@ -2313,7 +2313,7 @@ describe('@requires', () => {
     //   - get id2, v1 and v2 from B
     //   - get v3 from C
     // 3. lastly, once both of those return, it can get v4 from D as it has all requirement
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2383,7 +2383,7 @@ describe('@requires', () => {
   });
 
   describe('@include and @skip', () => {
-    it('handles a simple @requires triggered within a conditional', () => {
+    it('handles a simple @requires triggered within a conditional', async () => {
       const subgraph1 = {
         name: 'Subgraph1',
         typeDefs: gql`
@@ -2418,7 +2418,7 @@ describe('@requires', () => {
         }
       `);
 
-      const plan = queryPlanner.buildQueryPlan(operation);
+      const plan = await queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
         QueryPlan {
           Include(if: $test) {
@@ -2454,7 +2454,7 @@ describe('@requires', () => {
       `);
     });
 
-    it('handles a @requires triggered conditionally', () => {
+    it('handles a @requires triggered conditionally', async () => {
       const subgraph1 = {
         name: 'Subgraph1',
         typeDefs: gql`
@@ -2489,7 +2489,7 @@ describe('@requires', () => {
         }
       `);
 
-      const plan = queryPlanner.buildQueryPlan(operation);
+      const plan = await queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -2527,7 +2527,7 @@ describe('@requires', () => {
       `);
     });
 
-    it('handles a @requires where multiple conditional are involved', () => {
+    it('handles a @requires where multiple conditional are involved', async () => {
       const subgraph1 = {
         name: 'Subgraph1',
         typeDefs: gql`
@@ -2578,7 +2578,7 @@ describe('@requires', () => {
         }
       `);
 
-      const plan = queryPlanner.buildQueryPlan(operation);
+      const plan = await queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
         QueryPlan {
           Include(if: $test1) {
@@ -2641,7 +2641,7 @@ describe('@requires', () => {
     });
   });
 
-  it('can require @inaccessible fields', () => {
+  it('can require @inaccessible fields', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2683,7 +2683,7 @@ describe('@requires', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2717,7 +2717,7 @@ describe('@requires', () => {
     `);
   });
 
-  it('require of multiple field, when one is also a key to reach another', () => {
+  it('require of multiple field, when one is also a key to reach another', async () => {
     // The specificity of this example is that we `T.v` requires 2 fields `req1`
     // and `req2`, but `req1` is also a key to get `req2`. This dependency was
     // confusing a previous version of the code (which, when gathering the
@@ -2769,7 +2769,7 @@ describe('@requires', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2821,7 +2821,7 @@ describe('@requires', () => {
 });
 
 describe('fetch operation names', () => {
-  test('handle subgraph with - in the name', () => {
+  test('handle subgraph with - in the name', async () => {
     const subgraph1 = {
       name: 'S1',
       typeDefs: gql`
@@ -2854,7 +2854,7 @@ describe('fetch operation names', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2888,7 +2888,7 @@ describe('fetch operation names', () => {
     expect(fetch.operation).toMatch(/^query myOp__non_graphql_name__1.*/i);
   });
 
-  test('ensures sanitization applies repeatedly', () => {
+  test('ensures sanitization applies repeatedly', async () => {
     const subgraph1 = {
       name: 'S1',
       typeDefs: gql`
@@ -2921,7 +2921,7 @@ describe('fetch operation names', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -2955,7 +2955,7 @@ describe('fetch operation names', () => {
     expect(fetch.operation).toMatch(/^query myOp__a_name_with_plenty_replacements__1.*/i);
   });
 
-  test('handle very non-graph subgraph name', () => {
+  test('handle very non-graph subgraph name', async () => {
     const subgraph1 = {
       name: 'S1',
       typeDefs: gql`
@@ -2988,7 +2988,7 @@ describe('fetch operation names', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -3024,7 +3024,7 @@ describe('fetch operation names', () => {
   });
 });
 
-test('Correctly handle case where there is too many plans to consider', () => {
+test('Correctly handle case where there is too many plans to consider', async () => {
   // Creating realistic examples where there is too many plan to consider is not trivial, but creating unrealistic examples
   // is thankfully trivial. Here, we just have 2 subgraphs that are _exactly the same_ with a single type having plenty of
   // fields. The reason this create plenty of possible query plans is that each field can be independently reached
@@ -3055,7 +3055,7 @@ test('Correctly handle case where there is too many plans to consider', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   // Note: The way the code that handle multiple plans currently work, it mess up the order of fields a bit. It's not a
   // big deal in practice cause everything gets re-order in practice during actual execution, but this means it's a tad
   // harder to valid the plan automatically here with `toMatchInlineSnapshot`.
@@ -3093,7 +3093,7 @@ describe('Field covariance and type-explosion', () => {
   // complex as we need to involve a @provide just to force the query planner to type explode
   // (more precisely, this force the query planner to _consider_ type explosion; the generated
   // query plan still ends up not type-exploding in practice since as it's not necessary).
-  test('with federation 1 supergraphs', () => {
+  test('with federation 1 supergraphs', async () => {
     const supergraphSdl = `
       schema @core(feature: "https://specs.apollo.dev/core/v0.1") @core(feature: "https://specs.apollo.dev/join/v0.1") {
         query: Query
@@ -3141,7 +3141,7 @@ describe('Field covariance and type-explosion', () => {
         }
       }
     `);
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "subgraph") {
@@ -3163,7 +3163,7 @@ describe('Field covariance and type-explosion', () => {
     `);
   });
 
-  it('with federation 2 subgraphs', () => {
+  it('with federation 2 subgraphs', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3208,7 +3208,7 @@ describe('Field covariance and type-explosion', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -3232,7 +3232,7 @@ describe('Field covariance and type-explosion', () => {
 })
 
 describe('handles non-intersecting fragment conditions', () => {
-  test('with federation 1 supergraphs', () => {
+  test('with federation 1 supergraphs', async () => {
     const supergraphSdl = `
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2"),
@@ -3299,7 +3299,7 @@ describe('handles non-intersecting fragment conditions', () => {
         }
       }
     `);
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S1") {
@@ -3316,7 +3316,7 @@ describe('handles non-intersecting fragment conditions', () => {
     `);
   });
 
-  test('with federation 2 subgraphs', () => {
+  test('with federation 2 subgraphs', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3359,7 +3359,7 @@ describe('handles non-intersecting fragment conditions', () => {
         }
       }
     `);
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -3377,7 +3377,7 @@ describe('handles non-intersecting fragment conditions', () => {
   });
 });
 
-test('avoids unnecessary fetches', () => {
+test('avoids unnecessary fetches', async () => {
   // This test is a reduced example demonstrating a previous issue with the computation of query plans cost.
   // The general idea is that "Subgraph 3" has a declaration that is kind of useless (it declares entity A
   // that only provides it's own key, so there is never a good reason to use it), but the query planner
@@ -3462,7 +3462,7 @@ test('avoids unnecessary fetches', () => {
       }
     }
   `);
-  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  const queryPlan = await queryPlanner.buildQueryPlan(operation);
   expect(queryPlan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -3536,7 +3536,7 @@ test('avoids unnecessary fetches', () => {
 });
 
 describe('Fed1 supergraph handling', () => {
-  test('do not type-explode if interface only implemented by value types', () => {
+  test('do not type-explode if interface only implemented by value types', async () => {
     const supergraphSdl = `
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2"),
@@ -3595,7 +3595,7 @@ describe('Fed1 supergraph handling', () => {
       }
     `);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "S1") {
@@ -3614,7 +3614,7 @@ describe('Fed1 supergraph handling', () => {
 });
 
 describe('Named fragments preservation', () => {
-  it('works with nested fragments', () => {
+  it('works with nested fragments', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3690,7 +3690,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -3739,7 +3739,7 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it('avoid fragments usable only once', () => {
+  it('avoid fragments usable only once', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3800,7 +3800,8 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
+
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -3861,7 +3862,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -3904,7 +3905,7 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it.each([ true, false ])('respects query planner option "reuseQueryFragments=%p"', (reuseQueryFragments: boolean) => {
+  it.each([ true, false ])('respects query planner option "reuseQueryFragments=%p"', async (reuseQueryFragments: boolean) => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3943,7 +3944,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     const withReuse = `
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -3987,7 +3988,7 @@ describe('Named fragments preservation', () => {
     expect(plan).toMatchInlineSnapshot(reuseQueryFragments ? withReuse : withoutReuse);
   });
 
-  it('works with nested fragments when only the nested fragment gets preserved', () => {
+  it('works with nested fragments when only the nested fragment gets preserved', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4032,7 +4033,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4056,7 +4057,7 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it('preserves directives when fragment not used (because used only once)', () => {
+  it('preserves directives when fragment not used (because used only once)', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4087,7 +4088,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4105,7 +4106,7 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it('preserves directives when fragment is re-used', () => {
+  it('preserves directives when fragment is re-used', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4137,7 +4138,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4158,7 +4159,7 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it('do not try to apply fragments that are not valid for the subgaph', () => {
+  it('do not try to apply fragments that are not valid for the subgaph', async () => {
     // Slightly artificial example for simplicity, but this highlight the problem.
     // In that example, the only queried subgraph is the first one (there is in fact
     // no way to ever reach the 2nd one), so the plan should mostly simply forward
@@ -4217,7 +4218,7 @@ describe('Named fragments preservation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4241,7 +4242,7 @@ describe('Named fragments preservation', () => {
   });
 });
 
-test('works with key chains', () => {
+test('works with key chains', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -4290,7 +4291,7 @@ test('works with key chains', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -4339,7 +4340,7 @@ test('works with key chains', () => {
 });
 
 describe('__typename handling', () => {
-  it('preservers aliased __typename', () => {
+  it('preservers aliased __typename', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4364,7 +4365,7 @@ describe('__typename handling', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4388,7 +4389,7 @@ describe('__typename handling', () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4404,7 +4405,7 @@ describe('__typename handling', () => {
     `);
   });
 
-  it('does not needlessly consider options for __typename', () => {
+  it('does not needlessly consider options for __typename', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4464,7 +4465,7 @@ describe('__typename handling', () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -4520,7 +4521,7 @@ describe('__typename handling', () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -4559,7 +4560,7 @@ describe('__typename handling', () => {
 });
 
 describe('mutations', () => {
-  it('executes mutation operations in sequence', () => {
+  it('executes mutation operations in sequence', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4590,7 +4591,7 @@ describe('mutations', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -4611,7 +4612,7 @@ describe('mutations', () => {
 });
 
 describe('interface type-explosion', () => {
-  test('handles non-matching value types under interface field', () => {
+  test('handles non-matching value types under interface field', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4662,7 +4663,7 @@ describe('interface type-explosion', () => {
 
     // The schema is constructed in such a way that we *need* to type-explode interface `I`
     // to be able to find field `y`. Make sure that happens.
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -4699,7 +4700,7 @@ describe('interface type-explosion', () => {
     `);
   });
 
-  test('skip type-explosion early if unnecessary', () => {
+  test('skip type-explosion early if unnecessary', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4755,7 +4756,7 @@ describe('interface type-explosion', () => {
     // this test is to ensure the proper optimisation kicks in so that we do _not_ even
     // evaluate the plan where we type explode. In other words, we ensure that the plan
     // we get is the _only_ one evaluated.
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -4781,7 +4782,7 @@ describe('interface type-explosion', () => {
  * to handle it properly, but no in other interactions, and this ensures this is handled properly.
  */
 describe('merged abstract types handling', () => {
-  test('union/interface interaction', () => {
+  test('union/interface interaction', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4833,7 +4834,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `u` and is a `I` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `I` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
@@ -4858,7 +4859,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('union/interface interaction, but no need to type-explode', () => {
+  test('union/interface interaction, but no need to type-explode', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4908,7 +4909,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // While `A` is a `U` in the supergraph while not in `Subgraph1`, since the `u`
     // operation is resolved by `Subgraph1`, it cannot ever return a A, and so
     // there is need to type-explode `I` in this query.
@@ -4929,7 +4930,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('interface/union interaction', () => {
+  test('interface/union interaction', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -4981,7 +4982,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `i` and is a `U` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `U` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
@@ -5000,7 +5001,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('interface/union interaction, but no need to type-explode', () => {
+  test('interface/union interaction, but no need to type-explode', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5054,7 +5055,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Here, `A` is a `I` in the supergraph while not in `Subgraph1`, and since the `i` operation is resolved by
     // `Subgraph1`, it cannot ever return a A. And so we can skip the whole `... on U` sub-selection.
     expect(plan).toMatchInlineSnapshot(`
@@ -5070,7 +5071,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('interface/interface interaction', () => {
+  test('interface/interface interaction', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5124,7 +5125,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `i1` and is a `I2` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `I2` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
@@ -5149,7 +5150,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('interface/interface interaction, but no need to type-explode', () => {
+  test('interface/interface interaction, but no need to type-explode', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5203,7 +5204,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // While `A` is a `I1` in the supergraph while not in `Subgraph1`, since the `i1`
     // operation is resolved by `Subgraph1`, it cannot ever return a A, and so
     // there is need to type-explode `I2` in this query (even if `Subgraph1` would
@@ -5225,7 +5226,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('union/union interaction', () => {
+  test('union/union interaction', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5274,7 +5275,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `u1` and is a `U2` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `U2` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
@@ -5293,7 +5294,7 @@ describe('merged abstract types handling', () => {
     `);
   });
 
-  test('union/union interaction, but no need to type-explode', () => {
+  test('union/union interaction, but no need to type-explode', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5342,7 +5343,7 @@ describe('merged abstract types handling', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Similar case than in the `interface/union` case: the whole `... on U2` sub-selection happens to be
     // unsatisfiable in practice.
     expect(plan).toMatchInlineSnapshot(`
@@ -5359,7 +5360,7 @@ describe('merged abstract types handling', () => {
   });
 });
 
-test('handles spread unions correctly', () => {
+test('handles spread unions correctly', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -5418,7 +5419,7 @@ test('handles spread unions correctly', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   // Note: it's important that the query below DO NOT include the `... on C` part. Because in
   // Subgraph 1, `C` is not a part of the union `U` and so a spread for `C` inside `u` is invalid
   // GraphQL.
@@ -5435,7 +5436,7 @@ test('handles spread unions correctly', () => {
   `);
 })
 
-test('handles case of key chains in parallel requires', () => {
+test('handles case of key chains in parallel requires', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -5496,7 +5497,7 @@ test('handles case of key chains in parallel requires', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -5571,7 +5572,7 @@ test('handles case of key chains in parallel requires', () => {
   `);
 });
 
-test('handles types with no common supertype at the same "mergeAt"', () => {
+test('handles types with no common supertype at the same "mergeAt"', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -5636,7 +5637,7 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -5686,7 +5687,7 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
   `);
 });
 
-test('does not error out handling fragments when interface subtyping is involved', () => {
+test('does not error out handling fragments when interface subtyping is involved', async () => {
   // This test essentially make sure the issue in https://github.com/apollographql/federation/issues/2592
   // is resolved.
   const subgraph1 = {
@@ -5744,7 +5745,7 @@ test('does not error out handling fragments when interface subtyping is involved
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Fetch(service: "Subgraph1") {
@@ -5763,7 +5764,7 @@ test('does not error out handling fragments when interface subtyping is involved
 });
 
 describe("named fragments", () => {
-  test('handles mix of fragments indirection and unions', () => {
+  test('handles mix of fragments indirection and unions', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5794,7 +5795,7 @@ describe("named fragments", () => {
           ...F_indirection1_parent
         }
       }
- 
+
       fragment F_indirection1_parent on Parent {
         ...F_indirection2_catOrPerson
       }
@@ -5817,7 +5818,7 @@ describe("named fragments", () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -5835,7 +5836,7 @@ describe("named fragments", () => {
     `);
   });
 
-  test('another mix of fragments indirection and unions', () => {
+  test('another mix of fragments indirection and unions', async () => {
     // This tests that the issue reported on https://github.com/apollographql/router/issues/3172 is resolved.
 
     const subgraph1 = {
@@ -5915,7 +5916,7 @@ describe("named fragments", () => {
       }
     `);
 
-    let plan = queryPlanner.buildQueryPlan(operation);
+    let plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -5982,7 +5983,7 @@ describe("named fragments", () => {
       }
     `);
 
-    plan = queryPlanner.buildQueryPlan(operation);
+    plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -6015,7 +6016,7 @@ describe("named fragments", () => {
     `);
   });
 
-  test('handles fragments with interface field subtyping', () => {
+  test('handles fragments with interface field subtyping', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -6062,7 +6063,7 @@ describe("named fragments", () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -6078,7 +6079,7 @@ describe("named fragments", () => {
     `);
   });
 
-  test('can reuse fragments in subgraph where they only partially apply in root fetch', () => {
+  test('can reuse fragments in subgraph where they only partially apply in root fetch', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -6125,7 +6126,7 @@ describe("named fragments", () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -6186,7 +6187,7 @@ describe("named fragments", () => {
     `);
   });
 
-  test('can reuse fragments in subgraph where they only partially apply in entity fetch', () => {
+  test('can reuse fragments in subgraph where they only partially apply in entity fetch', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -6250,7 +6251,7 @@ describe("named fragments", () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -6363,7 +6364,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
       typeDefs  }
   ];
 
-  test('works when unset', () => {
+  test('works when unset', async () => {
     // This test is mostly a sanity check to make sure that "by default", we do have 16 plans
     // (all combination of the 2 choices for 4 fields). It's not entirely impossible that
     // some future smarter heuristic is added to the planner so that it recognize it could
@@ -6384,7 +6385,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -6404,7 +6405,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
     expect(stats?.evaluatedPlanCount).toBe(16);
   });
 
-  test('allows setting down to 1', () => {
+  test('allows setting down to 1', async () => {
     const config = { debug : { maxEvaluatedPlans : 1 } };
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
     const operation = operationFromDocument(api, gql`
@@ -6418,7 +6419,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Note that in theory, the planner would be excused if it wasn't generated this
     // (optimal in this case) plan. But we kind of want it in this simple example so
     // we still assert this is the plan we get.
@@ -6446,7 +6447,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
     expect(stats?.evaluatedPlanCount).toBe(1);
   });
 
-  test('can be set to an arbitrary number', () => {
+  test('can be set to an arbitrary number', async () => {
     const config = { debug : { maxEvaluatedPlans : 10 } };
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
     const operation = operationFromDocument(api, gql`
@@ -6460,7 +6461,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
       }
       `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -6496,7 +6497,7 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   });
 });
 
-test('correctly generate plan built from some non-individually optimal branch options', () => {
+test('correctly generate plan built from some non-individually optimal branch options', async () => {
   // The idea of this test is that the query has 2 leaf fields, `t.x` and `t.y`, whose
   // options are:
   //  1. `t.x`:
@@ -6558,7 +6559,7 @@ test('correctly generate plan built from some non-individually optimal branch op
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
    QueryPlan {
      Sequence {
@@ -6591,7 +6592,7 @@ test('correctly generate plan built from some non-individually optimal branch op
   `);
 });
 
-test('does not error on some complex fetch group dependencies', () => {
+test('does not error on some complex fetch group dependencies', async () => {
   // This test is a reproduction of a bug whereby planning on this example was raising an
   // assertion error due to an incorrect handling of fetch group dependencies.
 
@@ -6680,7 +6681,7 @@ test('does not error on some complex fetch group dependencies', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -6723,7 +6724,7 @@ test('does not error on some complex fetch group dependencies', () => {
 });
 
 
-test('does not evaluate plans relying on a key field to fetch that same field', () => {
+test('does not evaluate plans relying on a key field to fetch that same field', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -6765,7 +6766,7 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {

@@ -35,7 +35,6 @@ import {
   isServiceListConfig,
   isManagedConfig,
 
-  SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
@@ -135,9 +134,7 @@ export class ApolloGateway implements GatewayInterface {
   private supergraphSdl?: string;
   private supergraphSchema?: GraphQLSchema;
   private subgraphs?: readonly { name: string; url: string }[];
-  private compositionId?: string;
   private state: GatewayState;
-  private _supergraphManager?: SupergraphManager;
 
   private queryPlanManager: QueryPlanManager;
 
@@ -146,7 +143,7 @@ export class ApolloGateway implements GatewayInterface {
   // query plan and the inputs that generated it.
   private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   // Used to communicate supergraph updates
-  // private experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
+  private experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
   // how often service defs should be loaded/updated
   private pollIntervalInMs?: number;
   // Functions to call during gateway cleanup (when stop() is called)
@@ -169,8 +166,8 @@ export class ApolloGateway implements GatewayInterface {
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
       config?.experimental_didResolveQueryPlan;
-    // this.experimental_didUpdateSupergraph =
-    //   config?.experimental_didUpdateSupergraph;
+    this.experimental_didUpdateSupergraph =
+      config?.experimental_didUpdateSupergraph;
 
     if (isManagedConfig(this.config)) {
       this.pollIntervalInMs =
@@ -190,11 +187,6 @@ export class ApolloGateway implements GatewayInterface {
       this.logger
     );
     this.queryPlanner = this.queryPlanManager;
-  }
-
-  // TODO(lenny): delete, only used in tests
-  public get supergraphManager(): SupergraphManager | undefined {
-    return this._supergraphManager;
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
@@ -315,6 +307,7 @@ export class ApolloGateway implements GatewayInterface {
         update: this.externalSupergraphUpdateCallback.bind(this),
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
         getDataSource: this.externalGetDataSourceCallback.bind(this),
+        experimental_didUpdateSupergraph: this.experimental_didUpdateSupergraph,
       });
     } catch (e) {
       this.state = { phase: 'failed to load' };
@@ -322,7 +315,6 @@ export class ApolloGateway implements GatewayInterface {
       throw e;
     }
 
-    // this._supergraphManager = supergraphManager; // TODO(lenny): delete
     this.state = { phase: 'loaded' };
   }
 
@@ -418,9 +410,9 @@ export class ApolloGateway implements GatewayInterface {
   ): void {
     this.queryPlanStore.clear();
 
-    const { apiSchema, schema, supergraphSchema, subgraphs } = this.queryPlanManager.schemas();
+    const { apiSchema, supergraphSchema, subgraphs } = this.queryPlanManager.schemas();
     this.apiSchema = apiSchema;
-    this.schema = addExtensions(schema);
+    this.schema = addExtensions(apiSchema.toGraphQLJSSchema());
     this.supergraphSchema = supergraphSchema;
     this.createServices(subgraphs);
 
@@ -762,6 +754,7 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private async performCleanupAndLogErrors() {
+    await this.queryPlanManager.dispose();
     if (this.toDispose.length === 0) return;
 
     await Promise.all(
@@ -772,7 +765,7 @@ export class ApolloGateway implements GatewayInterface {
               (e.message ?? e),
           );
         }),
-      ), this.queryPlanManager.dispose()],
+      )],
     );
     this.toDispose = [];
   }
@@ -819,7 +812,7 @@ export class ApolloGateway implements GatewayInterface {
   public __testing() {
     return {
       state: this.state,
-      compositionId: this.compositionId,
+      compositionId: (this.queryPlanManager as any).compositionId,
       supergraphSdl: this.supergraphSdl,
       queryPlanner: this.queryPlanner,
     };

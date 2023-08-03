@@ -3,7 +3,7 @@ import gql from 'graphql-tag';
 import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
 
 describe('subscription query plan tests', () => {
-  it('basic subscription query plan', () => {
+  it('basic subscription query plan', async () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -50,7 +50,7 @@ describe('subscription query plan tests', () => {
       `,
     );
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Subscription {
@@ -88,7 +88,7 @@ describe('subscription query plan tests', () => {
       }
     `);
   });
-  it('basic subscription query plan, single subgraph', () => {
+  it('basic subscription query plan, single subgraph', async () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -134,7 +134,7 @@ describe('subscription query plan tests', () => {
       `,
     );
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Subscription {
@@ -154,7 +154,7 @@ describe('subscription query plan tests', () => {
     `);
   });
 
-  it('trying to use @defer with a description results in an error', () => {
+  it('trying to use @defer with a description results in an error', async () => {
     const subgraphA = {
       name: 'subgraphA',
       typeDefs: gql`
@@ -202,6 +202,12 @@ describe('subscription query plan tests', () => {
         }
       `,
     );
-    expect(() => queryPlanner.buildQueryPlan(operation)).toThrow('@defer is not supported on subscriptions');
+    queryPlanner.buildQueryPlan(operation)
+    .then(() => {
+      fail('expected exception');
+    })
+    .catch((e) => {
+      expect(e.message).toEqual('@defer is not supported on subscriptions');
+    })
   });
 });

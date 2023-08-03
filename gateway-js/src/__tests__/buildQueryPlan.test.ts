@@ -13,7 +13,7 @@ describe('buildQueryPlan', () => {
   let schema: Schema;
   let queryPlanner: QueryPlanner;
 
-  const buildPlan = (operation: string): QueryPlan => {
+  const buildPlan = async (operation: string): Promise<QueryPlan> => {
     return queryPlanner.buildQueryPlan(parseOperation(schema, operation));
   };
 
@@ -23,7 +23,7 @@ describe('buildQueryPlan', () => {
     ).not.toThrow();
   });
 
-  it(`should not confuse union types with overlapping field names`, () => {
+  it(`should not confuse union types with overlapping field names`, async () => {
     const operationString = `#graphql
       query {
           body {
@@ -41,7 +41,7 @@ describe('buildQueryPlan', () => {
           }
         }
     `;
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -67,7 +67,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`should use a single fetch when requesting a root field from one service`, () => {
+  it(`should use a single fetch when requesting a root field from one service`, async () => {
     const operationString = `#graphql
       query {
         me {
@@ -78,7 +78,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "accounts") {
@@ -94,7 +94,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`should use two independent fetches when requesting root fields from two services`, () => {
+  it(`should use two independent fetches when requesting root fields from two services`, async () => {
     const operationString = `#graphql
       query {
         me {
@@ -108,7 +108,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -176,7 +176,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`should use a single fetch when requesting multiple root fields from the same service`, () => {
+  it(`should use a single fetch when requesting multiple root fields from the same service`, async () => {
     const operationString = `#graphql
       query {
         topProducts {
@@ -188,7 +188,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -294,7 +294,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`should use a single fetch when requesting relationship subfields from the same service`, () => {
+  it(`should use a single fetch when requesting relationship subfields from the same service`, async () => {
     const operationString = `#graphql
       query {
         topReviews {
@@ -308,7 +308,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -328,7 +328,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`should use a single fetch when requesting relationship subfields and provided keys from the same service`, () => {
+  it(`should use a single fetch when requesting relationship subfields and provided keys from the same service`, async () => {
     const operationString = `#graphql
       query {
         topReviews {
@@ -343,7 +343,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -365,7 +365,7 @@ describe('buildQueryPlan', () => {
   });
 
   describe(`when requesting an extension field from another service`, () => {
-    it(`should add the field's representation requirements to the parent selection set and use a dependent fetch`, () => {
+    it(`should add the field's representation requirements to the parent selection set and use a dependent fetch`, async () => {
       const operationString = `#graphql
         query {
           me {
@@ -379,7 +379,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -418,7 +418,7 @@ describe('buildQueryPlan', () => {
     });
 
     describe(`when the parent selection set is empty`, () => {
-      it(`should add the field's requirements to the parent selection set and use a dependent fetch`, () => {
+      it(`should add the field's requirements to the parent selection set and use a dependent fetch`, async () => {
         const operationString = `#graphql
           query {
             me {
@@ -429,7 +429,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const queryPlan = buildPlan(operationString);
+        const queryPlan = await buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -465,7 +465,7 @@ describe('buildQueryPlan', () => {
       });
     });
 
-    it(`should only add requirements once`, () => {
+    it(`should only add requirements once`, async () => {
       const operationString = `#graphql
         query {
           me {
@@ -477,7 +477,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -515,7 +515,7 @@ describe('buildQueryPlan', () => {
   });
 
   describe(`when requesting a composite field with subfields from another service`, () => {
-    it(`should add key fields to the parent selection set and use a dependent fetch`, () => {
+    it(`should add key fields to the parent selection set and use a dependent fetch`, async () => {
       const operationString = `#graphql
         query {
           topReviews {
@@ -529,7 +529,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -568,7 +568,7 @@ describe('buildQueryPlan', () => {
     });
 
     describe(`when requesting a field defined in another service which requires a field in the base service`, () => {
-      it(`should add the field provided by base service in first Fetch`, () => {
+      it(`should add the field provided by base service in first Fetch`, async () => {
         const operationString = `#graphql
           query {
             topCars {
@@ -577,7 +577,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const queryPlan = buildPlan(operationString);
+        const queryPlan = await buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -614,7 +614,7 @@ describe('buildQueryPlan', () => {
     });
 
     describe(`when the parent selection set is empty`, () => {
-      it(`should add key fields to the parent selection set and use a dependent fetch`, () => {
+      it(`should add key fields to the parent selection set and use a dependent fetch`, async () => {
         const operationString = `#graphql
           query {
             topReviews {
@@ -627,7 +627,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const queryPlan = buildPlan(operationString);
+        const queryPlan = await buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -666,7 +666,7 @@ describe('buildQueryPlan', () => {
     });
   });
   describe(`when requesting a relationship field with extension subfields from a different service`, () => {
-    it(`should first fetch the object using a key from the base service and then pass through the requirements`, () => {
+    it(`should first fetch the object using a key from the base service and then pass through the requirements`, async () => {
       const operationString = `#graphql
         query {
           topReviews {
@@ -677,7 +677,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -717,7 +717,7 @@ describe('buildQueryPlan', () => {
     // GraphQLError: Cannot query field "isbn" on type "Book"
     // Probably an issue with extending / interfaces in composition. None of the fields from the base Book type
     // are showing up in the resulting schema.
-    it(`should add __typename when fetching objects of an interface type from a service`, () => {
+    it(`should add __typename when fetching objects of an interface type from a service`, async () => {
       const operationString = `#graphql
         query {
           topProducts {
@@ -726,7 +726,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -742,7 +742,7 @@ describe('buildQueryPlan', () => {
       `);
     });
 
-    it(`should not get confused by a fragment spread multiple times`, () => {
+    it(`should not get confused by a fragment spread multiple times`, async () => {
       const operationString = `#graphql
         fragment PriceAndCountry on Product {
           price
@@ -764,7 +764,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -793,7 +793,7 @@ describe('buildQueryPlan', () => {
             `);
     });
 
-    it(`should not get confused by an inline fragment multiple times`, () => {
+    it(`should not get confused by an inline fragment multiple times`, async () => {
       const operationString = `#graphql
         query {
           topProducts {
@@ -812,7 +812,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -833,7 +833,7 @@ describe('buildQueryPlan', () => {
             `);
     });
 
-    it(`eliminate unecessary type conditions`, () => {
+    it(`eliminate unecessary type conditions`, async () => {
       const operationString = `#graphql
         query {
           body {
@@ -846,7 +846,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -864,7 +864,7 @@ describe('buildQueryPlan', () => {
             `);
     });
 
-    it(`should preserve directives on inline fragments even if the fragment is otherwise useless`, () => {
+    it(`should preserve directives on inline fragments even if the fragment is otherwise useless`, async () => {
       const operationString = `#graphql
         query myQuery($b: Boolean!) {
           body {
@@ -877,7 +877,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -902,7 +902,7 @@ describe('buildQueryPlan', () => {
   // GraphQLError: Cannot query field "isbn" on type "Book"
   // Probably an issue with extending / interfaces in composition. None of the fields from the base Book type
   // are showing up in the resulting schema.
-  it(`should break up when traversing an extension field on an interface type from a service`, () => {
+  it(`should break up when traversing an extension field on an interface type from a service`, async () => {
     const operationString = `#graphql
       query {
         topProducts {
@@ -914,7 +914,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -966,7 +966,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`interface fragments should expand into possible types only`, () => {
+  it(`interface fragments should expand into possible types only`, async () => {
     const operationString = `#graphql
       query {
         books {
@@ -980,7 +980,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1017,7 +1017,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`interface inside interface should not type explode if possible`, () => {
+  it(`interface inside interface should not type explode if possible`, async () => {
     const operationString = `#graphql
       query {
         product(upc: "") {
@@ -1028,7 +1028,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1047,7 +1047,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`should properly expand nested unions with inline fragments`, () => {
+  it(`should properly expand nested unions with inline fragments`, async () => {
     const operationString = `#graphql
       query {
         body {
@@ -1075,7 +1075,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const queryPlan = buildPlan(operationString);
+    const queryPlan = await buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1101,7 +1101,7 @@ describe('buildQueryPlan', () => {
   });
 
   describe('deduplicates fields / selections regardless of adjacency and type condition nesting', () => {
-    it('for inline fragments', () => {
+    it('for inline fragments', async () => {
       const operationString = `#graphql
         query {
           body {
@@ -1123,7 +1123,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1144,7 +1144,7 @@ describe('buildQueryPlan', () => {
       `);
     });
 
-    it('for named fragment spreads', () => {
+    it('for named fragment spreads', async () => {
       const operationString = `#graphql
         fragment TextFragment on Text {
           attributes {
@@ -1163,7 +1163,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1186,7 +1186,7 @@ describe('buildQueryPlan', () => {
   });
 
   describe('overridden fields and type', () => {
-    it(`query plan of overridden field`, () => {
+    it(`query plan of overridden field`, async () => {
       const operationString = `#graphql
         query {
           library (id: "3") {
@@ -1196,7 +1196,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const queryPlan = buildPlan(operationString);
+      const queryPlan = await buildPlan(operationString);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {

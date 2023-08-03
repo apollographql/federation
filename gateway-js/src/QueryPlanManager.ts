@@ -1,5 +1,5 @@
 import { GatewayApolloConfig } from "@apollo/server-gateway-interface";
-import { GatewayConfig, GetDataSourceFunction, IntrospectAndCompose, LocalCompose, RemoteGraphQLDataSource, SubgraphHealthCheckFunction, SupergraphManager, SupergraphSdlUpdateFunction, UplinkSupergraphManager } from ".";
+import { Experimental_DidUpdateSupergraphCallback, GatewayConfig, GetDataSourceFunction, IntrospectAndCompose, LocalCompose, RemoteGraphQLDataSource, SubgraphHealthCheckFunction, SupergraphManager, SupergraphSdlUpdateFunction, UplinkSupergraphManager } from ".";
 import { SupergraphSdlHookOptions, SupergraphSdlUpdate, isLocalConfig, isManuallyManagedSupergraphSdlGatewayConfig, isServiceListConfig, isStaticSupergraphSdlConfig } from "./config";
 import { LegacyFetcher } from "./supergraphManagers";
 import { Logger } from "@apollo/utils.logger";
@@ -26,7 +26,7 @@ interface ApolloConfigFromAS2Or3 {
 }
 
 export class QueryPlanManager implements IQueryPlanner {
-  worker: WorkerFacade | undefined;
+  private worker: WorkerFacade | undefined;
 
   constructor(
     private config: GatewayConfig,
@@ -43,11 +43,14 @@ export class QueryPlanManager implements IQueryPlanner {
   private schema: GraphQLSchema | undefined;
   private supergraph: Supergraph | undefined;
   private supergraphSchema: GraphQLSchema | undefined;
+  private supergraphSdl: string | undefined;
   private subgraphs: readonly { name: string; url: string }[] | undefined;
 
   private queryPlanner: IQueryPlanner | undefined;
 
   private toDispose: (() => Promise<void>)[] = [];
+
+  private experimental_didUpdateSupergraph: Experimental_DidUpdateSupergraphCallback | undefined;
 
   async createSupergraphManager(apollo: ApolloConfigFromAS2Or3 | undefined): Promise<SupergraphManager> {
     this.apolloConfig = apollo;
@@ -142,13 +145,15 @@ export class QueryPlanManager implements IQueryPlanner {
     update,
     healthCheck,
     getDataSource,
+    experimental_didUpdateSupergraph,
   }: {
-    update: SupergraphSdlUpdateFunction;
-    healthCheck: SubgraphHealthCheckFunction;
-    getDataSource: GetDataSourceFunction;
+    update: SupergraphSdlUpdateFunction,
+    healthCheck: SubgraphHealthCheckFunction,
+    getDataSource: GetDataSourceFunction,
+    experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback,
   }) {
     assert(this.supergraphManager, 'supergraphManager must be defined');
-
+    this.experimental_didUpdateSupergraph = experimental_didUpdateSupergraph;
     const result = await this.supergraphManager.initialize({
       update: (supergraphSdl) => {
         this.updateWithSupergraphSdl({
@@ -205,11 +210,31 @@ export class QueryPlanManager implements IQueryPlanner {
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
+      const previousCompositionId = this.compositionId;
+      const previousSupergraphSdl = this.supergraphSdl;
       this.compositionId = result.id;
 
       this.supergraph = supergraph;
+      this.supergraphSdl = supergraphSdl;
       this.supergraphSchema = supergraphSchema;
       this.subgraphs = subgraphs;
+
+      if (this.experimental_didUpdateSupergraph) {
+        this.experimental_didUpdateSupergraph(
+          {
+            compositionId: result.id,
+            supergraphSdl,
+            schema: this.schema!,
+          },
+          previousCompositionId && previousSupergraphSdl && previousSchema
+            ? {
+                compositionId: previousCompositionId,
+                supergraphSdl: previousSupergraphSdl,
+                schema: previousSchema,
+              }
+            : undefined,
+        );
+      }
 
       this.updateWithSchemaAndNotify();
     }
@@ -258,7 +283,6 @@ export class QueryPlanManager implements IQueryPlanner {
 
   schemas(): {
     apiSchema: Schema;
-    schema: GraphQLSchema;
     supergraphSchema: GraphQLSchema;
     subgraphs: readonly { name: string; url: string }[];
   } {
@@ -266,7 +290,6 @@ export class QueryPlanManager implements IQueryPlanner {
       const apiSchema = buildFederationSchema(this.worker.schemas.apiSchemaSdl);
       return {
         apiSchema,
-        schema: apiSchema.toGraphQLJSSchema(),
         supergraphSchema: buildSchema(this.worker.schemas.supergraphSdl),
         subgraphs: this.worker.schemas.subgraphs,
       }
@@ -277,7 +300,6 @@ export class QueryPlanManager implements IQueryPlanner {
       const apiSchema = this.supergraph?.apiSchema();
       return {
         apiSchema,
-        schema: apiSchema.toGraphQLJSSchema(),
         supergraphSchema: this.supergraphSchema,
         subgraphs: this.subgraphs,
       };

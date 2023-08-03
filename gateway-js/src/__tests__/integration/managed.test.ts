@@ -1,7 +1,7 @@
 import mockedEnv from 'mocked-env';
 import fetcher from 'make-fetch-happen';
 
-import { ApolloGateway, UplinkSupergraphManager } from '@apollo/gateway';
+import { ApolloGateway, SupergraphManager, UplinkSupergraphManager } from '@apollo/gateway';
 import { ApolloServer } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
 import { ApolloServerPluginUsageReportingDisabled } from '@apollo/server/plugin/disabled';
@@ -19,6 +19,10 @@ import { getTestingSupergraphSdl } from '../execution-utils';
 let gateway: ApolloGateway | undefined;
 let server: ApolloServer | undefined;
 let cleanUp: (() => void) | undefined;
+
+const gatewaySupergraphManager = (gateway: ApolloGateway): SupergraphManager | undefined => {
+  return (gateway as any).queryPlanManager.supergraphManager;
+}
 
 beforeEach(() => {
   nockBeforeEach();
@@ -64,7 +68,7 @@ describe('minimal gateway', () => {
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
     await startStandaloneServer(server, { listen: { port: 0 } });
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
+    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(UplinkSupergraphManager);
   });
 
   it('fetches from provided `uplinkEndpoints`', async () => {
@@ -82,8 +86,8 @@ describe('minimal gateway', () => {
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
     await startStandaloneServer(server, { listen: { port: 0 } });
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
-    const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
+    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(UplinkSupergraphManager);
+    const uplinkManager = gatewaySupergraphManager(gateway) as UplinkSupergraphManager;
     expect(uplinkManager.uplinkEndpoints).toEqual([uplinkEndpoint]);
   });
 
@@ -102,8 +106,8 @@ describe('minimal gateway', () => {
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
     await startStandaloneServer(server, { listen: { port: 0 } });
-    expect(gateway.supergraphManager).toBeInstanceOf(UplinkSupergraphManager);
-    const uplinkManager = gateway.supergraphManager as UplinkSupergraphManager;
+    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(UplinkSupergraphManager);
+    const uplinkManager = gatewaySupergraphManager(gateway) as UplinkSupergraphManager;
     expect(uplinkManager.uplinkEndpoints).toEqual([
       schemaConfigDeliveryEndpoint,
     ]);
