@@ -1,5 +1,27 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.5.2
+### Patch Changes
+
+
+- Remove extraneous call to `span.setStatus()` on a span which has already ended. ([#2697](https://github.com/apollographql/federation/pull/2697))
+  
+  In cases where a subgraph responded with an error, we would sometimes try to set
+  the status of a span which had already ended. This resulted in a warning log to
+  the console (but no effect otherwise). This warning should no longer happen.
+
+- Fix `fallbackPollIntervalInMs` behavior. ([#2709](https://github.com/apollographql/federation/pull/2709))
+  
+  The `fallbackPollIntervalInMs` serves 2 purposes:
+  * it allows users to provide an Uplink poll interval if Uplink doesn't provide one
+  * it allows users to use a longer poll interval that what's prescribed by Uplink
+  
+  The second bullet is how the configuration option is documented, but not how it was previously implemented. This change corrects the behavior to respect this configuration if it's provided AND is longer than the Uplink interval.
+- Updated dependencies [[`35179f08`](https://github.com/apollographql/federation/commit/35179f086ce973e9ae7bb455f7ea7d73cdc10f69)]:
+  - @apollo/query-planner@2.5.2
+  - @apollo/federation-internals@2.5.2
+  - @apollo/composition@2.5.2
+
 ## 2.5.1
 ### Patch Changes
 
