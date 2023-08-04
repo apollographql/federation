@@ -57,11 +57,9 @@ type Organization {
 }
 ```
 
-### Mismatched `@key`s
+### Differing `@key`s across subgraphs
 
-Conventionally, `@key` fields for an entity are the same between subgraphs, but this isn't required.
-
-For example, you could define a `Product` entity shared between products and inventory subgraphs, one with the `id` field as the `@key` field, and one with `sku` as the `@key` field:
+An entity often has the same @key fields across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between products and inventory subgraphs, one with `id` as the `@key` field and one with `sku` as the `@key` field:
 
 <CodeColumns>
 
@@ -82,8 +80,8 @@ type Product @key(fields: "sku") {
 
 </CodeColumns>
 
-As long as `id` is a unique identifier within the products subgraph, and `sku` is a unique identifier for the same product in the inventory subgraph, the subgraphs can resolve the `Product` type.
-In other words, **each key declaration is specific to the subgraph it belongs to** and you don't need to match `@key` fields between graphs.
+As long as `id` is a unique identifier within the products subgraph and `sku` is a unique identifier for the same product in the inventory subgraph, the subgraphs can each resolve the `Product` type.
+In other words, **each key declaration is specific to the subgraph it belongs to**, and you don't need to match `@key` fields between graphs.
 
 ## Migrating entities and fields
 
