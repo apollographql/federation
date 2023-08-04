@@ -1,5 +1,28 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.4.12
+### Patch Changes
+
+
+- Fix over-eager merging of fields with different directive applications ([#2717](https://github.com/apollographql/federation/pull/2717))
+  
+  Previously, the following query would incorrectly combine the selection set of `hello`, with both fields ending up under the @skip condition:
+  ```graphql
+  query Test($skipField: Boolean!) {
+    hello @skip(if: $skipField) {
+      world
+    }
+    hello {
+      goodbye
+    }
+  }
+  ```
+  
+  This change identifies those two selections on `hello` as unique while constructing our operation representation so they aren't merged at all, leaving it to the subgraph to handle the operation as-is.
+- Updated dependencies [[`693c2433`](https://github.com/apollographql/federation/commit/693c24332fac27d0e9fa7f6d69ca1b2e15021fd8)]:
+  - @apollo/federation-internals@2.4.12
+  - @apollo/query-graphs@2.4.12
+
 ## 2.4.11
 ### Patch Changes
 
