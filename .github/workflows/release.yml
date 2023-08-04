@@ -48,7 +48,8 @@ jobs:
         shell: bash
 
       - name: Kick off release in federation-rs
-        if: steps.changesets.outputs.published == 'true'
+        # TODO: readd immediately after this commit - we just want to trigger this one-off due to a failure
+        # if: steps.changesets.outputs.published == 'true'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.ACTION_PAT }}
@@ -57,7 +58,7 @@ jobs:
               owner: 'apollographql',
               repo: 'federation-rs',
               workflow_id: '.github/workflows/release.yml',
-              ref: "${{ github.ref_name }}" === "main" ? "main" : `federation-${{ github.ref_name }}`',
+              ref: "${{ github.ref_name }}" === "main" ? "main" : `federation-${{ github.ref_name }}`,
               inputs: { 
                 version: "${{ env.FEDERATION_VERSION }}"
               }
