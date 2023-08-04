@@ -57,7 +57,7 @@ jobs:
               owner: 'apollographql',
               repo: 'federation-rs',
               workflow_id: '.github/workflows/release.yml',
-              ref: 'main',
+              ref: "${{ github.ref_name }}" === "main" ? "main" : `federation-${{ github.ref_name }}`',
               inputs: { 
                 version: "${{ env.FEDERATION_VERSION }}"
               }
