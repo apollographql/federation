@@ -5,7 +5,7 @@
 
 Fix over-eager merging of fields with different directive applications
 
-Previously, the following query would incorrectly combine the selection set of `hello`, with both fields ending up under the @skip condition:
+Previously, the following query would incorrectly combine the selection set of `hello`, with both fields ending up under the `@skip` condition:
 ```graphql
 query Test($skipField: Boolean!) {
   hello @skip(if: $skipField) {
