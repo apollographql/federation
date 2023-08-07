@@ -19,7 +19,7 @@ The following open-source GraphQL server libraries and hosted solutions support 
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://ballerina.io/spec/graphql">Ballerina GraphQL Module</a></big></th></tr>
@@ -34,7 +34,7 @@ Last Release: 2023-06-30</br></br></td><td><table><tr><th><code>_service</code><
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://graphql-dotnet.github.io">GraphQL for .NET</a></big></th></tr>
@@ -54,7 +54,7 @@ Last Release: 2023-07-28</br></br></td><td><table><tr><th><code>_service</code><
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://hexdocs.pm/absinthe_federation/readme.html">Absinthe</a></big></th></tr>
@@ -69,7 +69,7 @@ Last Release: 2021-09-28</br></br>Federation Library: <a href="https://github.co
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://gqlgen.com">gqlgen</a></big></th></tr>
@@ -89,7 +89,7 @@ Last Release: 2022-11-11</br></br></td><td><table><tr><th><code>_service</code><
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://netflix.github.io/dgs/federation/">dgs-framework</a></big></th></tr>
@@ -119,7 +119,7 @@ Last Release: 2023-07-18</br></br>Core Library: <a href="https://github.com/grap
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://www.apollographql.com/docs/federation/">Apollo Server</a></big></th></tr>
@@ -169,7 +169,7 @@ Last Release: 2023-07-25</br></br>Core Library: <a href="https://www.npmjs.com/p
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://lighthouse-php.com/">Lighthouse (Laravel)</a></big></th></tr>
@@ -189,7 +189,7 @@ Last Release: 2023-07-24</br></br>Federation Library: <a href="https://github.co
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://ariadnegraphql.org/docs/apollo-federation">Ariadne</a></big></th></tr>
@@ -214,7 +214,7 @@ Last Release: 2023-07-28</br></br>Core Library: <a href="https://github.com/grap
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://graphql-ruby.org/">GraphQL Ruby</a></big></th></tr>
@@ -229,7 +229,7 @@ Last Release: 2021-02-12</br></br>Federation Library: <a href="https://github.co
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://async-graphql.github.io/async-graphql/en/apollo_federation.html">async-graphql</a></big></th></tr>
@@ -244,7 +244,7 @@ Last Release: 2022-11-28</br></br></td><td><table><tr><th><code>_service</code><
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://ghostdogpr.github.io/caliban/docs/federation.html">Caliban</a></big></th></tr>
@@ -264,7 +264,7 @@ Last Release: 2023-06-20</br></br>Federation Library: <a href="https://github.co
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://github.com/GraphQLSwift/Graphiti">Graphiti</a></big></th></tr>
@@ -279,7 +279,7 @@ Last Release: 2023-06-12</br></br></td><td><table><tr><th><code>_service</code><
 
 <table>
 <thead>
-<tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
+<tr><th style="width:300px;">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
 <tr><th colspan="3"><big><a href="https://aws.amazon.com/appsync/">AWS AppSync</a></big></th></tr>
