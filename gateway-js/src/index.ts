@@ -867,6 +867,7 @@ export class ApolloGateway implements GatewayInterface {
             // on this to decide that query plans are supported by this gateway.
             response.extensions = {
               __queryPlanExperimental: serializedQueryPlan || true,
+              __queryPlanExperimentalObject: queryPlan || true
             };
           }
           if (response.errors) {
