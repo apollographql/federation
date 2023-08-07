@@ -22,7 +22,7 @@ The following open-source GraphQL server libraries and hosted solutions support 
 <tr><th width="300">Library</th><th>Federation 1 Support</th><th>Federation 2 Support</th></tr>
 </thead>
 <tbody>
-<tr><th colspan="3"><big><a href="https://ballerina.io/spec/graphql">module-ballerina-graphql</a></big></th></tr>
+<tr><th colspan="3"><big><a href="https://ballerina.io/spec/graphql">Ballerina GraphQL Module</a></big></th></tr>
 <tr><td>A spec-compliant, production-ready, Standard Library module for building and interacting with GraphQL APIs using Ballerina.</br></br>Github: <a href="https://github.com/ballerina-platform/module-ballerina-graphql">ballerina-platform/module-ballerina-graphql</a></br>
 Type: Code first</br>
 Stars: 51 ⭐</br>
