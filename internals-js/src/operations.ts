@@ -113,6 +113,10 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
       }
     }
   }
+
+  protected keyForDirectives(): string {
+    return this.appliedDirectives.map((d) => keyForDirective(d)).join(' ');
+  }
 }
 
 export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
@@ -146,7 +150,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   key(): string {
-    return this.responseName() + this.appliedDirectivesToString();
+    return this.responseName() + this.keyForDirectives();
   }
 
   asPathElement(): string {
@@ -394,7 +398,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
  * 2. we sort the argument (by their name) before converting them to string, since argument order does not matter in graphQL.
  */
 function keyForDirective(
-  directive: Directive<OperationElement>,
+  directive: Directive<AbstractOperationElement<any>>,
   directivesNeverEqualToThemselves: string[] = [ 'defer' ],
 ): string {
   if (directivesNeverEqualToThemselves.includes(directive.name)) {
@@ -436,8 +440,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     if (!this.computedKey) {
       // The key is such that 2 fragments with the same key within a selection set gets merged together. So the type-condition
       // is include, but so are the directives.
-      const keyForDirectives = this.appliedDirectives.map((d) => keyForDirective(d)).join(' ');
-      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition.name : '') + keyForDirectives;
+      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition.name : '') + this.keyForDirectives();
     }
     return this.computedKey;
   }
