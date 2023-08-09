@@ -4239,6 +4239,507 @@ describe('Named fragments preservation', () => {
       }
     `);
   });
+
+  it('handles fragment rebasing in a subgraph where some subtyping relation differs', () => {
+    // This test is designed such that type `Outer` implements the interface `I` in `Subgraph1`
+    // but not in `Subgraph2`, yet `I` exists in `Subgraph2` (but only `Inner` implements it
+    // there). Further, the operations we test have a fragment on I (`IFrag` below) that is
+    // used "in the context of `Outer`" (at the top-level of fragment `OuterFrag`).
+    //
+    // What this all means is that `IFrag` can be rebased in `Subgraph2` "as is" because `I`
+    // exists there with all its fields, but as we rebase `OuterFrag` on `Subgraph2`, we
+    // cannot use `...IFrag` inside it (at the top-level), because `I` and `Outer` do
+    // no intersect in `Subgraph2` and this would be an invalid selection.
+    //
+    // Previous versions of the code were not handling this case and were error out by
+    // creating the invalid selection (#2721), and this test ensures this is fixed.
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type V @shareable {
+           x: Int
+        }
+
+        interface I {
+          v: V
+        }
+
+        type Outer implements I @key(fields: "id") {
+          id: ID!
+          v: V
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Query {
+          outer1: Outer
+          outer2: Outer
+        }
+
+        type V @shareable {
+           x: Int
+        }
+
+        interface I {
+          v: V
+          w: Int
+        }
+
+        type Inner implements I {
+          v: V
+          w: Int
+        }
+
+        type Outer @key(fields: "id") {
+          id: ID!
+          inner: Inner
+          w: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    let operation = operationFromDocument(api, gql`
+      query {
+        outer1 { ...OuterFrag }
+        outer2 { ...OuterFrag }
+      }
+
+      fragment OuterFrag on Outer {
+        ...IFrag
+        inner { ...IFrag }
+      }
+
+      fragment IFrag on I {
+        v { x }
+      }
+    `);
+
+    const expectedPlan = `
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+            
+            fragment OuterFrag on Outer {
+              inner {
+                v {
+                  x
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v {
+                      x
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v {
+                      x
+                    }
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `;
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+
+    // We very slighly modify the operation to add an artificial indirection within `IFrag`.
+    // This does not really change the query, and should result in the same plan, but
+    // ensure the code handle correctly such indirection.
+    operation = operationFromDocument(api, gql`
+      query {
+        outer1 { ...OuterFrag }
+        outer2 { ...OuterFrag }
+      }
+
+      fragment OuterFrag on Outer {
+        ...IFrag
+        inner { ...IFrag }
+      }
+
+      fragment IFrag on I {
+        ...IFragDelegate
+      }
+
+      fragment IFragDelegate on I {
+        v { x }
+      }
+    `);
+
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+
+    // The previous cases tests the cases where nothing in the `...IFrag` spread at the 
+    // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
+    // in the schema of `Subgraph2`, while `Outer` does not implement `I` (and does not
+    // have `v` in particular), it does contains field `w` that `I` also have, so we
+    // add that field to `IFrag` and make sure we still correctly query that field.
+    operation = operationFromDocument(api, gql`
+      query {
+        outer1 { ...OuterFrag }
+        outer2 { ...OuterFrag }
+      }
+
+      fragment OuterFrag on Outer {
+        ...IFrag
+        inner { ...IFrag }
+      }
+
+      fragment IFrag on I {
+        v { x }
+        w
+      }
+    `);
+
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+            
+            fragment OuterFrag on Outer {
+              w
+              inner {
+                v {
+                  x
+                }
+                w
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v {
+                      x
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v {
+                      x
+                    }
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it('handles fragment rebasing in a subgraph where some union membership relation differs', () => {
+    // This test is similar to the subtyping case (it tests the same problems), but test the case
+    // of unions instead of interfaces.
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type V @shareable {
+           x: Int
+        }
+
+        union U = Outer
+
+        type Outer @key(fields: "id") {
+          id: ID!
+          v: Int
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Query {
+          outer1: Outer
+          outer2: Outer
+        }
+
+        union U = Inner
+
+        type Inner {
+          v: Int
+          w: Int
+        }
+
+        type Outer @key(fields: "id") {
+          id: ID!
+          inner: Inner
+          w: Int
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    let operation = operationFromDocument(api, gql`
+      query {
+        outer1 { ...OuterFrag }
+        outer2 { ...OuterFrag }
+      }
+
+      fragment OuterFrag on Outer {
+        ...UFrag
+        inner { ...UFrag }
+      }
+
+      fragment UFrag on U {
+        ... on Outer {
+          v
+        }
+        ... on Inner {
+          v
+        }
+      }
+    `);
+
+    const expectedPlan = `
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+            
+            fragment OuterFrag on Outer {
+              inner {
+                v
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `;
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+
+    // We very slighly modify the operation to add an artificial indirection within `IFrag`.
+    // This does not really change the query, and should result in the same plan, but
+    // ensure the code handle correctly such indirection.
+    operation = operationFromDocument(api, gql`
+      query {
+        outer1 { ...OuterFrag }
+        outer2 { ...OuterFrag }
+      }
+
+      fragment OuterFrag on Outer {
+        ...UFrag
+        inner { ...UFrag }
+      }
+
+      fragment UFrag on U {
+        ...UFragDelegate
+      }
+
+      fragment UFragDelegate on U {
+        ... on Outer {
+          v
+        }
+        ... on Inner {
+          v
+        }
+      }
+    `);
+
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+
+    // The previous cases tests the cases where nothing in the `...IFrag` spread at the 
+    // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
+    // in the schema of `Subgraph2`, while `Outer` does not implement `I` (and does not
+    // have `v` in particular), it does contains field `w` that `I` also have, so we
+    // add that field to `IFrag` and make sure we still correctly query that field.
+    operation = operationFromDocument(api, gql`
+      query {
+        outer1 { ...OuterFrag }
+        outer2 { ...OuterFrag }
+      }
+
+      fragment OuterFrag on Outer {
+        ...UFrag
+        inner { ...UFrag }
+      }
+
+      fragment UFrag on U {
+        ... on Outer {
+          v
+          w
+        }
+        ... on Inner {
+          v
+        }
+      }
+    `);
+
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+            
+            fragment OuterFrag on Outer {
+              w
+              inner {
+                v
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 test('works with key chains', () => {
@@ -6721,7 +7222,6 @@ test('does not error on some complex fetch group dependencies', () => {
     }
   `);
 });
-
 
 test('does not evaluate plans relying on a key field to fetch that same field', () => {
   const subgraph1 = {
