@@ -322,9 +322,14 @@ interface UplinkUpdate {
   subgraphs: readonly { name: string; url: string }[];
 }
 
-class WorkerFacade implements SupergraphManager, IQueryPlanner {
+export class WorkerFacade implements SupergraphManager, IQueryPlanner {
   static async create() {
-    const worker = new Worker(__filename);
+    const testName = process.env.APOLLO_GATEWAY_JEST_TEST_NAME;
+    const worker = testName
+      ? new Worker(__dirname + "/__tests__/workerThreadTestEntrypoint.js", {
+        env: { APOLLO_GATEWAY_JEST_TEST_NAME: testName }
+      })
+      : new Worker(__dirname + "/workerThreadEntrypoint.js");
     const facade = new WorkerFacade(worker);
 
     await new Promise<WorkerFacade>((resolve, reject) => {
@@ -424,6 +429,7 @@ class WorkerFacade implements SupergraphManager, IQueryPlanner {
     this.updater = options.update;
     return {
       supergraphSdl: result.payload.supergraphSdl,
+      cleanup: async () => this.cleanup(),
     };
   }
 
@@ -453,13 +459,40 @@ class WorkerFacade implements SupergraphManager, IQueryPlanner {
 
     return JSON.parse(message.payload.queryPlanJSON) as QueryPlan;
   }
+
+  async cleanup(): Promise<void> {
+    let resolve: () => void;
+    let reject: (reason: Error) => void
+    const promise = new Promise<void>((_resolve, _reject) => {
+      resolve = _resolve;
+      reject = _reject;
+    });
+    this.worker.on('error', (err: Error) => {
+      reject(err)
+    });
+    this.worker.on('exit', (code: number) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      } else {
+        resolve();
+      }
+    });
+
+    this.worker.postMessage({
+      type: 'cleanup',
+    });
+
+    await promise;
+  }
 }
 
-if (!isMainThread) {
+export async function workerThreadMain(): Promise<UplinkSupergraphManager | undefined> {
+  assert(!isMainThread, 'worker cannot run in main thread');
   assert(parentPort, 'parentPort must be defined');
   parentPort.postMessage({ isReady: true });
 
   let uplinkManager: UplinkSupergraphManager | undefined;
+  let cleanupUplinkManager: (() => Promise<void>) | undefined;
   let supergraphSdl: string | undefined;
   let supergraph: Supergraph | undefined;
   let apiSchema: Schema | undefined;
@@ -468,6 +501,13 @@ if (!isMainThread) {
   let subgraphs: readonly { name: string; url: string }[] | undefined;
   let apiSchemaSdl: string | undefined;
   let queryPlanner: QueryPlanner | undefined;
+
+  let shutdownResolve: () => void;
+  let shutdownReject: (reason: Error) => void
+  const promise = new Promise<void>((_resolve, _reject) => {
+    shutdownResolve = _resolve;
+    shutdownReject = _reject;
+  });
 
   parentPort.on('message', async (message) => {
     switch (message.type) {
@@ -523,6 +563,7 @@ if (!isMainThread) {
         });
 
         update(result.supergraphSdl);
+        cleanupUplinkManager = result.cleanup;
 
         parentPort.postMessage({
           nonce: message.nonce,
@@ -578,10 +619,27 @@ if (!isMainThread) {
       }
       break;
 
+      case 'cleanup': {
+        if (cleanupUplinkManager) {
+          try {
+            await cleanupUplinkManager();
+          } catch (e) {
+            shutdownReject(e);
+          }
+        }
+        shutdownResolve();
+      }
+      break;
+
       default:
         throw new Error(`invalid message type: ${message.type}`);
     }
   });
+
+  await promise;
+
+  parentPort.close();
+  return uplinkManager;
 }
 
 function defer<T>(): { resolve: (_: T) => void; promise: Promise<T> } {

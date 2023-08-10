@@ -2,6 +2,7 @@ import mockedEnv from 'mocked-env';
 import fetcher from 'make-fetch-happen';
 
 import { ApolloGateway, SupergraphManager, UplinkSupergraphManager } from '@apollo/gateway';
+import { WorkerFacade } from '@apollo/gateway/dist/QueryPlanManager';
 import { ApolloServer } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
 import { ApolloServerPluginUsageReportingDisabled } from '@apollo/server/plugin/disabled';
@@ -15,16 +16,24 @@ import {
   mockSupergraphSdlRequest,
 } from '../integration/nockMocks';
 import { getTestingSupergraphSdl } from '../execution-utils';
+import { workerThreadTestFunctions, fakeEndpoint } from './managed.worker';
 
 let gateway: ApolloGateway | undefined;
 let server: ApolloServer | undefined;
+let testName: string | undefined;
 let cleanUp: (() => void) | undefined;
+let testNameCleanup: (() => void) | undefined;
 
 const gatewaySupergraphManager = (gateway: ApolloGateway): SupergraphManager | undefined => {
-  return (gateway as any).queryPlanManager.supergraphManager;
+  return gateway['queryPlanManager']['supergraphManager'];
 }
 
 beforeEach(() => {
+  testName = expect.getState().currentTestName;
+  testNameCleanup = mockedEnv({
+    APOLLO_GATEWAY_JEST_TEST_NAME: testName,
+  });
+
   nockBeforeEach();
 });
 
@@ -45,6 +54,11 @@ afterEach(async () => {
     cleanUp();
     cleanUp = undefined;
   }
+
+  if (testNameCleanup) {
+    testNameCleanup();
+    testNameCleanup = undefined;
+  }
 });
 
 const logger = {
@@ -56,11 +70,11 @@ const logger = {
 
 describe('minimal gateway', () => {
   it('uses managed federation', async () => {
+    expect(testName && workerThreadTestFunctions[testName]).toBeTruthy();
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
       APOLLO_GRAPH_REF: graphRef,
     });
-    mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
 
     gateway = new ApolloGateway({ logger });
     server = new ApolloServer({
@@ -68,57 +82,49 @@ describe('minimal gateway', () => {
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
     await startStandaloneServer(server, { listen: { port: 0 } });
-    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(UplinkSupergraphManager);
+    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(WorkerFacade);
   });
 
   it('fetches from provided `uplinkEndpoints`', async () => {
+    expect(testName && workerThreadTestFunctions[testName]).toBeTruthy();
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
       APOLLO_GRAPH_REF: graphRef,
     });
 
-    const uplinkEndpoint = 'https://example.com';
-    mockSupergraphSdlRequestSuccess({ url: uplinkEndpoint });
-
-    gateway = new ApolloGateway({ logger, uplinkEndpoints: [uplinkEndpoint] });
+    gateway = new ApolloGateway({ logger, uplinkEndpoints: [fakeEndpoint] });
     server = new ApolloServer({
       gateway,
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
     await startStandaloneServer(server, { listen: { port: 0 } });
-    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(UplinkSupergraphManager);
-    const uplinkManager = gatewaySupergraphManager(gateway) as UplinkSupergraphManager;
-    expect(uplinkManager.uplinkEndpoints).toEqual([uplinkEndpoint]);
+    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(WorkerFacade);
   });
 
   it('fetches from (deprecated) provided `schemaConfigDeliveryEndpoint`', async () => {
+    expect(testName && workerThreadTestFunctions[testName]).toBeTruthy();
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
       APOLLO_GRAPH_REF: graphRef,
     });
 
-    const schemaConfigDeliveryEndpoint = 'https://example.com';
-    mockSupergraphSdlRequestSuccess({ url: schemaConfigDeliveryEndpoint });
-
-    gateway = new ApolloGateway({ logger, schemaConfigDeliveryEndpoint });
+    gateway = new ApolloGateway(
+      { logger, schemaConfigDeliveryEndpoint: fakeEndpoint }
+    );
     server = new ApolloServer({
       gateway,
       plugins: [ApolloServerPluginUsageReportingDisabled()],
     });
     await startStandaloneServer(server, { listen: { port: 0 } });
-    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(UplinkSupergraphManager);
-    const uplinkManager = gatewaySupergraphManager(gateway) as UplinkSupergraphManager;
-    expect(uplinkManager.uplinkEndpoints).toEqual([
-      schemaConfigDeliveryEndpoint,
-    ]);
+    expect(gatewaySupergraphManager(gateway)).toBeInstanceOf(WorkerFacade);
   });
 
   it('supports a custom fetcher', async () => {
+    expect(testName && workerThreadTestFunctions[testName]).toBeTruthy();
     cleanUp = mockedEnv({
       APOLLO_KEY: apiKey,
       APOLLO_GRAPH_REF: graphRef,
     });
-    mockSupergraphSdlRequestSuccess({ url: /.*?apollographql.com/ });
 
     let calls = 0;
     gateway = new ApolloGateway({

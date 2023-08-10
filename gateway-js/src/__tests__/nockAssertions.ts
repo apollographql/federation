@@ -1,4 +1,8 @@
 import nock from 'nock';
+import { inspect } from 'util';
+
+// NOTE: These functions are called in worker threads, so you can't use Jest
+// functions like 'expect' since it's not set up.
 
 // Ensures an active and clean nock before every test
 export function nockBeforeEach() {
@@ -16,5 +20,8 @@ export function nockAfterEach() {
   // unmock HTTP interceptor
   nock.restore();
   // effectively nock.isDone() but with more helpful messages in test failures
-  expect(nock.activeMocks()).toEqual([]);
+  const mocks = nock.activeMocks();
+  if (mocks.length) {
+    throw new Error(`Active nock mocks remaining: ${inspect(mocks)}`);
+  }
 }
