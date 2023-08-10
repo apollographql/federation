@@ -32,7 +32,7 @@ describe('handles simple @defer', () => {
     `
   }
 
-  test('without defer-support enabled', () => {
+  test('without defer-support enabled', async () => {
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(api, gql`
       {
@@ -46,7 +46,7 @@ describe('handles simple @defer', () => {
     `);
 
     // Without defer-support enabled, we should get the same plan than if `@defer` wasn't there.
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -79,7 +79,7 @@ describe('handles simple @defer', () => {
     `);
   });
 
-  test('with defer-support enabled', () => {
+  test('with defer-support enabled', async () => {
     const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
     const operation = operationFromDocument(api, gql`
       {
@@ -92,7 +92,7 @@ describe('handles simple @defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -156,7 +156,7 @@ describe('handles simple @defer', () => {
 });
 
 describe('non-router-based-defer', () => {
-  test('@defer on value type', () => {
+  test('@defer on value type', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -199,7 +199,7 @@ describe('non-router-based-defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // We cannot handle a @defer on value type at the query planning level, so we expect nothing to be
     // deferred. However, we still want the `DeferNode` structure with the proper sub-selections so that
     // the execution can create responses that match the actual @defer.
@@ -254,7 +254,7 @@ describe('non-router-based-defer', () => {
     `);
   });
 
-  test('@defer on entity but with no @key', () => {
+  test('@defer on entity but with no @key', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -291,7 +291,7 @@ describe('non-router-based-defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // While the @defer in the operation is on an entity, the @key in the first subgraph
     // is explicitely marked as non-resovable, so we cannot use it to actually defer the
     // fetch to `v1`. Note that example still compose because, defer excluded, `v1` can
@@ -343,7 +343,7 @@ describe('non-router-based-defer', () => {
     `);
   });
 
-  test('@defer on value type but with entity afterwards', () => {
+  test('@defer on value type but with entity afterwards', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -397,7 +397,7 @@ describe('non-router-based-defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // While we cannot defer the initial resolving of `u`, we can defer the fetch of it's `x` field,
     // and so ensuring we do it, but also that the subselections do respect what is is the @defer and
     // what isn't.
@@ -473,7 +473,7 @@ describe('non-router-based-defer', () => {
   });
 });
 
-test('@defer resuming in same subgraph', () => {
+test('@defer resuming in same subgraph', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -501,7 +501,7 @@ test('@defer resuming in same subgraph', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -547,7 +547,7 @@ test('@defer resuming in same subgraph', () => {
   `);
 });
 
-test('@defer multiple fields in different subgraphs', () => {
+test('@defer multiple fields in different subgraphs', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -597,7 +597,7 @@ test('@defer multiple fields in different subgraphs', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -677,7 +677,7 @@ test('@defer multiple fields in different subgraphs', () => {
   `);
 });
 
-test('multiple (non-nested) @defer + label handling', () => {
+test('multiple (non-nested) @defer + label handling', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -740,7 +740,7 @@ test('multiple (non-nested) @defer + label handling', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -865,7 +865,7 @@ test('multiple (non-nested) @defer + label handling', () => {
 });
 
 describe('nested @defer', () => {
-  test('on entities', () => {
+  test('on entities', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -918,7 +918,7 @@ describe('nested @defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -1023,7 +1023,7 @@ describe('nested @defer', () => {
     `);
   });
 
-  test('on value types', () => {
+  test('on value types', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1075,7 +1075,7 @@ describe('nested @defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -1130,7 +1130,7 @@ describe('nested @defer', () => {
     `);
   });
 
-  test('direct nesting on entity', () => {
+  test('direct nesting on entity', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1171,7 +1171,7 @@ describe('nested @defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -1242,7 +1242,7 @@ describe('nested @defer', () => {
     `);
   });
 
-  test('direct nesting on value type', () => {
+  test('direct nesting on value type', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1274,7 +1274,7 @@ describe('nested @defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -1315,7 +1315,7 @@ describe('nested @defer', () => {
     `);
   });
 
-  test('on entity but with unuseful key', () => {
+  test('on entity but with unuseful key', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1354,7 +1354,7 @@ describe('nested @defer', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // Note that nothing can effectively be deferred, so everything is fetched in the very first fetch, but
     // we then have deferred sections that just sub-select what each defer should return to "simulate" the
     // deferred responses.
@@ -1395,7 +1395,7 @@ describe('nested @defer', () => {
 });
 
 describe('@defer on mutation', () => {
-  test('mutations on same subgraph', () => {
+  test('mutations on same subgraph', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1446,7 +1446,7 @@ describe('@defer on mutation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // What matters here is that the updates (that go to different fields) are correctly done in sequence,
     // and that defers have proper dependency set.
     expect(plan).toMatchInlineSnapshot(`
@@ -1540,7 +1540,7 @@ describe('@defer on mutation', () => {
     `);
   });
 
-  test('mutations on different subgraphs', () => {
+  test('mutations on different subgraphs', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -1593,7 +1593,7 @@ describe('@defer on mutation', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     // What matters here is that the updates (that go to different fields) are correctly done in sequence,
     // and that defers have proper dependency set.
     expect(plan).toMatchInlineSnapshot(`
@@ -1708,7 +1708,7 @@ describe('@defer on mutation', () => {
   });
 });
 
-test('multi-dependency deferred section', () => {
+test('multi-dependency deferred section', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -1770,7 +1770,7 @@ test('multi-dependency deferred section', () => {
     }
   `);
 
-  let plan = queryPlanner.buildQueryPlan(operation);
+  let plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -1865,13 +1865,13 @@ test('multi-dependency deferred section', () => {
     }
   `);
 
-  plan = queryPlanner.buildQueryPlan(operation);
+  plan = await queryPlanner.buildQueryPlan(operation);
   // TODO: the following plan is admittedly not as effecient as it could be, as the 2 queries to
   // subgraph 2 and 3 are done in the "primary" section, but all they do is handle transitive
   // key dependencies for the deferred block, so it would make more sense to defer those fetches
   // as well. It is however tricky to both improve this here _and_ maintain the plan generate
   // just above (which is admittedly optimial). More precisely, what the code currently does is
-  // that when it gets to a defer, then it defers the fetch that gets the deferred fields (the 
+  // that when it gets to a defer, then it defers the fetch that gets the deferred fields (the
   // fetch to subgraph 4 here), but it puts the "condition" resolution for the key of that fetch
   // in the non-deferred section. Here, resolving that fetch conditions is what creates the
   // dependency on the the fetches to subgraph 2 and 3, and so those get non-deferred.
@@ -1969,7 +1969,7 @@ test('multi-dependency deferred section', () => {
 });
 
 describe('@require', () => {
-  test('requirements of deferred fields are deferred', () => {
+  test('requirements of deferred fields are deferred', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2017,7 +2017,7 @@ describe('@require', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -2083,7 +2083,7 @@ describe('@require', () => {
 });
 
 describe('@provides', () => {
-  test('@provides are ignored for deferred fields', () => {
+  test('@provides are ignored for deferred fields', async () => {
     // Note: this test tests the currently implemented behaviour, which ignore @provides when it
     // concerns a deferred field. However, this is the behaviour implemented at the moment more
     // because it is the simplest option and it's not illogical, but it is not the only possibly
@@ -2130,7 +2130,7 @@ describe('@provides', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -2177,7 +2177,7 @@ describe('@provides', () => {
   });
 });
 
-test('@defer on query root type', () => {
+test('@defer on query root type', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -2221,7 +2221,7 @@ test('@defer on query root type', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -2290,7 +2290,7 @@ test('@defer on query root type', () => {
   `);
 });
 
-test('@defer on everything queried', () => {
+test('@defer on everything queried', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -2327,7 +2327,7 @@ test('@defer on everything queried', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -2378,7 +2378,7 @@ test('@defer on everything queried', () => {
   `);
 });
 
-test('@defer everything within entity', () => {
+test('@defer everything within entity', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -2415,7 +2415,7 @@ test('@defer everything within entity', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -2481,7 +2481,7 @@ describe('defer with conditions', () => {
   }, {
     name: 'with explicit label',
     label: 'testLabel',
-  }])('simple @defer with condition $name', ({label}) => {
+  }])('simple @defer with condition $name', async ({label}) => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2518,7 +2518,7 @@ describe('defer with conditions', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {
@@ -2595,7 +2595,7 @@ describe('defer with conditions', () => {
     `);
   });
 
-  test('@defer with condition on single subgraph', () => {
+  test('@defer with condition on single subgraph', async () => {
     // This test mostly serves to illustrate why we handle @defer conditions with `ConditionNode` instead of
     // just generating only the plan with the @defer and ignoring the `DeferNode` at execution: this is
     // because doing can result in sub-par execution for the case where the @defer is disabled (unless of
@@ -2627,7 +2627,7 @@ describe('defer with conditions', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond) {
@@ -2686,7 +2686,7 @@ describe('defer with conditions', () => {
     `);
   });
 
-  test('multiple @defer with conditions and labels', () => {
+  test('multiple @defer with conditions and labels', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2747,7 +2747,7 @@ describe('defer with conditions', () => {
       }
     `);
 
-    const plan = queryPlanner.buildQueryPlan(operation);
+    const plan = await queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Condition(if: $cond1) {
@@ -3056,7 +3056,7 @@ describe('defer with conditions', () => {
   });
 });
 
-test('defer when some interface has different definitions in different subgraphs', () => {
+test('defer when some interface has different definitions in different subgraphs', async () => {
   // This test exists to ensure an early bug is fixed: that bug was in the code building
   // the `subselection` of `DeferNode` in the plan, and was such that those subselections
   // were created with links to subgraph types instead the supergraph ones. As a result,
@@ -3111,7 +3111,7 @@ test('defer when some interface has different definitions in different subgraphs
     }
   `);
 
-  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  const queryPlan = await queryPlanner.buildQueryPlan(operation);
   expect(queryPlan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -3169,7 +3169,7 @@ test('defer when some interface has different definitions in different subgraphs
 });
 
 describe('named fragments', () => {
-  test('simple use', () => {
+  test('simple use', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3208,7 +3208,7 @@ describe('named fragments', () => {
       }
     `);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -3253,7 +3253,7 @@ describe('named fragments', () => {
     `);
   });
 
-  test('expands into the same field deferred and not deferred', () => {
+  test('expands into the same field deferred and not deferred', async () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3301,7 +3301,7 @@ describe('named fragments', () => {
 
     // Field 'y' is queried twice, both in the deferred and non-deferred section. The spec says that
     // means the field is requested twice, so ensures that's what we do.
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -3369,7 +3369,7 @@ describe('named fragments', () => {
     `);
   });
 
-  test('can request __typename in a fragment', () => {
+  test('can request __typename in a fragment', async () => {
     // Note that there is nothing super special about __typename in theory, but because it's a field that is always available
     // in all subghraph (for a type the subgraph has), it tends to create multiple options for the query planner, and so
     // excercises some code-paths that triggered an early bug in the handling of `@defer` (https://github.com/apollographql/federation/issues/2128).
@@ -3412,7 +3412,7 @@ describe('named fragments', () => {
       }
     `);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Defer {
@@ -3463,7 +3463,7 @@ describe('named fragments', () => {
   });
 });
 
-test('do not merge query branches with @defer', () => {
+test('do not merge query branches with @defer', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -3505,7 +3505,7 @@ test('do not merge query branches with @defer', () => {
     }
   `);
 
-  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  const queryPlan = await queryPlanner.buildQueryPlan(operation);
   expect(queryPlan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {
@@ -3571,7 +3571,7 @@ test('do not merge query branches with @defer', () => {
   `);
 });
 
-test('@defer only the key of an entity', () => {
+test('@defer only the key of an entity', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -3598,7 +3598,7 @@ test('@defer only the key of an entity', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   // Making sure that the deferred part has no fetches since we only defer the key
   // and that _has to_ be fetched before deferring anyway.
   expect(plan).toMatchInlineSnapshot(`
@@ -3630,7 +3630,7 @@ test('@defer only the key of an entity', () => {
   `);
 });
 
-test('the path in @defer includes traversed fragments', () => {
+test('the path in @defer includes traversed fragments', async () => {
   const subgraph1 = {
     name: 'Subgraph1',
     typeDefs: gql`
@@ -3671,7 +3671,7 @@ test('the path in @defer includes traversed fragments', () => {
     }
   `);
 
-  const plan = queryPlanner.buildQueryPlan(operation);
+  const plan = await queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
     QueryPlan {
       Defer {

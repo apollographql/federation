@@ -1,5 +1,6 @@
 import gql from 'graphql-tag';
 import { startSubgraphsAndGateway, Services } from './testUtils'
+import { QueryPlanner } from '@apollo/query-planner';
 
 let services: Services;
 
@@ -70,7 +71,7 @@ describe('`debug.bypassPlannerForSingleSubgraph` config', () => {
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(expectedResult);
 
-    const queryPlanner = services.gateway.__testing().queryPlanner!;
+    const queryPlanner = services.gateway.__testing().queryPlanner! as QueryPlanner;
     // If the query planner is genuinely used, we shoud have evaluated 1 plan.
     expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
   });
@@ -93,9 +94,8 @@ describe('`debug.bypassPlannerForSingleSubgraph` config', () => {
     const result = await response.json();
     expect(result).toMatchInlineSnapshot(expectedResult);
 
-    const queryPlanner = services.gateway.__testing().queryPlanner!;
+    const queryPlanner = services.gateway.__testing().queryPlanner! as QueryPlanner;
     // The `bypassPlannerForSingleSubgraph` doesn't evaluate anything. It's use is the only case where `evaluatedPlanCount` can be 0.
     expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(0);
   });
 });
-

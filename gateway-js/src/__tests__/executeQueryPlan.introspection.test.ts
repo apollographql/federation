@@ -79,7 +79,7 @@ describe('handling of introspection queries', () => {
       }
     `);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     const response = await executePlan(queryPlan, operation, schema, serviceMap);
     expect(response.errors).toBeUndefined();
     expect(response.data).toMatchInlineSnapshot(`
@@ -102,7 +102,7 @@ describe('handling of introspection queries', () => {
       }
     `);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     const response = await executePlan(queryPlan, operation, schema, serviceMap);
     expect(response.errors).toBeUndefined();
     expect(response.data).toMatchInlineSnapshot(`
@@ -125,7 +125,7 @@ describe('handling of introspection queries', () => {
       }
     `);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    const queryPlan = await queryPlanner.buildQueryPlan(operation);
     const response = await executePlan(queryPlan, operation, schema, serviceMap, { name: "T1" });
     expect(response.errors).toBeUndefined();
     expect(response.data).toMatchInlineSnapshot(`

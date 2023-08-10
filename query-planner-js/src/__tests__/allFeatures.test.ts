@@ -65,8 +65,8 @@ for (const directory of directories) {
           };
 
           const thenQueryPlanShouldBe = () => {
-            then(/^query plan$/i, (expectedQueryPlanString: string) => {
-              queryPlan = queryPlanner.buildQueryPlan(operation);
+            then(/^query plan$/i, async (expectedQueryPlanString: string) => {
+              queryPlan = await queryPlanner.buildQueryPlan(operation);
 
               const expectedQueryPlan = JSON.parse(expectedQueryPlanString);
               expect(queryPlan).toMatchQueryPlan(expectedQueryPlan);

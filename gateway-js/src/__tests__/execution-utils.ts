@@ -2,7 +2,7 @@ import {
   GraphQLSchemaModule,
   GraphQLResolverMap,
   GraphQLSchemaValidationError,
-} from '@apollo/subgraph/src/schema-helper';
+} from '@apollo/subgraph/dist/schema-helper';
 import type { Logger } from '@apollo/utils.logger';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
@@ -56,7 +56,7 @@ export async function execute(
   const apiSchema = schema.toAPISchema();
   const operationDocument = gql`${request.query}`;
   const operation = operationFromDocument(apiSchema, operationDocument);
-  const queryPlan = queryPlanner.buildQueryPlan(operation);
+  const queryPlan = await queryPlanner.buildQueryPlan(operation);
 
   const operationContext = buildOperationContext({
     schema: apiSchema.toGraphQLJSSchema(),

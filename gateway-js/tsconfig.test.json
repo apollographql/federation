@@ -1,5 +1,10 @@
 {
   "extends": "../tsconfig.test.base",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
   "files": [
     "./src/__tests__/testSetup.ts"
   ],

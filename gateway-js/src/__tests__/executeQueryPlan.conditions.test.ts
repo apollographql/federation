@@ -138,7 +138,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`QueryPlan {}`);
 
       const response = await executePlan(queryPlan, operation, schema, serviceMap);
@@ -155,7 +155,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`QueryPlan {}`);
 
       const response = await executePlan(queryPlan, operation, schema, serviceMap);
@@ -172,7 +172,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // Note that due to how we handle constant conditions, those don't get removed in the fetch nodes (which only matter when things are
       // included with a constant; if they are skipped with a constant, then the fetch is not include so ...). This feels like a very minor
       // point so leaving it be for now: constant conditions are a bit of a smell in the first place, so unsure we need to go above and
@@ -218,7 +218,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // Same as for @include: the @skip within the fetch is not cleared, but that's harmless.
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -264,7 +264,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // Importantly, we only bother querying S1
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -312,7 +312,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // Importantly, we only bother querying S1
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -360,7 +360,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // Again, constantly included is the one case that still show up in the fetch, but that's harmless. The point here is
       // that we don't bother with a ConditionNode.
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -428,7 +428,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // Again, constantly included is the one case that still show up in the fetch, but that's harmless. The point here is
       // that we don't bother with a ConditionNode.
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -500,7 +500,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -597,7 +597,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -692,7 +692,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
@@ -792,7 +792,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -902,7 +902,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1038,7 +1038,7 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const queryPlan = await queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1168,7 +1168,7 @@ describe('Execution tests for @include/@skip', () => {
           }
         `);
 
-        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        const queryPlan = await queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
@@ -1242,7 +1242,7 @@ describe('Execution tests for @include/@skip', () => {
           }
         `);
 
-        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        const queryPlan = await queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Fetch(service: "S1") {
@@ -1293,7 +1293,7 @@ describe('Execution tests for @include/@skip', () => {
           }
         `);
 
-        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        const queryPlan = await queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Fetch(service: "S1") {
@@ -1344,7 +1344,7 @@ describe('Execution tests for @include/@skip', () => {
           }
         `);
 
-        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        const queryPlan = await queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Fetch(service: "S1") {
@@ -1395,7 +1395,7 @@ describe('Execution tests for @include/@skip', () => {
           }
         `);
 
-        const queryPlan = queryPlanner.buildQueryPlan(operation);
+        const queryPlan = await queryPlanner.buildQueryPlan(operation);
         // Ensures both @skip and @include have condition nodes.
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {

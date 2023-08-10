@@ -187,7 +187,7 @@ if (typeof describe !== 'undefined') {
         qp = new QueryPlanner(supergraph);
       });
 
-      test('can execute "me" query', () => {
+      test('can execute "me" query', async () => {
         const operation = operationFromDocument(api, gql`
           {
             me {
@@ -199,7 +199,7 @@ if (typeof describe !== 'undefined') {
           }
         `);
 
-        const plan = qp.buildQueryPlan(operation);
+        const plan = await qp.buildQueryPlan(operation);
         expect(plan).toMatchInlineSnapshot(`
           QueryPlan {
             Parallel {
@@ -224,7 +224,7 @@ if (typeof describe !== 'undefined') {
         `);
       });
 
-      test('can execute "bestRatedProducts" query', () => {
+      test('can execute "bestRatedProducts" query', async () => {
         const operation = operationFromDocument(api, gql`
           {
             bestRatedProducts(limit: 10) {
@@ -248,7 +248,7 @@ if (typeof describe !== 'undefined') {
           }
         `);
 
-        const plan = qp.buildQueryPlan(operation);
+        const plan = await qp.buildQueryPlan(operation);
         expect(plan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
