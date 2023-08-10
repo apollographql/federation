@@ -3739,6 +3739,80 @@ describe('Named fragments preservation', () => {
     `);
   });
 
+  it('works when fragment is nested and not nested', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          a: Anything
+        }
+
+        union Anything = A | B
+
+        type A {
+          a: String
+        }
+
+        type B {
+          b: String
+          child: A
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          a {
+            ... on A {
+              ...ASelect
+            }
+            ... on B {
+              b
+              child {
+                ...ASelect
+              }
+            }
+          }
+        }
+
+        fragment ASelect on A {
+          __typename
+          a
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            a {
+              __typename
+              ... on A {
+                ...ASelect
+              }
+              ... on B {
+                b
+                child {
+                  ...ASelect
+                }
+              }
+            }
+          }
+          
+          fragment ASelect on A {
+            __typename
+            a
+          }
+        },
+      }
+    `);
+  })
+
   it('avoid fragments usable only once', () => {
     const subgraph1 = {
       name: 'Subgraph1',
