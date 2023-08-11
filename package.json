@@ -43,7 +43,7 @@
   ],
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.3",
-    "@apollo/client": "3.8.0",
+    "@apollo/client": "3.8.1",
     "@apollo/server": "4.9.1",
     "@apollo/utils.fetcher": "2.0.1",
     "@changesets/changelog-github": "0.4.8",
@@ -67,7 +67,7 @@
     "@types/uuid": "9.0.2",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "bunyan": "1.8.15",
-    "cspell": "6.31.2",
+    "cspell": "6.31.3",
     "graphql": "16.7.1",
     "graphql-http": "1.21.0",
     "graphql-tag": "2.12.6",
@@ -99,7 +99,7 @@
     ]
   },
   "volta": {
-    "node": "18.17.0",
+    "node": "18.17.1",
     "npm": "9.8.1"
   }
 }
