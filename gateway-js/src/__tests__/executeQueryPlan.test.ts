@@ -6140,4 +6140,97 @@ describe('executeQueryPlan', () => {
       }
     `);
   });
+
+  it('handles post-query rewrites correctly even when null values are involved', async () => {
+    // Tests reproducing the issue of #2715
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          tests: [Test!]!
+        }
+
+        type Test {
+          node: Node
+        }
+
+        interface Node {
+          id: ID!
+        }
+
+        type Foo implements Node {
+          id: ID!
+          foo: String
+        }
+
+        type Bar implements Node {
+          id: ID!
+          bar: String
+        }
+      `,
+      resolvers: {
+        Query: {
+          tests() {
+            return [{ node: null }];
+          },
+        },
+        Node: {
+          __resolveType(obj: any) {
+            if (obj['foo']) {
+              return 'Foo'
+            }
+            if (obj['bar']) {
+              return 'Bar'
+            }
+            return undefined;
+          }
+        }
+      }
+    }
+
+    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1 ]);
+    const operation = parseOp(`
+      query {
+        tests {
+          node {
+            ... on Foo { test: foo }
+            ... on Bar { test: bar }
+          }
+        }
+      }
+    `, schema);
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            tests {
+              node {
+                __typename
+                ... on Foo {
+                  test: foo
+                }
+                ... on Bar {
+                  test__alias_0: bar
+                }
+              }
+            }
+          }
+        },
+      }
+    `);
+    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.errors).toBeUndefined();
+    expect(response.extensions).toBeUndefined();
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "tests": Array [
+          Object {
+            "node": null,
+          },
+        ],
+      }
+    `);
+  })
 });
