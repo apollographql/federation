@@ -1111,7 +1111,7 @@ class FetchGroup {
 
     // If we do have inputs, then we first look at the path to `maybeParent`, and it needs to be
     // essentially empty, "essentially" is because path can sometimes have some leading fragment(s)
-    // and those are fine to ignore. But if the path has some field, then this imply that the inputs
+    // and those are fine to ignore. But if the path has some field, then this implies that the inputs
     // of `this` are based on something at a deeper level than those of `maybeParent`, and the "contains"
     // comparison we do below would not make sense.
     if (relation.path.some((elt) => elt.kind === 'Field')) {
