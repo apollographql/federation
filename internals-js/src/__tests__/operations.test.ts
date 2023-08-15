@@ -2476,6 +2476,8 @@ describe('basic operations', () => {
       b1: Int
       b2: T
     }
+
+    directive @customSkip(if: Boolean!, label: String!) on FIELD | INLINE_FRAGMENT
   `);
 
   const operation = parseOperation(schema, `
@@ -2521,29 +2523,309 @@ describe('basic operations', () => {
     ]);
   })
 
-  test('fields are keyed on both name and directive applications', () => {
-    const operation = operationFromDocument(schema, gql`
-      query Test($skipIf: Boolean!) {
-        t {
-          v1
+  describe('same field merging', () => {
+    test('do merge when same field and no directive', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test {
+          t {
+            v1
+          }
+          t {
+            v2
+          }
         }
-        t @skip(if: $skipIf) {
-          v2
-        }
-      }
-    `);
+      `);
 
-    expect(operation.toString()).toMatchString(`
-      query Test($skipIf: Boolean!) {
-        t {
-          v1
+      expect(operation.toString()).toMatchString(`
+        query Test {
+          t {
+            v1
+            v2
+          }
         }
-        t @skip(if: $skipIf) {
-          v2
+      `);
+    });
+
+    test('do merge when both have the _same_ directive', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skipIf: Boolean!) {
+          t @skip(if: $skipIf) {
+            v1
+          }
+          t @skip(if: $skipIf) {
+            v2
+          }
         }
-      }
-    `);
-  })
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skipIf: Boolean!) {
+          t @skip(if: $skipIf) {
+            v1
+            v2
+          }
+        }
+      `);
+    });
+
+    test('do merge when both have the _same_ directive, even if argument order differs', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skipIf: Boolean!) {
+          t @customSkip(if: $skipIf, label: "foo") {
+            v1
+          }
+          t @customSkip(label: "foo", if: $skipIf) {
+            v2
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skipIf: Boolean!) {
+          t @customSkip(if: $skipIf, label: "foo") {
+            v1
+            v2
+          }
+        }
+      `);
+    });
+
+    test('do not merge when one has a directive and the other do not', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skipIf: Boolean!) {
+          t {
+            v1
+          }
+          t @skip(if: $skipIf) {
+            v2
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skipIf: Boolean!) {
+          t {
+            v1
+          }
+          t @skip(if: $skipIf) {
+            v2
+          }
+        }
+      `);
+    });
+
+    test('do not merge when both have _differing_ directives', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skip1: Boolean!, $skip2: Boolean!) {
+          t @skip(if: $skip1) {
+            v1
+          }
+          t @skip(if: $skip2) {
+            v2
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skip1: Boolean!, $skip2: Boolean!) {
+          t @skip(if: $skip1) {
+            v1
+          }
+          t @skip(if: $skip2) {
+            v2
+          }
+        }
+      `);
+    });
+
+    test('do not merge @defer directive, even if applied the same way', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test {
+          t @defer {
+            v1
+          }
+          t @defer {
+            v2
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test {
+          t @defer {
+            v1
+          }
+          t @defer {
+            v2
+          }
+        }
+      `);
+    });
+  });
+  
+  describe('same fragment merging', () => {
+    test('do merge when same fragment and no directive', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test {
+          t {
+            ... on T {
+              v1
+            }
+            ... on T {
+              v2
+            }
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test {
+          t {
+            ... on T {
+              v1
+              v2
+            }
+          }
+        }
+      `);
+    });
+
+    test('do merge when both have the _same_ directive', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skipIf: Boolean!) {
+          t {
+            ... on T @skip(if: $skipIf) {
+              v1
+            }
+            ... on T @skip(if: $skipIf) {
+              v2
+            }
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skipIf: Boolean!) {
+          t {
+            ... on T @skip(if: $skipIf) {
+              v1
+              v2
+            }
+          }
+        }
+      `);
+    });
+
+    test('do merge when both have the _same_ directive, even if argument order differs', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skipIf: Boolean!) {
+          t {
+            ... on T @customSkip(if: $skipIf, label: "foo") {
+              v1
+            }
+            ... on T @customSkip(label: "foo", if: $skipIf) {
+              v2
+            }
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skipIf: Boolean!) {
+          t {
+            ... on T @customSkip(if: $skipIf, label: "foo") {
+              v1
+              v2
+            }
+          }
+        }
+      `);
+    });
+
+    test('do not merge when one has a directive and the other do not', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skipIf: Boolean!) {
+          t {
+            ... on T {
+              v1
+            }
+            ... on T @skip(if: $skipIf) {
+              v2
+            }
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skipIf: Boolean!) {
+          t {
+            ... on T {
+              v1
+            }
+            ... on T @skip(if: $skipIf) {
+              v2
+            }
+          }
+        }
+      `);
+    });
+
+    test('do not merge when both have _differing_ directives', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test($skip1: Boolean!, $skip2: Boolean!) {
+          t {
+            ... on T @skip(if: $skip1) {
+              v1
+            }
+            ... on T @skip(if: $skip2) {
+              v2
+            }
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test($skip1: Boolean!, $skip2: Boolean!) {
+          t {
+            ... on T @skip(if: $skip1) {
+              v1
+            }
+            ... on T @skip(if: $skip2) {
+              v2
+            }
+          }
+        }
+      `);
+    });
+
+    test('do not merge @defer directive, even if applied the same way', () => {
+      const operation = operationFromDocument(schema, gql`
+        query Test {
+          t {
+            ... on T @defer {
+              v1
+            }
+            ... on T @defer {
+              v2
+            }
+          }
+        }
+      `);
+
+      expect(operation.toString()).toMatchString(`
+        query Test {
+          t {
+            ... on T @defer {
+              v1
+            }
+            ... on T @defer {
+              v2
+            }
+          }
+        }
+      `);
+    });
+  });
 });
 
 describe('MutableSelectionSet', () => {
