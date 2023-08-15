@@ -55,14 +55,15 @@ type Product @key(fields: "id") {
 
 The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's primary key is its `id` field.
 
-**Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
+**Every definition of an entity across subgraphs must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance. i.e. If one subgraph marks the key as `id` and another uses `name`, the router will not be able to join those instances together.
 
 > **An entity's `@key` _cannot_ include:**
 >
 > * Fields that return a union or interface
 > * Fields that take arguments
 >
-> [See advanced options for `@key`s.](./entities-advanced/#advanced-keys)
+
+For more info on how to define multiple keys or compound keys, [see advanced options for federation entities.](./entities-advanced)
 
 ### 2. Define a reference resolver
 
