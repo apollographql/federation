@@ -419,7 +419,9 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     assert(conditionsResolution.satisfied, 'Should add to a path if the conditions cannot be satisfied');
     assert(!edge || edge.conditions || !conditionsResolution.pathTree, () => `Shouldn't have conditions paths (got ${conditionsResolution.pathTree}) for edge without conditions (edge: ${edge})`);
 
-    let subgraphEnteringEdge = this.subgraphEnteringEdge;
+    // We clear `subgraphEnteringEdge` as we enter a @defer: that is because `subgraphEnteringEdge` is used to eliminate some
+    // non-optimal paths, but we don't want those optimizations to bypass a defer.
+    let subgraphEnteringEdge = defer ? undefined : this.subgraphEnteringEdge;
 
     if (edge) {
       if (edge.transition.kind === 'DownCast' && this.props.edgeToTail) {
@@ -471,20 +473,16 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         }
       }
 
-      // `subgraphEnteringEdge` is used to be able to eliminate some options when we can detect that going to subgraph
-      // was ineffectient (see `advancePathWithNonCollectingAndTypePreservingTransitions` for details). So first,
-      // we shouldn't change it for a "key to self" due to a @defer since the assumption of `subgraphEnteringEdge` is
-      // that the source is different from the destination. But really, if we use `@defer`, we should never rely on the
-      // optimization that `subgraphEnteringEdge`, so we clear it entirely.
-      if (edge.isKeyOrRootTypeEdgeToSelf()) {
-        subgraphEnteringEdge = undefined;
-      } else if (edge.transition.kind === 'KeyResolution') {
+      // Again, we don't want to set `subgraphEnteringEdge` if we're entering a @defer (see above).
+      if (!defer && edge.changesSubgraph()) {
         subgraphEnteringEdge = {
           index: this.size,
           edge,
           cost: conditionsResolution.cost,
         };
+      }
 
+      if (edge.transition.kind === 'KeyResolution') {
         // We're adding a key edge. If the last edge to that point is an @interfaceObject fake downcast, and if our destination
         // type is not an @interfaceObject itself, then we can eliminate that last edge as it does nothing useful, but also,
         // it has conditions and we don't need/want the key we're following to depend on those conditions, since it doesn't have
@@ -560,13 +558,26 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
 
   checkDirectPathFromPreviousSubgraphTo(
     typeName: string,
-    triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
+    triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined,
+    prevSubgraphStartingVertex?: Vertex,
   ): Vertex | undefined {
     const enteringEdge = this.subgraphEnteringEdge;
     if (!enteringEdge) {
       return undefined;
     }
-    let prevSubgraphVertex = enteringEdge.edge.head;
+
+    // Usually, the starting subgraph in which we want to look for a direct path is the head of
+    // `subgraphEnteringEdge`, that is, where we were just before coming to the current subgraph.
+    // But for subgraph entering edges, we're not coming from a subgraph, so instead we pass the
+    // "root" vertex of the subgraph of interest in `prevSubgraphStartingVertex`. And if that
+    // is undefined (for a subgraph entering edge), then that means the subgraph does not have
+    // the root type in question (say, no mutation type), and so there can be no direct path in
+    // that subgraph.
+    if (enteringEdge.edge.transition.kind === 'SubgraphEnteringTransition' && !prevSubgraphStartingVertex) {
+      return undefined;
+    }
+
+    let prevSubgraphVertex = prevSubgraphStartingVertex ?? enteringEdge.edge.head;
     for (let i = enteringEdge.index + 1; i < this.size; i++) {
       const triggerToMatch = this.props.edgeTriggers[i];
       const prevSubgraphMatchingEdge = triggerToEdge(this.graph, prevSubgraphVertex, triggerToMatch);
@@ -1394,9 +1405,20 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // Note that we ignore the case where the "entering edge" is the "current" type as we might end up in an infinite
         // loop when calling `hasValidDirectKeyEdge` in that case without additional care and it's not useful because this
         // very method already ensure we don't create unnecessary chains of keys for the "current type"
-        if (subgraphEnteringEdge && edge.transition.kind === 'KeyResolution' && subgraphEnteringEdge.edge.tail.type.name !== typeName) {
-          const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge);
-          const backToPreviousSubgraph = subgraphEnteringEdge.edge.head.source === edge.tail.source;
+        if (subgraphEnteringEdge && subgraphEnteringEdge.edge.tail.type.name !== typeName) {
+          let prevSubgraphEnteringVertex: Vertex | undefined = undefined;
+          let backToPreviousSubgraph: boolean;
+          if (subgraphEnteringEdge.edge.transition.kind === 'SubgraphEnteringTransition') {
+            assert(toAdvance.root instanceof RootVertex, () => `${toAdvance} should be a root path if it starts with subgraph entering edge ${subgraphEnteringEdge.edge}`);
+            prevSubgraphEnteringVertex = rootVertexForSubgraph(toAdvance.graph, edge.tail.source, toAdvance.root.rootKind);
+            // If the entering edge is the root entering of subgraphs, then the "prev subgraph" is really `edge.tail.source` and
+            // so `edge` always get us back to that (but `subgraphEnteringEdge.edge.head.source` would be `FEDERATED_GRAPH_ROOT_SOURCE`,
+            // so the test we do in the `else` branch would not work here).
+            backToPreviousSubgraph = true;
+          } else {
+            backToPreviousSubgraph = subgraphEnteringEdge.edge.head.source === edge.tail.source;
+          }
+          const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge, prevSubgraphEnteringVertex);
           const maxCost = toAdvance.subgraphEnteringEdge.cost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
           if (prevSubgraphVertex
             && (
@@ -1466,6 +1488,13 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     paths: mapValues(bestPathBySource).filter(p => p !== null).map(b => b![0]),
     deadEnds: new Unadvanceables(deadEnds) as TDeadEnds
   }
+}
+
+function rootVertexForSubgraph(graph: QueryGraph, subgraphName: string, rootKind: SchemaRootKind): Vertex | undefined {
+  const root = graph.root(rootKind);
+  assert(root, () => `Should not have ask for ${rootKind} as the graph does not have one`);
+  const subgraphRootEdge = graph.outEdges(root).find((e) => e.tail.source === subgraphName);
+  return subgraphRootEdge?.tail;
 }
 
 function conditionHasOverriddenFieldsInSource(schema: Schema, condition: SelectionSet): boolean {

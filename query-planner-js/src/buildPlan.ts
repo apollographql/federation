@@ -1677,7 +1677,6 @@ function withFieldAliased(selectionSet: SelectionSet, aliases: FieldToAlias[]): 
 }
 
 class DeferredInfo {
-
   private constructor(
     readonly label: string,
     readonly path: GroupPath,
