@@ -59,29 +59,96 @@ type Organization {
 
 ### Differing `@key`s across subgraphs
 
-An entity often has the same @key fields across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between products and inventory subgraphs, one with `id` as the `@key` field and one with `sku` as the `@key` field:
+An entity often has the exact same `@key` field(s) across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as the `@key`s and one with only `upc` as the `@key` field:
 
 <CodeColumns>
 
 ```graphql title="Products subgraph"
-type Product @key(fields: "id") {
-  id: ID!
+type Product @key(fields: "sku") @key(fields: "upc") {
+  sku: ID!
+  upc: String!
   name: String!
   price: Int
 }
 ```
 
 ```graphql title="Inventory subgraph"
-type Product @key(fields: "sku") {
-  sku: ID!
+type Product @key(fields: "upc") {
+  upc: String!
   inStock: Boolean!
 }
 ```
 
 </CodeColumns>
 
-As long as `id` is a unique identifier within the products subgraph and `sku` is a unique identifier for the same product in the inventory subgraph, the subgraphs can each resolve the `Product` type.
-In other words, **each key declaration is specific to the subgraph it belongs to**, and you don't need to match `@key` fields between graphs.
+To merge entities between subgraphs, the entity must have at least one shared field between subgraphs. For example, you can't merge the `Product` entity defined in the following subgraphs because they don't share any fields:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql title="Products subgraph"
+type Product @key(fields: "sku") {
+  sku: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql title="Inventory subgraph"
+type Product @key(fields: "upc") {
+  upc: String!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+The following would allow you to merge the `Product` entity since both subgraph schemas include the `upc` field, even if it's only the `@key` for one of them:
+
+<CodeColumns>
+
+```graphql title="Products subgraph"
+type Product @key(fields: "sku") {
+  sku: ID!
+  upc: String!
+  name: String!
+  price: Int
+}
+```
+
+```graphql title="Inventory subgraph"
+type Product @key(fields: "upc") {
+  upc: String!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+If subgraphs share any fields—for example `upc` in the preceding example—it's best to use these shared field(s) as `@keys` for optimal [query planner](./entities#the-query-plan) performance.
+
+<p style="margin-bottom: 0">✅</p>
+
+<CodeColumns>
+
+```graphql title="Products subgraph"
+type Product @key(fields: "upc") {
+  sku: ID!
+  upc: String!
+  name: String!
+  price: Int
+}
+```
+
+```graphql title="Inventory subgraph"
+type Product @key(fields: "upc") {
+  upc: String!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
 
 ## Migrating entities and fields
 
