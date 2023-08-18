@@ -81,7 +81,7 @@ type Product @key(fields: "upc") {
 
 </CodeColumns>
 
-To merge entities between subgraphs, the entity must have at least one shared field between subgraphs. For example, you can't merge the `Product` entity defined in the following subgraphs because they don't share any fields:
+To merge entities between subgraphs, the entity must have at least one shared field between subgraphs. For example, you can't merge the `Product` entity defined in the following subgraphs because they don't share any fields specified in `@key` selection set:
 
 <p style="margin-bottom: 0">❌</p>
 
