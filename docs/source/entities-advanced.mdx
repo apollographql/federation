@@ -104,30 +104,6 @@ type Product @key(fields: "upc") {
 
 </CodeColumns>
 
-If subgraphs share any fields that act as unique identifiers, you can use these shared field(s) as `@keys` for optimal [query planner](./entities#the-query-plan) performance.
-
-<p style="margin-bottom: 0">✅</p>
-
-<CodeColumns>
-
-```graphql title="Products subgraph"
-type Product @key(fields: "upc") {
-  sku: ID!
-  upc: String!
-  name: String!
-  price: Int
-}
-```
-
-```graphql title="Inventory subgraph"
-type Product @key(fields: "upc") {
-  upc: String!
-  inStock: Boolean!
-}
-```
-
-</CodeColumns>
-
 ## Migrating entities and fields
 
 As your supergraph grows, you might want to move parts of an entity to a different subgraph. This section describes how to perform these migrations safely.
