@@ -377,7 +377,7 @@ Indicates to composition that the target element is accessible only to the authe
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
 ```graphql
-directive @requiresScopes(scopes: [federation__Scope!]!) on
+directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
     FIELD_DEFINITION
   | OBJECT
   | INTERFACE

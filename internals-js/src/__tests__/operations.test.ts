@@ -3542,9 +3542,7 @@ describe('named fragment rebasing on subgraphs', () => {
         t {
           x
           y
-          ... on T {
-            z
-          }
+          z
         }
       }
     `);

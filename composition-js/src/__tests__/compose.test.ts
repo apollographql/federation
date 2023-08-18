@@ -4493,7 +4493,7 @@ describe('composition', () => {
         "https://specs.apollo.dev/requiresScopes/v0.1"
       );
       expect(printDirectiveDefinition(result.schema.directive('requiresScopes')!)).toMatchString(`
-        directive @requiresScopes(scopes: [requiresScopes__Scope!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+        directive @requiresScopes(scopes: [[requiresScopes__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
       `);
     });
 
@@ -4527,7 +4527,7 @@ describe('composition', () => {
         const invalidDefinition = {
           typeDefs: gql`
             scalar federation__Scope
-            directive @requiresScopes(scopes: [federation__Scope!]!) on ENUM_VALUE
+            directive @requiresScopes(scopes: [[federation__Scope!]!]!) on ENUM_VALUE
 
             type Query {
               a: Int
@@ -4565,7 +4565,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([invalidDefinition]);
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
-          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[federation__Scope!]!\" but found type \"[federation__Scope]!\"",
+          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[[federation__Scope!]!]!\" but found type \"[federation__Scope]!\"",
         ]);
       });
 

@@ -1406,7 +1406,10 @@ export class NamedFragments {
         return undefined;
       }
 
-      const rebasedSelection = fragment.selectionSet.rebaseOn({ parentType: rebasedType, fragments: newFragments, errorIfCannotRebase: false });
+      let rebasedSelection = fragment.selectionSet.rebaseOn({ parentType: rebasedType, fragments: newFragments, errorIfCannotRebase: false });
+      // Rebasing can leave some inefficiencies in some case (particularly when a spread has to be "expanded", see `FragmentSpreadSelection.rebaseOn`),
+      // so we do a top-level normalization to keep things clean.
+      rebasedSelection = rebasedSelection.normalize({ parentType: rebasedType });
       return this.selectionSetIsWorthUsing(rebasedSelection)
         ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
         : undefined;
@@ -1421,9 +1424,11 @@ export class NamedFragments {
         // dependency order, we know that `newFragments` will have every fragments that should be
         // kept/not expanded.
         const updatedSelectionSet = fragment.selectionSet.expandFragments(newFragments);
+        // Note that if we did expanded some fragments (the updated selection is not the original one), then the
+        // results may not be fully normalized, so we do it to be sure.
         return updatedSelectionSet === fragment.selectionSet
           ? fragment
-          : fragment.withUpdatedSelectionSet(updatedSelectionSet);
+          : fragment.withUpdatedSelectionSet(updatedSelectionSet.normalize({ parentType: updatedSelectionSet.parentType}));
       } else {
         return undefined;
       }
@@ -3558,7 +3563,8 @@ class FragmentSpreadSelection extends FragmentSelection {
     // If we're rebasing on a _different_ schema, then we *must* have fragments, since reusing
     // `this.fragments` would be incorrect. If we're on the same schema though, we're happy to default
     // to `this.fragments`.
-    assert(fragments || this.parentType.schema() === parentType.schema(), `Must provide fragments is rebasing on other schema`);
+    const rebaseOnSameSchema = this.parentType.schema() === parentType.schema();
+    assert(fragments || rebaseOnSameSchema, `Must provide fragments is rebasing on other schema`);
     const newFragments = fragments ?? this.fragments;
     const namedFragment = newFragments.get(this.namedFragment.name);
     // If we're rebasing on another schema (think a subgraph), then named fragments will have been rebased on that, and some
@@ -3569,6 +3575,31 @@ class FragmentSpreadSelection extends FragmentSelection {
       validate(!errorIfCannotRebase, () => `Cannot rebase ${this.toString(false)} if it isn't part of the provided fragments`);
       return undefined;
     }
+
+    // Lastly, if we rebase on a different schema, it's possible the fragment type does not intersect the
+    // parent type. For instance, the parent type could be some object type T while the fragment is an
+    // interface I, and T may implement I in the supergraph, but not in a particular subgraph (of course,
+    // if I don't exist at all in the subgraph, then we'll have exited above, but I may exist in the
+    // subgraph, just not be implemented by T for some reason). In that case, we can't reuse the fragment
+    // as its spread is essentially invalid in that position, so we have to replace it by the expansion
+    // of that fragment, which we rebase on the parentType (which in turn, will remove anythings within
+    // the fragment selection that needs removing, potentially everything).
+    if (!rebaseOnSameSchema && !runtimeTypesIntersects(parentType, namedFragment.typeCondition)) {
+      // Note that we've used the rebased `namedFragment` to check the type intersection because we needed to
+      // compare runtime types "for the schema we're rebasing into". But now that we're deciding to not reuse
+      // this rebased fragment, what we rebase is the selection set of the non-rebased fragment. And that's
+      // important because the very logic we're hitting here may need to happen inside the rebase do the
+      // fragment selection, but that logic would not be triggered if we used the rebased `namedFragment` since
+      // `rebaseOnSameSchema` would then be 'true'.
+      const expanded = this.namedFragment.selectionSet.rebaseOn({ parentType, fragments, errorIfCannotRebase });
+      // In theory, we could return the selection set directly, but making `Selection.rebaseOn` sometimes
+      // return a `SelectionSet` complicate things quite a bit. So instead, we encapsulate the selection set
+      // in an "empty" inline fragment. This make for non-really-optimal selection sets in the (relatively
+      // rare) case where this is triggered, but in practice this "inefficiency" is removed by future calls
+      // to `normalize`.
+      return expanded.isEmpty() ? undefined : new InlineFragmentSelection(new FragmentElement(parentType), expanded);
+    }
+
     return new FragmentSpreadSelection(
       parentType,
       newFragments,
