@@ -1988,6 +1988,142 @@ describe('fragments optimization', () => {
         }
       `);
     });
+
+    test('due to the trimmed selection of nested fragments', () => {
+      const schema = parseSchema(`
+        type Query {
+          u1: U
+          u2: U
+          u3: U
+        }
+
+        union U = S | T
+
+        type T  {
+          id: ID!
+          vt: Int
+        }
+
+        interface I {
+          vs: Int
+        }
+
+        type S implements I {
+          vs: Int!
+        }
+      `);
+      const gqlSchema = schema.toGraphQLJSSchema();
+
+      const operation = parseOperation(schema, `
+        {
+          u1 {
+            ...F1
+          }
+          u2 {
+            ...F3
+          }
+          u3 {
+            ...F3
+          }
+        }
+
+        fragment F1 on U {
+           ... on S {
+             __typename
+             vs
+           }
+           ... on T {
+             __typename
+             vt
+           }
+        }
+
+        fragment F2 on T {
+           __typename
+           vt
+        }
+
+        fragment F3 on U {
+           ... on I {
+             vs
+           }
+           ...F2
+        }
+      `);
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          u1 {
+            ... on S {
+              __typename
+              vs
+            }
+            ... on T {
+              __typename
+              vt
+            }
+          }
+          u2 {
+            ... on I {
+              vs
+            }
+            ... on T {
+              __typename
+              vt
+            }
+          }
+          u3 {
+            ... on I {
+              vs
+            }
+            ... on T {
+              __typename
+              vt
+            }
+          }
+        }
+      `);
+
+      // We use `mapToExpandedSelectionSets` with a no-op mapper because this will still expand the selections
+      // and re-optimize them, which 1) happens to match what happens in the query planner and 2) is necessary
+      // for reproducing a bug that this test was initially added to cover.
+      const newFragments = operation.fragments!.mapToExpandedSelectionSets((s) => s);
+      const optimized = withoutFragments.optimize(newFragments, 2);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+
+      expect(optimized.toString()).toMatchString(`
+        fragment F3 on U {
+          ... on I {
+            vs
+          }
+          ... on T {
+            __typename
+            vt
+          }
+        }
+
+        {
+          u1 {
+            ... on S {
+              __typename
+              vs
+            }
+            ... on T {
+              __typename
+              vt
+            }
+          }
+          u2 {
+            ...F3
+          }
+          u3 {
+            ...F3
+          }
+        }
+      `);
+    });
   });
 
   test('does not leave unused fragments', () => {
@@ -3094,12 +3230,25 @@ describe('named fragment selection set restrictions at type', () => {
 
     const frag = operation.fragments?.get('FonU1')!;
 
-    // Note that with unions, the fragments inside the unions can be "lifted" and so they everyting normalize to just the
+    // Note that with unions, the fragments inside the unions can be "lifted" and so that everything normalizes to just the
     // possible runtimes.
 
     let { selectionSet, validator } = expandAtType(frag, schema, 'U1');
     expect(selectionSet.toString()).toBe('{ ... on T1 { x y } ... on T2 { z w } }');
-    expect(validator?.toString()).toBeUndefined();
+    // Similar remarks than on interfaces (the validator is strictly speaking not necessary, but
+    // this happens due to the "lifting" of selection mentioned above, is a bit hard to avoid,
+    // and is essentially harmess (it may result in a bit more cpu cycles in some cases but
+    // that is likely negligible).
+    expect(validator?.toString()).toMatchString(`
+      {
+        y: [
+          T1.y
+        ]
+        w: [
+          T2.w
+        ]
+      }
+    `);
 
     ({ selectionSet, validator } = expandAtType(frag, schema, 'U2'));
     expect(selectionSet.toString()).toBe('{ ... on T1 { x y } }');
@@ -3107,6 +3256,9 @@ describe('named fragment selection set restrictions at type', () => {
       {
         z: [
           T2.z
+        ]
+        y: [
+          T1.y
         ]
         w: [
           T2.w
@@ -3124,6 +3276,9 @@ describe('named fragment selection set restrictions at type', () => {
         y: [
           T1.y
         ]
+        w: [
+          T2.w
+        ]
       }
     `);
 
@@ -3135,11 +3290,11 @@ describe('named fragment selection set restrictions at type', () => {
         x: [
           T1.x
         ]
-        y: [
-          T1.y
-        ]
         z: [
           T2.z
+        ]
+        y: [
+          T1.y
         ]
         w: [
           T2.w

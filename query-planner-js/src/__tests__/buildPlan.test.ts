@@ -6570,6 +6570,7 @@ describe("named fragments", () => {
           {
             t1 {
               other {
+                __typename
                 id
               }
             }
