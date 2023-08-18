@@ -1,5 +1,18 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.5.1
+### Patch Changes
+
+
+- Reapply #2639: ([#2687](https://github.com/apollographql/federation/pull/2687))
+  
+  Try reusing named fragments in subgraph fetches even if those fragment only apply partially to the subgraph. Before this change, only named fragments that were applying entirely to a subgraph were tried, leading to less reuse that expected. Concretely, this change can sometimes allow the generation of smaller subgraph fetches.
+  
+  Additionally, resolve a bug which surfaced in the fragment optimization logic which could result in invalid/incorrect optimizations / fragment reuse.
+- Updated dependencies [[`b9052fdd`](https://github.com/apollographql/federation/commit/b9052fddfcd2cae1ea750aaea27f0a0b24f4e691)]:
+  - @apollo/federation-internals@2.5.1
+  - @apollo/query-graphs@2.5.1
+
 ## 2.5.0
 ### Minor Changes
 
