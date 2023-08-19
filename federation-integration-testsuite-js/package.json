@@ -12,7 +12,7 @@
   },
   "keywords": [],
   "author": "Apollo <packages@apollographql.com>",
-  "license": "SEE LICENSE IN ./LICENSE",
+  "license": "Elastic-2.0",
   "bugs": {
     "url": "https://github.com/apollographql/federation/issues"
   },

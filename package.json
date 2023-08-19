@@ -1,7 +1,6 @@
 {
   "name": "apollo-federation-monorepo",
   "private": true,
-  "license": "SEE LICENSE IN ./LICENSE",
   "repository": "github:apollographql/federation",
   "scripts": {
     "clean": "git clean -dfqX -- ./target ./node_modules **/{dist,node_modules}/ ./*/tsconfig*tsbuildinfo",
