@@ -1073,13 +1073,6 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return this._selectionSet;
   }
 
-  expandedSelectionSet(): SelectionSet {
-    if (!this._expandedSelectionSet) {
-      this._expandedSelectionSet = this.selectionSet.expandFragments().normalize({ parentType: this.typeCondition });
-    }
-    return this._expandedSelectionSet;
-  }
-
   withUpdatedSelectionSet(newSelectionSet: SelectionSet): NamedFragmentDefinition {
     return new NamedFragmentDefinition(this.schema(), this.name, this.typeCondition).setSelectionSet(newSelectionSet);
   }
@@ -1168,6 +1161,13 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return isObjectType(type) || isUnionType(this.typeCondition);
   }
 
+  private expandedSelectionSet(): SelectionSet {
+    if (!this._expandedSelectionSet) {
+      this._expandedSelectionSet = this.selectionSet.expandFragments();
+    }
+    return this._expandedSelectionSet;
+  }
+
   /**
    * This methods *assumes* that `this.canApplyDirectlyAtType(type)` is `true` (and may crash if this is not true), and returns
    * a version fo this named fragment selection set that corresponds to the "expansion" of this named fragment at `type`
@@ -1187,11 +1187,6 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * us that part.
    */
   expandedSelectionSetAtType(type: CompositeType): FragmentRestrictionAtType {
-    // First, if the candidate condition is an object or is the type passed, then there isn't any restriction to do.
-    if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
-      return { selectionSet: this.expandedSelectionSet() };
-    }
-
     let cached = this.expandedSelectionSetsAtTypesCache.get(type.name);
     if (!cached) {
       cached = this.computeExpandedSelectionSetAtType(type);
@@ -1202,9 +1197,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   private computeExpandedSelectionSetAtType(type: CompositeType): FragmentRestrictionAtType {
     const expandedSelectionSet = this.expandedSelectionSet();
-    // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
-    // stops as soon as we traverse a field, so no point in being recursive.
-    const selectionSet = expandedSelectionSet.normalize({ parentType: type, recursive: false });
+    const selectionSet = expandedSelectionSet.normalize({ parentType: type });
 
     // Note that `trimmed` is the difference of 2 selections that may not have been normalized on the same parent type,
     // so in practice, it is possible that `trimmed` contains some of the selections that `selectionSet` contains, but
