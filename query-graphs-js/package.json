@@ -18,7 +18,7 @@
     "apollo"
   ],
   "author": "Apollo <packages@apollographql.com>",
-  "license": "SEE LICENSE IN ./LICENSE",
+  "license": "Elastic-2.0",
   "engines": {
     "node": ">=14.15.0"
   },
