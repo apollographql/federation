@@ -1,5 +1,5 @@
 ---
-"@apollo/gateway": major
+"@apollo/gateway": patch
 ---
 
 Fix execution error in some cases where aliases are used and some values are `null`.
