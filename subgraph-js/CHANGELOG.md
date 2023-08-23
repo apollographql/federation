@@ -1,6 +1,8 @@
 # CHANGELOG for `@apollo/subgraph`
 
 ## 2.5.2
+### Minor Changes
+- Introduce the new `transformFederatedSchema` to transform and existing `GraphQLSchema` into a federated schema.
 ### Patch Changes
 
 - Updated dependencies [[`35179f08`](https://github.com/apollographql/federation/commit/35179f086ce973e9ae7bb455f7ea7d73cdc10f69)]:
