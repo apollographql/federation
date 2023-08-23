@@ -15,6 +15,7 @@
     "Changelog": "/federation-versions",
     "Interactive tutorial": "https://www.apollographql.com/tutorials/voyage-part1",
     "Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
+    "Federated architecture": "https://graphql.com/learn/federated-architecture/",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",

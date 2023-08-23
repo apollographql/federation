@@ -1,5 +1,39 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.5.3
+### Patch Changes
+
+
+- Fix execution error in some cases where aliases are used and some values are `null`. ([#2716](https://github.com/apollographql/federation/pull/2716))
+  
+  The error would manifest itself as an `INTERNAL_SERVER_ERROR` with a message of the form `Cannot read properties of null`.
+- Updated dependencies [[`4b9a512b`](https://github.com/apollographql/federation/commit/4b9a512b62e02544d7854fa198942aac33b93feb), [`c6e0e76d`](https://github.com/apollographql/federation/commit/c6e0e76dbc62662c2aa6ff7f657e374047b11255), [`1add932c`](https://github.com/apollographql/federation/commit/1add932c5cd1297853fb5af9a3a6aaa71243f63a), [`6f1fddb2`](https://github.com/apollographql/federation/commit/6f1fddb25d49262b2ebf6db953371a559dd62e9c)]:
+  - @apollo/composition@2.5.3
+  - @apollo/federation-internals@2.5.3
+  - @apollo/query-planner@2.5.3
+
+## 2.5.2
+### Patch Changes
+
+
+- Remove extraneous call to `span.setStatus()` on a span which has already ended. ([#2697](https://github.com/apollographql/federation/pull/2697))
+  
+  In cases where a subgraph responded with an error, we would sometimes try to set
+  the status of a span which had already ended. This resulted in a warning log to
+  the console (but no effect otherwise). This warning should no longer happen.
+
+- Fix `fallbackPollIntervalInMs` behavior. ([#2709](https://github.com/apollographql/federation/pull/2709))
+  
+  The `fallbackPollIntervalInMs` serves 2 purposes:
+  * it allows users to provide an Uplink poll interval if Uplink doesn't provide one
+  * it allows users to use a longer poll interval that what's prescribed by Uplink
+  
+  The second bullet is how the configuration option is documented, but not how it was previously implemented. This change corrects the behavior to respect this configuration if it's provided AND is longer than the Uplink interval.
+- Updated dependencies [[`35179f08`](https://github.com/apollographql/federation/commit/35179f086ce973e9ae7bb455f7ea7d73cdc10f69)]:
+  - @apollo/query-planner@2.5.2
+  - @apollo/federation-internals@2.5.2
+  - @apollo/composition@2.5.2
+
 ## 2.5.1
 ### Patch Changes
 
