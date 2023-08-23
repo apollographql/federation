@@ -113,6 +113,10 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
       }
     }
   }
+
+  protected keyForDirectives(): string {
+    return this.appliedDirectives.map((d) => keyForDirective(d)).join(' ');
+  }
 }
 
 export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
@@ -146,7 +150,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   key(): string {
-    return this.responseName() + this.appliedDirectivesToString();
+    return this.responseName() + this.keyForDirectives();
   }
 
   asPathElement(): string {
@@ -394,7 +398,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
  * 2. we sort the argument (by their name) before converting them to string, since argument order does not matter in graphQL.
  */
 function keyForDirective(
-  directive: Directive<OperationElement>,
+  directive: Directive<AbstractOperationElement<any>>,
   directivesNeverEqualToThemselves: string[] = [ 'defer' ],
 ): string {
   if (directivesNeverEqualToThemselves.includes(directive.name)) {
@@ -436,8 +440,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     if (!this.computedKey) {
       // The key is such that 2 fragments with the same key within a selection set gets merged together. So the type-condition
       // is include, but so are the directives.
-      const keyForDirectives = this.appliedDirectives.map((d) => keyForDirective(d)).join(' ');
-      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition.name : '') + keyForDirectives;
+      this.computedKey = '...' + (this.typeCondition ? ' on ' + this.typeCondition.name : '') + this.keyForDirectives();
     }
     return this.computedKey;
   }
@@ -1070,13 +1073,6 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return this._selectionSet;
   }
 
-  expandedSelectionSet(): SelectionSet {
-    if (!this._expandedSelectionSet) {
-      this._expandedSelectionSet = this.selectionSet.expandFragments().normalize({ parentType: this.typeCondition });
-    }
-    return this._expandedSelectionSet;
-  }
-
   withUpdatedSelectionSet(newSelectionSet: SelectionSet): NamedFragmentDefinition {
     return new NamedFragmentDefinition(this.schema(), this.name, this.typeCondition).setSelectionSet(newSelectionSet);
   }
@@ -1165,6 +1161,13 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return isObjectType(type) || isUnionType(this.typeCondition);
   }
 
+  private expandedSelectionSet(): SelectionSet {
+    if (!this._expandedSelectionSet) {
+      this._expandedSelectionSet = this.selectionSet.expandFragments();
+    }
+    return this._expandedSelectionSet;
+  }
+
   /**
    * This methods *assumes* that `this.canApplyDirectlyAtType(type)` is `true` (and may crash if this is not true), and returns
    * a version fo this named fragment selection set that corresponds to the "expansion" of this named fragment at `type`
@@ -1184,11 +1187,6 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
    * us that part.
    */
   expandedSelectionSetAtType(type: CompositeType): FragmentRestrictionAtType {
-    // First, if the candidate condition is an object or is the type passed, then there isn't any restriction to do.
-    if (sameType(type, this.typeCondition) || isObjectType(this.typeCondition)) {
-      return { selectionSet: this.expandedSelectionSet() };
-    }
-
     let cached = this.expandedSelectionSetsAtTypesCache.get(type.name);
     if (!cached) {
       cached = this.computeExpandedSelectionSetAtType(type);
@@ -1199,9 +1197,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   private computeExpandedSelectionSetAtType(type: CompositeType): FragmentRestrictionAtType {
     const expandedSelectionSet = this.expandedSelectionSet();
-    // Note that what we want is get any simplification coming from normalizing at `type`, but any such simplication
-    // stops as soon as we traverse a field, so no point in being recursive.
-    const selectionSet = expandedSelectionSet.normalize({ parentType: type, recursive: false });
+    const selectionSet = expandedSelectionSet.normalize({ parentType: type });
 
     // Note that `trimmed` is the difference of 2 selections that may not have been normalized on the same parent type,
     // so in practice, it is possible that `trimmed` contains some of the selections that `selectionSet` contains, but
@@ -1403,7 +1399,10 @@ export class NamedFragments {
         return undefined;
       }
 
-      const rebasedSelection = fragment.selectionSet.rebaseOn({ parentType: rebasedType, fragments: newFragments, errorIfCannotRebase: false });
+      let rebasedSelection = fragment.selectionSet.rebaseOn({ parentType: rebasedType, fragments: newFragments, errorIfCannotRebase: false });
+      // Rebasing can leave some inefficiencies in some case (particularly when a spread has to be "expanded", see `FragmentSpreadSelection.rebaseOn`),
+      // so we do a top-level normalization to keep things clean.
+      rebasedSelection = rebasedSelection.normalize({ parentType: rebasedType });
       return this.selectionSetIsWorthUsing(rebasedSelection)
         ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
         : undefined;
@@ -1418,9 +1417,11 @@ export class NamedFragments {
         // dependency order, we know that `newFragments` will have every fragments that should be
         // kept/not expanded.
         const updatedSelectionSet = fragment.selectionSet.expandFragments(newFragments);
+        // Note that if we did expanded some fragments (the updated selection is not the original one), then the
+        // results may not be fully normalized, so we do it to be sure.
         return updatedSelectionSet === fragment.selectionSet
           ? fragment
-          : fragment.withUpdatedSelectionSet(updatedSelectionSet);
+          : fragment.withUpdatedSelectionSet(updatedSelectionSet.normalize({ parentType: updatedSelectionSet.parentType}));
       } else {
         return undefined;
       }
@@ -3555,7 +3556,8 @@ class FragmentSpreadSelection extends FragmentSelection {
     // If we're rebasing on a _different_ schema, then we *must* have fragments, since reusing
     // `this.fragments` would be incorrect. If we're on the same schema though, we're happy to default
     // to `this.fragments`.
-    assert(fragments || this.parentType.schema() === parentType.schema(), `Must provide fragments is rebasing on other schema`);
+    const rebaseOnSameSchema = this.parentType.schema() === parentType.schema();
+    assert(fragments || rebaseOnSameSchema, `Must provide fragments is rebasing on other schema`);
     const newFragments = fragments ?? this.fragments;
     const namedFragment = newFragments.get(this.namedFragment.name);
     // If we're rebasing on another schema (think a subgraph), then named fragments will have been rebased on that, and some
@@ -3566,6 +3568,31 @@ class FragmentSpreadSelection extends FragmentSelection {
       validate(!errorIfCannotRebase, () => `Cannot rebase ${this.toString(false)} if it isn't part of the provided fragments`);
       return undefined;
     }
+
+    // Lastly, if we rebase on a different schema, it's possible the fragment type does not intersect the
+    // parent type. For instance, the parent type could be some object type T while the fragment is an
+    // interface I, and T may implement I in the supergraph, but not in a particular subgraph (of course,
+    // if I don't exist at all in the subgraph, then we'll have exited above, but I may exist in the
+    // subgraph, just not be implemented by T for some reason). In that case, we can't reuse the fragment
+    // as its spread is essentially invalid in that position, so we have to replace it by the expansion
+    // of that fragment, which we rebase on the parentType (which in turn, will remove anythings within
+    // the fragment selection that needs removing, potentially everything).
+    if (!rebaseOnSameSchema && !runtimeTypesIntersects(parentType, namedFragment.typeCondition)) {
+      // Note that we've used the rebased `namedFragment` to check the type intersection because we needed to
+      // compare runtime types "for the schema we're rebasing into". But now that we're deciding to not reuse
+      // this rebased fragment, what we rebase is the selection set of the non-rebased fragment. And that's
+      // important because the very logic we're hitting here may need to happen inside the rebase do the
+      // fragment selection, but that logic would not be triggered if we used the rebased `namedFragment` since
+      // `rebaseOnSameSchema` would then be 'true'.
+      const expanded = this.namedFragment.selectionSet.rebaseOn({ parentType, fragments, errorIfCannotRebase });
+      // In theory, we could return the selection set directly, but making `Selection.rebaseOn` sometimes
+      // return a `SelectionSet` complicate things quite a bit. So instead, we encapsulate the selection set
+      // in an "empty" inline fragment. This make for non-really-optimal selection sets in the (relatively
+      // rare) case where this is triggered, but in practice this "inefficiency" is removed by future calls
+      // to `normalize`.
+      return expanded.isEmpty() ? undefined : new InlineFragmentSelection(new FragmentElement(parentType), expanded);
+    }
+
     return new FragmentSpreadSelection(
       parentType,
       newFragments,

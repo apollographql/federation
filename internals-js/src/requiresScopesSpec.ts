@@ -41,7 +41,7 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
           const scopeName = feature.typeNameInSchema(RequiresScopesTypeName.SCOPE);
           const scopeType = schema.type(scopeName);
           assert(scopeType, () => `Expected "${scopeName}" to be defined`);
-          return new NonNullType(new ListType(new NonNullType(scopeType)));
+          return new NonNullType(new ListType(new NonNullType(new ListType(new NonNullType(scopeType)))));
         },
         compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.UNION,
       }],

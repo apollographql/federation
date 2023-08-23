@@ -63,7 +63,7 @@ function applyAtPath(schema: GraphQLSchema, path: string[], value: any, fct: (ob
     return;
   }
 
-  if (typeof value !== 'object') {
+  if (typeof value !== 'object' || value === null) {
     return;
   }
 
