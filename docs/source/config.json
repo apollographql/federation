@@ -55,7 +55,7 @@
     },
     "Debugging & Metrics": {
       "Error codes": "/errors",
-      "Composition linting": "/hints",
+      "Composition hints": "/hints",
       "Federated trace data": "/metrics",
       "OpenTelemetry": "/opentelemetry"
     },
