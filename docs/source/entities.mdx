@@ -53,16 +53,35 @@ type Product @key(fields: "id") {
 }
 ```
 
-The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's primary key is its `id` field.
+The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's primary key is its `id` field. **Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
 
-**Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
+In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
+
+<CodeColumns>
+
+```graphql title="Products subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Int
+}
+```
+
+```graphql title="Inventory subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
 
 > **An entity's `@key` _cannot_ include:**
 >
 > * Fields that return a union or interface
 > * Fields that take arguments
->
-> [See advanced options for `@key`s.](./entities-advanced/#advanced-keys)
+
+For more information on advanced key options, like how to define [multiple keys](./entities-advanced#multiple-keys) or [compound keys](/entities-advanced#compound-keys), see [Advanced topics for federation entities](./entities-advanced).
 
 ### 2. Define a reference resolver
 
