@@ -47,6 +47,8 @@ graph LR;
 
 To learn how to perform composition with managed federation, see the [quickstart](../quickstart/studio-composition/).
 
+> GraphOS also provides a [schema linter](/graphos/delivery/schema-linter) with [composition specific rules](/graphos/delivery/linter-rules#composition-rules) to help you follow best practices. You can set up schema checks for your graph in GraphOS Studio or perform one-off linting with the Rover CLI. Check out the [schema linting](/graphos/delivery/schema-linter) docs to learn more.
+
 ### Manually with the Rover CLI
 
 The [Rover CLI](https://www.apollographql.com/docs/rover/) supports a `supergraph compose` command that you can use to compose a supergraph schema from a collection of subgraph schemas:
@@ -216,7 +218,7 @@ This is a useful solution for shared types that encapsulate simple scalar data.
 
 > You can use the `@inaccessible` directive to incrementally add a value type field to multiple subgraphs _without_ breaking composition. [Learn more.](./sharing-types/#adding-new-shared-fields)
 
-#### Make the shared type an entity.
+#### Make the shared type an entity
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -362,7 +364,6 @@ As you can see, the supergraph schema includes only the input fields and argumen
 > ⚠️ **Important:** If the intersection strategy would omit an input field or argument that is _non-nullable_, **composition fails**. This is because at least one subgraph _requires_ that field or argument, and the router can't provide it if it's omitted from the supergraph schema.
 >
 > When defining input types and field arguments in multiple subgraphs, make sure that every non-nullable field and argument is consistent in _every subgraph_. For examples, see [Arguments](sharing-types#arguments).
-
 
 ### Enums
 
