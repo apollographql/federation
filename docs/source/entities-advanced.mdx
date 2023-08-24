@@ -107,7 +107,7 @@ type Product @key(fields: "upc") {
 
 #### Operations with mismatched `@key`s
 
-Mismatched keys also affect which fields can be resolved. Requests can resolve an entity's fields _if there is a traversable path from the root query to the fields_.
+Mismatched keys affect which fields from an entity can be resolved. Requests can resolve an entity's fields _if there is a traversable path from the root query to the fields_.
 
 Take these subgraph schemas as an example:
 
@@ -138,7 +138,7 @@ type Product @key(fields: "upc") {
 
 The queries defined in the products subgraph can always resolve all product fields because the product entity can be joined via the `upc` field present in both schemas.
 
-On the other hand, queries added to the inventory subgraph can't resolve fields from the products subgraph.
+On the other hand, queries added to the inventory subgraph can't resolve fields from the products subgraph:
 
 <CodeColumns>
 
