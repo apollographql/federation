@@ -1,5 +1,23 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.5.3
+### Patch Changes
+
+
+- Fix potential assertion error for named fragment on abstract types when the abstract type does not have the same ([#2725](https://github.com/apollographql/federation/pull/2725))
+  possible runtime types in all subgraphs.
+  
+  The error manifested itself during query planning with an error message of the form `Cannot normalize X at Y ...`.
+
+- More aggressive ignoring of indirect paths from root types when a more direct alternative exists. This optimisation ([#2669](https://github.com/apollographql/federation/pull/2669))
+  slightly generalize an existing heuristic of the query planner, allowing it to ignore some known inefficient options
+  earlier in its process. When this optimisation can be used, this yield faster query plan computation, but by reducing
+  the number of plans to be consider, this can sometimes prevent the planner to degrade it's output when it consider
+  there is too many plans to consider, which can result in more optimal query plans too.
+- Updated dependencies [[`4b9a512b`](https://github.com/apollographql/federation/commit/4b9a512b62e02544d7854fa198942aac33b93feb), [`c6e0e76d`](https://github.com/apollographql/federation/commit/c6e0e76dbc62662c2aa6ff7f657e374047b11255), [`1add932c`](https://github.com/apollographql/federation/commit/1add932c5cd1297853fb5af9a3a6aaa71243f63a), [`6f1fddb2`](https://github.com/apollographql/federation/commit/6f1fddb25d49262b2ebf6db953371a559dd62e9c)]:
+  - @apollo/federation-internals@2.5.3
+  - @apollo/query-graphs@2.5.3
+
 ## 2.5.2
 ### Patch Changes
 

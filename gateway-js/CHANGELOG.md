@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.5.3
+### Patch Changes
+
+
+- Fix execution error in some cases where aliases are used and some values are `null`. ([#2716](https://github.com/apollographql/federation/pull/2716))
+  
+  The error would manifest itself as an `INTERNAL_SERVER_ERROR` with a message of the form `Cannot read properties of null`.
+- Updated dependencies [[`4b9a512b`](https://github.com/apollographql/federation/commit/4b9a512b62e02544d7854fa198942aac33b93feb), [`c6e0e76d`](https://github.com/apollographql/federation/commit/c6e0e76dbc62662c2aa6ff7f657e374047b11255), [`1add932c`](https://github.com/apollographql/federation/commit/1add932c5cd1297853fb5af9a3a6aaa71243f63a), [`6f1fddb2`](https://github.com/apollographql/federation/commit/6f1fddb25d49262b2ebf6db953371a559dd62e9c)]:
+  - @apollo/composition@2.5.3
+  - @apollo/federation-internals@2.5.3
+  - @apollo/query-planner@2.5.3
+
 ## 2.5.2
 ### Patch Changes
 
