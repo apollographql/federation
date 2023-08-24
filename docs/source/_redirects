@@ -22,5 +22,3 @@
 
 /managed-federation/monitoring/ /docs/federation/performance/monitoring
 /api/apollo-federation/ /docs/federation/api/apollo-subgraph/
-
-/hints /docs/graphos/delivery/linter-rules
