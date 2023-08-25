@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.4.13
+### Patch Changes
+
+
+- Includes an optional Schema Coordinate field in the Composition Hints returned by composition ([#2752](https://github.com/apollographql/federation/pull/2752))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.4.13
+  - @apollo/query-graphs@2.4.13
+
 ## 2.4.12
 ### Patch Changes
 
