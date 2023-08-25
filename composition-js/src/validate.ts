@@ -143,6 +143,7 @@ function shareableFieldMismatchedRuntimeTypesHint(
   return new CompositionHint(
     HINTS.INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
     message,
+    field,
     subgraphNodes(state, (s) => (s.type(field.parent.name) as CompositeType | undefined)?.field(field.name)?.sourceAST),
   );
 }
