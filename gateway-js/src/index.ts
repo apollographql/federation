@@ -858,6 +858,13 @@ export class ApolloGateway implements GatewayInterface {
           }
 
           if (shouldShowQueryPlan) {
+            const queryPlanFormat =
+              request.http &&
+              request.http.headers &&
+              request.http.headers.has('Apollo-Query-Plan-Experimental-Format')
+                ? request.http.headers.get('Apollo-Query-Plan-Experimental-Format')
+                : 'prettified'
+
             // TODO: expose the query plan in a more flexible JSON format in the future
             // and rename this to `queryPlan`. Playground should cutover to use the new
             // option once we've built a way to print that representation.
@@ -866,7 +873,12 @@ export class ApolloGateway implements GatewayInterface {
             // still want to respond to Playground with something truthy since it depends
             // on this to decide that query plans are supported by this gateway.
             response.extensions = {
-              __queryPlanExperimental: serializedQueryPlan || true,
+              __queryPlanExperimental:
+                queryPlanFormat === 'prettified'
+                  ? serializedQueryPlan || true
+                  : queryPlanFormat === 'internal'
+                      ? queryPlan
+                      : true
             };
           }
           if (response.errors) {
