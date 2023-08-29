@@ -3545,6 +3545,371 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    test('requires with nested field example from #2683 is fixed', async () => {
+      const parentItems = [
+        { "__typename": "ParentItem", "id": '1', "name": "Parent Item #1" },
+        { "__typename": "ParentItem", "id": '2', "name": "Parent Item #2" },
+        { "__typename": "ParentItem", "id": '3', "name": "Parent Item #3" },
+      ];
+
+      const childItems = [
+        { "__typename": "ChildItem", "id": '1', "name": "Child Item #1" },
+        { "__typename": "ChildItem", "id": '2', "name": "Child Item #2" },
+        { "__typename": "ChildItem", "id": '3', "name": "Child Item #3" },
+      ];
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            parentItems: [ParentItem!]!
+          }
+
+          type ParentItem @key(fields: "id") {
+            id: ID!
+            name: String!
+          }
+        `,
+        resolvers: {
+          Query: {
+            parentItems() {
+              return parentItems;
+            },
+          },
+          ParentItem: {
+            __resolveReference(ref: { id: string }) {
+              return parentItems.find(({id}) => ref.id === id);
+            },
+          }
+        }
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type ChildItem @key(fields: "id") {
+            id: ID!
+            name: String!
+            parentItem: ParentItem
+          }
+
+          type ParentItem @key(fields: "id") {
+            id: ID!
+            childItems: [ChildItem!]!
+          }
+        `,
+        resolvers: {
+          ChildItem: {
+            __resolveReference(ref: { id: string }) {
+              return childItems.find(({id}) => ref.id === id);
+            },
+            parentItem(ref: { id: string }) {
+              return parentItems.find(({id}) => ref.id === id);
+            }
+          },
+          ParentItem: {
+            __resolveReference(ref: { id: string }) {
+              return parentItems.find(({id}) => ref.id === id);
+            },
+            childItems(ref: { id: string }) {
+              return [childItems.find(({id}) => ref.id === id)];
+            }
+          },
+        }
+      }
+
+      const s3 = {
+        name: 'S3',
+        typeDefs: gql`
+          type ChildItem @key(fields: "id") {
+            id: ID!
+            name: String! @external
+            parentItem: ParentItem @external
+            message: String! @requires(fields: "name parentItem { name }")
+          }
+
+          type ParentItem {
+            name: String! @external
+          }
+        `,
+        resolvers: {
+          ChildItem: {
+            __resolveReference(ref: { id: string, name: string, parentItem: { name: string }}) {
+              console.log(ref);
+              return {
+                ...ref,
+                message: `${ref.parentItem.name} | ${ref.name}`,
+              };
+            }
+          }
+        }
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2, s3 ]);
+      let operation = parseOp(`
+        query {
+          parentItems {
+            childItems {
+              message
+            }
+          }
+        }
+      `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                parentItems {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "parentItems.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on ParentItem {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ParentItem {
+                    childItems {
+                      __typename
+                      id
+                      name
+                      parentItem {
+                        __typename
+                        id
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "parentItems.@.childItems.@.parentItem") {
+              Fetch(service: "S1") {
+                {
+                  ... on ParentItem {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ParentItem {
+                    name
+                  }
+                }
+              },
+            },
+            Flatten(path: "parentItems.@.childItems.@") {
+              Fetch(service: "S3") {
+                {
+                  ... on ChildItem {
+                    __typename
+                    name
+                    parentItem {
+                      name
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on ChildItem {
+                    message
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "parentItems": Array [
+            Object {
+              "childItems": Array [
+                Object {
+                  "message": "Parent Item #1 | Child Item #1",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "message": "Parent Item #2 | Child Item #2",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "message": "Parent Item #3 | Child Item #3",
+                },
+              ],
+            },
+          ],
+        }
+      `);
+
+      operation = parseOp(`
+        query {
+          parentItems {
+            childItems {
+              ParentItem: parentItem {
+                name
+                id
+              }
+              message
+            }
+          }
+        }
+      `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                parentItems {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "parentItems.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on ParentItem {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ParentItem {
+                    childItems {
+                      __typename
+                      id
+                      ParentItem: parentItem {
+                        __typename
+                        id
+                      }
+                      name
+                      parentItem {
+                        __typename
+                        id
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Parallel {
+              Flatten(path: "parentItems.@.childItems.@.ParentItem") {
+                Fetch(service: "S1") {
+                  {
+                    ... on ParentItem {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on ParentItem {
+                      name
+                    }
+                  }
+                },
+              },
+              Sequence {
+                Flatten(path: "parentItems.@.childItems.@.parentItem") {
+                  Fetch(service: "S1") {
+                    {
+                      ... on ParentItem {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on ParentItem {
+                        name
+                      }
+                    }
+                  },
+                },
+                Flatten(path: "parentItems.@.childItems.@") {
+                  Fetch(service: "S3") {
+                    {
+                      ... on ChildItem {
+                        __typename
+                        name
+                        parentItem {
+                          name
+                        }
+                        id
+                      }
+                    } =>
+                    {
+                      ... on ChildItem {
+                        message
+                      }
+                    }
+                  },
+                },
+              },
+            },
+          },
+        }
+      `);
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "parentItems": Array [
+            Object {
+              "childItems": Array [
+                Object {
+                  "ParentItem": Object {
+                    "id": "1",
+                    "name": "Parent Item #1",
+                  },
+                  "message": "Parent Item #1 | Child Item #1",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "ParentItem": Object {
+                    "id": "2",
+                    "name": "Parent Item #2",
+                  },
+                  "message": "Parent Item #2 | Child Item #2",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "ParentItem": Object {
+                    "id": "3",
+                    "name": "Parent Item #3",
+                  },
+                  "message": "Parent Item #3 | Child Item #3",
+                },
+              ],
+            },
+          ],
+        }
+      `);
+    });
   });
 
   describe('@key', () => {
@@ -6033,7 +6398,7 @@ describe('executeQueryPlan', () => {
     });
   });
 
-  it(`surface post-processing errors as extensions in the response`, async () => {
+  it('surface post-processing errors as extensions in the response', async () => {
     // This test is such that the first subgraph return some object with a key, but
     // then the 2nd one is queried for additional field `x`, but the reference resolver
     // returns `null`, so that response is ignored, and the data internally to the

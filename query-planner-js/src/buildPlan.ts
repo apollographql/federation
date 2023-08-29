@@ -1109,6 +1109,15 @@ class FetchGroup {
       return true;
     }
 
+    // If we do have inputs, then we first look at the path to `maybeParent`, and it needs to be
+    // essentially empty, "essentially" is because path can sometimes have some leading fragment(s)
+    // and those are fine to ignore. But if the path has some field, then this implies that the inputs
+    // of `this` are based on something at a deeper level than those of `maybeParent`, and the "contains"
+    // comparison we do below would not make sense.
+    if (relation.path.some((elt) => elt.kind === 'Field')) {
+      return false;
+    }
+
     // In theory, the most general test we could have here is to check if `this.inputs` "intersects"
     // `maybeParent.selection. As if it doesn't, we know our inputs don't depend on anything the
     // parent fetches. However, selection set intersection is a bit tricky to implement (due to fragments,
