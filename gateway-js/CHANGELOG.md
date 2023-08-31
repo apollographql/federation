@@ -1,5 +1,27 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.5.4
+### Patch Changes
+
+
+- Adds header to change the format of exposed query plans, and allows formatting it as json. ([#2724](https://github.com/apollographql/federation/pull/2724))
+  
+  When the gateway is configured to allow it, adding the `Apollo-Query-Plan-Experimental` header to a request already allowed a "prettified" text version of the query plan used for the query is returned in the response extension. This changes adds support for a new (optional) accompanying header, `Apollo-Query-Plan-Experimental-Format`, which can be set to the value "internal" to have the query plan returned as a json object (that correspond to the internal representation of that query plan) instead of the text version otherwise sent. Note that if that new header is not provided, then the query plan continues to be send in the previous prettified text version.
+
+- Fix some potentially incorrect query plans with `@requires` when some dependencies are involved. ([#2726](https://github.com/apollographql/federation/pull/2726))
+  
+  In some rare case of `@requires`, an over-eager optimisation was incorrectly considering that
+  a dependency between 2 subgraph fetches was unnecessary, leading to doing 2 subgraphs queries
+  in parallel when those should be done sequentially (because the 2nd query rely on results
+  from the 1st one). This effectively resulted in the required fields not being provided (the
+  consequence of which depends a bit on the resolver detail, but if the resolver expected
+  the required fields to be populated (as they should), then this could typically result
+  in a message of the form `GraphQLError: Cannot read properties of null`).
+- Updated dependencies [[`203b0a44`](https://github.com/apollographql/federation/commit/203b0a444782f6d6ca2f2dbb68c6e4eb59de6d45)]:
+  - @apollo/query-planner@2.5.4
+  - @apollo/composition@2.5.4
+  - @apollo/federation-internals@2.5.4
+
 ## 2.5.3
 ### Patch Changes
 
