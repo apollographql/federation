@@ -1,6 +1,6 @@
 ---
-"@apollo/query-planner": major
-"@apollo/gateway": major
+"@apollo/query-planner": patch
+"@apollo/gateway": patch
 ---
 
 Fix some potentially incorrect query plans with `@requires` when some dependencies are involved.
