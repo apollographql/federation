@@ -22,5 +22,6 @@ module.exports = {
         tsconfig: "<rootDir>/tsconfig.test.json",
         diagnostics: false
       }
-    }
+    },
+    prettierPath: require.resolve("prettier-2"),
 };
