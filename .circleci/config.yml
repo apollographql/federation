@@ -19,7 +19,7 @@ jobs:
           node-version: << parameters.node-version >>
       # node v14 defaults to npm 6, which is too old for our package-lock.json
       # should be able to remove this step when we drop node v14
-      - run: npm install -g npm@latest
+      - run: npm install -g npm@9
       - node/install-packages
       - run:
           name: Run tests
