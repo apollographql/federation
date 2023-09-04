@@ -297,7 +297,8 @@ export class RemoteGraphQLDataSource<
     if (
       contentType &&
       (contentType.startsWith('application/json') ||
-        contentType.startsWith('application/graphql-response+json'))
+        contentType.startsWith('application/graphql-response+json') ||
+        contentType.startsWith('application/graphql+json'))
     ) {
       return fetchResponse.json();
     } else {
