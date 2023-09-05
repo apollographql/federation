@@ -25,6 +25,20 @@ type Product @key(fields: "id") @key(fields: "sku") {
 
 This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
 
+<blockquote>
+
+**Note:** If you include multiple `@key` fields sets, the query planner always uses the most efficient set for entity resolution. For example, if you identify a type by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
+
+```graphql
+type Product @key(fields: "id") @key(fields: "id sku") {
+  # ...
+}
+```
+
+It means that either `id` or (`id` _and_ `sku`) are enough to uniquely identify the entity. And since only `id` is enough, the query planner always uses only that field to resolve the entity.
+
+</blockquote>
+
 A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can include the fields of any `@key` in its stub definition:
 
 ```graphql title="Reviews subgraph"
@@ -80,7 +94,6 @@ type Product @key(fields: "upc") {
 ```
 
 </CodeColumns>
-
 
 To merge entities between subgraphs, the entity must have at least one shared field between subgraphs. For example, operations can't merge the `Product` entity defined in the following subgraphs because they don't share any fields specified in the `@key` selection set:
 
