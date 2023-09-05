@@ -36,7 +36,7 @@ type Organization {
 
 ### Multiple `@key`s
 
-When different subgraphs interact with different fields of an entity, you may need to define multiple `@key`s for an entity. For example, a Products subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
+When different subgraphs interact with different fields of an entity, you may need to define multiple `@key`s for an entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
 
 In the following example, the `Product` entity can be uniquely identified by _either_ its `id` _or_ its `sku`:
 
@@ -79,7 +79,7 @@ type Product @key(fields: "sku", resolvable: false) {
 
 ```
 
-### Differing `@key`s across subgraphs
+### Mismatched `@key`s across subgraphs
 
 An entity often has the exact same `@key` field(s) across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as the `@key`s and one with only `upc` as the `@key` field:
 
@@ -153,9 +153,9 @@ type Product @key(fields: "upc") {
 ```
 </CodeColumns>
 
-The queries defined in the products subgraph can always resolve all product fields because the product entity can be joined via the `upc` field present in both schemas.
+The queries defined in the Products subgraph can always resolve all product fields because the product entity can be joined via the `upc` field present in both schemas.
 
-On the other hand, queries added to the inventory subgraph can't resolve fields from the products subgraph:
+On the other hand, queries added to the Inventory subgraph can't resolve fields from the Products subgraph:
 
 <CodeColumns>
 
@@ -181,11 +181,9 @@ type Query {
 
 </CodeColumns>
 
-The `productsInStock` query can't resolve fields from the product subgraph since its `Product` type definition doesn't have `@key(fields: "upc")`, and the `sku` field isn't present in the inventory subgraph.
+The `productsInStock` query can't resolve fields from the Products subgraph since its `Product` type definition doesn't have `@key(fields: "upc")`, and the `sku` field isn't present in the Inventory subgraph.
 
-If the product subgraph includes `@key(fields: "upc")`, all queries from the inventory subgraph can resolve all product fields:
-
-<CodeColumns>
+If the Products subgraph includes `@key(fields: "upc")`, all queries from the Inventory subgraph can resolve all product fields:
 
 ```graphql title="Products subgraph"
 type Product @key(fields: "sku") @key(fields: "upc") {
@@ -206,8 +204,6 @@ type Query {
   productsInStock: [Product!]!
 }
 ```
-
-</CodeColumns>
 
 ## Migrating entities and fields
 
