@@ -6,11 +6,11 @@ This article describes complex behaviors of federated entities beyond those cove
 
 ## Advanced `@key`s
 
-A single `@key` can require multiple fields to uniquely identify an entity—this is called a compound or composite key. Additionally, an entity can have multiple `@key`s if multiple fields or combinations of fields can independently serve as unique identifiers.
+A single `@key` can require a combination of fields to uniquely identify an entity. Additionally, an entity can have multiple separate `@key`s if multiple fields or combinations of fields can independently serve as unique identifiers.
 
 ### Compound `@key`s
 
-A single `@key` can consist of multiple fields, the combination of which is required to uniquely identify an entity. In the following example, the combination of both `username` and `domain` is required to uniquely identify a `User` entity:
+A single `@key` can consist of multiple fields, the combination of which is required to uniquely identify an entity. This is called a **compound** or composite key. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
 
 ```graphql {1} title="Users subgraph"
 type User @key(fields: "username domain") {
@@ -36,7 +36,7 @@ type Organization {
 
 ### Multiple `@key`s
 
-When different subgraphs interact with different fields of an entity, you may need to define multiple `@key`s for an entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
+When different subgraphs interact with different fields of an entity, you may need to define multiple `@key`s for the entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
 
 In the following example, the `Product` entity can be uniquely identified by _either_ its `id` _or_ its `sku`:
 
@@ -50,21 +50,32 @@ type Product @key(fields: "id") @key(fields: "sku") {
 ```
 <blockquote>
 
-**Note:** If you include multiple `@key` fields sets, the query planner always uses the most efficient set for entity resolution. For example, if you identify a type by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
+**Note:** If you include multiple sets of `@key` fields, the query planner always uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
 
-```graphql
+```graphql {1}
 type Product @key(fields: "id") @key(fields: "id sku") {
   # ...
 }
 ```
 
-It means that either `id` or (`id` _and_ `sku`) are enough to uniquely identify the entity. Since only `id` is enough, the query planner always uses only that field to resolve the entity.
+That means either `id` or (`id` _and_ `sku`) are enough to uniquely identify the entity. Since `id` alone is enough, the query planner always uses only that field to resolve the entity, and `@key(fields: "id sku")` is effectively ignored.
 
 </blockquote>
 
 #### Referencing entities with multiple keys
 
-A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can include the fields of _any_ `@key` fields in its stub definition:
+A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can use any `@key` fields in its stub definition. For example, if the Products subgraph defines the `Product` entity like this:
+
+```graphql {1} title="Products subgraph"
+type Product @key(fields: "id") @key(fields: "sku") {
+  id: ID!
+  sku: String!
+  name: String!
+  price: Int
+}
+```
+
+Then, a Reviews subgraph can use either `id` or `sku` in the stub definition:
 
 ```graphql title="Reviews subgraph"
 # Either:
@@ -79,9 +90,9 @@ type Product @key(fields: "sku", resolvable: false) {
 
 ```
 
-### Mismatched `@key`s across subgraphs
+### Differing `@key`s across subgraphs
 
-An entity often has the exact same `@key` field(s) across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as the `@key`s and one with only `upc` as the `@key` field:
+An entity often uses the exact same `@key` field(s) across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as the `@key`s and one with only `upc` as the `@key` field:
 
 ```graphql title="Products subgraph"
 type Product @key(fields: "sku") @key(fields: "upc") {
@@ -122,9 +133,9 @@ type Product @key(fields: "upc") {
 
 </CodeColumns>
 
-#### Operations with mismatched `@key`s
+#### Operations with differing `@key`s
 
-Mismatched keys affect which fields from an entity can be resolved. Requests can resolve an entity's fields _if there is a traversable path from the root query to the fields_.
+Differing keys across subgraphs affect which of the entity's fields can be resolved from each subgraph. Requests can resolve fields **if there is a traversable path from the root query to the fields**.
 
 Take these subgraph schemas as an example:
 
@@ -181,7 +192,7 @@ type Query {
 
 </CodeColumns>
 
-The `productsInStock` query can't resolve fields from the Products subgraph since its `Product` type definition doesn't have `@key(fields: "upc")`, and the `sku` field isn't present in the Inventory subgraph.
+The `productsInStock` query can't resolve fields from the Products subgraph since the Products subgraph's `Product` type definition doesn't include `upc` as a key field, and `sku` isn't present in the Inventory subgraph.
 
 If the Products subgraph includes `@key(fields: "upc")`, all queries from the Inventory subgraph can resolve all product fields:
 
