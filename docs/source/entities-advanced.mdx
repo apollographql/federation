@@ -4,13 +4,17 @@ title: Advanced topics on federated entities
 
 This article describes complex behaviors of federated entities beyond those covered in [entity basics](./entities/).
 
-## Advanced `@key`s
+## Customizing `@key`s
 
-A single `@key` can require a combination of fields to uniquely identify an entity. Additionally, an entity can have multiple separate `@key`s if multiple fields or combinations of fields can independently serve as unique identifiers.
+You can customize the `@key` of an entity to best identify the entity across subgraphs: 
+
+- Create a [compound `@key`](#compound-keys) with multiple fields.
+- Define [multiple `@key`s](#multiple-keys) for an entity. 
+- Assign [different `@key`s across subgraphs](#differing-key-across-subgraphs) for an entity.
 
 ### Compound `@key`s
 
-A single `@key` can consist of multiple fields, the combination of which is required to uniquely identify an entity. This is called a **compound** or composite key. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
+A single `@key` can consist of multiple fields, the combination of which uniquely identifies an entity. This is called a **compound** or composite key. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
 
 ```graphql {1} title="Users subgraph"
 type User @key(fields: "username domain") {
@@ -92,7 +96,7 @@ type Product @key(fields: "sku", resolvable: false) {
 
 ### Differing `@key`s across subgraphs
 
-An entity often uses the exact same `@key` field(s) across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as the `@key`s and one with only `upc` as the `@key` field:
+Although an entity commonly uses the exact same `@key` field(s) across subgraphs, you can alternatively use different `@key`s with different fields. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as its `@key`s, and the other with only `upc` as the `@key` field:
 
 ```graphql title="Products subgraph"
 type Product @key(fields: "sku") @key(fields: "upc") {
