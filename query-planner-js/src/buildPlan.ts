@@ -1226,9 +1226,39 @@ class FetchGroup {
       return undefined;
     }
 
+    // This condition is specific to the case where we're resolving the _concrete_
+    // `__typename` field of an interface when coming from an interfaceObject type.
+    // i.e. { ... on Product { __typename id }} => { ... on Product { __typename} }
+    // This is usually useless at a glance, but in this case we need to actually
+    // keep this since this is our only path to resolving the concrete `__typename`.
+    const isInterfaceTypeConditionOnInterfaceObject = (
+      selection: Selection
+    ): boolean => {
+      if (selection.kind === "FragmentSelection") {
+        const parentType = selection.element.typeCondition;
+        if (parentType && isInterfaceType(parentType)) {
+          // Lastly, we just need to check that we're coming from a subgraph
+          // that has the type as an interface object in its schema.
+          return this.parents().some((p) => {
+            const typeInParent = this.dependencyGraph.subgraphSchemas
+              .get(p.group.subgraphName)
+              ?.type(parentType.name);
+            return typeInParent && isInterfaceObjectType(typeInParent);
+          });
+        }
+      }
+      return false;
+    };
+
     const inputSelections = this.inputs.selectionSets().flatMap((s) => s.selections());
     // Checks that every selection is contained in the input selections.
     const isUseless = this.selection.selections().every((selection) => {
+      // If we're coming from an interfaceObject _to_ an interface, we're
+      // "resolving" the concrete type of the interface and don't want to treat
+      // this as useless.
+      if (isInterfaceTypeConditionOnInterfaceObject(selection)) {
+        return false;
+      }
       const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
       if (!conditionInSupergraph) {
         // We're not in the @interfaceObject case described above. We just check that an input selection contains the
