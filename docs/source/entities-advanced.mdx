@@ -50,7 +50,7 @@ type Product @key(fields: "id") @key(fields: "sku") {
 ```
 <blockquote>
 
-**Note:** If you include multiple sets of `@key` fields, the query planner always uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
+**Note:** If you include multiple sets of `@key` fields, the query planner uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
 
 ```graphql {1}
 type Product @key(fields: "id") @key(fields: "id sku") {
@@ -58,7 +58,7 @@ type Product @key(fields: "id") @key(fields: "id sku") {
 }
 ```
 
-That means either `id` or (`id` _and_ `sku`) are enough to uniquely identify the entity. Since `id` alone is enough, the query planner always uses only that field to resolve the entity, and `@key(fields: "id sku")` is effectively ignored.
+That means either `id` or (`id` _and_ `sku`) is enough to uniquely identify the entity. Since `id` alone is enough, the query planner will use only that field to resolve the entity, and `@key(fields: "id sku")` is effectively ignored.
 
 </blockquote>
 
