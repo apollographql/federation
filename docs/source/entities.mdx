@@ -81,6 +81,8 @@ type Product @key(fields: "id") {
 > * Fields that return a union or interface
 > * Fields that take arguments
 
+Though not strictly required, it's best to use non-nullable fields for keys. If you use fields that return `null` values, GraphOS may encounter issues resolving the entity.
+
 For more information on advanced key options, like how to define [multiple keys](./entities-advanced/#multiple-keys) or [compound keys](/entities-advanced/#compound-keys), see [Advanced topics for federation entities](./entities-advanced).
 
 ### 2. Define a reference resolver

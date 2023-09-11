@@ -4,15 +4,67 @@ title: Advanced topics on federated entities
 
 This article describes complex behaviors of federated entities beyond those covered in [entity basics](./entities/).
 
-## Advanced `@key`s
+## Using advanced `@key`s
 
-A single entity can have multiple `@key`s. Additionally, a `@key` can include multiple fields, and even arbitrarily nested fields.
+Depending on your entities' fields and usage, you may need to use more advanced `@key`s. For example, you may need to define a [compound `@key`](#compound-keys) if multiple fields are required to uniquely identify an entity. If different subgraphs interact with different fields an entity, you may need to define [multiple](#multiple-keys)&mdash;and sometimes [differing](#differing-keys-across-subgraphs)&mdash;`@key`s for the entity.
+
+### Compound `@key`s
+
+A single `@key` can consist of multiple fields, the combination of which uniquely identifies an entity. This is called a **compound** or composite key. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
+
+```graphql {1} title="Users subgraph"
+type User @key(fields: "username domain") {
+  username: String!
+  domain: String!
+}
+```
+
+#### Nested fields in compound `@key`s
+
+Compound keys can also include _nested_ fields. In the following example, the `User` entity's primary key consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
+
+```graphql {1} title="Users subgraph"
+type User @key(fields: "id organization { id }") {
+  id: ID!
+  organization: Organization!
+}
+
+type Organization {
+  id: ID!
+}
+```
 
 ### Multiple `@key`s
 
-You can define more than one `@key` for an entity, when applicable.
+When different subgraphs interact with different fields of an entity, you may need to define multiple `@key`s for the entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
 
-In this example, a `Product` entity can be uniquely identified by either its `id` _or_ its `sku`:
+In the following example, the `Product` entity can be uniquely identified by _either_ its `id` _or_ its `sku`:
+
+```graphql {1} title="Products subgraph"
+type Product @key(fields: "id") @key(fields: "sku") {
+  id: ID!
+  sku: String!
+  name: String!
+  price: Int
+}
+```
+<blockquote>
+
+**Note:** If you include multiple sets of `@key` fields, the query planner uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
+
+```graphql {1}
+type Product @key(fields: "id") @key(fields: "id sku") {
+  # ...
+}
+```
+
+That means either `id` or (`id` _and_ `sku`) is enough to uniquely identify the entity. Since `id` alone is enough, the query planner will use only that field to resolve the entity, and `@key(fields: "id sku")` is effectively ignored.
+
+</blockquote>
+
+#### Referencing entities with multiple keys
+
+A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can use any `@key` fields in its stub definition. For example, if the Products subgraph defines the `Product` entity like this:
 
 ```graphql {1} title="Products subgraph"
 type Product @key(fields: "id") @key(fields: "sku") {
@@ -23,9 +75,7 @@ type Product @key(fields: "id") @key(fields: "sku") {
 }
 ```
 
-This pattern is helpful when different subgraphs interact with different fields of an entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
-
-A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can include the fields of any `@key` in its stub definition:
+Then, a Reviews subgraph can use either `id` or `sku` in the stub definition:
 
 ```graphql title="Reviews subgraph"
 # Either:
@@ -40,28 +90,9 @@ type Product @key(fields: "sku", resolvable: false) {
 
 ```
 
-### Compound `@key`s
-
-A single `@key` can consist of multiple fields, and even _nested_ fields.
-
-In this example, the `User` entity's primary key consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
-
-```graphql {1} title="Users subgraph"
-type User @key(fields: "id organization { id }") {
-  id: ID!
-  organization: Organization!
-}
-
-type Organization {
-  id: ID!
-}
-```
-
 ### Differing `@key`s across subgraphs
 
-An entity often has the exact same `@key` field(s) across subgraphs, but this isn't required. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as the `@key`s and one with only `upc` as the `@key` field:
-
-<CodeColumns>
+Although an entity commonly uses the exact same `@key` field(s) across subgraphs, you can alternatively use different `@key`s with different fields. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as its `@key`s, and the other with only `upc` as the `@key` field:
 
 ```graphql title="Products subgraph"
 type Product @key(fields: "sku") @key(fields: "upc") {
@@ -78,9 +109,6 @@ type Product @key(fields: "upc") {
   inStock: Boolean!
 }
 ```
-
-</CodeColumns>
-
 
 To merge entities between subgraphs, the entity must have at least one shared field between subgraphs. For example, operations can't merge the `Product` entity defined in the following subgraphs because they don't share any fields specified in the `@key` selection set:
 
@@ -105,9 +133,9 @@ type Product @key(fields: "upc") {
 
 </CodeColumns>
 
-#### Operations with mismatched `@key`s
+#### Operations with differing `@key`s
 
-Mismatched keys affect which fields from an entity can be resolved. Requests can resolve an entity's fields _if there is a traversable path from the root query to the fields_.
+Differing keys across subgraphs affect which of the entity's fields can be resolved from each subgraph. Requests can resolve fields **if there is a traversable path from the root query to the fields**.
 
 Take these subgraph schemas as an example:
 
@@ -136,9 +164,9 @@ type Product @key(fields: "upc") {
 ```
 </CodeColumns>
 
-The queries defined in the products subgraph can always resolve all product fields because the product entity can be joined via the `upc` field present in both schemas.
+The queries defined in the Products subgraph can always resolve all product fields because the product entity can be joined via the `upc` field present in both schemas.
 
-On the other hand, queries added to the inventory subgraph can't resolve fields from the products subgraph:
+On the other hand, queries added to the Inventory subgraph can't resolve fields from the Products subgraph:
 
 <CodeColumns>
 
@@ -164,11 +192,9 @@ type Query {
 
 </CodeColumns>
 
-The `productsInStock` query can't resolve fields from the product subgraph since its `Product` type definition doesn't have `@key(fields: "upc")`, and the `sku` field isn't present in the inventory subgraph.
+The `productsInStock` query can't resolve fields from the Products subgraph since the Products subgraph's `Product` type definition doesn't include `upc` as a key field, and `sku` isn't present in the Inventory subgraph.
 
-If the product subgraph includes `@key(fields: "upc")`, all queries from the inventory subgraph can resolve all product fields:
-
-<CodeColumns>
+If the Products subgraph includes `@key(fields: "upc")`, all queries from the Inventory subgraph can resolve all product fields:
 
 ```graphql title="Products subgraph"
 type Product @key(fields: "sku") @key(fields: "upc") {
@@ -189,8 +215,6 @@ type Query {
   productsInStock: [Product!]!
 }
 ```
-
-</CodeColumns>
 
 ## Migrating entities and fields
 
@@ -627,4 +651,4 @@ const resolvers = {
 
 A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made _in addition to_ the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems or even enable denial-of-service attacks.
 
-This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in **every resolver**. This is true even for resolvers that _aren't_ for entities and that _don't_ return a list. These resolvers can _still_ cause N+1 issues via [batched requests](/tutorials/voyage-part2/02-monolith-graph-setup).
+This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in **every resolver**. This is true even for resolvers that _aren't_ for entities and that _don't_ return a list. These resolvers can _still_ cause N+1 issues via [batched requests](/technotes/TN0021-graph-security/#batched-requests).
