@@ -60,6 +60,7 @@ import {
   possibleRuntimeTypes,
   typesCanBeMerged,
   Supergraph,
+  sameType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -2435,13 +2436,16 @@ class FetchDependencyGraph {
     }
 
     if (group.isUseless()) {
-      // In general, removing a group is a bit tricky because we need to deal with the fact
-      // that the group can have multiple parents and children and no break the "path in parent"
-      // in all those cases. To keep thing relatively easily, we only handle the following
-      // cases (other cases will remain non-optimal, but hopefully this handle all the cases
-      // we care about in practice):
-      //   1. if the group has no children. In which case we can just remove it with no ceremony.
-      //   2. if the group has only a single parent and we have a path to that parent.
+      // In general, removing a group is a bit tricky because we need to deal
+      // with the fact that the group can have multiple parents, and we don't
+      // have the "path in parent" in all cases. To keep thing relatively
+      // easily, we only handle the following cases (other cases will remain
+      // non-optimal, but hopefully this handle all the cases we care about in
+      // practice):
+      //   1. if the group has no children. In which case we can just remove it
+      //      with no ceremony.
+      //   2. if the group has only a single parent and we have a path to that
+      //      parent.
       if (group.children().length === 0) {
         this.remove(group);
       } else {
@@ -4080,7 +4084,7 @@ function computeGroupsForTree(
             deferContext: updatedDeferContext
           };
           if (conditions) {
-            // We have some @requires.
+            // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
               edge,
@@ -4495,7 +4499,24 @@ function handleRequires(
       subgraphName: group.subgraphName,
       mergeAt: path.inResponse(),
     });
-    newGroup.addParents(createdGroups.map((group) => ({ group })));
+    newGroup.addParents(
+      createdGroups.map((group) => ({
+        group,
+        // Usually, computing the path of our new group into the created groups
+        // is not entirely trivial, but there is at least the relatively common
+        // case where the 2 groups we look at have:
+        // 1) the same `mergeAt`, and
+        // 2) the same parentType; in that case, we can basically infer those 2
+        //    groups apply at the same "place" and so the "path in parent" is
+        //    empty. TODO: it should probably be possible to generalize this by
+        //    checking the `mergeAt` plus analyzing the selection but that
+        //    warrants some reflection...
+        path: sameMergeAt(group.mergeAt, newGroup.mergeAt)
+          && sameType(group.parentType, newGroup.parentType)
+          ? []
+          : undefined,
+      })),
+    );
     addPostRequireInputs(
       dependencyGraph,
       path,
