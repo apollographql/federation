@@ -508,8 +508,9 @@ async function executeFetch(
 
         for (let i = 0; i < entities.length; i++) {
           const receivedEntity = receivedEntities[i];
+          const existingEntity = entities[representationToEntity[i]];
           if (receivedEntity && !receivedEntity["__typename"]) {
-            const typename = representations[i].__typename;
+            const typename = existingEntity["__typename"];
             receivedEntity["__typename"] = typename;
           }
           applyRewrites(context.supergraphSchema, fetch.outputRewrites, receivedEntity);
