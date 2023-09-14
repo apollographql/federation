@@ -24,6 +24,9 @@ jobs:
       - run:
           name: Run tests
           command: npm run test:ci
+      - run:
+          name: Upload coverage
+          command: npm run coverage:upload
       - store_test_results:
           path: junit.xml
 
