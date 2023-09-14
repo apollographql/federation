@@ -3636,7 +3636,6 @@ describe('executeQueryPlan', () => {
         resolvers: {
           ChildItem: {
             __resolveReference(ref: { id: string, name: string, parentItem: { name: string }}) {
-              console.log(ref);
               return {
                 ...ref,
                 message: `${ref.parentItem.name} | ${ref.name}`,
@@ -5546,6 +5545,184 @@ describe('executeQueryPlan', () => {
               "v": "req=r3",
             },
           ],
+        }
+      `);
+    });
+
+    test('handles resolving concrete `__typename`s of an @interfaceObject via the interface itself (issue #2743)', async () => {
+      const iList = [
+        {
+          id: '1',
+          tField: 'field on a T'
+        },
+      ];
+      const S1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          interface I @key(fields: "id") {
+            id: ID!
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            tField: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) => {
+              return iList.find((e) => e.id === id);
+            },
+            __resolveType: () => {
+              return 'T';
+            },
+          },
+          Query: {
+            allI: () => iList,
+          },
+        },
+      };
+
+      const S2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            iField: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              iList.find((e) => e.id === id),
+            iField: () => "field on I's",
+          },
+        },
+      };
+
+      const S3 = {
+        name: 'S3',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+          }
+
+          type Query {
+            searchIs: [I!]!
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              iList.find((e) => e.id === id),
+          },
+          Query: {
+            searchIs: () => iList,
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        S1, S2, S3,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          {
+            searchIs {
+              __typename
+              id
+              iField
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S3") {
+              {
+                searchIs {
+                  __typename
+                  id
+                }
+              }
+            },
+            Parallel {
+              Flatten(path: "searchIs.@") {
+                Fetch(service: "S1") {
+                  {
+                    ... on I {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on I {
+                      __typename
+                    }
+                  }
+                },
+              },
+              Flatten(path: "searchIs.@") {
+                Fetch(service: "S2") {
+                  {
+                    ... on I {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on I {
+                      iField
+                    }
+                  }
+                },
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "searchIs": Array [
+              Object {
+                "__typename": "T",
+                "iField": "field on I's",
+                "id": "1",
+              },
+            ],
+          },
         }
       `);
     });

@@ -57,26 +57,41 @@ function isPromise<T>(value: PromiseOrValue<T>): value is Promise<T> {
   return typeof (value as {then?: unknown})?.then === 'function';
 }
 
-function addTypeNameToPossibleReturn<T>(
-  maybeObject: null | T,
+async function maybeAddTypeNameToPossibleReturn<T extends { __typename?: string }>(
+  maybeObject: PromiseOrValue<null | T>,
   typename: string,
-): null | (T & { __typename: string }) {
-  if (maybeObject !== null && typeof maybeObject === 'object') {
-    Object.defineProperty(maybeObject, '__typename', {
+): Promise<null | T> {
+  const objectOrNull = await maybeObject;
+  if (
+    objectOrNull !== null
+    && typeof objectOrNull === 'object'
+  ) {
+    // If the object already has a __typename assigned, we're "refining" the
+    // type from an interface to an interfaceObject.
+    if ('__typename' in objectOrNull && objectOrNull.__typename !== typename) {
+      // XXX There's a really interesting nuance here in this condition. At a
+      // first glance, it looks like the code here and below could be simplified
+      // to just:
+      // ```
+      // objectOrNull.__typename = typename;
+      // return objectOrNull;
+      // ```
+      // But in this case, something internal to `graphql-js` depends on the
+      // identity of the object returned here. If we mutate in this case, we end
+      // up with errors from `graphql-js`. This might be worth investigating at
+      // some point, but for now creating a new object solves the problem and
+      // doesn't create any new ones.
+      return {
+        ...objectOrNull,
+        __typename: typename,
+      };
+    }
+
+    Object.defineProperty(objectOrNull, '__typename', {
       value: typename,
     });
   }
-  return maybeObject as null | (T & { __typename: string });
-}
-
-function maybeAddTypeNameToPossibleReturn<T>(
-  maybeObject: PromiseOrValue<null | T>,
-  typename: string,
-): PromiseOrValue<null | (T & { __typename?: string })> {
-  if (isPromise(maybeObject)) {
-    return maybeObject.then((x: any) => addTypeNameToPossibleReturn(x, typename));
-  }
-  return addTypeNameToPossibleReturn(maybeObject, typename);
+  return objectOrNull;
 }
 
 /**
