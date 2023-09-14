@@ -35,6 +35,7 @@ caes
 cand
 Childs
 childs
+codecov
 compabitle
 compatbility
 Compatiblity
