@@ -6775,4 +6775,159 @@ describe('executeQueryPlan', () => {
       }
     `);
   })
+
+  it(`handles duplicate aliased fields on entities correctly`, async () => {
+    const s1Data = [
+      { id: 't1', type: 'T1' },
+      { id: 't2', type: 'T2' },
+    ]
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+          type Query {
+            testQuery(id: String!): I
+          }
+    
+          interface I {
+            id: String!
+          }
+    
+          type T1 implements I @key(fields: "id", resolvable: false) {
+            id: String!
+          }
+    
+          type T2 implements I @key(fields: "id", resolvable: false) {
+            id: String!
+          }
+        `,
+      resolvers: {
+        Query: {
+          testQuery(_: any, args: any) {
+            return s1Data.find((obj) => obj.id === args.id);
+          },
+        },
+        I: {
+          __resolveType(obj: any) {
+            return obj.type
+          }
+        },
+      },
+    };
+
+    const t1 = {
+      id: 't1',
+      foo: {
+        field: "field1",
+      },
+    };
+
+    const t2 = {
+      id: 't2',
+      bar: {
+        field: "field2",
+      },
+    };
+    const s2 = {
+      name: 'S2',
+      typeDefs: gql`
+          interface I {
+            id: String!
+          }
+    
+          type Test {
+            field: String!
+          }
+    
+          type T1 implements I @key(fields: "id") {
+            id: String!
+            foo: Test
+          }
+    
+          type T2 implements I @key(fields: "id") {
+            id: String!
+            bar: Test
+          }
+        `,
+      resolvers: {
+        Query: {
+        },
+        Test: {
+        },
+        T1: {
+          __resolveReference() {
+            return t1;
+          },
+        },
+        T2: {
+          __resolveReference() {
+            return t2;
+          },
+        },
+      },
+    };
+
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+      s1,
+      s2,
+    ]);
+
+    const operation = parseOp(
+        `
+          query AliasedQuery($tId: String!) {
+            testQuery(id: $tId) {
+              ... on T1 {
+                foo {
+                  field
+                }
+              }
+              ... on T2 {
+                foo: bar {
+                  field
+                }
+              }
+            }
+          }
+        `,
+        schema,
+    );
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    const requestContext = buildRequestContext();
+    requestContext.request.variables = { tId: "t1" };
+
+    let response = await executePlan(
+        queryPlan,
+        operation,
+        requestContext,
+        schema,
+        serviceMap,
+    );
+    expect(response.data).toMatchObject(
+        {
+          "testQuery": {
+            "foo": {
+              "field": "field1"
+            }
+          }
+        }
+    )
+
+    requestContext.request.variables = { tId: "t2" };
+    response = await executePlan(
+        queryPlan,
+        operation,
+        requestContext,
+        schema,
+        serviceMap,
+    );
+    expect(response.data).toMatchObject(
+        {
+          "testQuery": {
+            "foo": {
+              "field": "field2"
+            }
+          }
+        }
+    )
+  });
 });
