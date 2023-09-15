@@ -5092,7 +5092,7 @@ describe('executeQueryPlan', () => {
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
 
-      let operation = parseOp(`
+      const operation = parseOp(`
         {
           ts {
             v
@@ -5100,7 +5100,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -5132,7 +5132,7 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "ts": Array [
@@ -5229,7 +5229,7 @@ describe('executeQueryPlan', () => {
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2, s3 ]);
 
-      let operation = parseOp(`
+      const operation = parseOp(`
         {
           ts {
             v
@@ -5237,7 +5237,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -5286,7 +5286,7 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "ts": Array [
@@ -5473,7 +5473,6 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      global.console = require('console');
       queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -5719,6 +5718,179 @@ describe('executeQueryPlan', () => {
               Object {
                 "__typename": "T",
                 "iField": "field on I's",
+                "id": "1",
+              },
+            ],
+          },
+        }
+      `);
+    });
+
+    test("useless interface fetches aren't preserved when `__typename` has been resolved to its concrete type (issue #2743)", async () => {
+      const store = [
+        {
+          id: '1',
+          tField: 'field on a T',
+        },
+      ];
+
+      const S1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key"]
+            )
+
+          interface I @key(fields: "id") {
+            id: ID!
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            tField: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              store.find((e) => e.id === id),
+            __resolveType: () => 'T',
+          },
+        },
+      };
+
+      const S2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            iField: String!
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              store.find((e) => e.id === id),
+            iField: () => 'field on an I',
+          },
+        },
+      };
+
+      const S3 = {
+        name: 'S3',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+          }
+
+          type Query {
+            getIs: [I!]!
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              store.find((e) => e.id === id),
+          },
+          Query: {
+            getIs: () => store,
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        S1,
+        S2,
+        S3,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          {
+            getIs {
+              id
+              ... on T {
+                iField
+              }
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S3") {
+              {
+                getIs {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "getIs.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                  }
+                }
+              },
+            },
+            Flatten(path: "getIs.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    iField
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "getIs": Array [
+              Object {
+                "iField": "field on an I",
                 "id": "1",
               },
             ],
