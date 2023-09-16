@@ -1,5 +1,26 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.5.5
+### Patch Changes
+
+
+- Fix specific case for requesting __typename on interface entity type ([#2775](https://github.com/apollographql/federation/pull/2775))
+  
+  In certain cases, when resolving a __typename on an interface entity (due to it actual being requested in the operation), that fetch group could previously be trimmed / treated as useless. At a glance, it appears to be a redundant step, i.e.:
+  ```
+  { ... on Product { __typename id }} => { ... on Product { __typename} }
+  ```
+  It's actually necessary to preserve this in the case that we're coming from an interface object to an (entity) interface so that we can resolve the concrete __typename correctly.
+
+- Don't preserve useless fetches which downgrade __typename from a concrete type back to its interface type. ([#2778](https://github.com/apollographql/federation/pull/2778))
+  
+  In certain cases, the query planner was preserving some fetches which were "useless" that would rewrite __typename from its already-resolved concrete type back to its interface type. This could result in (at least) requested fields being "filtered" from the final result due to the interface's __typename in the data where the concrete type's __typename was expected.
+  
+  Specifically, the solution was compute the path between newly created groups and their parents when we know that it's trivial (`[]`). Further along in the planning process, this allows to actually remove the known-useless group.
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.5
+  - @apollo/query-graphs@2.5.5
+
 ## 2.5.4
 ### Patch Changes
 
