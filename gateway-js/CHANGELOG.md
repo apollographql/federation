@@ -17,6 +17,11 @@
   In certain cases, the query planner was preserving some fetches which were "useless" that would rewrite __typename from its already-resolved concrete type back to its interface type. This could result in (at least) requested fields being "filtered" from the final result due to the interface's __typename in the data where the concrete type's __typename was expected.
   
   Specifically, the solution was compute the path between newly created groups and their parents when we know that it's trivial (`[]`). Further along in the planning process, this allows to actually remove the known-useless group.
+
+- Propagate type information when renaming entity fields ([#2776](https://github.com/apollographql/federation/pull/2776))
+
+  Aliased entity fields might have been incorrectly overwritten if multiple fields/aliases shared the same name. Query planner automatically renames conflicting fields to ensure we can always generate a valid GraphQL query. The underlying issue was that this key rewriting logic was assuming the same type of an object. In case of entity queries asking for those aliased fields, we ended up always attempting to apply field renaming logic regardless, whether or not a given entity was of the correct type. This fix ensures that the query planner logic correctly accounts for the object type when applying field renaming logic.
+
 - Updated dependencies [[`66d7e4ce`](https://github.com/apollographql/federation/commit/66d7e4ced9a6ccd170d5e228741332395a2dd553), [`a37bbbf6`](https://github.com/apollographql/federation/commit/a37bbbf6501032f16382ccb64d1dfa0dcddac789)]:
   - @apollo/query-planner@2.5.5
   - @apollo/composition@2.5.5
