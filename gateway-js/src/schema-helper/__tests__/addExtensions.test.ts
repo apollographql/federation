@@ -4,12 +4,14 @@ import { ApolloGraphQLSchemaExtensions } from '../../typings/graphql';
 const { version } = require('../../../package.json');
 
 describe('addExtensions', () => {
-
   it('adds gateway extensions to a schema', async () => {
     const schema = buildSchema('type Query { hello: String }');
     expect(schema.extensions).toEqual({});
-    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
-    expect(actualExtensions).toEqual({ apollo: { gateway: { version: version } } });
+    const actualExtensions: ApolloGraphQLSchemaExtensions =
+      addExtensions(schema).extensions;
+    expect(actualExtensions).toEqual({
+      apollo: { gateway: { version: version } },
+    });
   });
 
   it('does not delete existing extensions', async () => {
@@ -19,18 +21,19 @@ describe('addExtensions', () => {
       foo: 'bar',
       apollo: {
         gateway: {
-          version: 'hello'
-        }
-      }
+          version: 'hello',
+        },
+      },
     };
-    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
+    const actualExtensions: ApolloGraphQLSchemaExtensions =
+      addExtensions(schema).extensions;
     expect(actualExtensions).toEqual({
       foo: 'bar',
       apollo: {
         gateway: {
-          version: version
-        }
-      }
+          version: version,
+        },
+      },
     });
   });
 
@@ -38,15 +41,16 @@ describe('addExtensions', () => {
     const schema = buildSchema('type Query { hello: String }');
     expect(schema.extensions).toEqual({});
     schema.extensions = {
-      apollo: undefined
+      apollo: undefined,
     };
-    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
+    const actualExtensions: ApolloGraphQLSchemaExtensions =
+      addExtensions(schema).extensions;
     expect(actualExtensions).toEqual({
       apollo: {
         gateway: {
-          version: version
-        }
-      }
+          version: version,
+        },
+      },
     });
   });
 
@@ -55,16 +59,17 @@ describe('addExtensions', () => {
     expect(schema.extensions).toEqual({});
     schema.extensions = {
       apollo: {
-        gateway: undefined
-      }
+        gateway: undefined,
+      },
     };
-    const actualExtensions: ApolloGraphQLSchemaExtensions = addExtensions(schema).extensions;
+    const actualExtensions: ApolloGraphQLSchemaExtensions =
+      addExtensions(schema).extensions;
     expect(actualExtensions).toEqual({
       apollo: {
         gateway: {
-          version: version
-        }
-      }
+          version: version,
+        },
+      },
     });
   });
 });

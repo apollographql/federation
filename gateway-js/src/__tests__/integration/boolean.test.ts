@@ -1,5 +1,8 @@
 import { execute } from '../execution-utils';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -91,11 +94,26 @@ describe('@skip', () => {
 
     expect(data).toEqual({
       topReviews: [
-        { body: 'Love it!', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Too expensive.', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Could be better.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Prefer something else.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Wish I had read this before.', author: { name: { first: 'Alan', last: 'Turing' } } },
+        {
+          body: 'Love it!',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Too expensive.',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Could be better.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Prefer something else.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Wish I had read this before.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
       ],
     });
 
@@ -127,15 +145,33 @@ describe('@skip', () => {
 
     expect(data).toEqual({
       topReviews: [
-        { body: 'Love it!', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Too expensive.', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Could be better.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Prefer something else.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Wish I had read this before.', author: { name: { first: 'Alan', last: 'Turing' } } },
+        {
+          body: 'Love it!',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Too expensive.',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Could be better.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Prefer something else.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Wish I had read this before.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
       ],
     });
 
-    const variables = { definitions: operation.variableDefinitions, values: {skip} };
+    const variables = {
+      definitions: operation.variableDefinitions,
+      values: { skip },
+    };
     expect(queryPlan).toCallService('reviews', variables);
     expect(queryPlan).toCallService('accounts', variables);
   });
@@ -227,11 +263,26 @@ describe('@include', () => {
 
     expect(data).toEqual({
       topReviews: [
-        { body: 'Love it!', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Too expensive.', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Could be better.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Prefer something else.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Wish I had read this before.', author: { name: { first: 'Alan', last: 'Turing' } } },
+        {
+          body: 'Love it!',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Too expensive.',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Could be better.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Prefer something else.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Wish I had read this before.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
       ],
     });
 
@@ -264,15 +315,33 @@ describe('@include', () => {
 
     expect(data).toEqual({
       topReviews: [
-        { body: 'Love it!', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Too expensive.', author: { name: { first: 'Ada', last: 'Lovelace' } } },
-        { body: 'Could be better.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Prefer something else.', author: { name: { first: 'Alan', last: 'Turing' } } },
-        { body: 'Wish I had read this before.', author: { name: { first: 'Alan', last: 'Turing' } } },
+        {
+          body: 'Love it!',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Too expensive.',
+          author: { name: { first: 'Ada', last: 'Lovelace' } },
+        },
+        {
+          body: 'Could be better.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Prefer something else.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
+        {
+          body: 'Wish I had read this before.',
+          author: { name: { first: 'Alan', last: 'Turing' } },
+        },
       ],
     });
 
-    const variables = { definitions: operation.variableDefinitions, values: {include} };
+    const variables = {
+      definitions: operation.variableDefinitions,
+      values: { include },
+    };
     expect(queryPlan).toCallService('accounts', variables);
     expect(queryPlan).toCallService('reviews', variables);
   });

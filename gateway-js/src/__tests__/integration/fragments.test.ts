@@ -131,7 +131,7 @@ it('supports multiple named fragments (one level, mixed ordering)', async () => 
       name: {
         first: 'Ada',
         last: 'Lovelace',
-      }
+      },
     },
   });
 

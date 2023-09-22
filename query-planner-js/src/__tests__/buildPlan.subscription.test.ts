@@ -1,6 +1,9 @@
 import { operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
+import {
+  composeAndCreatePlanner,
+  composeAndCreatePlannerWithOptions,
+} from './testHelper';
 
 describe('subscription query plan tests', () => {
   it('basic subscription query plan', () => {
@@ -187,7 +190,10 @@ describe('subscription query plan tests', () => {
       `,
     };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraphA, subgraphB], { incrementalDelivery: { enableDefer: true } });
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraphA, subgraphB],
+      { incrementalDelivery: { enableDefer: true } },
+    );
     const operation = operationFromDocument(
       api,
       gql`
@@ -202,6 +208,8 @@ describe('subscription query plan tests', () => {
         }
       `,
     );
-    expect(() => queryPlanner.buildQueryPlan(operation)).toThrow('@defer is not supported on subscriptions');
+    expect(() => queryPlanner.buildQueryPlan(operation)).toThrow(
+      '@defer is not supported on subscriptions',
+    );
   });
 });

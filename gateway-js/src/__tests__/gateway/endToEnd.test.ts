@@ -2,7 +2,7 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSchema, ObjectType } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { printSchema } from 'graphql';
-import { startSubgraphsAndGateway, Services } from './testUtils'
+import { startSubgraphsAndGateway, Services } from './testUtils';
 import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import { QueryPlan } from '@apollo/query-planner';
 import { createHash } from '@apollo/utils.createhash';
@@ -20,11 +20,15 @@ afterEach(async () => {
   }
 });
 
-
 describe('caching', () => {
-  const cache = new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * (30), sizeCalculation: approximateObjectSize});
+  const cache = new InMemoryLRUCache<QueryPlan>({
+    maxSize: Math.pow(2, 20) * 30,
+    sizeCalculation: approximateObjectSize,
+  });
   beforeEach(async () => {
-    services = await startSubgraphsAndGateway(fixtures, { gatewayConfig: { queryPlannerConfig: { cache } } });
+    services = await startSubgraphsAndGateway(fixtures, {
+      gatewayConfig: { queryPlannerConfig: { cache } },
+    });
   });
 
   it(`cached query plan`, async () => {
@@ -43,7 +47,7 @@ describe('caching', () => {
     `;
 
     await services.queryGateway(query);
-    const queryHash:string = createHash('sha256').update(query).digest('hex');
+    const queryHash: string = createHash('sha256').update(query).digest('hex');
     expect(await cache.get(queryHash)).toBeTruthy();
   });
 

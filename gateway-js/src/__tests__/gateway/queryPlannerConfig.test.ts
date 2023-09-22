@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import { startSubgraphsAndGateway, Services } from './testUtils'
+import { startSubgraphsAndGateway, Services } from './testUtils';
 
 let services: Services;
 
@@ -33,10 +33,10 @@ describe('`debug.bypassPlannerForSingleSubgraph` config', () => {
           b: {
             x: 1,
             y: 'foo',
-          }
+          },
         }),
-      }
-    }
+      },
+    },
   };
 
   const query = `
@@ -72,22 +72,21 @@ describe('`debug.bypassPlannerForSingleSubgraph` config', () => {
 
     const queryPlanner = services.gateway.__testing().queryPlanner!;
     // If the query planner is genuinely used, we shoud have evaluated 1 plan.
-    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+      1,
+    );
   });
 
   it('works when enabled', async () => {
-    services = await startSubgraphsAndGateway(
-      [subgraph],
-      {
-        gatewayConfig: {
-          queryPlannerConfig: {
-            debug: {
-              bypassPlannerForSingleSubgraph: true,
-            }
-          }
-        }
-      }
-    );
+    services = await startSubgraphsAndGateway([subgraph], {
+      gatewayConfig: {
+        queryPlannerConfig: {
+          debug: {
+            bypassPlannerForSingleSubgraph: true,
+          },
+        },
+      },
+    });
 
     const response = await services.queryGateway(query);
     const result = await response.json();
@@ -95,7 +94,8 @@ describe('`debug.bypassPlannerForSingleSubgraph` config', () => {
 
     const queryPlanner = services.gateway.__testing().queryPlanner!;
     // The `bypassPlannerForSingleSubgraph` doesn't evaluate anything. It's use is the only case where `evaluatedPlanCount` can be 0.
-    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(0);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+      0,
+    );
   });
 });
-
