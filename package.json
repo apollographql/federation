@@ -28,7 +28,11 @@
     "changeset-version": "changeset version && npm i",
     "build-and-publish": "npm run compile && changeset publish",
     "spell:check": "cspell lint --no-progress --config .cspell/cspell.yml  || (echo 'Add any real words to ./cspell/cspell-dict.txt.'; exit 1)",
-    "use-repo-git-hooks": "git config core.hooksPath .git-hooks"
+    "//": "This only needs to use prettier@2 for as long as jest disallows using prettier@3",
+    "prettier:check": "node ./node_modules/prettier-2/bin-prettier.js --check ./**/__tests__/**/*.test.ts",
+    "prettier:fix": "node ./node_modules/prettier-2/bin-prettier.js --write ./**/__tests__/**/*.test.ts",
+    "//": "Optional: run this to configure git hooks and blame ignore revs",
+    "git:configure": "git config core.hooksPath .git-hooks; git config blame.ignoreRevsFile .git-blame-ignore-revs"
   },
   "engines": {
     "node": ">=14.15.0",

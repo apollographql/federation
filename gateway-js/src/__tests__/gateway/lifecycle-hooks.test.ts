@@ -138,7 +138,9 @@ describe('lifecycle hooks', () => {
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
     // Note that we've composing our usual test fixtures here
-    const expectedFirstId = createHash('sha256').update(getTestingSupergraphSdl()).digest('hex');
+    const expectedFirstId = createHash('sha256')
+      .update(getTestingSupergraphSdl())
+      .digest('hex');
     expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
     expect(firstCall[1]).toBeUndefined();

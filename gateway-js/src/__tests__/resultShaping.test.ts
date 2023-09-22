@@ -1,6 +1,9 @@
-import { buildSchemaFromAST, parseOperation } from "@apollo/federation-internals"
-import { gql } from "apollo-federation-integration-testsuite";
-import { computeResponse } from "../resultShaping";
+import {
+  buildSchemaFromAST,
+  parseOperation,
+} from '@apollo/federation-internals';
+import { gql } from 'apollo-federation-integration-testsuite';
+import { computeResponse } from '../resultShaping';
 
 const introspectionHandling = () => null;
 
@@ -39,27 +42,32 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "t": {
-        "a": 0,
-        "b": 'testData',
-        "c": [{
-          __typename: 'P1',
-          id: 'foo',
-          x: 1,
-          y: 2,
-        }, {
-          __typename: 'P2',
-          x: 10,
-          y: 20,
-          w: 30,
-          z: 40,
-        }],
-        "d": 1,
+      t: {
+        a: 0,
+        b: 'testData',
+        c: [
+          {
+            __typename: 'P1',
+            id: 'foo',
+            x: 1,
+            y: 2,
+          },
+          {
+            __typename: 'P2',
+            x: 10,
+            y: 20,
+            w: 30,
+            z: 40,
+          },
+        ],
+        d: 1,
       },
-      "v": 42
-    }
+      v: 42,
+    };
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         t {
           a
@@ -75,13 +83,16 @@ describe('gateway post-processing', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
-    expect(computeResponse({
-      operation,
-      input,
-      introspectionHandling,
-    })).toMatchInlineSnapshot(`
+    expect(
+      computeResponse({
+        operation,
+        input,
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
       Object {
         "data": Object {
           "t": Object {
@@ -121,33 +132,38 @@ describe('gateway post-processing', () => {
     `);
 
     const tObj = {
-      "a": null,
-      "b": null,
-      "c": [24, null, 42, null],
-      "d": [24, null, 42, null],
-      "e": [24, null, 42, null],
-      "f": [24, null, 42, null],
-    }
+      a: null,
+      b: null,
+      c: [24, null, 42, null],
+      d: [24, null, 42, null],
+      e: [24, null, 42, null],
+      f: [24, null, 42, null],
+    };
 
     const input = {
-      "tNullable": tObj,
-      "tNonNullable": tObj,
-    }
+      tNullable: tObj,
+      tNonNullable: tObj,
+    };
 
     test('no propagation on nullable (non-list) type', () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           tNonNullable {
             a
           }
         }
-      `);
+      `,
+      );
 
-      expect(computeResponse({
-        operation,
-        input,
-        introspectionHandling,
-      })).toMatchInlineSnapshot(`
+      expect(
+        computeResponse({
+          operation,
+          input,
+          introspectionHandling,
+        }),
+      ).toMatchInlineSnapshot(`
         Object {
           "data": Object {
             "tNonNullable": Object {
@@ -160,13 +176,16 @@ describe('gateway post-processing', () => {
     });
 
     test('propagation on non-nullable (non-list) type', () => {
-      const operationNonNullable = parseOperation(schema, `
+      const operationNonNullable = parseOperation(
+        schema,
+        `
         {
           tNonNullable {
             b
           }
         }
-      `);
+      `,
+      );
 
       let res = computeResponse({
         operation: operationNonNullable,
@@ -183,14 +202,16 @@ describe('gateway post-processing', () => {
       `);
       expect(res.errors[0].path).toStrictEqual(['tNonNullable', 'b']);
 
-
-      const operationNullable = parseOperation(schema, `
+      const operationNullable = parseOperation(
+        schema,
+        `
         {
           tNullable {
             b
           }
         }
-      `);
+      `,
+      );
 
       res = computeResponse({
         operation: operationNullable,
@@ -211,19 +232,24 @@ describe('gateway post-processing', () => {
     });
 
     test('no propagation on nullable list type', () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           tNonNullable {
             c
           }
         }
-      `);
+      `,
+      );
 
-      expect(computeResponse({
-        operation,
-        input,
-        introspectionHandling,
-      })).toMatchInlineSnapshot(`
+      expect(
+        computeResponse({
+          operation,
+          input,
+          introspectionHandling,
+        }),
+      ).toMatchInlineSnapshot(`
         Object {
           "data": Object {
             "tNonNullable": Object {
@@ -241,13 +267,16 @@ describe('gateway post-processing', () => {
     });
 
     test('no propagation on null elements of non-nullable list type with nullable inner element type', () => {
-      const operationNonNullable = parseOperation(schema, `
+      const operationNonNullable = parseOperation(
+        schema,
+        `
         {
           tNonNullable {
             d
           }
         }
-      `);
+      `,
+      );
 
       const res = computeResponse({
         operation: operationNonNullable,
@@ -272,13 +301,16 @@ describe('gateway post-processing', () => {
     });
 
     test('propagation on null elements of list type with non-nullable inner element type', () => {
-      const operationNonNullable = parseOperation(schema, `
+      const operationNonNullable = parseOperation(
+        schema,
+        `
         {
           tNonNullable {
             e
           }
         }
-      `);
+      `,
+      );
 
       const res = computeResponse({
         operation: operationNonNullable,
@@ -303,13 +335,16 @@ describe('gateway post-processing', () => {
     });
 
     test('propagation on null elements of non-nullable list type with non-nullable inner element type', () => {
-      const operationNonNullable = parseOperation(schema, `
+      const operationNonNullable = parseOperation(
+        schema,
+        `
         {
           tNonNullable {
             f
           }
         }
-      `);
+      `,
+      );
 
       let res = computeResponse({
         operation: operationNonNullable,
@@ -328,13 +363,16 @@ describe('gateway post-processing', () => {
       expect(res.errors[0].path).toStrictEqual(['tNonNullable', 'f', 1]);
       expect(res.errors[1].path).toStrictEqual(['tNonNullable', 'f', 3]);
 
-      const operationNullable = parseOperation(schema, `
+      const operationNullable = parseOperation(
+        schema,
+        `
         {
           tNullable {
             f
           }
         }
-      `);
+      `,
+      );
 
       res = computeResponse({
         operation: operationNullable,
@@ -365,14 +403,17 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "x": 'foo',
-    }
+      x: 'foo',
+    };
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         x
       }
-    `);
+    `,
+    );
 
     const res = computeResponse({
       operation,
@@ -403,21 +444,23 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "t": {
-        "a": 42,
-        "q": {
-          "t": {
-            "q": {
-              "t": {
-                "a": 24
+      t: {
+        a: 42,
+        q: {
+          t: {
+            q: {
+              t: {
+                a: 24,
               },
             },
           },
         },
       },
-    }
+    };
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         __typename
         t {
@@ -435,13 +478,16 @@ describe('gateway post-processing', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
-    expect(computeResponse({
-      operation,
-      input,
-      introspectionHandling,
-    })).toMatchInlineSnapshot(`
+    expect(
+      computeResponse({
+        operation,
+        input,
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
       Object {
         "data": Object {
           "__typename": "Query",
@@ -485,19 +531,21 @@ describe('gateway post-processing', () => {
     `);
 
     const input = {
-      "i": [
+      i: [
         {
-          "__typename": "A",
-          "x": 24,
+          __typename: 'A',
+          x: 24,
         },
         {
-          "__typename": "B",
-          "x": 42,
+          __typename: 'B',
+          x: 42,
         },
-      ]
-    }
+      ],
+    };
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         i {
           ... on I {
@@ -506,13 +554,16 @@ describe('gateway post-processing', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
-    expect(computeResponse({
-      operation,
-      input,
-      introspectionHandling,
-    })).toMatchInlineSnapshot(`
+    expect(
+      computeResponse({
+        operation,
+        input,
+        introspectionHandling,
+      }),
+    ).toMatchInlineSnapshot(`
       Object {
         "data": Object {
           "i": Array [
@@ -543,12 +594,15 @@ describe('gateway post-processing', () => {
       included: 'world',
     };
 
-    const operation = parseOperation(schema, `#graphql
+    const operation = parseOperation(
+      schema,
+      `#graphql
       query DefaultedIfCondition($if: Boolean = true) {
         skipped: hello @skip(if: $if)
         included: hello @include(if: $if)
       }
-    `);
+    `,
+    );
 
     expect(
       computeResponse({
@@ -578,13 +632,16 @@ describe('gateway post-processing', () => {
       included: 'world',
     };
 
-    const operation = parseOperation(schema, `#graphql
+    const operation = parseOperation(
+      schema,
+      `#graphql
         # note that the default conditional is inverted from the previous test
       query DefaultedIfCondition($if: Boolean = false) {
         skipped: hello @skip(if: $if)
         included: hello @include(if: $if)
       }
-    `);
+    `,
+    );
 
     expect(
       computeResponse({
@@ -602,4 +659,4 @@ describe('gateway post-processing', () => {
       }
     `);
   });
-})
+});

@@ -1,9 +1,7 @@
 import fs from 'fs';
 import { defineFeature, loadFeatures } from 'jest-cucumber';
 import path from 'path';
-import {
-  QueryPlan, QueryPlanner
-} from '..';
+import { QueryPlan, QueryPlanner } from '..';
 import {
   Operation,
   Schema,
@@ -11,7 +9,6 @@ import {
   parseOperation,
 } from '@apollo/federation-internals';
 import { parse, validate } from 'graphql';
-
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
 // each of those directories. It runs all of the .feature cases in that directory against that schema.
@@ -42,8 +39,12 @@ for (const directory of directories) {
         const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
         const supergraph = Supergraph.build(supergraphSdl);
         schema = supergraph.schema;
-        const exposeDocumentNodeInFetchNode = feature.title.endsWith("(with ExposeDocumentNodeInFetchNode)");
-        queryPlanner = new QueryPlanner(supergraph, { exposeDocumentNodeInFetchNode });
+        const exposeDocumentNodeInFetchNode = feature.title.endsWith(
+          '(with ExposeDocumentNodeInFetchNode)',
+        );
+        queryPlanner = new QueryPlanner(supergraph, {
+          exposeDocumentNodeInFetchNode,
+        });
       });
 
       feature.scenarios.forEach((scenario) => {
@@ -54,7 +55,9 @@ for (const directory of directories) {
           const givenQuery = () => {
             given(/^query$/im, (operationString: string) => {
               operation = parseOperation(schema, operationString);
-              expect(validate(schema.toGraphQLJSSchema(), parse(operationString))).toStrictEqual([]);
+              expect(
+                validate(schema.toGraphQLJSSchema(), parse(operationString)),
+              ).toStrictEqual([]);
             });
           };
 

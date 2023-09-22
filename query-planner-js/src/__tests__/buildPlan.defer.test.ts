@@ -1,10 +1,21 @@
-import { operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import {
+  operationFromDocument,
+  Schema,
+  ServiceDefinition,
+} from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { QueryPlanner } from '@apollo/query-planner';
-import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from "./testHelper";
+import {
+  composeAndCreatePlanner,
+  composeAndCreatePlannerWithOptions,
+} from './testHelper';
 
-function composeAndCreatePlannerWithDefer(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  return composeAndCreatePlannerWithOptions(services, { incrementalDelivery: { enableDefer : true }});
+function composeAndCreatePlannerWithDefer(
+  ...services: ServiceDefinition[]
+): [Schema, QueryPlanner] {
+  return composeAndCreatePlannerWithOptions(services, {
+    incrementalDelivery: { enableDefer: true },
+  });
 }
 
 describe('handles simple @defer', () => {
@@ -12,14 +23,14 @@ describe('handles simple @defer', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        t : T
+        t: T
       }
 
       type T @key(fields: "id") {
         id: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -29,21 +40,24 @@ describe('handles simple @defer', () => {
         v1: Int
         v2: Int
       }
-    `
-  }
+    `,
+  };
 
   test('without defer-support enabled', () => {
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          ... @defer {
-            v2
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            ... @defer {
+              v2
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     // Without defer-support enabled, we should get the same plan than if `@defer` wasn't there.
     const plan = queryPlanner.buildQueryPlan(operation);
@@ -80,17 +94,23 @@ describe('handles simple @defer', () => {
   });
 
   test('with defer-support enabled', () => {
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          ... @defer {
-            v2
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            ... @defer {
+              v2
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -161,14 +181,14 @@ describe('non-router-based-defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -182,22 +202,28 @@ describe('non-router-based-defer', () => {
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v {
-            a
-            ... @defer {
-              b
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v {
+              a
+              ... @defer {
+                b
+              }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // We cannot handle a @defer on value type at the query planning level, so we expect nothing to be
@@ -259,15 +285,15 @@ describe('non-router-based-defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type T @key(fields: "id", resolvable: false) {
           id: ID!
           v1: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -276,20 +302,26 @@ describe('non-router-based-defer', () => {
           id: ID!
           v2: String
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          ... @defer {
-            v1
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            ... @defer {
+              v1
+            }
+            v2
           }
-          v2
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // While the @defer in the operation is on an entity, the @key in the first subgraph
@@ -348,7 +380,7 @@ describe('non-router-based-defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type T @key(fields: "id") {
@@ -359,8 +391,8 @@ describe('non-router-based-defer', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -378,24 +410,30 @@ describe('non-router-based-defer', () => {
         type U @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v {
-            a
-            ... @defer {
-              u {
-                x
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v {
+              a
+              ... @defer {
+                u {
+                  x
+                }
               }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // While we cannot defer the initial resolving of `u`, we can defer the fetch of it's `x` field,
@@ -478,7 +516,7 @@ test('@defer resuming in same subgraph', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        t : T
+        t: T
       }
 
       type T @key(fields: "id") {
@@ -486,20 +524,23 @@ test('@defer resuming in same subgraph', () => {
         v0: String
         v1: String
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        v0
-        ... @defer {
-          v1
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          v0
+          ... @defer {
+            v1
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -552,7 +593,7 @@ test('@defer multiple fields in different subgraphs', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        t : T
+        t: T
       }
 
       type T @key(fields: "id") {
@@ -560,8 +601,8 @@ test('@defer multiple fields in different subgraphs', () => {
         v0: String
         v1: String
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -570,8 +611,8 @@ test('@defer multiple fields in different subgraphs', () => {
         id: ID!
         v2: String
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -580,22 +621,29 @@ test('@defer multiple fields in different subgraphs', () => {
         id: ID!
         v3: String
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        v0
-        ... @defer {
-          v1
-          v2
-          v3
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          v0
+          ... @defer {
+            v1
+            v2
+            v3
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -682,7 +730,7 @@ test('multiple (non-nested) @defer + label handling', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        t : T
+        t: T
       }
 
       type T @key(fields: "id") {
@@ -690,8 +738,8 @@ test('multiple (non-nested) @defer + label handling', () => {
         v0: String
         v1: String
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -705,8 +753,8 @@ test('multiple (non-nested) @defer + label handling', () => {
       type U @key(fields: "id") {
         id: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -716,29 +764,36 @@ test('multiple (non-nested) @defer + label handling', () => {
         x: Int
         y: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        v0
-        ... @defer(label: "defer_v1") {
-          v1
-        }
-        ... @defer {
-          v2
-        }
-        v3 {
-          x
-          ... @defer(label: "defer_in_v3") {
-            y
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          v0
+          ... @defer(label: "defer_v1") {
+            v1
+          }
+          ... @defer {
+            v2
+          }
+          v3 {
+            x
+            ... @defer(label: "defer_in_v3") {
+              y
+            }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -870,15 +925,15 @@ describe('nested @defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          me : User
+          me: User
         }
 
         type User @key(fields: "id") {
           id: ID!
           name: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -893,30 +948,36 @@ describe('nested @defer', () => {
           body: String
           author: User
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        me {
-          name
-          ... on User @defer {
-            messages {
-              body
-              author {
-                name
-                ... @defer {
-                  messages {
-                    body
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          me {
+            name
+            ... on User @defer {
+              messages {
+                body
+                author {
+                  name
+                  ... @defer {
+                    messages {
+                      body
+                    }
                   }
                 }
               }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1028,15 +1089,15 @@ describe('nested @defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          me : User
+          me: User
         }
 
         type User @key(fields: "id") {
           id: ID!
           name: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1055,25 +1116,31 @@ describe('nested @defer', () => {
           paragraphs: [String]
           lines: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        me {
-          ... @defer {
-            messages {
-              ... @defer {
-                body {
-                  lines
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          me {
+            ... @defer {
+              messages {
+                ... @defer {
+                  body {
+                    lines
+                  }
                 }
               }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1135,15 +1202,15 @@ describe('nested @defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          me : User
+          me: User
         }
 
         type User @key(fields: "id") {
           id: ID!
           name: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1153,23 +1220,29 @@ describe('nested @defer', () => {
           age: Int
           address: String
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        me {
-          name
-          ... @defer {
-            age
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          me {
+            name
             ... @defer {
-              address
+              age
+              ... @defer {
+                address
+              }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1247,32 +1320,35 @@ describe('nested @defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          me : User
+          me: User
         }
 
-        type User  {
+        type User {
           id: ID!
           name: String
           age: Int
           address: String
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      {
-        me {
-          name
-          ... @defer {
-            age
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          me {
+            name
             ... @defer {
-              address
+              age
+              ... @defer {
+                address
+              }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1320,7 +1396,7 @@ describe('nested @defer', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type T {
@@ -1328,8 +1404,8 @@ describe('nested @defer', () => {
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1337,22 +1413,28 @@ describe('nested @defer', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          ... @defer {
-            a
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
             ... @defer {
-              b
+              a
+              ... @defer {
+                b
+              }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Note that nothing can effectively be deferred, so everything is fetched in the very first fetch, but
@@ -1400,7 +1482,7 @@ describe('@defer on mutation', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type Mutation {
@@ -1413,9 +1495,8 @@ describe('@defer on mutation', () => {
           v0: String
           v1: String
         }
-      `
-
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1424,27 +1505,33 @@ describe('@defer on mutation', () => {
           id: ID!
           v2: String
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      mutation mut {
-        update1 {
-          v0
-          ... @defer {
-            v1
-          }
-        }
-        update2 {
-          v1
-          ... @defer {
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation mut {
+          update1 {
             v0
-            v2
+            ... @defer {
+              v1
+            }
+          }
+          update2 {
+            v1
+            ... @defer {
+              v0
+              v2
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // What matters here is that the updates (that go to different fields) are correctly done in sequence,
@@ -1545,7 +1632,7 @@ describe('@defer on mutation', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type Mutation {
@@ -1557,8 +1644,8 @@ describe('@defer on mutation', () => {
           v0: String
           v1: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1571,27 +1658,33 @@ describe('@defer on mutation', () => {
           id: ID!
           v2: String
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      mutation mut {
-        update1 {
-          v0
-          ... @defer {
-            v1
-          }
-        }
-        update2 {
-          v1
-          ... @defer {
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation mut {
+          update1 {
             v0
-            v2
+            ... @defer {
+              v1
+            }
+          }
+          update2 {
+            v1
+            ... @defer {
+              v0
+              v2
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // What matters here is that the updates (that go to different fields) are correctly done in sequence,
@@ -1720,8 +1813,8 @@ test('multi-dependency deferred section', () => {
         id0: ID!
         v1: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -1731,8 +1824,8 @@ test('multi-dependency deferred section', () => {
         id1: ID!
         v2: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -1742,8 +1835,8 @@ test('multi-dependency deferred section', () => {
         id2: ID!
         v3: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph4 = {
     name: 'Subgraph4',
@@ -1753,22 +1846,30 @@ test('multi-dependency deferred section', () => {
         id2: ID!
         v4: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3, subgraph4);
-  let operation = operationFromDocument(api, gql`
-    {
-      t {
-        v1
-        v2
-        v3
-        ... @defer {
-          v4
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+    subgraph4,
+  );
+  let operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          v1
+          v2
+          v3
+          ... @defer {
+            v4
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   let plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -1854,16 +1955,19 @@ test('multi-dependency deferred section', () => {
     }
   `);
 
-  operation = operationFromDocument(api, gql`
-    {
-      t {
-        v1
-        ... @defer {
-          v4
+  operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          v1
+          ... @defer {
+            v4
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   plan = queryPlanner.buildQueryPlan(operation);
   // TODO: the following plan is admittedly not as effecient as it could be, as the 2 queries to
@@ -1871,7 +1975,7 @@ test('multi-dependency deferred section', () => {
   // key dependencies for the deferred block, so it would make more sense to defer those fetches
   // as well. It is however tricky to both improve this here _and_ maintain the plan generate
   // just above (which is admittedly optimial). More precisely, what the code currently does is
-  // that when it gets to a defer, then it defers the fetch that gets the deferred fields (the 
+  // that when it gets to a defer, then it defers the fetch that gets the deferred fields (the
   // fetch to subgraph 4 here), but it puts the "condition" resolution for the key of that fetch
   // in the non-deferred section. Here, resolving that fetch conditions is what creates the
   // dependency on the the fetches to subgraph 2 and 3, and so those get non-deferred.
@@ -1981,8 +2085,8 @@ describe('@require', () => {
           id: ID!
           v1: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1992,8 +2096,8 @@ describe('@require', () => {
           v2: Int @requires(fields: "v3")
           v3: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -2002,20 +2106,27 @@ describe('@require', () => {
           id: ID!
           v3: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          ... @defer {
-            v2
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            ... @defer {
+              v2
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2097,7 +2208,7 @@ describe('@provides', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type Query {
-          t : T @provides(fields: "v2")
+          t: T @provides(fields: "v2")
         }
 
         type T @key(fields: "id") {
@@ -2105,8 +2216,8 @@ describe('@provides', () => {
           v1: Int
           v2: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -2115,20 +2226,26 @@ describe('@provides', () => {
           id: ID!
           v2: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          ... @defer {
-            v2
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            ... @defer {
+              v2
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2182,7 +2299,7 @@ test('@defer on query root type', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        op1 : Int
+        op1: Int
         op2: A
       }
 
@@ -2191,8 +2308,8 @@ test('@defer on query root type', () => {
         y: Int
         next: Query
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -2201,25 +2318,31 @@ test('@defer on query root type', () => {
         op3: Int
         op4: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      op2 {
-        x
-        y
-        next {
-          op3
-          ... @defer {
-            op1
-            op4
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        op2 {
+          x
+          y
+          next {
+            op3
+            ... @defer {
+              op1
+              op4
+            }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -2302,8 +2425,8 @@ test('@defer on everything queried', () => {
         id: ID!
         x: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -2312,20 +2435,26 @@ test('@defer on everything queried', () => {
         id: ID!
         y: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      ... @defer {
-        t {
-          x
-          y
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        ... @defer {
+          t {
+            x
+            y
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -2390,8 +2519,8 @@ test('@defer everything within entity', () => {
         id: ID!
         x: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -2400,20 +2529,26 @@ test('@defer everything within entity', () => {
         id: ID!
         y: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        ... @defer {
-          x
-          y
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          ... @defer {
+            x
+            y
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -2475,13 +2610,16 @@ test('@defer everything within entity', () => {
 });
 
 describe('defer with conditions', () => {
-  test.each([{
-    name: 'without explicit label',
-    label: undefined,
-  }, {
-    name: 'with explicit label',
-    label: 'testLabel',
-  }])('simple @defer with condition $name', ({label}) => {
+  test.each([
+    {
+      name: 'without explicit label',
+      label: undefined,
+    },
+    {
+      name: 'with explicit label',
+      label: 'testLabel',
+    },
+  ])('simple @defer with condition $name', ({ label }) => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -2493,8 +2631,8 @@ describe('defer with conditions', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -2503,11 +2641,16 @@ describe('defer with conditions', () => {
           id: ID!
           y: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
       query($cond: Boolean) {
         t {
           x
@@ -2516,7 +2659,8 @@ describe('defer with conditions', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2540,7 +2684,9 @@ describe('defer with conditions', () => {
                   }
                 }
               }, [
-                Deferred(depends: [0], path: "t"${label ? `, label: "${label}"` : ''}) {
+                Deferred(depends: [0], path: "t"${
+                  label ? `, label: "${label}"` : ''
+                }) {
                   {
                     y
                   }:
@@ -2612,20 +2758,23 @@ describe('defer with conditions', () => {
           x: Int
           y: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      query($cond: Boolean) {
-        t {
-          x
-          ... @defer(if: $cond) {
-            y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query ($cond: Boolean) {
+          t {
+            x
+            ... @defer(if: $cond) {
+              y
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2704,8 +2853,8 @@ describe('defer with conditions', () => {
           id: ID!
           a: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -2714,8 +2863,8 @@ describe('defer with conditions', () => {
           id: ID!
           y: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -2724,28 +2873,35 @@ describe('defer with conditions', () => {
           id: ID!
           b: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2, subgraph3);
-    const operation = operationFromDocument(api, gql`
-      query($cond1: Boolean, $cond2: Boolean) {
-        t {
-          x
-          ... @defer(if: $cond1, label: "foo") {
-            y
-          }
-          ... @defer(if: $cond2, label: "bar") {
-            u {
-              a
-              ... @defer(if: $cond1) {
-                b
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query ($cond1: Boolean, $cond2: Boolean) {
+          t {
+            x
+            ... @defer(if: $cond1, label: "foo") {
+              y
+            }
+            ... @defer(if: $cond2, label: "bar") {
+              u {
+                a
+                ... @defer(if: $cond1) {
+                  b
+                }
               }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -3080,8 +3236,8 @@ test('defer when some interface has different definitions in different subgraphs
         a: Int
         c: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -3095,21 +3251,27 @@ test('defer when some interface has different definitions in different subgraphs
         a: Int @external
         b: Int @requires(fields: "a")
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    query Dimensions {
-      i {
-        a
-        b
-        ... @defer {
-          c
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      query Dimensions {
+        i {
+          a
+          b
+          ... @defer {
+            c
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const queryPlan = queryPlanner.buildQueryPlan(operation);
   expect(queryPlan).toMatchInlineSnapshot(`
@@ -3180,8 +3342,8 @@ describe('named fragments', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -3191,22 +3353,28 @@ describe('named fragments', () => {
           x: Int
           y: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          ...TestFragment @defer
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            ...TestFragment @defer
+          }
         }
-      }
 
-      fragment TestFragment on T {
-        x
-        y
-      }
-    `);
+        fragment TestFragment on T {
+          x
+          y
+        }
+      `,
+    );
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -3264,8 +3432,8 @@ describe('named fragments', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -3276,28 +3444,34 @@ describe('named fragments', () => {
           y: Int
           z: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          ...Fragment1
-          ...Fragment2 @defer
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            ...Fragment1
+            ...Fragment2 @defer
+          }
         }
-      }
 
-      fragment Fragment1 on T {
-        x
-        y
-      }
+        fragment Fragment1 on T {
+          x
+          y
+        }
 
-      fragment Fragment2 on T {
-        y
-        z
-      }
-    `);
+        fragment Fragment2 on T {
+          y
+          z
+        }
+      `,
+    );
 
     // Field 'y' is queried twice, both in the deferred and non-deferred section. The spec says that
     // means the field is requested twice, so ensures that's what we do.
@@ -3384,8 +3558,8 @@ describe('named fragments', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -3394,23 +3568,29 @@ describe('named fragments', () => {
           id: ID!
           y: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          ...OnT @defer
-          x
+    const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+      subgraph1,
+      subgraph2,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            ...OnT @defer
+            x
+          }
         }
-      }
 
-      fragment OnT on T {
-        y
-        __typename
-      }
-    `);
+        fragment OnT on T {
+          y
+          __typename
+        }
+      `,
+    );
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -3476,8 +3656,8 @@ test('do not merge query branches with @defer', () => {
         a: Int
         b: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -3486,24 +3666,30 @@ test('do not merge query branches with @defer', () => {
         id: ID!
         c: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1, subgraph2);
+  const [api, queryPlanner] = composeAndCreatePlannerWithDefer(
+    subgraph1,
+    subgraph2,
+  );
   // We have 2 separate @defer, so we should 2 deferred parts, not 1 defer parts with parallel fetches.
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        a
-        ... @defer {
-          b
-        }
-        ... @defer {
-          c
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          a
+          ... @defer {
+            b
+          }
+          ... @defer {
+            c
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const queryPlan = queryPlanner.buildQueryPlan(operation);
   expect(queryPlan).toMatchInlineSnapshot(`
@@ -3576,27 +3762,30 @@ test('@defer only the key of an entity', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        t : T
+        t: T
       }
 
       type T @key(fields: "id") {
         id: ID!
         v0: String
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        v0
-        ... @defer {
-          id
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          v0
+          ... @defer {
+            id
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   // Making sure that the deferred part has no fetches since we only defer the key
@@ -3635,7 +3824,7 @@ test('the path in @defer includes traversed fragments', () => {
     name: 'Subgraph1',
     typeDefs: gql`
       type Query {
-        i : I
+        i: I
       }
 
       interface I {
@@ -3652,24 +3841,27 @@ test('the path in @defer includes traversed fragments', () => {
         v1: String
         v2: String
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlannerWithDefer(subgraph1);
-  const operation = operationFromDocument(api, gql`
-    {
-      i {
-        ... on A {
-          t {
-            v1
-            ... @defer {
-              v2
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        i {
+          ... on A {
+            t {
+              v1
+              ... @defer {
+                v2
+              }
             }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`

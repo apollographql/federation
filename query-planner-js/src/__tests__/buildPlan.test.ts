@@ -1,9 +1,17 @@
 import { QueryPlanner } from '@apollo/query-planner';
-import { assert, operationFromDocument, ServiceDefinition, Supergraph } from '@apollo/federation-internals';
+import {
+  assert,
+  operationFromDocument,
+  ServiceDefinition,
+  Supergraph,
+} from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
-import { composeAndCreatePlanner, composeAndCreatePlannerWithOptions } from './testHelper';
+import {
+  composeAndCreatePlanner,
+  composeAndCreatePlannerWithOptions,
+} from './testHelper';
 import { enforceQueryPlannerConfigDefaults } from '../config';
 
 describe('shareable root fields', () => {
@@ -19,8 +27,8 @@ describe('shareable root fields', () => {
           id: ID!
           prop1: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -33,18 +41,21 @@ describe('shareable root fields', () => {
           id: ID!
           prop2: String
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        me {
-          prop1
-          prop2
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          me {
+            prop1
+            prop2
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Note that even though we have keys, it is faster to query both
@@ -82,8 +93,8 @@ describe('shareable root fields', () => {
           id: ID!
           ${fields.map((f) => `${f}: Int\n`)}
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -95,8 +106,8 @@ describe('shareable root fields', () => {
         type User @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -108,17 +119,24 @@ describe('shareable root fields', () => {
         type User @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-    const operation = operationFromDocument(api, gql`
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
       {
         me {
           ${fields.map((f) => `${f}\n`)}
         }
       }
-    `);
+    `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -172,8 +190,8 @@ test('pick keys that minimize fetches', () => {
       type Country @key(fields: "iso") {
         iso: String!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -193,26 +211,29 @@ test('pick keys that minimize fetches', () => {
         name: String!
         sign: String!
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      transfers {
-        from {
-          currency {
-            name
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        transfers {
+          from {
+            currency {
+              name
+            }
           }
-        }
-        to {
-          currency {
-            sign
+          to {
+            currency {
+              sign
+            }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   // We want to make sure we use the key on Transfer just once, not 2 fetches using the keys
@@ -274,7 +295,10 @@ describe('@provides', () => {
       typeDefs: gql`
         type Query {
           doSomething: Response
-          doSomethingWithProvides: Response @provides(fields: "responseValue { subResponseValue { subSubResponseValue } }")
+          doSomethingWithProvides: Response
+            @provides(
+              fields: "responseValue { subResponseValue { subSubResponseValue } }"
+            )
         }
 
         type Response {
@@ -289,8 +313,8 @@ describe('@provides', () => {
           id: ID!
           subSubResponseValue: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -299,21 +323,24 @@ describe('@provides', () => {
           id: ID!
           subSubResponseValue: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      {
-        doSomething {
-          responseValue {
-            subResponseValue {
-              subSubResponseValue
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          doSomething {
+            responseValue {
+              subResponseValue {
+                subSubResponseValue
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
@@ -353,17 +380,20 @@ describe('@provides', () => {
       `);
 
     // And now make sure with the provides we do only get a fetch to subgraph1
-    operation = operationFromDocument(api, gql`
-      {
-        doSomethingWithProvides {
-          responseValue {
-            subResponseValue {
-              subSubResponseValue
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          doSomethingWithProvides {
+            responseValue {
+              subResponseValue {
+                subSubResponseValue
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -409,8 +439,8 @@ describe('@provides', () => {
           id: ID!
           v: Value @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -429,19 +459,22 @@ describe('@provides', () => {
           id: ID!
           v: Value @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      {
-        noProvides {
-          v {
-            a
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          noProvides {
+            v {
+              a
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
@@ -495,15 +528,18 @@ describe('@provides', () => {
       `);
 
     // Ensuring that querying only `a` can be done with subgraph1 only.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvides {
-          v {
-            a
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvides {
+            v {
+              a
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -522,16 +558,19 @@ describe('@provides', () => {
       `);
 
     // Sanity check that if we query `b` however we have to got to subgraph2.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvides {
-          v {
-            a
-            b
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvides {
+            v {
+              a
+              b
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -593,7 +632,8 @@ describe('@provides', () => {
         type Query {
           noProvides: U
           withProvidesForT1: U @provides(fields: "... on T1 { a }")
-          withProvidesForBoth: U @provides(fields: "... on T1 { a } ... on T2 {b}")
+          withProvidesForBoth: U
+            @provides(fields: "... on T1 { a } ... on T2 {b}")
         }
 
         union U = T1 | T2
@@ -608,8 +648,8 @@ describe('@provides', () => {
           a: Int
           b: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -623,23 +663,26 @@ describe('@provides', () => {
           id: ID!
           b: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      {
-        noProvides {
-          ... on T1 {
-            a
-          }
-          ... on T2 {
-            a
-            b
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          noProvides {
+            ... on T1 {
+              a
+            }
+            ... on T2 {
+              a
+              b
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
@@ -690,18 +733,21 @@ describe('@provides', () => {
       `);
 
     // Ensuring that querying only `a` can be done with subgraph1 only when provided.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvidesForT1 {
-          ... on T1 {
-            a
-          }
-          ... on T2 {
-            a
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvidesForT1 {
+            ... on T1 {
+              a
+            }
+            ... on T2 {
+              a
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -723,19 +769,22 @@ describe('@provides', () => {
       `);
 
     // But ensure that querying `b` still goes to subgraph2 if only a is provided.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvidesForT1 {
-          ... on T1 {
-            a
-          }
-          ... on T2 {
-            a
-            b
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvidesForT1 {
+            ... on T1 {
+              a
+            }
+            ... on T2 {
+              a
+              b
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -776,19 +825,22 @@ describe('@provides', () => {
       `);
 
     // Lastly, if both are provided, ensures we only hit subgraph1.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvidesForBoth {
-          ... on T1 {
-            a
-          }
-          ... on T2 {
-            a
-            b
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvidesForBoth {
+            ... on T1 {
+              a
+            }
+            ... on T2 {
+              a
+              b
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -837,8 +889,8 @@ describe('@provides', () => {
           a: Int @external
           b: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -853,18 +905,21 @@ describe('@provides', () => {
           a: Int @shareable
           b: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      {
-        noProvides {
-          a
-          b
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          noProvides {
+            a
+            b
+          }
         }
-      }
-      `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
@@ -916,13 +971,16 @@ describe('@provides', () => {
       `);
 
     // Ensuring that querying only `a` can be done with subgraph1 only.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvidesOnA {
-          a
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvidesOnA {
+            a
+          }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -944,13 +1002,16 @@ describe('@provides', () => {
       `);
 
     // Ensuring that for `b`, only the T2 value is provided by subgraph1.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvidesOnB {
-          b
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvidesOnB {
+            b
+          }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -990,15 +1051,18 @@ describe('@provides', () => {
       `);
 
     // But if we only query for T2, then no reason to go to subgraph2.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvidesOnB {
-          ... on T2 {
-            b
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvidesOnB {
+            ... on T2 {
+              b
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1045,8 +1109,8 @@ describe('@provides', () => {
           id: ID!
           a: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1071,25 +1135,28 @@ describe('@provides', () => {
           a: Int @shareable
           c: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      {
-        noProvides {
-          i {
-            a
-            ... on T1 {
-              b
-            }
-            ... on T2 {
-              c
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          noProvides {
+            i {
+              a
+              ... on T1 {
+                b
+              }
+              ... on T2 {
+                c
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     // This is our sanity check: we first query _without_ the provides to make sure we _do_ need to
@@ -1134,21 +1201,24 @@ describe('@provides', () => {
     `);
 
     // But the same operation with the provides allow to get what is provided from the first subgraph.
-    operation = operationFromDocument(api, gql`
-      {
-        withProvides {
-          i {
-            a
-            ... on T1 {
-              b
-            }
-            ... on T2 {
-              c
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          withProvides {
+            i {
+              a
+              ... on T1 {
+                b
+              }
+              ... on T2 {
+                c
+              }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1224,8 +1294,8 @@ describe('@requires', () => {
           f: Int
           g: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1241,17 +1311,20 @@ describe('@requires', () => {
           f: Int @external
           g: Int @requires(fields: "f")
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        is {
-          g
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          is {
+            g
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
@@ -1327,8 +1400,8 @@ describe('@requires', () => {
           id: ID!
           value: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -1345,21 +1418,24 @@ describe('@requires', () => {
           value: String @external
           computed: String @requires(fields: "value")
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        list {
-          computed
-          computed2
-          user {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          list {
             computed
+            computed2
+            user {
+              computed
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
@@ -1421,7 +1497,7 @@ describe('@requires', () => {
         },
       }
     `);
-  })
+  });
 
   it('handles simple require chain (require that depends on another require)', () => {
     const subgraph1 = {
@@ -1435,19 +1511,19 @@ describe('@requires', () => {
           id: ID!
           v: Int!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            v: Int! @external
-            inner: Int! @requires(fields: "v")
+          id: ID!
+          v: Int! @external
+          inner: Int! @requires(fields: "v")
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -1457,18 +1533,25 @@ describe('@requires', () => {
           inner: Int! @external
           outer: Int! @requires(fields: "inner")
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
     // Ensures that if we only ask `outer`, we get everything needed in between.
-    let operation = operationFromDocument(api, gql`
-      {
-        t {
-          outer
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            outer
+          }
         }
-      }
-    `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1523,15 +1606,18 @@ describe('@requires', () => {
     // (note: technically it happens to switch the order of fields in the inputs of "Subgraph2"
     // so the plans are not 100% the same "string", which is why we inline it in both cases,
     // but that's still the same plan and a perfectly valid output).
-    operation = operationFromDocument(api, gql`
-      {
-        t {
-          v
-          inner
-          outer
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v
+            inner
+            outer
+          }
         }
-      }
-    `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -1596,19 +1682,19 @@ describe('@requires', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            v: Int! @external
-            inner: Int! @requires(fields: "v")
+          id: ID!
+          v: Int! @external
+          inner: Int! @requires(fields: "v")
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -1618,8 +1704,8 @@ describe('@requires', () => {
           inner: Int! @external
           outer: Int! @requires(fields: "inner")
         }
-      `
-    }
+      `,
+    };
 
     const subgraph4 = {
       name: 'Subgraph4',
@@ -1628,18 +1714,26 @@ describe('@requires', () => {
           id: ID!
           v: Int!
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4);
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+      subgraph4,
+    );
     // Ensures that if we only ask `outer`, we get everything needed in between.
-    let operation = operationFromDocument(api, gql`
-      {
-        t {
-          outer
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            outer
+          }
         }
-      }
-    `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     const expectedPlan = `
@@ -1706,15 +1800,18 @@ describe('@requires', () => {
     expect(plan).toMatchInlineSnapshot(expectedPlan);
 
     // Ensures that manually asking for the required dependencies doesn't change anything.
-    operation = operationFromDocument(api, gql`
-      {
-        t {
-          v
-          inner
-          outer
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v
+            inner
+            outer
+          }
         }
-      }
-    `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(expectedPlan);
@@ -1732,8 +1829,8 @@ describe('@requires', () => {
           id: ID!
           v1: Int!
         }
-      `
-    }
+      `,
+    };
 
     const totalRequires = 10;
     const subgraphs: ServiceDefinition[] = [subgraph1];
@@ -1743,22 +1840,25 @@ describe('@requires', () => {
         typeDefs: gql`
           type T @key(fields: "id") {
               id: ID!
-              v${i-1}: Int! @external
-              v${i}: Int! @requires(fields: "v${i-1}")
+              v${i - 1}: Int! @external
+              v${i}: Int! @requires(fields: "v${i - 1}")
           }
-        `
+        `,
       });
     }
 
     const [api, queryPlanner] = composeAndCreatePlanner(...subgraphs);
     // Ensures that if we only ask `outer`, we get everything needed in between.
-    const operation = operationFromDocument(api, gql`
+    const operation = operationFromDocument(
+      api,
+      gql`
       {
         t {
           v${totalRequires}
         }
       }
-    `);
+    `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     const dependentFetches: string[] = [];
@@ -1768,7 +1868,7 @@ describe('@requires', () => {
               {
                 ... on T {
                   __typename
-                  v${i-1}
+                  v${i - 1}
                   id
                 }
               } =>
@@ -1778,8 +1878,7 @@ describe('@requires', () => {
                 }
               }
             },
-          },`
-      );
+          },`);
     }
     const expectedPlan = `
       QueryPlan {
@@ -1813,37 +1912,37 @@ describe('@requires', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            inner1: Int!
-            inner2_required: Int!
+          id: ID!
+          inner1: Int!
+          inner2_required: Int!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            inner2_required: Int! @external
-            inner2: Int! @requires(fields: "inner2_required")
+          id: ID!
+          inner2_required: Int! @external
+          inner2: Int! @requires(fields: "inner2_required")
         }
-      `
-    }
+      `,
+    };
 
     const subgraph4 = {
       name: 'Subgraph4',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            inner3: Inner3Type!
+          id: ID!
+          inner3: Inner3Type!
         }
 
         type Inner3Type @key(fields: "k3") {
@@ -1854,8 +1953,8 @@ describe('@requires', () => {
           k4: ID!
           inner4_required: Int!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph5 = {
       name: 'Subgraph5',
@@ -1867,54 +1966,68 @@ describe('@requires', () => {
           inner3: Inner3Type! @external
           inner4: Inner4Type! @external
           inner5: Int! @external
-          outer: Int! @requires(fields: "inner1 inner2 inner3 { inner3_nested } inner4 { inner4_nested } inner5")
+          outer: Int!
+            @requires(
+              fields: "inner1 inner2 inner3 { inner3_nested } inner4 { inner4_nested } inner5"
+            )
         }
 
-      type Inner3Type @key(fields: "k3") {
-        k3: ID!
-        inner3_nested: Int!
-      }
+        type Inner3Type @key(fields: "k3") {
+          k3: ID!
+          inner3_nested: Int!
+        }
 
-      type Inner4Type @key(fields: "k4") {
-        k4: ID!
-        inner4_nested: Int! @requires(fields: "inner4_required")
-        inner4_required: Int! @external
-      }
-      `
-    }
+        type Inner4Type @key(fields: "k4") {
+          k4: ID!
+          inner4_nested: Int! @requires(fields: "inner4_required")
+          inner4_required: Int! @external
+        }
+      `,
+    };
 
     const subgraph6 = {
       name: 'Subgraph6',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            inner4: Inner4Type!
+          id: ID!
+          inner4: Inner4Type!
         }
 
         type Inner4Type @key(fields: "k4") {
           k4: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph7 = {
       name: 'Subgraph7',
       typeDefs: gql`
         type T @key(fields: "id") {
-            id: ID!
-            inner5: Int!
+          id: ID!
+          inner5: Int!
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4, subgraph5, subgraph6, subgraph7);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          outer
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+      subgraph4,
+      subgraph5,
+      subgraph6,
+      subgraph7,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            outer
+          }
         }
-      }
-    `);
+      `,
+    );
 
     // This is a big plan, but afaict, this is optimal. That is, there is 3 main steps:
     // 1. it get the `id` for `T`, which is needed for anything else.
@@ -2122,8 +2235,8 @@ describe('@requires', () => {
           v1: String
           v2: String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -2139,26 +2252,32 @@ describe('@requires', () => {
           v1: String
           v2: String
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const op1 = operationFromDocument(api, gql`
-      {
-        entity {
-          f2
-          f3
+    const op1 = operationFromDocument(
+      api,
+      gql`
+        {
+          entity {
+            f2
+            f3
+          }
         }
-      }
-    `);
+      `,
+    );
 
-    const op2 = operationFromDocument(api, gql`
-      {
-        entity {
-          f3
+    const op2 = operationFromDocument(
+      api,
+      gql`
+        {
+          entity {
+            f3
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan1 = queryPlanner.buildQueryPlan(op2);
     const expectedPlan = `
@@ -2253,14 +2372,14 @@ describe('@requires', () => {
       name: 'A',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type T @key(fields: "id1") {
           id1: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'B',
@@ -2271,8 +2390,8 @@ describe('@requires', () => {
           v1: Int
           v2: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'C',
@@ -2281,8 +2400,8 @@ describe('@requires', () => {
           id1: ID!
           v3: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph4 = {
       name: 'D',
@@ -2292,20 +2411,28 @@ describe('@requires', () => {
           v3: Int @external
           v4: Int @requires(fields: "v3")
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          v2
-          v3
-          v4
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+      subgraph4,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            v2
+            v3
+            v4
+          }
         }
-      }
-    `);
+      `,
+    );
 
     // The optimal plan should:
     // 1. fetch id1 from A
@@ -2395,8 +2522,8 @@ describe('@requires', () => {
             id: ID!
             a: Int
           }
-        `
-      }
+        `,
+      };
 
       const subgraph2 = {
         name: 'Subgraph2',
@@ -2406,17 +2533,20 @@ describe('@requires', () => {
             a: Int @external
             b: Int @requires(fields: "a")
           }
-        `
-      }
+        `,
+      };
 
       const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-      const operation = operationFromDocument(api, gql`
-        query foo($test: Boolean!){
-          t @include(if: $test) {
-            b
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query foo($test: Boolean!) {
+            t @include(if: $test) {
+              b
+            }
           }
-        }
-      `);
+        `,
+      );
 
       const plan = queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
@@ -2466,8 +2596,8 @@ describe('@requires', () => {
             id: ID!
             a: Int
           }
-        `
-      }
+        `,
+      };
 
       const subgraph2 = {
         name: 'Subgraph2',
@@ -2477,17 +2607,20 @@ describe('@requires', () => {
             a: Int @external
             b: Int @requires(fields: "a")
           }
-        `
-      }
+        `,
+      };
 
       const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-      const operation = operationFromDocument(api, gql`
-        query foo($test: Boolean!){
-          t {
-            b @include(if: $test)
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query foo($test: Boolean!) {
+            t {
+              b @include(if: $test)
+            }
           }
-        }
-      `);
+        `,
+      );
 
       const plan = queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
@@ -2538,8 +2671,8 @@ describe('@requires', () => {
           type A @key(fields: "idA") {
             idA: ID!
           }
-        `
-      }
+        `,
+      };
 
       const subgraph2 = {
         name: 'Subgraph2',
@@ -2553,8 +2686,8 @@ describe('@requires', () => {
             idB: ID!
             required: Int
           }
-        `
-      }
+        `,
+      };
 
       const subgraph3 = {
         name: 'Subgraph3',
@@ -2564,19 +2697,26 @@ describe('@requires', () => {
             c: Int @requires(fields: "required")
             required: Int @external
           }
-        `
-      }
+        `,
+      };
 
-      const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-      const operation = operationFromDocument(api, gql`
-        query foo($test1: Boolean!, $test2: Boolean!){
-          a @include(if: $test1) {
-            b @include(if: $test2) {
-              c
+      const [api, queryPlanner] = composeAndCreatePlanner(
+        subgraph1,
+        subgraph2,
+        subgraph3,
+      );
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query foo($test1: Boolean!, $test2: Boolean!) {
+            a @include(if: $test1) {
+              b @include(if: $test2) {
+                c
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       const plan = queryPlanner.buildQueryPlan(operation);
       expect(plan).toMatchInlineSnapshot(`
@@ -2655,8 +2795,8 @@ describe('@requires', () => {
           a: String @inaccessible
           onlyIn1: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -2668,20 +2808,23 @@ describe('@requires', () => {
         type One @key(fields: "id") {
           id: ID!
           a: String @external
-          b: String @requires(fields: "a" )
+          b: String @requires(fields: "a")
           onlyIn2: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        one {
-          b
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          one {
+            b
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2728,15 +2871,15 @@ describe('@requires', () => {
       name: 'A',
       typeDefs: gql`
         type Query {
-          t : T
+          t: T
         }
 
         type T @key(fields: "id1") @key(fields: "req1") {
           id1: ID!
           req1: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'B',
@@ -2747,8 +2890,8 @@ describe('@requires', () => {
           req2: Int @external
           v: Int @requires(fields: "req1 req2")
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'C',
@@ -2757,17 +2900,24 @@ describe('@requires', () => {
           req1: Int
           req2: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2832,8 +2982,8 @@ describe('fetch operation names', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'non-graphql-name',
@@ -2842,17 +2992,20 @@ describe('fetch operation names', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      query myOp {
-        t {
-          x
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query myOp {
+          t {
+            x
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2884,7 +3037,8 @@ describe('fetch operation names', () => {
         },
       }
     `);
-    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode)
+      .node as FetchNode;
     expect(fetch.operation).toMatch(/^query myOp__non_graphql_name__1.*/i);
   });
 
@@ -2899,8 +3053,8 @@ describe('fetch operation names', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'a-na&me-with-plen&ty-replace*ments',
@@ -2909,17 +3063,20 @@ describe('fetch operation names', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      query myOp {
-        t {
-          x
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query myOp {
+          t {
+            x
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -2951,8 +3108,11 @@ describe('fetch operation names', () => {
         },
       }
     `);
-    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
-    expect(fetch.operation).toMatch(/^query myOp__a_name_with_plenty_replacements__1.*/i);
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode)
+      .node as FetchNode;
+    expect(fetch.operation).toMatch(
+      /^query myOp__a_name_with_plenty_replacements__1.*/i,
+    );
   });
 
   test('handle very non-graph subgraph name', () => {
@@ -2966,8 +3126,8 @@ describe('fetch operation names', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: '42!',
@@ -2976,17 +3136,20 @@ describe('fetch operation names', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      query myOp {
-        t {
-          x
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query myOp {
+          t {
+            x
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -3018,7 +3181,8 @@ describe('fetch operation names', () => {
         },
       }
     `);
-    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode).node as FetchNode;
+    const fetch = ((plan.node as SequenceNode).nodes[1] as FlattenNode)
+      .node as FetchNode;
 
     expect(fetch.operation).toMatch(/^query myOp___42__1.*/i);
   });
@@ -3032,7 +3196,8 @@ test('Correctly handle case where there is too many plans to consider', () => {
   // gets very large very quickly). Obviously, there is no reason to do this in practice.
 
   // Each leaf field is reachable from 2 subgraphs, so doubles the number of plans.
-  const defaultMaxComputedPlans = enforceQueryPlannerConfigDefaults().debug.maxEvaluatedPlans!;
+  const defaultMaxComputedPlans =
+    enforceQueryPlannerConfigDefaults().debug.maxEvaluatedPlans!;
   const fieldCount = Math.ceil(Math.log2(defaultMaxComputedPlans)) + 1;
   const fields = [...Array(fieldCount).keys()].map((i) => `f${i}`);
 
@@ -3046,14 +3211,20 @@ test('Correctly handle case where there is too many plans to consider', () => {
     }
   `;
 
-  const [api, queryPlanner] = composeAndCreatePlanner({ name: 'S1', typeDefs }, { name: 'S2', typeDefs });
-  const operation = operationFromDocument(api, gql`
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    { name: 'S1', typeDefs },
+    { name: 'S2', typeDefs },
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
     {
       t {
         ${fields.map((f) => `${f}\n`)}
       }
     }
-  `);
+  `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   // Note: The way the code that handle multiple plans currently work, it mess up the order of fields a bit. It's not a
@@ -3073,9 +3244,11 @@ test('Correctly handle case where there is too many plans to consider', () => {
   //     ... all fields
   //   }
   // }
-  const mainSelection = (fetchOp.definitions[0] as OperationDefinitionNode).selectionSet;
+  const mainSelection = (fetchOp.definitions[0] as OperationDefinitionNode)
+    .selectionSet;
   const subSelection = (mainSelection.selections[0] as FieldNode).selectionSet;
-  const queriedFields = subSelection?.selections.map((s) => (s as FieldNode).name.value) ?? [];
+  const queriedFields =
+    subSelection?.selections.map((s) => (s as FieldNode).name.value) ?? [];
   fields.sort(); // Note that alphabetical order is not numerical order, hence this
   queriedFields.sort();
   expect(queriedFields).toStrictEqual(fields);
@@ -3128,19 +3301,22 @@ describe('Field covariance and type-explosion', () => {
     const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
-    const operation = operationFromDocument(api, gql`
-      {
-        dummy {
-          field {
-            ... on Object {
-              field {
-                __typename
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          dummy {
+            field {
+              ... on Object {
+                field {
+                  __typename
+                }
               }
             }
           }
         }
-      }
-    `);
+      `,
+    );
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -3180,8 +3356,8 @@ describe('Field covariance and type-explosion', () => {
           field: Object @provides(fields: "x")
           x: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -3190,23 +3366,26 @@ describe('Field covariance and type-explosion', () => {
           id: ID!
           x: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        dummy {
-          field {
-            ... on Object {
-              field {
-                __typename
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          dummy {
+            field {
+              ... on Object {
+                field {
+                  __typename
+                }
               }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -3229,7 +3408,7 @@ describe('Field covariance and type-explosion', () => {
       }
     `);
   });
-})
+});
 
 describe('handles non-intersecting fragment conditions', () => {
   test('with federation 1 supergraphs', () => {
@@ -3275,30 +3454,33 @@ describe('handles non-intersecting fragment conditions', () => {
       enum join__Graph {
         S1 @join__graph(name: "S1" url: "")
       }
-    `
+    `;
 
     const supergraph = Supergraph.build(supergraphSdl);
     const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
-    const operation = operationFromDocument(api, gql`
-      fragment OrangeYouGladIDidntSayBanana on Fruit {
-        ... on Banana {
-          inBunch
-        }
-        ... on Apple {
-          hasStem
-        }
-      }
-
-      query Fruitiness {
-        fruit {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        fragment OrangeYouGladIDidntSayBanana on Fruit {
+          ... on Banana {
+            inBunch
+          }
           ... on Apple {
-            ...OrangeYouGladIDidntSayBanana
+            hasStem
           }
         }
-      }
-    `);
+
+        query Fruitiness {
+          fruit {
+            ... on Apple {
+              ...OrangeYouGladIDidntSayBanana
+            }
+          }
+        }
+      `,
+    );
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -3337,28 +3519,31 @@ describe('handles non-intersecting fragment conditions', () => {
         type Query {
           fruit: Fruit!
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      fragment OrangeYouGladIDidntSayBanana on Fruit {
-        ... on Banana {
-          inBunch
-        }
-        ... on Apple {
-          hasStem
-        }
-      }
-
-      query Fruitiness {
-        fruit {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        fragment OrangeYouGladIDidntSayBanana on Fruit {
+          ... on Banana {
+            inBunch
+          }
           ... on Apple {
-            ...OrangeYouGladIDidntSayBanana
+            hasStem
           }
         }
-      }
-    `);
+
+        query Fruitiness {
+          fruit {
+            ... on Apple {
+              ...OrangeYouGladIDidntSayBanana
+            }
+          }
+        }
+      `,
+    );
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -3402,8 +3587,8 @@ test('avoids unnecessary fetches', () => {
       type A @key(fields: "idA2") {
         idA2: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -3413,12 +3598,11 @@ test('avoids unnecessary fetches', () => {
         u: U
       }
 
-
       type U @key(fields: "idU") {
         idU: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -3426,8 +3610,8 @@ test('avoids unnecessary fetches', () => {
       type A @key(fields: "idA1") {
         idA1: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph4 = {
     name: 'Subgraph4',
@@ -3436,8 +3620,8 @@ test('avoids unnecessary fetches', () => {
         idA1: ID!
         idA2: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph5 = {
     name: 'Subgraph5',
@@ -3446,22 +3630,31 @@ test('avoids unnecessary fetches', () => {
         idU: ID!
         v: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4, subgraph5);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        u {
-          v
-        }
-        a {
-          idA1
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+    subgraph4,
+    subgraph5,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          u {
+            v
+          }
+          a {
+            idA1
+          }
         }
       }
-    }
-  `);
+    `,
+  );
   const queryPlan = queryPlanner.buildQueryPlan(operation);
   expect(queryPlan).toMatchInlineSnapshot(`
     QueryPlan {
@@ -3585,15 +3778,18 @@ describe('Fed1 supergraph handling', () => {
     const api = supergraph.apiSchema();
     const queryPlanner = new QueryPlanner(supergraph);
 
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          nodes {
-            id
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            nodes {
+              id
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -3647,48 +3843,51 @@ describe('Named fragments preservation', () => {
           child: Foo
           child2: Foo
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      query {
-        a {
-          ...on A1 {
-            ...FooSelect
-          }
-          ...on A2 {
-            ...FooSelect
-          }
-          ...on A3 {
-            ...FooSelect
-          }
-        }
-      }
-
-      fragment FooSelect on Foo {
-        __typename
-        foo
-        child {
-          ...FooChildSelect
-        }
-        child2 {
-          ...FooChildSelect
-        }
-      }
-
-      fragment FooChildSelect on Foo {
-        __typename
-        foo
-        child {
-          child {
-            child {
-              foo
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          a {
+            ... on A1 {
+              ...FooSelect
+            }
+            ... on A2 {
+              ...FooSelect
+            }
+            ... on A3 {
+              ...FooSelect
             }
           }
         }
-      }
-    `);
+
+        fragment FooSelect on Foo {
+          __typename
+          foo
+          child {
+            ...FooChildSelect
+          }
+          child2 {
+            ...FooChildSelect
+          }
+        }
+
+        fragment FooChildSelect on Foo {
+          __typename
+          foo
+          child {
+            child {
+              child {
+                foo
+              }
+            }
+          }
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -3757,8 +3956,8 @@ describe('Named fragments preservation', () => {
           b: Int
           c: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -3774,31 +3973,34 @@ describe('Named fragments preservation', () => {
           b: Int
           c: Int
         }
-      `
-    }
+      `,
+    };
 
     // We use a fragment which does save some on the original query, but as each
     // field gets to a different subgraph, the fragment would only be used one
     // on each sub-fetch and we make sure the fragment is not used in that case.
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      query {
-        t {
-          v1 {
-            ...OnV
-          }
-          v2 {
-            ...OnV
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            v1 {
+              ...OnV
+            }
+            v2 {
+              ...OnV
+            }
           }
         }
-      }
 
-      fragment OnV on V {
-        a
-        b
-        c
-      }
-    `);
+        fragment OnV on V {
+          a
+          b
+          c
+        }
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -3842,24 +4044,27 @@ describe('Named fragments preservation', () => {
 
     // But double-check that if we query 2 fields from the same subgraph, then
     // the fragment gets used now.
-    operation = operationFromDocument(api, gql`
-      query {
-        t {
-          v2 {
-            ...OnV
-          }
-          v3 {
-            ...OnV
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            v2 {
+              ...OnV
+            }
+            v3 {
+              ...OnV
+            }
           }
         }
-      }
 
-      fragment OnV on V {
-        a
-        b
-        c
-      }
-    `);
+        fragment OnV on V {
+          a
+          b
+          c
+        }
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -3904,47 +4109,55 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it.each([ true, false ])('respects query planner option "reuseQueryFragments=%p"', (reuseQueryFragments: boolean) => {
-    const subgraph1 = {
-      name: 'Subgraph1',
-      typeDefs: gql`
-        type Query {
-          t: T
-        }
-
-        type T {
-          a1: A
-          a2: A
-        }
-
-        type A {
-          x: Int
-          y: Int
-        }
-      `
-    }
-
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph1], { reuseQueryFragments });
-    const operation = operationFromDocument(api, gql`
-      query {
-        t {
-          a1 {
-            ...Selection
+  it.each([true, false])(
+    'respects query planner option "reuseQueryFragments=%p"',
+    (reuseQueryFragments: boolean) => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
           }
-          a2 {
-            ...Selection
+
+          type T {
+            a1: A
+            a2: A
           }
-        }
-      }
 
-      fragment Selection on A {
-        x
-        y
-      }
-    `);
+          type A {
+            x: Int
+            y: Int
+          }
+        `,
+      };
 
-    const plan = queryPlanner.buildQueryPlan(operation);
-    const withReuse = `
+      const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+        [subgraph1],
+        { reuseQueryFragments },
+      );
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query {
+            t {
+              a1 {
+                ...Selection
+              }
+              a2 {
+                ...Selection
+              }
+            }
+          }
+
+          fragment Selection on A {
+            x
+            y
+          }
+        `,
+      );
+
+      const plan = queryPlanner.buildQueryPlan(operation);
+      const withReuse = `
       QueryPlan {
         Fetch(service: "Subgraph1") {
           {
@@ -3965,7 +4178,7 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    const withoutReuse = `
+      const withoutReuse = `
       QueryPlan {
         Fetch(service: "Subgraph1") {
           {
@@ -3982,10 +4195,13 @@ describe('Named fragments preservation', () => {
           }
         },
       }
-    `
+    `;
 
-    expect(plan).toMatchInlineSnapshot(reuseQueryFragments ? withReuse : withoutReuse);
-  });
+      expect(plan).toMatchInlineSnapshot(
+        reuseQueryFragments ? withReuse : withoutReuse,
+      );
+    },
+  );
 
   it('works with nested fragments when only the nested fragment gets preserved', () => {
     const subgraph1 = {
@@ -3995,7 +4211,7 @@ describe('Named fragments preservation', () => {
           t: T
         }
 
-        type T @key(fields : "id") {
+        type T @key(fields: "id") {
           id: ID!
           a: V
           b: V
@@ -4005,32 +4221,34 @@ describe('Named fragments preservation', () => {
           v1: Int
           v2: Int
         }
-
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          ...OnT
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            ...OnT
+          }
         }
-      }
 
-      fragment OnT on T {
-        a {
-          ...OnV
+        fragment OnT on T {
+          a {
+            ...OnV
+          }
+          b {
+            ...OnV
+          }
         }
-        b {
-          ...OnV
-        }
-      }
 
-      fragment OnV on V {
-        v1
-        v2
-      }
-    `);
+        fragment OnV on V {
+          v1
+          v2
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -4064,28 +4282,31 @@ describe('Named fragments preservation', () => {
           t: T
         }
 
-        type T @key(fields : "id") {
+        type T @key(fields: "id") {
           id: ID!
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      query test($if: Boolean) {
-        t {
-          id
-          ...OnT @include(if: $if)
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query test($if: Boolean) {
+          t {
+            id
+            ...OnT @include(if: $if)
+          }
         }
-      }
 
-      fragment OnT on T {
-        a
-        b
-      }
-    `);
+        fragment OnT on T {
+          a
+          b
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -4113,29 +4334,32 @@ describe('Named fragments preservation', () => {
           t: T
         }
 
-        type T @key(fields : "id") {
+        type T @key(fields: "id") {
           id: ID!
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      query test($test1: Boolean, $test2: Boolean) {
-        t {
-          id
-          ...OnT @include(if: $test1)
-          ...OnT @include(if: $test2)
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query test($test1: Boolean, $test2: Boolean) {
+          t {
+            id
+            ...OnT @include(if: $test1)
+            ...OnT @include(if: $test2)
+          }
         }
-      }
 
-      fragment OnT on T {
-        a
-        b
-      }
-    `);
+        fragment OnT on T {
+          a
+          b
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -4184,8 +4408,8 @@ describe('Named fragments preservation', () => {
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -4194,28 +4418,31 @@ describe('Named fragments preservation', () => {
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      query {
-        i1 {
-          ... on T {
-            ...Frag
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          i1 {
+            ... on T {
+              ...Frag
+            }
+          }
+          i2 {
+            ... on T {
+              ...Frag
+            }
           }
         }
-        i2 {
-          ... on T {
-            ...Frag
-          }
-        }
-      }
 
-      fragment Frag on I {
-        b
-      }
-    `);
+        fragment Frag on I {
+          b
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -4257,7 +4484,7 @@ describe('Named fragments preservation', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type V @shareable {
-           x: Int
+          x: Int
         }
 
         interface I {
@@ -4268,8 +4495,8 @@ describe('Named fragments preservation', () => {
           id: ID!
           v: V
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -4280,7 +4507,7 @@ describe('Named fragments preservation', () => {
         }
 
         type V @shareable {
-           x: Int
+          x: Int
         }
 
         interface I {
@@ -4298,25 +4525,36 @@ describe('Named fragments preservation', () => {
           inner: Inner
           w: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      query {
-        outer1 { ...OuterFrag }
-        outer2 { ...OuterFrag }
-      }
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          outer1 {
+            ...OuterFrag
+          }
+          outer2 {
+            ...OuterFrag
+          }
+        }
 
-      fragment OuterFrag on Outer {
-        ...IFrag
-        inner { ...IFrag }
-      }
+        fragment OuterFrag on Outer {
+          ...IFrag
+          inner {
+            ...IFrag
+          }
+        }
 
-      fragment IFrag on I {
-        v { x }
-      }
-    `);
+        fragment IFrag on I {
+          v {
+            x
+          }
+        }
+      `,
+    );
 
     const expectedPlan = `
       QueryPlan {
@@ -4382,54 +4620,80 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
+      expectedPlan,
+    );
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
     // ensure the code handle correctly such indirection.
-    operation = operationFromDocument(api, gql`
-      query {
-        outer1 { ...OuterFrag }
-        outer2 { ...OuterFrag }
-      }
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          outer1 {
+            ...OuterFrag
+          }
+          outer2 {
+            ...OuterFrag
+          }
+        }
 
-      fragment OuterFrag on Outer {
-        ...IFrag
-        inner { ...IFrag }
-      }
+        fragment OuterFrag on Outer {
+          ...IFrag
+          inner {
+            ...IFrag
+          }
+        }
 
-      fragment IFrag on I {
-        ...IFragDelegate
-      }
+        fragment IFrag on I {
+          ...IFragDelegate
+        }
 
-      fragment IFragDelegate on I {
-        v { x }
-      }
-    `);
+        fragment IFragDelegate on I {
+          v {
+            x
+          }
+        }
+      `,
+    );
 
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
+      expectedPlan,
+    );
 
-    // The previous cases tests the cases where nothing in the `...IFrag` spread at the 
+    // The previous cases tests the cases where nothing in the `...IFrag` spread at the
     // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
     // in the schema of `Subgraph2`, while `Outer` does not implement `I` (and does not
     // have `v` in particular), it does contains field `w` that `I` also have, so we
     // add that field to `IFrag` and make sure we still correctly query that field.
-    operation = operationFromDocument(api, gql`
-      query {
-        outer1 { ...OuterFrag }
-        outer2 { ...OuterFrag }
-      }
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          outer1 {
+            ...OuterFrag
+          }
+          outer2 {
+            ...OuterFrag
+          }
+        }
 
-      fragment OuterFrag on Outer {
-        ...IFrag
-        inner { ...IFrag }
-      }
+        fragment OuterFrag on Outer {
+          ...IFrag
+          inner {
+            ...IFrag
+          }
+        }
 
-      fragment IFrag on I {
-        v { x }
-        w
-      }
-    `);
+        fragment IFrag on I {
+          v {
+            x
+          }
+          w
+        }
+      `,
+    );
 
     expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
       QueryPlan {
@@ -4506,7 +4770,7 @@ describe('Named fragments preservation', () => {
       name: 'Subgraph1',
       typeDefs: gql`
         type V @shareable {
-           x: Int
+          x: Int
         }
 
         union U = Outer
@@ -4515,8 +4779,8 @@ describe('Named fragments preservation', () => {
           id: ID!
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -4538,30 +4802,39 @@ describe('Named fragments preservation', () => {
           inner: Inner
           w: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    let operation = operationFromDocument(api, gql`
-      query {
-        outer1 { ...OuterFrag }
-        outer2 { ...OuterFrag }
-      }
-
-      fragment OuterFrag on Outer {
-        ...UFrag
-        inner { ...UFrag }
-      }
-
-      fragment UFrag on U {
-        ... on Outer {
-          v
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          outer1 {
+            ...OuterFrag
+          }
+          outer2 {
+            ...OuterFrag
+          }
         }
-        ... on Inner {
-          v
+
+        fragment OuterFrag on Outer {
+          ...UFrag
+          inner {
+            ...UFrag
+          }
         }
-      }
-    `);
+
+        fragment UFrag on U {
+          ... on Outer {
+            v
+          }
+          ... on Inner {
+            v
+          }
+        }
+      `,
+    );
 
     const expectedPlan = `
       QueryPlan {
@@ -4621,64 +4894,86 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
+      expectedPlan,
+    );
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
     // ensure the code handle correctly such indirection.
-    operation = operationFromDocument(api, gql`
-      query {
-        outer1 { ...OuterFrag }
-        outer2 { ...OuterFrag }
-      }
-
-      fragment OuterFrag on Outer {
-        ...UFrag
-        inner { ...UFrag }
-      }
-
-      fragment UFrag on U {
-        ...UFragDelegate
-      }
-
-      fragment UFragDelegate on U {
-        ... on Outer {
-          v
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          outer1 {
+            ...OuterFrag
+          }
+          outer2 {
+            ...OuterFrag
+          }
         }
-        ... on Inner {
-          v
+
+        fragment OuterFrag on Outer {
+          ...UFrag
+          inner {
+            ...UFrag
+          }
         }
-      }
-    `);
 
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+        fragment UFrag on U {
+          ...UFragDelegate
+        }
 
-    // The previous cases tests the cases where nothing in the `...IFrag` spread at the 
+        fragment UFragDelegate on U {
+          ... on Outer {
+            v
+          }
+          ... on Inner {
+            v
+          }
+        }
+      `,
+    );
+
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
+      expectedPlan,
+    );
+
+    // The previous cases tests the cases where nothing in the `...IFrag` spread at the
     // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
     // in the schema of `Subgraph2`, while `Outer` does not implement `I` (and does not
     // have `v` in particular), it does contains field `w` that `I` also have, so we
     // add that field to `IFrag` and make sure we still correctly query that field.
-    operation = operationFromDocument(api, gql`
-      query {
-        outer1 { ...OuterFrag }
-        outer2 { ...OuterFrag }
-      }
-
-      fragment OuterFrag on Outer {
-        ...UFrag
-        inner { ...UFrag }
-      }
-
-      fragment UFrag on U {
-        ... on Outer {
-          v
-          w
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          outer1 {
+            ...OuterFrag
+          }
+          outer2 {
+            ...OuterFrag
+          }
         }
-        ... on Inner {
-          v
+
+        fragment OuterFrag on Outer {
+          ...UFrag
+          inner {
+            ...UFrag
+          }
         }
-      }
-    `);
+
+        fragment UFrag on U {
+          ... on Outer {
+            v
+            w
+          }
+          ... on Inner {
+            v
+          }
+        }
+      `,
+    );
 
     expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
       QueryPlan {
@@ -4753,18 +5048,18 @@ test('works with key chains', () => {
       type T @key(fields: "id1") {
         id1: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
     typeDefs: gql`
-      type T @key(fields: "id1")  @key(fields: "id2") {
+      type T @key(fields: "id1") @key(fields: "id2") {
         id1: ID!
         id2: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -4774,22 +5069,29 @@ test('works with key chains', () => {
         x: Int
         y: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
   // Note: querying `id2` is only purpose, because there is 2 choice to get `id2` (either
   // from then 2nd or 3rd subgraph), and that create some choice in the query planning algorithm,
   // so excercices additional paths.
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        id2
-        x
-        y
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          id2
+          x
+          y
+        }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -4852,18 +5154,21 @@ describe('__typename handling', () => {
           id: ID!
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
-      query {
-        t {
-          foo: __typename
-          x
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            foo: __typename
+            x
+          }
         }
-      }
-    `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -4879,15 +5184,18 @@ describe('__typename handling', () => {
       }
     `);
 
-    operation = operationFromDocument(api, gql`
-      query {
-        t {
-          foo: __typename
-          x
-          __typename
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            foo: __typename
+            x
+            __typename
+          }
         }
-      }
-    `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -4916,8 +5224,8 @@ describe('__typename handling', () => {
         type S @key(fields: "id") {
           id: ID
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -4930,8 +5238,8 @@ describe('__typename handling', () => {
         type T {
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -4945,28 +5253,37 @@ describe('__typename handling', () => {
           id: ID!
           y: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
     // This tests the patch from https://github.com/apollographql/federation/pull/2137.
     // Namely, the schema is such that `x` can only be fetched from one subgraph, but
     // technically __typename can be fetched from 2 subgraphs. However, the optimization
     // we test for is that we actually don't consider both choices for __typename and
     // instead only evaluate a single query plan (the assertion on `evaluatePlanCount`)
-    let operation = operationFromDocument(api, gql`
-      query {
-        s {
-          t {
-            __typename
-            x
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          s {
+            t {
+              __typename
+              x
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
-    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+      1,
+    );
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -5007,22 +5324,27 @@ describe('__typename handling', () => {
     // in the implementation made this example forgo the optimization of the
     // __typename within `t`. We make sure this is not case (that we still only
     // consider a single choice of plan).
-    operation = operationFromDocument(api, gql`
-      query {
-        s {
-          __typename
-          ... on S {
-            t {
-              __typename
-              x
+    operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          s {
+            __typename
+            ... on S {
+              t {
+                __typename
+                x
+              }
             }
           }
         }
-      }
-    `);
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
-    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+      1,
+    );
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -5071,8 +5393,8 @@ describe('mutations', () => {
         type Mutation {
           m1: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5080,16 +5402,19 @@ describe('mutations', () => {
         type Mutation {
           m2: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      mutation {
-        m2
-        m1
-      }
-    `);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation {
+          m2
+          m1
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -5132,8 +5457,8 @@ describe('interface type-explosion', () => {
         type S @shareable {
           x: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5147,19 +5472,22 @@ describe('interface type-explosion', () => {
           x: Int
           y: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        i {
-          s {
-            y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          i {
+            s {
+              y
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     // The schema is constructed in such a way that we *need* to type-explode interface `I`
     // to be able to find field `y`. Make sure that happens.
@@ -5221,8 +5549,8 @@ describe('interface type-explosion', () => {
           x: Int
           y: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5236,19 +5564,22 @@ describe('interface type-explosion', () => {
           x: Int
           y: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        i {
-          s {
-            y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          i {
+            s {
+              y
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     // This test is a small variation on the previous test ('handles non-matching ...'), we
     // we _can_ use the interface field directly and don't need to type-explode. So we
@@ -5271,7 +5602,9 @@ describe('interface type-explosion', () => {
         },
       }
     `);
-    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+      1,
+    );
   });
 });
 
@@ -5307,8 +5640,8 @@ describe('merged abstract types handling', () => {
         type C implements I {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5320,19 +5653,22 @@ describe('merged abstract types handling', () => {
         type A implements I {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        u {
-          ... on I {
-            v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          u {
+            ... on I {
+              v
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `u` and is a `I` *in the supergraph* but not in `Subgraph1`, so need to
@@ -5384,8 +5720,8 @@ describe('merged abstract types handling', () => {
         type C implements I {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5395,19 +5731,22 @@ describe('merged abstract types handling', () => {
         type A {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        u {
-          ... on I {
-            v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          u {
+            ... on I {
+              v
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // While `A` is a `U` in the supergraph while not in `Subgraph1`, since the `u`
@@ -5455,8 +5794,8 @@ describe('merged abstract types handling', () => {
         type C implements I {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5466,21 +5805,24 @@ describe('merged abstract types handling', () => {
         type A {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        i {
-          ... on U {
-            ... on A {
-              v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          i {
+            ... on U {
+              ... on A {
+                v
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `i` and is a `U` *in the supergraph* but not in `Subgraph1`, so need to
@@ -5526,8 +5868,8 @@ describe('merged abstract types handling', () => {
         type C implements I {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5539,21 +5881,24 @@ describe('merged abstract types handling', () => {
         type A implements I {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        i {
-          ... on U {
-            ... on A {
-              v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          i {
+            ... on U {
+              ... on A {
+                v
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Here, `A` is a `I` in the supergraph while not in `Subgraph1`, and since the `i` operation is resolved by
@@ -5598,8 +5943,8 @@ describe('merged abstract types handling', () => {
         type C implements I1 & I2 {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5611,19 +5956,22 @@ describe('merged abstract types handling', () => {
         type A implements I2 {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        i1 {
-          ... on I2 {
-            v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          i1 {
+            ... on I2 {
+              v
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `i1` and is a `I2` *in the supergraph* but not in `Subgraph1`, so need to
@@ -5677,8 +6025,8 @@ describe('merged abstract types handling', () => {
         type C implements I1 & I2 {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5690,19 +6038,22 @@ describe('merged abstract types handling', () => {
         type A implements I1 {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        i1 {
-          ... on I2 {
-            v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          i1 {
+            ... on I2 {
+              v
+            }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // While `A` is a `I1` in the supergraph while not in `Subgraph1`, since the `i1`
@@ -5748,8 +6099,8 @@ describe('merged abstract types handling', () => {
         type C {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5759,21 +6110,24 @@ describe('merged abstract types handling', () => {
         type A {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        u1 {
-          ... on U2 {
-            ... on A {
-              v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          u1 {
+            ... on U2 {
+              ... on A {
+                v
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Type `A` can be returned by `u1` and is a `U2` *in the supergraph* but not in `Subgraph1`, so need to
@@ -5816,8 +6170,8 @@ describe('merged abstract types handling', () => {
         type C {
           v: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -5827,21 +6181,24 @@ describe('merged abstract types handling', () => {
         type A {
           v: Int @shareable
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        u1 {
-          ... on U2 {
-            ... on A {
-              v
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          u1 {
+            ... on U2 {
+              ... on A {
+                v
+              }
             }
           }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Similar case than in the `interface/union` case: the whole `... on U2` sub-selection happens to be
@@ -5880,12 +6237,12 @@ test('handles spread unions correctly', () => {
         b: Int
       }
 
-      type C  @key(fields: "id") {
+      type C @key(fields: "id") {
         id: ID!
         c1: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -5905,19 +6262,22 @@ test('handles spread unions correctly', () => {
         id: ID!
         c2: Int
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      u {
-        ... on C {
-          c1
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        u {
+          ... on C {
+            c1
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   // Note: it's important that the query below DO NOT include the `... on C` part. Because in
@@ -5934,7 +6294,7 @@ test('handles spread unions correctly', () => {
       },
     }
   `);
-})
+});
 
 test('handles case of key chains in parallel requires', () => {
   const subgraph1 = {
@@ -5954,18 +6314,18 @@ test('handles case of key chains in parallel requires', () => {
         id: ID!
         y: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
     typeDefs: gql`
-      type T1 @key(fields: "id1")  @key(fields: "id2") {
+      type T1 @key(fields: "id1") @key(fields: "id2") {
         id1: ID!
         id2: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -5980,22 +6340,29 @@ test('handles case of key chains in parallel requires', () => {
         y: Int @external
         z: Int @requires(fields: "y")
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        ... on T1 {
-          x
-        }
-        ... on T2 {
-          z
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          ... on T1 {
+            x
+          }
+          ... on T2 {
+            z
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -6101,8 +6468,8 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
         id: ID!
         x: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -6116,26 +6483,29 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
         id: ID!
         y: Int
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        ... on T1 {
-          sub {
-            y
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          ... on T1 {
+            sub {
+              y
+            }
           }
-        }
-        ... on T2 {
-          sub {
-            y
+          ... on T2 {
+            sub {
+              y
+            }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -6213,37 +6583,40 @@ test('does not error out handling fragments when interface subtyping is involved
         v1: Int!
         v2: Int!
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-  const operation = operationFromDocument(api, gql`
-    {
-      a {
-        ...F1
-        ...F2
-        ...F3
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        a {
+          ...F1
+          ...F2
+          ...F3
+        }
       }
-    }
 
-    fragment F1 on A {
-      b {
-        v2
+      fragment F1 on A {
+        b {
+          v2
+        }
       }
-    }
 
-    fragment F2 on IA {
-      b {
-        v1
+      fragment F2 on IA {
+        b {
+          v1
+        }
       }
-    }
 
-    fragment F3 on IA {
-      b {
-        __typename
+      fragment F3 on IA {
+        b {
+          __typename
+        }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -6263,7 +6636,7 @@ test('does not error out handling fragments when interface subtyping is involved
   `);
 });
 
-describe("named fragments", () => {
+describe('named fragments', () => {
   test('handles mix of fragments indirection and unions', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -6285,38 +6658,41 @@ describe("named fragments", () => {
         type Cat {
           name: String
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      query {
-        parent {
-          ...F_indirection1_parent
-        }
-      }
- 
-      fragment F_indirection1_parent on Parent {
-        ...F_indirection2_catOrPerson
-      }
-
-      fragment F_indirection2_catOrPerson on CatOrPerson {
-        ...F_catOrPerson
-      }
-
-      fragment F_catOrPerson on CatOrPerson {
-        __typename
-        ... on Cat {
-          name
-        }
-        ... on Parent {
-          childs {
-            __typename
-            id
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          parent {
+            ...F_indirection1_parent
           }
         }
-      }
-    `);
+
+        fragment F_indirection1_parent on Parent {
+          ...F_indirection2_catOrPerson
+        }
+
+        fragment F_indirection2_catOrPerson on CatOrPerson {
+          ...F_catOrPerson
+        }
+
+        fragment F_catOrPerson on CatOrPerson {
+          __typename
+          ... on Cat {
+            name
+          }
+          ... on Parent {
+            childs {
+              __typename
+              id
+            }
+          }
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6374,47 +6750,50 @@ describe("named fragments", () => {
           id1: ID!
           id2: ID!
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    let operation = operationFromDocument(api, gql`
-      {
-        owner {
-          u {
-            ... on I {
-              id1
-              id2
+    let operation = operationFromDocument(
+      api,
+      gql`
+        {
+          owner {
+            u {
+              ... on I {
+                id1
+                id2
+              }
+              ...Fragment1
+              ...Fragment2
             }
-            ...Fragment1
-            ...Fragment2
           }
         }
-      }
 
-      fragment Fragment1 on T1 {
-        owner {
-          ... on Owner {
-            ...Fragment3
+        fragment Fragment1 on T1 {
+          owner {
+            ... on Owner {
+              ...Fragment3
+            }
           }
         }
-      }
 
-      fragment Fragment2 on T2 {
-        ...Fragment4
-        id1
-      }
+        fragment Fragment2 on T2 {
+          ...Fragment4
+          id1
+        }
 
-      fragment Fragment3 on OItf {
-        v0
-      }
+        fragment Fragment3 on OItf {
+          v0
+        }
 
-      fragment Fragment4 on I {
-        id1
-        id2
-        __typename
-      }
-    `);
+        fragment Fragment4 on I {
+          id1
+          id2
+          __typename
+        }
+      `,
+    );
 
     let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6446,42 +6825,45 @@ describe("named fragments", () => {
       }
     `);
 
-    operation = operationFromDocument(api, gql`
-      {
-        owner {
-          u {
-            ... on I {
-              id1
-              id2
+    operation = operationFromDocument(
+      api,
+      gql`
+        {
+          owner {
+            u {
+              ... on I {
+                id1
+                id2
+              }
+              ...Fragment1
+              ...Fragment2
             }
-            ...Fragment1
-            ...Fragment2
           }
         }
-      }
 
-      fragment Fragment1 on T1 {
-        owner {
-          ... on Owner {
-            ...Fragment3
+        fragment Fragment1 on T1 {
+          owner {
+            ... on Owner {
+              ...Fragment3
+            }
           }
         }
-      }
 
-      fragment Fragment2 on T2 {
-        ...Fragment4
-        id1
-      }
+        fragment Fragment2 on T2 {
+          ...Fragment4
+          id1
+        }
 
-      fragment Fragment3 on OItf {
-        v0
-      }
+        fragment Fragment3 on OItf {
+          v0
+        }
 
-      fragment Fragment4 on I {
-        id1
-        id2
-      }
-    `);
+        fragment Fragment4 on I {
+          id1
+          id2
+        }
+      `,
+    );
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6534,34 +6916,35 @@ describe("named fragments", () => {
           other: T1!
         }
 
-
-        type T2 implements I
-        {
+        type T2 implements I {
           id: ID!
           other: T2!
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
-    const operation = operationFromDocument(api, gql`
-      {
-        t1 {
-          ...Fragment1
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t1 {
+            ...Fragment1
+          }
         }
-      }
 
-      fragment Fragment1 on I {
-        other {
-          ... on T1 {
-            id
-          }
-          ... on T2 {
-            id
+        fragment Fragment1 on I {
+          other {
+            ... on T1 {
+              id
+            }
+            ... on T2 {
+              id
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6595,8 +6978,8 @@ describe("named fragments", () => {
           v1: Int
           v2: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -6605,27 +6988,30 @@ describe("named fragments", () => {
           id: ID!
           v3: Int
         }
-      `
-    }
+      `,
+    };
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-    const operation = operationFromDocument(api, gql`
-      {
-        t1 {
-          ...allTFields
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t1 {
+            ...allTFields
+          }
+          t2 {
+            ...allTFields
+          }
         }
-        t2 {
-          ...allTFields
-        }
-      }
 
-      fragment allTFields on T {
-        v0
-        v1
-        v2
-        v3
-      }
-    `);
+        fragment allTFields on T {
+          v0
+          v1
+          v2
+          v3
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6699,8 +7085,8 @@ describe("named fragments", () => {
         type T @key(fields: "id") {
           id: ID!
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -6709,7 +7095,6 @@ describe("named fragments", () => {
           id: ID!
           u1: U
           u2: U
-
         }
 
         type U @key(fields: "id") {
@@ -6717,8 +7102,8 @@ describe("named fragments", () => {
           v0: Int
           v1: Int
         }
-      `
-    }
+      `,
+    };
 
     const subgraph3 = {
       name: 'Subgraph3',
@@ -6728,29 +7113,36 @@ describe("named fragments", () => {
           v2: Int
           v3: Int
         }
-      `
-    }
+      `,
+    };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          u1 {
-            ...allUFields
-          }
-          u2 {
-            ...allUFields
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u1 {
+              ...allUFields
+            }
+            u2 {
+              ...allUFields
+            }
           }
         }
-      }
 
-      fragment allUFields on U {
-        v0
-        v1
-        v2
-        v3
-      }
-    `);
+        fragment allUFields on U {
+          v0
+          v1
+          v2
+          v3
+        }
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6831,7 +7223,7 @@ describe("named fragments", () => {
       }
     `);
   });
-})
+});
 
 describe('`debug.maxEvaluatedPlans` configuration', () => {
   // Simple schema, created to force the query planner to have multiple choice. We'll build
@@ -6859,10 +7251,12 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   const subgraphs = [
     {
       name: 'Subgraph1',
-      typeDefs
-    }, {
+      typeDefs,
+    },
+    {
       name: 'Subgraph2',
-      typeDefs  }
+      typeDefs,
+    },
   ];
 
   test('works when unset', () => {
@@ -6873,18 +7267,24 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
     // plans are considered) and we'll have to adapt the example (find a better way to force
     // choices).
 
-    const config = { debug : { maxEvaluatedPlans : undefined } };
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          v2
-          v3
-          v4
+    const config = { debug: { maxEvaluatedPlans: undefined } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      subgraphs,
+      config,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            v2
+            v3
+            v4
+          }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6907,18 +7307,24 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   });
 
   test('allows setting down to 1', () => {
-    const config = { debug : { maxEvaluatedPlans : 1 } };
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          v2
-          v3
-          v4
+    const config = { debug: { maxEvaluatedPlans: 1 } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      subgraphs,
+      config,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            v2
+            v3
+            v4
+          }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     // Note that in theory, the planner would be excused if it wasn't generated this
@@ -6949,18 +7355,24 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   });
 
   test('can be set to an arbitrary number', () => {
-    const config = { debug : { maxEvaluatedPlans : 10 } };
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(subgraphs, config);
-    const operation = operationFromDocument(api, gql`
-      {
-        t {
-          v1
-          v2
-          v3
-          v4
+    const config = { debug: { maxEvaluatedPlans: 10 } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      subgraphs,
+      config,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            v2
+            v3
+            v4
+          }
         }
-      }
-      `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -6986,14 +7398,14 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
   });
 
   test('cannot be set to 0 or a negative number', () => {
-    let config = { debug : { maxEvaluatedPlans : 0 } };
+    let config = { debug: { maxEvaluatedPlans: 0 } };
     expect(() => composeAndCreatePlannerWithOptions(subgraphs, config)).toThrow(
-      'Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got 0'
+      'Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got 0',
     );
 
-    config = { debug : { maxEvaluatedPlans : -1 } };
+    config = { debug: { maxEvaluatedPlans: -1 } };
     expect(() => composeAndCreatePlannerWithOptions(subgraphs, config)).toThrow(
-      'Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got -1'
+      'Invalid value for query planning configuration "debug.maxEvaluatedPlans"; expected a number >= 1 but got -1',
     );
   });
 });
@@ -7023,8 +7435,8 @@ test('correctly generate plan built from some non-individually optimal branch op
       type T {
         x: Int @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -7036,8 +7448,8 @@ test('correctly generate plan built from some non-individually optimal branch op
       type T @key(fields: "id") {
         id: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -7047,18 +7459,25 @@ test('correctly generate plan built from some non-individually optimal branch op
         x: Int @shareable
         y: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        x
-        y
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          x
+          y
+        }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -7107,8 +7526,8 @@ test('does not error on some complex fetch group dependencies', () => {
       type User {
         id: ID! @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -7125,8 +7544,8 @@ test('does not error on some complex fetch group dependencies', () => {
       type Props {
         id: ID! @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -7160,27 +7579,34 @@ test('does not error on some complex fetch group dependencies', () => {
       type V {
         x: Int
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-  const operation = operationFromDocument(api, gql`
-    {
-      me {
-        p {
-          v0
-          t {
-            v1 {
-              x
-            }
-            v2 {
-              x
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        me {
+          p {
+            v0
+            t {
+              v1 {
+                x
+              }
+              v2 {
+                x
+              }
             }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -7235,8 +7661,8 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
       type T @key(fields: "otherId") {
         otherId: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -7245,8 +7671,8 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
         id: ID!
         otherId: ID!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'Subgraph3',
@@ -7254,17 +7680,24 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
       type T @key(fields: "id") {
         id: ID!
       }
-    `
-  }
+    `,
+  };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3);
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        id
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          id
+        }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -7307,7 +7740,9 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
   // this test ensure this is not considered anymore (considering that later plan
   // was not incorrect, but it was adding to the options to evaluate which in some
   // cases could impact query planning performance quite a bit).
-  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(1);
+  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+    1,
+  );
 });
 
 test('avoid considering indirect paths from the root when a more direct one exists', () => {
@@ -7322,8 +7757,8 @@ test('avoid considering indirect paths from the root when a more direct one exis
         id: ID!
         v0: Int @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -7337,24 +7772,30 @@ test('avoid considering indirect paths from the root when a more direct one exis
         v0: Int @shareable
         v1: Int
       }
-    `
-  }
+    `,
+  };
 
   // Each of id/v0 can have 2 options each, so that's 4 combinations. If we were to consider 2 options for each
   // v1 value however, that would multiple it by 2 each times, so it would 32 possibilities. We limit the number of
   // evaluated plans just above our expected number of 4 so that if we exceed it, the generated plan will be sub-optimal.
-  const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph1, subgraph2], { debug: { maxEvaluatedPlans: 6 } });
-  const operation = operationFromDocument(api, gql`
-    {
-      t {
-        id
-        v0
-        a0: v1
-        a1: v1
-        a2: v1
+  const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+    [subgraph1, subgraph2],
+    { debug: { maxEvaluatedPlans: 6 } },
+  );
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        t {
+          id
+          v0
+          a0: v1
+          a1: v1
+          a2: v1
+        }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -7376,5 +7817,7 @@ test('avoid considering indirect paths from the root when a more direct one exis
   // As said above, we legit have 2 options for `id` and `v0`, and we cannot know which are best before we evaluate the
   // plans completely. But for the multiple `v1`, we should recognize that going through the 1st subgraph (and taking a
   // key) is never exactly a good idea.
-  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(4);
+  expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
+    4,
+  );
 });

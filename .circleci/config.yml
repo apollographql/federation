@@ -31,7 +31,6 @@ jobs:
           path: junit.xml
 
 workflows:
-  version: 2
   Build:
     jobs:
       - Test:
@@ -56,3 +55,6 @@ workflows:
       - node/run:
           name: Check Spelling
           npm-run: spell:check
+      - node/run:
+          name: Check Prettier (tests)
+          npm-run: prettier:check

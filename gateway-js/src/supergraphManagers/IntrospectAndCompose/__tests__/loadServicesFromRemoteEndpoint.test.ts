@@ -10,7 +10,7 @@ describe('loadServicesFromRemoteEndpoint', () => {
       loadServicesFromRemoteEndpoint({
         serviceList,
         serviceSdlCache,
-        getServiceIntrospectionHeaders: async () => ({})
+        getServiceIntrospectionHeaders: async () => ({}),
       }),
     ).rejects.toThrowError(
       "Tried to load schema for 'test' but no 'url' was specified.",

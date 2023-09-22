@@ -1,6 +1,9 @@
 import gql from 'graphql-tag';
 import { execute, ServiceDefinitionModule } from '../execution-utils';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -85,13 +88,13 @@ const userService: ServiceDefinitionModule = {
     User: {
       __resolveReference(reference) {
         return users.find(
-          user =>
+          (user) =>
             user.id === reference.id &&
             user.organizationId === reference.organization.id,
         );
       },
       organization(user) {
-        return organizations.find(org => org.id === user.organizationId);
+        return organizations.find((org) => org.id === user.organizationId);
       },
     },
   },

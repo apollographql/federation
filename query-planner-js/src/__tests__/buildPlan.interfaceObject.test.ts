@@ -1,7 +1,7 @@
 import { assert, operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { isPlanNode } from '../QueryPlan';
-import { composeAndCreatePlanner, findFetchNodes } from "./testHelper";
+import { composeAndCreatePlanner, findFetchNodes } from './testHelper';
 
 describe('basic @key on interface/@interfaceObject handling', () => {
   const subgraph1 = {
@@ -27,8 +27,8 @@ describe('basic @key on interface/@interfaceObject handling', () => {
         x: Int
         w: Int
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'S2',
@@ -41,21 +41,24 @@ describe('basic @key on interface/@interfaceObject handling', () => {
         id: ID!
         y: Int
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
 
   test('can use a @key on an @interfaceObject type', () => {
     // Start by ensuring we can use the key on an @interfaceObject type
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS1 {
-          x
-          y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS1 {
+            x
+            y
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -88,17 +91,20 @@ describe('basic @key on interface/@interfaceObject handling', () => {
         },
       }
     `);
-    });
+  });
 
   test('can use a @key on an interface "from" an @interfaceObject type', () => {
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS2 {
-          x
-          y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS2 {
+            x
+            y
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -135,13 +141,16 @@ describe('basic @key on interface/@interfaceObject handling', () => {
   });
 
   test('only uses an @interfaceObject if it can', () => {
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS2 {
-          y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS2 {
+            y
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -158,14 +167,17 @@ describe('basic @key on interface/@interfaceObject handling', () => {
   });
 
   test('does not rely on an @interfaceObject directly for `__typename`', () => {
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS2 {
-          __typename
-          y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS2 {
+            __typename
+            y
+          }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -205,15 +217,18 @@ describe('basic @key on interface/@interfaceObject handling', () => {
     // fact that we "filter" a single implementation should act as if `__typename` was queried
     // (effectively, the gateway/router need that `__typename` to decide if the returned data
     // should be included or not.
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS2 {
-          ... on A {
-            y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS2 {
+            ... on A {
+              y
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -263,15 +278,18 @@ describe('basic @key on interface/@interfaceObject handling', () => {
   });
 
   test('can use a @key on an @interfaceObject type even for a concrete implementation', () => {
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS1 {
-          ... on A {
-            y
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS1 {
+            ... on A {
+              y
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -319,15 +337,18 @@ describe('basic @key on interface/@interfaceObject handling', () => {
 
   test('handles query of an interface field (that is not on the `@interfaceObject`) for a specific implementation when query starts on the @interfaceObject', () => {
     // Here, we start on S2, but `x` is only in S1. Further, while `x` is on the `I` interface, we only query it for `A`.
-    const operation = operationFromDocument(api, gql`
-      {
-        iFromS2 {
-          ... on A {
-            x
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          iFromS2 {
+            ... on A {
+              x
+            }
           }
         }
-      }
-    `);
+      `,
+    );
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
@@ -377,8 +398,8 @@ it('avoids buffering @interfaceObject results that may have to filtered with lis
         id: ID!
         expansiveField: String
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'S2',
@@ -396,21 +417,24 @@ it('avoids buffering @interfaceObject results that may have to filtered with lis
         id: ID!
         b: Int
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
 
-  const operation = operationFromDocument(api, gql`
-    {
-      everything {
-        ... on A {
-          a
-          expansiveField
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        everything {
+          ... on A {
+            a
+            expansiveField
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -470,8 +494,8 @@ it('handles @requires on concrete type of field provided by interface object', (
         id: ID!
         x: Int @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'S2',
@@ -495,20 +519,23 @@ it('handles @requires on concrete type of field provided by interface object', (
         id: ID!
         x: Int @shareable
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
 
-  const operation = operationFromDocument(api, gql`
-    {
-      i {
-        ... on A {
-          y
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        i {
+          ... on A {
+            y
+          }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
@@ -573,8 +600,8 @@ it('handles @interfaceObject in nested entity', () => {
       type T {
         relatedIs: [I]
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'S2',
@@ -597,22 +624,25 @@ it('handles @interfaceObject in nested entity', () => {
         id: ID!
         a: Int
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
 
-  const operation = operationFromDocument(api, gql`
-    {
-      i {
-        t {
-          relatedIs {
-            a
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        i {
+          t {
+            relatedIs {
+              a
+            }
           }
         }
       }
-    }
-  `);
+    `,
+  );
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
