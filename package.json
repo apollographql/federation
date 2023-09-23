@@ -74,7 +74,7 @@
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "bunyan": "1.8.15",
     "codecov": "3.8.3",
-    "cspell": "6.31.3",
+    "cspell": "7.3.6",
     "graphql": "16.8.1",
     "graphql-http": "1.22.0",
     "graphql-tag": "2.12.6",
