@@ -3796,7 +3796,7 @@ describe('executeQueryPlan', () => {
             },
           },
         }
-      `);
+        `);
 
         const response = await executePlan(
           queryPlan,
@@ -3807,18 +3807,18 @@ describe('executeQueryPlan', () => {
         );
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
-        Object {
-          "t": Object {
-            "y": "x: args: {${
-              valuePassed
-                ? `\\"opt\\":${valuePassed}`
-                : defaultValue
-                ? `\\"opt\\":${defaultValue}`
-                : ''
-            }}",
-          },
-        }
-      `);
+          Object {
+            "t": Object {
+              "y": "x: args: {${
+                valuePassed
+                  ? `\\"opt\\":${valuePassed}`
+                  : defaultValue
+                  ? `\\"opt\\":${defaultValue}`
+                  : ''
+              }}",
+            },
+          }
+        `);
       },
     );
 
@@ -6384,6 +6384,153 @@ describe('executeQueryPlan', () => {
                 "id": "1",
               },
             ],
+          },
+        }
+      `);
+    });
+
+    test.only('repro', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.5"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type Query {
+            itfObj: ItfObj
+          }
+
+          type ItfObj @key(fields: "id") @interfaceObject {
+            id: String!
+          }
+        `,
+        resolvers: {
+          Query: {
+            itfObj: () => ({
+              id: 'abc',
+            }),
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.5"
+              import: ["@key", "@shareable"]
+            )
+
+          interface ItfObj @key(fields: "id") {
+            id: String!
+          }
+
+          type T1 implements ItfObj @key(fields: "id") {
+            id: String!
+          }
+
+          type T2 implements ItfObj @key(fields: "id") {
+            id: String!
+          }
+        `,
+        resolvers: {
+          ItfObj: {
+            async __resolveReference(itfObj: any) {
+              const id = itfObj.id;
+              return { id, __typename: 'T1' };
+            },
+          },
+          T1: {
+            async __resolveReference(itfObj: any) {
+              return { id: itfObj.id };
+            },
+          },
+          T2: {
+            async __resolveReference(itfObj: any) {
+              return { id: itfObj.id };
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+
+      const operation = parseOp(
+        `#graphql
+        query {
+          itfObj {
+            __typename
+            ... on T1 {
+              __typename
+              id
+            }
+            ... on T2 {
+              # Uncomment id to break operation
+              # id
+              __typename
+            }
+          }
+        }`,
+        schema,
+      );
+
+      const plan = buildPlan(operation, queryPlanner);
+      expect(plan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                itfObj {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "itfObj") {
+              Fetch(service: "S2") {
+                {
+                  ... on ItfObj {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ItfObj {
+                    __typename
+                    ... on T1 {
+                      __typename
+                      id
+                    }
+                    ... on T2 {
+                      __typename
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(
+        plan,
+        operation,
+        buildRequestContext(),
+        schema,
+        serviceMap,
+      );
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "itfObj": Object {
+            "__typename": "T1",
+            "id": "abc",
           },
         }
       `);
