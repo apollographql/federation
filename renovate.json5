@@ -150,7 +150,7 @@
     {
       "matchPackageNames": ["make-fetch-happen"],
       "allowedVersions": "11.x",
-    }
+    },
     // make-fetch-happen@11 drops support for node 12
     {
       "matchBaseBranches": ["version-0.x"],
