@@ -50,6 +50,7 @@ export const tagDirective = ({
         tagDirectiveDefinition = node;
         return BREAK;
       }
+      return undefined;
     },
   });
 
