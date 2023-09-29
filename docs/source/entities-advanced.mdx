@@ -21,7 +21,7 @@ type User @key(fields: "username domain") {
 
 #### Nested fields in compound `@key`s
 
-Compound keys can also include _nested_ fields. In the following example, the `User` entity's unique key consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
+Compound keys can also include _nested_ fields. In the following example, the `User` entity's `@key` consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
 
 ```graphql {1} title="Users subgraph"
 type User @key(fields: "id organization { id }") {
