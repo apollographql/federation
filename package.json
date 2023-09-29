@@ -33,7 +33,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@apollo/cache-control-types": "1.0.3",
+    "@apollo/cache-control-types": "1.0.2",
     "@apollo/client": "3.8.4",
     "@apollo/utils.fetcher": "1.1.1",
     "@graphql-codegen/cli": "3.3.1",
