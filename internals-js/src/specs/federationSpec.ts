@@ -2,18 +2,18 @@ import {
   InputType,
   NonNullType,
   Schema,
-} from "./definitions";
+} from "../definitions";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
-} from "./directiveAndTypeSpecification";
+} from "../directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
-import { assert } from "./utils";
+import { assert } from "../utils";
 import { TAG_VERSIONS } from "./tagSpec";
-import { federationMetadata } from "./federation";
-import { registerKnownFeature } from "./knownCoreFeatures";
+import { federationMetadata } from "../federation";
+import { registerKnownFeature } from "../knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";

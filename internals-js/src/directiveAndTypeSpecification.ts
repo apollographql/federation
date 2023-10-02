@@ -23,7 +23,7 @@ import { valueEquals, valueToString } from "./values";
 import { sameType } from "./types";
 import { arrayEquals, assert } from "./utils";
 import { ArgumentCompositionStrategy } from "./argumentCompositionStrategies";
-import { FeatureDefinition, FeatureVersion } from "./coreSpec";
+import { FeatureDefinition, FeatureVersion } from "./specs/coreSpec";
 
 export type DirectiveSpecification = {
   name: string,

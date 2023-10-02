@@ -6,11 +6,11 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { DirectiveDefinition, ListType, NonNullType, Schema } from "./definitions";
-import { createDirectiveSpecification, createScalarTypeSpecification } from "./directiveAndTypeSpecification";
-import { registerKnownFeature } from "./knownCoreFeatures";
-import { ARGUMENT_COMPOSITION_STRATEGIES } from "./argumentCompositionStrategies";
-import { assert } from "./utils";
+import { DirectiveDefinition, ListType, NonNullType, Schema } from "../definitions";
+import { createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
+import { registerKnownFeature } from "../knownCoreFeatures";
+import { ARGUMENT_COMPOSITION_STRATEGIES } from "../argumentCompositionStrategies";
+import { assert } from "../utils";
 
 export enum RequiresScopesTypeName {
   SCOPE = 'Scope',

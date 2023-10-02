@@ -6,9 +6,9 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { DirectiveDefinition, Schema } from "./definitions";
-import { createDirectiveSpecification } from "./directiveAndTypeSpecification";
-import { registerKnownFeature } from "./knownCoreFeatures";
+import { DirectiveDefinition, Schema } from "../definitions";
+import { createDirectiveSpecification } from "../directiveAndTypeSpecification";
+import { registerKnownFeature } from "../knownCoreFeatures";
 
 export class AuthenticatedSpecDefinition extends FeatureDefinition {
   public static readonly directiveName = "authenticated";

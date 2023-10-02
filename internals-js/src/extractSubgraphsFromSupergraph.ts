@@ -28,8 +28,8 @@ import {
   parseFieldSetArgument,
   removeInactiveProvidesAndRequires,
 } from "./federation";
-import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
-import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./joinSpec";
+import { CoreSpecDefinition, FeatureVersion } from "./specs/coreSpec";
+import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./specs/joinSpec";
 import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";

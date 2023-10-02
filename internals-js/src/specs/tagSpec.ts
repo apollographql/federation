@@ -1,10 +1,10 @@
 import { DirectiveLocation, GraphQLError } from "graphql";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
-import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
-import { createDirectiveSpecification, DirectiveSpecification } from "./directiveAndTypeSpecification";
-import { ERRORS } from "./error";
-import { registerKnownFeature } from "./knownCoreFeatures";
-import { sameType } from "./types";
+import { DirectiveDefinition, NonNullType, Schema } from "../definitions";
+import { createDirectiveSpecification, DirectiveSpecification } from "../directiveAndTypeSpecification";
+import { ERRORS } from "../error";
+import { registerKnownFeature } from "../knownCoreFeatures";
+import { sameType } from "../types";
 
 export const tagIdentity = 'https://specs.apollo.dev/tag';
 

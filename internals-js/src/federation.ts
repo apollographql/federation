@@ -49,7 +49,7 @@ import {
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, SelectionSet } from './operations';
-import { TAG_VERSIONS } from "./tagSpec";
+import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
@@ -71,7 +71,7 @@ import {
   CoreImport,
   extractCoreFeatureImports,
   CoreOrLinkDirectiveArgs,
-} from "./coreSpec";
+} from "./specs/coreSpec";
 import {
   FEDERATION_VERSIONS,
   federationIdentity,
@@ -79,12 +79,12 @@ import {
   FederationTypeName,
   FEDERATION1_TYPES,
   FEDERATION1_DIRECTIVES,
-} from "./federationSpec";
+} from "./specs/federationSpec";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
-import { joinIdentity } from "./joinSpec";
+import { joinIdentity } from "./specs/joinSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
