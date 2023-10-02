@@ -53,7 +53,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-The `@key` directive defines the entity's **unique key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's unique key is its `id` field. **Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
+The `@key` directive defines an entity's **unique key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's unique key is its `id` field. **Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
 
 In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
 
