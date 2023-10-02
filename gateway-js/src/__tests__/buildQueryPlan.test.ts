@@ -5,6 +5,7 @@ import {
 import { getFederatedTestingSchema } from './execution-utils';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { Schema, parseOperation } from '@apollo/federation-internals';
+import gql from 'graphql-tag';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -780,7 +781,7 @@ describe('buildQueryPlan', () => {
                         }
                       }
                     }
-                    
+
                     fragment PriceAndCountry on Product {
                       price
                       details {
@@ -1228,5 +1229,115 @@ describe('buildQueryPlan', () => {
         }
       `);
     });
+  });
+
+  it.only('reproduction', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        scalar URL
+
+        schema {
+          query: Query
+        }
+
+        type Query {
+          a: A!
+        }
+
+        type A @key(fields: "aKey") {
+          aKey: Int
+          aField: B
+        }
+
+        # Toggle between \`type B\` definitions
+        type B @key(fields: "bKey", resolvable: false) {
+          bKey: Int!
+        }
+        #type B @key(fields: "bKey") {
+        #bKey: Int!
+        #bField1: C!
+        #}
+
+        type C @key(fields: "cKey") {
+          cKey: Int!
+          cField: String!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type B @key(fields: "bKey") {
+          bKey: Int!
+          # Toggle between \`bField1\` definitions
+          bField1: C!
+          #bField1: C! @external
+          bField2: Int! @requires(fields: "bField1 { cField }")
+        }
+
+        type C @key(fields: "cKey", resolvable: false) {
+          cKey: Int!
+          cField: String! @external
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    ({ schema, queryPlanner } = getFederatedTestingSchema([
+      subgraphA,
+      subgraphB,
+    ]));
+
+    const operationString = `#graphql
+      query ExampleQuery {
+        a {
+          aField {
+            bField2
+          }
+        }
+      }
+    `;
+
+    expect(() => buildPlan(operationString)).not.toThrow();
+
+    const queryPlan = buildPlan(operationString);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "subgraphA") {
+            {
+              a {
+                aField {
+                  __typename
+                  bKey
+                  bField1 {
+                    cField
+                  }
+                }
+              }
+            }
+          },
+          Flatten(path: "a.aField") {
+            Fetch(service: "subgraphB") {
+              {
+                ... on B {
+                  __typename
+                  bKey
+                  bField1 {
+                    cField
+                  }
+                }
+              } =>
+              {
+                ... on B {
+                  bField2
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
   });
 });

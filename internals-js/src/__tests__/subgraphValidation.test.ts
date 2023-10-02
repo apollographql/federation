@@ -477,6 +477,26 @@ describe('fieldset-based directives', () => {
       [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.h", for @requires(fields: "x { m: a n: b }"): Cannot use alias "m" in "m: a": aliases are not currently supported in @requires' ],
     ]);
   });
+
+  it.only("possibly invalid @requires", () => {
+    const subgraph = gql`
+      type Query {
+        t: T
+      }
+
+      type T {
+        f: A
+        g: Int @requires(fields: "f { a }")
+      }
+
+      type A {
+        a: Int @external
+      }
+    `;
+
+    // Should we expect an error here?
+    expect(buildForErrors(subgraph)).toMatchInlineSnapshot(`undefined`);
+  });
 });
 
 describe('root types', () => {
@@ -1230,7 +1250,7 @@ describe('@interfaceObject/@key on interfaces validation', () => {
   // if you have an @interfaceObject, some other subgraph needs to be able to resolve the concrete
   // type, and that imply that you have key to go to that other subgraph.
   // To be clear, the @key on the @interfaceObject technically con't need to be "resolvable", and the
-  // difference between no key and a non-resolvable key is arguably more convention than a genuine 
+  // difference between no key and a non-resolvable key is arguably more convention than a genuine
   // mechanical difference at the moment, but still a good idea to rely on that convention to help
   // catching obvious mistakes early.
   it('only allow @interfaceObject on entity types', () => {
