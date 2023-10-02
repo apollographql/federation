@@ -57,7 +57,7 @@ The `@key` directive defines an entity's **unique key**, which consists of one o
 
 In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
 
-> If coming from a database context, it can be helpful to think of a `@key` as an entity's [**primary key**](https://en.wikipedia.org/wiki/Primary_key). This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](./entities-advanced#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity. In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
+> If coming from a database context, it can be helpful to think of a `@key` as an entity's [primary key](https://en.wikipedia.org/wiki/Primary_key). This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](./entities-advanced#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity. In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
 
 <CodeColumns>
 
