@@ -150,6 +150,36 @@
     {
       "matchPackageNames": ["make-fetch-happen"],
       "allowedVersions": "11.x",
-    }
+    },
+    // make-fetch-happen@11 drops support for node 12
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["make-fetch-happen"],
+      "allowedVersions": "10.x",
+    },
+    // cspell@7 drops support for node 14
+    {
+      "matchPackageNames": ["cspell"],
+      "allowedVersions": "6.x",
+    },
+    // @apollo/cache-control-types@1.0.3 accidentally broke support for node 12
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["@apollo/cache-control-types"],
+      "allowedVersions": "1.0.2",
+    },
+    // typescript@5.1 drops support for node 12
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "5.0.x",
+    },
+    // lru-cache@7.13.1 is the last patch which includes an important AbortSignal type as part of its polyfill
+    // this was a breaking change for node 12 support
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "matchPackageNames": ["lru-cache"],
+      "allowedVersions": "7.13.1",
+    },
   ]
 }
