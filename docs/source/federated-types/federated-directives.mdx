@@ -27,10 +27,10 @@ If an imported directive's default name matches one of your own custom directive
 ```graphql
 extend schema
   @link(url: "https://specs.apollo.dev/federation/v2.3",
-        import: [{ name: "@key", as: "@primaryKey"}, "@shareable"])
+        import: [{ name: "@key", as: "@uniqueKey"}, "@shareable"])
 ```
 
-This example subgraph schema uses `@primaryKey` for the federated directive usually named [`@key`](#key).
+This example subgraph schema uses `@uniqueKey` for the federated directive usually named [`@key`](#key).
 
 ### Namespaced directives
 
@@ -134,7 +134,7 @@ To check whether your subgraph library supports repeatable directives, see the `
 </td>
 <td>
 
-**Required.** A GraphQL selection set (provided as a string) of fields and subfields that contribute to the entity's primary key.
+**Required.** A GraphQL selection set (provided as a string) of fields and subfields that contribute to the entity's unique key.
 
 Examples:
 

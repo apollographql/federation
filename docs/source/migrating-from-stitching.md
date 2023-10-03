@@ -122,7 +122,7 @@ resolvers: {
 
 This resolver calls `Query.user` on the `userSchema` to look up a `User`. It adds that user to the `Reservation.user` field that was previously defined at the gateway. This code can all remain. You don't need to remove it from the stitched gateway. In fact, if you did that, the stitched gateway would break.
 
-On the other hand, a _federated_ architecture defines its resolvers at the subgraph level. These resolvers rely on **entities**, which are identified by a primary key. For example, the Reservation subgraph must define the `Reservation` type as an entity to allow other subgraphs to extend it. These other subgraphs use the `Reservation`'s `@key` fields to uniquely identify a given instance:
+On the other hand, a _federated_ architecture defines its resolvers at the subgraph level. These resolvers rely on **entities**, which are identified by a unique key. For example, the Reservation subgraph must define the `Reservation` type as an entity to allow other subgraphs to extend it. These other subgraphs use the `Reservation`'s `@key` fields to uniquely identify a given instance:
 
 ```graphql
 type Reservation @key(fields: "id") {

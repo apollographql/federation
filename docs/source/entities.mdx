@@ -53,9 +53,11 @@ type Product @key(fields: "id") {
 }
 ```
 
-The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's primary key is its `id` field. **Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
+The `@key` directive defines an entity's **unique key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's unique key is its `id` field. **Every instance of an entity must be uniquely identifiable by its `@key` fields.** This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
 
 In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
+
+> If coming from a database context, it can be helpful to think of a `@key` as an entity's [primary key](https://en.wikipedia.org/wiki/Primary_key). This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](./entities-advanced#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity. In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
 
 <CodeColumns>
 
@@ -87,7 +89,7 @@ For more information on advanced key options, like how to define [multiple keys]
 
 ### 2. Define a reference resolver
 
-The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this entity if you provide its primary key." In order for this to be true, the subgraph needs to define a **reference resolver** for the entity.
+The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this entity if you provide its unique key." In order for this to be true, the subgraph needs to define a **reference resolver** for the entity.
 
 > ⚠️ **This section describes how to create reference resolvers in Apollo Server.** If you're using another [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), see its documentation for creating reference resolvers (or the equivalent functionality).
 
