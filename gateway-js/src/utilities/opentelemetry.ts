@@ -5,8 +5,8 @@ import { OperationContext } from '../operationContext';
 
 export type OpenTelemetryConfig = {
   /**
-   * Whether or not to include the `graphql.document` attribute in the
-   * `gateway.request` OpenTelemetry span. When set to `true`, the attribute
+   * Whether to include the `graphql.document` attribute in the `gateway.request`
+   * and `gateway.plan` OpenTelemetry spans. When set to `true`, the attribute
    * will contain the entire GraphQL document for the current request.
    *
    * Defaults to `false`, meaning that the GraphQL document will not be added
@@ -14,7 +14,7 @@ export type OpenTelemetryConfig = {
    */
   includeDocument?: boolean;
   /**
-   * Whether or not to record the GraphQL and internal errors that take place
+   * Whether to record the GraphQL and internal errors that take place
    * while processing a request as exception events in the OpenTelemetry spans
    * in which they occur.
    *
@@ -39,6 +39,18 @@ export enum OpenTelemetrySpanNames {
   VALIDATE = 'gateway.validate',
 }
 
+/*
+   When adding any more, please refer to:
+   https://opentelemetry.io/docs/specs/otel/common/attribute-naming/
+   https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/instrumentation/graphql/
+*/
+export enum OpenTelemetryAttributeNames {
+  GRAPHQL_DOCUMENT = 'graphql.document',
+  GRAPHQL_OPERATION_NAME = 'graphql.operation.name',
+  GRAPHQL_OPERATION_NAME_DEPRECATED = 'operationName', // deprecated in favor of GRAPHQL_OPERATION_NAME
+  GRAPHQL_OPERATION_TYPE = 'graphql.operation.type',
+}
+
 const { name, version } = require('../../package.json');
 export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
 
@@ -46,10 +58,10 @@ export interface SpanAttributes extends Attributes {
   /**
    * @deprecated in favor of `graphql.operation.name`
    */
-  operationName?: string;
-  'graphql.operation.name'?: string;
-  'graphql.operation.type'?: string;
-  'graphql.document'?: string;
+  [OpenTelemetryAttributeNames.GRAPHQL_OPERATION_NAME_DEPRECATED]?: string;
+  [OpenTelemetryAttributeNames.GRAPHQL_OPERATION_NAME]?: string;
+  [OpenTelemetryAttributeNames.GRAPHQL_OPERATION_TYPE]?: string;
+  [OpenTelemetryAttributeNames.GRAPHQL_DOCUMENT]?: string;
 }
 
 export function requestContextSpanAttributes(
@@ -59,11 +71,11 @@ export function requestContextSpanAttributes(
   const spanAttributes: SpanAttributes = {};
 
   if (requestContext.operationName) {
-    spanAttributes["operationName"] = requestContext.operationName;
-    spanAttributes["graphql.operation.name"] = requestContext.operationName;
+    spanAttributes[OpenTelemetryAttributeNames.GRAPHQL_OPERATION_NAME_DEPRECATED] = requestContext.operationName;
+    spanAttributes[OpenTelemetryAttributeNames.GRAPHQL_OPERATION_NAME] = requestContext.operationName;
   }
   if (config?.includeDocument && requestContext.source) {
-    spanAttributes["graphql.document"] = requestContext.source;
+    spanAttributes[OpenTelemetryAttributeNames.GRAPHQL_DOCUMENT] = requestContext.source;
   }
 
   return spanAttributes;
@@ -75,7 +87,7 @@ export function operationContextSpanAttributes(
   const spanAttributes: SpanAttributes = {};
 
   if (operationContext.operation.operation) {
-    spanAttributes["graphql.operation.type"] = operationContext.operation.operation;
+    spanAttributes[OpenTelemetryAttributeNames.GRAPHQL_OPERATION_TYPE] = operationContext.operation.operation;
   }
 
   return spanAttributes;

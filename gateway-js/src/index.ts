@@ -779,6 +779,7 @@ export class ApolloGateway implements GatewayInterface {
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
               OpenTelemetrySpanNames.PLAN,
+              { attributes: requestContextSpanAttributes(requestContext, this.config.telemetry) },
               (span) => {
                 try {
                   const operation = operationFromDocument(
