@@ -24,7 +24,7 @@ export type OpenTelemetryConfig = {
    * Defaults to `false`, meaning that no exceptions will be reported in any spans.
    */
   recordExceptions?: boolean | number;
-};
+}
 
 export enum OpenTelemetrySpanNames {
   REQUEST = 'gateway.request',
@@ -62,7 +62,7 @@ export interface SpanAttributes extends Attributes {
 
 export function requestContextSpanAttributes(
   requestContext: GatewayGraphQLRequestContext,
-  config: OpenTelemetryConfig | undefined,
+  config: OpenTelemetryConfig | undefined
 ): SpanAttributes {
   const spanAttributes: SpanAttributes = {};
 
