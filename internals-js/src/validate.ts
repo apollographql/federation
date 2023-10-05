@@ -8,6 +8,7 @@ import {
   InterfaceType,
   isInputObjectType,
   isNonNullType,
+  isScalarType,
   NamedSchemaElement,
   ObjectType,
   Schema,
@@ -17,7 +18,7 @@ import {
   VariableDefinitions
 } from "./definitions";
 import { assertName, ASTNode, GraphQLError, GraphQLErrorOptions } from "graphql";
-import { isValidValue, valueToString } from "./values";
+import { isValidValue, valueToString, isValidValueApplication } from "./values";
 import { introspectionTypeNames, isIntrospectionName } from "./introspection";
 import { isSubtype, sameType } from "./types";
 import { ERRORS } from "./error";
@@ -290,10 +291,14 @@ class Validator {
       );
     }
     if (arg.defaultValue !== undefined && !isValidValue(arg.defaultValue, arg, new VariableDefinitions())) {
-      this.addError(
-        `Invalid default value (got: ${valueToString(arg.defaultValue)}) provided for argument ${arg.coordinate} of type ${arg.type}.`,
-        { nodes: sourceASTs(arg) },
-      );
+      // don't error if custom scalar is shadowing a builtin scalar
+      const builtInScalar = this.schema.builtInScalarTypes().find((t) => arg.type && isScalarType(arg.type) && t.name === arg.type.name);
+      if (!builtInScalar || !isValidValueApplication(arg.defaultValue, builtInScalar, arg.defaultValue, new VariableDefinitions())) {
+        this.addError(
+          `Invalid default value (got: ${valueToString(arg.defaultValue)}) provided for argument ${arg.coordinate} of type ${arg.type}.`,
+          { nodes: sourceASTs(arg) },
+        );
+      }
     }
   }
 
