@@ -293,11 +293,10 @@ export class RemoteGraphQLDataSource<
     _fetchRequest?: NodeFetchRequest,
     _context?: TContext,
   ): Promise<object | string> {
-    const contentType = fetchResponse.headers.get('Content-Type');
+    const contentType = fetchResponse.headers.get('Content-Type') || '';
+    const [type, subtype] = contentType.split(';')[0].trim().split('/').map(s => s.trim());
     if (
-      contentType &&
-      (contentType.startsWith('application/json') ||
-        contentType.startsWith('application/graphql-response+json'))
+      type === 'application' && subtype && subtype.includes('json')
     ) {
       return fetchResponse.json();
     } else {
