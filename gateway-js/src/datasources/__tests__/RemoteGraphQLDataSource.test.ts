@@ -226,16 +226,16 @@ describe('constructing requests', () => {
   const contentTypeHandleTestCases = [
     {
       label: 'with application/graphql-response+json',
-      contentType: 'application/graphql-response+json'
+      contentType: 'application/graphql-response+json',
     },
     {
       label: 'with parameters',
-      contentType: 'application/something+json; charset=utf-8'
+      contentType: 'application/something+json; charset=utf-8',
     },
     {
       label: 'with application/graphql+json',
-      contentType: 'application/graphql+json'
-    }
+      contentType: 'application/graphql+json',
+    },
   ];
   contentTypeHandleTestCases.forEach(({ label, contentType }) => {
     it(`stringifies a request that supports the JSON subtype in its content type ${label}`, async () => {
@@ -246,11 +246,7 @@ describe('constructing requests', () => {
 
       nock('https://api.example.com')
         .post('/foo', { query: '{ me { name } }' })
-        .reply(
-          200,
-          { data: { me: 'james' } },
-          { 'content-type': contentType },
-        );
+        .reply(200, { data: { me: 'james' } }, { 'content-type': contentType });
 
       const { data: dataWithResponse } = await DataSource.process({
         ...defaultProcessOptions,
