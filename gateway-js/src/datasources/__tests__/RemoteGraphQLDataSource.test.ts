@@ -223,26 +223,42 @@ describe('constructing requests', () => {
     });
   });
 
-  it('stringifies a request with `application/graphql-response+json` content type', async () => {
-    const DataSource = new RemoteGraphQLDataSource({
-      url: 'https://api.example.com/foo',
-      apq: false,
+  const contentTypeHandleTestCases = [
+    {
+      label: 'with application/graphql-response+json',
+      contentType: 'application/graphql-response+json'
+    },
+    {
+      label: 'with parameters',
+      contentType: 'application/something+json; charset=utf-8'
+    },
+    {
+      label: 'with application/graphql+json',
+      contentType: 'application/graphql+json'
+    }
+  ];
+  contentTypeHandleTestCases.forEach(({ label, contentType }) => {
+    it(`stringifies a request that supports the JSON subtype in its content type ${label}`, async () => {
+      const DataSource = new RemoteGraphQLDataSource({
+        url: 'https://api.example.com/foo',
+        apq: false,
+      });
+
+      nock('https://api.example.com')
+        .post('/foo', { query: '{ me { name } }' })
+        .reply(
+          200,
+          { data: { me: 'james' } },
+          { 'content-type': contentType },
+        );
+
+      const { data: dataWithResponse } = await DataSource.process({
+        ...defaultProcessOptions,
+        request: { query: '{ me { name } }' },
+      });
+
+      expect(dataWithResponse).toEqual({ me: 'james' });
     });
-
-    nock('https://api.example.com')
-      .post('/foo', { query: '{ me { name } }' })
-      .reply(
-        200,
-        { data: { me: 'james' } },
-        { 'content-type': 'application/graphql-response+json' },
-      );
-
-    const { data } = await DataSource.process({
-      ...defaultProcessOptions,
-      request: { query: '{ me { name } }' },
-    });
-
-    expect(data).toEqual({ me: 'james' });
   });
 });
 
