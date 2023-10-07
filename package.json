@@ -69,7 +69,7 @@
     "strip-indent": "3.0.0",
     "ts-jest": "28.0.8",
     "typescript": "5.0.4",
-    "winston": "3.10.0",
+    "winston": "3.11.0",
     "winston-transport": "4.5.0"
   },
   "jest": {
