@@ -60,6 +60,7 @@ import {
   possibleRuntimeTypes,
   typesCanBeMerged,
   Supergraph,
+  sameType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1109,6 +1110,15 @@ class FetchGroup {
       return true;
     }
 
+    // If we do have inputs, then we first look at the path to `maybeParent`, and it needs to be
+    // essentially empty, "essentially" is because path can sometimes have some leading fragment(s)
+    // and those are fine to ignore. But if the path has some field, then this implies that the inputs
+    // of `this` are based on something at a deeper level than those of `maybeParent`, and the "contains"
+    // comparison we do below would not make sense.
+    if (relation.path.some((elt) => elt.kind === 'Field')) {
+      return false;
+    }
+
     // In theory, the most general test we could have here is to check if `this.inputs` "intersects"
     // `maybeParent.selection. As if it doesn't, we know our inputs don't depend on anything the
     // parent fetches. However, selection set intersection is a bit tricky to implement (due to fragments,
@@ -1217,9 +1227,39 @@ class FetchGroup {
       return undefined;
     }
 
+    // This condition is specific to the case where we're resolving the _concrete_
+    // `__typename` field of an interface when coming from an interfaceObject type.
+    // i.e. { ... on Product { __typename id }} => { ... on Product { __typename} }
+    // This is usually useless at a glance, but in this case we need to actually
+    // keep this since this is our only path to resolving the concrete `__typename`.
+    const isInterfaceTypeConditionOnInterfaceObject = (
+      selection: Selection
+    ): boolean => {
+      if (selection.kind === "FragmentSelection") {
+        const parentType = selection.element.typeCondition;
+        if (parentType && isInterfaceType(parentType)) {
+          // Lastly, we just need to check that we're coming from a subgraph
+          // that has the type as an interface object in its schema.
+          return this.parents().some((p) => {
+            const typeInParent = this.dependencyGraph.subgraphSchemas
+              .get(p.group.subgraphName)
+              ?.type(parentType.name);
+            return typeInParent && isInterfaceObjectType(typeInParent);
+          });
+        }
+      }
+      return false;
+    };
+
     const inputSelections = this.inputs.selectionSets().flatMap((s) => s.selections());
     // Checks that every selection is contained in the input selections.
     const isUseless = this.selection.selections().every((selection) => {
+      // If we're coming from an interfaceObject _to_ an interface, we're
+      // "resolving" the concrete type of the interface and don't want to treat
+      // this as useless.
+      if (isInterfaceTypeConditionOnInterfaceObject(selection)) {
+        return false;
+      }
       const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
       if (!conditionInSupergraph) {
         // We're not in the @interfaceObject case described above. We just check that an input selection contains the
@@ -1677,7 +1717,6 @@ function withFieldAliased(selectionSet: SelectionSet, aliases: FieldToAlias[]): 
 }
 
 class DeferredInfo {
-
   private constructor(
     readonly label: string,
     readonly path: GroupPath,
@@ -2397,13 +2436,16 @@ class FetchDependencyGraph {
     }
 
     if (group.isUseless()) {
-      // In general, removing a group is a bit tricky because we need to deal with the fact
-      // that the group can have multiple parents and children and no break the "path in parent"
-      // in all those cases. To keep thing relatively easily, we only handle the following
-      // cases (other cases will remain non-optimal, but hopefully this handle all the cases
-      // we care about in practice):
-      //   1. if the group has no children. In which case we can just remove it with no ceremony.
-      //   2. if the group has only a single parent and we have a path to that parent.
+      // In general, removing a group is a bit tricky because we need to deal
+      // with the fact that the group can have multiple parents, and we don't
+      // have the "path in parent" in all cases. To keep thing relatively
+      // easily, we only handle the following cases (other cases will remain
+      // non-optimal, but hopefully this handle all the cases we care about in
+      // practice):
+      //   1. if the group has no children. In which case we can just remove it
+      //      with no ceremony.
+      //   2. if the group has only a single parent and we have a path to that
+      //      parent.
       if (group.children().length === 0) {
         this.remove(group);
       } else {
@@ -4042,7 +4084,7 @@ function computeGroupsForTree(
             deferContext: updatedDeferContext
           };
           if (conditions) {
-            // We have some @requires.
+            // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
               edge,
@@ -4457,7 +4499,24 @@ function handleRequires(
       subgraphName: group.subgraphName,
       mergeAt: path.inResponse(),
     });
-    newGroup.addParents(createdGroups.map((group) => ({ group })));
+    newGroup.addParents(
+      createdGroups.map((group) => ({
+        group,
+        // Usually, computing the path of our new group into the created groups
+        // is not entirely trivial, but there is at least the relatively common
+        // case where the 2 groups we look at have:
+        // 1) the same `mergeAt`, and
+        // 2) the same parentType; in that case, we can basically infer those 2
+        //    groups apply at the same "place" and so the "path in parent" is
+        //    empty. TODO: it should probably be possible to generalize this by
+        //    checking the `mergeAt` plus analyzing the selection but that
+        //    warrants some reflection...
+        path: sameMergeAt(group.mergeAt, newGroup.mergeAt)
+          && sameType(group.parentType, newGroup.parentType)
+          ? []
+          : undefined,
+      })),
+    );
     addPostRequireInputs(
       dependencyGraph,
       path,

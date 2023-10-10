@@ -35,8 +35,11 @@ function rewriteAtPathFunction(rewrite: FetchDataRewrite, fieldAtPath: string): 
       };
     case 'KeyRenamer':
       return (obj) => {
-        obj[rewrite.renameKeyTo] = obj[fieldAtPath];
-        obj[fieldAtPath] = undefined;
+        const objAtPath = obj[fieldAtPath];
+        if (objAtPath) {
+          obj[rewrite.renameKeyTo] = obj[fieldAtPath];
+          obj[fieldAtPath] = undefined;
+        }
       };
   }
 }
@@ -63,7 +66,7 @@ function applyAtPath(schema: GraphQLSchema, path: string[], value: any, fct: (ob
     return;
   }
 
-  if (typeof value !== 'object') {
+  if (typeof value !== 'object' || value === null) {
     return;
   }
 

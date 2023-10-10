@@ -1,8 +1,14 @@
 import gql from 'graphql-tag';
-import {ApolloGateway, LocalGraphQLDataSource} from '../../';
-import {fixtures, spanSerializer} from 'apollo-federation-integration-testsuite';
-import {InMemorySpanExporter, SimpleSpanProcessor} from '@opentelemetry/tracing'
-import {NodeTracerProvider} from '@opentelemetry/node';
+import { ApolloGateway, LocalGraphQLDataSource } from '../../';
+import {
+  fixtures,
+  spanSerializer,
+} from 'apollo-federation-integration-testsuite';
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from '@opentelemetry/tracing';
+import { NodeTracerProvider } from '@opentelemetry/node';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 
 expect.addSnapshotSerializer(spanSerializer);
@@ -17,7 +23,12 @@ beforeEach(() => {
 });
 
 describe('opentelemetry', () => {
-  async function execute(executor: any, source: string, variables: any, operationName: string) {
+  async function execute(
+    executor: any,
+    source: string,
+    variables: any,
+    operationName: string,
+  ) {
     await executor({
       source,
       document: gql(source),
@@ -56,7 +67,7 @@ describe('opentelemetry', () => {
         }
       });
 
-      const {executor} = await gateway.load();
+      const { executor } = await gateway.load();
       return executor;
     }
 
@@ -160,7 +171,6 @@ describe('opentelemetry', () => {
       })
     })
   });
-
 
   it('receives spans on fetch failure', async () => {
     const gateway = new ApolloGateway({

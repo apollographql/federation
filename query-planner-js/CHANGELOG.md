@@ -1,5 +1,84 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.5.5
+### Patch Changes
+
+
+- Fix specific case for requesting __typename on interface entity type ([#2775](https://github.com/apollographql/federation/pull/2775))
+  
+  In certain cases, when resolving a __typename on an interface entity (due to it actual being requested in the operation), that fetch group could previously be trimmed / treated as useless. At a glance, it appears to be a redundant step, i.e.:
+  ```
+  { ... on Product { __typename id }} => { ... on Product { __typename} }
+  ```
+  It's actually necessary to preserve this in the case that we're coming from an interface object to an (entity) interface so that we can resolve the concrete __typename correctly.
+
+- Don't preserve useless fetches which downgrade __typename from a concrete type back to its interface type. ([#2778](https://github.com/apollographql/federation/pull/2778))
+  
+  In certain cases, the query planner was preserving some fetches which were "useless" that would rewrite __typename from its already-resolved concrete type back to its interface type. This could result in (at least) requested fields being "filtered" from the final result due to the interface's __typename in the data where the concrete type's __typename was expected.
+  
+  Specifically, the solution was compute the path between newly created groups and their parents when we know that it's trivial (`[]`). Further along in the planning process, this allows to actually remove the known-useless group.
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.5
+  - @apollo/query-graphs@2.5.5
+
+## 2.5.4
+### Patch Changes
+
+
+- Fix some potentially incorrect query plans with `@requires` when some dependencies are involved. ([#2726](https://github.com/apollographql/federation/pull/2726))
+  
+  In some rare case of `@requires`, an over-eager optimisation was incorrectly considering that
+  a dependency between 2 subgraph fetches was unnecessary, leading to doing 2 subgraphs queries
+  in parallel when those should be done sequentially (because the 2nd query rely on results
+  from the 1st one). This effectively resulted in the required fields not being provided (the
+  consequence of which depends a bit on the resolver detail, but if the resolver expected
+  the required fields to be populated (as they should), then this could typically result
+  in a message of the form `GraphQLError: Cannot read properties of null`).
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.4
+  - @apollo/query-graphs@2.5.4
+
+## 2.5.3
+### Patch Changes
+
+
+- Fix potential assertion error for named fragment on abstract types when the abstract type does not have the same ([#2725](https://github.com/apollographql/federation/pull/2725))
+  possible runtime types in all subgraphs.
+  
+  The error manifested itself during query planning with an error message of the form `Cannot normalize X at Y ...`.
+
+- More aggressive ignoring of indirect paths from root types when a more direct alternative exists. This optimisation ([#2669](https://github.com/apollographql/federation/pull/2669))
+  slightly generalize an existing heuristic of the query planner, allowing it to ignore some known inefficient options
+  earlier in its process. When this optimisation can be used, this yield faster query plan computation, but by reducing
+  the number of plans to be consider, this can sometimes prevent the planner to degrade it's output when it consider
+  there is too many plans to consider, which can result in more optimal query plans too.
+- Updated dependencies [[`4b9a512b`](https://github.com/apollographql/federation/commit/4b9a512b62e02544d7854fa198942aac33b93feb), [`c6e0e76d`](https://github.com/apollographql/federation/commit/c6e0e76dbc62662c2aa6ff7f657e374047b11255), [`1add932c`](https://github.com/apollographql/federation/commit/1add932c5cd1297853fb5af9a3a6aaa71243f63a), [`6f1fddb2`](https://github.com/apollographql/federation/commit/6f1fddb25d49262b2ebf6db953371a559dd62e9c)]:
+  - @apollo/federation-internals@2.5.3
+  - @apollo/query-graphs@2.5.3
+
+## 2.5.2
+### Patch Changes
+
+
+- Fix over-eager merging of fields with different directive applications ([#2713](https://github.com/apollographql/federation/pull/2713))
+  
+  Previously, the following query would incorrectly combine the selection set of `hello`, with both fields ending up under the `@skip` condition:
+  ```graphql
+  query Test($skipField: Boolean!) {
+    hello @skip(if: $skipField) {
+      world
+    }
+    hello {
+      goodbye
+    }
+  }
+  ```
+  
+  This change identifies those two selections on `hello` as unique while constructing our operation representation so they aren't merged at all, leaving it to the subgraph to handle the operation as-is.
+- Updated dependencies [[`35179f08`](https://github.com/apollographql/federation/commit/35179f086ce973e9ae7bb455f7ea7d73cdc10f69)]:
+  - @apollo/federation-internals@2.5.2
+  - @apollo/query-graphs@2.5.2
+
 ## 2.5.1
 ### Patch Changes
 

@@ -21,6 +21,126 @@ This article describes notable changes and additions introduced in each minor ve
 
 - **If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/),** consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
 
+## v2.5
+
+<hr/>
+
+<CodeColumns cols="3">
+
+<div>
+
+First release
+
+**July 2023**
+
+</div>
+
+<div>
+
+Available in GraphOS?
+
+**Yes**
+
+</div>
+
+<div>
+
+Minimum router version
+
+**`1.29.1`**
+
+</div>
+
+</CodeColumns>
+
+<hr/>
+
+#### Directive changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@authenticated`
+
+</td>
+<td>
+
+
+Introduced. [Learn more.](/router/configuration/authorization)
+
+```graphql
+directive @authenticated on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `@requiresScopes`
+
+</td>
+<td>
+
+
+Introduced. [Learn more.](/router/configuration/authorization)
+
+```graphql
+directive @requiresScopes(scopes: [[Scope!]!]!) on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Scope
+
+</td>
+<td>
+
+- Custom scalar representing a JWT scope. Used by new `@requiresScopes` directive.
+
+</td>
+</tr>
+</tbody>
+</table>
+
 ## v2.4
 
 <hr/>

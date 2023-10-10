@@ -1,6 +1,9 @@
 import gql from 'graphql-tag';
 import { execute, ServiceDefinitionModule } from '../execution-utils';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -45,7 +48,7 @@ const reviewService: ServiceDefinitionModule = {
     },
     User: {
       reviews(user) {
-        return reviews.filter(review => review.authorId === user.id);
+        return reviews.filter((review) => review.authorId === user.id);
       },
     },
     Review: {
@@ -107,8 +110,8 @@ const userService: ServiceDefinitionModule = {
       group: () => ({ id: 1, name: 'Apollo GraphQL' }),
       __resolveReference(reference) {
         if (reference.ssn)
-          return users.find(user => user.ssn === reference.ssn);
-        else return users.find(user => user.id === reference.id);
+          return users.find((user) => user.ssn === reference.ssn);
+        else return users.find((user) => user.id === reference.id);
       },
     },
   },
@@ -234,7 +237,7 @@ it('fetches keys as needed to reduce round trip queries', async () => {
     {
       query,
     },
-    [userService, reviewService, actuaryService]
+    [userService, reviewService, actuaryService],
   );
 
   expect(errors).toBeFalsy();

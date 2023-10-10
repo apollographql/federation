@@ -61,6 +61,13 @@ export function isFederatedGraphRootType(type: NamedType) {
  */
 export class Vertex {
   hasReachableCrossSubgraphEdges: boolean = false;
+  // @provides works by creating duplicates of the vertex/type involved in the provides and adding the provided
+  // edges only to those copy. This means that with @provides, you can have more than one vertex per-type-and-subgraph
+  // in a query graph. Which is fined, but this `provideId` allows to distinguish if a vertex was created as part of
+  // this @provides duplication or not. The value of this field has no other meaning than to be unique per-@provide,
+  // and so all the vertex copied for a given @provides application will have the same `provideId`. Overall, this
+  // mostly exists for debugging visualization.
+  provideId: number | undefined;
 
   constructor(
     /** Index used for this vertex in the query graph it is part of. */
@@ -75,7 +82,8 @@ export class Vertex {
   ) {}
 
   toString(): string {
-    return `${this.type}(${this.source})`;
+    const label = `${this.type}(${this.source})`;
+    return this.provideId ? `${label}-${this.provideId}` : label;
   }
 }
 
@@ -741,6 +749,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
     );
   }
   // Now we handle @provides
+  let provideId = 0;
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
@@ -756,6 +765,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
+            ++provideId;
             const fieldType = baseType(field.type!);
             assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
             const provided = parseFieldSetArgument({ parentType: fieldType, directive: providesApplication });
@@ -766,9 +776,9 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
             const copiedEdge = builder.edge(head, e.index);
             // We make a copy of the `fieldType` vertex (with all the same edges), and we change this particular edge to point to the
             // new copy. From that, we can add all the provides edges to the copy.
-            const copiedTail = builder.makeCopy(tail);
+            const copiedTail = builder.makeCopy(tail, provideId);
             builder.updateEdgeTail(copiedEdge, copiedTail);
-            addProvidesEdges(subgraphSchema, builder, copiedTail, provided);
+            addProvidesEdges(subgraphSchema, builder, copiedTail, provided, provideId);
           }
         }
         return true; // Always traverse edges
@@ -832,7 +842,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
   return builder.build(FEDERATED_GRAPH_ROOT_SOURCE);
 }
 
-function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, provided: SelectionSet) {
+function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, provided: SelectionSet, provideId: number) {
   const stack: [Vertex, SelectionSet][] = [[from, provided]];
   const source = from.source;
   while (stack.length > 0) {
@@ -847,7 +857,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // If this is a leaf field, then we don't really have anything to do. Otherwise, we need to copy
           // the tail and continue propagating the provides from there.
           if (selection.selectionSet) {
-            const copiedTail = builder.makeCopy(existingEdge.tail);
+            const copiedTail = builder.makeCopy(existingEdge.tail, provideId);
             builder.updateEdgeTail(existingEdge, copiedTail);
             stack.push([copiedTail, selection.selectionSet]);
           }
@@ -860,7 +870,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // If the field is a leaf, then just create the new edge and we're done. Othewise, we
           // should copy the vertex (unless we just created it), add the edge and continue.
           if (selection.selectionSet) {
-            const copiedTail = existingTail ? builder.makeCopy(existingTail) : newTail;
+            const copiedTail = existingTail ? builder.makeCopy(existingTail, provideId) : newTail;
             builder.addEdge(v, copiedTail, new FieldCollection(fieldDef, true));
             stack.push([copiedTail, selection.selectionSet]);
           } else {
@@ -875,7 +885,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
           // to mark a full type as @external).
           assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v} (edges are: [${builder.edges(v)}])`);
-          const copiedTail = builder.makeCopy(existingEdge.tail);
+          const copiedTail = builder.makeCopy(existingEdge.tail, provideId);
           builder.updateEdgeTail(existingEdge, copiedTail);
           stack.push([copiedTail, selection.selectionSet!]);
         } else {
@@ -1030,10 +1040,13 @@ class GraphBuilder {
    * Creates a new vertex that is a full copy of the provided one, including having the same out-edge, but with no incoming edges.
    *
    * @param vertex - the vertex to copy.
+   * @param provideId - if the vertex is copied for the sake of a `@provides`, an id that identify that provide and will be set on
+   *   the newly copied vertex.
    * @returns the newly created copy.
    */
-  makeCopy(vertex: Vertex): Vertex {
+  makeCopy(vertex: Vertex, provideId?: number): Vertex {
     const newVertex = this.createNewVertex(vertex.type, vertex.source, this.sources.get(vertex.source)!);
+    newVertex.provideId = provideId;
     newVertex.hasReachableCrossSubgraphEdges = vertex.hasReachableCrossSubgraphEdges;
     for (const edge of this.outEdges[vertex.index]) {
       this.addEdge(newVertex, edge.tail, edge.transition, edge.conditions);
@@ -1092,8 +1105,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
   ) {
     super();
-    this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
-    assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
+    this.isFederatedSubgraph = !!supergraph && isFederationSubgraphSchema(schema);
   }
 
   private hasDirective(elt: FieldDefinition<any> | NamedType, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {

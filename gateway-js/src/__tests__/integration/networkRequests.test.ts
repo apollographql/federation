@@ -455,9 +455,9 @@ describe('Downstream service health checks', () => {
 
       // Update
       mockSupergraphSdlRequestSuccessIfAfter(
-          'originalId-1234',
-          'updatedId-5678',
-          getTestingSupergraphSdl(fixturesWithUpdate),
+        'originalId-1234',
+        'updatedId-5678',
+        getTestingSupergraphSdl(fixturesWithUpdate),
       );
       mockAllServicesHealthCheckSuccess();
 
@@ -499,8 +499,8 @@ describe('Downstream service health checks', () => {
 
       // Update (with one health check failure)
       mockSupergraphSdlRequestSuccessIfAfter(
-          'originalId-1234',
-          'updatedId-5678',
+        'originalId-1234',
+        'updatedId-5678',
         getTestingSupergraphSdl(fixturesWithUpdate),
       );
       mockServiceHealthCheck(accounts).reply(500);

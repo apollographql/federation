@@ -12,7 +12,7 @@ describe('httpSpecTests.ts', () => {
   beforeAll(async () => {
     gatewayServer = new ApolloServer({
       gateway: new ApolloGateway({
-        supergraphSdl: getTestingSupergraphSdl()
+        supergraphSdl: getTestingSupergraphSdl(),
       }),
       // The test doesn't know we should send apollo-require-preflight along
       // with GETs. We could override `fetchFn` to add it but this seems simple enough.

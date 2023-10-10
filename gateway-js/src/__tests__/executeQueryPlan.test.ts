@@ -18,12 +18,21 @@ import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServer } from '@apollo/server';
 import { getFederatedTestingSchema } from './execution-utils';
-import { Schema, Operation, parseOperation, arrayEquals, Supergraph } from '@apollo/federation-internals';
+import {
+  Schema,
+  Operation,
+  parseOperation,
+  arrayEquals,
+  Supergraph,
+} from '@apollo/federation-internals';
 import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from '@apollo/subgraph/src/schema-helper';
-import {GatewayExecutionResult, GatewayGraphQLRequestContext} from '@apollo/server-gateway-interface';
+import {
+  GatewayExecutionResult,
+  GatewayGraphQLRequestContext,
+} from '@apollo/server-gateway-interface';
 import { unwrapSingleResultKind } from './gateway/testUtils';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -35,26 +44,35 @@ describe('executeQueryPlan', () => {
   };
 
   const parseOp = (operation: string, operationSchema?: Schema): Operation => {
-    return parseOperation((operationSchema ?? schema), operation);
-  }
+    return parseOperation(operationSchema ?? schema, operation);
+  };
 
-  const buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
-    const op = typeof operation === 'string' ? parseOp(operation, operationSchema): operation;
+  const buildPlan = (
+    operation: string | Operation,
+    operationQueryPlanner?: QueryPlanner,
+    operationSchema?: Schema,
+  ): QueryPlan => {
+    const op =
+      typeof operation === 'string'
+        ? parseOp(operation, operationSchema)
+        : operation;
     return (operationQueryPlanner ?? queryPlanner).buildQueryPlan(op);
-  }
+  };
 
   async function executePlan(
     queryPlan: QueryPlan,
     operation: Operation,
     executeRequestContext?: GatewayGraphQLRequestContext,
     executeSchema?: Schema,
-    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
+    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource },
   ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
     const apiSchema = supergraphSchema.toAPISchema();
     const operationContext = buildOperationContext({
       schema: apiSchema.toGraphQLJSSchema(),
-      operationDocument: gql`${operation.toString()}`,
+      operationDocument: gql`
+        ${operation.toString()}
+      `,
     });
     return executeQueryPlan(
       queryPlan,
@@ -66,10 +84,13 @@ describe('executeQueryPlan', () => {
     );
   }
 
-  async function executeOperation(operationString: string, requestContext?: GatewayGraphQLRequestContext): Promise<GatewayExecutionResult> {
-      const operation = parseOp(operationString);
-      const queryPlan = buildPlan(operation);
-      return executePlan(queryPlan, operation, requestContext);
+  async function executeOperation(
+    operationString: string,
+    requestContext?: GatewayGraphQLRequestContext,
+  ): Promise<GatewayExecutionResult> {
+    const operation = parseOp(operationString);
+    const queryPlan = buildPlan(operation);
+    return executePlan(queryPlan, operation, requestContext);
   }
 
   function overrideResolversInService(
@@ -155,7 +176,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
-      expect(response).toHaveProperty('errors.0.path', ["me"]);
+      expect(response).toHaveProperty('errors.0.path', ['me']);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
@@ -1276,7 +1297,12 @@ describe('executeQueryPlan', () => {
       const operation = parseOp(`${getIntrospectionQuery()}`, schema);
       queryPlanner = new QueryPlanner(supergraph);
       const queryPlan = queryPlanner.buildQueryPlan(operation);
-      const response = await executePlan(queryPlan, operation, undefined, schema);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+      );
 
       expect(response.data).toHaveProperty('__schema');
       expect(response.errors).toBeUndefined();
@@ -1310,7 +1336,12 @@ describe('executeQueryPlan', () => {
       queryPlanner = new QueryPlanner(supergraph);
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+      );
       expect(response.data).toBeUndefined();
       expect(response.errors).toMatchInlineSnapshot(`
         Array [
@@ -1390,7 +1421,12 @@ describe('executeQueryPlan', () => {
       queryPlanner = new QueryPlanner(supergraph);
       const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+      );
 
       expect(response.data?.vehicle).toEqual(null);
       // This kind of error is only found by the post-processing of the gateway, and post-processing errors are currently not returned
@@ -1425,24 +1461,24 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
       addResolversToSchema(serviceMap['S1'].schema, {
         Query: {
           getA() {
             return {
-              getA: {}
+              getA: {},
             };
           },
         },
         A: {
           q() {
             return Object.create(null);
-          }
-        }
+          },
+        },
       });
 
       addResolversToSchema(serviceMap['S2'].schema, {
@@ -1453,7 +1489,8 @@ describe('executeQueryPlan', () => {
         },
       });
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getA {
             q {
@@ -1461,7 +1498,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       const queryPlan = buildPlan(operation, queryPlanner);
 
@@ -1490,7 +1529,13 @@ describe('executeQueryPlan', () => {
         }
         `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
 
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1501,66 +1546,69 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-    })
+    });
 
     it('can query other subgraphs when the Query type is the type of a field after a mutation', async () => {
-        const s1 = gql`
-          type Query {
-            one: Int
-          }
+      const s1 = gql`
+        type Query {
+          one: Int
+        }
 
-          type Mutation {
-            mutateSomething: Query
-          }
-        `;
+        type Mutation {
+          mutateSomething: Query
+        }
+      `;
 
-        const s2 = gql`
-          type Query {
-            two: Int
-          }
-        `;
+      const s2 = gql`
+        type Query {
+          two: Int
+        }
+      `;
 
-        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
-          { name: 'S1', typeDefs: s1 },
-          { name: 'S2', typeDefs: s2 }
-        ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 },
+      ]);
 
-        let hasMutated = false;
+      let hasMutated = false;
 
-        addResolversToSchema(serviceMap['S1'].schema, {
-          Query: {
-            one() {
-              return 1;
-            },
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          one() {
+            return 1;
           },
-          Mutation: {
-            mutateSomething() {
-              hasMutated = true;
-              return {};
-            },
-          }
-        });
-
-        addResolversToSchema(serviceMap['S2'].schema, {
-          Query: {
-            two() {
-              return 2;
-            },
+        },
+        Mutation: {
+          mutateSomething() {
+            hasMutated = true;
+            return {};
           },
-        });
+        },
+      });
 
-        const operation = parseOp(`
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          two() {
+            return 2;
+          },
+        },
+      });
+
+      const operation = parseOp(
+        `
           mutation {
             mutateSomething {
               one
               two
             }
           }
-          `, schema);
+          `,
+        schema,
+      );
 
-        const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
 
-        expect(queryPlan).toMatchInlineSnapshot(`
+      expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
               Fetch(service: "S1") {
@@ -1584,10 +1632,16 @@ describe('executeQueryPlan', () => {
           }
         `);
 
-        const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
 
-        expect(hasMutated).toBeTruthy();
-        expect(response.data).toMatchInlineSnapshot(`
+      expect(hasMutated).toBeTruthy();
+      expect(response.data).toMatchInlineSnapshot(`
           Object {
             "mutateSomething": Object {
               "one": 1,
@@ -1595,7 +1649,7 @@ describe('executeQueryPlan', () => {
             },
           }
         `);
-    })
+    });
 
     it('can mutate other subgraphs when the Mutation type is the type of a field', async () => {
       const s1 = gql`
@@ -1618,9 +1672,9 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
       let mutateOneCalled = false;
@@ -1630,21 +1684,21 @@ describe('executeQueryPlan', () => {
         Query: {
           getA() {
             return {
-              getA: {}
+              getA: {},
             };
           },
         },
         A: {
           m() {
             return Object.create(null);
-          }
+          },
         },
         Mutation: {
           mutateOne() {
             mutateOneCalled = true;
             return 1;
-          }
-        }
+          },
+        },
       });
 
       addResolversToSchema(serviceMap['S2'].schema, {
@@ -1656,7 +1710,8 @@ describe('executeQueryPlan', () => {
         },
       });
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getA {
             m {
@@ -1665,7 +1720,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       const queryPlan = buildPlan(operation, queryPlanner);
 
@@ -1695,7 +1752,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(mutateOneCalled).toBeTruthy();
       expect(mutateTwoCalled).toBeTruthy();
       expect(response.data).toMatchInlineSnapshot(`
@@ -1708,57 +1771,58 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-    })
+    });
 
     it('can mutate other subgraphs when the Mutation type is the type of a field after a mutation', async () => {
-        const s1 = gql`
-          type Query {
-            one: Int
-          }
+      const s1 = gql`
+        type Query {
+          one: Int
+        }
 
-          type Mutation {
-            mutateSomething: Mutation
-          }
-        `;
+        type Mutation {
+          mutateSomething: Mutation
+        }
+      `;
 
-        const s2 = gql`
-          type Mutation {
-            mutateTwo: Int
-          }
-        `;
+      const s2 = gql`
+        type Mutation {
+          mutateTwo: Int
+        }
+      `;
 
-        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
-          { name: 'S1', typeDefs: s1 },
-          { name: 'S2', typeDefs: s2 }
-        ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 },
+      ]);
 
-        let somethingMutationCount = 0;
-        let hasMutatedTwo = false;
+      let somethingMutationCount = 0;
+      let hasMutatedTwo = false;
 
-        addResolversToSchema(serviceMap['S1'].schema, {
-          Query: {
-            one() {
-              return 1;
-            },
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          one() {
+            return 1;
           },
-          Mutation: {
-            mutateSomething() {
-              ++somethingMutationCount;
-              return {};
-            },
-          }
-        });
-
-        addResolversToSchema(serviceMap['S2'].schema, {
-          Mutation: {
-            mutateTwo() {
-              hasMutatedTwo = true;
-              return 2;
-            },
+        },
+        Mutation: {
+          mutateSomething() {
+            ++somethingMutationCount;
+            return {};
           },
-        });
+        },
+      });
 
-        const operation = parseOp(`
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Mutation: {
+          mutateTwo() {
+            hasMutatedTwo = true;
+            return 2;
+          },
+        },
+      });
+
+      const operation = parseOp(
+        `
           mutation {
             mutateSomething {
               mutateSomething {
@@ -1766,11 +1830,13 @@ describe('executeQueryPlan', () => {
               }
             }
           }
-          `, schema);
+          `,
+        schema,
+      );
 
-        const queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
 
-        expect(queryPlan).toMatchInlineSnapshot(`
+      expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
               Fetch(service: "S1") {
@@ -1795,11 +1861,17 @@ describe('executeQueryPlan', () => {
           }
         `);
 
-        const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
 
-        expect(somethingMutationCount).toBe(2);
-        expect(hasMutatedTwo).toBeTruthy();
-        expect(response.data).toMatchInlineSnapshot(`
+      expect(somethingMutationCount).toBe(2);
+      expect(hasMutatedTwo).toBeTruthy();
+      expect(response.data).toMatchInlineSnapshot(`
           Object {
             "mutateSomething": Object {
               "mutateSomething": Object {
@@ -1808,7 +1880,7 @@ describe('executeQueryPlan', () => {
             },
           }
         `);
-    })
+    });
   });
 
   describe('interfaces on interfaces', () => {
@@ -1847,7 +1919,8 @@ describe('executeQueryPlan', () => {
           c: String
         }
 
-        type T4 implements SubInterface1 & SubInterface2 & TopInterface @key(fields: "a") {
+        type T4 implements SubInterface1 & SubInterface2 & TopInterface
+          @key(fields: "a") {
           a: Int
           b: String @external
           c: String @external
@@ -1867,24 +1940,34 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
-      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
-      const t2s_s1: any[] = [{__typename: 'T2', b: 'k1'}, {__typename: 'T2', b: 'k2'}];
-      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
-      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+      const t1s_s1: any[] = [
+        { __typename: 'T1', a: 1, b: 'T1_v1' },
+        { __typename: 'T1', a: 2, b: 'T1_v2' },
+      ];
+      const t2s_s1: any[] = [
+        { __typename: 'T2', b: 'k1' },
+        { __typename: 'T2', b: 'k2' },
+      ];
+      const t3s_s1: any[] = [{ __typename: 'T3', a: 42, c: 'T3_v1' }];
+      const t4s_s1: any[] = [
+        { __typename: 'T4', a: 0 },
+        { __typename: 'T4', a: 10 },
+        { __typename: 'T4', a: 20 },
+      ];
 
-      const t2s_s2 = new Map<string, {a: number, b: string}>();
-      t2s_s2.set('k1', {a: 12 , b: 'k1'});
-      t2s_s2.set('k2', {a: 24 , b: 'k2'});
+      const t2s_s2 = new Map<string, { a: number; b: string }>();
+      t2s_s2.set('k1', { a: 12, b: 'k1' });
+      t2s_s2.set('k2', { a: 24, b: 'k2' });
 
-      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
-      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
-      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
-      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+      const t4s_s2 = new Map<number, { a: number; b: string; c: string }>();
+      t4s_s2.set(0, { a: 0, b: 'b_0', c: 'c_0' });
+      t4s_s2.set(10, { a: 10, b: 'b_10', c: 'c_10' });
+      t4s_s2.set(20, { a: 20, b: 'b_20', c: 'c_20' });
 
       addResolversToSchema(serviceMap['S1'].schema, {
         Query: {
@@ -1898,16 +1981,17 @@ describe('executeQueryPlan', () => {
         T2: {
           __resolveReference(ref) {
             return t2s_s2.get(ref.b);
-          }
+          },
         },
         T4: {
           __resolveReference(ref) {
             return t4s_s2.get(ref.a);
-          }
+          },
         },
       });
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           allValues {
             a
@@ -1919,7 +2003,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       const queryPlan = buildPlan(operation, queryPlanner);
 
@@ -1976,7 +2062,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
 
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -2058,7 +2150,8 @@ describe('executeQueryPlan', () => {
           c: String
         }
 
-        type T4 implements SubInterface1 & SubInterface2 & TopInterface @key(fields: "a") {
+        type T4 implements SubInterface1 & SubInterface2 & TopInterface
+          @key(fields: "a") {
           a: Int
           b: String @external
           c: String @external
@@ -2078,24 +2171,34 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
-      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
-      const t2s_s1: any[] = [{__typename: 'T2', a: 12}, {__typename: 'T2', a: 24}];
-      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
-      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+      const t1s_s1: any[] = [
+        { __typename: 'T1', a: 1, b: 'T1_v1' },
+        { __typename: 'T1', a: 2, b: 'T1_v2' },
+      ];
+      const t2s_s1: any[] = [
+        { __typename: 'T2', a: 12 },
+        { __typename: 'T2', a: 24 },
+      ];
+      const t3s_s1: any[] = [{ __typename: 'T3', a: 42, c: 'T3_v1' }];
+      const t4s_s1: any[] = [
+        { __typename: 'T4', a: 0 },
+        { __typename: 'T4', a: 10 },
+        { __typename: 'T4', a: 20 },
+      ];
 
-      const t2s_s2 = new Map<number, {a: number, b: string}>();
-      t2s_s2.set(12, {a: 12 , b: 'k1'});
-      t2s_s2.set(24, {a: 24 , b: 'k2'});
+      const t2s_s2 = new Map<number, { a: number; b: string }>();
+      t2s_s2.set(12, { a: 12, b: 'k1' });
+      t2s_s2.set(24, { a: 24, b: 'k2' });
 
-      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
-      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
-      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
-      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+      const t4s_s2 = new Map<number, { a: number; b: string; c: string }>();
+      t4s_s2.set(0, { a: 0, b: 'b_0', c: 'c_0' });
+      t4s_s2.set(10, { a: 10, b: 'b_10', c: 'c_10' });
+      t4s_s2.set(20, { a: 20, b: 'b_20', c: 'c_20' });
 
       addResolversToSchema(serviceMap['S1'].schema, {
         Query: {
@@ -2109,22 +2212,25 @@ describe('executeQueryPlan', () => {
         T2: {
           __resolveReference(ref) {
             return t2s_s2.get(ref.b);
-          }
+          },
         },
         T4: {
           __resolveReference(ref) {
             return t4s_s2.get(ref.a);
-          }
+          },
         },
       });
 
-      let operation = parseOp(`
+      let operation = parseOp(
+        `
         query {
           allValues {
             a
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       let queryPlan = buildPlan(operation, queryPlanner);
 
@@ -2141,7 +2247,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "allValues": Array [
@@ -2173,7 +2285,8 @@ describe('executeQueryPlan', () => {
         }
         `);
 
-      operation = parseOp(`
+      operation = parseOp(
+        `
         query {
           allValues {
             ... on SubInterface1 {
@@ -2181,7 +2294,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       queryPlan = buildPlan(operation, queryPlanner);
 
@@ -2209,7 +2324,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "allValues": Array [
@@ -2261,8 +2382,8 @@ describe('executeQueryPlan', () => {
         type MyTypeB implements MyInterface {
           name: String
         }
-      `
-    }
+      `,
+    };
 
     const s2 = {
       name: 'S2',
@@ -2274,15 +2395,18 @@ describe('executeQueryPlan', () => {
         type MyTypeC implements MyInterface {
           name: String
         }
-      `
-    }
+      `,
+    };
 
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+      s1,
+      s2,
+    ]);
 
     addResolversToSchema(serviceMap['S1'].schema, {
       Query: {
         myField() {
-          return { __typename: 'MyTypeA', name: "foo" };
+          return { __typename: 'MyTypeA', name: 'foo' };
         },
       },
     });
@@ -2290,13 +2414,16 @@ describe('executeQueryPlan', () => {
     // First, we just query the field without conditions.
     // Note that there is no reason to type-explode this: clearly, `myField` will never return a `MyTypeC` since
     // it's resolved by S1 which doesn't know that type, but that doesn't impact the plan.
-    let operation = parseOp(`
+    let operation = parseOp(
+      `
       query {
         myField {
           name
         }
       }
-      `, schema);
+      `,
+      schema,
+    );
     let queryPlan = buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -2310,7 +2437,13 @@ describe('executeQueryPlan', () => {
         },
       }
     `);
-    let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    let response = await executePlan(
+      queryPlan,
+      operation,
+      undefined,
+      schema,
+      serviceMap,
+    );
     expect(response.data).toMatchInlineSnapshot(`
       Object {
         "myField": Object {
@@ -2321,7 +2454,8 @@ describe('executeQueryPlan', () => {
 
     // Now forcing the query planning to notice that `MyTypeC` can never happen and making
     // sure it doesn't ask it from S1, which doesn't know it.
-    operation = parseOp(`
+    operation = parseOp(
+      `
       query {
         myField {
           ... on MyTypeA {
@@ -2332,7 +2466,9 @@ describe('executeQueryPlan', () => {
           }
         }
       }
-      `, schema);
+      `,
+      schema,
+    );
     queryPlan = buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -2349,7 +2485,13 @@ describe('executeQueryPlan', () => {
       }
     `);
 
-    response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    response = await executePlan(
+      queryPlan,
+      operation,
+      undefined,
+      schema,
+      serviceMap,
+    );
     expect(response.data).toMatchInlineSnapshot(`
       Object {
         "myField": Object {
@@ -2358,10 +2500,10 @@ describe('executeQueryPlan', () => {
       }
       `);
 
-
     // Testing only getting name for `MyTypeB`, which is known by S1, but not returned
     // by `myField` in practice (so the result is "empty").
-    operation = parseOp(`
+    operation = parseOp(
+      `
       query {
         myField {
           ... on MyTypeB {
@@ -2369,7 +2511,9 @@ describe('executeQueryPlan', () => {
           }
         }
       }
-      `, schema);
+      `,
+      schema,
+    );
 
     queryPlan = buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -2386,14 +2530,21 @@ describe('executeQueryPlan', () => {
         },
       }
     `);
-    response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    response = await executePlan(
+      queryPlan,
+      operation,
+      undefined,
+      schema,
+      serviceMap,
+    );
     expect(response.data).toMatchInlineSnapshot(`
       Object {
         "myField": Object {},
       }
       `);
 
-    operation = parseOp(`
+    operation = parseOp(
+      `
       query {
         myField {
           ... on MyTypeC {
@@ -2401,7 +2552,9 @@ describe('executeQueryPlan', () => {
           }
         }
       }
-      `, schema);
+      `,
+      schema,
+    );
 
     // Lastly, same with only getting name for `MyTypeC`. It isn't known by S1 so the condition should not
     // be included in the query, but we should still query `myField` to know if it resolve to "something"
@@ -2421,7 +2574,13 @@ describe('executeQueryPlan', () => {
       }
     `);
 
-    response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    response = await executePlan(
+      queryPlan,
+      operation,
+      undefined,
+      schema,
+      serviceMap,
+    );
     expect(response.data).toMatchInlineSnapshot(`
       Object {
         "myField": Object {},
@@ -2432,9 +2591,9 @@ describe('executeQueryPlan', () => {
   describe('@requires', () => {
     test('handles null in required field correctly (with nullable fields)', async () => {
       const s1_data = [
-        { id: 0, f1: "foo" },
+        { id: 0, f1: 'foo' },
         { id: 1, f1: null },
-        { id: 2, f1: "bar" },
+        { id: 2, f1: 'bar' },
       ];
 
       const s1 = {
@@ -2447,12 +2606,12 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           T1: {
-            __resolveReference(ref: {id: number}) {
+            __resolveReference(ref: { id: number }) {
               return s1_data[ref.id];
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -2474,7 +2633,7 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             getT1s() {
-              return [{id: 0}, {id: 1}, {id: 2}];
+              return [{ id: 0 }, { id: 1 }, { id: 2 }];
             },
           },
           T1: {
@@ -2484,14 +2643,18 @@ describe('executeQueryPlan', () => {
             },
             f2(o: { f1: string }) {
               return o.f1 === null ? null : { a: `t1:${o.f1}` };
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getT1s {
             id
@@ -2501,7 +2664,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2550,7 +2715,13 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -2581,9 +2752,9 @@ describe('executeQueryPlan', () => {
 
     test('handles null in required field correctly (with @require field non-nullable)', async () => {
       const s1_data = [
-        { id: 0, f1: "foo" },
+        { id: 0, f1: 'foo' },
         { id: 1, f1: null },
-        { id: 2, f1: "bar" },
+        { id: 2, f1: 'bar' },
       ];
 
       const s1 = {
@@ -2600,8 +2771,8 @@ describe('executeQueryPlan', () => {
               return s1_data[ref.id];
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -2623,7 +2794,7 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             getT1s() {
-              return [{id: 0}, {id: 1}, {id: 2}];
+              return [{ id: 0 }, { id: 1 }, { id: 2 }];
             },
           },
           T1: {
@@ -2633,14 +2804,18 @@ describe('executeQueryPlan', () => {
             },
             f2(o: { f1: string }) {
               return o.f1 === null ? null : { a: `t1:${o.f1}` };
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getT1s {
             id
@@ -2650,7 +2825,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2700,7 +2877,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -2725,7 +2908,9 @@ describe('executeQueryPlan', () => {
         `);
 
       // We returning `null` for f2 which isn't nullable, so it bubbled up and we should have an error
-      expect(response.errors?.map((e) => e.message)).toStrictEqual(['Cannot return null for non-nullable field T1.f2.']);
+      expect(response.errors?.map((e) => e.message)).toStrictEqual([
+        'Cannot return null for non-nullable field T1.f2.',
+      ]);
     });
 
     test('handles null in required field correctly (with non-nullable required field)', async () => {
@@ -2739,12 +2924,12 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           T1: {
-            __resolveReference(ref: { id: number}) {
+            __resolveReference(ref: { id: number }) {
               return s1_data[ref.id];
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -2766,7 +2951,7 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             getT1s() {
-              return [{id: 0}, {id: 1}, {id: 2}];
+              return [{ id: 0 }, { id: 1 }, { id: 2 }];
             },
           },
           T1: {
@@ -2776,20 +2961,24 @@ describe('executeQueryPlan', () => {
             },
             f2(o: { f1: string }) {
               return o.f1 === null ? null : { a: `t1:${o.f1}` };
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
       const s1_data = [
-        { id: 0, f1: "foo" },
+        { id: 0, f1: 'foo' },
         { id: 1, f1: null },
-        { id: 2, f1: "bar" },
+        { id: 2, f1: 'bar' },
       ];
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getT1s {
             id
@@ -2799,7 +2988,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2849,7 +3040,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -2872,7 +3069,9 @@ describe('executeQueryPlan', () => {
           ],
         }
         `);
-      expect(response.errors?.map((e) => e.message)).toStrictEqual(['Cannot return null for non-nullable field T1.f1.']);
+      expect(response.errors?.map((e) => e.message)).toStrictEqual([
+        'Cannot return null for non-nullable field T1.f1.',
+      ]);
     });
 
     test('handles errors in required field correctly (with nullable fields)', async () => {
@@ -2891,15 +3090,19 @@ describe('executeQueryPlan', () => {
             },
             f1(o: { id: number }) {
               switch (o.id) {
-                case 0: return "foo";
-                case 1: return [ "invalid" ]; // This will effectively throw
-                case 2: return "bar";
-                default: throw new Error('Not handled');
+                case 0:
+                  return 'foo';
+                case 1:
+                  return ['invalid']; // This will effectively throw
+                case 2:
+                  return 'bar';
+                default:
+                  throw new Error('Not handled');
               }
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -2921,7 +3124,7 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             getT1s() {
-              return [{id: 0}, {id: 1}, {id: 2}];
+              return [{ id: 0 }, { id: 1 }, { id: 2 }];
             },
           },
           T1: {
@@ -2931,14 +3134,18 @@ describe('executeQueryPlan', () => {
             },
             f2(o: { f1: string }) {
               return o.f1 === null ? null : { a: `t1:${o.f1}` };
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getT1s {
             id
@@ -2948,7 +3155,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -2997,7 +3206,13 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -3023,7 +3238,9 @@ describe('executeQueryPlan', () => {
           ],
         }
         `);
-      expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
+      expect(response.errors?.map((e) => e.message)).toStrictEqual([
+        'String cannot represent value: ["invalid"]',
+      ]);
     });
 
     test('ensures type condition on inaccessible type in @require works correctly', async () => {
@@ -3031,7 +3248,10 @@ describe('executeQueryPlan', () => {
         name: 'data',
         typeDefs: gql`
           extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.0"
+              import: ["@key", "@shareable"]
+            )
 
           type Entity @key(fields: "id") {
             id: ID!
@@ -3053,29 +3273,28 @@ describe('executeQueryPlan', () => {
           }
         `,
         resolvers: {
-            Query: {
-              dummy() {
-                return {};
-              },
+          Query: {
+            dummy() {
+              return {};
             },
-            Entity: {
-              __resolveReference() {
-                return {};
-              },
-              id() {
-                return "id";
-              },
-              data() {
-                return {
-                  __typename: "Data",
-                  foo: "foo",
-                  bar: "bar",
-                };
-              },
+          },
+          Entity: {
+            __resolveReference() {
+              return {};
             },
-
-        }
-      }
+            id() {
+              return 'id';
+            },
+            data() {
+              return {
+                __typename: 'Data',
+                foo: 'foo',
+                bar: 'bar',
+              };
+            },
+          },
+        },
+      };
 
       let requirerRepresentation: any = undefined;
 
@@ -3083,10 +3302,16 @@ describe('executeQueryPlan', () => {
         name: 'requirer',
         typeDefs: gql`
           extend schema
-          @link(
-            url: "https://specs.apollo.dev/federation/v2.0",
-            import: ["@key", "@shareable", "@external", "@requires", "@inaccessible"]
-          )
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.0"
+              import: [
+                "@key"
+                "@shareable"
+                "@external"
+                "@requires"
+                "@inaccessible"
+              ]
+            )
 
           type Query {
             dummy: Entity
@@ -3095,7 +3320,8 @@ describe('executeQueryPlan', () => {
           type Entity @key(fields: "id") {
             id: ID!
             data: Foo @external
-            requirer: String! @requires(fields: "data { foo ... on Bar { bar } }")
+            requirer: String!
+              @requires(fields: "data { foo ... on Bar { bar } }")
           }
 
           interface Foo {
@@ -3124,24 +3350,30 @@ describe('executeQueryPlan', () => {
               return {};
             },
             id() {
-              return "id";
+              return 'id';
             },
             requirer() {
-              return "requirer";
+              return 'requirer';
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           dummy {
             requirer
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -3202,7 +3434,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "dummy": Object {
@@ -3259,14 +3497,16 @@ describe('executeQueryPlan', () => {
           },
           One: {
             __resolveReference(ref: { id: string }) {
-              return ref.id === entityOne.id ? { ...entityOne, ...ref } : undefined;
+              return ref.id === entityOne.id
+                ? { ...entityOne, ...ref }
+                : undefined;
             },
             computed(parent: any) {
               return `computed value: ${parent.two.external}`;
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -3282,18 +3522,24 @@ describe('executeQueryPlan', () => {
               return ref.id === entityTwo.id ? entityTwo : undefined;
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         {
           one {
             computed
           }
         }
-      `, schema);
+      `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -3346,7 +3592,13 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -3406,40 +3658,43 @@ describe('executeQueryPlan', () => {
         defaultValue: 24,
         valuePassed: 42,
       },
-    ])('requires on field with argument: $name', async ({
-      argNullable,
-      defaultValue,
-      valuePassed,
-    }: {
-      argNullable: boolean,
-      defaultValue?: number,
-      valuePassed?: number,
-    }) => {
-
-      const argType = `Int${argNullable ? '' : '!'}${defaultValue ? ` = ${defaultValue}` : ''}`;
-      const s1 = {
-        name: 'S1',
-        typeDefs: gql`
+    ])(
+      'requires on field with argument: $name',
+      async ({
+        argNullable,
+        defaultValue,
+        valuePassed,
+      }: {
+        argNullable: boolean;
+        defaultValue?: number;
+        valuePassed?: number;
+      }) => {
+        const argType = `Int${argNullable ? '' : '!'}${
+          defaultValue ? ` = ${defaultValue}` : ''
+        }`;
+        const s1 = {
+          name: 'S1',
+          typeDefs: gql`
           type T @key(fields: "id") {
             id: Int!
             x(opt: ${argType}): String!
           }
         `,
-        resolvers: {
-          T: {
-            __resolveReference(ref: { id: number}) {
-              return ref;
+          resolvers: {
+            T: {
+              __resolveReference(ref: { id: number }) {
+                return ref;
+              },
+              x(_: any, args: any) {
+                return `args: ${JSON.stringify(args)}`;
+              },
             },
-            x(_: any, args: any) {
-              return `args: ${JSON.stringify(args)}`;
-            }
           },
-        }
-      }
+        };
 
-      const s2 = {
-        name: 'S2',
-        typeDefs: gql`
+        const s2 = {
+          name: 'S2',
+          typeDefs: gql`
           type Query {
             t: T
           }
@@ -3447,49 +3702,57 @@ describe('executeQueryPlan', () => {
           type T @key(fields: "id") {
             id: Int!
             x(opt: ${argType}): String! @external
-            y: String @requires(fields: "x${valuePassed ? `(opt: ${valuePassed})` : ''}")
+            y: String @requires(fields: "x${
+              valuePassed ? `(opt: ${valuePassed})` : ''
+            }")
           }
 
         `,
-        resolvers: {
-          Query: {
-            t() {
-              return {id: 0};
+          resolvers: {
+            Query: {
+              t() {
+                return { id: 0 };
+              },
+            },
+            T: {
+              __resolveReference(ref: { id: number }) {
+                // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+                return ref;
+              },
+              y(parent: any) {
+                return `x: ${parent.x}`;
+              },
             },
           },
-          T: {
-            __resolveReference(ref: { id: number }) {
-              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
-              return ref;
-            },
-            y(parent: any) {
-              return `x: ${parent.x}`;
-            }
-          }
+        };
+
+        if (!argNullable && !defaultValue && !valuePassed) {
+          // We test all combination of `argNullable`, `defaultValue` set/unset and `valuePassed` set/unset, and all should be allowed
+          // except if the value is non-nullable and has neither a default nor a value passed. In that case, just ensure the error message
+          // is meaningful.
+          expect(() => getFederatedTestingSchema([s1, s2])).toThrowError(
+            '[S2] On field "T.y", for @requires(fields: "x"): Missing mandatory value for argument "opt" of field "T.x" in selection "x"',
+          );
+          return;
         }
-      }
 
-      if (!argNullable && !defaultValue && !valuePassed) {
-        // We test all combination of `argNullable`, `defaultValue` set/unset and `valuePassed` set/unset, and all should be allowed
-        // except if the value is non-nullable and has neither a default nor a value passed. In that case, just ensure the error message
-        // is meaningful.
-        expect(() => getFederatedTestingSchema([ s1, s2 ])).toThrowError(
-          '[S2] On field "T.y", for @requires(fields: "x"): Missing mandatory value for argument "opt" of field "T.x" in selection "x"'
-        );
-        return;
-      }
+        const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+          s1,
+          s2,
+        ]);
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
-
-      const operation = parseOp(`
+        const operation = parseOp(
+          `
         {
           t {
             y
           }
         }
-        `, schema);
-      const queryPlan = buildPlan(operation, queryPlanner);
-      expect(queryPlan).toMatchInlineSnapshot(`
+        `,
+          schema,
+        );
+        const queryPlan = buildPlan(operation, queryPlanner);
+        expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Sequence {
             Fetch(service: "S2") {
@@ -3535,13 +3798,416 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+        const response = await executePlan(
+          queryPlan,
+          operation,
+          undefined,
+          schema,
+          serviceMap,
+        );
+        expect(response.errors).toBeUndefined();
+        expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "t": Object {
+            "y": "x: args: {${
+              valuePassed
+                ? `\\"opt\\":${valuePassed}`
+                : defaultValue
+                ? `\\"opt\\":${defaultValue}`
+                : ''
+            }}",
+          },
+        }
+      `);
+      },
+    );
+
+    test('requires with nested field example from #2683 is fixed', async () => {
+      const parentItems = [
+        { __typename: 'ParentItem', id: '1', name: 'Parent Item #1' },
+        { __typename: 'ParentItem', id: '2', name: 'Parent Item #2' },
+        { __typename: 'ParentItem', id: '3', name: 'Parent Item #3' },
+      ];
+
+      const childItems = [
+        { __typename: 'ChildItem', id: '1', name: 'Child Item #1' },
+        { __typename: 'ChildItem', id: '2', name: 'Child Item #2' },
+        { __typename: 'ChildItem', id: '3', name: 'Child Item #3' },
+      ];
+
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            parentItems: [ParentItem!]!
+          }
+
+          type ParentItem @key(fields: "id") {
+            id: ID!
+            name: String!
+          }
+        `,
+        resolvers: {
+          Query: {
+            parentItems() {
+              return parentItems;
+            },
+          },
+          ParentItem: {
+            __resolveReference(ref: { id: string }) {
+              return parentItems.find(({ id }) => ref.id === id);
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type ChildItem @key(fields: "id") {
+            id: ID!
+            name: String!
+            parentItem: ParentItem
+          }
+
+          type ParentItem @key(fields: "id") {
+            id: ID!
+            childItems: [ChildItem!]!
+          }
+        `,
+        resolvers: {
+          ChildItem: {
+            __resolveReference(ref: { id: string }) {
+              return childItems.find(({ id }) => ref.id === id);
+            },
+            parentItem(ref: { id: string }) {
+              return parentItems.find(({ id }) => ref.id === id);
+            },
+          },
+          ParentItem: {
+            __resolveReference(ref: { id: string }) {
+              return parentItems.find(({ id }) => ref.id === id);
+            },
+            childItems(ref: { id: string }) {
+              return [childItems.find(({ id }) => ref.id === id)];
+            },
+          },
+        },
+      };
+
+      const s3 = {
+        name: 'S3',
+        typeDefs: gql`
+          type ChildItem @key(fields: "id") {
+            id: ID!
+            name: String! @external
+            parentItem: ParentItem @external
+            message: String! @requires(fields: "name parentItem { name }")
+          }
+
+          type ParentItem {
+            name: String! @external
+          }
+        `,
+        resolvers: {
+          ChildItem: {
+            __resolveReference(ref: {
+              id: string;
+              name: string;
+              parentItem: { name: string };
+            }) {
+              return {
+                ...ref,
+                message: `${ref.parentItem.name} | ${ref.name}`,
+              };
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+        s3,
+      ]);
+      let operation = parseOp(
+        `
+        query {
+          parentItems {
+            childItems {
+              message
+            }
+          }
+        }
+      `,
+        schema,
+      );
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                parentItems {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "parentItems.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on ParentItem {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ParentItem {
+                    childItems {
+                      __typename
+                      id
+                      name
+                      parentItem {
+                        __typename
+                        id
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "parentItems.@.childItems.@.parentItem") {
+              Fetch(service: "S1") {
+                {
+                  ... on ParentItem {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ParentItem {
+                    name
+                  }
+                }
+              },
+            },
+            Flatten(path: "parentItems.@.childItems.@") {
+              Fetch(service: "S3") {
+                {
+                  ... on ChildItem {
+                    __typename
+                    name
+                    parentItem {
+                      name
+                    }
+                    id
+                  }
+                } =>
+                {
+                  ... on ChildItem {
+                    message
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
-          "t": Object {
-            "y": "x: args: {${valuePassed ? `\\"opt\\":${valuePassed}` : (defaultValue ? `\\"opt\\":${defaultValue}` : '')}}",
+          "parentItems": Array [
+            Object {
+              "childItems": Array [
+                Object {
+                  "message": "Parent Item #1 | Child Item #1",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "message": "Parent Item #2 | Child Item #2",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "message": "Parent Item #3 | Child Item #3",
+                },
+              ],
+            },
+          ],
+        }
+      `);
+
+      operation = parseOp(
+        `
+        query {
+          parentItems {
+            childItems {
+              ParentItem: parentItem {
+                name
+                id
+              }
+              message
+            }
+          }
+        }
+      `,
+        schema,
+      );
+
+      queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                parentItems {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "parentItems.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on ParentItem {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on ParentItem {
+                    childItems {
+                      __typename
+                      id
+                      ParentItem: parentItem {
+                        __typename
+                        id
+                      }
+                      name
+                      parentItem {
+                        __typename
+                        id
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Parallel {
+              Flatten(path: "parentItems.@.childItems.@.ParentItem") {
+                Fetch(service: "S1") {
+                  {
+                    ... on ParentItem {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on ParentItem {
+                      name
+                    }
+                  }
+                },
+              },
+              Sequence {
+                Flatten(path: "parentItems.@.childItems.@.parentItem") {
+                  Fetch(service: "S1") {
+                    {
+                      ... on ParentItem {
+                        __typename
+                        id
+                      }
+                    } =>
+                    {
+                      ... on ParentItem {
+                        name
+                      }
+                    }
+                  },
+                },
+                Flatten(path: "parentItems.@.childItems.@") {
+                  Fetch(service: "S3") {
+                    {
+                      ... on ChildItem {
+                        __typename
+                        name
+                        parentItem {
+                          name
+                        }
+                        id
+                      }
+                    } =>
+                    {
+                      ... on ChildItem {
+                        message
+                      }
+                    }
+                  },
+                },
+              },
+            },
           },
+        }
+      `);
+      response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "parentItems": Array [
+            Object {
+              "childItems": Array [
+                Object {
+                  "ParentItem": Object {
+                    "id": "1",
+                    "name": "Parent Item #1",
+                  },
+                  "message": "Parent Item #1 | Child Item #1",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "ParentItem": Object {
+                    "id": "2",
+                    "name": "Parent Item #2",
+                  },
+                  "message": "Parent Item #2 | Child Item #2",
+                },
+              ],
+            },
+            Object {
+              "childItems": Array [
+                Object {
+                  "ParentItem": Object {
+                    "id": "3",
+                    "name": "Parent Item #3",
+                  },
+                  "message": "Parent Item #3 | Child Item #3",
+                },
+              ],
+            },
+          ],
         }
       `);
     });
@@ -3550,9 +4216,9 @@ describe('executeQueryPlan', () => {
   describe('@key', () => {
     test('Works on a list of scalar', async () => {
       const s1_data = [
-        { id: [0, 1], f1: "foo" },
-        { id: [2, 3], f1: "bar" },
-        { id: [4, 5], f1: "baz" },
+        { id: [0, 1], f1: 'foo' },
+        { id: [2, 3], f1: 'bar' },
+        { id: [4, 5], f1: 'baz' },
       ];
 
       const s1 = {
@@ -3569,8 +4235,8 @@ describe('executeQueryPlan', () => {
               return s1_data.find((e) => arrayEquals(e.id, ref.id));
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -3586,22 +4252,28 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             getT1s() {
-              return [{id: [2, 3]}, {id: [4, 5]}];
+              return [{ id: [2, 3] }, { id: [4, 5] }];
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getT1s {
             id
             f1
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -3633,7 +4305,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "getT1s": Array [
@@ -3658,9 +4336,21 @@ describe('executeQueryPlan', () => {
 
     test('Works on a list of objects', async () => {
       const s1_data = [
-        { o: [{a: 0, b: "b0", c: "zero"}, {a: 1, b: "b1", c: "one"}], f1: "foo" },
-        { o: [{a: 2, b: "b2", c: "two"}], f1: "bar" },
-        { o: [{a: 3, b: "b3", c: "three"}, {a: 4, b: "b4", c: "four"}], f1: "baz" },
+        {
+          o: [
+            { a: 0, b: 'b0', c: 'zero' },
+            { a: 1, b: 'b1', c: 'one' },
+          ],
+          f1: 'foo',
+        },
+        { o: [{ a: 2, b: 'b2', c: 'two' }], f1: 'bar' },
+        {
+          o: [
+            { a: 3, b: 'b3', c: 'three' },
+            { a: 4, b: 'b4', c: 'four' },
+          ],
+          f1: 'baz',
+        },
       ];
 
       const s1 = {
@@ -3679,12 +4369,14 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           T1: {
-            __resolveReference(ref: { o: {a : number, c: string}[] }) {
-              return s1_data.find((e) => arrayEquals(e.o, ref.o, (x, y) => x.a === y.a && x.c === y.c));
+            __resolveReference(ref: { o: { a: number; c: string }[] }) {
+              return s1_data.find((e) =>
+                arrayEquals(e.o, ref.o, (x, y) => x.a === y.a && x.c === y.c),
+              );
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -3706,15 +4398,27 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             getT1s() {
-              return [{o: [{a: 2, b: "b2", c: "two"}]}, {o: [{a: 3, b: "b3", c: "three"}, {a: 4, b: "b4", c: "four"}]}];
+              return [
+                { o: [{ a: 2, b: 'b2', c: 'two' }] },
+                {
+                  o: [
+                    { a: 3, b: 'b3', c: 'three' },
+                    { a: 4, b: 'b4', c: 'four' },
+                  ],
+                },
+              ];
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           getT1s {
             o {
@@ -3725,7 +4429,9 @@ describe('executeQueryPlan', () => {
             f1
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -3764,7 +4470,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -3806,39 +4518,42 @@ describe('executeQueryPlan', () => {
     }: {
       s1?: {
         // additional resolvers for interface I
-        iResolversExtra?: any,
+        iResolversExtra?: any;
         // provide a default __resolveReference for the interface
-        hasIResolveReference?: boolean,
+        hasIResolveReference?: boolean;
         // turn an id into extra data returned by __resolveReference (if hasIResolveReference is true)
-        iResolveReferenceExtra?: (id: string) => { [k: string]: any },
+        iResolveReferenceExtra?: (id: string) => { [k: string]: any };
         // additional resolvers for type A
-        aResolversExtra?: any,
+        aResolversExtra?: any;
         // additional resolvers for type B
-        bResolversExtra?: any,
-      }
+        bResolversExtra?: any;
+      };
     }) => {
-
       // The example uses 2 entities:
       //  - one of type A with id='idA' (x=1, y=2, z=3)
       //  - one of type B with id='idB' (x=10, y=20, w=30)
 
-      const s1IBaseResolvers = (s1?.hasIResolveReference ?? true)
-        ? {
-          __resolveReference(ref: { id: string }) {
-          const extraFct = s1?.iResolveReferenceExtra;
-          const extraData = extraFct ? extraFct(ref.id) : {};
-          return ref.id === 'idA'
-            ? { id: ref.id, x: 1, z: 3, ...extraData }
-            : { id: ref.id, x: 10, w: 30, ...extraData };
-          }
-        }
-        : {};
+      const s1IBaseResolvers =
+        s1?.hasIResolveReference ?? true
+          ? {
+              __resolveReference(ref: { id: string }) {
+                const extraFct = s1?.iResolveReferenceExtra;
+                const extraData = extraFct ? extraFct(ref.id) : {};
+                return ref.id === 'idA'
+                  ? { id: ref.id, x: 1, z: 3, ...extraData }
+                  : { id: ref.id, x: 10, w: 30, ...extraData };
+              },
+            }
+          : {};
 
       const subgraph1 = {
         name: 'S1',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key"]
+            )
 
           type Query {
             iFromS1: I
@@ -3865,7 +4580,7 @@ describe('executeQueryPlan', () => {
           Query: {
             iFromS1() {
               return { __typename: 'A', id: 'idA' };
-            }
+            },
           },
           I: {
             ...s1IBaseResolvers,
@@ -3877,14 +4592,17 @@ describe('executeQueryPlan', () => {
           B: {
             ...(s1?.bResolversExtra ?? {}),
           },
-        }
-      }
+        },
+      };
 
       const subgraph2 = {
         name: 'S2',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
 
           type Query {
             iFromS2: I
@@ -3903,28 +4621,38 @@ describe('executeQueryPlan', () => {
                 id: 'idB',
                 y: 20,
               };
-            }
+            },
           },
           I: {
             __resolveReference(ref: { id: string }) {
               return {
                 id: ref.id,
                 y: ref.id === 'idA' ? 2 : 20,
-              }
+              };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([ subgraph1, subgraph2 ]);
-      return async (op: string): Promise<{ plan: QueryPlan, response: GatewayExecutionResult }> => {
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        subgraph1,
+        subgraph2,
+      ]);
+      return async (
+        op: string,
+      ): Promise<{ plan: QueryPlan; response: GatewayExecutionResult }> => {
         const operation = parseOp(op, schema);
         const plan = buildPlan(operation, queryPlanner);
-        const response = await executePlan(plan, operation, undefined, schema, serviceMap);
+        const response = await executePlan(
+          plan,
+          operation,
+          undefined,
+          schema,
+          serviceMap,
+        );
         return { plan, response };
       };
-    }
-
+    };
 
     test('handles __typename rewriting when using @key to @interfaceObject', async () => {
       // We don't need extra resolving from S1 in this case.
@@ -4084,135 +4812,144 @@ describe('executeQueryPlan', () => {
       `);
     });
 
-    test.each([{
-      name: 'with manual __typename',
-      s1: {
-        iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }),
-      },
-    }, {
-      name: 'with __resolveType',
-      s1: {
-        iResolversExtra: {
-          __resolveType(ref: { id: string }) {
-            return ref.id === 'idA' ? 'A' : 'B';
-          }
+    test.each([
+      {
+        name: 'with manual __typename',
+        s1: {
+          iResolveReferenceExtra: (id: string) => ({
+            __typename: id === 'idA' ? 'A' : 'B',
+          }),
         },
       },
-    }, {
-      name: 'with isTypeOf',
-      s1: {
-        aResolversExtra: {
-          __isTypeOf(ref: { id: string }) {
-            return ref.id === 'idA';
-          }
-        },
-        bResolversExtra: {
-          __isTypeOf(ref: { id: string }) {
-            // Same remark as above.
-            return ref.id === 'idB';
-          }
-        },
-      },
-    }, {
-      name: 'with only a __resolveType on the interface but per-runtime-types __resolveReference',
-      s1: {
-        hasIResolveReference: false,
-        iResolversExtra: {
-          __resolveType(ref: { id: string }) {
-            return ref.id === 'idA' ? 'A' : 'B';
-          }
-        },
-        aResolversExtra: {
-          __resolveReference(ref: { id: string }) {
-            return ref.id === 'idA'
-              ? { id: ref.id, x: 1, z: 3 }
-              : undefined;
-          }
-        },
-        bResolversExtra: {
-          __resolveReference(ref: { id: string }) {
-            return ref.id === 'idB'
-              ? { id: ref.id, x: 10, w: 30 }
-              : undefined;
-          }
-        },
-      },
-    }, {
-      name: 'errors when nothing provides the runtime type',
-      expectedErrors: [
-        'Abstract type "I" `__resolveReference` method must resolve to an Object type at runtime. '
-        + 'Either the object returned by "I.__resolveReference" must include a valid `__typename` field, '
-        + 'or the "I" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.'
-      ],
-    }, {
-      name: 'with an async __resolveReference and a non-default __resolveType',
-      s1: {
-        iResolversExtra: {
-          async __resolveReference(ref: { id: string }) {
-            return ref.id === 'idA'
-              ? { id: ref.id, x: 1, z: 3 }
-              : { id: ref.id, x: 10, w: 30 };
-          },
-          __resolveType(ref: { id: string }) {
-            switch (ref.id) {
-              case 'idA':
-                return 'A';
-              case 'idB':
-                return 'B';
-              default:
-                throw new Error('Unknown type: ' + ref.id);
-            }
+      {
+        name: 'with __resolveType',
+        s1: {
+          iResolversExtra: {
+            __resolveType(ref: { id: string }) {
+              return ref.id === 'idA' ? 'A' : 'B';
+            },
           },
         },
       },
-    }, {
-      name: 'with an async __resolveReference and a non-default async __resolveType',
-      s1: {
-        iResolversExtra: {
-          async __resolveReference(ref: { id: string }) {
-            return ref.id === 'idA'
-              ? { id: ref.id, x: 1, z: 3 }
-              : { id: ref.id, x: 10, w: 30 };
+      {
+        name: 'with isTypeOf',
+        s1: {
+          aResolversExtra: {
+            __isTypeOf(ref: { id: string }) {
+              return ref.id === 'idA';
+            },
           },
-          async __resolveType(ref: { id: string }) {
-            switch (ref.id) {
-              case 'idA':
-                return 'A';
-              case 'idB':
-                return 'B';
-              default:
-                throw new Error('Unknown type: ' + ref.id);
-            }
+          bResolversExtra: {
+            __isTypeOf(ref: { id: string }) {
+              // Same remark as above.
+              return ref.id === 'idB';
+            },
           },
         },
       },
-    }, {
-      name: 'with an async __resolveReference and async __isTypeOf on implementations',
-      s1: {
-        iResolversExtra: {
-          async __resolveReference(ref: {
-            id: string;
-            // I don't understand the TypeScript error that occurs when the
-            // return type is removed here (like all the others); it surfaces
-            // because `aResolversExtra` is defined, which I can't explain.
-          }): Promise<Record<string, any>> {
-            return ref.id === 'idA'
-              ? { id: ref.id, x: 1, z: 3 }
-              : { id: ref.id, x: 10, w: 30 };
+      {
+        name: 'with only a __resolveType on the interface but per-runtime-types __resolveReference',
+        s1: {
+          hasIResolveReference: false,
+          iResolversExtra: {
+            __resolveType(ref: { id: string }) {
+              return ref.id === 'idA' ? 'A' : 'B';
+            },
           },
-        },
-        aResolversExtra: {
-          async __isTypeOf(ref: { id: string }) {
-            return ref.id === 'idA';
+          aResolversExtra: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === 'idA' ? { id: ref.id, x: 1, z: 3 } : undefined;
+            },
           },
-        },
-        bResolversExtra: {
-          async __isTypeOf(ref: { id: string }) {
-            return ref.id === 'idB';
+          bResolversExtra: {
+            __resolveReference(ref: { id: string }) {
+              return ref.id === 'idB'
+                ? { id: ref.id, x: 10, w: 30 }
+                : undefined;
+            },
           },
         },
       },
-    }])('resolving an interface @key $name', async ({ s1, expectedErrors }) => {
+      {
+        name: 'errors when nothing provides the runtime type',
+        expectedErrors: [
+          'Abstract type "I" `__resolveReference` method must resolve to an Object type at runtime. ' +
+            'Either the object returned by "I.__resolveReference" must include a valid `__typename` field, ' +
+            'or the "I" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.',
+        ],
+      },
+      {
+        name: 'with an async __resolveReference and a non-default __resolveType',
+        s1: {
+          iResolversExtra: {
+            async __resolveReference(ref: { id: string }) {
+              return ref.id === 'idA'
+                ? { id: ref.id, x: 1, z: 3 }
+                : { id: ref.id, x: 10, w: 30 };
+            },
+            __resolveType(ref: { id: string }) {
+              switch (ref.id) {
+                case 'idA':
+                  return 'A';
+                case 'idB':
+                  return 'B';
+                default:
+                  throw new Error('Unknown type: ' + ref.id);
+              }
+            },
+          },
+        },
+      },
+      {
+        name: 'with an async __resolveReference and a non-default async __resolveType',
+        s1: {
+          iResolversExtra: {
+            async __resolveReference(ref: { id: string }) {
+              return ref.id === 'idA'
+                ? { id: ref.id, x: 1, z: 3 }
+                : { id: ref.id, x: 10, w: 30 };
+            },
+            async __resolveType(ref: { id: string }) {
+              switch (ref.id) {
+                case 'idA':
+                  return 'A';
+                case 'idB':
+                  return 'B';
+                default:
+                  throw new Error('Unknown type: ' + ref.id);
+              }
+            },
+          },
+        },
+      },
+      {
+        name: 'with an async __resolveReference and async __isTypeOf on implementations',
+        s1: {
+          iResolversExtra: {
+            async __resolveReference(ref: {
+              id: string;
+              // I don't understand the TypeScript error that occurs when the
+              // return type is removed here (like all the others); it surfaces
+              // because `aResolversExtra` is defined, which I can't explain.
+            }): Promise<Record<string, any>> {
+              return ref.id === 'idA'
+                ? { id: ref.id, x: 1, z: 3 }
+                : { id: ref.id, x: 10, w: 30 };
+            },
+          },
+          aResolversExtra: {
+            async __isTypeOf(ref: { id: string }) {
+              return ref.id === 'idA';
+            },
+          },
+          bResolversExtra: {
+            async __isTypeOf(ref: { id: string }) {
+              return ref.id === 'idB';
+            },
+          },
+        },
+      },
+    ])('resolving an interface @key $name', async ({ s1, expectedErrors }) => {
       const tester = defineSchema({ s1 });
 
       const { plan, response } = await tester(`
@@ -4328,7 +5065,11 @@ describe('executeQueryPlan', () => {
 
     test('handles __typename rewriting after forced resolution of implementation type', async () => {
       const tester = defineSchema({
-        s1: { iResolveReferenceExtra: (id: string) => ({ __typename: id === 'idA' ? 'A' : 'B' }), },
+        s1: {
+          iResolveReferenceExtra: (id: string) => ({
+            __typename: id === 'idA' ? 'A' : 'B',
+          }),
+        },
       });
 
       const { plan, response } = await tester(`
@@ -4399,17 +5140,17 @@ describe('executeQueryPlan', () => {
     test('handles querying fields of an implementation type coming from an @interfaceObject subgraph', async () => {
       const products = [
         {
-          id: "1",
-          title: "Jane Eyre",
+          id: '1',
+          title: 'Jane Eyre',
           price: 12.99,
-          author: "Charlotte Bronte",
-          ISBN: "9780743273565",
+          author: 'Charlotte Bronte',
+          ISBN: '9780743273565',
         },
         {
-          id: "2",
-          title: "Good Will Hunting",
+          id: '2',
+          title: 'Good Will Hunting',
           price: 14.99,
-          director: "Gus Van Sant",
+          director: 'Gus Van Sant',
           duration: 126,
         },
       ];
@@ -4418,7 +5159,10 @@ describe('executeQueryPlan', () => {
         name: 'products',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key"]
+            )
 
           type Query {
             products: [Product!]!
@@ -4449,9 +5193,9 @@ describe('executeQueryPlan', () => {
           Product: {
             __resolveType(product: any) {
               if (product.author) {
-                return "Book";
+                return 'Book';
               } else if (product.director) {
-                return "Movie";
+                return 'Movie';
               } else {
                 return null;
               }
@@ -4460,14 +5204,17 @@ describe('executeQueryPlan', () => {
               return products.find((obj) => obj.id === reference.id);
             },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'reviews',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@interfaceObject"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
 
           type Query {
             allReviewedProducts: [Product!]!
@@ -4487,13 +5234,17 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             allReviewedProducts: () => products,
-          }
-        }
-      }
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      let operation = parseOp(`
+      let operation = parseOp(
+        `
         {
           allReviewedProducts {
             ... on Book {
@@ -4501,7 +5252,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       let queryPlan = buildPlan(operation, queryPlanner);
       // We're going check again with almost the query but requesting the `id` field. And the
@@ -4540,7 +5293,13 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       // Note that the 2nd product is a Movie, so we should get an empty object
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -4553,7 +5312,8 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      operation = parseOp(`
+      operation = parseOp(
+        `
         {
           allReviewedProducts {
             ... on Book {
@@ -4562,13 +5322,21 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       queryPlan = buildPlan(operation, queryPlanner);
       // As said above, we should get the same plan as the previous time.
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       // But now we should have the "id" of the book (and still nothing for the movie).
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -4583,7 +5351,8 @@ describe('executeQueryPlan', () => {
       `);
 
       // Now with __typename just for the book
-      operation = parseOp(`
+      operation = parseOp(
+        `
         {
           allReviewedProducts {
             ... on Book {
@@ -4592,7 +5361,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       queryPlan = buildPlan(operation, queryPlanner);
       // The plan is almost the exact same as the previous one, but in this case we do end up asking for __typename
@@ -4632,7 +5403,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "allReviewedProducts": Array [
@@ -4646,7 +5423,8 @@ describe('executeQueryPlan', () => {
       `);
 
       // And lastly with __typename but for all products
-      operation = parseOp(`
+      operation = parseOp(
+        `
         {
           allReviewedProducts {
             __typename
@@ -4655,13 +5433,21 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       queryPlan = buildPlan(operation, queryPlanner);
       // As said above, we should get the same plan as the previous time.
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "allReviewedProducts": Array [
@@ -4682,7 +5468,10 @@ describe('executeQueryPlan', () => {
         name: 's1',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key"]
+            )
 
           type Query {
             ts: [T!]!
@@ -4698,16 +5487,19 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           Query: {
-            ts: () => [ { id: '2' }, { id: '4' }, { id: '1' } ]
+            ts: () => [{ id: '2' }, { id: '4' }, { id: '1' }],
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 's2',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject", "@external", "@requires"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key", "@interfaceObject", "@external", "@requires"]
+            )
 
           type I @key(fields: "id") @interfaceObject {
             id: ID!
@@ -4719,24 +5511,30 @@ describe('executeQueryPlan', () => {
             __resolveReference(ref: any) {
               return {
                 ...ref,
-                v: `id=${ref.id}`
+                v: `id=${ref.id}`,
               };
             },
-          }
-        }
-      }
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      let operation = parseOp(`
+      const operation = parseOp(
+        `
         {
           ts {
             v
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -4768,7 +5566,13 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "ts": Array [
@@ -4791,7 +5595,10 @@ describe('executeQueryPlan', () => {
         name: 's1',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key"]
+            )
 
           type Query {
             ts: [T!]!
@@ -4803,16 +5610,19 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           Query: {
-            ts: () => [ { id: '2' }, { id: '4' }, { id: '1' } ]
+            ts: () => [{ id: '2' }, { id: '4' }, { id: '1' }],
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 's2',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key", "@interfaceObject"]
+            )
 
           interface I @key(fields: "id") {
             id: ID!
@@ -4823,27 +5633,29 @@ describe('executeQueryPlan', () => {
             id: ID!
             required: String
           }
-
         `,
         resolvers: {
           I: {
             __resolveReference(ref: any) {
               return [
-                { id: '1', __typename: "T", required: "r1" },
-                { id: '2', __typename: "T", required: "r2" },
-                { id: '3', __typename: "T", required: "r3" },
-                { id: '4', __typename: "T", required: "r4" },
-              ].find(({id}) => id === ref.id);
+                { id: '1', __typename: 'T', required: 'r1' },
+                { id: '2', __typename: 'T', required: 'r2' },
+                { id: '3', __typename: 'T', required: 'r3' },
+                { id: '4', __typename: 'T', required: 'r4' },
+              ].find(({ id }) => id === ref.id);
             },
           },
-        }
-      }
+        },
+      };
 
       const s3 = {
         name: 's3',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject", "@external", "@requires"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key", "@interfaceObject", "@external", "@requires"]
+            )
 
           type I @key(fields: "id") @interfaceObject {
             id: ID!
@@ -4856,24 +5668,31 @@ describe('executeQueryPlan', () => {
             __resolveReference(ref: any) {
               return {
                 ...ref,
-                v: `req=${ref.required}`
+                v: `req=${ref.required}`,
               };
             },
-          }
-        }
-      }
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2, s3 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+        s3,
+      ]);
 
-      let operation = parseOp(`
+      const operation = parseOp(
+        `
         {
           ts {
             v
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
       const expectedPlan = `
         QueryPlan {
           Sequence {
@@ -4922,7 +5741,13 @@ describe('executeQueryPlan', () => {
       `;
       expect(queryPlan).toMatchInlineSnapshot(expectedPlan);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.data).toMatchInlineSnapshot(`
         Object {
           "ts": Array [
@@ -4948,7 +5773,10 @@ describe('executeQueryPlan', () => {
         name: 's1',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key"]
+            )
 
           type Query {
             is: [I!]!
@@ -4979,19 +5807,22 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             is: () => [
-              { __typename: 'T1', id: '2', name: 'e2', req: { id: 'r1'} },
-              { __typename: 'T2', id: '4', name: 'e4', req: { id: 'r2'} },
-              { __typename: 'T1', id: '1', name: 'e1', req: { id: 'r3'} }
-            ]
+              { __typename: 'T1', id: '2', name: 'e2', req: { id: 'r1' } },
+              { __typename: 'T2', id: '4', name: 'e4', req: { id: 'r2' } },
+              { __typename: 'T1', id: '1', name: 'e1', req: { id: 'r3' } },
+            ],
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 's2',
         typeDefs: gql`
           extend schema
-            @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@interfaceObject", "@external", "@requires"])
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.4"
+              import: ["@key", "@interfaceObject", "@external", "@requires"]
+            )
 
           type I @key(fields: "id") @interfaceObject {
             id: ID!
@@ -5008,16 +5839,20 @@ describe('executeQueryPlan', () => {
             __resolveReference(ref: any) {
               return {
                 ...ref,
-                v: `req=${ref.req.id}`
+                v: `req=${ref.req.id}`,
               };
             },
-          }
-        }
-      }
+          },
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      let operation = parseOp(`
+      let operation = parseOp(
+        `
         {
           is {
             ... on T1 {
@@ -5028,7 +5863,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
       let queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -5076,7 +5913,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5095,7 +5938,8 @@ describe('executeQueryPlan', () => {
       `);
 
       // Sanity checking that if we ask for `v` (the field with @requires), then everything still works.
-      operation = parseOp(`
+      operation = parseOp(
+        `
         {
           is {
             ... on T1 {
@@ -5107,9 +5951,10 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
 
-      global.console = require('console');
       queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -5165,7 +6010,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5181,6 +6032,359 @@ describe('executeQueryPlan', () => {
               "v": "req=r3",
             },
           ],
+        }
+      `);
+    });
+
+    test('handles resolving concrete `__typename`s of an @interfaceObject via the interface itself (issue #2743)', async () => {
+      const iList = [
+        {
+          id: '1',
+          tField: 'field on a T',
+        },
+      ];
+      const S1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          interface I @key(fields: "id") {
+            id: ID!
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            tField: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) => {
+              return iList.find((e) => e.id === id);
+            },
+            __resolveType: () => {
+              return 'T';
+            },
+          },
+          Query: {
+            allI: () => iList,
+          },
+        },
+      };
+
+      const S2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            iField: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              iList.find((e) => e.id === id),
+            iField: () => "field on I's",
+          },
+        },
+      };
+
+      const S3 = {
+        name: 'S3',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+          }
+
+          type Query {
+            searchIs: [I!]!
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              iList.find((e) => e.id === id),
+          },
+          Query: {
+            searchIs: () => iList,
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        S1,
+        S2,
+        S3,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          {
+            searchIs {
+              __typename
+              id
+              iField
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S3") {
+              {
+                searchIs {
+                  __typename
+                  id
+                }
+              }
+            },
+            Parallel {
+              Flatten(path: "searchIs.@") {
+                Fetch(service: "S1") {
+                  {
+                    ... on I {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on I {
+                      __typename
+                    }
+                  }
+                },
+              },
+              Flatten(path: "searchIs.@") {
+                Fetch(service: "S2") {
+                  {
+                    ... on I {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on I {
+                      iField
+                    }
+                  }
+                },
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "searchIs": Array [
+              Object {
+                "__typename": "T",
+                "iField": "field on I's",
+                "id": "1",
+              },
+            ],
+          },
+        }
+      `);
+    });
+
+    test("useless interface fetches aren't preserved when `__typename` has been resolved to its concrete type (issue #2743)", async () => {
+      const store = [
+        {
+          id: '1',
+          tField: 'field on a T',
+        },
+      ];
+
+      const S1 = {
+        name: 'S1',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key"]
+            )
+
+          interface I @key(fields: "id") {
+            id: ID!
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            tField: String
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              store.find((e) => e.id === id),
+            __resolveType: () => 'T',
+          },
+        },
+      };
+
+      const S2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            iField: String!
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              store.find((e) => e.id === id),
+            iField: () => 'field on an I',
+          },
+        },
+      };
+
+      const S3 = {
+        name: 'S3',
+        typeDefs: gql`
+          extend schema
+            @link(
+              url: "https://specs.apollo.dev/federation/v2.3"
+              import: ["@key", "@interfaceObject"]
+            )
+
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+          }
+
+          type Query {
+            getIs: [I!]!
+          }
+        `,
+        resolvers: {
+          I: {
+            __resolveReference: ({ id }: { id: string }) =>
+              store.find((e) => e.id === id),
+          },
+          Query: {
+            getIs: () => store,
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        S1,
+        S2,
+        S3,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          {
+            getIs {
+              id
+              ... on T {
+                iField
+              }
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S3") {
+              {
+                getIs {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "getIs.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    __typename
+                  }
+                }
+              },
+            },
+            Flatten(path: "getIs.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on I {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on I {
+                    iField
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "getIs": Array [
+              Object {
+                "iField": "field on an I",
+                "id": "1",
+              },
+            ],
+          },
         }
       `);
     });
@@ -5214,10 +6418,10 @@ describe('executeQueryPlan', () => {
                 { __typename: 'A', id: 'keyA', g: 1 },
                 { __typename: 'B', id: 'keyB', g: 'foo' },
               ];
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -5236,21 +6440,33 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           A: {
-            __resolveReference(ref: { id: string, g: any }) {
-              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            __resolveReference(ref: { id: string; g: any }) {
+              return {
+                __typename: 'A',
+                id: ref.id,
+                f: `g is type ${typeof ref.g}`,
+              };
             },
           },
           B: {
-            __resolveReference(ref: { id: string, g: any }) {
-              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            __resolveReference(ref: { id: string; g: any }) {
+              return {
+                __typename: 'B',
+                id: ref.id,
+                f: `g is type ${typeof ref.g}`,
+              };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           us {
             ... on A {
@@ -5261,7 +6477,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
@@ -5313,7 +6531,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5361,10 +6585,10 @@ describe('executeQueryPlan', () => {
                 { __typename: 'A', id: 'keyA', g: 1 },
                 { __typename: 'B', id: 'keyB', g: 'foo' },
               ];
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -5383,27 +6607,41 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           A: {
-            __resolveReference(ref: { id: string, g: any }) {
-              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            __resolveReference(ref: { id: string; g: any }) {
+              return {
+                __typename: 'A',
+                id: ref.id,
+                f: `g is type ${typeof ref.g}`,
+              };
             },
           },
           B: {
-            __resolveReference(ref: { id: string, g: any }) {
-              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            __resolveReference(ref: { id: string; g: any }) {
+              return {
+                __typename: 'B',
+                id: ref.id,
+                f: `g is type ${typeof ref.g}`,
+              };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           us {
             f
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
@@ -5455,7 +6693,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5500,10 +6744,10 @@ describe('executeQueryPlan', () => {
                 { __typename: 'A', g: 'foo' },
                 { __typename: 'B', g: 1 },
               ];
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -5521,26 +6765,40 @@ describe('executeQueryPlan', () => {
         resolvers: {
           A: {
             __resolveReference(ref: { g: string }) {
-              return { __typename: 'A', g: ref.g, f: ref.g == 'foo' ? 'fA' : '<error>' };
+              return {
+                __typename: 'A',
+                g: ref.g,
+                f: ref.g == 'foo' ? 'fA' : '<error>',
+              };
             },
           },
           B: {
             __resolveReference(ref: { g: number }) {
-              return { __typename: 'B', g: ref.g, f: ref.g === 1 ? 'fB' : '<error>' };
+              return {
+                __typename: 'B',
+                g: ref.g,
+                f: ref.g === 1 ? 'fB' : '<error>',
+              };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           us {
             f
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       // In the initial fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
@@ -5588,7 +6846,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5629,13 +6893,13 @@ describe('executeQueryPlan', () => {
           Query: {
             us() {
               return [
-                { __typename: 'A', id: 'keyA', f: 'fA'},
+                { __typename: 'A', id: 'keyA', f: 'fA' },
                 { __typename: 'B', f: 'fB' },
               ];
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -5651,18 +6915,24 @@ describe('executeQueryPlan', () => {
               return { __typename: 'A', id: ref.id, f: 'fA' };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           us {
             f
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       // Here, the presence of the @provides "forces" the query planner to check type-explosion, and as type-exploding
       // is the most efficient solution, it is chosen. But as this result in `f` being queried twice at the same level
@@ -5686,7 +6956,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5735,10 +7011,10 @@ describe('executeQueryPlan', () => {
                 { __typename: 'A', g: 'foo' },
                 { __typename: 'B', g: 1 },
               ];
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -5764,25 +7040,37 @@ describe('executeQueryPlan', () => {
         resolvers: {
           Query: {
             t() {
-              return ({ id: 0 });
-            }
+              return { id: 0 };
+            },
           },
           A: {
             __resolveReference(ref: { g: string }) {
-              return { __typename: 'A', g: ref.g, f: ref.g == 'foo' ? 'fA' : '<error>' };
+              return {
+                __typename: 'A',
+                g: ref.g,
+                f: ref.g == 'foo' ? 'fA' : '<error>',
+              };
             },
           },
           B: {
             __resolveReference(ref: { g: number }) {
-              return { __typename: 'B', g: ref.g, f: ref.g === 1 ? 'fB' : '<error>' };
+              return {
+                __typename: 'B',
+                g: ref.g,
+                f: ref.g === 1 ? 'fB' : '<error>',
+              };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           t {
             us {
@@ -5790,7 +7078,9 @@ describe('executeQueryPlan', () => {
             }
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       // In the 2nd fetch, it's important that one of the `g` is aliased, since it's queried twice at the same level
       // but with different types.
@@ -5856,7 +7146,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -5912,10 +7208,10 @@ describe('executeQueryPlan', () => {
                 { __typename: 'A', id: 'keyA', g: 1, x: 'xA', y: 'yA' },
                 { __typename: 'B', id: 'keyB', g: 'foo', x: 'xB', y: 'yB' },
               ];
-            }
+            },
           },
-        }
-      }
+        },
+      };
 
       const s2 = {
         name: 'S2',
@@ -5934,24 +7230,36 @@ describe('executeQueryPlan', () => {
         `,
         resolvers: {
           A: {
-            __resolveReference(ref: { id: string, g: any }) {
-              return { __typename: 'A', id: ref.id, f: `g is type ${typeof ref.g}` };
+            __resolveReference(ref: { id: string; g: any }) {
+              return {
+                __typename: 'A',
+                id: ref.id,
+                f: `g is type ${typeof ref.g}`,
+              };
             },
           },
           B: {
-            __resolveReference(ref: { id: string, g: any }) {
-              return { __typename: 'B', id: ref.id, f: `g is type ${typeof ref.g}` };
+            __resolveReference(ref: { id: string; g: any }) {
+              return {
+                __typename: 'B',
+                id: ref.id,
+                f: `g is type ${typeof ref.g}`,
+              };
             },
           },
-        }
-      }
+        },
+      };
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
 
       // We known that `g` will need to be aliased in the 2nd occurrence on B, and by default it would be aliased
       // as `g__alias_0`. So we query something with that exact alias to check that we avoid the conflict. We
       // also use alias `g__alias_1` to further ensure multiple possible conflict are handled.
-      const operation = parseOp(`
+      const operation = parseOp(
+        `
         query {
           us {
             g__alias_0: x
@@ -5959,7 +7267,9 @@ describe('executeQueryPlan', () => {
             g__alias_1: y
           }
         }
-        `, schema);
+        `,
+        schema,
+      );
       const queryPlan = buildPlan(operation, queryPlanner);
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -6011,7 +7321,13 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       // We double-check that the final aliases are the one from the query
       expect(response.data).toMatchInlineSnapshot(`
@@ -6033,7 +7349,7 @@ describe('executeQueryPlan', () => {
     });
   });
 
-  it(`surface post-processing errors as extensions in the response`, async () => {
+  it('surface post-processing errors as extensions in the response', async () => {
     // This test is such that the first subgraph return some object with a key, but
     // then the 2nd one is queried for additional field `x`, but the reference resolver
     // returns `null`, so that response is ignored, and the data internally to the
@@ -6059,11 +7375,11 @@ describe('executeQueryPlan', () => {
       resolvers: {
         Query: {
           t() {
-            return { "__typename": "T", "id": 0 };
-          }
-        }
-      }
-    }
+            return { __typename: 'T', id: 0 };
+          },
+        },
+      },
+    };
 
     const s2 = {
       name: 'S2',
@@ -6077,20 +7393,26 @@ describe('executeQueryPlan', () => {
         T: {
           __resolveReference() {
             return null;
-          }
-        }
-      }
-    }
+          },
+        },
+      },
+    };
 
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
-    const operation = parseOp(`
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+      s1,
+      s2,
+    ]);
+    const operation = parseOp(
+      `
       {
        t {
          id
          x
        }
       }
-      `, schema);
+      `,
+      schema,
+    );
 
     const queryPlan = buildPlan(operation, queryPlanner);
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -6122,7 +7444,13 @@ describe('executeQueryPlan', () => {
         },
       }
     `);
-    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    const response = await executePlan(
+      queryPlan,
+      operation,
+      undefined,
+      schema,
+      serviceMap,
+    );
     expect(response.data).toMatchInlineSnapshot(`
       Object {
         "t": null,
@@ -6139,5 +7467,258 @@ describe('executeQueryPlan', () => {
         ],
       }
     `);
+  });
+
+  it('handles post-query rewrites correctly even when null values are involved', async () => {
+    // Tests reproducing the issue of #2715
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          tests: [Test!]!
+        }
+
+        type Test {
+          node: Node
+        }
+
+        interface Node {
+          id: ID!
+        }
+
+        type Foo implements Node {
+          id: ID!
+          foo: String
+        }
+
+        type Bar implements Node {
+          id: ID!
+          bar: String
+        }
+      `,
+      resolvers: {
+        Query: {
+          tests() {
+            return [{ node: null }];
+          },
+        },
+        Node: {
+          __resolveType(obj: any) {
+            if (obj['foo']) {
+              return 'Foo';
+            }
+            if (obj['bar']) {
+              return 'Bar';
+            }
+            return undefined;
+          },
+        },
+      },
+    };
+
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+      s1,
+    ]);
+    const operation = parseOp(
+      `
+      query {
+        tests {
+          node {
+            ... on Foo { test: foo }
+            ... on Bar { test: bar }
+          }
+        }
+      }
+    `,
+      schema,
+    );
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            tests {
+              node {
+                __typename
+                ... on Foo {
+                  test: foo
+                }
+                ... on Bar {
+                  test__alias_0: bar
+                }
+              }
+            }
+          }
+        },
+      }
+    `);
+    const response = await executePlan(
+      queryPlan,
+      operation,
+      undefined,
+      schema,
+      serviceMap,
+    );
+    expect(response.errors).toBeUndefined();
+    expect(response.extensions).toBeUndefined();
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "tests": Array [
+          Object {
+            "node": null,
+          },
+        ],
+      }
+    `);
+  });
+
+  it(`handles duplicate aliased fields on entities correctly`, async () => {
+    const s1Data = [
+      { id: 't1', type: 'T1' },
+      { id: 't2', type: 'T2' },
+    ];
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          testQuery(id: String!): I
+        }
+
+        interface I {
+          id: String!
+        }
+
+        type T1 implements I @key(fields: "id", resolvable: false) {
+          id: String!
+        }
+
+        type T2 implements I @key(fields: "id", resolvable: false) {
+          id: String!
+        }
+      `,
+      resolvers: {
+        Query: {
+          testQuery(_: any, args: any) {
+            return s1Data.find((obj) => obj.id === args.id);
+          },
+        },
+        I: {
+          __resolveType(obj: any) {
+            return obj.type;
+          },
+        },
+      },
+    };
+
+    const t1 = {
+      id: 't1',
+      foo: {
+        field: 'field1',
+      },
+    };
+
+    const t2 = {
+      id: 't2',
+      bar: {
+        field: 'field2',
+      },
+    };
+    const s2 = {
+      name: 'S2',
+      typeDefs: gql`
+        interface I {
+          id: String!
+        }
+
+        type Test {
+          field: String!
+        }
+
+        type T1 implements I @key(fields: "id") {
+          id: String!
+          foo: Test
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: String!
+          bar: Test
+        }
+      `,
+      resolvers: {
+        Query: {},
+        Test: {},
+        T1: {
+          __resolveReference() {
+            return t1;
+          },
+        },
+        T2: {
+          __resolveReference() {
+            return t2;
+          },
+        },
+      },
+    };
+
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+      s1,
+      s2,
+    ]);
+
+    const operation = parseOp(
+      `
+          query AliasedQuery($tId: String!) {
+            testQuery(id: $tId) {
+              ... on T1 {
+                foo {
+                  field
+                }
+              }
+              ... on T2 {
+                foo: bar {
+                  field
+                }
+              }
+            }
+          }
+        `,
+      schema,
+    );
+
+    const queryPlan = buildPlan(operation, queryPlanner);
+    const requestContext = buildRequestContext();
+    requestContext.request.variables = { tId: 't1' };
+
+    let response = await executePlan(
+      queryPlan,
+      operation,
+      requestContext,
+      schema,
+      serviceMap,
+    );
+    expect(response.data).toMatchObject({
+      testQuery: {
+        foo: {
+          field: 'field1',
+        },
+      },
+    });
+
+    requestContext.request.variables = { tId: 't2' };
+    response = await executePlan(
+      queryPlan,
+      operation,
+      requestContext,
+      schema,
+      serviceMap,
+    );
+    expect(response.data).toMatchObject({
+      testQuery: {
+        foo: {
+          field: 'field2',
+        },
+      },
+    });
   });
 });

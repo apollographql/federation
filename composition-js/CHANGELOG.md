@@ -1,5 +1,41 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.5.5
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.5
+  - @apollo/query-graphs@2.5.5
+
+## 2.5.4
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.4
+  - @apollo/query-graphs@2.5.4
+
+## 2.5.3
+### Patch Changes
+
+
+- Modifies the type for the argument of the `@requiresScopes` from `[federation__Scope!]!` to `[[federation__Scope!]!]!`. ([#2738](https://github.com/apollographql/federation/pull/2738))
+  
+  The `@requiresScopes` directives has been pre-emptively introduced in 2.5.0 to support an upcoming Apollo Router
+  feature around scoped accesses. The argument for `@requiresScopes` in that upcoming feature is changed to accommodate a
+  new semantic. Note that this technically a breaking change to the `@requiresScopes` directive definition, but as the
+  full feature using that directive has been released yet, this directive cannot effectively be used and this should have
+  no concrete impact.
+- Updated dependencies [[`4b9a512b`](https://github.com/apollographql/federation/commit/4b9a512b62e02544d7854fa198942aac33b93feb), [`c6e0e76d`](https://github.com/apollographql/federation/commit/c6e0e76dbc62662c2aa6ff7f657e374047b11255), [`1add932c`](https://github.com/apollographql/federation/commit/1add932c5cd1297853fb5af9a3a6aaa71243f63a), [`6f1fddb2`](https://github.com/apollographql/federation/commit/6f1fddb25d49262b2ebf6db953371a559dd62e9c)]:
+  - @apollo/federation-internals@2.5.3
+  - @apollo/query-graphs@2.5.3
+
+## 2.5.2
+### Patch Changes
+
+- Updated dependencies [[`35179f08`](https://github.com/apollographql/federation/commit/35179f086ce973e9ae7bb455f7ea7d73cdc10f69)]:
+  - @apollo/federation-internals@2.5.2
+  - @apollo/query-graphs@2.5.2
+
 ## 2.5.1
 ### Patch Changes
 

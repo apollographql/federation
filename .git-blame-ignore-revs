@@ -1,2 +1,4 @@
 # Run prettier
 f2f1d6041cd67c67fdacabe0570fe2ce642c052c
+# Enforce prettier on all test files https://github.com/apollographql/federation/pull/2785
+dca3d464c8a699deaa1109ae69f376750b48c249

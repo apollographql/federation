@@ -19,16 +19,18 @@ jobs:
           node-version: << parameters.node-version >>
       # node v14 defaults to npm 6, which is too old for our package-lock.json
       # should be able to remove this step when we drop node v14
-      - run: npm install -g npm@latest
+      - run: npm install -g npm@9
       - node/install-packages
       - run:
           name: Run tests
           command: npm run test:ci
+      - run:
+          name: Upload coverage
+          command: npm run coverage:upload
       - store_test_results:
           path: junit.xml
 
 workflows:
-  version: 2
   Build:
     jobs:
       - Test:
@@ -53,3 +55,6 @@ workflows:
       - node/run:
           name: Check Spelling
           npm-run: spell:check
+      - node/run:
+          name: Check Prettier (tests)
+          npm-run: prettier:check

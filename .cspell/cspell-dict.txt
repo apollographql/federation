@@ -35,6 +35,7 @@ caes
 cand
 Childs
 childs
+codecov
 compabitle
 compatbility
 Compatiblity
@@ -43,6 +44,7 @@ comple
 condiditions
 correcly
 cyclesf
+Cypher
 dedented
 Dedupe
 defered
@@ -241,6 +243,7 @@ unaliased
 uncacheable
 uncesssary
 uncomposable
+unconfigured
 undici
 unecesasry
 unecessarally

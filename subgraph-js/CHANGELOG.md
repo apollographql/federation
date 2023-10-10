@@ -1,5 +1,37 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.5.5
+### Patch Changes
+
+
+- Fix specific case for requesting __typename on interface entity type ([#2775](https://github.com/apollographql/federation/pull/2775))
+  
+  In certain cases, when resolving a __typename on an interface entity (due to it actual being requested in the operation), that fetch group could previously be trimmed / treated as useless. At a glance, it appears to be a redundant step, i.e.:
+  ```
+  { ... on Product { __typename id }} => { ... on Product { __typename} }
+  ```
+  It's actually necessary to preserve this in the case that we're coming from an interface object to an (entity) interface so that we can resolve the concrete __typename correctly.
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.5
+
+## 2.5.4
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.4
+
+## 2.5.3
+### Patch Changes
+
+- Updated dependencies [[`4b9a512b`](https://github.com/apollographql/federation/commit/4b9a512b62e02544d7854fa198942aac33b93feb), [`c6e0e76d`](https://github.com/apollographql/federation/commit/c6e0e76dbc62662c2aa6ff7f657e374047b11255), [`1add932c`](https://github.com/apollographql/federation/commit/1add932c5cd1297853fb5af9a3a6aaa71243f63a)]:
+  - @apollo/federation-internals@2.5.3
+
+## 2.5.2
+### Patch Changes
+
+- Updated dependencies [[`35179f08`](https://github.com/apollographql/federation/commit/35179f086ce973e9ae7bb455f7ea7d73cdc10f69)]:
+  - @apollo/federation-internals@2.5.2
+
 ## 2.5.1
 ### Patch Changes
 

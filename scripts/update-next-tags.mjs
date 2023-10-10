@@ -1,9 +1,12 @@
 // @ts-check
 import { exec } from "child_process";
+import { promisify } from "util";
 import { readFileSync } from "fs";
 import fetch from "node-fetch";
 import { resolve } from "path";
 import semver from "semver";
+
+const asyncExec = promisify(exec);
 
 let statusCode = 0;
 // Collect all the packages that we publish
@@ -37,14 +40,14 @@ await Promise.all(
       const command = `npm dist-tag add ${pkg}@${mostRecentVersion} next`;
       if (nextVersion !== mostRecentVersion) {
         console.log(`\`next\` tag is behind, updating...`);
-        exec(command, (e) => {
-          if (e) {
-            console.error(e);
-            throw e;
-          } else {
-            console.log("`next` tag updated successfully!");
-          }
-        });
+        try {
+          const { stdout, stderr } = await asyncExec(command)
+          if (stderr) console.error(stderr);
+          if (stdout) console.log(stdout);
+        } catch (e) {
+          console.error(e);
+          throw e;
+        }
       } else {
         console.log(
           "No action needed, `next` tag is pointed to most recent version"

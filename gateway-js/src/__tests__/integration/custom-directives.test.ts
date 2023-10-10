@@ -98,7 +98,7 @@ describe('custom executable directives', () => {
   });
 
   // With relaxed composition, instead of erroring out if a directive is not declared everywhere, we compose but don't
-  // include the directive in the supergraph and generate a hint. So the following test will complain that @stream 
+  // include the directive in the supergraph and generate a hint. So the following test will complain that @stream
   // is unknown in the query. Not that the hints tests do test we properly raise an hint in that case.
   it.skip("returns validation errors when directives aren't present across all services", async () => {
     const invalidService = {
