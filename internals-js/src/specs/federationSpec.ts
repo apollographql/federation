@@ -152,7 +152,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
       this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
 
-    if (version >= (new FeatureVersion(2, 5))) {
+    if (version >= (new FeatureVersion(2, 6))) {
       this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
@@ -164,6 +164,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
