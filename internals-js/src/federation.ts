@@ -770,6 +770,10 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.REQUIRES_SCOPES);
   }
 
+  policyDirective(): Post20FederationDirectiveDefinition<{scopes: string[]}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -803,6 +807,11 @@ export class FederationMetadata {
     const requiresScopesDirective = this.requiresScopesDirective();
     if (isFederationDirectiveDefinedInSchema(requiresScopesDirective)) {
       baseDirectives.push(requiresScopesDirective);
+    }
+
+    const policyDirective = this.policyDirective();
+    if (isFederationDirectiveDefinedInSchema(policyDirective)) {
+      baseDirectives.push(policyDirective);
     }
 
     return baseDirectives;
@@ -1182,7 +1191,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy"])';
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 

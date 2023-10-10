@@ -17,6 +17,7 @@ import { registerKnownFeature } from "../knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
+import { POLICY_VERSIONS } from './policySpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -38,6 +39,7 @@ export enum FederationDirectiveName {
   INTERFACE_OBJECT = 'interfaceObject',
   AUTHENTICATED = 'authenticated',
   REQUIRES_SCOPES = 'requiresScopes',
+  POLICY = 'policy',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -148,6 +150,10 @@ export class FederationSpecDefinition extends FeatureDefinition {
     if (version >= (new FeatureVersion(2, 5))) {
       this.registerSubFeature(AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!);
       this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
+
+    if (version >= (new FeatureVersion(2, 5))) {
+      this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }
