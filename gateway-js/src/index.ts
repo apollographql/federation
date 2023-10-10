@@ -41,7 +41,7 @@ import {
   SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
+import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes, operationContextSpanAttributes, recordExceptions } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
@@ -745,13 +745,9 @@ export class ApolloGateway implements GatewayInterface {
   public executor = async (
     requestContext: GatewayGraphQLRequestContext,
   ): Promise<GatewayExecutionResult> => {
-    const spanAttributes = requestContext.operationName
-      ? { operationName: requestContext.operationName }
-      : {};
-
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
-      { attributes: spanAttributes },
+      { attributes: requestContextSpanAttributes(requestContext, this.config.telemetry) },
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
@@ -764,6 +760,8 @@ export class ApolloGateway implements GatewayInterface {
             operationName: request.operationName,
           });
 
+          span.setAttributes(operationContextSpanAttributes(operationContext));
+
           // No need to build a query plan if we know the request is invalid beforehand
           // In the future, this should be controlled by the requestPipeline
           const validationErrors = this.validateIncomingRequest(
@@ -772,6 +770,7 @@ export class ApolloGateway implements GatewayInterface {
           );
 
           if (validationErrors.length > 0) {
+            recordExceptions(span, validationErrors, this.config.telemetry);
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
@@ -790,6 +789,7 @@ export class ApolloGateway implements GatewayInterface {
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {
+                  recordExceptions(span, [err], this.config.telemetry);
                   span.setStatus({ code: SpanStatusCode.ERROR });
                   throw err;
                 } finally {
@@ -831,6 +831,7 @@ export class ApolloGateway implements GatewayInterface {
             operationContext,
             this.supergraphSchema!,
             this.apiSchema!,
+            this.config.telemetry
           );
 
           const shouldShowQueryPlan =
@@ -882,10 +883,12 @@ export class ApolloGateway implements GatewayInterface {
             };
           }
           if (response.errors) {
+            recordExceptions(span, response.errors, this.config.telemetry);
             span.setStatus({ code: SpanStatusCode.ERROR });
           }
           return response;
         } catch (err) {
+          recordExceptions(span, [err], this.config.telemetry);
           span.setStatus({ code: SpanStatusCode.ERROR });
           throw err;
         } finally {
@@ -914,10 +917,12 @@ export class ApolloGateway implements GatewayInterface {
         );
 
         if (errors) {
+          recordExceptions(span, errors, this.config.telemetry);
           span.setStatus({ code: SpanStatusCode.ERROR });
         }
         return errors || [];
       } catch (err) {
+        recordExceptions(span, [err], this.config.telemetry);
         span.setStatus({ code: SpanStatusCode.ERROR });
         throw err;
       } finally {

@@ -1,7 +1,6 @@
 {
   "name": "apollo-federation-monorepo",
   "private": true,
-  "license": "SEE LICENSE IN ./LICENSE",
   "repository": "github:apollographql/federation",
   "scripts": {
     "clean": "git clean -dfqX -- ./target ./node_modules **/{dist,node_modules}/ ./*/tsconfig*tsbuildinfo",
@@ -50,7 +49,7 @@
   "devDependencies": {
     "@apollo/cache-control-types": "1.0.3",
     "@apollo/client": "3.8.4",
-    "@apollo/server": "4.9.3",
+    "@apollo/server": "4.9.4",
     "@apollo/utils.fetcher": "2.0.1",
     "@changesets/changelog-github": "0.4.8",
     "@changesets/cli": "2.26.2",
@@ -66,7 +65,7 @@
     "@types/jest": "29.5.5",
     "@types/js-levenshtein": "1.1.1",
     "@types/loglevel": "1.5.4",
-    "@types/make-fetch-happen": "10.0.1",
+    "@types/make-fetch-happen": "10.0.2",
     "@types/nock": "10.0.3",
     "@types/node": "14.18.63",
     "@types/node-fetch": "2.6.6",
