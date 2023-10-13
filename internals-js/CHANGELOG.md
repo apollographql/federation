@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.5.6
+### Patch Changes
+
+
+- Fixing issue where redeclaration of custom scalars in a fed1 schema may cause upgrade errors ([#2809](https://github.com/apollographql/federation/pull/2809))
+
 ## 2.5.5
 
 ## 2.5.4
