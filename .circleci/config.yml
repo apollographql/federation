@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   node: circleci/node@5.1.0
-  secops: apollo/circleci-secops-orb@2.0.0
+  secops: apollo/circleci-secops-orb@2.0.1
 
 jobs:
   # Unfortunately cimg/node doesn't tag its images with major only, you have to specify a minor version.
