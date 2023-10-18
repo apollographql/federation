@@ -39,6 +39,6 @@ overrides:
     ignoreRegExpList:
       - "\\]\\([^)]+\\)"
   # Ignore user and repo names in GitHub links to supported subgraph libraries.
-  - filename: '**/supported-subgraphs.md'
+  - filename: '**/supported-subgraphs.mdx'
     ignoreRegExpList:
       - "Github: <a .+</a>"
