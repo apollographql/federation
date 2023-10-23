@@ -42,14 +42,11 @@ describe('opentelemetry', () => {
     });
   }
 
-  describe('with local data', () =>
-  {
-    async function gateway(
-      telemetryConfig?: {
-        includeDocument?: boolean,
-        recordExceptions?: boolean | number
-      }
-    ) {
+  describe('with local data', () => {
+    async function gateway(telemetryConfig?: {
+      includeDocument?: boolean;
+      recordExceptions?: boolean | number;
+    }) {
       const localDataSources = Object.fromEntries(
         fixtures.map((f) => [
           f.name,
@@ -63,20 +60,18 @@ describe('opentelemetry', () => {
         },
         telemetry: telemetryConfig || {
           includeDocument: true,
-          recordExceptions: true
-        }
+          recordExceptions: true,
+        },
       });
 
       const { executor } = await gateway.load();
       return executor;
     }
 
-    const executeValidationFailure = async (
-      telemetryConfig?: {
-        includeDocument?: boolean,
-        recordExceptions?: boolean | number
-      }
-    ) => {
+    const executeValidationFailure = async (telemetryConfig?: {
+      includeDocument?: boolean;
+      recordExceptions?: boolean | number;
+    }) => {
       const executor = await gateway(telemetryConfig);
 
       const source = `#graphql
@@ -87,7 +82,7 @@ describe('opentelemetry', () => {
       }`;
 
       await execute(executor, source, { upc: '1' }, 'InvalidVariables');
-    }
+    };
 
     it('receives spans on success', async () => {
       const executor = await gateway();
@@ -100,23 +95,24 @@ describe('opentelemetry', () => {
       }
     `;
 
-      await execute(executor, source, {upc: '1'}, 'GetProduct');
-      const spans = inMemorySpans.getFinishedSpans()
+      await execute(executor, source, { upc: '1' }, 'GetProduct');
+      const spans = inMemorySpans.getFinishedSpans();
       expect(spans).toMatchSnapshot();
       spans.forEach((span) => {
-        expect(span.events).toStrictEqual([])
-      })
+        expect(span.events).toStrictEqual([]);
+      });
     });
 
     it('receives spans on validation failure', async () => {
       await executeValidationFailure();
 
-      const spans = inMemorySpans.getFinishedSpans()
+      const spans = inMemorySpans.getFinishedSpans();
       expect(spans).toMatchSnapshot();
-      const validationSpan = spans.find((span) =>
-        span.name === 'gateway.validate');
+      const validationSpan = spans.find(
+        (span) => span.name === 'gateway.validate',
+      );
 
-      expect(validationSpan?.events.length).toEqual(2)
+      expect(validationSpan?.events.length).toEqual(2);
     });
 
     it('receives spans on plan failure', async () => {
@@ -130,46 +126,46 @@ describe('opentelemetry', () => {
     `;
 
       try {
-        await execute(executor, source, {upc: '1'}, 'GetProduct');
-      }
-      catch(err) {}
-      const spans = inMemorySpans.getFinishedSpans()
+        await execute(executor, source, { upc: '1' }, 'GetProduct');
+      } catch (err) {}
+      const spans = inMemorySpans.getFinishedSpans();
       expect(spans).toMatchSnapshot();
-      const planSpan = spans.find((span) =>
-        span.name === 'gateway.plan');
+      const planSpan = spans.find((span) => span.name === 'gateway.plan');
 
-      expect(planSpan?.events.length).toEqual(1)
+      expect(planSpan?.events.length).toEqual(1);
     });
 
     describe('with recordExceptions set to a number', () => {
       it('receives at most that number of exception events', async () => {
-        await executeValidationFailure({recordExceptions: 1})
-        const spans = inMemorySpans.getFinishedSpans()
-        const validationSpan = spans.find((span) =>
-          span.name === 'gateway.validate');
+        await executeValidationFailure({ recordExceptions: 1 });
+        const spans = inMemorySpans.getFinishedSpans();
+        const validationSpan = spans.find(
+          (span) => span.name === 'gateway.validate',
+        );
 
-        expect(validationSpan?.events.length).toEqual(1)
-      })
-    })
+        expect(validationSpan?.events.length).toEqual(1);
+      });
+    });
 
     describe('with recordExceptions set to false', () => {
       it('receives no exception events', async () => {
-        await executeValidationFailure({recordExceptions: false})
-        const spans = inMemorySpans.getFinishedSpans()
-        const validationSpan = spans.find((span) =>
-          span.name === 'gateway.validate');
+        await executeValidationFailure({ recordExceptions: false });
+        const spans = inMemorySpans.getFinishedSpans();
+        const validationSpan = spans.find(
+          (span) => span.name === 'gateway.validate',
+        );
 
-        expect(validationSpan?.events.length).toEqual(0)
-      })
-    })
+        expect(validationSpan?.events.length).toEqual(0);
+      });
+    });
 
     describe('with includeDocument set to false', () => {
       it('does not include the source document', async () => {
-        await executeValidationFailure({recordExceptions: false})
-        const spans = inMemorySpans.getFinishedSpans()
+        await executeValidationFailure({ recordExceptions: false });
+        const spans = inMemorySpans.getFinishedSpans();
         expect(spans).toMatchSnapshot();
-      })
-    })
+      });
+    });
   });
 
   it('receives spans on fetch failure', async () => {
@@ -180,8 +176,8 @@ describe('opentelemetry', () => {
       },
       telemetry: {
         includeDocument: true,
-        recordExceptions: true
-      }
+        recordExceptions: true,
+      },
     });
 
     const { executor } = await gateway.load();
@@ -194,12 +190,11 @@ describe('opentelemetry', () => {
     }
     `;
 
-    await execute(executor, source, {upc: '1'}, 'GetProduct');
-    const spans = inMemorySpans.getFinishedSpans()
+    await execute(executor, source, { upc: '1' }, 'GetProduct');
+    const spans = inMemorySpans.getFinishedSpans();
     expect(spans).toMatchSnapshot();
-    const fetchSpan = spans.find((span) =>
-      span.name === 'gateway.fetch');
+    const fetchSpan = spans.find((span) => span.name === 'gateway.fetch');
 
-    expect(fetchSpan?.events.length).toEqual(1)
+    expect(fetchSpan?.events.length).toEqual(1);
   });
 });

@@ -41,7 +41,14 @@ import {
   SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { OpenTelemetrySpanNames, tracer, requestContextSpanAttributes, operationContextSpanAttributes, recordExceptions } from './utilities/opentelemetry';
+import {
+  OpenTelemetrySpanNames,
+  tracer,
+  requestContextSpanAttributes,
+  operationContextSpanAttributes,
+  recordExceptions,
+  OpenTelemetryAttributeNames
+} from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
@@ -779,6 +786,14 @@ export class ApolloGateway implements GatewayInterface {
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
               OpenTelemetrySpanNames.PLAN,
+              requestContext.operationName
+                ? {
+                    attributes: {
+                      [OpenTelemetryAttributeNames.GRAPHQL_OPERATION_NAME]:
+                        requestContext.operationName,
+                    },
+                  }
+                : {},
               (span) => {
                 try {
                   const operation = operationFromDocument(

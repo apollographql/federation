@@ -21,7 +21,9 @@ exports[`opentelemetry receives spans on fetch failure 1`] = `
       },
       {
         "name": "gateway.plan",
-        "attributes": {},
+        "attributes": {
+          "graphql.operation.name": "GetProduct"
+        },
         "children": [],
         "status": {
           "code": 0
@@ -83,7 +85,9 @@ exports[`opentelemetry with local data receives spans on plan failure 1`] = `
       },
       {
         "name": "gateway.plan",
-        "attributes": {},
+        "attributes": {
+          "graphql.operation.name": "GetProduct"
+        },
         "children": [],
         "status": {
           "code": 2
@@ -118,7 +122,9 @@ exports[`opentelemetry with local data receives spans on success 1`] = `
       },
       {
         "name": "gateway.plan",
-        "attributes": {},
+        "attributes": {
+          "graphql.operation.name": "GetProduct"
+        },
         "children": [],
         "status": {
           "code": 0
