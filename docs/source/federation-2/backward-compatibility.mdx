@@ -130,6 +130,53 @@ type ProductDimensions {
 
 This `@requires` directive should _break_ composition because it depends on subfields of `ProductDimensions` that _don't exist_ (`length` and `depth`).
 
+#### Invalid `@provides` directives
+
+A subgraph can mark an entity field with the [`@provides` directive](https://www.apollographql.com/docs/federation/federated-types/federated-directives/#provides) to indicate that it resolve entity fields normally marked as `@external` if they are instead resolved through this particular path:
+
+<p style="margin-bottom: 0">✅</p>
+
+```graphql title="Subgraph A"
+type Product @key(fields: "id") {
+  id: ID!
+  info: ProductInfo @external
+}
+
+type ProductInfo {
+  name: String! @external
+  inStock: Boolean! @external
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "info { name }")
+  discontinuedProducts: [Product!]!
+}
+```
+
+In this example, if we traverse through the `outOfStockProducts` Query, Subgraph A can resolve the `Product.info.name` field, otherwise any other path will result in another subgraph call.
+
+Federation 1 _incorrectly_ allows a `@provides` directive such as the following:
+
+<p style="margin-bottom: 0">❌</p>
+
+```graphql title="Subgraph A"
+type Product @key(fields: "id") {
+  id: ID!
+  info: ProductInfo @external
+}
+
+type ProductInfo {
+  name: String! @external
+  inStock: Boolean! @external
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "info")
+  discontinuedProducts: [Product!]!
+}
+
+This `@provides` directives should _break_ composition here because it does not specify which subfields of `ProductInfo` that it can resolve.
+
 </ExpansionPanel>
 
 
