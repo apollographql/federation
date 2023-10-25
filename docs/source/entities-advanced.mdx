@@ -216,6 +216,10 @@ type Query {
 }
 ```
 
+### Using `__typename` as `@key`
+
+In some cases it may be useful to define an entity as a [singleton](https://en.wikipedia.org/wiki/Singleton_pattern). The `@key` directive supports the `__typename` [Meta Field](https://graphql.org/learn/queries/#meta-fields) to declare and entity as a singleton.
+
 ## Migrating entities and fields
 
 As your supergraph grows, you might want to move parts of an entity to a different subgraph. This section describes how to perform these migrations safely.
