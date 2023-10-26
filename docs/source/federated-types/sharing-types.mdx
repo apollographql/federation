@@ -137,35 +137,9 @@ To make `Position.z` shareable, you can do one of the following:
 
 ## Differing shared fields
 
-Shared fields can differ between subgraphs in specific ways:
-* The return type of a shared field can vary in nullability (`String` / `String!`).
-  * A shared field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
-* A field can be omitted from a subgraph, _if_ that field is always [resolvable](../federated-types/composition/#rules-of-composition).
+The type of a shared field can vary in nullability (`String` / `String!`), but _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`). Shareable value types must also have the same fields in _every_ subgraph that defines them.
 
-For example, take a look at the shared `Food` type below:
-
-<CodeColumns>
-
-```graphql {3} title="Subgraph A"
-type Food @shareable {
-  name: String!
-  price: Int!
-}
-```
-
-```graphql {3-4} title="Subgraph B"
-type Food @shareable {
-  name: String!
-  price: Int # Nullable
-  inStock: Boolean! # Not in A
-}
-```
-
-<></>
-
-</CodeColumns>
-
-The above `Food` types differ in the nullability of their fields _and_ the fields included in each type.
+> To contribute different fields from different subgraphs, you can use [entity types](../entities) instead of shareable value types.
 
 ### Return types
 
