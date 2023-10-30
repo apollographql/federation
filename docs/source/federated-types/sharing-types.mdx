@@ -137,7 +137,8 @@ To make `Position.z` shareable, you can do one of the following:
 
 ## Differing shared fields
 
-The type of a shared field can vary in nullability (`String` / `String!`), but _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`). Shareable value types must also have the same fields in _every_ subgraph that defines them.
+Shared fields can only differ in their [return types](#return-types) and [arguments](#arguments) in specific ways.
+If fields you want to share between subgraphs differ more than is permitted, use  [entities](../entities) instead of shareable value types.
 
 > To contribute different fields from different subgraphs, you can use [entity types](../entities) instead of shareable value types.
 
