@@ -218,7 +218,7 @@ type Query {
 
 ### Using `__typename` as `@key`
 
-In some cases it may be useful to define an entity as a [singleton](https://en.wikipedia.org/wiki/Singleton_pattern). The `@key` directive supports the `__typename` [meta field](https://graphql.org/learn/queries/#meta-fields) to declare an entity as a singleton.
+The `@key` directive supports the `__typename` [meta field](https://graphql.org/learn/queries/#meta-fields) to declare an entity as a [singleton](https://en.wikipedia.org/wiki/Singleton_pattern).
 
 In the following example, the `Meta` entity can be uniquely identified by its `__typename` (because there is only ever one instance):
 
