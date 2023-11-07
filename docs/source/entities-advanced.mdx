@@ -87,7 +87,24 @@ type Product @key(fields: "id", resolvable: false) {
 type Product @key(fields: "sku", resolvable: false) {
   sku: String!
 }
+```
 
+When resolving a reference for an entity with multiple keys, you can determine how to resolve based on which key is present:
+
+```js title="resolvers.js"
+// Products subgraph
+const resolvers = {
+  Product: {
+    __resolveReference(productRepresentation) {
+      if(productRepresentation.sku){
+        return fetchProductBySku(productRepresentation.id);
+      } else {
+        return fetchProductByID(productRepresentation.id);
+      }
+    }
+  },
+  // ...other resolvers...
+}
 ```
 
 ### Differing `@key`s across subgraphs
