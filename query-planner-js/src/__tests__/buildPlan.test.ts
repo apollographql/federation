@@ -3907,7 +3907,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3922,7 +3922,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooSelect on Foo {
             __typename
             foo
@@ -4096,7 +4096,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-              
+
               fragment OnV on V {
                 a
                 b
@@ -4170,7 +4170,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment Selection on A {
             x
             y
@@ -4264,7 +4264,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment OnV on V {
             v1
             v2
@@ -4372,7 +4372,7 @@ describe('Named fragments preservation', () => {
               ...OnT @include(if: $test2)
             }
           }
-          
+
           fragment OnT on T {
             a
             b
@@ -4572,7 +4572,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v {
@@ -4711,7 +4711,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -4852,7 +4852,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v
@@ -4991,7 +4991,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -6815,7 +6815,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             __typename
             id1
@@ -6888,7 +6888,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             id1
             id2
@@ -7030,7 +7030,7 @@ describe('named fragments', () => {
                 id
               }
             }
-            
+
             fragment allTFields on T {
               v0
               v1
@@ -7178,7 +7178,7 @@ describe('named fragments', () => {
                   }
                 }
               }
-              
+
               fragment allUFields on U {
                 v0
                 v1
@@ -7820,4 +7820,85 @@ test('avoid considering indirect paths from the root when a more direct one exis
   expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
     4,
   );
+});
+
+describe('jump from requires uses a different key', () => {
+  it.skip('jump from requires subgraph uses a different key then jump into it.', () => {
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          u: U!
+        }
+
+        type U @key(fields: "k1 { id }") {
+          k1: K
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type U @key(fields: "k1 { id }") @key(fields: "k2") {
+          k1: K!
+          k2: ID!
+          v: V! @external
+          f: ID! @requires(fields: "v { v }")
+          f2: Int!
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+        }
+
+        type V @key(fields: "id") {
+          id: ID!
+          v: String! @external
+        }
+      `,
+    };
+    const subgraph3 = {
+      name: 'C',
+      typeDefs: gql`
+        type U @key(fields: "k1 { id }") @key(fields: "k2") {
+          k1: K!
+          k2: ID!
+          v: V!
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+        }
+
+        type V @key(fields: "id") {
+          id: ID!
+          v: String!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          u {
+            f
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+    `);
+  });
 });
