@@ -89,7 +89,7 @@ type Product @key(fields: "sku", resolvable: false) {
 }
 ```
 
-When resolving a reference for an entity with multiple keys, you can determine how to resolve based on which key is present:
+When resolving a reference for an entity with multiple keys, you can determine how to resolve it based on which key is present:
 
 ```js title="resolvers.js"
 // Products subgraph
@@ -97,7 +97,7 @@ const resolvers = {
   Product: {
     __resolveReference(productRepresentation) {
       if(productRepresentation.sku){
-        return fetchProductBySku(productRepresentation.id);
+        return fetchProductBySku(productRepresentation.sku);
       } else {
         return fetchProductByID(productRepresentation.id);
       }
