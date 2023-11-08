@@ -1,129 +1,54 @@
 ---
 title: Introduction to Apollo Federation
-description: Combine GraphQL APIs into a unified supergraph
+subtitle: Combine GraphQL APIs into a unified supergraph
+description: Learn how Apollo Federation can help you combine your GraphQL APIs into a unified, federated supergraph
 ---
 
-**Apollo Federation** is a powerful, open architecture for creating a **supergraph** that combines multiple GraphQL APIs:
+<blockquote>
+
+This page covers:
+- What Apollo Federation is
+- The benefits of using Apollo Federation
+- The resources you can use to learn about federation
+
+</blockquote>
+
+## What is Apollo Federation?
+
+**Apollo Federation** is a microservices architecture that combines multiple GraphQL APIs.
+In this federated architecture, your individual GraphQL APIs are called **subgraphs** and they're combined into a **supergraph**.
+
+Subgraphs can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/). This includes Apollo Server using special extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library. Different subgraphs in the same supergraph can use different server libraries.
+
+A supergraph consists of more than just subgraphs—it also includes a **router** that acts as an API gateway for your subgraphs.
+By querying your supergraph's router, clients can fetch data from all of your subgraphs with a single request:
 
 ```mermaid
 graph LR;
   clients(Clients);
   subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
+  router([Router]);
+  serviceA[Subgraph A];
+  serviceB[Subgraph B];
+  router --- serviceA & serviceB;
   end;
-  clients -.- gateway;
+  clients -.- router;
   class clients secondary;
 ```
 
-With federation, you can responsibly share ownership of your supergraph across any number of teams and services.  And even if you currently only have _one_ GraphQL API, Apollo Federation is essential for scaling that API as you grow your features, user base, and organization.
-
-[Apollo GraphOS](/graphos/) provides a managed mode for Apollo Federation, which helps you modify and grow your supergraph without any downtime.
-
-<div>
-  <ButtonLink
-    colorScheme="indigo"
-    href="./quickstart/setup/"
-    mr="4"
-  >
-    Get started with Federation
-  </ButtonLink>
-  <Button
-    as="a"
-    href="#how-it-works"
-  >
-    Learn more
-  </Button>
-</div>
-
-## How it works
-
-In a federated architecture, your individual GraphQL APIs are called **subgraphs**, and they're composed into a **supergraph**. By querying your supergraph's router, clients can fetch data from all of your subgraphs with a single request:
-
-```mermaid
-graph LR;
-  clients(Clients);
-  subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
-  end;
-  clients -.- gateway;
-  class clients secondary;
-```
-
-The **router** serves as the public access point for your supergraph. It receives incoming GraphQL operations and intelligently routes them across your subgraphs. To clients, this looks exactly the same as querying any other GraphQL server—no client-side configuration is required.
-
-### Combining subgraph schemas
-
-Like any other GraphQL API, each subgraph has its own schema:
-
-<CodeColumns>
-
-```graphql title="Users subgraph"
-type User {
-  id: ID!
-  name: String!
-}
-```
-
-```graphql title="Products subgraph"
-type Product {
-  upc: String!
-  inStock: Boolean!
-}
-```
-
-</CodeColumns>
-
-To communicate with all of your subgraphs, the router uses a special **supergraph schema** that _combines_ these subgraph schemas.
-
-Supergraph schemas are created via a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your router:
-
-```graphql title="Supergraph schema (simplified)"
-type User {
-  id: ID!
-  name: String!
-}
-
-type Product {
-  upc: String!
-  inStock: Boolean!
-}
-```
-
-> A real supergraph schema includes additional information that tells your router _which_ subgraph is responsible for _which_ types and fields. [Learn more about composition.](./federated-types/composition/)
-
-### Server instances
-
-In a federated architecture, each subgraph instance is a GraphQL service that's queried _only_ by the router. The router is a separate service that exposes a GraphQL endpoint to external clients. Clients query the router, and the router then queries individual subgraphs to obtain, combine, and return results:
-
-```mermaid
-graph LR;
-  clients(Clients);
-  subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
-  end;
-  clients -.- gateway;
-  class clients secondary;
-```
+The router serves as the public access point for your supergraph. Each subgraph is queried _only_ by the router. It receives incoming GraphQL operations and intelligently routes them across your subgraphs. The router receives responses from the subgraphs and returns a single response to the client. **For clients, this looks exactly the same as querying any other GraphQL server.** No client-side configuration is required.
 
 **The router** is one of the following:
 
 - [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
     - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
+- [To-do]() Other routers in the ecosystem.
+
+<Note>
+
 - An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library
 
-**Subgraphs** can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/).
-
-- This includes Apollo Server using special extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library.
-- Different subgraphs in the same supergraph can use different server libraries.
+</Note>
 
 
 ## Benefits of federation
