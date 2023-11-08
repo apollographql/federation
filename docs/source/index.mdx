@@ -6,7 +6,10 @@ description: Learn how Apollo Federation can help you combine your GraphQL APIs 
 
 <blockquote>
 
-This page covers:
+&#128161; <strong>What you&apos;ll learn:</strong>
+
+<br/>
+
 - What Apollo Federation is
 - The benefits of using Apollo Federation
 - The resources you can use to learn about federation
@@ -15,13 +18,11 @@ This page covers:
 
 ## What is Apollo Federation?
 
-**Apollo Federation** is a microservices architecture that combines multiple GraphQL APIs.
+**Apollo Federation** is an architecture that combines multiple GraphQL APIs.
 In this federated architecture, your individual GraphQL APIs are called **subgraphs** and they're combined into a **supergraph**.
 
-Subgraphs can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/). This includes Apollo Server using special extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library. Different subgraphs in the same supergraph can use different server libraries.
-
-A supergraph consists of more than just subgraphs—it also includes a **router** that acts as an API gateway for your subgraphs.
-By querying your supergraph's router, clients can fetch data from all of your subgraphs with a single request:
+A supergraph consists of more than just subgraphs though. It also includes a **router** that acts as an API gateway for your subgraphs.
+By querying your supergraph's router, clients can fetch data from all of your subgraphs with a single request.
 
 ```mermaid
 graph LR;
@@ -30,25 +31,32 @@ graph LR;
   router([Router]);
   serviceA[Subgraph A];
   serviceB[Subgraph B];
-  router --- serviceA & serviceB;
+  serviceC[Subgraph C];
+  router --- serviceA & serviceB & serviceC;
   end;
   clients -.- router;
   class clients secondary;
 ```
 
-The router serves as the public access point for your supergraph. Each subgraph is queried _only_ by the router. It receives incoming GraphQL operations and intelligently routes them across your subgraphs. The router receives responses from the subgraphs and returns a single response to the client. **For clients, this looks exactly the same as querying any other GraphQL server.** No client-side configuration is required.
+### Subgraphs
+Subgraphs can use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/). This includes Apollo Server using special extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library. 
+Different subgraphs in the same supergraph can use different server libraries.
 
-**The router** is one of the following:
+### Router
 
-- [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
-    - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
-- [To-do]() Other routers in the ecosystem.
+The router is a separate service that exposes a GraphQL endpoint to external clients. It serves as the public access point for your supergraph. Only the router queries subgraphs—client never do so directly.
 
-<Note>
+The router receives incoming GraphQL operations and intelligently routes them across your subgraphs. The router then receives responses from the subgraphs and returns a single response to the client. **For clients, the request and response cycle looks exactly the same as querying any other GraphQL server.** No client-side configuration is required.
 
-- An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library
+For your router, Apollo recommends using [the Apollo Router](/router/)—[a high-performance, precompiled executable](https://www.apollographql.com/blog/announcement/backend/apollo-router-our-graphql-federation-runtime-in-rust/)—but other options compatible with Apollo Federation are available. An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library can also act as a router, but Apollo recommends using the Apollo Router for its performance and security benefits.
 
-</Note>
+<Tip>
+
+If you're just getting started with federation, we recommend [creating a cloud supergraph](./quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you.
+
+</Tip>
+
+To learn more about the Apollo Router as an API gateway and when to consider it, see the related [Tech Note](https://www.apollographql.com/docs/technotes/TN0037-api-gateways/).
 
 
 ## Benefits of federation
