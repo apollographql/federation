@@ -12,7 +12,7 @@ description: Learn how Apollo Federation can help you combine your GraphQL APIs 
 
 - What Apollo Federation is
 - The benefits of using Apollo Federation
-- The resources you can use to learn about federation
+- The resources you can use to learn more about federation
 
 </blockquote>
 
@@ -44,11 +44,11 @@ Different subgraphs in the same supergraph can use different server libraries.
 
 ### Router
 
-The router is a separate service that exposes a GraphQL endpoint to external clients. It serves as the public access point for your supergraph. Only the router queries subgraphs—client never do so directly.
+The router is a separate service that exposes a GraphQL endpoint to external clients. It serves as the public access point for your supergraph. _Only_ the router queries subgraphs—client never do so directly.
 
-The router receives incoming GraphQL operations and intelligently routes them across your subgraphs. The router then receives responses from the subgraphs and returns a single response to the client. **For clients, the request and response cycle looks exactly the same as querying any other GraphQL server.** No client-side configuration is required.
+The router receives incoming GraphQL operations from clients and intelligently routes them across your subgraphs. The router then receives responses from the subgraphs and returns a single response to the client. **For clients, the request and response cycle looks exactly the same as querying any other GraphQL server.** No client-side configuration is required.
 
-For your router, Apollo recommends using [the Apollo Router](/router/)—[a high-performance, precompiled executable](https://www.apollographql.com/blog/announcement/backend/apollo-router-our-graphql-federation-runtime-in-rust/)—but other options compatible with Apollo Federation are available. An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library can also act as a router, but Apollo recommends using the Apollo Router for its performance and security benefits.
+For your router, Apollo recommends using [the Apollo Router](/router/)—[a high-performance, precompiled executable](https://www.apollographql.com/blog/announcement/backend/apollo-router-our-graphql-federation-runtime-in-rust/)—but other options compatible with Apollo Federation are available. An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library can also act as a router, but Apollo recommends using the Apollo Router for its performance and security benefits. [Learn more.](/building-supergraphs/router)
 
 <Tip>
 
@@ -300,4 +300,36 @@ This mode helps multiple teams working on a supergraph to coordinate when and ho
 
 ---
 
-Ready to try out Apollo Federation? [Jump into the Quickstart](./quickstart/setup/)!
+## Next steps
+
+Depending on your goals, you have several options for learning more about federation. Apollo's docs offer these sections:
+
+- A [Quickstart tutorial](./quickstart/setup/) that walks you through setting up an Apollo Federation supergraph
+- More details on [subgraphs](./building-supergraphs/subgraphs-overview) and [routers](./building-supergraphs/router)
+- A conceptual overview of writing [federated schemas](./federated-types/)
+- A [guide on using Apollo GraphOS](./managed-federation) to automate and manage deployments of your federated schemas
+- Reference materials for:
+  - [Performance coniderations](./performance/caching)
+  - [Debugging and metrics](./errors)
+  - [Subgraph specifications](./building-supergraphs/router)
+- A [migration guide from Federation 1 to Federation 2](/federation-2/moving-to-federation-2)
+
+### Additional resources
+
+Outside of the docs, Apollo offers these resources for learning more about federation:
+
+- A general [overview of federated architecture](https://graphql.com/learn/federated-architecture/)
+- An [interactive course](https://www.apollographql.com/tutorials/voyage-part1) focused on Apollo Federation
+- A [demo app](https://github.com/apollographql/supergraph-demo-fed2) that you can fork and tinker with
+- The [overview video](https://youtu.be/wRExDdgs6JU) embedded below:
+
+<YouTube youTubeId="wRExDdgs6JU" />
+
+
+
+
+
+
+
+
+
