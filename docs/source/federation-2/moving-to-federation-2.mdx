@@ -257,7 +257,9 @@ type Position {
 
 </CodeColumns>
 
-> You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to _all_ of that type's fields.
+You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to _all_ of that type's fields.
+
+> If any of your subgraphs are still using Federation 1, those subgraphs continue to define their shared value types _without_ applying the `@shareable` directive. The Federation 2 composition algorithm automatically designates all Federation 1 value type definitions as `@shareable` for backward compatibility.
 
 For more details, see [Value types](../federated-types/sharing-types/).
 
