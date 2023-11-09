@@ -1,6 +1,7 @@
 ---
-title: Deploying with managed federation
-description: Best practices
+title: Deployment best practices
+subtitle: Best practices and workflows for deploying with managed federation
+description: Best practices and workflows for deploying with managed federation
 ---
 
 When rolling out changes to a [subgraph](../building-supergraphs/subgraphs-overview/), we recommend the following workflow:
@@ -117,11 +118,93 @@ The next time it starts up or polls, your router obtains an updated configuratio
 
 ## Using variants to control rollout
 
-With managed federation, you can control which version of your graph a fleet of routers are using. In the majority of cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
+Your deployment model may require deploying a specific version of your graph, for example for blue-green deployments or canary deployments. With managed federation, you can control which version of your graph a fleet of routers are using. In the majority of cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
 
 However, changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](/graphos/graphs/#variants) to manage different fleets of routers running with different configurations.
 
-### Example
+Specifically, for deployments that run in different production environments, such as blue-green deployments, you can configure your environments to refer to a single graph variant by pinning the supergraph schema of each environment to your routers at deployment time. Using a single variant between different production environments enables Studio to get usage reports and do analysis on the combined production traffic of all environments.
+
+### Example blue-green deployment
+
+A blue-green deployment strategy uses two environments: one environment (blue) serves the schema variant for live traffic, while the other environment (green) uses a variant for a new release that's under development. When the new release is ready, traffic is migrated from the blue to the green environment. This cycle repeats with each new release.  
+
+As an example, follow these steps to deploy with a supergraph schema of a new release (green) environment:
+
+1. Publish all subgraphs of a release at once by using the Platform API [`publishSubgraphs`](https://studio.apollographql.com/graph/apollo-platform/variant/main/schema/reference/objects/GraphMutation#publishSubgraphs).
+
+    ```graphql
+    ## Publish multiple subgraphs together in a batch
+    ## and retrieve the associated launch, along with any downstream launches.
+    mutation PublishSubgraphsMutation(
+      $graphId: ID!
+      $graphVariant: String!
+      $revision: String!
+      $subgraphInputs: [PublishSubgraphsSubgraphInput!]!
+    ) {
+      graph(id: $graphId) {
+        publishSubgraphs( #highlight-line
+          graphVariant: $graphVariant
+          revision: $revision
+          subgraphInputs: $subgraphInputs
+        ) {
+          launch {
+            id
+            downstreamLaunches {
+              id
+            }
+          }
+        }
+      }
+    }
+    ```
+
+  This initiates a launch as well as downstream launches, and it returns the IDs for the launch and any downstream launches. 
+
+1. Poll for the completed launch and any downstream launches. 
+
+    ```graphql
+    ## Poll for the status of any individual launch by ID
+    query PollLaunchStatusQuery($graphId: ID!, $name: String!, $launchId: ID!) {
+      graph(id: $graphId) {
+        variant(name: $name) {
+          launch(id: $launchId) {
+            status
+          }
+        }
+      }
+    }
+
+    ```
+
+1. After the launch and downstream launches have completed, retrieve the supergraph schema of the launch.
+
+    ```graphql
+    ## Fetch the supergraph SDL by launch ID.
+    query FetchSupergraphSDLQuery($graphId: ID!, $launchId: String!) {
+      graph(id: $graphId) {
+        variant(name: $name) {
+          launch(id: $launchId) {
+            build {
+              result {
+                ... on BuildSuccess {
+                  coreSchema {
+                    coreDocument
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ```
+
+1. Deploy your routers with the `-s` option specifying the supergraph schema. 
+
+### Example canary deployment
+
+A canary deployment applies graph updates to a small subset of your deployment environment before rolling it out for your entire environment.
 
 To configure a canary deployment, you might maintain two production graph variants in Apollo Studio, one named `prod` and the other named `prod-canary`. To deploy a change to a subgraph named `launches`, you might perform the following steps:
 
