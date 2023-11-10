@@ -89,7 +89,7 @@ If you've already set up Apollo Federation _without_ connecting your router to G
 
 The `--supergraph` option applies in scenarios where the supergraph schema for the router isn't retrieved by polling Apollo Uplink:
 
-* For enabling different production environments (such as blue-green deployments) to refer to a single graph variant, the supergraph schema for each production environment is composed via GraphOS and calling Platform APIs, then retrieved from GraphOS and saved, so that its file path can be specified when deploying the router within the corresponding environment. 
+* For enabling different production environments (such as blue-green deployments) to refer to a single graph variant, the supergraph schema for each production environment can be composed and retrieved by a workflow using Platform APIs, so that the routers of each environment use the supergraph schema corresponding to the environment. 
 
 * For fully unmanaged federation, the Rover CLI composes the supergraph schema, and the file path of the schema is passed to the router. 
 
@@ -99,7 +99,7 @@ For other scenarios where the supergraph schema is gotten from Apollo Uplink, _r
 ./router --config ./router.yaml
 ```
 
-> With managed federation, composition can be performed by _GraphOS_, and the router regularly polls for an updated schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
+With managed federation, composition can be performed by _GraphOS_, and the router regularly polls for an updated schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
 
 
 ## 4. Connect your router to GraphOS
@@ -116,4 +116,4 @@ After obtaining your graph API key, you set the following environment variables 
 
 ## 5. Deploy the modified router
 
-You can now deploy your modified router, which will fetch its supergraph schema from GraphOS on startup. It can then begin executing operations across your subgraphs.
+You can now deploy your modified router, which can either fetch its supergraph schema from GraphOS on startup or specify its supergraph schema for deployment in a particular environment. It can then begin executing operations across your subgraphs.
