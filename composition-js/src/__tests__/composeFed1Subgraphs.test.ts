@@ -727,4 +727,22 @@ describe('override', () => {
       '[subgraphB] Invalid definition for directive \"@override\": missing required argument "from"',
     ]]);
   });
+
+  it('repro redefined built-in scalar breaks @key directive', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        scalar Boolean
+        type Query {
+          q: String
+        }
+        type A @key(fields: "k") {
+          k: ID!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const result = composeServices([subgraphA,]);
+    assertCompositionSuccess(result);
+  });
 });
