@@ -165,9 +165,9 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     ```graphql
     ## Poll for the status of any individual launch by ID
-    query PollLaunchStatusQuery($graphId: ID!, $name: String!, $launchId: ID!) {
+    query PollLaunchStatusQuery($graphId: ID!, $graphVariant: String!, $launchId: ID!) {
       graph(id: $graphId) {
-        variant(name: $name) {
+        variant(name: $graphVariant) {
           launch(id: $launchId) {
             status
           }
@@ -181,9 +181,9 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     ```graphql
     ## Fetch the supergraph SDL by launch ID.
-    query FetchSupergraphSDLQuery($graphId: ID!, $launchId: String!) {
+    query FetchSupergraphSDLQuery($graphId: ID!, $graphVariant: String!, $launchId: String!) {
       graph(id: $graphId) {
-        variant(name: $name) {
+        variant(name: $graphVariant) {
           launch(id: $launchId) {
             build {
               result {
