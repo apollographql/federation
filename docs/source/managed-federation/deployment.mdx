@@ -134,7 +134,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     ```graphql
     ## Publish multiple subgraphs together in a batch
-    ## and retrieve the associated launch, along with any downstream launches.
+    ## and retrieve the associated launch, along with any downstream launches synchronously.
     mutation PublishSubgraphsMutation(
       $graphId: ID!
       $graphVariant: String!
@@ -146,6 +146,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
           graphVariant: $graphVariant
           revision: $revision
           subgraphInputs: $subgraphInputs
+          downstreamLaunchInitiation: "SYNC"
         ) {
           launch {
             id
@@ -158,7 +159,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
     }
     ```
 
-  This initiates a launch as well as downstream launches, and it returns the IDs for the launch and any downstream launches. 
+  This initiates a launch, as well as any downstream launches necessary for [contracts](graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
 
 1. Poll for the completed launch and any downstream launches. 
 
