@@ -1,16 +1,16 @@
 ---
 title: Introduction to Apollo Federation
 subtitle: Learn how to combine your GraphQL APIs into a unified supergraph
-description: Learn how Apollo Federation can help you combine your GraphQL APIs into a unified, federated supergraph using microservices architecture
+description: Learn how Apollo Federation can help you declaratively combine your GraphQL APIs into a unified, federated supergraph using microservices architecture
 ---
 
 ## What is Apollo Federation?
 
-**Apollo Federation** is an open standard for managing GraphQL APIs across any number of services and teams. Federation allows you to combine multiple GraphQL APIs into a single federated graph called a **supergraph**. In a supergraph, the individual GraphQL APIs are called **subgraphs**.
+**Apollo Federation** is an open standard for managing GraphQL APIs across any number of services and teams. Federation lets you combine multiple GraphQL APIs into a single graph called a **supergraph**. In a supergraph, the individual GraphQL APIs are called **subgraphs**.
 
 ### More about subgraphs
 
-Different subgraphs in the same supergraph can use different server libraries as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/). This includes Apollo Server using special extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library.
+Different subgraphs in the same supergraph can use different server languages and libraries as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/). This includes Apollo Server using extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library.
 
 <Tip>
 
@@ -20,11 +20,9 @@ Learn more about [choosing subgraph libraries](./building-supergraphs/subgraphs-
 
 ### The role of the router
 
-A supergraph consists of more than just subgraphs. It also includes a **router** that acts as an API gateway for your subgraphs.
-The router is a separate service that exposes a GraphQL endpoint to external clients.
-
-Clients can fetch data from all your subgraphs with a single request to the router. The router receives incoming GraphQL operations from clients and intelligently routes them across your subgraphs. The router then receives subgraph responses and returns a single response to the client.
-
+A supergraph consists of more than just subgraphs. It also includes a **router**. 
+A router is a separate service that exposes a GraphQL endpoint to external clients.
+Clients can fetch data from all your subgraphs with a single request to the router.
 
 ```mermaid
 graph LR;
@@ -40,17 +38,19 @@ graph LR;
   class clients secondary;
 ```
 
-Clients only query the router—never subgraphs directly—and only the router queries subgraphs.  **For clients, the request and response cycle of querying the router looks exactly the same as querying any other GraphQL server.**  No client-side configuration is required.
+The router acts as more than just a gateway for your subgraphs. Beyond routing requests to subgraphs, the router intelligently orchestrates them by generating [a query plan](./query-plans/). A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph. The router executes the plan, receives subgraph responses, and returns a single response to the client.
+
+For performance and security reasons, clients should only query the router. And only the router—never clients—should query subgraphs. **For clients, the request and response cycle of querying the router looks exactly the same as querying any other GraphQL server.**  No client-side configuration is required.
 
 <Tip>
 
-Learn more about [your router options](./building-supergraphs/router).
+- Learn more about [your router options](./building-supergraphs/router).
 
 </Tip>
 
 ## Benefits of federation
 
-Apollo Federation offers all the benefits of GraphQL and a [microservices architecture](https://www.atlassian.com/microservices/microservices-architecture/microservices-vs-monolith). Understanding these concepts can help you get the most out of federation.
+Apollo Federation lets your API teams operate in a [microservices architecture](https://www.atlassian.com/microservices/microservices-architecture/microservices-vs-monolith) while exposing a unified GraphQL API to clients. Understanding these concepts can help you get the most out of federation.
 
 <Tip>
 
@@ -90,7 +90,7 @@ graph RL;
   class clients secondary;
 ```
 
-But if you expose multiple GraphQL APIs to clients, a client might need to communicate with _multiple_ APIs to fetch all the data it needs. With a single supergraph, you preserve one of the most powerful features of GraphQL: the ability to fetch all the data you need in a single request.
+But if you expose multiple GraphQL APIs to clients, a client might need to communicate with _multiple_ APIs to fetch all the data it needs. With a single supergraph, you preserve a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
 
 ```mermaid
 graph LR;
@@ -112,9 +112,9 @@ graph LR;
   class clients secondary;
 ```
 
-This is possible because the supergraph's router serves primarily to route incoming operations, not to resolve each of them completely. 
+This is possible because the supergraph's router serves to intelligently route incoming operations, not to resolve each of them completely. 
 
-### Design the schema you want
+### Design schemas at scale
 
 Some alternative approaches to combining GraphQL APIs impose limits on your schema, like adding namespaces or representing relationships with IDs instead of types. With these approaches, your subgraph schemas may look unchanged—but the resulting federated schema that clients interact with is more complex. Subsequently, it requires you to make frontend as well as backend changes.
 
@@ -126,30 +126,42 @@ With federation, every team maintaining a subgraph contributes directly to the o
 
 In this structure, the "graph team" might be a separate team that's dedicated to maintaining your router as part of backend infrastructure, or it might be a "meta team" that includes representatives from other teams that maintain subgraphs.
 
-## Next steps
+## Additional resources
 
-Depending on your goals, you have several options for learning more about federation. Apollo's docs offer these sections:
+Depending on your goals, you have several options for learning more about federation.
+If you're new to the concept of federated architecture, this [overview article](https://graphql.com/learn/federated-architecture/) is a helpful place to start.
+If you'd like to recap key concepts of Apollo Federation, the video below gives a great overview.
+
+<ExpansionPanel title="Watch the video overview">
+
+<YouTube youTubeId="wRExDdgs6JU" />
+
+</ExpansionPanel>
+
+### Interactive learning
+
+Apollo offers these resources for interactive learning:
+
+- The [interactive course](https://www.apollographql.com/tutorials/voyage-part1) is the best way to learn about federation through using it
+- If you prefer a less structured learning experience, you can fork and tinker with the [demo app](https://github.com/apollographql/supergraph-demo-fed2)
+
+### Further documentation
+
+Apollo's docs offer these sections:
 
 - A [Quickstart tutorial](./quickstart/setup/) that walks you through setting up an Apollo Federation supergraph
 - Details on [subgraphs](./building-supergraphs/subgraphs-overview) and [routers](./building-supergraphs/router) in **Building Your Supergraph**
-- A conceptual overview of writing [**Federated Schemas**](./federated-types/)
+- A conceptual overview of writing [**Federated Schemas**](./federated-types/overview)
 - A [guide on using Apollo GraphOS](./managed-federation) to automate and manage deployments of your federated schemas (this is also known as **Managed Federation**)
 - Reference materials for:
-  - [**Performance** considerations](./performance/caching)
-  - [**Debugging and metrics**](./errors)
+  - [Performance considerations](./performance/caching)
+  - [Debugging and metrics](./errors)
   - [Subgraph specifications](./building-supergraphs/router) for federation-compatibility
-- A [migration guide from Federation 1 to Federation 2](./federation-2/moving-to-federation-2)
 
-### Additional resources
+### Best practices
 
-Outside of the docs, Apollo offers these resources for learning more about federation:
+The [Supergraph Architecture Framework](https://saf.apollographql.com/) (SAF) is a set of best practices for building a reliable, secure, performant, and developer-friendly graph. You can use the SAF assessment to quantify your graph's current state and identify areas for improvement.
 
-- A general [overview of federated architecture](https://graphql.com/learn/federated-architecture/)
-- An [interactive course](https://www.apollographql.com/tutorials/voyage-part1) focused on Apollo Federation
-- A [demo app](https://github.com/apollographql/supergraph-demo-fed2) that you can fork and tinker with
-- The [overview video](https://youtu.be/wRExDdgs6JU) embedded below:
-
-<YouTube youTubeId="wRExDdgs6JU" />
 
 
 
