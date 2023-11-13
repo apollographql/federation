@@ -307,9 +307,11 @@ Because your graph is dynamically changing and multiple subgraphs might be updat
 4. If composition fails, the command exits and emits errors.
 5. If composition succeeds, Apollo Uplink begins serving the updated supergraph schema.
 
-On the other side of the equation sits the router. The router regularly polls Apollo Uplink for changes to its configuration. The lifecycle of dynamic configuration updates is as follows:
+On the other side of the equation sits the router. The router can regularly poll Apollo Uplink for changes to its configuration. The lifecycle of dynamic configuration updates is as follows:
 
 1. The router polls for updates to its configuration.
 2. On update, the router downloads the updated configuration, including the new supergraph schema.
 3. The router uses the new supergraph schema to update its query planning logic.
 4. The router continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.
+
+Alternatively, instead of getting its configuration from Apollo Uplink, the router can specify a path to a supergraph schema upon its deployment. This static configuration is useful when you want the router to use a schema different than the latest validated schema from Uplink, or when you don't have connectivity to Apollo Uplink. For an example of this workflow, see an [example of configuring the router for blue-green deployment](#example-blue-green-deployment).
