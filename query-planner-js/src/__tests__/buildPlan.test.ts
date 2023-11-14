@@ -3810,7 +3810,7 @@ describe('Fed1 supergraph handling', () => {
 });
 
 describe('Named fragments preservation', () => {
-  it('works with nested fragments', () => {
+  it('works with nested fragments 1', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -3907,7 +3907,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3922,7 +3922,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment FooSelect on Foo {
             __typename
             foo
@@ -4096,7 +4096,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-
+              
               fragment OnV on V {
                 a
                 b
@@ -4170,7 +4170,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment Selection on A {
             x
             y
@@ -4264,7 +4264,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-
+          
           fragment OnV on V {
             v1
             v2
@@ -4372,7 +4372,7 @@ describe('Named fragments preservation', () => {
               ...OnT @include(if: $test2)
             }
           }
-
+          
           fragment OnT on T {
             a
             b
@@ -4572,7 +4572,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-
+            
             fragment OuterFrag on Outer {
               inner {
                 v {
@@ -4711,7 +4711,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-
+            
             fragment OuterFrag on Outer {
               w
               inner {
@@ -4852,7 +4852,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-
+            
             fragment OuterFrag on Outer {
               inner {
                 v
@@ -4991,7 +4991,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-
+            
             fragment OuterFrag on Outer {
               w
               inner {
@@ -6815,7 +6815,7 @@ describe('named fragments', () => {
               }
             }
           }
-
+          
           fragment Fragment4 on I {
             __typename
             id1
@@ -6888,7 +6888,7 @@ describe('named fragments', () => {
               }
             }
           }
-
+          
           fragment Fragment4 on I {
             id1
             id2
@@ -7030,7 +7030,7 @@ describe('named fragments', () => {
                 id
               }
             }
-
+            
             fragment allTFields on T {
               v0
               v1
@@ -7178,7 +7178,7 @@ describe('named fragments', () => {
                   }
                 }
               }
-
+              
               fragment allUFields on U {
                 v0
                 v1
@@ -7822,8 +7822,11 @@ test('avoid considering indirect paths from the root when a more direct one exis
   );
 });
 
-describe('jump from requires uses a different key', () => {
-  it.skip('jump from requires subgraph uses a different key then jump into it.', () => {
+describe('@requires references external field indirectly', () => {
+  it('key where @external is not at top level of selection of requires', () => {
+    // Field issue where we were seeing a FetchGroup created where the fields used by the key to jump subgraphs
+    // were not properly fetched. In the below test, this test will ensure that 'k2' is properly collected
+    // before it is used
     const subgraph1 = {
       name: 'A',
       typeDefs: gql`
@@ -7899,6 +7902,75 @@ describe('jump from requires uses a different key', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "A") {
+          {
+            u {
+              __typename
+              k1 {
+                id
+              }
+            }
+          }
+        },
+        Flatten(path: "u") {
+          Fetch(service: "B") {
+            {
+              ... on U {
+                __typename
+                k1 {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on U {
+                k2
+              }
+            }
+          },
+        },
+        Flatten(path: "u") {
+          Fetch(service: "C") {
+            {
+              ... on U {
+                __typename
+                k2
+              }
+            } =>
+            {
+              ... on U {
+                v {
+                  v
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "u") {
+          Fetch(service: "B") {
+            {
+              ... on U {
+                __typename
+                v {
+                  v
+                }
+                k1 {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on U {
+                f
+              }
+            }
+          },
+        },
+      },
+    }
     `);
   });
 });
+
