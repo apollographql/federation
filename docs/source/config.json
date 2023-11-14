@@ -65,11 +65,6 @@
       "Steps to move": "/federation-2/moving-to-federation-2",
       "Backward compatibility": "/federation-2/backward-compatibility"
     },
-    "Additional resources": {
-      "Federated architecture overview": "https://graphql.com/learn/federated-architecture/",
-      "Interactive tutorial": "https://www.apollographql.com/tutorials/voyage-part1",
-      "Supergraph Architecture Framework": "https://saf.apollographql.com/"
-    },
     "Changelog": "/federation-versions"
   }
 }
