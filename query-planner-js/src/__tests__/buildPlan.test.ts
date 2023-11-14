@@ -7973,4 +7973,3 @@ describe('@requires references external field indirectly', () => {
     `);
   });
 });
-
