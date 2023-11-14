@@ -159,7 +159,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
     }
     ```
 
-  This initiates a launch, as well as any downstream launches necessary for [contracts](graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
+  This initiates a [launch](/graphos/delivery/launches/), as well as any downstream launches necessary for [contracts](graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
 
 1. Poll for the completed launch and any downstream launches. 
 
