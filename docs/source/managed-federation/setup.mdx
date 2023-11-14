@@ -71,7 +71,7 @@ This option is specific to _non_-managed federation, in which supergraph schema 
 
 With managed federation, composition can instead be performed by _GraphOS_, where the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
 
-Remove the `supergraphSdl` argument from your `ApolloGateway` constructor entirely:
+To use managed federation, ensure your `ApolloGateway` constructor doesn't include the `supergraphSdl` argument:
 
 ```js
 const gateway = new ApolloGateway();
@@ -87,11 +87,11 @@ If you've already set up Apollo Federation _without_ connecting your router to G
 ./router --config ./router.yaml --supergraph ./your-local-supergraph.graphql
 ```
 
-The `--supergraph` option applies in scenarios where the supergraph schema for the router isn't retrieved by polling Apollo Uplink:
+The `--supergraph` option applies in scenarios where the router doesn't retrieve the supergraph schema by polling Apollo Uplink. These include:
 
 * For enabling different production environments (such as blue-green deployments) to refer to a single graph variant, the supergraph schema for each production environment can be composed and retrieved by a workflow using Platform APIs, so that the routers of each environment use the supergraph schema corresponding to the environment. 
 
-* For fully unmanaged federation, the Rover CLI composes the supergraph schema, and the file path of the schema is passed to the router. 
+* **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
 
 For other scenarios where the supergraph schema is gotten from Apollo Uplink, _remove_ the `--supergraph` option (but leave `--config` if it's present):
 
