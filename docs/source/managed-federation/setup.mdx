@@ -93,7 +93,7 @@ The `--supergraph` option applies in scenarios where the router doesn't retrieve
 
 * **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
 
-For other scenarios where the supergraph schema is gotten from Apollo Uplink, _remove_ the `--supergraph` option (but leave `--config` if it's present):
+For other scenarios where the router retrieves the supergraph schema from Apollo Uplink, _remove_ the `--supergraph` option (but leave `--config` if it's present):
 
 ```sh
 ./router --config ./router.yaml

@@ -9,7 +9,7 @@ With managed federation, you maintain subgraphs and delegate GraphOS to manage t
 
 * Your subgraphs publish their schemas to GraphOS, which stores them in its schema registry. GraphOS then [validates](./federated-schema-checks) and [composes](../federated-types/composition/) them into a supergraph schema. 
 
-* Your routers can poll GraphOS&mdash;specifically, its [Apollo Uplink](./uplink) endpoint&mdash;to get the latest validated supergraph schema and other configuration.
+* Your routers can poll GraphOS&mdash;specifically, its [Apollo Uplink](./uplink) endpoint&mdash;to get the latest validated supergraph schema and other configurations.
 
 ```mermaid
 graph LR;
