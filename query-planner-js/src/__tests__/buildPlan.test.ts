@@ -3810,7 +3810,7 @@ describe('Fed1 supergraph handling', () => {
 });
 
 describe('Named fragments preservation', () => {
-  it('works with nested fragments', () => {
+  it('works with nested fragments 1', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -7820,4 +7820,156 @@ test('avoid considering indirect paths from the root when a more direct one exis
   expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
     4,
   );
+});
+
+describe('@requires references external field indirectly', () => {
+  it('key where @external is not at top level of selection of requires', () => {
+    // Field issue where we were seeing a FetchGroup created where the fields used by the key to jump subgraphs
+    // were not properly fetched. In the below test, this test will ensure that 'k2' is properly collected
+    // before it is used
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          u: U!
+        }
+
+        type U @key(fields: "k1 { id }") {
+          k1: K
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type U @key(fields: "k1 { id }") @key(fields: "k2") {
+          k1: K!
+          k2: ID!
+          v: V! @external
+          f: ID! @requires(fields: "v { v }")
+          f2: Int!
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+        }
+
+        type V @key(fields: "id") {
+          id: ID!
+          v: String! @external
+        }
+      `,
+    };
+    const subgraph3 = {
+      name: 'C',
+      typeDefs: gql`
+        type U @key(fields: "k1 { id }") @key(fields: "k2") {
+          k1: K!
+          k2: ID!
+          v: V!
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+        }
+
+        type V @key(fields: "id") {
+          id: ID!
+          v: String!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          u {
+            f
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "A") {
+          {
+            u {
+              __typename
+              k1 {
+                id
+              }
+            }
+          }
+        },
+        Flatten(path: "u") {
+          Fetch(service: "B") {
+            {
+              ... on U {
+                __typename
+                k1 {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on U {
+                k2
+              }
+            }
+          },
+        },
+        Flatten(path: "u") {
+          Fetch(service: "C") {
+            {
+              ... on U {
+                __typename
+                k2
+              }
+            } =>
+            {
+              ... on U {
+                v {
+                  v
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "u") {
+          Fetch(service: "B") {
+            {
+              ... on U {
+                __typename
+                v {
+                  v
+                }
+                k1 {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on U {
+                f
+              }
+            }
+          },
+        },
+      },
+    }
+    `);
+  });
 });
