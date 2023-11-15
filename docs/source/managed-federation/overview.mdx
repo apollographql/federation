@@ -4,6 +4,8 @@ description: Let Apollo GraphOS manage CI/CD of your supergraph including schema
 subtitle: Manage supergraph CI/CD with Apollo GraphOS
 ---
 
+import ManagedFederationDiagram from '../../shared/diagrams/managed-federation.mdx';
+
 [Apollo GraphOS](/graphos/) provides **managed federation** support for graphs that use Apollo Federation.
 
 With managed federation, you maintain subgraphs and delegate GraphOS to manage CI/CD tasks including the validation, composition, and update of your supergraph:
@@ -12,23 +14,7 @@ With managed federation, you maintain subgraphs and delegate GraphOS to manage C
 
 * Your routers can poll GraphOS&mdash;specifically, its [Apollo Uplink](./uplink) endpoint&mdash;to get the latest validated supergraph schema and other configurations.
 
-```mermaid
-graph LR;
-  subgraph "Your infrastructure"
-  serviceA[Products<br/>subgraph];
-  serviceB[Reviews<br/>subgraph];
-  router([Router]);
-  end
-  subgraph "Apollo GraphOS"
-    registry{{Apollo Schema<br/>Registry}};
-    uplink{{Apollo<br/>Uplink}}
-  end
-  serviceA & serviceB -->|Publishes<br/>schema| registry;
-  registry -->|Updates<br/>config| uplink;
-  router -->|Polls for config changes| uplink;
-  class registry secondary;
-  class uplink secondary;
-```
+<ManagedFederationDiagram />
 
 ## Benefits of managed federation
 

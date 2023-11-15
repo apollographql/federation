@@ -99,7 +99,7 @@ For other scenarios where the router retrieves the supergraph schema from Apollo
 ./router --config ./router.yaml
 ```
 
-With managed federation, composition can be performed by _GraphOS_, and the router regularly polls for an updated schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
+With federation managed by GraphOS, composition is performed when subgraph schemas are published, and the router regularly polls for an updated supergraph schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
 
 
 ## 4. Connect your router to GraphOS
