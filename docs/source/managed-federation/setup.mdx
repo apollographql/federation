@@ -89,7 +89,7 @@ If you've already set up Apollo Federation _without_ connecting your router to G
 
 The `--supergraph` option applies in scenarios where the router doesn't retrieve the supergraph schema by polling Apollo Uplink. These include:
 
-* **Enabling different deployment environments to refer to a single graph variant**, for example, for [blue-green deployment](https://en.wikipedia.org/wiki/Blue%E2%80%93green_deployment): Use a workflow with the [Platform API](/graphos/platform-api/) to compose and retrieve the supergraph schema for each environment. This enables each environment's router to use the environment's supergraph schema, and then a single graph variant can capture and analyze the operations and traffic of either environment when deployed.
+* **Enabling different deployment environments to refer to a single graph variant**, for example, for [blue-green deployment](./deployment/#example-blue-green-deployment): Use a workflow with the [Platform API](/graphos/platform-api/) to compose and retrieve the supergraph schema for each environment. This enables each environment's router to use the environment's supergraph schema, and then a single graph variant can capture and analyze the operations and traffic of either environment when deployed.
 
 * **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
 
