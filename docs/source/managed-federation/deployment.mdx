@@ -116,13 +116,17 @@ rover subgraph delete my-supergraph@my-variant --name accounts
 
 The next time it starts up or polls, your router obtains an updated configuration that reflects the removed subgraph.
 
-## Using variants to control rollout
+## Advanced deployment workflows
 
-Your deployment model may require deploying a specific version of your graph, for example, for blue-green or canary deployments. With managed federation, you can control which version of your schema your router fleet uses. In most cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
+With managed federation, you can control which version of your schema your router fleet uses. In most cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible. Your deployment model, however, may require an advanced workflow to deploy a specific version of a schema.
 
-However, changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](/graphos/graphs/#variants) to manage router fleets running with different configurations.
+Two types of advanced deployment workflows:
 
-Specifically, for deployments that require progressive rollout, such as blue-green deployments, you can configure your environments to refer to a single graph variant by pinning each environment's supergraph schema to your routers at deployment time. Using a single variant between different production environments enables Studio to get usage reports and analyze the combined production traffic of all environments, as well as providing a consistent changelog of your schema over time.
+* **Blue-green deployment workflow**. For deployments that require progressive rollout, such as blue-green deployments, you can configure your environments to refer to a single [graph variant](/graphos/graphs/#variants) by pinning each environment's supergraph schema to your routers at deployment time. Using a single variant between different production environments enables GraphOS Studio to get usage reports and analyze the combined production traffic of all environments, as well as providing a consistent changelog of your schema over time.
+
+* **Graph variant workflow**. Changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process to handle the different router updates, you can use [graph variants](/graphos/graphs/#variants) to manage router fleets running with different configurations. 
+
+  A common use for graph variants is [contracts](/graphos/delivery/contracts/), for example, to create separate contract variants for the public and private APIs of a supergraph schema.
 
 ### Example blue-green deployment
 
@@ -130,7 +134,7 @@ Specifically, for deployments that require progressive rollout, such as blue-gre
 
 A blue-green deployment strategy uses two environments: one environment (blue) serves the schema variant for live traffic, and the other environment (green) uses a variant for a new release that's under development. When the new release is ready, traffic is migrated from the blue to the green environment. This cycle repeats with each new release.  
 
-As an example, follow these steps to deploy with a supergraph schema of a new release (green) environment:
+As an example, follow these steps to deploy with a supergraph schema of a new release (green) environment; the example uses the [GraphOS Platform API](/graphos/platform-api/) to perform custom GraphOS actions:
 
 1. Publish all the release's subgraphs at once using the Platform API [`publishSubgraphs` mutation](https://studio.apollographql.com/graph/apollo-platform/variant/main/schema/reference/objects/GraphMutation#publishSubgraphs).
 
@@ -165,6 +169,12 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
   This initiates a [launch](/graphos/delivery/launches/), as well as any downstream launches necessary for [contracts](graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
 
+  <Note>
+
+  For contracts, the contract variants are gotten from this query with ` Launch.graphVariant / downstreamLaunches { graphVariant }`. These are used in queries in following steps.
+
+  </Note>
+
 1. Poll for the completed launch and any downstream launches. 
 
     ```graphql
@@ -180,6 +190,12 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
     }
 
     ```
+
+    <Note>
+
+    When polling for a contract, the `$graphVariant` argument of this query must refer to a contract variant. You can get it from the query in step 1, from `Launch.graphVariant / downstreamLaunches { graphVariant }`.
+
+    </Note>
 
 1. After the launch and downstream launches have completed, retrieve the supergraph schema of the launch.
 
@@ -205,6 +221,12 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     ```
 
+    <Note>
+
+     When retrieving for a contract, the `$graphVariant` argument of this query must refer to a contract variant. You can get it from the query in step 1, from `Launch.graphVariant / downstreamLaunches { graphVariant }`.
+
+    </Note>
+
 1. Deploy your routers with the [`-s` or `--supergraph` option](/router/configuration/overview/#-s----supergraph) to specify the supergraph schema.
 
     * Specifying the `-s` or `--supergraph` option disables polling for the schema from Uplink.
@@ -215,7 +237,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
 A canary deployment applies graph updates to a small subset of your deployment environment before rolling it out for your entire environment.
 
-To configure a canary deployment, you might maintain two production graph variants in Apollo Studio, one named `prod` and the other named `prod-canary`. To deploy a change to a subgraph named `launches`, you might perform the following steps:
+To configure a canary deployment, you might maintain two production graph variants in GraphOS Studio, one named `prod` and the other named `prod-canary`. To deploy a change to a subgraph named `launches`, you might perform the following steps:
 
 1. Check the changes in `launches` against both `prod` and `prod-canary`:
    ```shell
@@ -235,7 +257,7 @@ To configure a canary deployment, you might maintain two production graph varian
     rover subgraph publish my-supergraph@prod --name=launches --schema ./launches/schema.graphql
     ```
 
-If your canary variant [reports metrics to GraphOS](/graphos/metrics/), you can use [Apollo Studio](https://studio.apollographql.com?referrer=docs-content) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
+If your canary variant [reports metrics to GraphOS](/graphos/metrics/), you can use [GraphOS Studio](https://studio.apollographql.com?referrer=docs-content) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
 
 ## Modifying query-planning logic
 
