@@ -171,7 +171,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
   <Note>
 
-  For contracts, the contract variants are gotten from this query with ` Launch.graphVariant / downstreamLaunches { graphVariant }`. These are used in queries in following steps.
+  For contracts, you can also request that any downstream launches return the variant associated with each launch, for example, `downstreamLaunches { graphVariant }`.  When querying for a specific launch, be sure to pass the variant associated with the launch in the following steps.
 
   </Note>
 
@@ -193,7 +193,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     <Note>
 
-    When polling for a contract, the `$graphVariant` argument of this query must refer to a contract variant. You can get it from the query in step 1, from `Launch.graphVariant / downstreamLaunches { graphVariant }`.
+    When polling for a contract, the `$graphVariant` argument of this query must refer to the contract variant rather than the base variant. You can get it from the query in step 1, from `Launch.graphVariant / downstreamLaunches { graphVariant }`.
 
     </Note>
 
