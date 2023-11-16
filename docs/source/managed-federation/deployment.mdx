@@ -118,11 +118,11 @@ The next time it starts up or polls, your router obtains an updated configuratio
 
 ## Using variants to control rollout
 
-Your deployment model may require deploying a specific version of your graph, for example, for blue-green or canary deployments. With managed federation, you can control which version of your graph your router fleet uses. In most cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
+Your deployment model may require deploying a specific version of your graph, for example, for blue-green or canary deployments. With managed federation, you can control which version of your schema your router fleet uses. In most cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
 
 However, changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](/graphos/graphs/#variants) to manage router fleets running with different configurations.
 
-Specifically, for deployments that run in different production environments, such as blue-green deployments, you can configure your environments to refer to a single graph variant by pinning each environment's supergraph schema to your routers at deployment time. Using a single variant between different production environments enables Studio to get usage reports and analyze the combined production traffic of all environments.
+Specifically, for deployments that require progressive rollout, such as blue-green deployments, you can configure your environments to refer to a single graph variant by pinning each environment's supergraph schema to your routers at deployment time. Using a single variant between different production environments enables Studio to get usage reports and analyze the combined production traffic of all environments, as well as providing a consistent changelog of your schema over time.
 
 ### Example blue-green deployment
 
@@ -154,6 +154,8 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
             id
             downstreamLaunches {
               id
+              graphVariant
+              status
             }
           }
         }
