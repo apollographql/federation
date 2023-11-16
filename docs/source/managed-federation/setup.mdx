@@ -16,8 +16,6 @@ First, complete the **Set up Apollo tools** step from [this tutorial](/graphos/q
 - Creating a graph in Studio
 - Installing and authenticating the Rover CLI
 
-Then return here.
-
 ## 2. Publish all subgraph schemas
 
 In a supergraph architecture, each of your [subgraphs](../building-supergraphs/subgraphs-overview/) uses the Rover CLI to publish its schema to GraphOS:
@@ -71,33 +69,37 @@ const gateway = new ApolloGateway({
 
 This option is specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI.
 
-With managed federation, composition is instead performed by _GraphOS_, and the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
+With managed federation, composition can instead be performed by _GraphOS_, where the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
 
-Remove the `supergraphSdl` argument from your `ApolloGateway` constructor entirely:
+To use managed federation, ensure your `ApolloGateway` constructor doesn't include the `supergraphSdl` argument:
 
 ```js
 const gateway = new ApolloGateway();
 ```
 
-> When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](/apollo-server/security/proxy-configuration) within Apollo Server.
+When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](/apollo-server/security/proxy-configuration) within Apollo Server.
 
 </ExpansionPanel>
 
-If you've already set up Apollo Federation _without_ connecting your router to GraphOS, you're probably passing the `--supergraph` (or `-s`) option to the Apollo Router's startup command:
+If you've already set up Apollo Federation _without_ connecting your router to GraphOS, you're probably passing the [`--supergraph` (or `-s`) option](/router/configuration/overview/#-s----supergraph) to the Apollo Router's startup command:
 
 ```sh
 ./router --config ./router.yaml --supergraph ./your-local-supergraph.graphql
 ```
 
-The `--supergraph` option is specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI and provided via a file path.
+The `--supergraph` option applies in scenarios where the router doesn't retrieve the supergraph schema by polling Apollo Uplink. These include:
 
-_Remove_ the `--supergraph` option (but leave `--config` if it's present):
+* **Enabling different deployment environments to refer to a single graph variant**, for example, for [blue-green deployment](./deployment/#example-blue-green-deployment): Use a workflow with the [Platform API](/graphos/platform-api/) to compose and retrieve the supergraph schema for each environment. This enables each environment's router to use the environment's supergraph schema, and then a single graph variant can capture and analyze the operations and traffic of either environment when deployed.
+
+* **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
+
+For other scenarios where the router retrieves the supergraph schema from Apollo Uplink, _remove_ the `--supergraph` option (but leave `--config` if it's present):
 
 ```sh
 ./router --config ./router.yaml
 ```
 
-> With managed federation, composition is instead performed by _GraphOS_, and the router regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
+With federation managed by GraphOS, composition is performed when subgraph schemas are published, and the router regularly polls for an updated supergraph schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
 
 
 ## 4. Connect your router to GraphOS
@@ -114,4 +116,4 @@ After obtaining your graph API key, you set the following environment variables 
 
 ## 5. Deploy the modified router
 
-You can now deploy your modified router, which will fetch its supergraph schema from GraphOS on startup. It can then begin executing operations across your subgraphs.
+You can now deploy your modified router, which can either fetch its supergraph schema from GraphOS on startup or specify its supergraph schema for deployment in a particular environment. It can then begin executing operations across your subgraphs.

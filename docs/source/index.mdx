@@ -3,6 +3,8 @@ title: Introduction to Apollo Federation
 description: Combine GraphQL APIs into a unified supergraph
 ---
 
+import ManagedFederationDiagram from '../../shared/diagrams/managed-federation.mdx';
+
 **Apollo Federation** is a powerful, open architecture for creating a **supergraph** that combines multiple GraphQL APIs:
 
 ```mermaid
@@ -345,23 +347,7 @@ These resulting schemas provide the best of both worlds:
 
 Your router can operate in **managed federation** mode, where [Apollo GraphOS](/graphos/) acts as the source of truth for your supergraph's configuration:
 
-```mermaid
-graph LR;
-  subgraph "Your infrastructure"
-  serviceA[Products<br/>subgraph];
-  serviceB[Reviews<br/>subgraph];
-  gateway([Router]);
-  end
-  subgraph "Apollo GraphOS"
-    registry{{Apollo Schema<br/>Registry}};
-    uplink{{Apollo<br/>Uplink}}
-  end
-  serviceA & serviceB -->|Publishes<br/>schema| registry;
-  registry -->|Updates<br/>supergraph config| uplink;
-  gateway -->|Polls for supergraph changes| uplink;
-  class registry secondary;
-  class uplink secondary;
-```
+<ManagedFederationDiagram />
 
 This mode helps multiple teams working on a supergraph to coordinate when and how to change individual subgraphs. It's recommended for all supergraphs. For more information, read [Managed federation overview](./managed-federation/overview/).
 
