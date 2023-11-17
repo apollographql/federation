@@ -6,9 +6,9 @@ description: Learn how Apollo Federation can help you declaratively combine your
 
 ## What is Apollo Federation?
 
-**Apollo Federation** lets you declaratively combine multiple GraphQL APIs into a unified graph. This enables clients to interact with multiple APIs through a single request.
+**Apollo Federation** lets you declaratively combine multiple GraphQL APIs into a single, federated graph. This federated graph enables clients to interact with multiple APIs through a single request.
 
-A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes the request across your APIs and returns a combined response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
+A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 ```mermaid
 graph LR;
@@ -37,7 +37,7 @@ Apollo Federation lets API teams operate in a [microservices architecture](https
 
 ### Preserve client simplicity and performance
 
-A client may need to make multiple fetches when interacting with multiple non-federated GraphQL APIs. This can happen within an organization adopting GraphQL that has multiple teams developing independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL APIs for users, flights, and hotels:
+A client may need to make multiple requests when interacting with multiple non-federated GraphQL APIs. This can happen when an organization adopting GraphQL  has multiple teams developing APIs independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL APIs for users, flights, and hotels:
 
 ```mermaid
 graph RL;
@@ -86,8 +86,8 @@ graph LR;
   class clients secondary;
 ```
 
-The router intelligently calls all the services it needs to complete a request, rather than simply forward them.
-Clients should only query the router, and only the router should query the constituent APIs.
+The router intelligently calls all the APIs it needs to complete requests rather than simply forwarding them.
+For performance and security reasons, clients should only query the router, and only the router should query the constituent APIs.
 No client-side configuration is required.
 
 ### Design schemas at scale
@@ -98,7 +98,7 @@ With Apollo Federation, clients can interact with the federated schema as if it 
 
 ### Maintain a single API
 
-With federation, every team contributes directly to the overall federated GraphQL schema. Each team can work independently without needing to maintain multiple API layers. This frees up your platform team to focus on the quality of your API, rather than keeping it up to date.
+With federation, every team contributes directly to the overall federated GraphQL schema. Each team can work independently without needing to maintain multiple API layers. This frees your platform team to focus on the quality of your API rather than keeping it up to date.
 
 
 ## Next steps
@@ -135,7 +135,7 @@ Different subgraphs in the same supergraph can use different server implementati
 
 Depending on your goals, you have several options for learning more about federation: 
 - If you're new to federated architecture, this [overview article](https://graphql.com/learn/federated-architecture/) can familiarize the concepts.
-- If you'd like to recap key concepts of Apollo Federation, the video below gives a great overview.
+- If you'd like to recap the key concepts of Apollo Federation, the video below gives a great overview.
 
     <ExpansionPanel title="Watch the video overview">
 
@@ -155,7 +155,3 @@ Once you're ready to apply federation to your own APIs, these docs sections can 
   - [Performance considerations](./performance/caching)
   - [Debugging and metrics](./errors)
   - [Subgraph specifications](./building-supergraphs/router) for federation-compatibility
-
-### Best practices
-
-Whether your supergraph implementation is already underway or just starting, you can use the [Supergraph Architecture Framework](https://saf.apollographql.com/) (SAF) to learn about best practices. The SAF includes an assessment you can take to quantify your supergraph's current state and identify areas for improvement.
