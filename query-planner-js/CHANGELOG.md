@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.5.7
+### Patch Changes
+
+
+- Fix query planning bug where keys or required fields can sometimes reach subgraphs with null values. ([#2805](https://github.com/apollographql/federation/issues/2805)) ([#2859](https://github.com/apollographql/federation/pull/2859))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.5.7
+  - @apollo/query-graphs@2.5.7
+
 ## 2.5.6
 ### Patch Changes
 
