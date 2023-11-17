@@ -1,14 +1,14 @@
 ---
 title: Introduction to Apollo Federation
 subtitle: Learn how to combine your GraphQL APIs into a unified supergraph
-description: Learn how Apollo Federation can help you declaratively combine your GraphQL APIs into a unified, federated supergraph using microservices architecture
+description: Learn how Apollo Federation can help you declaratively combine your GraphQL APIs into a unified, federated supergraph using a microservices architecture
 ---
 
 ## What is Apollo Federation?
 
-**Apollo Federation** lets you combine multiple GraphQL APIs into a unified graph with a single entry point called the **router**.
-Clients make requests to the router, which intelligently distributes them across your APIs and returns a unified response.
-This architecture enables clients to interact with multiple services with a single request.
+**Apollo Federation** lets you combine multiple GraphQL APIs into a unified graph, enabling a client to interact with multiple APIs through a single request.
+
+A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes a request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 ```mermaid
 graph LR;
@@ -41,7 +41,7 @@ Beyond the generic benefits of using GraphQL and microservices architecture, Apo
 
 ### Preserve client performance
 
-Sometimes, when an organization adopts GraphQL, multiple teams do so independently. Each team sets up a GraphQL service that provides the data used by that team. For example, a travel app may have separate GraphQL services for users, flights, and hotels:
+A client may need to make multiple fetches when interacting with multiple non-federated GraphQL APIs. This can happen within an organization adopting GraphQL that has multiple teams developing independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL services for users, flights, and hotels:
 
 ```mermaid
 graph RL;
@@ -68,7 +68,7 @@ graph RL;
   class clients secondary;
 ```
 
-But if you expose multiple GraphQL APIs to clients, a client might need to communicate with _multiple_ APIs to fetch all the data it needs. With a single federated graph, you preserve a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
+By exposing multiple GraphQL APIs to a client, it might need to communicate with _multiple_ APIs to fetch its data. With a single federated graph, you unlock a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
 
 ```mermaid
 graph LR;
