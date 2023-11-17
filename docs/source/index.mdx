@@ -8,7 +8,7 @@ description: Learn how Apollo Federation can help you declaratively combine your
 
 **Apollo Federation** lets you declaratively combine multiple GraphQL APIs into a unified graph. This enables clients to interact with multiple APIs through a single request.
 
-A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
+A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes the request across your APIs and returns a combined response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 ```mermaid
 graph LR;
@@ -64,7 +64,7 @@ graph RL;
   class clients secondary;
 ```
 
-By exposing multiple GraphQL APIs to a client, it might need to communicate with _multiple_ APIs to fetch its data. With a single federated graph, you preserve a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
+With a single federated graph, you preserve a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
 
 ```mermaid
 graph LR;
@@ -86,7 +86,7 @@ graph LR;
   class clients secondary;
 ```
 
-Federation makes this possible because the router serves to orchestrate incoming operations, not to resolve each of them completely.
+The router intelligently calls all the services it needs to complete a request, rather than simply forward them.
 Clients should only query the router, and only the router should query the constituent APIs.
 No client-side configuration is required.
 
@@ -98,9 +98,8 @@ With Apollo Federation, clients can interact with the federated schema as if it 
 
 ### Maintain a single API
 
-With federation, every team maintaining a GraphQL API contributes directly to the overall federated schema. Instead of every team needing to manage its own graph layer, each team can be responsible for its slice of the API. When your entire organization contributes to the same graph, each team doesn't need to worry about maintaining its unique API.
+With federation, every team contributes directly to the overall federated GraphQL schema. Each team can work independently without needing to maintain multiple API layers. This frees up your platform team to focus on the quality of your API, rather than keeping it up to date.
 
-In this structure, the "graph team" might be a separate team dedicated to maintaining your router as part of the backend infrastructure, or it might be a "meta team" that includes representatives from other teams that maintain individual services.
 
 ## Next steps
 
@@ -123,7 +122,7 @@ graph LR;
   class clients secondary;
 ```
 
-Different subgraphs in the same supergraph can use different server libraries as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/).
+Different subgraphs in the same supergraph can use different server implementations and even different programming languages as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/).
 
 <Tip>
 
