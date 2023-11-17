@@ -6,9 +6,9 @@ description: Learn how Apollo Federation can help you declaratively combine your
 
 ## What is Apollo Federation?
 
-**Apollo Federation** lets you combine multiple GraphQL APIs into a unified graph, enabling a client to interact with multiple APIs through a single request.
+**Apollo Federation** lets you declaratively combine multiple GraphQL APIs into a unified graph. This enables clients to interact with multiple APIs through a single request.
 
-A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes a request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
+A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 ```mermaid
 graph LR;
@@ -37,7 +37,7 @@ Apollo Federation lets API teams operate in a [microservices architecture](https
 
 ### Preserve client simplicity and performance
 
-A client may need to make multiple fetches when interacting with multiple non-federated GraphQL APIs. This can happen within an organization adopting GraphQL that has multiple teams developing independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL services for users, flights, and hotels:
+A client may need to make multiple fetches when interacting with multiple non-federated GraphQL APIs. This can happen within an organization adopting GraphQL that has multiple teams developing independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL APIs for users, flights, and hotels:
 
 ```mermaid
 graph RL;
@@ -123,7 +123,7 @@ graph LR;
   class clients secondary;
 ```
 
-Different subgraphs in the same supergraph can use different server languages and libraries as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/).
+Different subgraphs in the same supergraph can use different server libraries as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/).
 
 <Tip>
 
