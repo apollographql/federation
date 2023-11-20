@@ -1,5 +1,44 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.6.0
+### Minor Changes
+
+
+- Update `license` field in `package.json` to use `Elastic-2.0` SPDX identifier ([#2741](https://github.com/apollographql/federation/pull/2741))
+
+
+- Introduce the new `@policy` scope for composition ([#2818](https://github.com/apollographql/federation/pull/2818))
+  
+    > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@policy` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+  
+    Users may now compose `@policy` applications from their subgraphs into a supergraph.
+  
+    The directive is defined as follows:
+  
+    ```graphql
+    scalar federation__Policy
+  
+    directive @policy(policies: [[federation__Policy!]!]!) on
+      | FIELD_DEFINITION
+      | OBJECT
+      | INTERFACE
+      | SCALAR
+      | ENUM
+    ```
+  
+    The `Policy` scalar is effectively a `String`, similar to the `FieldSet` type.
+  
+    In order to compose your `@policy` usages, you must update your subgraph's federation spec version to v2.6 and add the `@policy` import to your existing imports like so:
+    ```graphql
+    @link(url: "https://specs.apollo.dev/federation/v2.6", import: [..., "@policy"])
+    ```
+
+### Patch Changes
+
+- Updated dependencies [[`b18841be`](https://github.com/apollographql/federation/commit/b18841be897e6d4f47454568776f199e2adb60ae), [`e325b499`](https://github.com/apollographql/federation/commit/e325b499d592dabe61c93112c292c92ca10afbc5)]:
+  - @apollo/query-graphs@2.6.0
+  - @apollo/federation-internals@2.6.0
+
 ## 2.5.7
 ### Patch Changes
 
