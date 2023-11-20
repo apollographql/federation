@@ -3,7 +3,7 @@ title: Apollo Uplink
 description: Fetch your managed router's configuration
 ---
 
-When using [managed federation](./overview/), your supergraph's router regularly polls an endpoint called **Apollo Uplink** for its latest supergraph schema and other configuration:
+When using [managed federation](./overview/), your supergraph's router by default regularly polls an endpoint called **Apollo Uplink** for its latest supergraph schema and other configuration:
 
 ```mermaid
 graph LR;
@@ -23,7 +23,7 @@ graph LR;
   class uplink secondary;
 ```
 
-> Uplink also serves your router's **entitlement** if you're using [Enterprise features](/router/enterprise-features/).
+If you're using [Enterprise features](/router/enterprise-features/), Uplink also serves your router's [**license**](/router/enterprise-features/#the-enterprise-license).
 
 To maximize uptime, Uplink is hosted simultaneously at _two_ endpoints, one in GCP and one in AWS:
 
@@ -141,3 +141,19 @@ APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/
 Supergraph schemas provided by Uplink cannot exceed 6MB in size. The _vast_ majority of supergraph schemas are well below this limit.
 
 If your supergraph schema _does_ exceed 6MB, you can set up a [build status webhook](/graphos/metrics/notifications/build-status-notification/) for your graph. Whenever you're notified of a successful supergraph schema composition, your webhook can fetch the latest supergraph schema [via the Rover CLI](/rover/commands/supergraphs#supergraph-fetch).
+
+## Bypassing Uplink
+
+<PreviewFeature />
+
+In advanced use cases, you may want your router to use a supergraph schema different than the latest validated schema provided by Uplink. For example, you have different deployment environments for the same [graph variant](/graphos/graphs/#variants), and you want everything that managed federation provides except for your routers to use supergraph schemas specific to their deployment environment.
+
+For this scenario, you can follow a workflow that, instead of retrieving supergraph schemas from Uplink, uses the [GraphOS Platform API](/graphos/platform-api) to retrieve a supergraph schema for a specific [GraphOS launch](/graphos/delivery/launches). The workflow, in summary:
+
+1. When deploying your graphs, publish your subgraphs in a batch using the GraphOS Platform API.
+    * The Platform API triggers a launch (and possible downstream launches for contracts) and returns the launch ID (and downstream launch IDs, if necessary).
+1. Poll for the launch status, until the launch (and all downstream launches) has completed successfully.
+1. Retrieve the supergraph schema of the successful launch by calling the Platform API with the launch ID.
+1. Set or "pin" the supergraph schema to your routers by deploying them with the [`--supergraph` or `-s` option](/router/configuration/overview/#-s----supergraph).
+
+For an example with operations calling the Platform API, see a [blue-green deployment example](./deployment/#example-blue-green-deployment).

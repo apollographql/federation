@@ -944,7 +944,7 @@ class FetchGroup {
         // `inputs.contains(selection)`, so if a group is shown useful, it means that there
         // is some selections not in the inputs, but as long as we add to selections (and we
         // never remove from selections; `MutableSelectionSet` don't have removing methods),
-        // then this won't change. Only changing inputs may require some recomputation. 
+        // then this won't change. Only changing inputs may require some recomputation.
         this.isKnownUseful = false;
       }
     }
@@ -1188,7 +1188,7 @@ class FetchGroup {
     if (inputs) {
       this.cachedCost = undefined;
       const updated = inputs.selectionSets().reduce((prev, value) => prev.minus(value), this.selection);
-      this._selection = MutableSelectionSet.ofWithMemoized(this.selection.minus(updated), conditionsMemoizer);
+      this._selection = MutableSelectionSet.ofWithMemoized(updated, conditionsMemoizer);
     }
   }
 
@@ -1706,7 +1706,7 @@ function withFieldAliased(selectionSet: SelectionSet, aliases: FieldToAlias[]): 
       const field = selection.element;
       const alias = pathElement && atCurrentLevel.get(pathElement);
       return !alias && selection.selectionSet === updatedSelectionSet
-        ? selection 
+        ? selection
         : selection.withUpdatedComponents(alias ? field.withUpdatedAlias(alias.alias) : field, updatedSelectionSet);
     } else {
       return selection.selectionSet === updatedSelectionSet
@@ -3701,8 +3701,8 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
 }
 
 /**
- * Given a selection select (`selectionSet`) and given a set of directive applications that can be eliminated (`unneededDirectives`; in 
- * practice those are conditionals (@skip and @include) already accounted for), returns an equivalent selection set but with unecessary 
+ * Given a selection select (`selectionSet`) and given a set of directive applications that can be eliminated (`unneededDirectives`; in
+ * practice those are conditionals (@skip and @include) already accounted for), returns an equivalent selection set but with unecessary
  * "starting" fragments having the unneeded condition/directives removed.
  */
 function removeUnneededTopLevelFragmentDirectives(
@@ -3969,7 +3969,7 @@ function computeGroupsForTree(
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.updates().add(edge.conditions!);
             newGroup.addInputs(
-              wrapInputsSelections(inputType, inputSelections.get(), newContext), 
+              wrapInputsSelections(inputType, inputSelections.get(), newContext),
               computeInputRewritesOnKeyFetch(inputType.name, destType),
             );
 
