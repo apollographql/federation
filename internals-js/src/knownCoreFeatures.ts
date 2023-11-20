@@ -1,4 +1,4 @@
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl } from "./coreSpec";
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl } from "./specs/coreSpec";
 
 const registeredFeatures: Map<string, FeatureDefinitions> = new Map();
 

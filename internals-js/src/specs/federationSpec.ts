@@ -2,21 +2,22 @@ import {
   InputType,
   NonNullType,
   Schema,
-} from "./definitions";
+} from "../definitions";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
-} from "./directiveAndTypeSpecification";
+} from "../directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
-import { assert } from "./utils";
+import { assert } from "../utils";
 import { TAG_VERSIONS } from "./tagSpec";
-import { federationMetadata } from "./federation";
-import { registerKnownFeature } from "./knownCoreFeatures";
+import { federationMetadata } from "../federation";
+import { registerKnownFeature } from "../knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
+import { POLICY_VERSIONS } from './policySpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -38,6 +39,7 @@ export enum FederationDirectiveName {
   INTERFACE_OBJECT = 'interfaceObject',
   AUTHENTICATED = 'authenticated',
   REQUIRES_SCOPES = 'requiresScopes',
+  POLICY = 'policy',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -149,6 +151,10 @@ export class FederationSpecDefinition extends FeatureDefinition {
       this.registerSubFeature(AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!);
       this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
+
+    if (version >= (new FeatureVersion(2, 6))) {
+      this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
   }
 }
 
@@ -158,6 +164,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
