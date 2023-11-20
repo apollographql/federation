@@ -7,7 +7,7 @@
 "@apollo/gateway": minor
 ---
 
-Introduce the new `@policy` scope for composition ([#2818](https://github.com/apollographql/federation/pull/2818))
+Introduce the new `@policy` scope for composition
 
   > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@policy` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
   
