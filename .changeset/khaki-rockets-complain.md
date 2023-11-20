@@ -18,7 +18,7 @@ Introduce the new `@policy` scope for composition ([#2818](https://github.com/ap
   ```graphql
   scalar federation__Policy
   
-  directive @policy(policies: [federation__Policy!]!) on
+  directive @policy(policies: [[federation__Policy!]!]!) on
     | FIELD_DEFINITION
     | OBJECT
     | INTERFACE
