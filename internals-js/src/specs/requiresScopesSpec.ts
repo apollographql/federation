@@ -6,7 +6,7 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { DirectiveDefinition, ListType, NonNullType, Schema } from "../definitions";
+import { ListType, NonNullType } from "../definitions";
 import { createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { ARGUMENT_COMPOSITION_STRATEGIES } from "../argumentCompositionStrategies";
@@ -55,12 +55,6 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
       composes: true,
       supergraphSpecification: () => REQUIRES_SCOPES_VERSIONS.latest(),
     }));
-  }
-
-  requiresScopesDirective(
-    schema: Schema
-  ): DirectiveDefinition<{ name: string }> {
-    return this.directive(schema, RequiresScopesSpecDefinition.directiveName)!;
   }
 
   get defaultCorePurpose(): CorePurpose {

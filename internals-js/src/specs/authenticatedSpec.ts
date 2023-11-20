@@ -6,7 +6,6 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { DirectiveDefinition, Schema } from "../definitions";
 import { createDirectiveSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 
@@ -36,12 +35,6 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
       composes: true,
       supergraphSpecification: () => AUTHENTICATED_VERSIONS.latest(),
     }));
-  }
-
-  authenticatedDirective(
-    schema: Schema
-  ): DirectiveDefinition<{ name: string }> {
-    return this.directive(schema, AuthenticatedSpecDefinition.directiveName)!;
   }
 
   get defaultCorePurpose(): CorePurpose {

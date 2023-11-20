@@ -1,6 +1,6 @@
 import { DirectiveLocation, GraphQLError } from "graphql";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
-import { DirectiveDefinition, NonNullType, Schema } from "../definitions";
+import { DirectiveDefinition, NonNullType } from "../definitions";
 import { createDirectiveSpecification, DirectiveSpecification } from "../directiveAndTypeSpecification";
 import { ERRORS } from "../error";
 import { registerKnownFeature } from "../knownCoreFeatures";
@@ -54,10 +54,6 @@ export class TagSpecDefinition extends FeatureDefinition {
 
   private isV02() {
     return this.version.equals(new FeatureVersion(0, 2))
-  }
-
-  tagDirective(schema: Schema): DirectiveDefinition<{name: string}> {
-    return this.directive(schema, 'tag')!;
   }
 
   checkCompatibleDirective(definition: DirectiveDefinition): GraphQLError | undefined {
