@@ -34,10 +34,11 @@ overrides:
   - filename: '**/CHANGELOG*.md'
     ignoreRegExpList:
       - "@[-\\w]+"
-  # Ignore the targets of links in Markdown/MDX files.
+  # Ignore the targets of links and YouTube IDs in Markdown/MDX files.
   - filename: '**/*.md*'
     ignoreRegExpList:
       - "\\]\\([^)]+\\)"
+      - "youTubeID=.+/>"
   # Ignore user and repo names in GitHub links to supported subgraph libraries.
   - filename: '**/supported-subgraphs.md'
     ignoreRegExpList:
