@@ -2239,7 +2239,7 @@ function makeSelection(parentType: CompositeType, updates: SelectionUpdate[], fr
   const element = updateElement(first).rebaseOnOrError(parentType);
   const subSelectionParentType = element.kind === 'Field' ? element.baseType() : element.castedType();
   if (!isCompositeType(subSelectionParentType)) {
-    // This is a leaf, so all updates should correspond ot the same field and we just use the first.
+    // This is a leaf, so all updates should correspond to the same field and we just use the first.
     return selectionOfElement(element);
   }
 

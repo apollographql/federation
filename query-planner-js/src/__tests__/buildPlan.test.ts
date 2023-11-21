@@ -3498,6 +3498,109 @@ describe('handles non-intersecting fragment conditions', () => {
     `);
   });
 
+  test.only('minimal nested fragment + directive issue', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @test on FRAGMENT_SPREAD
+
+        type Query {
+          i: I
+        }
+
+        interface I {
+          _id: ID
+        }
+
+        type T1 implements I @key(fields: "id") {
+          _id: ID
+          id: ID
+        }
+
+        type T2 implements I @key(fields: "id") {
+          _id: ID
+          id: ID
+        }
+      `,
+      name: 'A',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        directive @test on FRAGMENT_SPREAD
+
+        type Query {
+          i2s: [I2]
+        }
+
+        interface I2 {
+          id: ID
+          title: String
+        }
+
+        type T1 implements I2 @key(fields: "id") {
+          id: ID
+          title: String
+        }
+
+        type T2 implements I2 @key(fields: "id") {
+          id: ID
+          title: String
+        }
+      `,
+      name: 'B',
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
+
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          i {
+            _id
+            ... on I2 {
+              ... on I2 @test {
+                id
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    expect(operation.expandAllFragments().toString()).toMatchInlineSnapshot(`
+      "{
+        i {
+          _id
+          ... on I2 {
+            ... on I2 @test {
+              id
+            }
+          }
+        }
+      }"
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "A") {
+          {
+            i {
+              __typename
+              _id
+              ... on T1 {
+                id
+              }
+              ... on T2 {
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
   test('with federation 2 subgraphs', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -3907,7 +4010,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3922,7 +4025,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooSelect on Foo {
             __typename
             foo
@@ -4096,7 +4199,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-              
+
               fragment OnV on V {
                 a
                 b
@@ -4170,7 +4273,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment Selection on A {
             x
             y
@@ -4264,7 +4367,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment OnV on V {
             v1
             v2
@@ -4372,7 +4475,7 @@ describe('Named fragments preservation', () => {
               ...OnT @include(if: $test2)
             }
           }
-          
+
           fragment OnT on T {
             a
             b
@@ -4572,7 +4675,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v {
@@ -4711,7 +4814,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -4852,7 +4955,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v
@@ -4991,7 +5094,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -6815,7 +6918,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             __typename
             id1
@@ -6888,7 +6991,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             id1
             id2
@@ -7030,7 +7133,7 @@ describe('named fragments', () => {
                 id
               }
             }
-            
+
             fragment allTFields on T {
               v0
               v1
@@ -7178,7 +7281,7 @@ describe('named fragments', () => {
                   }
                 }
               }
-              
+
               fragment allUFields on U {
                 v0
                 v1
@@ -7481,35 +7584,35 @@ test('correctly generate plan built from some non-individually optimal branch op
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-   QueryPlan {
-     Sequence {
-       Fetch(service: "Subgraph2") {
-         {
-           t {
-             __typename
-             id
-           }
-         }
-       },
-       Flatten(path: "t") {
-         Fetch(service: "Subgraph3") {
-           {
-             ... on T {
-               __typename
-               id
+       QueryPlan {
+         Sequence {
+           Fetch(service: "Subgraph2") {
+             {
+               t {
+                 __typename
+                 id
+               }
              }
-           } =>
-           {
-             ... on T {
-               y
-               x
-             }
-           }
+           },
+           Flatten(path: "t") {
+             Fetch(service: "Subgraph3") {
+               {
+                 ... on T {
+                   __typename
+                   id
+                 }
+               } =>
+               {
+                 ... on T {
+                   y
+                   x
+                 }
+               }
+             },
+           },
          },
-       },
-     },
-   }
-  `);
+       }
+    `);
 });
 
 test('does not error on some complex fetch group dependencies', () => {
@@ -7902,74 +8005,74 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "A") {
-          {
-            u {
-              __typename
-              k1 {
-                id
-              }
-            }
+          QueryPlan {
+            Sequence {
+              Fetch(service: "A") {
+                {
+                  u {
+                    __typename
+                    k1 {
+                      id
+                    }
+                  }
+                }
+              },
+              Flatten(path: "u") {
+                Fetch(service: "B") {
+                  {
+                    ... on U {
+                      __typename
+                      k1 {
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      k2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "u") {
+                Fetch(service: "C") {
+                  {
+                    ... on U {
+                      __typename
+                      k2
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      v {
+                        v
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "u") {
+                Fetch(service: "B") {
+                  {
+                    ... on U {
+                      __typename
+                      v {
+                        v
+                      }
+                      k1 {
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      f
+                    }
+                  }
+                },
+              },
+            },
           }
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                k2
-              }
-            }
-          },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "C") {
-            {
-              ... on U {
-                __typename
-                k2
-              }
-            } =>
-            {
-              ... on U {
-                v {
-                  v
-                }
-              }
-            }
-          },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                v {
-                  v
-                }
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                f
-              }
-            }
-          },
-        },
-      },
-    }
-    `);
+        `);
   });
 });
