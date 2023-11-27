@@ -9,6 +9,7 @@ import { ServiceMap } from './executeQueryPlan';
 import { ServiceDefinition } from "@apollo/federation-internals";
 import { Fetcher } from '@apollo/utils.fetcher';
 import { UplinkSupergraphManager } from './supergraphManagers';
+import { OpenTelemetryConfig } from './utilities/opentelemetry';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -129,6 +130,7 @@ interface GatewayConfigBase {
   serviceHealthCheck?: boolean;
 
   queryPlannerConfig?: QueryPlannerConfig;
+  telemetry?: OpenTelemetryConfig;
 
   /**
    * Whether to validate the supergraphs received from either the static configuration or the

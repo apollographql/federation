@@ -49,7 +49,7 @@ import {
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, SelectionSet } from './operations';
-import { TAG_VERSIONS } from "./tagSpec";
+import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
@@ -71,7 +71,7 @@ import {
   CoreImport,
   extractCoreFeatureImports,
   CoreOrLinkDirectiveArgs,
-} from "./coreSpec";
+} from "./specs/coreSpec";
 import {
   FEDERATION_VERSIONS,
   federationIdentity,
@@ -79,12 +79,12 @@ import {
   FederationTypeName,
   FEDERATION1_TYPES,
   FEDERATION1_DIRECTIVES,
-} from "./federationSpec";
+} from "./specs/federationSpec";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
-import { joinIdentity } from "./joinSpec";
+import { joinIdentity } from "./specs/joinSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -770,6 +770,10 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.REQUIRES_SCOPES);
   }
 
+  policyDirective(): Post20FederationDirectiveDefinition<{scopes: string[]}> {
+    return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -803,6 +807,11 @@ export class FederationMetadata {
     const requiresScopesDirective = this.requiresScopesDirective();
     if (isFederationDirectiveDefinedInSchema(requiresScopesDirective)) {
       baseDirectives.push(requiresScopesDirective);
+    }
+
+    const policyDirective = this.policyDirective();
+    if (isFederationDirectiveDefinedInSchema(policyDirective)) {
+      baseDirectives.push(policyDirective);
     }
 
     return baseDirectives;
@@ -1182,9 +1191,9 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy"])';
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
-export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),

@@ -13,7 +13,6 @@ import {
   printDirectiveDefinition,
   printSchema,
   printType,
-  RequiresScopesSpecDefinition,
 } from '@apollo/federation-internals';
 import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
@@ -4243,15 +4242,20 @@ describe('composition', () => {
     });
   });
 
-  describe('@requiresScopes', () => {
-    it('comprehensive locations', () => {
+  // @requiresScopes and @policy behave exactly the same way, and so all tests should be equally applicable to both directives
+  describe('@requiresScopes and @policy', () => {
+    const testsToRun = [
+      { directiveName: '@requiresScopes', argName: 'scopes', argType: 'requiresScopes__Scope', fedType: 'federation__Scope', identity: 'https://specs.apollo.dev/requiresScopes' },
+      { directiveName: '@policy', argName: 'policies', argType: 'policy__Policy', fedType: 'federation__Policy', identity: 'https://specs.apollo.dev/policy' },
+    ]
+    it.each(testsToRun)('comprehensive locations', ({ directiveName, argName }) => {
       const onObject = {
         typeDefs: gql`
           type Query {
             object: ScopedObject!
           }
 
-          type ScopedObject @requiresScopes(scopes: ["object"]) {
+          type ScopedObject ${directiveName}(${argName}: ["object"]) {
             field: Int!
           }
         `,
@@ -4264,7 +4268,7 @@ describe('composition', () => {
             interface: ScopedInterface!
           }
 
-          interface ScopedInterface @requiresScopes(scopes: ["interface"]) {
+          interface ScopedInterface ${directiveName}(${argName}: ["interface"]) {
             field: Int!
           }
         `,
@@ -4276,7 +4280,7 @@ describe('composition', () => {
           type ScopedInterfaceObject
             @interfaceObject
             @key(fields: "id")
-            @requiresScopes(scopes: ["interfaceObject"])
+            ${directiveName}(${argName}: ["interfaceObject"])
           {
             id: String!
           }
@@ -4286,11 +4290,11 @@ describe('composition', () => {
 
       const onScalar = {
         typeDefs: gql`
-          scalar ScopedScalar @requiresScopes(scopes: ["scalar"])
+          scalar ScopedScalar ${directiveName}(${argName}: ["scalar"])
 
           # This needs to exist in at least one other subgraph from where it's defined
           # as an @interfaceObject (so arbitrarily adding it here). We don't actually
-          # apply @requiresScopes to this one since we want to see it propagate even
+          # apply ${directiveName} to this one since we want to see it propagate even
           # when it's not applied in all locations.
           interface ScopedInterfaceObject @key(fields: "id") {
             id: String!
@@ -4301,7 +4305,7 @@ describe('composition', () => {
 
       const onEnum = {
         typeDefs: gql`
-          enum ScopedEnum @requiresScopes(scopes: ["enum"]) {
+          enum ScopedEnum ${directiveName}(${argName}: ["enum"]) {
             A
             B
           }
@@ -4312,7 +4316,7 @@ describe('composition', () => {
       const onRootField = {
         typeDefs: gql`
           type Query {
-            scopedRootField: Int! @requiresScopes(scopes: ["rootField"])
+            scopedRootField: Int! ${directiveName}(${argName}: ["rootField"])
           }
         `,
         name: 'on-root-field',
@@ -4325,7 +4329,7 @@ describe('composition', () => {
           }
 
           type ObjectWithScopedField {
-            field: Int! @requiresScopes(scopes: ["objectField"])
+            field: Int! ${directiveName}(${argName}: ["objectField"])
           }
         `,
         name: 'on-object-field',
@@ -4339,7 +4343,7 @@ describe('composition', () => {
 
           type EntityWithScopedField @key(fields: "id") {
             id: ID!
-            field: Int! @requiresScopes(scopes: ["entityField"])
+            field: Int! ${directiveName}(${argName}: ["entityField"])
           }
         `,
         name: 'on-entity-field',
@@ -4372,18 +4376,18 @@ describe('composition', () => {
         expect(
           result.schema
             .elementByCoordinate(element)
-            ?.hasAppliedDirective("requiresScopes")
+            ?.hasAppliedDirective(directiveName.slice(1))
         ).toBeTruthy();
       }
     });
 
-    it('applies @requiresScopes on types as long as it is used once', () => {
+    it.each(testsToRun)('applies directive on types as long as it is used once', ({ directiveName, argName }) => {
       const a1 = {
         typeDefs: gql`
           type Query {
             a: A
           }
-          type A @key(fields: "id") @requiresScopes(scopes: ["a"]) {
+          type A @key(fields: "id") ${directiveName}(${argName}: ["a"]) {
             id: String!
             a1: String
           }
@@ -4407,18 +4411,18 @@ describe('composition', () => {
       assertCompositionSuccess(result1);
       assertCompositionSuccess(result2);
 
-      expect(result1.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
-      expect(result2.schema.type('A')?.hasAppliedDirective('requiresScopes')).toBeTruthy();
+      expect(result1.schema.type('A')?.hasAppliedDirective(directiveName.slice(1))).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective(directiveName.slice(1))).toBeTruthy();
     });
 
-    it('merges @requiresScopes lists (simple union)', () => {
+    it.each(testsToRun)('merges ${directiveName} lists (simple union)', ({ directiveName, argName }) => {
       const a1 = {
         typeDefs: gql`
           type Query {
             a: A
           }
 
-          type A @requiresScopes(scopes: ["a"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: ["a"]) @key(fields: "id") {
             id: String!
             a1: String
           }
@@ -4427,7 +4431,7 @@ describe('composition', () => {
       };
       const a2 = {
         typeDefs: gql`
-          type A @requiresScopes(scopes: ["b"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: ["b"]) @key(fields: "id") {
             id: String!
             a2: String
           }
@@ -4439,19 +4443,19 @@ describe('composition', () => {
       assertCompositionSuccess(result);
       expect(
         result.schema.type('A')
-          ?.appliedDirectivesOf('requiresScopes')
-          ?.[0]?.arguments()?.scopes).toStrictEqual(['a', 'b']
+          ?.appliedDirectivesOf(directiveName.slice(1))
+          ?.[0]?.arguments()?.[argName]).toStrictEqual(['a', 'b']
       );
     });
 
-    it('merges @requiresScopes lists (deduplicates intersecting scopes)', () => {
+    it.each(testsToRun)('merges ${directiveName} lists (deduplicates intersecting scopes)', ({ directiveName, argName }) => {
       const a1 = {
         typeDefs: gql`
           type Query {
             a: A
           }
 
-          type A @requiresScopes(scopes: ["a", "b"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: ["a", "b"]) @key(fields: "id") {
             id: String!
             a1: String
           }
@@ -4460,7 +4464,7 @@ describe('composition', () => {
       };
       const a2 = {
         typeDefs: gql`
-          type A @requiresScopes(scopes: ["b", "c"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: ["b", "c"]) @key(fields: "id") {
             id: String!
             a2: String
           }
@@ -4472,16 +4476,16 @@ describe('composition', () => {
       assertCompositionSuccess(result);
       expect(
         result.schema.type('A')
-          ?.appliedDirectivesOf('requiresScopes')
-          ?.[0]?.arguments()?.scopes).toStrictEqual(['a', 'b', 'c']
+          ?.appliedDirectivesOf(directiveName.slice(1))
+          ?.[0]?.arguments()?.[argName]).toStrictEqual(['a', 'b', 'c']
       );
     });
 
-    it('@requiresScopes has correct definition in the supergraph', () => {
+    it.each(testsToRun)('${directiveName} has correct definition in the supergraph', ({ directiveName, argName, argType, identity }) => {
       const a = {
         typeDefs: gql`
           type Query {
-            x: Int @requiresScopes(scopes: ["a", "b"])
+            x: Int ${directiveName}(${argName}: ["a", "b"])
           }
         `,
         name: 'a',
@@ -4489,20 +4493,20 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([a]);
       assertCompositionSuccess(result);
-      expect(result.schema.coreFeatures?.getByIdentity(RequiresScopesSpecDefinition.identity)?.url.toString()).toBe(
-        "https://specs.apollo.dev/requiresScopes/v0.1"
+      expect(result.schema.coreFeatures?.getByIdentity(identity)?.url.toString()).toBe(
+        `https://specs.apollo.dev/${directiveName.slice(1)}/v0.1`
       );
-      expect(printDirectiveDefinition(result.schema.directive('requiresScopes')!)).toMatchString(`
-        directive @requiresScopes(scopes: [[requiresScopes__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      expect(printDirectiveDefinition(result.schema.directive(directiveName.slice(1))!)).toMatchString(`
+        directive ${directiveName}(${argName}: [[${argType}!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
       `);
     });
 
-    it('composes with existing `Scope` scalar definitions in subgraphs', () => {
+    it.each(testsToRun)('composes with existing `Scope` scalar definitions in subgraphs', ({ directiveName, argName }) => {
       const a = {
         typeDefs: gql`
           scalar Scope
           type Query {
-            x: Int @requiresScopes(scopes: ["a", "b"])
+            x: Int ${directiveName}(${argName}: ["a", "b"])
           }
         `,
         name: 'a',
@@ -4512,7 +4516,7 @@ describe('composition', () => {
         typeDefs: gql`
           scalar Scope @specifiedBy(url: "not-the-apollo-spec")
           type Query {
-            y: Int @requiresScopes(scopes: ["a", "b"])
+            y: Int ${directiveName}(${argName}: ["a", "b"])
           }
         `,
         name: 'b',
@@ -4523,18 +4527,18 @@ describe('composition', () => {
     });
 
     describe('validation errors', () => {
-      it('on incompatible directive location', () => {
+      it.each(testsToRun)('on incompatible directive location', ({ directiveName, argName, fedType }) => {
         const invalidDefinition = {
           typeDefs: gql`
-            scalar federation__Scope
-            directive @requiresScopes(scopes: [[federation__Scope!]!]!) on ENUM_VALUE
+            scalar ${fedType}
+            directive ${directiveName}(${argName}: [[${fedType}!]!]!) on ENUM_VALUE
 
             type Query {
               a: Int
             }
 
             enum E {
-              A @requiresScopes(scopes: [])
+              A ${directiveName}(${argName}: [])
             }
           `,
           name: 'invalidDefinition',
@@ -4542,22 +4546,22 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([invalidDefinition]);
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
-          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": \"@requiresScopes\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
+          `[invalidDefinition] Invalid definition for directive \"${directiveName}\": \"${directiveName}\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE`,
         ]);
       });
 
-      it('on incompatible args', () => {
+      it.each(testsToRun)('on incompatible args', ({ directiveName, argName, fedType }) => {
         const invalidDefinition = {
           typeDefs: gql`
-            scalar federation__Scope
-            directive @requiresScopes(scopes: [federation__Scope]!) on FIELD_DEFINITION
+            scalar ${fedType}
+            directive ${directiveName}(${argName}: [${fedType}]!) on FIELD_DEFINITION
 
             type Query {
               a: Int
             }
 
             enum E {
-              A @requiresScopes(scopes: [])
+              A ${directiveName}(${argName}: [])
             }
           `,
           name: 'invalidDefinition',
@@ -4565,11 +4569,11 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([invalidDefinition]);
         expect(errors(result)[0]).toEqual([
           "DIRECTIVE_DEFINITION_INVALID",
-          "[invalidDefinition] Invalid definition for directive \"@requiresScopes\": argument \"scopes\" should have type \"[[federation__Scope!]!]!\" but found type \"[federation__Scope]!\"",
+          `[invalidDefinition] Invalid definition for directive \"${directiveName}\": argument \"${argName}\" should have type \"[[${fedType}!]!]!\" but found type \"[${fedType}]!\"`,
         ]);
       });
 
-      it('on invalid application', () => {
+      it.each(testsToRun)('on invalid application', ({ directiveName, argName }) => {
         const invalidApplication = {
           typeDefs: gql`
             type Query {
@@ -4577,7 +4581,7 @@ describe('composition', () => {
             }
 
             enum E {
-              A @requiresScopes(scopes: [])
+              A ${directiveName}(${argName}: [])
             }
           `,
           name: 'invalidApplication',
@@ -4585,7 +4589,7 @@ describe('composition', () => {
         const result = composeAsFed2Subgraphs([invalidApplication]);
         expect(errors(result)[0]).toEqual([
           "INVALID_GRAPHQL",
-          "[invalidApplication] Directive \"@requiresScopes\" may not be used on ENUM_VALUE.",
+          `[invalidApplication] Directive \"${directiveName}\" may not be used on ENUM_VALUE.`,
         ]);
       });
     });

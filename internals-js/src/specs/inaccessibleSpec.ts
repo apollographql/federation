@@ -25,12 +25,12 @@ import {
   SchemaDefinition,
   SchemaElement,
   UnionType,
-} from "./definitions";
+} from "../definitions";
 import { GraphQLError, DirectiveLocation } from "graphql";
-import { registerKnownFeature } from "./knownCoreFeatures";
-import { ERRORS } from "./error";
-import { createDirectiveSpecification, DirectiveSpecification } from "./directiveAndTypeSpecification";
-import { assert } from "./utils";
+import { registerKnownFeature } from "../knownCoreFeatures";
+import { ERRORS } from "../error";
+import { createDirectiveSpecification, DirectiveSpecification } from "../directiveAndTypeSpecification";
+import { assert } from "../utils";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 

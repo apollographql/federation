@@ -2,7 +2,7 @@ import { DirectiveLocation } from "graphql";
 import "../definitions";
 import { createDirectiveSpecification } from "../directiveAndTypeSpecification";
 import { ARGUMENT_COMPOSITION_STRATEGIES } from "../argumentCompositionStrategies";
-import { TAG_VERSIONS } from "../tagSpec";
+import { TAG_VERSIONS } from "../specs/tagSpec";
 
 const supergraphSpecification = () => TAG_VERSIONS.latest();
 
