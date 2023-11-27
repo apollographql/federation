@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.6.1
+### Patch Changes
+
+
+- Add missing `@policy` directive top level exports ([#2869](https://github.com/apollographql/federation/pull/2869))
+
 ## 2.6.0
 ### Minor Changes
 
