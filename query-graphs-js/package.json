@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-graphs",
-  "version": "2.5.7",
+  "version": "2.6.0",
   "description": "Apollo Federation library to work with 'query graphs'",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,12 +18,12 @@
     "apollo"
   ],
   "author": "Apollo <packages@apollographql.com>",
-  "license": "SEE LICENSE IN ./LICENSE",
+  "license": "Elastic-2.0",
   "engines": {
     "node": ">=14.15.0"
   },
   "dependencies": {
-    "@apollo/federation-internals": "2.5.7",
+    "@apollo/federation-internals": "2.6.0",
     "deep-equal": "^2.0.5",
     "ts-graphviz": "^1.5.4",
     "uuid": "^9.0.0"
