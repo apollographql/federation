@@ -22,3 +22,4 @@ export { coreFeatureDefinitionIfKnown } from './knownCoreFeatures';
 export * from './argumentCompositionStrategies';
 export * from './specs/authenticatedSpec';
 export * from './specs/requiresScopesSpec';
+export * from './specs/policySpec';
