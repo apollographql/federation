@@ -417,6 +417,54 @@ Indicates to composition that the target element is accessible only to the authe
 </tbody>
 </table>
 
+### `@policy`
+
+> ⚠️ **This directive is available in Apollo Federation 2.6 and later.**
+> **Is is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+```graphql
+directive @policy(policies: [[federation__Policy!]!]!) on
+  | FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [Apollo Router article](/router/configuration/authorization#policy) for additional details.
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `policies`
+
+`[federation__Policy!]!`
+
+</td>
+<td>
+
+**Required.** List of authorization policies to evaluate.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
 ## Referencing external fields
 
 ### `@external`
