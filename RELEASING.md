@@ -21,7 +21,7 @@ More details can be found in [the `changeset` docs for publishing](https://githu
 5. As part of publishing the release, two PRs will be created in `federation-rs`, one for the `harmonizer`, and the other for the `router-bridge`.
     1. If all tests pass and everything looks good, merge `harmonizer` PR first.
     2. Once the `harmonizer` release (Github action) is complete, merge the `router-bridge` PR.
-7. When releasing minor/major versions, you will need to create a follow up PR to merge changes from `next` to `main` branch.
+6. When releasing minor/major versions, you will need to create a follow up PR to merge changes from `next` to `main` branch.
    * In order to preserve the change history between `next` and `main` branches, make sure to use `merge` commit. By default, all PRs should be `squashed` so you might need to temporarily re-enable `merge` commits in the repository settings.
    
 ![celebrate](https://media.giphy.com/media/LZElUsjl1Bu6c/giphy.gif)
