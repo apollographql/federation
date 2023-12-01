@@ -13,6 +13,7 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/join/v0.1',
   'https://specs.apollo.dev/join/v0.2',
   'https://specs.apollo.dev/join/v0.3',
+  'https://specs.apollo.dev/join/v0.4',
   'https://specs.apollo.dev/tag/v0.1',
   'https://specs.apollo.dev/tag/v0.2',
   'https://specs.apollo.dev/tag/v0.3',

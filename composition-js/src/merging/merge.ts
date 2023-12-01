@@ -92,6 +92,7 @@ type FieldMergeContextProperties = {
   usedOverridden: boolean,
   unusedOverridden: boolean,
   overrideWithUnknownTarget: boolean,
+  overrideLabel: string | undefined,
 }
 
 // for each source, specify additional properties that validate functions can set
@@ -99,7 +100,13 @@ class FieldMergeContext {
   _props: FieldMergeContextProperties[];
 
   constructor(sources: unknown[]) {
-    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false, overrideWithUnknownTarget: false}));
+    this._props = (
+      new Array(sources.length)).fill(true).map(_ => ({
+        usedOverridden: false,
+        unusedOverridden: false,
+        overrideWithUnknownTarget: false,
+        overrideLabel: undefined,
+      }));
   }
 
   isUsedOverridden(idx: number) {
@@ -114,6 +121,10 @@ class FieldMergeContext {
     return this._props[idx].overrideWithUnknownTarget;
   }
 
+  overrideLabelForIdx(idx: number) {
+    return this._props[idx].overrideLabel;
+  }
+
   setUsedOverridden(idx: number) {
     this._props[idx].usedOverridden = true;
   }
@@ -124,6 +135,10 @@ class FieldMergeContext {
 
   setOverrideWithUnknownTarget(idx: number) {
     this._props[idx].overrideWithUnknownTarget = true;
+  }
+
+  setOverrideLabel(idx: number, label: string) {
+    this._props[idx].overrideLabel = label;
   }
 
   some(predicate: (props: FieldMergeContextProperties) => boolean): boolean {
@@ -256,6 +271,11 @@ type EnumTypeUsage = {
     Input?: {coordinate: string, sourceAST?: SubgraphASTNode},
     Output?: {coordinate: string, sourceAST?: SubgraphASTNode},
   },
+}
+
+interface OverrideArgs {
+  from: string;
+  label?: string;
 }
 
 class Merger {
@@ -1043,7 +1063,7 @@ class Merger {
     return this.metadata(sourceIdx).isFieldShareable(field);
   }
 
-  private getOverrideDirective(sourceIdx: number, field: FieldDefinition<any>): Directive<any> | undefined {
+  private getOverrideDirective(sourceIdx: number, field: FieldDefinition<any>): Directive<any, OverrideArgs> | undefined {
     // Check the directive on the field, then on the enclosing type.
     const metadata = this.metadata(sourceIdx);
     const overrideDirective = metadata.isFed2Schema() ? metadata.overrideDirective() : undefined;
@@ -1098,7 +1118,7 @@ class Merger {
       isInterfaceField?: boolean,
       isInterfaceObject?: boolean,
       interfaceObjectAbstractingFields?: FieldDefinition<any>[],
-      overrideDirective?: Directive<FieldDefinition<any>>,
+      overrideDirective?: Directive<FieldDefinition<any>, OverrideArgs>,
     };
 
     type ReduceResultType = {
@@ -1143,7 +1163,9 @@ class Merger {
     // for each subgraph that has an @override directive, check to see if any errors or hints should be surfaced
     subgraphsWithOverride.forEach((subgraphName) => {
       const { overrideDirective, idx, isInterfaceObject, isInterfaceField } = subgraphMap[subgraphName];
-      const overridingSubgraphASTNode = overrideDirective?.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
+      if (!overrideDirective) return;
+
+      const overridingSubgraphASTNode = overrideDirective.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
       if (isInterfaceField) {
         this.errors.push(ERRORS.OVERRIDE_ON_INTERFACE.err(
           `@override cannot be used on field "${dest.coordinate}" on subgraph "${subgraphName}": @override is not supported on interface type fields.`,
@@ -1160,7 +1182,7 @@ class Merger {
         return;
       }
 
-      const sourceSubgraphName = overrideDirective?.arguments()?.from;
+      const sourceSubgraphName = overrideDirective.arguments().from;
       if (!this.names.includes(sourceSubgraphName)) {
         result.setOverrideWithUnknownTarget(idx);
         const suggestions = suggestionList(sourceSubgraphName, this.names);
@@ -1174,7 +1196,7 @@ class Merger {
       } else if (sourceSubgraphName === subgraphName) {
         this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err(
           `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${dest.coordinate}"`,
-          { nodes: overrideDirective?.sourceAST },
+          { nodes: overrideDirective.sourceAST },
         ));
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
         this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err(
@@ -1247,6 +1269,12 @@ class Merger {
               dest,
               overriddenSubgraphASTNode,
             ));
+          }
+
+          // capture an override label if it exists
+          const overrideLabel = overrideDirective.arguments().label;
+          if (overrideLabel) {
+            result.setOverrideLabel(idx, overrideLabel);
           }
         }
       }
@@ -1586,6 +1614,7 @@ class Merger {
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
         usedOverridden: usedOverridden ? true : undefined,
+        overrideLabel: mergeContext.overrideLabelForIdx(idx),
       });
     }
   }

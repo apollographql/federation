@@ -124,11 +124,22 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     this.registerSubFeature(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version));
 
-    this.registerDirective(createDirectiveSpecification({
-      name: FederationDirectiveName.OVERRIDE,
-      locations: [DirectiveLocation.FIELD_DEFINITION],
-      args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
-    }));
+    if (version >= (new FeatureVersion(2, 7))) {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.OVERRIDE,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+        args: [
+          { name: 'from', type: (schema) => new NonNullType(schema.stringType()) },
+          { name: 'label', type: (schema) => schema.stringType() },
+        ],
+      }));
+    } else {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.OVERRIDE,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+        args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
+      }));
+    }
 
     if (version.gte(new FeatureVersion(2, 1))) {
       this.registerDirective(createDirectiveSpecification({
@@ -165,6 +176,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 7)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

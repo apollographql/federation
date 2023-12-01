@@ -1191,9 +1191,9 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy"])';
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
-export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
@@ -1439,7 +1439,7 @@ function completeFed2SubgraphSchema(schema: Schema): GraphQLError[] {
   const spec = FEDERATION_VERSIONS.find(fedFeature.url.version);
   if (!spec) {
     return [ERRORS.UNKNOWN_FEDERATION_LINK_VERSION.err(
-      `Invalid version ${fedFeature.url.version} for the federation feature in @link direction on schema`,
+      `Invalid version ${fedFeature.url.version} for the federation feature in @link directive on schema`,
       { nodes: fedFeature.directive.sourceAST },
     )];
   }
@@ -1561,7 +1561,7 @@ export function collectTargetFields({
       validate,
     });
   } catch (e) {
-    // If we explicitely requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it
+    // If we explicitly requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it
     // (returning a partial result, but we assume it is fine).
     const isGraphQLError = errorCauses(e) !== undefined
     if (!isGraphQLError || validate) {
