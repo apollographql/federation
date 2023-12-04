@@ -14,7 +14,6 @@
   // important updatets.
   "baseBranches": [
     "main",
-    "version-0.x",
   ],
   "dependencyDashboard": true,
   // The "circleci" manager is intentionally disabled right now (e.g., not
@@ -92,49 +91,11 @@
       automerge: false,
       matchManagers: [ "npm" ],
     },
-    // v0.x is stuck on the following major package versions due to node 12 support
-    // the packages listed below have dropped support for node 12 in current major versions
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["@types/node"],
-      "allowedVersions": "12.x"
-    },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackagePatterns": ["^@apollo/utils"],
-      "allowedVersions": "1.x"
-    },
     // v3.x utils packages drop support for node 14
     {
       "matchBaseBranches": ["main"],
       "matchPackagePatterns": ["^@apollo/utils"],
       "allowedVersions": "2.x"
-    },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["make-fetch-happen", "@types/make-fetch-happen"],
-      "allowedVersions": "10.x"
-    },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["lerna"],
-      "allowedVersions": "4.x"
-    },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackagePatterns": ["jest", "pretty-format"],
-      "allowedVersions": "28.x"
-    },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackagePatterns": ["@apollo/core-schema"],
-      "allowedVersions": "0.2.x"
-    },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["node"],
-      "matchPaths": ["v12-node-compatibility/package.json"],
-      "allowedVersions": "12.x",
     },
     // @graphql-codegen/*@4 drops support for node 14
     {
@@ -151,35 +112,10 @@
       "matchPackageNames": ["make-fetch-happen"],
       "allowedVersions": "11.x",
     },
-    // make-fetch-happen@11 drops support for node 12
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["make-fetch-happen"],
-      "allowedVersions": "10.x",
-    },
     // cspell@7 drops support for node 14
     {
       "matchPackageNames": ["cspell"],
       "allowedVersions": "6.x",
-    },
-    // @apollo/cache-control-types@1.0.3 accidentally broke support for node 12
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["@apollo/cache-control-types"],
-      "allowedVersions": "1.0.2",
-    },
-    // typescript@5.1 drops support for node 12
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["typescript"],
-      "allowedVersions": "5.0.x",
-    },
-    // lru-cache@7.13.1 is the last patch which includes an important AbortSignal type as part of its polyfill
-    // this was a breaking change for node 12 support
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "matchPackageNames": ["lru-cache"],
-      "allowedVersions": "7.13.1",
     },
   ]
 }

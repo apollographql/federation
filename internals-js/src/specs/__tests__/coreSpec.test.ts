@@ -1,10 +1,10 @@
 import { DocumentNode, GraphQLError } from "graphql";
 import gql from "graphql-tag";
-import { buildSubgraph } from "../federation";
-import { assert } from "../utils";
-import { buildSchemaFromAST } from "../buildSchema";
+import { buildSubgraph } from "../../federation";
+import { assert } from "../../utils";
+import { buildSchemaFromAST } from "../../buildSchema";
 import { removeAllCoreFeatures, FeatureDefinitions, FeatureVersion, FeatureDefinition, FeatureUrl } from "../coreSpec";
-import { errorCauses } from "../error";
+import { errorCauses } from "../../error";
 
 function expectErrors(
   subgraphDefs: DocumentNode,

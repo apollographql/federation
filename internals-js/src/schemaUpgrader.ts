@@ -33,7 +33,7 @@ import {
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
 import { valueEquals } from "./values";
-import { FEDERATION1_TYPES } from "./federationSpec";
+import { FEDERATION1_TYPES } from "./specs/federationSpec";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 

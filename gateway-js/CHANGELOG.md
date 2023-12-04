@@ -1,5 +1,105 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.6.1
+### Patch Changes
+
+- Updated dependencies [[`0d5ab01a`](https://github.com/apollographql/federation/commit/0d5ab01a4e91bac10f47732fee3fe4d8017f051f)]:
+  - @apollo/federation-internals@2.6.1
+  - @apollo/composition@2.6.1
+  - @apollo/query-planner@2.6.1
+
+## 2.6.0
+### Minor Changes
+
+
+- Add more information to OpenTelemetry spans. ([#2700](https://github.com/apollographql/federation/pull/2700))
+  
+  Rename `operationName` to `graphql.operation.name` and add a
+  `graphql.operation.type` attribute, in conformance with the OpenTelemetry
+  Semantic Conventions for GraphQL. The `operationName` attribute is now
+  deprecated, but it is still emitted alongside `graphql.operation.name`.
+  
+  Add a `graphql.document` span attribute to the `gateway.request` span,
+  containing the entire GraphQL source sent in the request. This feature
+  is disable by default.
+  
+  When one or more GraphQL or internal errors occur, report them in the
+  OpenTelemetry span in which they took place, as an exception event. This
+  feature is disabled by default.
+  
+  To enable the `graphql.document` span attribute and the exception event
+  reporting, add the following entries to your `ApolloGateway` instance
+  configuration:
+  
+  ```ts
+  const gateway = new ApolloGateway({
+    // ...
+    telemetry: {
+      // Set to `true` to include the `graphql.document` attribute
+      includeDocument: true,
+      // Set to `true` to report all exception events, or set to a number
+      // to report at most that number of exception events per span
+      reportExceptions: true,
+      // or: reportExceptions: 1
+    },
+  });
+  ```
+
+- Update `license` field in `package.json` to use `Elastic-2.0` SPDX identifier ([#2741](https://github.com/apollographql/federation/pull/2741))
+
+
+- Introduce the new `@policy` scope for composition ([#2818](https://github.com/apollographql/federation/pull/2818))
+  
+    > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@policy` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+  
+    Users may now compose `@policy` applications from their subgraphs into a supergraph.
+  
+    The directive is defined as follows:
+  
+    ```graphql
+    scalar federation__Policy
+  
+    directive @policy(policies: [[federation__Policy!]!]!) on
+      | FIELD_DEFINITION
+      | OBJECT
+      | INTERFACE
+      | SCALAR
+      | ENUM
+    ```
+  
+    The `Policy` scalar is effectively a `String`, similar to the `FieldSet` type.
+  
+    In order to compose your `@policy` usages, you must update your subgraph's federation spec version to v2.6 and add the `@policy` import to your existing imports like so:
+    ```graphql
+    @link(url: "https://specs.apollo.dev/federation/v2.6", import: [..., "@policy"])
+    ```
+
+- Add graphql.operation.name attribute on gateway.plan span ([#2807](https://github.com/apollographql/federation/pull/2807))
+
+
+### Patch Changes
+
+- Updated dependencies [[`b18841be`](https://github.com/apollographql/federation/commit/b18841be897e6d4f47454568776f199e2adb60ae), [`e325b499`](https://github.com/apollographql/federation/commit/e325b499d592dabe61c93112c292c92ca10afbc5)]:
+  - @apollo/query-planner@2.6.0
+  - @apollo/composition@2.6.0
+  - @apollo/federation-internals@2.6.0
+
+## 2.5.7
+### Patch Changes
+
+- Updated dependencies [[`a0bdd7cb`](https://github.com/apollographql/federation/commit/a0bdd7cb056ccdc6d9f6ec6bd6a16380d18f65b9)]:
+  - @apollo/query-planner@2.5.7
+  - @apollo/composition@2.5.7
+  - @apollo/federation-internals@2.5.7
+
+## 2.5.6
+### Patch Changes
+
+- Updated dependencies [[`c719214a`](https://github.com/apollographql/federation/commit/c719214a945564e4afc4bf1610e3dcdfb3838fe1)]:
+  - @apollo/composition@2.5.6
+  - @apollo/federation-internals@2.5.6
+  - @apollo/query-planner@2.5.6
+
 ## 2.5.5
 ### Patch Changes
 
