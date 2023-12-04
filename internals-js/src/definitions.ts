@@ -30,7 +30,7 @@ import {
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
-} from "./coreSpec";
+} from "./specs/coreSpec";
 import { assert, mapValues, MapWithCachedArrays, removeArrayElement } from "./utils";
 import {
   withDefaultValues,
@@ -42,7 +42,7 @@ import {
   argumentsEquals,
   collectVariablesInValue
 } from "./values";
-import { removeInaccessibleElements } from "./inaccessibleSpec";
+import { removeInaccessibleElements } from "./specs/inaccessibleSpec";
 import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";

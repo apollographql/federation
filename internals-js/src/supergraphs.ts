@@ -1,7 +1,7 @@
 import { DocumentNode, GraphQLError } from "graphql";
-import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./specs/coreSpec";
 import { CoreFeatures, Schema, sourceASTs } from "./definitions";
-import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
+import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./specs/joinSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph, extractSubgraphsFromSupergraph } from "./extractSubgraphsFromSupergraph";
 import { ERRORS } from "./error";
@@ -90,11 +90,11 @@ export class Supergraph {
     private readonly shouldValidate: boolean = true,
   ) {
     const [coreFeatures] = validateSupergraph(schema);
-    
+
     if (supportedFeatures !== null) {
       checkFeatureSupport(coreFeatures, supportedFeatures);
     }
-    
+
     if (shouldValidate) {
       schema.validate();
     } else {
