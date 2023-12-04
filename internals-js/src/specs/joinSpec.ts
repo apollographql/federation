@@ -6,10 +6,10 @@ import {
   ScalarType,
   Schema,
   NonNullType,
-} from "./definitions";
-import { Subgraph, Subgraphs } from "./federation";
-import { registerKnownFeature } from './knownCoreFeatures';
-import { MultiMap } from "./utils";
+} from "../definitions";
+import { Subgraph, Subgraphs } from "../federation";
+import { registerKnownFeature } from '../knownCoreFeatures';
+import { MultiMap } from "../utils";
 
 export const joinIdentity = 'https://specs.apollo.dev/join';
 
