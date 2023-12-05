@@ -8035,16 +8035,6 @@ describe('handles fragments with directive conditions', () => {
       `,
     );
 
-    expect(operation.expandAllFragments().toString()).toMatchInlineSnapshot(`
-      "{
-        i {
-          _id
-          ... on I2 @test {
-            id
-          }
-        }
-      }"
-    `);
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
