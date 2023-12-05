@@ -2509,7 +2509,7 @@ function advanceWithOperation<V extends Vertex>(
         const optionsByImplems: OpGraphPath<V>[][][] = [];
         for (const tName of intersection) {
           debug.group(() => `Trying ${tName}`);
-          const castOp = new FragmentElement(currentType, tName);
+          const castOp = new FragmentElement(currentType, tName, operation.appliedDirectives);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
             new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver),
@@ -2548,8 +2548,13 @@ function advanceWithOperation<V extends Vertex>(
         const conditionType = supergraphSchema.type(typeName)!;
         if (isAbstractType(conditionType) && possibleRuntimeTypes(conditionType).some(t => t.name == currentType.name)) {
           debug.groupEnd(() => `${typeName} is a super-type of current type ${currentType}: no edge to take`);
+          // Operation type condition is applicable on the current type, so the types are already exploded but the
+          // condition can reference types from the supergraph that are not present in the local subgraph.
+          //
+          // If operation has applied directives we need to convert to inline fragment without type condition, otherwise
+          // we ignore the fragment altogether.
           const updatedPath = operation.appliedDirectives.length > 0
-            ? path.add(operation, null, noConditionsResolution, operation.deferDirectiveArgs())
+            ? path.add(operation.withUpdatedTypes(currentType, undefined), null, noConditionsResolution, operation.deferDirectiveArgs())
             : path;
           return { options: [[ updatedPath ]] };
         }
