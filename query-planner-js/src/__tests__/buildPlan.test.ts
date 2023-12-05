@@ -8022,8 +8022,8 @@ describe('handles fragments with directive conditions', () => {
     const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
 
     const operation = operationFromDocument(
-        api,
-        gql`
+      api,
+      gql`
         query {
           i {
             _id
@@ -8113,8 +8113,8 @@ describe('handles fragments with directive conditions', () => {
     const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
 
     const operation = operationFromDocument(
-        api,
-        gql`
+      api,
+      gql`
         query {
           i {
             _id
