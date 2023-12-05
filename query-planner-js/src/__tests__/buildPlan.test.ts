@@ -7973,3 +7973,185 @@ describe('@requires references external field indirectly', () => {
     `);
   });
 });
+
+describe('handles fragments with directive conditions', () => {
+  test('fragment with intersecting parent type and directive condition', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @test on FRAGMENT_SPREAD
+        type Query {
+          i: I
+        }
+        interface I {
+          _id: ID
+        }
+        type T1 implements I @key(fields: "id") {
+          _id: ID
+          id: ID
+        }
+        type T2 implements I @key(fields: "id") {
+          _id: ID
+          id: ID
+        }
+      `,
+      name: 'A',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        directive @test on FRAGMENT_SPREAD
+        type Query {
+          i2s: [I2]
+        }
+        interface I2 {
+          id: ID
+          title: String
+        }
+        type T1 implements I2 @key(fields: "id") {
+          id: ID
+          title: String
+        }
+        type T2 implements I2 @key(fields: "id") {
+          id: ID
+          title: String
+        }
+      `,
+      name: 'B',
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
+
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          i {
+            _id
+            ... on I2 @test {
+              id
+            }
+          }
+        }
+      `,
+    );
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "A") {
+          {
+            i {
+              __typename
+              _id
+              ... on T1 @test {
+                id
+              }
+              ... on T2 @test {
+                id
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  test('nested fragment with interseting parent type and directive condition', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @test on FRAGMENT_SPREAD
+        type Query {
+          i: I
+        }
+        interface I {
+          _id: ID
+        }
+        type T1 implements I @key(fields: "id") {
+          _id: ID
+          id: ID
+        }
+        type T2 implements I @key(fields: "id") {
+          _id: ID
+          id: ID
+        }
+      `,
+      name: 'A',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        directive @test on FRAGMENT_SPREAD
+        type Query {
+          i2s: [I2]
+        }
+        interface I2 {
+          id: ID
+          title: String
+        }
+        type T1 implements I2 @key(fields: "id") {
+          id: ID
+          title: String
+        }
+        type T2 implements I2 @key(fields: "id") {
+          id: ID
+          title: String
+        }
+      `,
+      name: 'B',
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
+
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          i {
+            _id
+            ... on I2 {
+              ... on I2 @test {
+                id
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    expect(operation.expandAllFragments().toString()).toMatchInlineSnapshot(`
+      "{
+        i {
+          _id
+          ... on I2 {
+            ... on I2 @test {
+              id
+            }
+          }
+        }
+      }"
+    `);
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "A") {
+          {
+            i {
+              __typename
+              _id
+              ... on T1 {
+                ... @test {
+                  id
+                }
+              }
+              ... on T2 {
+                ... @test {
+                  id
+                }
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+});
