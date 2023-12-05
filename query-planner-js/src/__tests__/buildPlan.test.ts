@@ -7975,7 +7975,7 @@ describe('@requires references external field indirectly', () => {
 });
 
 describe('handles fragments with directive conditions', () => {
-  test('fragment with interseting parent type and directive condition', () => {
+  test('fragment with intersecting parent type and directive condition', () => {
     const subgraphA = {
       typeDefs: gql`
         directive @test on FRAGMENT_SPREAD
