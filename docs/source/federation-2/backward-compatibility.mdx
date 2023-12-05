@@ -174,7 +174,9 @@ type Query {
   outOfStockProducts: [Product!]! @provides(fields: "info")
   discontinuedProducts: [Product!]!
 }
-The above `@provides` directives usage should _break_ composition because it does not specify which subfields of `ProductInfo` it can resolve.
+```
+
+The above `@provides` directives usage should _break_ composition because it does not specify which subfields of `ProductInfo` it can resolve. This is correctly caught and surfaced as an error in Federation v2 but Federation v1 incorrectly allows this usage.
 
 </ExpansionPanel>
 
