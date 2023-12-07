@@ -377,6 +377,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
+  private readonly optionsLimit: number;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -386,11 +387,13 @@ class QueryPlanningTraversal<RV extends Vertex> {
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
+    optionsLimit: number,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
     this.isTopLevel = isRootVertex(root);
+    this.optionsLimit = optionsLimit;
     this.conditionResolver = cachingConditionResolver(
       federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
@@ -477,6 +480,10 @@ class QueryPlanningTraversal<RV extends Vertex> {
         return;
       }
       newOptions = newOptions.concat(followupForOption);
+
+      if(newOptions.length > this.optionsLimit) {
+        throw new Error(`Too many options generated for ${selection}, reached the limit of ${this.optionsLimit}`);
+      }
     }
 
     if (newOptions.length === 0) {
@@ -786,8 +793,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
       'query',
       this.costFunction,
       context,
+      this.optionsLimit,
       excludedDestinations,
-      addConditionExclusion(excludedConditions, edge.conditions)
+      addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
@@ -3100,11 +3108,13 @@ export class QueryPlanner {
       rootNode = computePlanForDeferConditionals({
         parameters,
         deferConditions,
+        optionsLimit: this.config.pathsLimit
       })
     } else {
       rootNode = computePlanInternal({
         parameters,
         hasDefers,
+        optionsLimit: this.config.pathsLimit
       });
     }
 
@@ -3292,9 +3302,12 @@ export class QueryPlanner {
 function computePlanInternal({
   parameters,
   hasDefers,
+  optionsLimit
+
 }: {
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
+  optionsLimit: number
 }): PlanNode | undefined {
   let main: PlanNode | undefined = undefined;
   let primarySelection: MutableSelectionSet | undefined = undefined;
@@ -3302,7 +3315,7 @@ function computePlanInternal({
 
   const { operation, processor } = parameters;
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers);
+    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers, optionsLimit);
     for (const dependencyGraph of dependencyGraphs) {
       const { main: localMain, deferred: localDeferred } = dependencyGraph.process(processor, operation.rootKind);
       // Note that `reduceSequence` "flatten" sequence if needs be.
@@ -3322,6 +3335,7 @@ function computePlanInternal({
       parameters,
       0,
       hasDefers,
+      optionsLimit
     );
     ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
     primarySelection = dependencyGraph.deferTracking.primarySelection;
@@ -3336,9 +3350,11 @@ function computePlanInternal({
 function computePlanForDeferConditionals({
   parameters,
   deferConditions,
+  optionsLimit
 }: {
   parameters: PlanningParameters<RootVertex>,
   deferConditions: SetMultiMap<string, string>,
+  optionsLimit: number
 }): PlanNode | undefined {
   return generateConditionNodes(
     parameters.operation,
@@ -3350,6 +3366,7 @@ function computePlanForDeferConditionals({
         operation: op,
       },
       hasDefers: true,
+      optionsLimit
     }),
   );
 }
@@ -3442,12 +3459,14 @@ function computeRootParallelDependencyGraph(
   parameters: PlanningParameters<RootVertex>,
   startFetchIdGen: number,
   hasDefer: boolean,
+  optionsLimit: number
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(
     parameters,
     parameters.operation.selectionSet,
     startFetchIdGen,
     hasDefer,
+    optionsLimit,
   )[0];
 }
 
@@ -3456,6 +3475,7 @@ function computeRootParallelBestPlan(
   selection: SelectionSet,
   startFetchIdGen: number,
   hasDefers: boolean,
+  optionsLimit: number
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTraversal(
     parameters,
@@ -3465,6 +3485,7 @@ function computeRootParallelBestPlan(
     parameters.root.rootKind,
     defaultCostFunction,
     emptyContext,
+    optionsLimit,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -3492,6 +3513,7 @@ function onlyRootSubgraph(graph: FetchDependencyGraph): string {
 function computeRootSerialDependencyGraph(
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
+  optionsLimit: number
 ): FetchDependencyGraph[] {
   const { supergraphSchema, federatedQueryGraph, operation, root } = parameters;
   const rootType = hasDefers ? supergraphSchema.schemaDefinition.rootType(root.rootKind) : undefined;
@@ -3499,10 +3521,10 @@ function computeRootSerialDependencyGraph(
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(parameters, splittedRoots[0], startingFetchId, hasDefers);
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(parameters, splittedRoots[0], startingFetchId, hasDefers, optionsLimit);
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(parameters, splittedRoots[i], prevDepGraph.nextFetchId(), hasDefers);
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(parameters, splittedRoots[i], prevDepGraph.nextFetchId(), hasDefers, optionsLimit);
     const newSubgraph = onlyRootSubgraph(newDepGraph);
     if (prevSubgraph === newSubgraph) {
       // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can concat them in a single fetch
