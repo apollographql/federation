@@ -83,9 +83,8 @@ export type QueryPlannerConfig = {
      * query plans).
      */
     maxEvaluatedPlans?: number,
-  },
 
-  /**
+      /**
    * Before creating query plans, we need to evaluate all the possible paths to access every field:
    * through which subgraph providing it, through which type in union or type implementing an
    * interface. The number of paths generated can grow if the schema or query are complex,
@@ -93,7 +92,10 @@ export type QueryPlannerConfig = {
    *
    * The default value is set to 10000
    */
-  pathsLimit: number
+  pathsLimit?: number
+  },
+
+
 }
 
 export function enforceQueryPlannerConfigDefaults(
