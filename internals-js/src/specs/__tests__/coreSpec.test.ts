@@ -217,6 +217,47 @@ class TestFeatureDefinition extends FeatureDefinition {
   }
 }
 
+describe('FeatureVersion', () => {
+  it('toString-based comparisons', () => {
+    const v2_3 = new FeatureVersion(2, 3);
+    const v10_0 = new FeatureVersion(10, 0);
+
+    expect(v2_3.toString()).toBe('v2.3');
+    expect(v10_0.toString()).toBe('v10.0');
+
+    // Operators like <, <=, >, and >= use lexicographic comparison on
+    // version.toString() strings, but do not perform numeric lexicographic
+    // comparison of the major and minor numbers, so 'v10...' < 'v2...' and the
+    // following comparisons fail to produce intuitive results.
+    expect(() => {
+      expect(v2_3 < v10_0).toBe(true);
+      expect(v2_3 <= v10_0).toBe(true);
+      expect(v2_3 > v10_0).toBe(false);
+      expect(v2_3 >= v10_0).toBe(false);
+    }).toThrow();
+
+    expect(v2_3.compareTo(v10_0)).toBe(-1);
+    expect(v10_0.compareTo(v2_3)).toBe(1);
+
+    expect(v2_3.strictlyGreaterThan(v10_0)).toBe(false);
+    expect(v10_0.strictlyGreaterThan(v2_3)).toBe(true);
+
+    expect(v2_3.lt(v10_0)).toBe(true);
+    expect(v2_3.lte(v10_0)).toBe(true);
+    expect(v2_3.gt(v10_0)).toBe(false);
+    expect(v2_3.gte(v10_0)).toBe(false);
+    expect(v10_0.lt(v2_3)).toBe(false);
+    expect(v10_0.lte(v2_3)).toBe(false);
+    expect(v10_0.gt(v2_3)).toBe(true);
+    expect(v10_0.gte(v2_3)).toBe(true);
+
+    expect(v2_3.equals(v10_0)).toBe(false);
+    expect(v10_0.equals(v2_3)).toBe(false);
+    expect(v2_3.equals(v2_3)).toBe(true);
+    expect(v10_0.equals(v10_0)).toBe(true);
+  });
+});
+
 describe('getMinimumRequiredVersion tests', () => {
   it('various combinations', () => {
     const versions = new FeatureDefinitions<TestFeatureDefinition>('test')
