@@ -116,9 +116,9 @@ export function enforceQueryPlannerConfigDefaults(
       // don't take more than a handful of seconds. It might be worth running a bit more experiments on more environment
       // to see if it's such a good default.
       maxEvaluatedPlans: 10000,
+      pathsLimit: 10000,
       ...config?.debug,
     },
-    pathsLimit: 10000,
   };
 }
 
