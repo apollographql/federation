@@ -5,6 +5,7 @@ import {
   SchemaRootKind,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
+import { FederationBlueprint } from '../../dist/federation';
 import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
@@ -2798,7 +2799,7 @@ describe('basic operations', () => {
       `);
     });
   });
-  
+
   describe('same fragment merging', () => {
     test('do merge when same fragment and no directive', () => {
       const operation = operationFromDocument(schema, gql`
@@ -3510,6 +3511,63 @@ describe('named fragment rebasing on subgraphs', () => {
         ... on T2 {
           y
         }
+      }
+    `);
+  });
+
+  test('it skips __typename field for types that are potentially interface objects at runtime', () => {
+    const schema = parseSchema(`
+      type Query {
+        i: I
+      }
+
+      interface I {
+        id: ID!
+        x: String!
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+        i {
+          ...FragOnI
+        }
+      }
+
+      fragment FragOnI on I {
+        __typename
+        id
+        x
+      }
+    `);
+
+    const fragments = operation.fragments;
+    assert(fragments, 'Should have some fragments');
+
+    const subgraph = buildSchema(`
+      extend schema
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.5",
+          import: [{ name: "@interfaceObject" }, { name: "@key" }]
+        )
+
+      type Query {
+        i: I
+      }
+
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+        x: String!
+      }
+      `,
+      { blueprint: new FederationBlueprint(true) },
+    );
+
+    const rebased = fragments.rebaseOn(subgraph);
+    expect(rebased?.toString('')).toMatchString(`
+      fragment FragOnI on I {
+        id
+        x
       }
     `);
   });
