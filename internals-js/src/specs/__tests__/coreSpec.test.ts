@@ -228,13 +228,17 @@ describe('FeatureVersion', () => {
     // Operators like <, <=, >, and >= use lexicographic comparison on
     // version.toString() strings, but do not perform numeric lexicographic
     // comparison of the major and minor numbers, so 'v10...' < 'v2...' and the
-    // following comparisons fail to produce intuitive results.
-    expect(() => {
-      expect(v2_3 < v10_0).toBe(true);
-      expect(v2_3 <= v10_0).toBe(true);
-      expect(v2_3 > v10_0).toBe(false);
-      expect(v2_3 >= v10_0).toBe(false);
-    }).toThrow();
+    // following comparisons produce unintuitive results.
+    expect([
+      v2_3 < v10_0,
+      v2_3 <= v10_0,
+      v2_3 > v10_0,
+      v2_3 >= v10_0,
+    ]).toEqual(
+      // This should really be [true, true, false, false], if JavaScript
+      // supported more flexible/general operator overloading.
+      [false, false, true, true],
+    );
 
     expect(v2_3.compareTo(v10_0)).toBe(-1);
     expect(v10_0.compareTo(v2_3)).toBe(1);
