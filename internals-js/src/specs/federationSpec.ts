@@ -119,7 +119,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
     this.registerDirective(createDirectiveSpecification({
       name: FederationDirectiveName.SHAREABLE,
       locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
-      repeatable: version >= (new FeatureVersion(2, 2)),
+      repeatable: version.gte(new FeatureVersion(2, 2)),
     }));
 
     this.registerSubFeature(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version));
@@ -130,7 +130,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
       args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
     }));
 
-    if (version >= (new FeatureVersion(2, 1))) {
+    if (version.gte(new FeatureVersion(2, 1))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.COMPOSE_DIRECTIVE,
         locations: [DirectiveLocation.SCHEMA],
@@ -139,7 +139,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
       }));
     }
 
-    if (version >= (new FeatureVersion(2, 3))) {
+    if (version.gte(new FeatureVersion(2, 3))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.INTERFACE_OBJECT,
         locations: [DirectiveLocation.OBJECT],
@@ -147,12 +147,12 @@ export class FederationSpecDefinition extends FeatureDefinition {
       this.registerSubFeature(TAG_VERSIONS.find(new FeatureVersion(0, 3))!);
     }
 
-    if (version >= (new FeatureVersion(2, 5))) {
+    if (version.gte(new FeatureVersion(2, 5))) {
       this.registerSubFeature(AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!);
       this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
 
-    if (version >= (new FeatureVersion(2, 6))) {
+    if (version.gte(new FeatureVersion(2, 6))) {
       this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
