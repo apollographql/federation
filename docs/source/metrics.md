@@ -35,7 +35,7 @@ If your library _does_ support federated tracing, see its documentation to learn
 
 ### In the Apollo Router
 
-See [Sending Apollo Router usage data to GraphOS](/router/configuration/apollo-telemetry).
+See [Sending Apollo Router usage data to GraphOS](/router/configuration/telemetry/apollo-telemetry).
 
 ### In `@apollo/gateway`
 
