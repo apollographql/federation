@@ -377,7 +377,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
-  private readonly optionsLimit: number;
+  private readonly optionsLimit: number | null;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -480,7 +480,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       }
       newOptions = newOptions.concat(followupForOption);
 
-      if(newOptions.length > this.optionsLimit) {
+      if (this.optionsLimit && newOptions.length > this.optionsLimit) {
         throw new Error(`Too many options generated for ${selection}, reached the limit of ${this.optionsLimit}`);
       }
     }
@@ -3298,7 +3298,6 @@ export class QueryPlanner {
 function computePlanInternal({
   parameters,
   hasDefers,
-
 }: {
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
@@ -3309,7 +3308,7 @@ function computePlanInternal({
 
   const { operation, processor } = parameters;
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers,);
+    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers);
     for (const dependencyGraph of dependencyGraphs) {
       const { main: localMain, deferred: localDeferred } = dependencyGraph.process(processor, operation.rootKind);
       // Note that `reduceSequence` "flatten" sequence if needs be.

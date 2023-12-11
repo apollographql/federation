@@ -84,18 +84,22 @@ export type QueryPlannerConfig = {
      */
     maxEvaluatedPlans?: number,
 
-      /**
-   * Before creating query plans, we need to evaluate all the possible paths to access every field:
-   * through which subgraph providing it, through which type in union or type implementing an
-   * interface. The number of paths generated can grow if the schema or query are complex,
-   * and that will increase the time spent planning.
-   *
-   * The default value is set to 10000
-   */
-  pathsLimit?: number
+    /**
+     * Before creating query plans, for each path of fields in the query we compute all the
+     * possible options to traverse that path via the subgraphs. Multiple options can arise because
+     * fields in the path can be provided by multiple subgraphs, and abstract types (i.e. unions
+     * and interfaces) returned by fields sometimes require the query planner to traverse through
+     * each constituent object type. The number of options generated in this computation can grow
+     * large if the schema or query are sufficiently complex, and that will increase the time spent
+     * planning.
+     * 
+     * This config allows specifying a per-path limit to the number of options considered. If any
+     * path's options exceeds this limit, query planning will abort and the operation will fail.
+     *
+     * The default value is null, which specifies no limit.
+     */
+    pathsLimit?: number | null
   },
-
-
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -116,7 +120,7 @@ export function enforceQueryPlannerConfigDefaults(
       // don't take more than a handful of seconds. It might be worth running a bit more experiments on more environment
       // to see if it's such a good default.
       maxEvaluatedPlans: 10000,
-      pathsLimit: 10000,
+      pathsLimit: null,
       ...config?.debug,
     },
   };
