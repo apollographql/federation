@@ -1,49 +1,54 @@
 # CHANGELOG for `@apollo/federation-internals`
 
-## 2.6.1
+## 2.6.2
+
 ### Patch Changes
 
+- Avoid `>=` comparison for `FeatureVersion` objects ([#2883](https://github.com/apollographql/federation/pull/2883))
+
+- Fix query planning bug where `__typename` on interface object types in named fragments can cause query plan execution to fail. ([#2886](https://github.com/apollographql/federation/issues/2886)) ([#2886](https://github.com/apollographql/federation/pull/2886))
+
+## 2.6.1
+
+### Patch Changes
 
 - Add missing `@policy` directive top level exports ([#2869](https://github.com/apollographql/federation/pull/2869))
 
 ## 2.6.0
-### Minor Changes
 
+### Minor Changes
 
 - Update `license` field in `package.json` to use `Elastic-2.0` SPDX identifier ([#2741](https://github.com/apollographql/federation/pull/2741))
 
-
 - Introduce the new `@policy` scope for composition ([#2818](https://github.com/apollographql/federation/pull/2818))
-  
-    > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@policy` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
-  
-    Users may now compose `@policy` applications from their subgraphs into a supergraph.
-  
-    The directive is defined as follows:
-  
-    ```graphql
-    scalar federation__Policy
-  
-    directive @policy(policies: [[federation__Policy!]!]!) on
-      | FIELD_DEFINITION
-      | OBJECT
-      | INTERFACE
-      | SCALAR
-      | ENUM
-    ```
-  
-    The `Policy` scalar is effectively a `String`, similar to the `FieldSet` type.
-  
-    In order to compose your `@policy` usages, you must update your subgraph's federation spec version to v2.6 and add the `@policy` import to your existing imports like so:
-    ```graphql
-    @link(url: "https://specs.apollo.dev/federation/v2.6", import: [..., "@policy"])
-    ```
+
+  > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@policy` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
+
+  Users may now compose `@policy` applications from their subgraphs into a supergraph.
+
+  The directive is defined as follows:
+
+  ```graphql
+  scalar federation__Policy
+
+  directive @policy(
+    policies: [[federation__Policy!]!]!
+  ) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+  ```
+
+  The `Policy` scalar is effectively a `String`, similar to the `FieldSet` type.
+
+  In order to compose your `@policy` usages, you must update your subgraph's federation spec version to v2.6 and add the `@policy` import to your existing imports like so:
+
+  ```graphql
+  @link(url: "https://specs.apollo.dev/federation/v2.6", import: [..., "@policy"])
+  ```
 
 ## 2.5.7
 
 ## 2.5.6
-### Patch Changes
 
+### Patch Changes
 
 - Fixing issue where redeclaration of custom scalars in a fed1 schema may cause upgrade errors ([#2809](https://github.com/apollographql/federation/pull/2809))
 
@@ -52,11 +57,11 @@
 ## 2.5.4
 
 ## 2.5.3
+
 ### Patch Changes
 
-
 - Modifies the type for the argument of the `@requiresScopes` from `[federation__Scope!]!` to `[[federation__Scope!]!]!`. ([#2738](https://github.com/apollographql/federation/pull/2738))
-  
+
   The `@requiresScopes` directives has been pre-emptively introduced in 2.5.0 to support an upcoming Apollo Router
   feature around scoped accesses. The argument for `@requiresScopes` in that upcoming feature is changed to accommodate a
   new semantic. Note that this technically a breaking change to the `@requiresScopes` directive definition, but as the
@@ -65,16 +70,17 @@
 
 - Fix potential assertion error for named fragment on abstract types when the abstract type does not have the same ([#2725](https://github.com/apollographql/federation/pull/2725))
   possible runtime types in all subgraphs.
-  
+
   The error manifested itself during query planning with an error message of the form `Cannot normalize X at Y ...`.
 
 - Expands over-eager merging of field fix to handle `@defer` consistently ([#2720](https://github.com/apollographql/federation/pull/2720))
-  
+
   The previously committed [#2713](https://github.com/apollographql/federation/pull/2713) fixed an issue introduced by
   [#2387](https://github.com/apollographql/federation/pull/2387), ensuring that querying the same field with different
   directives applications was not merged, similar to what was/is done for fragments. But the exact behaviour slightly
   differs between fields and fragments when it comes to `@defer` in that for fragments, we never merge 2 similar fragments
   where both have `@defer`, which we do merge for fields. Or to put it more concretely, in the following query:
+
   ```graphq
   query Test($skipField: Boolean!) {
     x {
@@ -87,8 +93,10 @@
     }
   }
   ```
+
   the 2 `... on X @defer` are not merged, resulting in 2 deferred sections that can run in parallel. But following
   [#2713](https://github.com/apollographql/federation/pull/2713), query:
+
   ```graphq
   query Test($skipField: Boolean!) {
     x @defer {
@@ -99,19 +107,21 @@
     }
   }
   ```
+
   _will_ merge both `x @defer`, resulting in a single deferred section.
-  
+
   This fix changes that later behaviour so that the 2 `x @defer` are not merged and result in 2 deferred sections,
   consistently with both 1) the case of fragments and 2) the behaviour prior to
   [#2387](https://github.com/apollographql/federation/pull/2387).
 
 ## 2.5.2
+
 ### Patch Changes
 
-
 - Fix over-eager merging of fields with different directive applications ([#2713](https://github.com/apollographql/federation/pull/2713))
-  
+
   Previously, the following query would incorrectly combine the selection set of `hello`, with both fields ending up under the `@skip` condition:
+
   ```graphql
   query Test($skipField: Boolean!) {
     hello @skip(if: $skipField) {
@@ -122,103 +132,93 @@
     }
   }
   ```
-  
+
   This change identifies those two selections on `hello` as unique while constructing our operation representation so they aren't merged at all, leaving it to the subgraph to handle the operation as-is.
 
 ## 2.5.1
+
 ### Patch Changes
 
-
 - Reapply #2639: ([#2687](https://github.com/apollographql/federation/pull/2687))
-  
+
   Try reusing named fragments in subgraph fetches even if those fragment only apply partially to the subgraph. Before this change, only named fragments that were applying entirely to a subgraph were tried, leading to less reuse that expected. Concretely, this change can sometimes allow the generation of smaller subgraph fetches.
-  
+
   Additionally, resolve a bug which surfaced in the fragment optimization logic which could result in invalid/incorrect optimizations / fragment reuse.
 
 ## 2.5.0
+
 ### Minor Changes
 
-
 - Do not run the full suite of graphQL validations on supergraphs and their extracted subgraphs by default in production environment. ([#2657](https://github.com/apollographql/federation/pull/2657))
-  
+
   Running those validations on every updates of the schema takes a non-negligible amount of time (especially on large
   schema) and mainly only serves in catching bugs early in the supergraph handling code, and in some limited cases,
   provide slightly better messages when a corrupted supergraph is received, neither of which is worth the cost in
   production environment.
-  
+
   A new `validateSupergraph` option is also introduced in the gateway configuration to force this behaviour.
 
 - For CoreSpecDefintions that opt in, we've added the ability to tie the core spec version to a particular federation version. That means that if there's a new version of, say, the join spec, you won't necessarily get the new version in the supergraph schema if no subgraph requires it. ([#2528](https://github.com/apollographql/federation/pull/2528))
 
-
 - Introduce the new `@authenticated` directive for composition ([#2644](https://github.com/apollographql/federation/pull/2644))
-  
+
   > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@authenticated` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
-  
+
   Users may now compose `@authenticated` applications from their subgraphs into a supergraph. This addition will support a future version of Apollo Router that enables authenticated access to specific types and fields via directive applications.
-  
+
   The directive is defined as follows:
-  
+
   ```graphql
-  directive @authenticated on
-    | FIELD_DEFINITION
-    | OBJECT
-    | INTERFACE
-    | SCALAR
-    | ENUM
+  directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
   ```
-  
+
   In order to compose your `@authenticated` usages, you must update your subgraph's federation spec version to v2.5 and add the `@authenticated` import to your existing imports like so:
+
   ```graphql
   @link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@authenticated"])
   ```
 
 - Refactor/cleanup code that extract subgraphs schema from the supergraph during query planning. ([#2655](https://github.com/apollographql/federation/pull/2655))
 
-
 - Introduce the new `@requiresScopes` directive for composition ([#2649](https://github.com/apollographql/federation/pull/2649))
-  
+
   > Note that this directive will only be _fully_ supported by the Apollo Router as a GraphOS Enterprise feature at runtime. Also note that _composition_ of valid `@requiresScopes` directive applications will succeed, but the resulting supergraph will not be _executable_ by the Gateway or an Apollo Router which doesn't have the GraphOS Enterprise entitlement.
-  
+
   Users may now compose `@requiresScopes` applications from their subgraphs into a supergraph. This addition will support a future version of Apollo Router that enables scoped access to specific types and fields via directive applications.
-  
+
   The directive is defined as follows:
-  
+
   ```graphql
   scalar federation__Scope
-  
-  directive @requiresScopes(scopes: [federation__Scope!]!) on
-    | FIELD_DEFINITION
-    | OBJECT
-    | INTERFACE
-    | SCALAR
-    | ENUM
+
+  directive @requiresScopes(
+    scopes: [federation__Scope!]!
+  ) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
   ```
-  
+
   The `Scope` scalar is effectively a `String`, similar to the `FieldSet` type.
-  
+
   In order to compose your `@requiresScopes` usages, you must update your subgraph's federation spec version to v2.5 and add the `@requiresScopes` import to your existing imports like so:
+
   ```graphql
   @link(url: "https://specs.apollo.dev/federation/v2.5", import: [..., "@requiresScopes"])
   ```
 
 ## 2.4.10
+
 ### Patch Changes
 
-
 - Revert #2639 from v2.4.9 ([#2681](https://github.com/apollographql/federation/pull/2681))
-  
+
   PR #2639 attempts to resolve issues with query fragment reuse, but we've since turned up multiple issues (at least 1 of which is a regression - see #2680. For now, this reverts it until we resolve the regression for a future patch release.
 
 ## 2.4.9
-### Patch Changes
 
+### Patch Changes
 
 - Improves query planning time in some situations where entities use multiple keys. ([#2610](https://github.com/apollographql/federation/pull/2610))
 
-
 - Try reusing named fragments in subgraph fetches even if those fragment only apply partially to the subgraph. Before this change, only named fragments that were applying entirely to a subgraph were tried, leading to less reuse that expected. Concretely, this change can sometimes allow the generation of smaller subgraph fetches. ([#2639](https://github.com/apollographql/federation/pull/2639))
-
 
 - Fix issue in the code to reuse fragments that, in some rare circumstances, could led to invalid queries where a named ([#2659](https://github.com/apollographql/federation/pull/2659))
   spread was use in an invalid position. If triggered, this resulted in an subgraph fetch whereby a named spread was
@@ -235,11 +235,10 @@
   it should have.
 
 ## 2.4.8
+
 ### Patch Changes
 
-
 - Fix issue where subgraph fetches may have unused fragments (and are thus invalid). ([#2628](https://github.com/apollographql/federation/pull/2628))
-
 
 - Fix issues in code to reuse named fragments. One of the fixed issue would manifest as an assertion error with a message ([#2619](https://github.com/apollographql/federation/pull/2619))
   looking like `Cannot add fragment of condition X (...) to parent type Y (...)`. Another would manifest itself by
@@ -247,17 +246,17 @@
   named fragment.
 
 ## 2.4.7
-### Patch Changes
 
+### Patch Changes
 
 - Re-work the code use to try to reuse query named fragments to improve performance (thus sometimes improving query ([#2604](https://github.com/apollographql/federation/pull/2604))
   planning performance), to fix a possibly raised assertion error (with a message of form like `Cannot add selection of
-  field X to selection set of parent type Y`), and to fix a rare issue where an interface or union field was not being
+field X to selection set of parent type Y`), and to fix a rare issue where an interface or union field was not being
   queried for all the types it should be.
 
 ## 2.4.6
-### Patch Changes
 
+### Patch Changes
 
 - Fix assertion error in some overlapping fragment cases. In some cases, when fragments overlaps on some sub-selections ([#2594](https://github.com/apollographql/federation/pull/2594))
   and some interface field implementation relied on sub-typing, an assertion error could be raised with a message of
@@ -268,23 +267,23 @@
   during query planning.
 
 ## 2.4.5
-### Patch Changes
 
+### Patch Changes
 
 - Supersedes v2.4.4 due to a publishing error with no dist/ folder ([#2583](https://github.com/apollographql/federation/pull/2583))
 
 ## 2.4.4
 
 ## 2.4.3
-### Patch Changes
 
+### Patch Changes
 
 - Improves the heuristics used to try to reuse the query named fragments in subgraph fetches. Said fragment will be reused ([#2541](https://github.com/apollographql/federation/pull/2541))
   more often, which can lead to smaller subgraph queries (and hence overall faster processing).
 
 ## 2.4.2
-### Patch Changes
 
+### Patch Changes
 
 - Allow passing print options to the `compose` method to impact how the supergraph is printed, and adds new printing ([#2042](https://github.com/apollographql/federation/pull/2042))
   options to order all elements of the schema.
@@ -293,12 +292,12 @@
   `@requires` and the query requests that field only for some specific implementations of the corresponding interface,
   then the generated query plan was sometimes invalid and could result in an invalid query to a subgraph (against a
   subgraph that rely on `@apollo/subgraph`, this lead the subgraph to produce an error message looking like `"The
-  _entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
-  schema"`).
+_entities resolver tried to load an entity for type X, but no object or interface type of that name was found in the
+schema"`).
 
 ## 2.4.1
-### Patch Changes
 
+### Patch Changes
 
 - Fix issues (incorrectly rejected composition and/or subgraph errors) with `@interfaceObject`. Those issues may occur ([#2494](https://github.com/apollographql/federation/pull/2494))
   either due to some use of `@requires` in an `@interfaceObject` type, or when some subgraph `S` defines a type that is an
@@ -310,47 +309,44 @@
 
 - Start building packages with TS 5.x, which should have no effect on consumers ([#2480](https://github.com/apollographql/federation/pull/2480))
 
-
 - Improves reuse of named fragments in subgraph fetches. When a question has named fragments, the code tries to reuse ([#2497](https://github.com/apollographql/federation/pull/2497))
   those fragment in subgraph fetches is those can apply (so when the fragment is fully queried in a single subgraph fetch).
   However, the existing was only able to reuse those fragment in a small subset of cases. This change makes it much more
   likely that _if_ a fragment can be reused, it will be.
 
 ## 2.4.0
-### Patch Changes
 
+### Patch Changes
 
 - Refactor the internal implementation of selection sets used by the query planner to decrease the code complexity and ([#2387](https://github.com/apollographql/federation/pull/2387))
   improve query plan generation performance in many cases.
 
 - Revert #2293. Removing URL import causes a problem when running under deno. ([#2451](https://github.com/apollographql/federation/pull/2451))
 
-
 - Use globally available URL object instead of node builtin "url" module ([#2293](https://github.com/apollographql/federation/pull/2293))
-
 
 - Optimises query plan generation for parts of queries that can statically be known to not cross across subgraphs ([#2449](https://github.com/apollographql/federation/pull/2449))
 
 ## 2.4.0-alpha.1
-### Patch Changes
 
+### Patch Changes
 
 - Revert #2293. Removing URL import causes a problem when running under deno. ([#2451](https://github.com/apollographql/federation/pull/2451))
 
 ## 2.4.0-alpha.0
+
 ### Patch Changes
 
-
 - Handle defaulted variables correctly during post-processing. ([#2443](https://github.com/apollographql/federation/pull/2443))
-  
-  Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
-  
-  With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
 
+  Users who tried to use built-in conditional directives (skip/include) with _defaulted_ variables and no variable provided would encounter an error thrown by operation post-processing saying that the variables weren't provided. The defaulted values went unaccounted for, so the operation would validate but then fail an assertion while resolving the conditional.
+
+  With this change, defaulted variable values are now collected and provided to post-processing (with defaults being overwritten by variables that are actually provided).
 
 ## 2.3.5
 
 ## 2.3.4
+
 ### Patch Changes
 
 - Use globally available URL object instead of node builtin "url" module ([#2293](https://github.com/apollographql/federation/pull/2293))
@@ -420,7 +416,6 @@
 
 - Implement `buildSubgraphSchema` using federation internals [PR #1697](https://github.com/apollographql/federation/pull/1697)
 
-
 ## v2.0.0-preview.11
 
 - Add support for `@inaccessible` v0.2 [PR #1678](https://github.com/apollographql/federation/pull/1678)
@@ -471,8 +466,8 @@
 
 ## v2.0.0-alpha.2
 
-- __BREAKING__: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
+- **BREAKING**: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
 
 ## v2.0.0-alpha.1
 
-- :tada: Initial alpha release of Federation 2.0.  For more information, see our [documentation](https://www.apollographql.com/docs/federation/v2/).  We look forward to your feedback!
+- :tada: Initial alpha release of Federation 2.0. For more information, see our [documentation](https://www.apollographql.com/docs/federation/v2/). We look forward to your feedback!
