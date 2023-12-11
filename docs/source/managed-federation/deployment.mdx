@@ -167,7 +167,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
     }
     ```
 
-  This initiates a [launch](/graphos/delivery/launches/), as well as any downstream launches necessary for [contracts](graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
+  This initiates a [launch](/graphos/delivery/launches/), as well as any downstream launches necessary for [contracts](/graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
 
   <Note>
 
@@ -201,7 +201,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     ```graphql
     ## Fetch the supergraph SDL by launch ID.
-    query FetchSupergraphSDLQuery($graphId: ID!, $graphVariant: String!, $launchId: String!) {
+    query FetchSupergraphSDLQuery($graphId: ID!, $graphVariant: String!, $launchId: ID!) {
       graph(id: $graphId) {
         variant(name: $graphVariant) {
           launch(id: $launchId) {

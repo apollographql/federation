@@ -83,7 +83,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinType.addArgument('extension', new NonNullType(schema.booleanType()), false);
       joinType.addArgument('resolvable', new NonNullType(schema.booleanType()), true);
 
-      if (this.version >= (new FeatureVersion(0, 3))) {
+      if (this.version.gte(new FeatureVersion(0, 3))) {
         joinType.addArgument('isInterfaceObject', new NonNullType(schema.booleanType()), false);
       }
     }
@@ -93,7 +93,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     // The `graph` argument used to be non-nullable, but @interfaceObject makes us add some field in
     // the supergraph that don't "directly" come from any subgraph (they indirectly are inherited from
     // an `@interfaceObject` type), and to indicate that, we use a `@join__field(graph: null)` annotation.
-    const graphArgType = this.version >= (new FeatureVersion(0, 3))
+    const graphArgType = this.version.gte(new FeatureVersion(0, 3))
       ? graphEnum
       : new NonNullType(graphEnum);
     joinField.addArgument('graph', graphArgType);
@@ -115,7 +115,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinImplements.addArgument('interface', new NonNullType(schema.stringType()));
     }
 
-    if (this.version >= (new FeatureVersion(0, 3))) {
+    if (this.version.gte(new FeatureVersion(0, 3))) {
       const joinUnionMember = this.addDirective(schema, 'unionMember').addLocations(DirectiveLocation.UNION);
       joinUnionMember.repeatable = true;
       joinUnionMember.addArgument('graph', new NonNullType(graphEnum));

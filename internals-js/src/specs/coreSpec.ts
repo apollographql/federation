@@ -690,6 +690,22 @@ export class FeatureVersion {
     return 0;
   }
 
+  public lt(other: FeatureVersion): boolean {
+    return this.compareTo(other) < 0;
+  }
+
+  public lte(other: FeatureVersion): boolean {
+    return this.compareTo(other) <= 0;
+  }
+
+  public gt(other: FeatureVersion): boolean {
+    return this.compareTo(other) > 0;
+  }
+
+  public gte(other: FeatureVersion): boolean {
+    return this.compareTo(other) >= 0;
+  }
+
   /**
    * Return true if this FeatureVersion is strictly greater than the provided one,
    * where ordering is meant by major and then minor number.

@@ -305,7 +305,15 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     }
 
     if (this.name === typenameFieldName) {
-      return this.withUpdatedDefinition(parentType.typenameField()!);
+      if (possibleRuntimeTypes(parentType).some((runtimeType) => isInterfaceObjectType(runtimeType))) {
+        validate(
+          !errorIfCannotRebase,
+          () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${parentType}" that is potentially an interface object type at runtime`
+        );
+        return undefined;
+      } else {
+        return this.withUpdatedDefinition(parentType.typenameField()!);
+      }
     }
 
     const fieldDef = parentType.field(this.name);
