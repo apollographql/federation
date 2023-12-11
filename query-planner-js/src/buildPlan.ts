@@ -377,6 +377,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
+  private readonly optionsLimit: number | null;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -391,6 +392,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
   ) {
     const { root, federatedQueryGraph } = parameters;
     this.isTopLevel = isRootVertex(root);
+    this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
       federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
@@ -477,6 +479,10 @@ class QueryPlanningTraversal<RV extends Vertex> {
         return;
       }
       newOptions = newOptions.concat(followupForOption);
+
+      if (this.optionsLimit && newOptions.length > this.optionsLimit) {
+        throw new Error(`Too many options generated for ${selection}, reached the limit of ${this.optionsLimit}`);
+      }
     }
 
     if (newOptions.length === 0) {
@@ -787,7 +793,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       this.costFunction,
       context,
       excludedDestinations,
-      addConditionExclusion(excludedConditions, edge.conditions)
+      addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
