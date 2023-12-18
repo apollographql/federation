@@ -15,7 +15,9 @@ import {
   SelectionSetNode,
   OperationTypeNode,
   NameNode,
+  visit,
 } from "graphql";
+import { ObjMap } from "graphql/jsutils/ObjMap";
 import {
   baseType,
   Directive,
@@ -3897,4 +3899,120 @@ export function operationToDocument(operation: Operation): DocumentNode {
     kind: Kind.DOCUMENT,
     definitions: [operationAST as DefinitionNode].concat(fragmentASTs),
   };
+}
+
+interface CountedFragmentDefinitionNode {
+  total: number;
+  fragments: ObjMap<FragmentDefinitionNode>
+}
+
+interface InlineFragmentToFragmentSpreadResult {
+  fragmentSpread: FragmentSpreadNode;
+  fragmentDefinition: FragmentDefinitionNode;
+  isNewFragmentDefinition: boolean;
+}
+
+export function fragmentify(
+  document: DocumentNode,
+  minSelectionsForFragment: number = 2
+): DocumentNode {
+  const newFragmentDefinitions: ObjMap<CountedFragmentDefinitionNode> = {};
+
+  function getInlineFragmentSelections(
+    inlineFragment: InlineFragmentNode
+  ): string[] {
+    const selectionSetsToVisit: SelectionSetNode[] = [inlineFragment.selectionSet];
+    const names: string[] = [];
+    let selectionSet: SelectionSetNode | undefined;
+    while((selectionSet = selectionSetsToVisit.pop())) {
+      for (const selection of selectionSet.selections) {
+        if ((selection.kind === Kind.FIELD || selection.kind === Kind.INLINE_FRAGMENT) && selection.selectionSet) {
+          selectionSetsToVisit.push(selection.selectionSet);
+        } else if (selection.kind === Kind.FIELD) {
+          names.push(selection.alias?.value ?? selection.name.value);
+        } else if (selection.kind === Kind.FRAGMENT_SPREAD) {
+          names.push(selection.name.value);
+        }
+      }
+    }
+    return names;
+  }
+
+  function inlineFragmentToFragmentSpread(
+    inlineFragment: InlineFragmentNode
+  ): InlineFragmentToFragmentSpreadResult | undefined {
+    // we are only interested in inline fragments with TypeCondition
+    // example: ...on User { }
+    // Constrain #1
+    // inline fragments without TypeCondition: ...friendFields
+    // are going to be skipped as we would need the schema to know which type this fragment is applied to.
+    if (!inlineFragment.typeCondition) return undefined;
+    // Constrain #2
+    // we are not going to attempt to create fragment definitions for inline fragments with directives
+    // ... @include(if: $shouldInclude)
+    if (inlineFragment.directives && inlineFragment.directives.length > 0) return undefined;
+    // Constrain #3
+    // we are not going to attempt to create as fragment definition for inline fragments with less than [minSelectionsForFragment]
+    const inlineFragmentSelections = getInlineFragmentSelections(inlineFragment);
+    if (minSelectionsForFragment > inlineFragmentSelections.length) return undefined;
+
+    const inlineFragmentTypeName = inlineFragment.typeCondition.name.value;
+    const fragmentName = `${inlineFragmentTypeName}Fragment`;
+    const fragmentIdentifier = inlineFragmentSelections.join(',');
+
+    if (!newFragmentDefinitions[fragmentName]) {
+      newFragmentDefinitions[fragmentName] = {
+        total: 0,
+        fragments: {}
+      };
+    }
+
+    let isNewFragmentDefinition = false;
+    if (!newFragmentDefinitions[fragmentName].fragments[fragmentIdentifier]) {
+      const fragmentNameWithVersion = `${fragmentName}V${++newFragmentDefinitions[fragmentName].total}`;
+      const fragmentDefinitionNode: FragmentDefinitionNode = {
+        kind: Kind.FRAGMENT_DEFINITION,
+        name: { kind: Kind.NAME, value: fragmentNameWithVersion },
+        typeCondition: {
+          kind: Kind.NAMED_TYPE,
+          name: { kind: Kind.NAME, value: inlineFragmentTypeName }
+        },
+        selectionSet: inlineFragment.selectionSet,
+      };
+      newFragmentDefinitions[fragmentName].fragments[fragmentIdentifier] = fragmentDefinitionNode;
+      isNewFragmentDefinition = true;
+    }
+
+    return {
+      fragmentSpread: {
+        kind: Kind.FRAGMENT_SPREAD,
+        name: {
+          kind: Kind.NAME,
+          value: newFragmentDefinitions[fragmentName].fragments[fragmentIdentifier].name.value
+        }
+      },
+      fragmentDefinition: newFragmentDefinitions[fragmentName].fragments[fragmentIdentifier],
+      isNewFragmentDefinition
+    }
+  }
+
+  const newDocument = visit(document, {
+    SelectionSet: (selectionSet: SelectionSetNode): SelectionSetNode => {
+      for (let i = 0; i < selectionSet.selections.length; i++) {
+        if (selectionSet.selections[i].kind === Kind.INLINE_FRAGMENT) {
+          const inlineFragmentNode = selectionSet.selections[i] as InlineFragmentNode
+          const result = inlineFragmentToFragmentSpread(inlineFragmentNode);
+          if (result) {
+            (selectionSet.selections[i] as any) = result.fragmentSpread;
+            if (result.isNewFragmentDefinition) {
+              (document.definitions as any).push(result.fragmentDefinition);
+            }
+          }
+        }
+      }
+      return selectionSet;
+    }
+  });
+
+  return newDocument;
 }

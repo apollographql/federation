@@ -6,9 +6,9 @@ import {
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
 import { FederationBlueprint } from '../../dist/federation';
-import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
+import { fragmentify, FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, operationToDocument, parseOperation } from '../../dist/operations';
 import './matchers';
-import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
+import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, print, SelectionNode, SelectionSetNode, validate } from 'graphql';
 import { assert } from '../utils';
 import gql from 'graphql-tag';
 
@@ -2421,6 +2421,248 @@ describe('fragments optimization', () => {
         }
       }
     `);
+  });
+
+  describe('fragmentify', () => {
+    test('inline fragments to fragment definitions', () => {
+      const schema = parseSchema(`
+        type Query {
+          t: I
+        }
+
+        interface I {
+          b: Int
+          u: U
+        }
+
+        type T1 implements I {
+          a: Int
+          b: Int
+          u: U
+        }
+
+        type T2 implements I {
+          x: String
+          y: String
+          b: Int
+          u: U
+        }
+
+        union U = T1 | T2
+      `);
+
+      const operation = parseOperation(schema, `
+        fragment OnT1 on T1 {
+          a
+          b
+        }
+
+        fragment OnT2 on T2 {
+          x
+          y
+        }
+
+        fragment OnI on I {
+          b
+        }
+
+        fragment OnU on U {
+          ...OnI
+          ...OnT1
+          ...OnT2
+        }
+
+        query {
+          t {
+            ...OnT1
+            ...OnT2
+            ...OnI
+            u {
+              ...OnU
+            }
+          }
+        }
+      `);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t {
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
+            }
+            b
+            u {
+              ... on I {
+                b
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
+            }
+          }
+        }
+      `);
+      const fragmentifiedDocument = fragmentify(operationToDocument(withoutFragments), 1);
+      const fragmentified = print(fragmentifiedDocument);
+      expect(fragmentified).toMatchString(`
+        {
+          t {
+            ...T1FragmentV1
+            ...T2FragmentV1
+            b
+            u {
+              ...IFragmentV1
+              ...T1FragmentV1
+              ...T2FragmentV1
+            }
+          }
+        }
+
+        fragment T1FragmentV1 on T1 {
+          a
+          b
+        }
+
+        fragment T2FragmentV1 on T2 {
+          x
+          y
+        }
+
+        fragment IFragmentV1 on I {
+          b
+        }
+      `);
+    });
+
+    test.only(`wont create fragment definition for less than 2 selections`, () => {
+      const schema = parseSchema(`
+        type Query {
+          t: I
+        }
+
+        interface I {
+          b: Int
+          u: U
+        }
+
+        type T1 implements I {
+          a: Int
+          b: Int
+          u: U
+        }
+
+        type T2 implements I {
+          x: String
+          y: String
+          b: Int
+          u: U
+        }
+
+        union U = T1 | T2
+      `);
+
+      const operation = parseOperation(schema, `
+        fragment OnT1 on T1 {
+          a
+          b
+        }
+
+        fragment OnT2 on T2 {
+          x
+          y
+        }
+
+        fragment OnI on I {
+          b
+        }
+
+        fragment OnU on U {
+          ...OnI
+          ...OnT1
+          ...OnT2
+        }
+
+        query {
+          t {
+            ...OnT1
+            ...OnT2
+            ...OnI
+            u {
+              ...OnU
+            }
+          }
+        }
+      `);
+
+      const withoutFragments = operation.expandAllFragments();
+      expect(withoutFragments.toString()).toMatchString(`
+        {
+          t {
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
+            }
+            b
+            u {
+              ... on I {
+                b
+              }
+              ... on T1 {
+                a
+                b
+              }
+              ... on T2 {
+                x
+                y
+              }
+            }
+          }
+        }
+      `);
+      const fragmentifiedDocument = fragmentify(operationToDocument(withoutFragments), 2);
+      const fragmentified = print(fragmentifiedDocument);
+      expect(fragmentified).toMatchString(`
+        {
+          t {
+            ...T1FragmentV1
+            ...T2FragmentV1
+            b
+            u {
+              ... on I {
+                b
+              }
+              ...T1FragmentV1
+              ...T2FragmentV1
+            }
+          }
+        }
+
+        fragment T1FragmentV1 on T1 {
+          a
+          b
+        }
+
+        fragment T2FragmentV1 on T2 {
+          x
+          y
+        }
+      `);
+    });
   });
 });
 
