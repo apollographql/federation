@@ -2450,42 +2450,7 @@ describe('fragments optimization', () => {
 
         union U = T1 | T2
       `);
-
       const operation = parseOperation(schema, `
-        fragment OnT1 on T1 {
-          a
-          b
-        }
-
-        fragment OnT2 on T2 {
-          x
-          y
-        }
-
-        fragment OnI on I {
-          b
-        }
-
-        fragment OnU on U {
-          ...OnI
-          ...OnT1
-          ...OnT2
-        }
-
-        query {
-          t {
-            ...OnT1
-            ...OnT2
-            ...OnI
-            u {
-              ...OnU
-            }
-          }
-        }
-      `);
-
-      const withoutFragments = operation.expandAllFragments();
-      expect(withoutFragments.toString()).toMatchString(`
         {
           t {
             ... on T1 {
@@ -2513,7 +2478,7 @@ describe('fragments optimization', () => {
           }
         }
       `);
-      const fragmentifiedDocument = fragmentify(operationToDocument(withoutFragments), 1);
+      const fragmentifiedDocument = fragmentify(operationToDocument(operation), 1);
       const fragmentified = print(fragmentifiedDocument);
       expect(fragmentified).toMatchString(`
         {
@@ -2545,7 +2510,7 @@ describe('fragments optimization', () => {
       `);
     });
 
-    test.only(`wont create fragment definition for less than 2 selections`, () => {
+    test(`wont create fragment definition for less than 2 selections`, () => {
       const schema = parseSchema(`
         type Query {
           t: I
@@ -2571,42 +2536,7 @@ describe('fragments optimization', () => {
 
         union U = T1 | T2
       `);
-
       const operation = parseOperation(schema, `
-        fragment OnT1 on T1 {
-          a
-          b
-        }
-
-        fragment OnT2 on T2 {
-          x
-          y
-        }
-
-        fragment OnI on I {
-          b
-        }
-
-        fragment OnU on U {
-          ...OnI
-          ...OnT1
-          ...OnT2
-        }
-
-        query {
-          t {
-            ...OnT1
-            ...OnT2
-            ...OnI
-            u {
-              ...OnU
-            }
-          }
-        }
-      `);
-
-      const withoutFragments = operation.expandAllFragments();
-      expect(withoutFragments.toString()).toMatchString(`
         {
           t {
             ... on T1 {
@@ -2634,7 +2564,8 @@ describe('fragments optimization', () => {
           }
         }
       `);
-      const fragmentifiedDocument = fragmentify(operationToDocument(withoutFragments), 2);
+
+      const fragmentifiedDocument = fragmentify(operationToDocument(operation), 2);
       const fragmentified = print(fragmentifiedDocument);
       expect(fragmentified).toMatchString(`
         {
