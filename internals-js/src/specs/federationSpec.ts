@@ -40,6 +40,9 @@ export enum FederationDirectiveName {
   AUTHENTICATED = 'authenticated',
   REQUIRES_SCOPES = 'requiresScopes',
   POLICY = 'policy',
+  SOURCE_API = 'sourceAPI',
+  SOURCE_TYPE = 'sourceType',
+  SOURCE_FIELD = 'sourceField',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });

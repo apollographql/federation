@@ -6,6 +6,7 @@ import {
   ScalarType,
   Schema,
   NonNullType,
+  ListType,
 } from "../definitions";
 import { Subgraph, Subgraphs } from "../federation";
 import { registerKnownFeature } from '../knownCoreFeatures';
@@ -47,6 +48,12 @@ export type JoinFieldDirectiveArguments = {
   external?: boolean,
   usedOverridden?: boolean,
 }
+
+export type JoinDirectiveArguments = {
+  graphs: string[],
+  name: string,
+  args?: Record<string, any>,
+};
 
 export class JoinSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
@@ -126,6 +133,25 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinEnumValue.addArgument('graph', new NonNullType(graphEnum));
     }
 
+    const joinDirective = this.addDirective(schema, 'directive').addLocations(
+      // Allow @join__directive at any location where @joinType or @joinField
+      // can appear, as well as on the schema element.
+      ...new Set([
+        DirectiveLocation.SCHEMA,
+        ...joinType.locations,
+        ...joinField.locations,
+      ]),
+    );
+    joinDirective.repeatable = true;
+    // Note this 'graphs' argument is plural, since the same directive
+    // application can appear on the same schema element in multiple subgraphs.
+    // Repetition of a graph in this 'graphs' list is allowed, and corresponds
+    // to repeated application of the same directive in the same subgraph, which
+    // is allowed.
+    joinDirective.addArgument('graphs', new ListType(new NonNullType(graphEnum)));
+    joinDirective.addArgument('name', new NonNullType(schema.stringType()));
+    joinDirective.addArgument('args', this.addScalarType(schema, 'DirectiveArguments'));
+
     if (this.isV01()) {
       const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
       joinOwner.addArgument('graph', new NonNullType(graphEnum));
@@ -190,6 +216,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
 
   graphDirective(schema: Schema): DirectiveDefinition<{name: string, url: string}> {
     return this.directive(schema, 'graph')!;
+  }
+
+  directiveDirective(schema: Schema): DirectiveDefinition<JoinDirectiveArguments> {
+    return this.directive(schema, 'directive')!;
   }
 
   typeDirective(schema: Schema): DirectiveDefinition<JoinTypeDirectiveArguments> {

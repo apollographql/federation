@@ -71,6 +71,8 @@ import {
   FeatureVersion,
   FEDERATION_VERSIONS,
   InaccessibleSpecDefinition,
+  LinkDirectiveArgs,
+  sourceIdentity,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -279,6 +281,7 @@ class Merger {
   private linkSpec: CoreSpecDefinition;
   private inaccessibleSpec: InaccessibleSpecDefinition;
   private latestFedVersionUsed: FeatureVersion;
+  private joinDirectiveIdentityURLs = new Set<string>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -300,6 +303,13 @@ class Merger {
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
+
+    [ // Represent any applications of directives imported from these spec URLs
+      // using @join__directive in the merged supergraph.
+      sourceIdentity,
+    ].forEach(url => {
+      this.joinDirectiveIdentityURLs.add(this.normalizeSpecIdentityURL(url));
+    });
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
@@ -723,6 +733,7 @@ class Merger {
     this.mergeDescription(sources, dest);
     this.addJoinType(sources, dest);
     this.recordAppliedDirectivesToMerge(sources, dest);
+    this.addJoinDirectiveDirectives(sources, dest);
     switch (dest.kind) {
       case 'ScalarType':
         // Since we don't handle applied directives yet, we have nothing specific to do for scalars.
@@ -1360,6 +1371,7 @@ class Merger {
       this.validateExternalFields(sources, dest, allTypesEqual);
     }
     this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
+    this.addJoinDirectiveDirectives(sources, dest);
   }
 
   private validateFieldSharing(sources: FieldOrUndefinedArray, dest: FieldDefinition<ObjectType>, mergeContext: FieldMergeContext) {
@@ -2572,6 +2584,116 @@ class Merger {
       // Because we rename all root type in subgraphs to their default names, we shouldn't ever have incompatibilities here.
       assert(!isIncompatible, () => `Should not have incompatible root type for ${rootKind}`);
     }
+    this.addJoinDirectiveDirectives(sources, dest);
+  }
+
+  private normalizeSpecIdentityURL(identityURL: string): string {
+    const url = new URL(identityURL);
+    const pathParts = url.pathname.split('/');
+    if (/v\d+\.\d+/.test(pathParts[pathParts.length - 1])) {
+      // Remove the specific version to obtain the canonical URL.
+      pathParts.pop();
+      url.pathname = pathParts.join('/');
+    }
+    return url.toString();
+  }
+
+  private shouldUseJoinDirectiveForURL(url: string | undefined): boolean {
+    return Boolean(
+      url &&
+      this.joinDirectiveIdentityURLs.has(this.normalizeSpecIdentityURL(url))
+    );
+  }
+
+  private computeMapFromImportedNamesToIdentityURLs(
+    schema: Schema,
+  ): Map<string, string> {
+    // For each @link directive on the schema definition, store its normalized
+    // identity url in a Map, reachable from all its imported names.
+    const map = new Map<string, string>();
+
+    for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
+      const { url, import: imps } = linkDirective.arguments();
+      const identityURL = this.normalizeSpecIdentityURL(url);
+      if (imps) {
+        for (const imp of imps) {
+          if (typeof imp === 'string') {
+            map.set(imp, identityURL);
+          } else {
+            map.set(imp.as ?? imp.name, identityURL);
+          }
+        }
+      }
+    }
+    return map;
+  }
+
+  // This method gets called at various points during the merge to allow
+  // subgraph directive applications to be reflected (unapplied) in the
+  // supergraph, using the @join__directive(graphs,name,args) directive.
+  private addJoinDirectiveDirectives(
+    sources: (SchemaElement<any, any> | undefined)[],
+    dest: SchemaElement<any, any>,
+  ) {
+    const joinsByDirectiveName: {
+      [directiveName: string]: Array<{
+        graphs: string[];
+        args: Record<string, any>;
+      }>
+    } = Object.create(null);
+
+    for (const [idx, source] of sources.entries()) {
+      if (!source) continue;
+      const graph = this.joinSpecName(idx);
+
+      // We compute this map only once per subgraph, as it takes time
+      // proportional to the size of the schema.
+      const linkImportIdentityURLMap =
+        this.computeMapFromImportedNamesToIdentityURLs(source.schema());
+
+      for (const directive of source.appliedDirectives) {
+        const isRelevantLink =
+          directive.name === 'link' &&
+          this.shouldUseJoinDirectiveForURL(directive.arguments().url);
+
+        // To be consistent with other code accessing linkImportIdentityURLMap,
+        // we ensure directive names start with a leading @.
+        const nameWithAtSymbol =
+          directive.name.startsWith('@') ? directive.name : '@' + directive.name;
+        const isJoinDirectiveEnabled = this.shouldUseJoinDirectiveForURL(
+          linkImportIdentityURLMap.get(nameWithAtSymbol),
+        );
+
+        if (isRelevantLink || isJoinDirectiveEnabled) {
+          const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
+          let found = false;
+          for (const existingJoin of existingJoins) {
+            if (valueEquals(existingJoin.args, directive.arguments())) {
+              existingJoin.graphs.push(graph);
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            existingJoins.push({
+              graphs: [graph],
+              args: directive.arguments(),
+            });
+          }
+        }
+      }
+    }
+
+    const joinDirective = this.joinSpec.directiveDirective(this.merged);
+    Object.keys(joinsByDirectiveName).forEach(directiveName => {
+      joinsByDirectiveName[directiveName].forEach(join => {
+        dest.applyDirective(joinDirective, {
+          graphs: join.graphs,
+          name: directiveName,
+          args: join.args,
+        });
+      });
+    });
   }
 
   private filterSubgraphs(predicate: (schema: Schema) => boolean): string[] {
