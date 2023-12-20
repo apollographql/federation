@@ -836,6 +836,17 @@ export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIden
 registerKnownFeature(CORE_VERSIONS);
 registerKnownFeature(LINK_VERSIONS);
 
+const CORE_APOLLO_SPEC = [
+  'https://specs.apollo.dev/core',
+  'https://specs.apollo.dev/join',
+  'https://specs.apollo.dev/link',
+  'https://specs.apollo.dev/tag',
+  'https://specs.apollo.dev/inaccessible',
+  'https://specs.apollo.dev/federation',
+  'https://specs.apollo.dev/authenticated',
+  'https://specs.apollo.dev/requiresScopes',
+];
+
 export function removeAllCoreFeatures(schema: Schema) {
   // Gather a list of core features up front, since we can't fetch them during
   // removal. (Also note that core being a feature itself, this will remove core
@@ -852,7 +863,8 @@ export function removeAllCoreFeatures(schema: Schema) {
   for (const feature of coreFeatures) {
     // Remove feature directive definitions and their applications.
     const featureDirectiveDefs = schema.directives()
-      .filter(d => feature.isFeatureDefinition(d));
+      .filter(d => feature.isFeatureDefinition(d) && CORE_APOLLO_SPEC.includes(feature.url.identity));
+
     featureDirectiveDefs.forEach(def =>
       def.remove().forEach(application => application.remove())
     );

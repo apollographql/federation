@@ -194,20 +194,20 @@ describe('removeAllCoreFeatures', () => {
     expect(schema.elementByCoordinate("@foobar__directive")).toBeDefined();
     expect(schema.elementByCoordinate("foo")).toBeDefined();
     expect(schema.elementByCoordinate("foo__Scalar")).toBeUndefined();
-    expect(schema.elementByCoordinate("@foo")).toBeUndefined();
-    expect(schema.elementByCoordinate("@foo__directive")).toBeUndefined();
+    expect(schema.elementByCoordinate("@foo")).toBeDefined();
+    expect(schema.elementByCoordinate("@foo__directive")).toBeDefined();
     expect(schema.elementByCoordinate("bar")).toBeUndefined();
     expect(schema.elementByCoordinate("foo__bar")).toBeUndefined();
-    expect(schema.elementByCoordinate("@baz")).toBeUndefined();
-    expect(schema.elementByCoordinate("@foo__baz")).toBeUndefined();
+    expect(schema.elementByCoordinate("@baz")).toBeDefined();
+    expect(schema.elementByCoordinate("@foo__baz")).toBeDefined();
     expect(schema.elementByCoordinate("qux")).toBeDefined();
     expect(schema.elementByCoordinate("@quz")).toBeDefined();
     expect(schema.elementByCoordinate("qax")).toBeUndefined();
     expect(schema.elementByCoordinate("foo__qax")).toBeUndefined();
     expect(schema.elementByCoordinate("foo__qux")).toBeUndefined();
-    expect(schema.elementByCoordinate("@qaz")).toBeUndefined();
-    expect(schema.elementByCoordinate("@foo__qaz")).toBeUndefined();
-    expect(schema.elementByCoordinate("@foo__quz")).toBeUndefined();
+    expect(schema.elementByCoordinate("@qaz")).toBeDefined();
+    expect(schema.elementByCoordinate("@foo__qaz")).toBeDefined();
+    expect(schema.elementByCoordinate("@foo__quz")).toBeDefined();
   });
 });
 
