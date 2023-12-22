@@ -994,7 +994,8 @@ class FetchGroup {
 
   // Clones everything on the group itself, but not it's `_parents` or `_children` links.
   cloneShallow(newDependencyGraph: FetchDependencyGraph): FetchGroup {
-    return new FetchGroup(
+   
+    let newFetch =  new FetchGroup(
       newDependencyGraph,
       this.index,
       this.subgraphName,
@@ -1009,6 +1010,12 @@ class FetchGroup {
       this.cachedCost,
       this.isKnownUseful,
     );
+
+    if (this.inputRewrites) {
+      this.inputRewrites.forEach((r) => newFetch.inputRewrites.push(r));
+    }
+
+    return newFetch;
   }
 
   cost(): number {
