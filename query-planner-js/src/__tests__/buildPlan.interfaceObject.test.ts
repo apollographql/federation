@@ -1,7 +1,7 @@
 import {
   assert,
   operationFromDocument,
-  Subgraph
+  Subgraph,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { isPlanNode } from '../QueryPlan';
