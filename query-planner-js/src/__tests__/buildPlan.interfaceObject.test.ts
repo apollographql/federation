@@ -1,8 +1,4 @@
-import {
-  assert,
-  operationFromDocument,
-  Subgraph,
-} from '@apollo/federation-internals';
+import { assert, operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { isPlanNode } from '../QueryPlan';
 import { composeAndCreatePlanner, findFetchNodes } from './testHelper';
