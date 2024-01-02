@@ -1,10 +1,7 @@
 import {
   assert,
   operationFromDocument,
-  buildSchemaFromAST,
-  Subgraph,
-  Supergraph,
-  printSchema,
+  Subgraph
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { isPlanNode } from '../QueryPlan';
