@@ -513,6 +513,12 @@ const OVERRIDE_ON_INTERFACE = makeCodeDefinition(
   { addedIn: '2.3.0' },
 );
 
+const OVERRIDE_LABEL_INVALID = makeCodeDefinition(
+  'OVERRIDE_LABEL_INVALID',
+  'The @override directive `label` argument must match the pattern /^[a-zA-Z][a-zA-Z0-9_\-:./]*$/ or /^percent\(([0-9]|[1-9][0-9]|100)\)$/',
+  { addedIn: '2.7.0' },
+);
+
 const UNSUPPORTED_FEATURE = makeCodeDefinition(
   'UNSUPPORTED_FEATURE',
   'Indicates an error due to feature currently unsupported by federation.',
@@ -633,6 +639,7 @@ export const ERRORS = {
   OVERRIDE_FROM_SELF_ERROR,
   OVERRIDE_SOURCE_HAS_OVERRIDE,
   OVERRIDE_ON_INTERFACE,
+  OVERRIDE_LABEL_INVALID,
   UNSUPPORTED_FEATURE,
   INVALID_FEDERATION_SUPERGRAPH,
   DOWNSTREAM_SERVICE_ERROR,

@@ -1274,7 +1274,28 @@ class Merger {
           // capture an override label if it exists
           const overrideLabel = overrideDirective.arguments().label;
           if (overrideLabel) {
-            result.setOverrideLabel(idx, overrideLabel);
+            const labelRegex = /^[a-zA-Z][a-zA-Z0-9_\-:./]*$/;
+            // Enforce that the label matches the following pattern: percent(x)
+            // where x is a float between 0 and 100 with no more than 8 decimal places
+            const percentRegex = /^percent\((\d{1,2}(\.\d{1,8})?|100)\)$/;
+            if (labelRegex.test(overrideLabel)) {
+              result.setOverrideLabel(idx, overrideLabel);
+            } else if (percentRegex.test(overrideLabel)) {
+              const parts = percentRegex.exec(overrideLabel);
+              if (parts) {
+                const percent = parseFloat(parts[1]);
+                if (percent >= 0 && percent <= 100) {
+                  result.setOverrideLabel(idx, overrideLabel);
+                }
+              }
+            }
+
+            if (!result.overrideLabel(idx)) {
+              this.errors.push(ERRORS.OVERRIDE_LABEL_INVALID.err(
+                `Invalid @override label "${overrideLabel}" on field "${dest.coordinate}" on subgraph "${subgraphName}": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+                { nodes: overridingSubgraphASTNode }
+              ));
+            }
           }
         }
       }

@@ -972,5 +972,115 @@ describe("composition involving @override directive", () => {
         }
       `);
     });
+
+    describe("label validation", () => {
+      const overridden = {
+        name: "overridden",
+        url: "https://overridden",
+        typeDefs: gql`
+          type T @key(fields: "k") {
+            k: ID
+            a: Int
+          }
+        `,
+      };
+
+      it.each(["abc123", "Z_1-2:3/4.5"])("allows valid labels starting with alpha and including alphanumerics + `_-:./`", (value) => {
+        const withValidLabel = {
+          name: "validLabel",
+          url: "https://validLabel",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int
+                @override(from: "overridden", label: "${value}")
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([withValidLabel, overridden]);
+        assertCompositionSuccess(result);
+      });
+
+      it.each(["1_starts-with-non-alpha", "includes!@_invalid_chars"])("disallows invalid labels", (value) => {
+        const withInvalidLabel = {
+          name: "invalidLabel",
+          url: "https://invalidLabel",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int @override(from: "overridden", label: "${value}")
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([withInvalidLabel, overridden]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toContainEqual([
+          "OVERRIDE_LABEL_INVALID",
+          `Invalid @override label "${value}" on field "T.a" on subgraph "invalidLabel": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+        ]);
+      });
+
+      it.each(["0.5", "1", "1.0", "99.9"])(
+        "allows valid percent-based labels",
+        (value) => {
+          const withPercentLabel = {
+            name: "percentLabel",
+            url: "https://percentLabel",
+            typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int @override(from: "overridden", label: "percent(${value})")
+            }
+          `,
+          };
+
+          const result = composeAsFed2Subgraphs([withPercentLabel, overridden]);
+          assertCompositionSuccess(result);
+        }
+      );
+
+      it.each([".1", "101", "1.1234567879"])(
+        "disallows invalid percent-based labels",
+        (value) => {
+          const withInvalidPercentLabel = {
+            name: "invalidPercentLabel",
+            url: "https://invalidPercentLabel",
+            typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int @override(from: "overridden", label: "percent(${value})")
+            }
+          `,
+          };
+
+          const result = composeAsFed2Subgraphs([
+            withInvalidPercentLabel,
+            overridden,
+          ]);
+          expect(errors(result)).toContainEqual([
+            "OVERRIDE_LABEL_INVALID",
+            `Invalid @override label "percent(${value})" on field "T.a" on subgraph "invalidPercentLabel": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+          ]);
+        }
+      );
+    });
   });
 });
