@@ -1,8 +1,15 @@
-import { assert, operationFromDocument, buildSchemaFromAST, Subgraph, Supergraph, printSchema } from '@apollo/federation-internals';
+import {
+  assert,
+  operationFromDocument,
+  buildSchemaFromAST,
+  Subgraph,
+  Supergraph,
+  printSchema,
+} from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { isPlanNode } from '../QueryPlan';
 import { composeAndCreatePlanner, findFetchNodes } from './testHelper';
-import {QueryPlanner} from "../buildPlan";
+import { QueryPlanner } from '../buildPlan';
 
 describe('basic @key on interface/@interfaceObject handling', () => {
   const subgraph1 = {
@@ -711,110 +718,105 @@ it('handles @interfaceObject with complex graphs', () => {
         i2: T
       }
 
-      type T @key(fields: "t1", resolvable: false)
-      {
+      type T @key(fields: "t1", resolvable: false) {
         t1: String! @shareable
       }
 
-      type U implements I @key(fields: "i1 i2 { t1 }")
-      {
+      type U implements I @key(fields: "i1 i2 { t1 }") {
         id: ID!
         i1: String!
         i2: T
       }
 
-      type V @key(fields: "v1")
-      {
+      type V @key(fields: "v1") {
         v1: String! @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'S2',
     typeDefs: gql`
-      type I @interfaceObject @key(fields: "i1 i2 { t1 }")
-      {
+      type I @interfaceObject @key(fields: "i1 i2 { t1 }") {
         i1: String!
         i2: T
         i3: Int
       }
 
-      type T @key(fields: "t1", resolvable: false)
-      {
+      type T @key(fields: "t1", resolvable: false) {
         t1: String! @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph3 = {
     name: 'S3',
     typeDefs: gql`
-      type T @key(fields: "t1")
-      {
+      type T @key(fields: "t1") {
         t1: String! @shareable
         t2: V! @override(from: "S5")
       }
 
-      type V @key(fields: "v1")
-      {
+      type V @key(fields: "v1") {
         v1: String! @shareable
       }
-    `
-  }
+    `,
+  };
 
   const subgraph4 = {
     name: 'S4',
     typeDefs: gql`
-      type T @key(fields: "t1")
-      {
+      type T @key(fields: "t1") {
         t1: String! @shareable
         t2: V! @external
         t3: Int @requires(fields: "t2 { v1 }") @shareable
       }
 
-      type V @key(fields: "v1")
-      {
+      type V @key(fields: "v1") {
         v1: String! @shareable
       }
-    `
+    `,
   };
 
   const subgraph5 = {
     name: 'S5',
     typeDefs: gql`
-      type T @key(fields: "t1")
-      {
+      type T @key(fields: "t1") {
         t1: String! @shareable
         t2: V! @external
         t3: Int @requires(fields: "t2 { v1 }") @shareable
       }
 
-      type V @key(fields: "v1", resolvable: false)
-      {
+      type V @key(fields: "v1", resolvable: false) {
         v1: String! @shareable
       }
-    `
-  }
+    `,
+  };
 
   // const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4);
   // subgraph5 triggers copy
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4, subgraph5);
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+    subgraph4,
+    subgraph5,
+  );
 
   const operation = operationFromDocument(
-      api,
-      gql`
-        query {
-          i {
+    api,
+    gql`
+      query {
+        i {
+          __typename
+          i2 {
             __typename
-            i2 {
-              __typename
-              t3
-            }
-            i3
+            t3
           }
+          i3
         }
-      `,
+      }
+    `,
   );
 
   const plan = queryPlanner.buildQueryPlan(operation);
@@ -893,7 +895,7 @@ it('handles @interfaceObject with complex graphs', () => {
         },
       },
     }
-  `)
+  `);
 
   assert(isPlanNode(plan.node), 'buildQueryPlan should return QueryPlan');
   const rewrites = findFetchNodes('S2', plan.node)[0].inputRewrites;
