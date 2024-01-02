@@ -121,7 +121,7 @@ class FieldMergeContext {
     return this._props[idx].overrideWithUnknownTarget;
   }
 
-  overrideLabelForIdx(idx: number) {
+  overrideLabel(idx: number) {
     return this._props[idx].overrideLabel;
   }
 
@@ -1614,7 +1614,7 @@ class Merger {
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
         usedOverridden: usedOverridden ? true : undefined,
-        overrideLabel: mergeContext.overrideLabelForIdx(idx),
+        overrideLabel: mergeContext.overrideLabel(idx),
       });
     }
   }
