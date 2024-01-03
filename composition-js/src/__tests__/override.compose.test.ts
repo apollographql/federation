@@ -985,11 +985,13 @@ describe("composition involving @override directive", () => {
         `,
       };
 
-      it.each(["abc123", "Z_1-2:3/4.5"])("allows valid labels starting with alpha and including alphanumerics + `_-:./`", (value) => {
-        const withValidLabel = {
-          name: "validLabel",
-          url: "https://validLabel",
-          typeDefs: gql`
+      it.each(["abc123", "Z_1-2:3/4.5"])(
+        "allows valid labels starting with alpha and including alphanumerics + `_-:./`",
+        (value) => {
+          const withValidLabel = {
+            name: "validLabel",
+            url: "https://validLabel",
+            typeDefs: gql`
             type Query {
               t: T
             }
@@ -1000,17 +1002,20 @@ describe("composition involving @override directive", () => {
                 @override(from: "overridden", label: "${value}")
             }
           `,
-        };
+          };
 
-        const result = composeAsFed2Subgraphs([withValidLabel, overridden]);
-        assertCompositionSuccess(result);
-      });
+          const result = composeAsFed2Subgraphs([withValidLabel, overridden]);
+          assertCompositionSuccess(result);
+        }
+      );
 
-      it.each(["1_starts-with-non-alpha", "includes!@_invalid_chars"])("disallows invalid labels", (value) => {
-        const withInvalidLabel = {
-          name: "invalidLabel",
-          url: "https://invalidLabel",
-          typeDefs: gql`
+      it.each(["1_starts-with-non-alpha", "includes!@_invalid_chars"])(
+        "disallows invalid labels",
+        (value) => {
+          const withInvalidLabel = {
+            name: "invalidLabel",
+            url: "https://invalidLabel",
+            typeDefs: gql`
             type Query {
               t: T
             }
@@ -1020,15 +1025,16 @@ describe("composition involving @override directive", () => {
               a: Int @override(from: "overridden", label: "${value}")
             }
           `,
-        };
+          };
 
-        const result = composeAsFed2Subgraphs([withInvalidLabel, overridden]);
-        expect(result.errors).toBeDefined();
-        expect(errors(result)).toContainEqual([
-          "OVERRIDE_LABEL_INVALID",
-          `Invalid @override label "${value}" on field "T.a" on subgraph "invalidLabel": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
-        ]);
-      });
+          const result = composeAsFed2Subgraphs([withInvalidLabel, overridden]);
+          expect(result.errors).toBeDefined();
+          expect(errors(result)).toContainEqual([
+            "OVERRIDE_LABEL_INVALID",
+            `Invalid @override label "${value}" on field "T.a" on subgraph "invalidLabel": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+          ]);
+        }
+      );
 
       it.each(["0.5", "1", "1.0", "99.9"])(
         "allows valid percent-based labels",
