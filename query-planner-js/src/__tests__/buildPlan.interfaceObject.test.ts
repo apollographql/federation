@@ -697,7 +697,7 @@ it('handles @interfaceObject in nested entity', () => {
   `);
 });
 
-it('handles @interfaceObject with complex graphs', () => {
+it('handles @interfaceObject input rewrites when cloning dependency graph', () => {
   const subgraph1 = {
     name: 'S1',
     typeDefs: gql`
@@ -705,23 +705,19 @@ it('handles @interfaceObject with complex graphs', () => {
         i: I!
       }
 
-      interface I @key(fields: "i1 i2 { t1 }") {
+      interface I @key(fields: "i1") {
         i1: String!
         i2: T
       }
 
       type T @key(fields: "t1", resolvable: false) {
-        t1: String! @shareable
+        t1: String!
       }
 
-      type U implements I @key(fields: "i1 i2 { t1 }") {
+      type U implements I @key(fields: "i1") {
         id: ID!
         i1: String!
-        i2: T
-      }
-
-      type V @key(fields: "v1") {
-        v1: String! @shareable
+        i2: T @shareable
       }
     `,
   };
@@ -729,14 +725,14 @@ it('handles @interfaceObject with complex graphs', () => {
   const subgraph2 = {
     name: 'S2',
     typeDefs: gql`
-      type I @interfaceObject @key(fields: "i1 i2 { t1 }") {
+      type I @interfaceObject @key(fields: "i1") {
         i1: String!
-        i2: T
+        i2: T @shareable
         i3: Int
       }
 
       type T @key(fields: "t1", resolvable: false) {
-        t1: String! @shareable
+        t1: String!
       }
     `,
   };
@@ -745,12 +741,9 @@ it('handles @interfaceObject with complex graphs', () => {
     name: 'S3',
     typeDefs: gql`
       type T @key(fields: "t1") {
-        t1: String! @shareable
-        t2: V! @override(from: "S5")
-      }
-
-      type V @key(fields: "v1") {
-        v1: String! @shareable
+        t1: String!
+        t2: String! @shareable
+        t3: Int
       }
     `,
   };
@@ -759,40 +752,18 @@ it('handles @interfaceObject with complex graphs', () => {
     name: 'S4',
     typeDefs: gql`
       type T @key(fields: "t1") {
-        t1: String! @shareable
-        t2: V! @external
-        t3: Int @requires(fields: "t2 { v1 }") @shareable
-      }
-
-      type V @key(fields: "v1") {
-        v1: String! @shareable
+        t1: String!
+        t2: String! @shareable
+        t4: Int
       }
     `,
   };
 
-  const subgraph5 = {
-    name: 'S5',
-    typeDefs: gql`
-      type T @key(fields: "t1") {
-        t1: String! @shareable
-        t2: V! @external
-        t3: Int @requires(fields: "t2 { v1 }") @shareable
-      }
-
-      type V @key(fields: "v1", resolvable: false) {
-        v1: String! @shareable
-      }
-    `,
-  };
-
-  // const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2, subgraph3, subgraph4);
-  // subgraph5 triggers copy
   const [api, queryPlanner] = composeAndCreatePlanner(
     subgraph1,
     subgraph2,
     subgraph3,
     subgraph4,
-    subgraph5,
   );
 
   const operation = operationFromDocument(
@@ -803,7 +774,7 @@ it('handles @interfaceObject with complex graphs', () => {
           __typename
           i2 {
             __typename
-            t3
+            t2
           }
           i3
         }
@@ -834,9 +805,6 @@ it('handles @interfaceObject with complex graphs', () => {
                 ... on I {
                   __typename
                   i1
-                  i2 {
-                    t1
-                  }
                 }
               } =>
               {
@@ -846,42 +814,20 @@ it('handles @interfaceObject with complex graphs', () => {
               }
             },
           },
-          Sequence {
-            Flatten(path: "i.i2") {
-              Fetch(service: "S3") {
-                {
-                  ... on T {
-                    __typename
-                    t1
-                  }
-                } =>
-                {
-                  ... on T {
-                    t2 {
-                      v1
-                    }
-                  }
+          Flatten(path: "i.i2") {
+            Fetch(service: "S3") {
+              {
+                ... on T {
+                  __typename
+                  t1
                 }
-              },
-            },
-            Flatten(path: "i.i2") {
-              Fetch(service: "S4") {
-                {
-                  ... on T {
-                    __typename
-                    t2 {
-                      v1
-                    }
-                    t1
-                  }
-                } =>
-                {
-                  ... on T {
-                    __typename
-                    t3
-                  }
+              } =>
+              {
+                ... on T {
+                  __typename
+                  t2
                 }
-              },
+              }
             },
           },
         },
