@@ -921,9 +921,6 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  private readonly inputRewrites: FetchDataRewrite[] = [];
-
-
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -941,6 +938,7 @@ class FetchGroup {
     private cachedCost?: number,
     // Cache used to save unecessary recomputation of the `isUseless` method.
     private isKnownUseful: boolean = false,
+    readonly inputRewrites: FetchDataRewrite[] = [],
   ) {
     if (this._inputs) {
       this._inputs.onUpdateCallback = () => {
@@ -994,8 +992,7 @@ class FetchGroup {
 
   // Clones everything on the group itself, but not it's `_parents` or `_children` links.
   cloneShallow(newDependencyGraph: FetchDependencyGraph): FetchGroup {
-   
-    let newFetch =  new FetchGroup(
+    return new FetchGroup(
       newDependencyGraph,
       this.index,
       this.subgraphName,
@@ -1009,13 +1006,8 @@ class FetchGroup {
       this.subgraphAndMergeAtKey,
       this.cachedCost,
       this.isKnownUseful,
+      [...this.inputRewrites],
     );
-
-    if (this.inputRewrites) {
-      this.inputRewrites.forEach((r) => newFetch.inputRewrites.push(r));
-    }
-
-    return newFetch;
   }
 
   cost(): number {
