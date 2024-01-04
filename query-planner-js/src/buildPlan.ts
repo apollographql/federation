@@ -938,7 +938,7 @@ class FetchGroup {
     private cachedCost?: number,
     // Cache used to save unecessary recomputation of the `isUseless` method.
     private isKnownUseful: boolean = false,
-    readonly inputRewrites: FetchDataRewrite[] = [],
+    private readonly inputRewrites: FetchDataRewrite[] = [],
   ) {
     if (this._inputs) {
       this._inputs.onUpdateCallback = () => {
