@@ -2,7 +2,6 @@ import { assert, operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { isPlanNode } from '../QueryPlan';
 import { composeAndCreatePlanner, findFetchNodes } from './testHelper';
-import { QueryPlanner } from '../buildPlan';
 
 describe('basic @key on interface/@interfaceObject handling', () => {
   const subgraph1 = {
