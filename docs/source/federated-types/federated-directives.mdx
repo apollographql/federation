@@ -317,6 +317,17 @@ Only one subgraph can `@override` any given field. If multiple subgraphs attempt
 
 For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
 
+> ⚠️ **This directive's feature is available in Apollo Federation TBD and later.**
+> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+Rolling out any change to a production subgraph, including adding `@override` fields, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another _all at once_ could overload the overriding subgraph.
+
+The **progressive `@override`** feature enables the gradual, progressive deployment of a subgraph with an `@override` field. With progessive `@override` enabled in the Apollo Router, a subgraph developer can apply a label to an `@override` field that sets the percentage of traffic for the field that should be resolved by the overriding subgraph, with the rest still resolved by the overridden subgraph. The subgraph developer can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic can be handled by the overriding subgraph.
+
+To configure the Apollo Router for progressive `@override`, see [TBD](/router/configuration/overview).
+
 #### Arguments
 
 <table class="field-table">
@@ -342,6 +353,25 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 
 * **If you're performing composition with managed federation,** this must match the name of the subgraph registered to GraphOS.
 * **If you're performing composition with the Rover CLI,** this must match the name of the subgraph in the YAML config file you provide to `rover supergraph compose`.
+
+</td>
+</tr>
+
+<tr class="required">
+<td>
+
+##### `label`
+
+`String`
+</td>
+<td>
+
+> ⚠️ **This argument is available in Apollo Federation 2.7 and later.**
+> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
+>
+> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+**Optional.** The percentage of traffic for this field (randomly chosen from a uniform distribution) that is resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph.
 
 </td>
 </tr>
