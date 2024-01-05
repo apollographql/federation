@@ -616,7 +616,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
       const pruned: ClosedBranch<RV> = [];
       for (const toCheck of branch) {
-        if (!this.optionIsOverriden(toCheck.paths, branch)) {
+        if (!this.optionIsOverriden(toCheck.paths, pruned)) {
           pruned.push(toCheck);
         }
       }
