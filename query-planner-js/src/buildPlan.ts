@@ -921,9 +921,6 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  private readonly inputRewrites: FetchDataRewrite[] = [];
-
-
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -941,6 +938,7 @@ class FetchGroup {
     private cachedCost?: number,
     // Cache used to save unecessary recomputation of the `isUseless` method.
     private isKnownUseful: boolean = false,
+    private readonly inputRewrites: FetchDataRewrite[] = [],
   ) {
     if (this._inputs) {
       this._inputs.onUpdateCallback = () => {
@@ -1008,6 +1006,7 @@ class FetchGroup {
       this.subgraphAndMergeAtKey,
       this.cachedCost,
       this.isKnownUseful,
+      [...this.inputRewrites],
     );
   }
 
