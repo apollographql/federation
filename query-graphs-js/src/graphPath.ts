@@ -236,7 +236,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * That method first look for the biggest common prefix to `this` and `that` (assuming that both path are build as choices
    * of the same "query path"), and the count how many subgraph jumps each of the path has after said prefix.
    *
-   * Note that this method always return someting but the biggest common prefix considered might well be empty. 
+   * Note that this method always returns something but the biggest common prefix considered might well be empty.
    *
    * Please note that this method assumes that the 2 paths have the same root, and will fail if that's not the case.
    */
@@ -877,8 +877,13 @@ export function traversePath(
 }
 
 // Note that ConditionResolver are guaranteed to be only called for edge with conditions.
-export type ConditionResolver =
-  (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => ConditionResolution;
+export type ConditionResolver = (
+  edge: Edge,
+  context: PathContext,
+  excludedDestinations: ExcludedDestinations,
+  excludedConditions: ExcludedConditions,
+  overriddenLabels: Set<string>
+) => ConditionResolution;
 
 
 export type ConditionResolution = {
@@ -1373,6 +1378,8 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         context,
         addDestinationExclusion(excludedDestinations, target.source),
         excludedConditions,
+        // TODO
+        new Set(),
       );
       if (conditionResolution.satisfied) {
         debug.groupEnd('Condition satisfied');
@@ -1461,7 +1468,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // edges ('QueryResolution' and 'SubgraphEnteringTransition') however, chaining never give us additional value.
         // Note: one exception is the case of self-edges (which stay on the same vertex/subgraph): those will only be
         // looked at just after a @defer to handle potentially re-entering the same subgraph. When we take this, no point in
-        // looking for chaining since we'll independentely check the other edges already.
+        // looking for chaining since we'll independently check the other edges already.
         if (edge.transition.kind === 'KeyResolution' && edge.head.source !== edge.tail.source) {
           toTry.push(updatedPath);
         }
@@ -1521,7 +1528,8 @@ function hasValidDirectKeyEdge(
     if (edge.transition.kind !== 'KeyResolution' || edge.tail.source !== to) {
       continue;
     }
-    const resolution = conditionResolver(edge, emptyContext, [], []);
+    // TREVOR - shouldn't just pass in an empty Set probably
+    const resolution = conditionResolver(edge, emptyContext, [], [], new Set());
     if (!resolution.satisfied) {
       continue;
     }
@@ -1576,7 +1584,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
     }
 
     // Additionally, we can only take an edge if we can satisfy its conditions.
-    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], []);
+    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], [], new Set());
     if (conditionResolution.satisfied) {
       options.push(path.add(transition, edge, conditionResolution));
     } else {
@@ -1748,14 +1756,21 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   conditionResolver: ConditionResolver,
   context: PathContext,
   excludedEdges: ExcludedDestinations,
-  excludedConditions: ExcludedConditions
+  excludedConditions: ExcludedConditions,
+  overriddenLabels: Set<string>,
 ): ConditionResolution {
   const conditions = edge.conditions;
   if (!conditions) {
     return noConditionsResolution;
   }
   debug.group(() => `Checking conditions ${conditions} on edge ${edge}`);
-  const resolution = conditionResolver(edge, context, excludedEdges, excludedConditions);
+  const resolution = conditionResolver(
+    edge,
+    context,
+    excludedEdges,
+    excludedConditions,
+    overriddenLabels,
+  );
   if (!resolution.satisfied) {
     debug.groupEnd('Conditions are not satisfied');
     return unsatisfiedConditionsResolution;
@@ -1813,6 +1828,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
     readonly conditionResolver: ConditionResolver,
     readonly excludedNonCollectingEdges: ExcludedDestinations = [],
     readonly excludedConditionsOnNonCollectingEdges: ExcludedConditions = [],
+    readonly overriddenLabels: Set<string>,
   ) {
     this.lazilyComputedIndirectPaths = new Array(paths.length);
   }
@@ -1916,6 +1932,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   subgraphSimultaneousPaths: SimultaneousPathsWithLazyIndirectPaths<V>,
   operation: OperationElement,
+  overriddenLabels: Set<string>,
 ) : SimultaneousPathsWithLazyIndirectPaths<V>[] | undefined {
   debug.group(() => `Trying to advance ${simultaneousPathsToString(subgraphSimultaneousPaths)} for ${operation}`);
   const updatedContext = subgraphSimultaneousPaths.context.withContextOf(operation);
@@ -1934,7 +1951,8 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
         path,
         operation,
         updatedContext,
-        subgraphSimultaneousPaths.conditionResolver
+        subgraphSimultaneousPaths.conditionResolver,
+        overriddenLabels,
       );
       options = advanceOptions;
       debug.groupEnd(() => advanceOptionsToString(options));
@@ -1980,7 +1998,8 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
             pathWithNonCollecting,
             operation,
             updatedContext,
-            subgraphSimultaneousPaths.conditionResolver
+            subgraphSimultaneousPaths.conditionResolver,
+            overriddenLabels,
           );
           // If we can't advance the operation after that path, ignore it, it's just not an option.
           if (!pathWithOperation) {
@@ -2038,7 +2057,8 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
         path,
         operation,
         updatedContext,
-        subgraphSimultaneousPaths.conditionResolver
+        subgraphSimultaneousPaths.conditionResolver,
+        overriddenLabels,
       );
       options = advanceOptions ?? [];
       debug.groupEnd(() => advanceOptionsToString(options));
@@ -2057,7 +2077,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
 
   const allOptions: SimultaneousPaths<V>[] = flatCartesianProduct(optionsForEachPath);
   debug.groupEnd(() => advanceOptionsToString(allOptions));
-  return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext);
+  return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext, overriddenLabels);
 }
 
 
@@ -2067,17 +2087,19 @@ export function createInitialOptions<V extends Vertex>(
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
+  overriddenLabels: Set<string>,
 ): SimultaneousPathsWithLazyIndirectPaths<V>[] {
   const lazyInitialPath = new SimultaneousPathsWithLazyIndirectPaths(
     [initialPath],
     initialContext,
     conditionResolver,
     excludedEdges,
-    excludedConditions
+    excludedConditions,
+    overriddenLabels,
   );
   if (isFederatedGraphRootType(initialPath.tail.type)) {
     const initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
-    return createLazyOptions(initialOptions.paths.map(p => [p]), lazyInitialPath, initialContext);
+    return createLazyOptions(initialOptions.paths.map(p => [p]), lazyInitialPath, initialContext, overriddenLabels);
   } else {
     return [lazyInitialPath];
   }
@@ -2086,14 +2108,16 @@ export function createInitialOptions<V extends Vertex>(
 function createLazyOptions<V extends Vertex>(
   options: SimultaneousPaths<V>[],
   origin: SimultaneousPathsWithLazyIndirectPaths<V>,
-  context: PathContext
+  context: PathContext,
+  overriddenLabels: Set<string>,
 ) : SimultaneousPathsWithLazyIndirectPaths<V>[] {
   return options.map(option => new SimultaneousPathsWithLazyIndirectPaths(
     option,
     context,
     origin.conditionResolver,
     origin.excludedNonCollectingEdges,
-    origin.excludedConditionsOnNonCollectingEdges
+    origin.excludedConditionsOnNonCollectingEdges,
+    overriddenLabels,
   ));
 }
 
@@ -2296,6 +2320,7 @@ function advanceWithOperation<V extends Vertex>(
   operation: OperationElement,
   context: PathContext,
   conditionResolver: ConditionResolver,
+  overriddenLabels: Set<string>,
 ) : {
   options: SimultaneousPaths<V>[] | undefined,
   hasOnlyTypeExplodedResults?: boolean,
@@ -2319,12 +2344,22 @@ function advanceWithOperation<V extends Vertex>(
           debug.groupEnd(() => `No edge for field ${field} on object type ${currentType}`);
           return { options: undefined };
         }
+        if (edge.overrideCondition) {
+          const { label, condition } = edge.overrideCondition;
+          if (
+            (overriddenLabels.has(label) && !condition) ||
+            (!overriddenLabels.has(label) && condition)
+          ) {
+            debug.groupEnd(() => `Ignoring edge due to override label "${label}" in subgraph ${edge.head.source} on field ${field} on object type ${currentType}`);
+            return { options: undefined };
+          }
+        }
 
         // If the current type is an @interfaceObject, it's possible that the requested field
         // is a field of an implementation of the interface. Because we found an edge, we
         // know that the interface has the field and we can use the edge, but we should redact
         // the `operation` to use the current type field, so the operation does not continue
-        // refering to a type that is not in the current subgraph.
+        // referring to a type that is not in the current subgraph.
         if (path.tailIsInterfaceObject() && field.parent.name !== currentType.name) {
           const fieldOnCurrentType = currentType.field(field.name);
           assert(fieldOnCurrentType, () => `We should not have found edge ${edge} for ${field} from ${path}`)
@@ -2387,8 +2422,8 @@ function advanceWithOperation<V extends Vertex>(
         // There is 2 main cases to handle here:
         // - the most common is that it's a field of the interface that is queried, and
         //   so we should type-explode because either didn't had a direct edge, or @provides
-        //   makes it potentially worthwile to check with type explosion.
-        // - but, as mentionned earlier, we could be in the case where the field queried is actually of one
+        //   makes it potentially worthwhile to check with type explosion.
+        // - but, as mentioned earlier, we could be in the case where the field queried is actually of one
         //   of the implementation of the interface. In that case, we only want to consider that one
         //   implementation.
         let implementations: readonly ObjectType[];
@@ -2415,8 +2450,9 @@ function advanceWithOperation<V extends Vertex>(
           debug.group(() => `Handling implementation ${implemType}`);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
-            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver),
-            castOp
+            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overriddenLabels),
+            castOp,
+            overriddenLabels,
           );
           // If we find no option for that implementation, we bail (as we need to simultaneously advance all implementations).
           if (!implemOptions) {
@@ -2438,7 +2474,8 @@ function advanceWithOperation<V extends Vertex>(
             const withFieldOptions = advanceSimultaneousPathsWithOperation(
               supergraphSchema,
               optPaths,
-              operation
+              operation,
+              overriddenLabels,
             );
             if (!withFieldOptions) {
               debug.groupEnd(() => `Cannot collect ${field}`);
@@ -2512,8 +2549,9 @@ function advanceWithOperation<V extends Vertex>(
           const castOp = new FragmentElement(currentType, tName, operation.appliedDirectives);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
-            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver),
+            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overriddenLabels),
             castOp,
+            overriddenLabels,
           );
           if (!implemOptions) {
             debug.groupEnd();
@@ -2562,7 +2600,7 @@ function advanceWithOperation<V extends Vertex>(
         if (path.tailIsInterfaceObject()) {
           const fakeDownCastEdge = path.nextEdges().find((e) => e.transition.kind === 'InterfaceObjectFakeDownCast' && e.transition.castedTypeName === typeName);
           if (fakeDownCastEdge) {
-            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], []);
+            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], [], new Set());
             if (!conditionResolution.satisfied) {
               return { options: undefined };
             }
@@ -2590,7 +2628,8 @@ function addFieldEdge<V extends Vertex>(
   conditionResolver: ConditionResolver,
   context: PathContext
 ): OpGraphPath<V> | undefined {
-  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
+  // TODO empty Set?
+  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], [], new Set());
   return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
 }
 

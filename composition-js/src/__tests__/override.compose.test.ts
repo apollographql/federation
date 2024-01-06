@@ -971,6 +971,66 @@ describe("composition involving @override directive", () => {
           b: Int
         }
       `);
+
+      expect(result.supergraphSdl).toMatchInlineSnapshot(`
+        "schema
+          @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
+          @link(url: \\"https://specs.apollo.dev/join/v0.4\\", for: EXECUTION)
+        {
+          query: Query
+        }
+
+        directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+        directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+        directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+        directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+        directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        scalar join__FieldSet
+
+        enum join__Graph {
+          SUBGRAPH1 @join__graph(name: \\"Subgraph1\\", url: \\"https://Subgraph1\\")
+          SUBGRAPH2 @join__graph(name: \\"Subgraph2\\", url: \\"https://Subgraph2\\")
+        }
+
+        scalar link__Import
+
+        enum link__Purpose {
+          \\"\\"\\"
+          \`SECURITY\` features provide metadata necessary to securely resolve fields.
+          \\"\\"\\"
+          SECURITY
+
+          \\"\\"\\"
+          \`EXECUTION\` features provide metadata necessary for operation execution.
+          \\"\\"\\"
+          EXECUTION
+        }
+
+        type Query
+          @join__type(graph: SUBGRAPH1)
+          @join__type(graph: SUBGRAPH2)
+        {
+          t: T @join__field(graph: SUBGRAPH1)
+        }
+
+        type T
+          @join__type(graph: SUBGRAPH1, key: \\"k\\")
+          @join__type(graph: SUBGRAPH2, key: \\"k\\")
+        {
+          k: ID
+          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\")
+          b: Int @join__field(graph: SUBGRAPH2)
+        }"
+      `);
     });
 
     describe("label validation", () => {
@@ -1087,6 +1147,82 @@ describe("composition involving @override directive", () => {
           ]);
         }
       );
+    });
+
+    describe("TODO: fpf", () => {
+      it("skips unnecessary paths during validation", () => {
+        const subgraph1 = {
+          name: "Subgraph1",
+          url: "https://Subgraph1",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "id") {
+              id: ID
+              a: A @override(from: "Subgraph2", label: "foo")
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int
+            }
+          `,
+        };
+
+        const subgraph2 = {
+          name: "Subgraph2",
+          url: "https://Subgraph2",
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID
+              a: A
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int @override(from: "Subgraph1", label: "foo")
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+        assertCompositionSuccess(result);
+      });
+      it.todo("can we fail fpf with an override label? not sure...")
+    })
+
+    describe("validation errors", () => {
+      it.skip("TODO", () => {
+        const s1 = {
+          name: "S1",
+          url: "S1",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "i") {
+              i: ID!
+            }
+          `,
+        };
+
+        const s2 = {
+          name: "S2",
+          url: "S2",
+          typeDefs: gql`
+            type T @key(fields: "i") {
+              i: ID!
+              f: Int @override(from: "S1", label: "foo")
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([s1, s2]);
+        assertCompositionSuccess(result);
+      });
     });
   });
 });

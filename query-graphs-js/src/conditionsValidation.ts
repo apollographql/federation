@@ -21,7 +21,8 @@ class ConditionValidationState {
     // Selection that belongs to the condition we're validating.
     readonly selection: Selection,
     // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
-    readonly subgraphOptions: SimultaneousPathsWithLazyIndirectPaths[]
+    readonly subgraphOptions: SimultaneousPathsWithLazyIndirectPaths[],
+    readonly overriddenLabels: Set<string>,
   ) {}
 
   advance(supergraph: Schema): ConditionValidationState[] | null {
@@ -31,6 +32,7 @@ class ConditionValidationState {
         supergraph,
         paths,
         this.selection.element,
+        this.overriddenLabels,
       );
       if (!pathsOptions) {
         continue;
@@ -43,7 +45,13 @@ class ConditionValidationState {
     if (newOptions.length === 0) {
       return null;
     }
-    return this.selection.selectionSet ? this.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newOptions)) : [];
+    return this.selection.selectionSet ? this.selection.selectionSet.selections().map(
+      s => new ConditionValidationState(
+        s,
+        newOptions,
+        this.overriddenLabels,
+      )
+    ) : [];
   }
 
   toString(): string {
@@ -72,6 +80,7 @@ export function simpleValidationConditionResolver({
     context: PathContext,
     excludedDestinations: ExcludedDestinations,
     excludedConditions: ExcludedConditions,
+    overriddenLabels: Set<string>,
   ): ConditionResolution => {
     const conditions = edge.conditions!;
     excludedConditions = addConditionExclusion(excludedConditions, conditions);
@@ -83,13 +92,20 @@ export function simpleValidationConditionResolver({
         context,
         simpleValidationConditionResolver({supergraph, queryGraph, withCaching}),
         excludedDestinations,
-        excludedConditions
+        excludedConditions,
+        overriddenLabels,
       )
     ];
 
     const stack: ConditionValidationState[] = [];
     for (const selection of conditions.selections()) {
-      stack.push(new ConditionValidationState(selection, initialOptions));
+      stack.push(
+        new ConditionValidationState(
+          selection,
+          initialOptions,
+          overriddenLabels,
+        ),
+      );
     }
 
     while (stack.length > 0) {

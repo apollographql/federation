@@ -32,7 +32,8 @@ import {
   typenameFieldName,
   validateSupergraph,
   VariableDefinitions,
-  isOutputType
+  isOutputType,
+  JoinFieldDirectiveArguments,
 } from "@apollo/federation-internals";
 import {
   Edge,
@@ -289,31 +290,31 @@ function generateWitnessValue(type: InputType): any {
 }
 
 /**
- * Validates that all the queries expressable on the API schema resulting of the composition of the provided subgraphs can be executed
+ * Validates that all the queries expressible on the API schema resulting of the composition of the provided subgraphs can be executed
  * on those subgraphs.
  *
  * @param supergraphSchema the schema of the supergraph that composing `subgraphs` generated. Note this *must* be the full supergraph, not
  *   just it's API schema (because it may be used to find the definition of elements that are marked `@inaccessible`). Note that this _not_
  *   the same schema that the one reference inside `supergraphAPI` in particular.
  * @param supergraphAPI the `QueryGraph` corresponding to the `supergraphSchema` API schema.
- * @param subgraphs the (federated) `QueryGraph` corresponding the subgraphs having been composed to obtain `supergraphSchema`.
+ * @param federatedQueryGraph the (federated) `QueryGraph` corresponding the subgraphs having been composed to obtain `supergraphSchema`.
  */
 export function validateGraphComposition(
   supergraphSchema: Schema,
   supergraphAPI: QueryGraph,
-  subgraphs: QueryGraph
+  federatedQueryGraph: QueryGraph,
 ): {
   errors? : GraphQLError[],
   hints? : CompositionHint[],
 } {
-  const { errors, hints } = new ValidationTraversal(supergraphSchema, supergraphAPI, subgraphs).validate();
+  const { errors, hints } = new ValidationTraversal(supergraphSchema, supergraphAPI, federatedQueryGraph).validate();
   return errors.length > 0 ? { errors, hints } : { hints };
 }
 
 export function computeSubgraphPaths(
   supergraphSchema: Schema,
   supergraphPath: RootPath<Transition>,
-  subgraphs: QueryGraph
+  federatedQueryGraph: QueryGraph,
 ): {
   traversal?: ValidationState,
   isComplete?: boolean,
@@ -321,8 +322,8 @@ export function computeSubgraphPaths(
 } {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: subgraphs, withCaching: true });
-    const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, subgraphs, conditionResolver});
+    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true });
+    const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, federatedQueryGraph, conditionResolver});
     const context = new ValidationContext(supergraphSchema);
     let state = initialState;
     let isIncomplete = false;
@@ -371,7 +372,7 @@ export function extractValidationError(error: any): ValidationError | undefined 
 
 export class ValidationContext {
   private readonly joinTypeDirective: DirectiveDefinition;
-  private readonly joinFieldDirective: DirectiveDefinition<{ external?: boolean, usedOverridden?: boolean }>;
+  private readonly joinFieldDirective: DirectiveDefinition<JoinFieldDirectiveArguments>;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -401,7 +402,6 @@ export class ValidationContext {
         return !args.external && !args.usedOverridden;
       }).length > 1);
   }
-
 }
 
 export class ValidationState {
@@ -409,24 +409,29 @@ export class ValidationState {
     // Path in the supergraph corresponding to the current state.
     public readonly supergraphPath: RootPath<Transition>,
     // All the possible paths we could be in the subgraph.
-    public readonly subgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[]
+    public readonly subgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[],
+    // When we encounter an `@override`n field with a label condition, we record
+    // its value (T/F) as we traverse the graph. This allows us to ignore paths
+    // that can never be taken by the query planner (i.e. a path where the
+    // condition is T in one case and F in another).
+    public selectedOverrideConditions: Record<string, boolean> = {},
   ) {
   }
 
   static initial({
     supergraphAPI,
     kind,
-    subgraphs,
+    federatedQueryGraph,
     conditionResolver,
   }: {
     supergraphAPI: QueryGraph,
     kind: SchemaRootKind,
-    subgraphs: QueryGraph,
+    federatedQueryGraph: QueryGraph,
     conditionResolver: ConditionResolver,
   }) {
     return new ValidationState(
       GraphPath.fromGraphRoot(supergraphAPI, kind)!,
-      initialSubgraphPaths(kind, subgraphs).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver)),
+      initialSubgraphPaths(kind, federatedQueryGraph).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver)),
     );
   }
 
@@ -474,7 +479,16 @@ export class ValidationState {
       return { error: satisfiabilityError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds) };
     }
 
-    const updatedState = new ValidationState(newPath, newSubgraphPaths);
+    // If the edge has an override condition, we should capture it in the state so
+    // that we can ignore later edges that don't satisfy the condition.
+    const newOverrideCondition = supergraphEdge.overrideCondition ? {
+      [supergraphEdge.overrideCondition.label]: supergraphEdge.overrideCondition.condition
+    } : {};
+    const updatedState = new ValidationState(
+      newPath,
+      newSubgraphPaths,
+      { ...this.selectedOverrideConditions, ...newOverrideCondition },
+    );
 
     // When handling a @shareable field, we also compare the set of runtime types for each subgraphs involved.
     // If there is no common intersection between those sets, then we record an error: a @shareable field should resolve
@@ -593,17 +607,17 @@ class ValidationTraversal {
   constructor(
     supergraphSchema: Schema,
     supergraphAPI: QueryGraph,
-    subgraphs: QueryGraph
+    federatedQueryGraph: QueryGraph
   ) {
     this.conditionResolver = simpleValidationConditionResolver({
       supergraph: supergraphSchema,
-      queryGraph: subgraphs,
+      queryGraph: federatedQueryGraph,
       withCaching: true,
     });
     supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraphAPI,
       kind,
-      subgraphs,
+      federatedQueryGraph,
       conditionResolver: this.conditionResolver
     })));
     this.previousVisits = new QueryGraphState(supergraphAPI);
@@ -648,6 +662,16 @@ class ValidationTraversal {
     for (const edge of state.supergraphPath.nextEdges()) {
       if (edge.isEdgeForField(typenameFieldName)) {
         // There is no point in validating __typename edges: we know we can always get those.
+        continue;
+      }
+
+      // `state.selectedOverrideConditions` indicates the labels (and their
+      // respective conditions) that we've selected so far in our traversal
+      // (i.e. "foo" -> true). There's no need to validate edges that share the
+      // same label with the opposite condition since they're unreachable during
+      // query planning.
+      if (edge.overrideCondition && !edge.satisfiesOverrideConditions(state.selectedOverrideConditions)) {
+        debug.groupEnd(`Edge ${edge} doesn't satisfy label condition: ${edge.overrideCondition.label}(${state.selectedOverrideConditions[edge.overrideCondition.label]}), no need to validate further`);
         continue;
       }
 

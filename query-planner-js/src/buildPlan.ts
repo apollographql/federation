@@ -405,6 +405,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       this.conditionResolver,
       excludedDestinations,
       excludedConditions,
+      parameters.overriddenLabels,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
@@ -440,7 +441,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const followupForOption = advanceSimultaneousPathsWithOperation(this.parameters.supergraphSchema, option, operation);
+      const followupForOption = advanceSimultaneousPathsWithOperation(
+        this.parameters.supergraphSchema,
+        option,
+        operation,
+        this.parameters.overriddenLabels,
+      );
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
         // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
@@ -784,7 +790,7 @@ const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: condit
 
 class GroupInputs {
   private readonly perType = new Map<string, MutableSelectionSet>();
-  onUpdateCallback: () => void = () => {};
+  onUpdateCallback?: () => void | undefined = undefined;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -801,7 +807,7 @@ class GroupInputs {
       this.perType.set(typeName, typeSelection);
     }
     typeSelection.updates().add(selection);
-    this.onUpdateCallback();
+    this.onUpdateCallback?.();
   }
 
   addAll(other: GroupInputs) {
@@ -2890,6 +2896,11 @@ type PlanningParameters<RV extends Vertex> = {
   root: RV,
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
+  overriddenLabels: Set<string>,
+}
+
+interface BuildQueryPlanOptions {
+  overriddenLabels?: Set<string>,
 }
 
 export class QueryPlanner {
@@ -2971,7 +2982,7 @@ export class QueryPlanner {
     }
   }
 
-  buildQueryPlan(operation: Operation): QueryPlan {
+  buildQueryPlan(operation: Operation, options?: BuildQueryPlanOptions): QueryPlan {
     if (operation.selectionSet.isEmpty()) {
       return { kind: 'QueryPlan' };
     }
@@ -3059,6 +3070,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
+      overriddenLabels: options?.overriddenLabels ?? new Set(),
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
@@ -3431,6 +3443,7 @@ function computeRootParallelBestPlan(
     hasDefers,
     parameters.root.rootKind,
     defaultCostFunction,
+    // TODO: trevor - is the reuse of this emptyContext problematic?
     emptyContext,
   );
   const plan = planningTraversal.findBestPlan();
@@ -4238,7 +4251,7 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
   let type = parentType;
   for (const element of path) {
     if (element.kind === 'Field') {
-      const fieldType = baseType(type.field(element.name)?.type!);
+      const fieldType = baseType(type.field(element.name)!.type!);
       assert(isCompositeType(fieldType), () => `Invalid call fro ${path} starting at ${parentType}: ${element.definition.coordinate} is not composite`);
       type = fieldType;
     } else if (element.typeCondition) {

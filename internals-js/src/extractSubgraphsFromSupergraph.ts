@@ -418,15 +418,26 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
           }).length > 1;
 
         for (const application of fieldApplications) {
-          const args = application.arguments();
+          const joinFieldArgs = application.arguments();
           // We use a @join__field with no graph to indicates when a field in the supergraph does not come
           // directly from any subgraph and there is thus nothing to do to "extract" it.
-          if (!args.graph) {
+          if (!joinFieldArgs.graph) {
             continue;
           }
 
-          const { type: subgraphType, subgraph } = subgraphsInfo.get(args.graph)!;
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs: args});
+          // If an override label is present, either subgraph might be
+          // responsible for resolving the field so we need to preserve it in
+          // both places.
+          if (joinFieldArgs.overrideLabel) {
+            const overriddenFrom = Array.from(subgraphsInfo.values()).find(
+              ({ subgraph }) => subgraph.name === joinFieldArgs.override
+            );
+            assert(overriddenFrom, `Could not find overridden subgraph "${joinFieldArgs.override}" for field "${type.name}.${field.name}"`);
+            addSubgraphField({ ...overriddenFrom, field, isShareable, joinFieldArgs });
+          }
+
+          const subgraph = subgraphsInfo.get(joinFieldArgs.graph)!;
+          addSubgraphField({ ...subgraph, field, isShareable, joinFieldArgs});
         }
       }
     }
@@ -619,7 +630,10 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
   }
   if (joinFieldArgs?.override) {
-    subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': joinFieldArgs.override});
+    subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {
+      from: joinFieldArgs.override,
+      ...(joinFieldArgs.overrideLabel ? { label: joinFieldArgs.overrideLabel } : {})
+    });
   }
   if (isShareable && !external && !usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());

@@ -116,6 +116,11 @@ export function isRootVertex(vertex: Vertex): vertex is RootVertex {
   return vertex instanceof RootVertex;
 }
 
+export interface OverrideCondition {
+  label: string;
+  condition: boolean;
+}
+
 /**
  * An edge of a query graph.
  *
@@ -163,8 +168,24 @@ export class Edge {
      * Outside of keys, @requires also rely on conditions.
      */
     conditions?: SelectionSet,
+    public overrideCondition?: OverrideCondition,
   ) {
     this._conditions = conditions;
+
+    // If this edge is a field with an @override directive (+ label), we'll
+    // capture the label and assign the boolean condition which represents the
+    // expected presence or absence of the label during query planning to take
+    // this edge).
+    if (!this.overrideCondition && this.transition instanceof FieldCollection) {
+      const [overrideApplication] = this.transition.definition.appliedDirectivesOf('override') ?? [];
+      const label = overrideApplication?.arguments().label;
+      if (label) {
+        this.overrideCondition = {
+          label,
+          condition: this.head.source !== overrideApplication?.arguments().from,
+        };
+      }
+    }
   }
 
   get conditions(): SelectionSet | undefined {
@@ -194,7 +215,14 @@ export class Edge {
     if (this.transition instanceof SubgraphEnteringTransition && !this._conditions) {
       return "";
     }
-    return this._conditions ? `${this._conditions} ⊢ ${this.transition}` : this.transition.toString();
+    const overrideConditionString = this.overrideCondition
+      ? ` ⊢ ${this.overrideCondition.label}(${this.overrideCondition.condition})`
+      : '';
+    return (
+      this._conditions
+        ? `${this._conditions} ⊢ ${this.transition}`
+        : this.transition.toString()
+    ) + overrideConditionString;
   }
 
   withNewHead(newHead: Vertex): Edge {
@@ -215,6 +243,14 @@ export class Edge {
 
   isKeyOrRootTypeEdgeToSelf(): boolean {
     return this.head === this.tail && (this.transition.kind === 'KeyResolution' || this.transition.kind === 'RootTypeResolution');
+  }
+
+  satisfiesOverrideConditions(conditionsToCheck: Record<string, boolean>) {
+    return (
+      !this.overrideCondition ||
+      !(this.overrideCondition.label in conditionsToCheck) ||
+      conditionsToCheck[this.overrideCondition.label] === this.overrideCondition.condition
+    );
   }
 
   toString(): string {
@@ -516,23 +552,26 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
  *
  * @param name - the name to use for the created graph and as "source" name for the schema.
  * @param schema - the schema for which to build the query graph.
+ * @param virtualEdges - TODO
  * @returns the query graph corresponding to `schema` "API" (in the sense that no federation
  *   directives are taken into account by this method in the building of the query graph).
  */
-export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
-  return buildGraphInternal(name, schema, false);
+export function buildQueryGraph(name: string, schema: Schema, virtualEdges?: VirtualEdges): QueryGraph {
+  return buildGraphInternal(name, schema, false, undefined, virtualEdges);
 }
 
 function buildGraphInternal(
   name: string,
   schema: Schema,
   addAdditionalAbstractTypeEdges: boolean,
-  supergraphSchema?: Schema
+  supergraphSchema?: Schema,
+  virtualEdges?: VirtualEdges,
 ): QueryGraph {
   const builder = new GraphBuilderFromSchema(
     name,
     schema,
     supergraphSchema ? { apiSchema: supergraphSchema.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
+    virtualEdges,
   );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
@@ -543,9 +582,13 @@ function buildGraphInternal(
   if (addAdditionalAbstractTypeEdges) {
     builder.addAdditionalAbstractTypeEdges();
   }
+  if (virtualEdges) {
+    builder.addVirtualEdges();
+  }
   return builder.build();
 }
 
+type VirtualEdges = Record<string, Record<string, { label: string; graph: string; override: string; }>>;
 /**
  * Builds a "supergraph API" query graph based on the provided supergraph schema.
  *
@@ -560,7 +603,23 @@ function buildGraphInternal(
  * @returns the built query graph.
  */
 export function buildSupergraphAPIQueryGraph(supergraph: Supergraph): QueryGraph {
-  return buildQueryGraph("supergraph", supergraph.apiSchema());
+  const apiSchema = supergraph.apiSchema();
+
+  const virtualEdges = supergraph.schema.allTypes().filter(isObjectType).reduce((acc, type) => {
+    for (const field of type.allFields()) {
+      const joinFieldArgs = field.appliedDirectivesOf('join__field')[0]?.arguments();
+      if (joinFieldArgs?.overrideLabel) {
+        acc[type.name] = acc[type.name] ?? {};
+        acc[type.name][field.name] = {
+          label: joinFieldArgs.overrideLabel,
+          graph: joinFieldArgs.graph,
+          override: joinFieldArgs.override
+        };
+      }
+    }
+    return acc;
+  }, {} as VirtualEdges);
+  return buildQueryGraph("supergraph", apiSchema, virtualEdges);
 }
 
 /**
@@ -786,7 +845,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
     );
   }
 
-  // We now ned to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
+  // We now need to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
   // of a interface are queried, and that could apply to an interface that is an @interfaceObject in some sugraph. Consider
   // the following example:
   // ```graphql
@@ -820,7 +879,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
   //
   // Long story short, to solve this, we create edges from @interfaceObject types to themselves for every implementation
   // types of the interface: those edges will be taken when we try to take a `... on B` condition, and those edge
-  // have __typename has a condition, forcing to find __typename in another subgraph first.
+  // have __typename as a condition, forcing to find __typename in another subgraph first.
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
@@ -928,10 +987,11 @@ class GraphBuilder {
     return this.rootVertices.get(kind);
   }
 
-  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet) {
+  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, label?: string) {
     const headOutEdges = this.outEdges[head.index];
     const tailInEdges = this.inEdges[tail.index];
-    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions);
+    const overrideCondition = label ? { label, condition: true } : undefined;
+    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions, overrideCondition);
     headOutEdges.push(edge);
     tailInEdges.push(edge);
 
@@ -1103,6 +1163,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     private readonly name: string,
     private readonly schema: Schema,
     private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
+    private readonly virtualEdges?: VirtualEdges,
   ) {
     super();
     this.isFederatedSubgraph = !!supergraph && isFederationSubgraphSchema(schema);
@@ -1195,9 +1256,30 @@ class GraphBuilderFromSchema extends GraphBuilder {
     }
   }
 
-  private addEdgeForField(field: FieldDefinition<any>, head: Vertex) {
+  private addEdgeForField(field: FieldDefinition<any>, head: Vertex, label?: string) {
     const tail = this.addTypeRecursively(field.type!);
-    this.addEdge(head, tail, new FieldCollection(field));
+    this.addEdge(head, tail, new FieldCollection(field), undefined, label);
+  }
+
+  addVirtualEdges() {
+    if (!this.virtualEdges) return;
+    for (const [typeName, fields] of Object.entries(this.virtualEdges)) {
+      const head = this.verticesForType(typeName)[0];
+      assert(head, () => `Vertex for type ${typeName} not found in graph`);
+      for (const [fieldName, { label }] of Object.entries(fields)) {
+        const fieldDef = (head.type as ObjectType).field(fieldName);
+        assert(fieldDef, () => `Field ${fieldName} not found in type ${typeName}`);
+        this.addEdgeForField(fieldDef, head, label);
+        const otherEdge = this.edges(head).find(
+          e => {
+            return e.head.type.name === typeName
+              && e.transition.kind === 'FieldCollection'
+              && e.transition.definition.name === fieldName
+          });
+        assert(otherEdge, () => `Edge for field ${fieldName} not found in graph`);
+        otherEdge.overrideCondition = { label, condition: false };
+      }
+    }
   }
 
   private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {
