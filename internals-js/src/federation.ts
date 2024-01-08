@@ -1469,7 +1469,7 @@ function completeFed2SubgraphSchema(schema: Schema): GraphQLError[] {
   const spec = FEDERATION_VERSIONS.find(fedFeature.url.version);
   if (!spec) {
     return [ERRORS.UNKNOWN_FEDERATION_LINK_VERSION.err(
-      `Invalid version ${fedFeature.url.version} for the federation feature in @link direction on schema`,
+      `Invalid version ${fedFeature.url.version} for the federation feature in @link directive on schema`,
       { nodes: fedFeature.directive.sourceAST },
     )];
   }
@@ -1591,7 +1591,7 @@ export function collectTargetFields({
       validate,
     });
   } catch (e) {
-    // If we explicitely requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it
+    // If we explicitly requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it
     // (returning a partial result, but we assume it is fine).
     const isGraphQLError = errorCauses(e) !== undefined
     if (!isGraphQLError || validate) {
