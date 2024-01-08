@@ -4645,38 +4645,38 @@ describe('composition', () => {
 
   it('@source{API,Type,Field} directives', () => {
     const subgraphA = {
-      typeDefs: gql`
-extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
-    "@key"
-  ])
-  @link(url: "https://specs.apollo.dev/source/v0.1", import: [
-    "@sourceAPI"
-    "@sourceType"
-    "@sourceField"
-  ])
-  @sourceAPI(
-    name: "A"
-    http: { baseURL: "https://api.a.com/v1" }
-  )
-
-type Query {
-  resources: [Resource!]! @sourceField(
-    api: "A"
-    http: { GET: "/resources" }
-  )
-}
-
-type Resource @key(fields: "id") @sourceType(
-  api: "A"
-  http: { GET: "/resources/{id}" }
-  selection: "id description"
-) {
-  id: ID!
-  description: String!
-}
-      `,
       name: 'subgraphA',
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+            "@key"
+          ])
+          @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+            "@sourceAPI"
+            "@sourceType"
+            "@sourceField"
+          ])
+          @sourceAPI(
+            name: "A"
+            http: { baseURL: "https://api.a.com/v1" }
+          )
+
+        type Query {
+          resources: [Resource!]! @sourceField(
+            api: "A"
+            http: { GET: "/resources" }
+          )
+        }
+
+        type Resource @key(fields: "id") @sourceType(
+          api: "A"
+          http: { GET: "/resources/{id}" }
+          selection: "id description"
+        ) {
+          id: ID!
+          description: String!
+        }
+      `,
     };
     const result = composeServices([subgraphA]);
     expect(result.errors ?? []).toEqual([]);
