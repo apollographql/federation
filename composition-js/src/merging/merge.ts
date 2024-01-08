@@ -282,6 +282,7 @@ class Merger {
   private inaccessibleSpec: InaccessibleSpecDefinition;
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveIdentityURLs = new Set<string>();
+  private schemaToImportNameToIdentityUrl = new Map<Schema, Map<string, string>>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -300,7 +301,17 @@ class Merger {
       (error: GraphQLError) => { this.errors.push(error); },
       (hint: CompositionHint) => { this.hints.push(hint); },
     );
-    this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
+
+    this.subgraphsSchema = subgraphs.values().map(({ schema }) => {
+      if (!this.schemaToImportNameToIdentityUrl.has(schema)) {
+        this.schemaToImportNameToIdentityUrl.set(
+          schema,
+          this.computeMapFromImportNameToIdentityUrl(schema),
+        );
+      }
+      return schema;
+    });
+
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
 
@@ -2587,8 +2598,8 @@ class Merger {
     this.addJoinDirectiveDirectives(sources, dest);
   }
 
-  private normalizeSpecIdentityURL(identityURL: string): string {
-    const url = new URL(identityURL);
+  private normalizeSpecIdentityURL(identityUrl: string): string {
+    const url = new URL(identityUrl);
     const pathParts = url.pathname.split('/');
     if (/v\d+\.\d+/.test(pathParts[pathParts.length - 1])) {
       // Remove the specific version to obtain the canonical URL.
@@ -2605,7 +2616,7 @@ class Merger {
     );
   }
 
-  private computeMapFromImportedNamesToIdentityURLs(
+  private computeMapFromImportNameToIdentityUrl(
     schema: Schema,
   ): Map<string, string> {
     // For each @link directive on the schema definition, store its normalized
@@ -2614,13 +2625,13 @@ class Merger {
 
     for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
       const { url, import: imps } = linkDirective.arguments();
-      const identityURL = this.normalizeSpecIdentityURL(url);
+      const identityUrl = this.normalizeSpecIdentityURL(url);
       if (imps) {
         for (const imp of imps) {
           if (typeof imp === 'string') {
-            map.set(imp, identityURL);
+            map.set(imp, identityUrl);
           } else {
-            map.set(imp.as ?? imp.name, identityURL);
+            map.set(imp.as ?? imp.name, identityUrl);
           }
         }
       }
@@ -2649,7 +2660,8 @@ class Merger {
       // We compute this map only once per subgraph, as it takes time
       // proportional to the size of the schema.
       const linkImportIdentityURLMap =
-        this.computeMapFromImportedNamesToIdentityURLs(source.schema());
+        this.schemaToImportNameToIdentityUrl.get(source.schema());
+      if (!linkImportIdentityURLMap) continue;
 
       for (const directive of source.appliedDirectives) {
         const isRelevantLink =
