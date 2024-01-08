@@ -515,7 +515,7 @@ const OVERRIDE_ON_INTERFACE = makeCodeDefinition(
 
 const OVERRIDE_LABEL_INVALID = makeCodeDefinition(
   'OVERRIDE_LABEL_INVALID',
-  'The @override directive `label` argument must match the pattern /^[a-zA-Z][a-zA-Z0-9_\-:./]*$/ or /^percent\(([0-9]|[1-9][0-9]|100)\)$/',
+  'The @override directive `label` argument must match the pattern /^[a-zA-Z][a-zA-Z0-9_\-:./]*$/ or /^percent\((\d{1,2}(\.\d{1,8})?|100)\)$/',
   { addedIn: '2.7.0' },
 );
 
