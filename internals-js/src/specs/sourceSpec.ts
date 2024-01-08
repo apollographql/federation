@@ -6,7 +6,7 @@ import {
   InputObjectType,
   InputFieldDefinition,
   ListType,
-} from "../definitions";
+} from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
 
