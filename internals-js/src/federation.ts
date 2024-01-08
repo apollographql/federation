@@ -80,6 +80,7 @@ import {
   FEDERATION1_TYPES,
   FEDERATION1_DIRECTIVES,
 } from "./specs/federationSpec";
+import { validateSourceAPIDirective, validateSourceFieldDirective, validateSourceTypeDirective } from './specs/sourceSpec';
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
@@ -582,8 +583,14 @@ export class FederationMetadata {
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
   private _fieldUsedPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
   private _isFed2Schema?: boolean;
+  private preMergeValidationDirectiveMap: { [key: string]: (schema: Schema, directive: Directive, errorCollector: GraphQLError[]) => void };
 
   constructor(readonly schema: Schema) {
+    this.preMergeValidationDirectiveMap = {
+      [this.sourceAPIDirective().name]: validateSourceAPIDirective,
+      [this.sourceTypeDirective().name]: validateSourceTypeDirective,
+      [this.sourceFieldDirective().name]: validateSourceFieldDirective,
+    }
   }
 
   private onInvalidate() {
@@ -603,6 +610,10 @@ export class FederationMetadata {
 
   federationFeature(): CoreFeature | undefined {
     return this.schema.coreFeatures?.getByIdentity(federationSpec.identity);
+  }
+
+  getPreMergeValidationDirectiveMap(): { [key: string]: (schema: Schema, directive: Directive, errorCollector: GraphQLError[]) => void } {
+    return this.preMergeValidationDirectiveMap;
   }
 
   private externalTester(): ExternalTester {
@@ -1080,6 +1091,18 @@ export class FederationBlueprint extends SchemaBlueprint {
     validateAllExternalFieldsUsed(metadata, errorCollector);
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
     validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
+
+    // for any individual directives that have their own validation, go ahead and perform that
+    const validationDirectiveMap = metadata.getPreMergeValidationDirectiveMap();
+    for (const [directive, validator] of Object.entries(validationDirectiveMap)) {
+      const directiveDefinition = schema.directive(directive);
+      if (directiveDefinition) {
+        const usages = directiveDefinition.applications();
+        for (const usage of usages) {
+          validator(schema, usage, errorCollector);
+        }
+      }
+    }
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
