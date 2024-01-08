@@ -76,7 +76,7 @@ describe('composition', () => {
         query: Query
       }
 
-      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR | FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
@@ -228,7 +228,7 @@ describe('composition', () => {
         query: Query
       }
 
-      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR | FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
@@ -2497,7 +2497,7 @@ describe('composition', () => {
         query: Query
       }
 
-      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR | FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
@@ -4692,7 +4692,7 @@ describe('composition', () => {
 }`);
 
     expect(printed).toContain(
-      `directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR | FIELD_DEFINITION | INPUT_FIELD_DEFINITION`
+      `directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION`
     );
 
     expect(printed).toContain(

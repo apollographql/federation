@@ -134,13 +134,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
     }
 
     const joinDirective = this.addDirective(schema, 'directive').addLocations(
-      // Allow @join__directive at any location where @joinType or @joinField
-      // can appear, as well as on the schema element.
-      ...new Set([
-        DirectiveLocation.SCHEMA,
-        ...joinType.locations,
-        ...joinField.locations,
-      ]),
+      DirectiveLocation.SCHEMA,
+      DirectiveLocation.OBJECT,
+      DirectiveLocation.INTERFACE,
+      DirectiveLocation.FIELD_DEFINITION,
     );
     joinDirective.repeatable = true;
     // Note this 'graphs' argument is plural, since the same directive
