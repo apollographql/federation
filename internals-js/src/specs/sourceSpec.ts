@@ -73,7 +73,6 @@ export class SourceSpecDefinition extends FeatureDefinition {
 
     const URLPathTemplate = this.addScalarType(schema, 'URLPathTemplate');
     const JSONSelection = this.addScalarType(schema, 'JSONSelection');
-    const JSON = this.addScalarType(schema, 'JSON');
 
     const HTTPSourceType = schema.addType(new InputObjectType('HTTPSourceType'));
     HTTPSourceType.addField(new InputFieldDefinition('GET')).type = URLPathTemplate;
@@ -87,7 +86,10 @@ export class SourceSpecDefinition extends FeatureDefinition {
 
     const KeyTypeMap = schema.addType(new InputObjectType('KeyTypeMap'));
     KeyTypeMap.addField(new InputFieldDefinition('key')).type = new NonNullType(schema.stringType());
-    KeyTypeMap.addField(new InputFieldDefinition('typeMap')).type = JSON;
+    KeyTypeMap.addField(new InputFieldDefinition('typeMap')).type =
+      // TypenameKeyMap is a scalar type similar to a JSON dictionary, where the
+      // keys are __typename strings and the values are values of the key field.
+      this.addScalarType(schema, 'TypenameKeyMap');
     sourceType.addArgument('keyTypeMap', KeyTypeMap);
 
     const sourceField = this.addDirective(schema, 'sourceField').addLocations(
