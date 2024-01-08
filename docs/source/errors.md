@@ -65,6 +65,7 @@ The following errors might be raised during composition:
 | `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
 | `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
 | `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
+| `OVERRIDE_LABEL_INVALID` | The @override directive `label` argument must match the pattern /^[a-zA-Z][a-zA-Z0-9_-:./]*$/ or /^percent((d{1,2}(.d{1,8})?|100))$/ | 2.7.0 |  |
 | `OVERRIDE_ON_INTERFACE` | The @override directive cannot be used on the fields of an interface type. | 2.3.0 |  |
 | `OVERRIDE_SOURCE_HAS_OVERRIDE` | Field which is overridden to another subgraph is also marked @override. | 2.0.0 |  |
 | `PROVIDES_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@provides` directive includes some directive applications. This is not supported | 2.1.0 |  |
