@@ -143,6 +143,10 @@ export class SourceSpecDefinition extends FeatureDefinition {
 }
 
 export const SOURCE_VERSIONS = new FeatureDefinitions<SourceSpecDefinition>(sourceIdentity)
-  .add(new SourceSpecDefinition(new FeatureVersion(0, 1)));
+  .add(new SourceSpecDefinition(
+    new FeatureVersion(0, 1),
+    // TODO Expecting this to be bumped to 2.7, but there's no 2.7 version yet.
+    new FeatureVersion(2, 6),
+  ));
 
 registerKnownFeature(SOURCE_VERSIONS);
