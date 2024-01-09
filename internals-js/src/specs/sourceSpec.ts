@@ -130,17 +130,73 @@ export class SourceSpecDefinition extends FeatureDefinition {
   }
 
   sourceAPIDirective(schema: Schema) {
-    return this.directive(schema, 'sourceAPI')!;
+    return this.directive<SourceAPIDirectiveArgs>(schema, 'sourceAPI')!;
   }
 
   sourceTypeDirective(schema: Schema) {
-    return this.directive(schema, 'sourceType')!;
+    return this.directive<SourceTypeDirectiveArgs>(schema, 'sourceType')!;
   }
 
   sourceFieldDirective(schema: Schema) {
-    return this.directive(schema, 'sourceField')!;
+    return this.directive<SourceFieldDirectiveArgs>(schema, 'sourceField')!;
   }
 }
+
+export type SourceAPIDirectiveArgs = {
+  name: string;
+  http?: HTTPSourceAPI;
+};
+
+export type HTTPSourceAPI = {
+  baseURL: string;
+  headers?: HTTPHeaderMapping[];
+};
+
+export type HTTPHeaderMapping = {
+  name: string;
+  as?: string;
+  value?: string;
+};
+
+export type SourceTypeDirectiveArgs = {
+  api: string;
+  http?: HTTPSourceType;
+  selection: JSONSelection;
+  keyTypeMap?: KeyTypeMap;
+};
+
+export type HTTPSourceType = {
+  GET?: URLPathTemplate;
+  POST?: URLPathTemplate;
+  headers?: HTTPHeaderMapping[];
+  body?: JSONSelection;
+};
+
+type URLPathTemplate = string;
+type JSONSelection = string;
+
+type KeyTypeMap = {
+  key: string;
+  typeMap: {
+    [__typename: string]: string;
+  };
+};
+
+export type SourceFieldDirectiveArgs = {
+  api: string;
+  http?: HTTPSourceField;
+  selection?: JSONSelection;
+};
+
+export type HTTPSourceField = {
+  GET?: URLPathTemplate;
+  POST?: URLPathTemplate;
+  PUT?: URLPathTemplate;
+  PATCH?: URLPathTemplate;
+  DELETE?: URLPathTemplate;
+  body?: JSONSelection;
+  headers?: HTTPHeaderMapping[];
+};
 
 export const SOURCE_VERSIONS = new FeatureDefinitions<SourceSpecDefinition>(sourceIdentity)
   .add(new SourceSpecDefinition(
