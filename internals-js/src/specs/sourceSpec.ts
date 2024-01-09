@@ -6,12 +6,14 @@ import {
   InputObjectType,
   InputFieldDefinition,
   ListType,
-  Directive,
+  DirectiveDefinition,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
 
 export const sourceIdentity = 'https://specs.apollo.dev/source';
+
+const KNOWN_SOURCE_PROTOCOLS = ["http"];
 
 export class SourceSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
@@ -141,18 +143,72 @@ export class SourceSpecDefinition extends FeatureDefinition {
   sourceFieldDirective(schema: Schema) {
     return this.directive<SourceFieldDirectiveArgs>(schema, 'sourceField')!;
   }
-}
 
-export function validateSourceAPIDirective(_schema: Schema, _directive: Directive<any>, _errorCollector: GraphQLError[]) {
-  // TODO
-}
+  override validateSubgraphSchema(schema: Schema): GraphQLError[] {
+    const sourceAPIInSchema = schema.directive('sourceAPI') as DirectiveDefinition<SourceAPIDirectiveArgs> | undefined;
+    const sourceTypeInSchema = schema.directive('sourceType') as DirectiveDefinition<SourceTypeDirectiveArgs> | undefined;
+    const sourceFieldInSchema = schema.directive('sourceField') as DirectiveDefinition<SourceFieldDirectiveArgs> | undefined;
 
-export function validateSourceTypeDirective(_schema: Schema, _directive: Directive<any>, _errorCollector: GraphQLError[]) {
-  // TODO
-}
+    if (!(sourceAPIInSchema || sourceTypeInSchema || sourceFieldInSchema)) {
+      // If none of the @source* directives are present, nothing needs
+      // validating.
+      return [];
+    }
 
-export function validateSourceFieldDirective(_schema: Schema, _directive: Directive<any>, _errorCollector: GraphQLError[]) {
-  // TODO
+    const errors: GraphQLError[] = [];
+    const apiNameToProtocol = new Map<string, string>();
+
+    if (sourceAPIInSchema) {
+      sourceAPIInSchema.applications().forEach(application => {
+        // Each @sourceAPI application must use one of the known protocols.
+        const { name, ...rest } = application.arguments();
+        let protocol: string | undefined;
+
+        Object.keys(rest).forEach(key => {
+          if (KNOWN_SOURCE_PROTOCOLS.includes(key)) {
+            if (protocol) {
+              errors.push(new GraphQLError(
+                `@${sourceAPIInSchema.name} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+              ));
+            }
+            protocol = key;
+          }
+        });
+
+        if (apiNameToProtocol.has(name)) {
+          errors.push(new GraphQLError(`@${sourceAPIInSchema.name} must specify a unique name`));
+        }
+
+        if (protocol) {
+          apiNameToProtocol.set(name, protocol);
+        } else {
+          errors.push(new GraphQLError(
+            `@${sourceAPIInSchema.name} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+          ));
+        }
+      });
+    }
+
+    if (sourceTypeInSchema) {
+      sourceTypeInSchema.applications().forEach(application => {
+        const { api } = application.arguments();
+        if (!api || !apiNameToProtocol.has(api)) {
+          errors.push(new GraphQLError(`@${sourceTypeInSchema.name} must specify a known api`));
+        }
+      });
+    }
+
+    if (sourceFieldInSchema) {
+      sourceFieldInSchema.applications().forEach(application => {
+        const { api } = application.arguments();
+        if (!api || !apiNameToProtocol.has(api)) {
+          errors.push(new GraphQLError(`@${sourceFieldInSchema.name} must specify a known api`));
+        }
+      });
+    }
+
+    return errors;
+  }
 }
 
 export type SourceAPIDirectiveArgs = {

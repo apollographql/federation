@@ -1,6 +1,8 @@
+import { GraphQLError } from "graphql";
+import { Schema } from "./definitions";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl } from "./specs/coreSpec";
 
-const registeredFeatures: Map<string, FeatureDefinitions> = new Map();
+const registeredFeatures = new Map<string, FeatureDefinitions>();
 
 export function registerKnownFeature(definitions: FeatureDefinitions) {
   if (!registeredFeatures.has(definitions.identity)) {
@@ -10,6 +12,19 @@ export function registerKnownFeature(definitions: FeatureDefinitions) {
 
 export function coreFeatureDefinitionIfKnown(url: FeatureUrl): FeatureDefinition | undefined {
   return registeredFeatures.get(url.identity)?.find(url.version);
+}
+
+export function validateKnownFeatures(
+  schema: Schema,
+  errorCollector: GraphQLError[] = [],
+): GraphQLError[] {
+  registeredFeatures.forEach(definitions => {
+    const feature = definitions.latest();
+    if (feature.validateSubgraphSchema !== FeatureDefinition.prototype.validateSubgraphSchema) {
+      errorCollector.push(...feature.validateSubgraphSchema(schema));
+    }
+  });
+  return errorCollector;
 }
 
 /**
