@@ -606,36 +606,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.closedBranches[i - 1] = firstBranch;
   }
 
-  // Remove closed branches that are known to be overridden by others.
-  private pruneClosedBranches() {
-    for (let i = 0; i < this.closedBranches.length; i++) {
-      const branch = this.closedBranches[i];
-      if (branch.length <= 1) {
-        continue;
-      }
-
-      const pruned: ClosedBranch<RV> = [];
-      for (const toCheck of branch) {
-        if (!this.optionIsOverriden(toCheck.paths, branch)) {
-          pruned.push(toCheck);
-        }
-      }
-      this.closedBranches[i] = pruned;
-    }
-  }
-
-  private optionIsOverriden(toCheck: SimultaneousPaths<RV>, allOptions: ClosedBranch<RV>): boolean {
-    for (const { paths } of allOptions) {
-      if (toCheck === paths) {
-        continue;
-      }
-      if (toCheck.every((p) => paths.some((o) => p.isOverriddenBy(o)))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private sortOptionsInClosedBranches() {
     this.closedBranches.forEach((branch) => branch.sort((p1, p2) => {
       const p1Jumps = Math.max(...p1.paths.map((p) => p.subgraphJumps()));
@@ -648,14 +618,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     if (this.closedBranches.length === 0) {
       return;
     }
-
-    // We've computed all branches and need to compare all the possible plans to pick the best.
-    // Note however that "all the possible plans" is essentially a cartesian product of all
-    // the closed branches options, and if a lot of branches have multiple options, this can
-    // exponentially explode.
-    // So first, we check if we can preemptively prune some branches based on those branches having options
-    // that are known to be overriden by other ones.
-    this.pruneClosedBranches();
 
     // We now sort the options within each branch, putting those with the least amount of subgraph jumps first.
     // The idea is that for each branch taken individually, the option with the least jumps is going to be
