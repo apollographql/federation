@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   node: circleci/node@5.1.0
-  secops: apollo/circleci-secops-orb@2.0.1
+  secops: apollo/circleci-secops-orb@2.0.6
 
 jobs:
   # Unfortunately cimg/node doesn't tag its images with major only, you have to specify a minor version.
@@ -68,3 +68,8 @@ workflows:
             - secops-oidc
           git-base-revision: <<#pipeline.git.base_revision>><<pipeline.git.base_revision>><</pipeline.git.base_revision >>
           git-revision: << pipeline.git.revision >>
+      - secops/semgrep:
+          context:
+            - secops-oidc
+            - github-orb
+          git-base-revision: <<#pipeline.git.base_revision>><<pipeline.git.base_revision>><</pipeline.git.base_revision >>
