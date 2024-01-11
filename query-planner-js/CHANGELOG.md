@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.6.3
+
+### Patch Changes
+
+- Fix handling of `@interfaceObject` when multiple child query paths are available. ([#2898](https://github.com/apollographql/federation/pull/2898))
+
+  When making copies of `FetchDependencyGraph`s, we were making incomplete copies that were missing `__typename` input rewrite information required for correctly handling `@interfaceObject` resolution.
+
+- pruneClosedBranches() was more computationally intensive than just running sort on all the branches. This can lead to an order of magnitude speedup on type exploded query plans. ([#2905](https://github.com/apollographql/federation/pull/2905))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.6.3
+  - @apollo/query-graphs@2.6.3
+
 ## 2.6.2
 
 ### Patch Changes
