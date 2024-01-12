@@ -18,6 +18,7 @@ import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
+import { SOURCE_VERSIONS } from './sourceSpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -158,6 +159,10 @@ export class FederationSpecDefinition extends FeatureDefinition {
     if (version.gte(new FeatureVersion(2, 6))) {
       this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
+
+    if (version.gte(new FeatureVersion(2, 7))) {
+      this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
   }
 }
 
@@ -168,6 +173,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 7)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

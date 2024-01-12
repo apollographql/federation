@@ -133,21 +133,23 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinEnumValue.addArgument('graph', new NonNullType(graphEnum));
     }
 
-    const joinDirective = this.addDirective(schema, 'directive').addLocations(
-      DirectiveLocation.SCHEMA,
-      DirectiveLocation.OBJECT,
-      DirectiveLocation.INTERFACE,
-      DirectiveLocation.FIELD_DEFINITION,
-    );
-    joinDirective.repeatable = true;
-    // Note this 'graphs' argument is plural, since the same directive
-    // application can appear on the same schema element in multiple subgraphs.
-    // Repetition of a graph in this 'graphs' list is allowed, and corresponds
-    // to repeated application of the same directive in the same subgraph, which
-    // is allowed.
-    joinDirective.addArgument('graphs', new ListType(new NonNullType(graphEnum)));
-    joinDirective.addArgument('name', new NonNullType(schema.stringType()));
-    joinDirective.addArgument('args', this.addScalarType(schema, 'DirectiveArguments'));
+    if (this.version.gte(new FeatureVersion(0, 4))) {
+      const joinDirective = this.addDirective(schema, 'directive').addLocations(
+        DirectiveLocation.SCHEMA,
+        DirectiveLocation.OBJECT,
+        DirectiveLocation.INTERFACE,
+        DirectiveLocation.FIELD_DEFINITION,
+      );
+      joinDirective.repeatable = true;
+      // Note this 'graphs' argument is plural, since the same directive
+      // application can appear on the same schema element in multiple subgraphs.
+      // Repetition of a graph in this 'graphs' list is allowed, and corresponds
+      // to repeated application of the same directive in the same subgraph, which
+      // is allowed.
+      joinDirective.addArgument('graphs', new ListType(new NonNullType(graphEnum)));
+      joinDirective.addArgument('name', new NonNullType(schema.stringType()));
+      joinDirective.addArgument('args', this.addScalarType(schema, 'DirectiveArguments'));
+    }
 
     if (this.isV01()) {
       const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
@@ -257,6 +259,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)))
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 7)));
 
 registerKnownFeature(JOIN_VERSIONS);

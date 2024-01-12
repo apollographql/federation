@@ -71,7 +71,7 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
       {
         query: Query
       }
@@ -223,7 +223,7 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
       {
         query: Query
       }
@@ -2497,8 +2497,6 @@ describe('composition', () => {
         query: Query
       }
 
-      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
-
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
@@ -2512,8 +2510,6 @@ describe('composition', () => {
       directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
       directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-      scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
@@ -4647,7 +4643,7 @@ describe('composition', () => {
 describe('@source* directives', () => {
   const schemaA = gql`
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: [
         "@key"
         "@shareable"
       ])
@@ -4680,7 +4676,7 @@ describe('@source* directives', () => {
 
   const schemaB = gql`
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: [
         "@key"
         "@shareable"
       ])
@@ -4708,7 +4704,7 @@ describe('@source* directives', () => {
 
   const schemaC = gql`
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: [
         "@key"
         "@shareable"
       ])
@@ -4743,7 +4739,7 @@ describe('@source* directives', () => {
     expect(printed).toContain(
 `schema
   @link(url: "https://specs.apollo.dev/link/v1.0")
-  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+  @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
   @join__directive(graphs: [SUBGRAPHA], name: "link", args: {url: "https://specs.apollo.dev/source/v0.1", import: ["@sourceAPI", "@sourceType", "@sourceField"]})
   @join__directive(graphs: [SUBGRAPHA], name: "sourceAPI", args: {name: "A", http: {baseURL: "https://api.a.com/v1"}})
 {
@@ -4790,7 +4786,7 @@ describe('@source* directives', () => {
     expect(printed).toContain(
 `schema
   @link(url: \"https://specs.apollo.dev/link/v1.0\")
-  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
   @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
   @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
 {
@@ -4836,7 +4832,7 @@ describe('@source* directives', () => {
     expect(printed).toContain(
 `schema
   @link(url: \"https://specs.apollo.dev/link/v1.0\")
-  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
   @join__directive(graphs: [SUBGRAPHA, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
   @join__directive(graphs: [SUBGRAPHA, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
 {
@@ -4884,7 +4880,7 @@ describe('@source* directives', () => {
     expect(printed).toContain(
 `schema
   @link(url: \"https://specs.apollo.dev/link/v1.0\")
-  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
   @join__directive(graphs: [SUBGRAPHB, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
   @join__directive(graphs: [SUBGRAPHB, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
 {
@@ -4933,7 +4929,7 @@ describe('@source* directives', () => {
     expect(printed).toContain(
 `schema
   @link(url: \"https://specs.apollo.dev/link/v1.0\")
-  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
   @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
   @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
 {

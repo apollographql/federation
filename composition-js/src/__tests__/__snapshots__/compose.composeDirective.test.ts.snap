@@ -24,8 +24,6 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 
 directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
-
 directive @mytag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
 
 directive @tag(name: String!, prop: String!) on FIELD_DEFINITION | OBJECT
@@ -50,8 +48,6 @@ enum join__Graph {
 }
 
 scalar join__FieldSet
-
-scalar join__DirectiveArguments
 
 type Query
   @join__type(graph: SUBGRAPHA)
