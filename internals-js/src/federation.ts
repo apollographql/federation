@@ -85,6 +85,11 @@ import { createObjectTypeSpecification, createScalarTypeSpecification, createUni
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./specs/joinSpec";
+import {
+  SourceAPIDirectiveArgs,
+  SourceFieldDirectiveArgs,
+  SourceTypeDirectiveArgs,
+} from "./specs/sourceSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -774,6 +779,18 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
   }
 
+  sourceAPIDirective(): Post20FederationDirectiveDefinition<SourceAPIDirectiveArgs> {
+    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_API);
+  }
+
+  sourceTypeDirective(): Post20FederationDirectiveDefinition<SourceTypeDirectiveArgs> {
+    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_TYPE);
+  }
+
+  sourceFieldDirective(): Post20FederationDirectiveDefinition<SourceFieldDirectiveArgs> {
+    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_FIELD);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -812,6 +829,19 @@ export class FederationMetadata {
     const policyDirective = this.policyDirective();
     if (isFederationDirectiveDefinedInSchema(policyDirective)) {
       baseDirectives.push(policyDirective);
+    }
+
+    const sourceAPIDirective = this.sourceAPIDirective();
+    if (isFederationDirectiveDefinedInSchema(sourceAPIDirective)) {
+      baseDirectives.push(sourceAPIDirective);
+    }
+    const sourceTypeDirective = this.sourceTypeDirective();
+    if (isFederationDirectiveDefinedInSchema(sourceTypeDirective)) {
+      baseDirectives.push(sourceTypeDirective);
+    }
+    const sourceFieldDirective = this.sourceFieldDirective();
+    if (isFederationDirectiveDefinedInSchema(sourceFieldDirective)) {
+      baseDirectives.push(sourceFieldDirective);
     }
 
     return baseDirectives;

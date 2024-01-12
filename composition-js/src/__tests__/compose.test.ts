@@ -76,6 +76,8 @@ describe('composition', () => {
         query: Query
       }
 
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
@@ -96,6 +98,8 @@ describe('composition', () => {
         V1 @join__enumValue(graph: SUBGRAPH2)
         V2 @join__enumValue(graph: SUBGRAPH2)
       }
+
+      scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
@@ -224,6 +228,8 @@ describe('composition', () => {
         query: Query
       }
 
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
@@ -244,6 +250,8 @@ describe('composition', () => {
         V1 @join__enumValue(graph: SUBGRAPH2)
         V2 @join__enumValue(graph: SUBGRAPH2)
       }
+
+      scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
@@ -2489,6 +2497,8 @@ describe('composition', () => {
         query: Query
       }
 
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
@@ -2502,6 +2512,8 @@ describe('composition', () => {
       directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
       directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
@@ -4629,5 +4641,328 @@ describe('composition', () => {
     assert(schema, 'schema does not exist');
     const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
     expect(authenticatedDirectiveExists).toBeUndefined();
+  });
+});
+
+describe('@source* directives', () => {
+  const schemaA = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+        "@key"
+        "@shareable"
+      ])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+
+    type Query {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      ) @shareable
+    }
+
+    type Resource @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id description"
+    ) {
+      id: ID!
+      description: String!
+    }
+  `;
+
+  const schemaB = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+        "@key"
+        "@shareable"
+      ])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+
+    type Query {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      ) @shareable
+    }
+
+    type Resource @key(fields: "id") {
+      id: ID!
+    }
+  `;
+
+  const schemaC = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.1", import: [
+        "@key"
+        "@shareable"
+      ])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+
+    type Resource @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id creationDate"
+    ) {
+      id: ID!
+      creationDate: String!
+    }
+  `;
+
+  it('single subgraph composition', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: schemaA,
+    };
+    const result = composeServices([subgraphA]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+    expect(printed).toContain(
+`schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA], name: "link", args: {url: "https://specs.apollo.dev/source/v0.1", import: ["@sourceAPI", "@sourceType", "@sourceField"]})
+  @join__directive(graphs: [SUBGRAPHA], name: "sourceAPI", args: {name: "A", http: {baseURL: "https://api.a.com/v1"}})
+{
+  query: Query
+}`);
+
+    expect(printed).toContain(
+      `directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+{
+  resources: [Resource!]! @join__directive(graphs: [SUBGRAPHA], name: "sourceField", args: {api: "A", http: {GET: "/resources"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: "id")
+  @join__directive(graphs: [SUBGRAPHA], name: "sourceType", args: {api: "A", http: {GET: "/resources/{id}"}, selection: "id description"})
+{
+  id: ID!
+  description: String!
+}`
+    );
+  });
+
+  it('subgraphA and subgraphB composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphA',
+        typeDefs: schemaA,
+      },
+      {
+        name: 'subgraphB',
+        typeDefs: schemaB,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHB)
+{
+  resources: [Resource!]! @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: \"id\")
+  @join__type(graph: SUBGRAPHB, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHA], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id description\"})
+{
+  id: ID!
+  description: String! @join__field(graph: SUBGRAPHA)
+}`
+    );
+  });
+
+  it('subgraphA and subgraphC composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphA',
+        typeDefs: schemaA,
+      },
+      {
+        name: 'subgraphC',
+        typeDefs: schemaC,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHC)
+{
+  resources: [Resource!]! @join__field(graph: SUBGRAPHA) @join__directive(graphs: [SUBGRAPHA], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: \"id\")
+  @join__type(graph: SUBGRAPHC, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHA], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id description\"})
+  @join__directive(graphs: [SUBGRAPHC], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id creationDate\"})
+{
+  id: ID!
+  description: String! @join__field(graph: SUBGRAPHA)
+  creationDate: String! @join__field(graph: SUBGRAPHC)
+}`
+    );
+  });
+
+  it('subgraphB and subgraphC composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphB',
+        typeDefs: schemaB,
+      },
+      {
+        name: 'subgraphC',
+        typeDefs: schemaC,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHB, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHB, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`);
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHB)
+  @join__type(graph: SUBGRAPHC)
+{
+  resources: [Resource!]! @join__field(graph: SUBGRAPHB) @join__directive(graphs: [SUBGRAPHB], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHB, key: \"id\")
+  @join__type(graph: SUBGRAPHC, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHC], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id creationDate\"})
+{
+  id: ID!
+  creationDate: String! @join__field(graph: SUBGRAPHC)
+}`
+    );
+  });
+
+  it('subgraphA, subgraphB, and subgraphC composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphA',
+        typeDefs: schemaA,
+      },
+      {
+        name: 'subgraphB',
+        typeDefs: schemaB,
+      },
+      {
+        name: 'subgraphC',
+        typeDefs: schemaC,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.3\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHB)
+  @join__type(graph: SUBGRAPHC)
+{
+  resources: [Resource!]! @join__field(graph: SUBGRAPHA) @join__field(graph: SUBGRAPHB) @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: \"id\")
+  @join__type(graph: SUBGRAPHB, key: \"id\")
+  @join__type(graph: SUBGRAPHC, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHA], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id description\"})
+  @join__directive(graphs: [SUBGRAPHC], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id creationDate\"})
+{
+  id: ID!
+  description: String! @join__field(graph: SUBGRAPHA)
+  creationDate: String! @join__field(graph: SUBGRAPHC)
+}`
+    )
   });
 });
