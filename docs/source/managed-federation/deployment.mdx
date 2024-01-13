@@ -344,3 +344,13 @@ On the other side of the equation sits the router. The router can regularly poll
 4. The router continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.
 
 Alternatively, instead of getting its configuration from Apollo Uplink, the router can specify a path to a supergraph schema upon its deployment. This static configuration is useful when you want the router to use a schema different than the latest validated schema from Uplink, or when you don't have connectivity to Apollo Uplink. For an example of this workflow, see an [example of configuring the router for blue-green deployment](#example-blue-green-deployment).
+
+## Rolling back a deployment
+
+If you need to roll back a router deployment, with Kubernetes you can roll back a deployment to its previous revision with the following command:
+
+```bash showLineNumbers=false
+kubectl rollout undo <router-deployment-name>
+```
+
+To learn more, see the [Kubernetes Deployments guide](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-to-a-previous-revision).
