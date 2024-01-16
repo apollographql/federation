@@ -4961,4 +4961,101 @@ describe('@source* directives', () => {
 }`
     )
   });
+
+  describe('validation errors', () => {
+    const goodSchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+          "@sourceAPI"
+          "@sourceType"
+          "@sourceField"
+        ])
+        @sourceAPI(
+          name: "A"
+          http: { baseURL: "https://api.a.com/v1" }
+        )
+      {
+        query: Query
+      }
+
+      type Query {
+        resources: [Resource!]! @sourceField(
+          api: "A"
+          http: { GET: "/resources" }
+        )
+      }
+
+      type Resource @key(fields: "id") @sourceType(
+        api: "A"
+        http: { GET: "/resources/{id}" }
+        selection: "id description"
+      ) {
+        id: ID!
+        description: String!
+      }
+    `;
+
+    const badSchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+          "@sourceAPI"
+          "@sourceType"
+          "@sourceField"
+        ])
+        @sourceAPI(
+          name: "A?!" # Should be valid GraphQL identifier
+          http: { baseURL: "https://api.a.com/v1" }
+        )
+      {
+        query: Query
+      }
+
+      type Query {
+        resources: [Resource!]! @sourceField(
+          api: "A"
+          http: { GET: "/resources" }
+        )
+      }
+
+      type Resource @key(fields: "id") @sourceType(
+        api: "A"
+        http: { GET: "/resources/{id}" }
+        selection: "id description"
+      ) {
+        id: ID!
+        description: String!
+      }
+    `;
+
+    it('good schema composes without validation errors', () => {
+      const result = composeServices([{
+        name: 'good',
+        typeDefs: goodSchema,
+      }]);
+      expect(result.errors ?? []).toEqual([]);
+    });
+
+    it('bad schema composes with validation errors', () => {
+      const result = composeServices([{
+        name: 'bad',
+        typeDefs: badSchema,
+      }]);
+
+      const messages = result.errors!.map(e => e.message);
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI(name: "A?!") must be valid GraphQL identifier'
+      );
+
+      expect(messages).toContain(
+        '[bad] sourceType specifies unknown api A'
+      );
+
+      expect(messages).toContain(
+        '[bad] sourceField specifies unknown api A'
+      );
+    });
+  });
 });
