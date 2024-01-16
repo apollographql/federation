@@ -2,6 +2,8 @@
 title: Advanced topics on federated entities
 ---
 
+import ProgressiveOverrideEnterprise from '../shared/progressive-override-enterprise.mdx';
+
 This article describes complex behaviors of federated entities beyond those covered in [entity basics](./entities/).
 
 ## Using advanced `@key`s
@@ -283,6 +285,10 @@ type Bill @key(fields: "id") {
 
 The [`@override` directive](./federated-types/federated-directives#override) enables you to incrementally migrate between subgraphs with no downtime.
 
+You can migrate between subgraphs gradually with progressive `@override` or all at once.
+
+<ProgressiveOverrideEnterprise/>
+
 Follow these steps to use the `@override` directive:
 
 1. If the `@override` directive isn't already imported, include it in your schema's `@link` imports:
@@ -321,33 +327,31 @@ Follow these steps to use the `@override` directive:
       Applying the `@override` directive tells the router to resolve the `amount` field in the Billing subgraph instead of the Payments subgraph.
 
 
-3. Update your router's supergraph schema to migrate to the updated Billing subgraph, either gradually or all at once.
+3. Update your router's supergraph schema to migrate to the updated Billing subgraph.
 
-    * **To migrate gradually**, use the [progressive `@override` feature](/router/configuration):
+    * **To migrate gradually with progressive `@override`**, you must use the Apollo Router with an Enterprise license. We recommend using progressive `@override` if it's available.
 
-      1. Configure your router to enable progressive `@override`:
-
-          ```yaml title="router.yaml"
-          progressive_override:
-            enabled: true
-          ```
-      1. In the Billing subgraph, add a `labels` argument to the `@override` directive with the percentage of requests that you want to be resolved by the subgraph. For example:
+       To set progressive `@override` in the Billing subgraph, add a `label` argument to the `@override` directive with the percentage of requests that you want to be resolved by the subgraph. For example:
 
         ```graphql title="Billing subgraph"
         type Bill @key(fields: "id") {
           id: ID!
-          amount: Int! @override(from: "Payments", labels:"percent(15)") #highlight-line
+          amount: Int! @override(from: "Payments", label:"percent(15)") #highlight-line
         }
         ``` 
 
-        Setting `labels:"percent(15)"` means that 15 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 85 percent are resolved by the Payments subgraph. 
+        Setting `label:"percent(15)"` means that 15 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 85 percent are resolved by the Payments subgraph. 
 
     * **To migrate all at once**, if you're using managed federation, you do this by publishing the Billing subgraph's schema to GraphOS with [`rover subgraph publish`](/graphos/delivery/#subgraph-schemas).
 
 
 When the router receives its updated supergraph schema, it immediately starts resolving the `Bill.amount` field from the Billing subgraph while continuing to resolve `Bill.payment` from the Payments subgraph.
 
-> We can migrate as many entity fields as we want in a single change. To do so, we apply `@override` to every entity field we want to move. We can even migrate entire entities this way.
+<Note>
+
+We can migrate as many entity fields as we want in a single change. To do so, we apply `@override` to every entity field we want to move. We can even migrate entire entities this way.
+
+</Note>
 
 Now that `Bill.amount` is resolved in the Billing subgraph, we can safely _remove_ that field (and its resolver) from the Payments subgraph:
 
@@ -375,7 +379,11 @@ Now that `Bill.amount` is resolved in the Billing subgraph, we can safely _remov
 
 After making this change, we deploy our updated Payments subgraph and again update our router's supergraph schema.
 
-> Because the router is already _ignoring_ `Bill.amount` in the Payments subgraph thanks to `@override`, we can safely publish our updated schema and deploy the subgraph in any order!
+<Note>
+
+Because the router is already _ignoring_ `Bill.amount` in the Payments subgraph thanks to `@override`, we can safely publish our updated schema and deploy the subgraph in any order.
+
+</Note>
 
 1. Remove the `@override` directive from the Billing subgraph, because it no longer has any effect:
 

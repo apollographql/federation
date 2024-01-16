@@ -2,6 +2,8 @@
 title: Federation-specific GraphQL directives
 ---
 
+import ProgressiveOverrideEnterprise from '../../shared/progressive-override-enterprise.mdx';
+
 Apollo Federation defines a collection of **directives** that you use in your subgraph schemas to enable certain features.
 
 ## Importing directives
@@ -18,7 +20,11 @@ You can apply this directive to your existing `schema` declaration if you have o
 
 Modify the `import` array to include whichever federated directives your subgraph schema uses. The example above imports the [`@key`](#key) and [`@shareable`](#shareable) directives (which are used most commonly).
 
-> Make sure to include the `@` in each directive name!
+<Tip>
+
+Make sure to include the `@` in each directive name.
+
+</Tip>
 
 ### Renaming directives
 
@@ -317,16 +323,15 @@ Only one subgraph can `@override` any given field. If multiple subgraphs attempt
 
 For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
 
-> ⚠️ **This directive's feature is available in Apollo Federation TBD and later.**
-> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
->
-> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+#### Progressive `@override`
+
+<ProgressiveOverrideEnterprise/>
 
 Rolling out any change to a production subgraph, including adding `@override` fields, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another _all at once_ could overload the overriding subgraph.
 
-The **progressive `@override`** feature enables the gradual, progressive deployment of a subgraph with an `@override` field. With progessive `@override` enabled in the Apollo Router, a subgraph developer can apply a label to an `@override` field that sets the percentage of traffic for the field that should be resolved by the overriding subgraph, with the rest still resolved by the overridden subgraph. The subgraph developer can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic can be handled by the overriding subgraph.
+The **progressive `@override`** feature enables the gradual, progressive deployment of a subgraph with an `@override` field. As a subgraph developer, you can customize the percentage of traffic that the overriding and overridden subgraphs each resolve for a field. You apply a label to an `@override` field to set the percentage of traffic for the field that should be resolved by the overriding subgraph, with the remaining percentage resolved by the overridden subgraph. You can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic is resolved by the overriding subgraph.
 
-To configure the Apollo Router for progressive `@override`, see [TBD](/router/configuration/overview).
+To learn more, see the [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override) guide.
 
 #### Arguments
 
