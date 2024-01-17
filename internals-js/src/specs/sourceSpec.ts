@@ -196,12 +196,12 @@ export class SourceSpecDefinition extends FeatureDefinition {
         const { name, ...rest } = application.arguments();
 
         if (apiNameToProtocol.has(name)) {
-          errors.push(new GraphQLError(`${sourceAPI.name} must specify unique name`));
+          errors.push(new GraphQLError(`${sourceAPI} must specify unique name`));
         }
 
         // Ensure name is a valid GraphQL identifier.
         if (!/^[a-zA-Z_][0-9a-zA-Z_]*$/.test(name)) {
-          errors.push(new GraphQLError(`${sourceAPI.name}(name: ${
+          errors.push(new GraphQLError(`${sourceAPI}(name: ${
             JSON.stringify(name)
           }) must be valid GraphQL identifier`));
         }
@@ -211,7 +211,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
           if (rest[knownProtocol]) {
             if (protocol) {
               errors.push(new GraphQLError(
-                `${sourceAPI.name} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+                `${sourceAPI} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
               ));
             }
             protocol = knownProtocol;
@@ -228,7 +228,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             try {
               new URL(baseURL);
             } catch (e) {
-              errors.push(new GraphQLError(`${sourceAPI.name} http.baseURL ${
+              errors.push(new GraphQLError(`${sourceAPI} http.baseURL ${
                 JSON.stringify(baseURL)
               } must be valid URL`));
             }
@@ -237,7 +237,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
           }
         } else {
           errors.push(new GraphQLError(
-            `${sourceAPI.name} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+            `${sourceAPI} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
           ));
         }
       });
@@ -247,16 +247,16 @@ export class SourceSpecDefinition extends FeatureDefinition {
       sourceType.applications().forEach(application => {
         const { api, ...rest } = application.arguments();
         if (!api || !apiNameToProtocol.has(api)) {
-          errors.push(new GraphQLError(`${sourceType.name} specifies unknown api ${api}`));
+          errors.push(new GraphQLError(`${sourceType} specifies unknown api ${api}`));
         } else {
           const expectedProtocol = apiNameToProtocol.get(api);
           const protocolValue = expectedProtocol && rest[expectedProtocol];
           if (expectedProtocol && !protocolValue) {
             errors.push(new GraphQLError(
-              `${sourceType.name} must specify same ${
+              `${sourceType} must specify same ${
                 expectedProtocol
               } argument as corresponding ${
-                sourceAPI!.name
+                sourceAPI
               } for api ${api}`,
             ));
           }
@@ -266,7 +266,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
 
             if ([GET, POST].filter(Boolean).length !== 1) {
               errors.push(new GraphQLError(
-                `${sourceType.name} must specify exactly one of http.GET or http.POST`,
+                `${sourceType} must specify exactly one of http.GET or http.POST`,
               ));
             } else {
               const urlPathTemplate = (GET || POST)!;
@@ -276,7 +276,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
                 parseURLPathTemplate(urlPathTemplate);
               } catch (e) {
                 errors.push(new GraphQLError(
-                  `${sourceType.name} http.GET or http.POST must be valid URL path template`,
+                  `${sourceType} http.GET or http.POST must be valid URL path template`,
                 ));
               }
             }
@@ -289,9 +289,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
                 // TODO Validate body selection matches the available fields.
               } catch (e) {
                 errors.push(new GraphQLError(
-                  `${sourceType.name} http.body not valid JSONSelection: ${
-                    e.message
-                  }`,
+                  `${sourceType} http.body not valid JSONSelection: ${e.message}`,
                 ));
               }
             }
@@ -304,14 +302,14 @@ export class SourceSpecDefinition extends FeatureDefinition {
           case "InterfaceTypeDefinition":
             if (!ast.directives?.some(directive => directive.name.value === "key")) {
               errors.push(new GraphQLError(
-                `${sourceType.name} must be applied to an entity type that also has a @key directive`,
+                `${sourceType} must be applied to an entity type that also has a @key directive`,
               ));
             }
             // TODO Validate selection is valid JSONSelection for type.
             break;
           default:
             errors.push(new GraphQLError(
-              `${sourceType.name} must be applied to object or interface type`,
+              `${sourceType} must be applied to object or interface type`,
             ));
         }
       });
@@ -321,7 +319,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       sourceField.applications().forEach(application => {
         const { api, selection, ...rest } = application.arguments();
         if (!api || !apiNameToProtocol.has(api)) {
-          errors.push(new GraphQLError(`${sourceField.name} specifies unknown api ${api}`));
+          errors.push(new GraphQLError(`${sourceField} specifies unknown api ${api}`));
         } else {
           const expectedProtocol = apiNameToProtocol.get(api);
           const protocolValue = expectedProtocol && rest[expectedProtocol];
@@ -335,7 +333,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
             if (usedMethods.length > 1) {
               errors.push(new GraphQLError(`${
-                sourceField.name
+                sourceField
               } allows at most one of http.GET, http.POST, http.PUT, http.PATCH, and http.DELETE`));
             } else if (usedMethods.length === 1) {
               const urlPathTemplate = usedMethods[0]!;
@@ -345,7 +343,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
                 parseURLPathTemplate(urlPathTemplate);
               } catch (e) {
                 errors.push(new GraphQLError(
-                  `${sourceField.name} http.GET, http.POST, http.PUT, http.PATCH, or http.DELETE must be valid URL path template`,
+                  `${sourceField} http.GET, http.POST, http.PUT, http.PATCH, or http.DELETE must be valid URL path template`,
                 ));
               }
             }
@@ -359,9 +357,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
                 // parent type and/or argument names of the field.
               } catch (e) {
                 errors.push(new GraphQLError(
-                  `${sourceField.name} http.body not valid JSONSelection: ${
-                    e.message
-                  }`,
+                  `${sourceField} http.body not valid JSONSelection: ${e.message}`,
                 ));
               }
             }
@@ -375,7 +371,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             // the parent type and/or argument names of the field.
           } catch (e) {
             errors.push(new GraphQLError(
-              `${sourceField.name} selection not valid JSONSelection: ${
+              `${sourceField} selection not valid JSONSelection: ${
                 e.message
               }`,
             ));
@@ -387,13 +383,13 @@ export class SourceSpecDefinition extends FeatureDefinition {
         const fieldParent = application.parent;
         if (fieldParent.sourceAST?.kind !== "FieldDefinition") {
           errors.push(new GraphQLError(
-            `${sourceField.name} must be applied to field`,
+            `${sourceField} must be applied to field`,
           ));
         } else {
           const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
           if (typeGrandparent.sourceAST?.kind !== "ObjectTypeDefinition") {
             errors.push(new GraphQLError(
-              `${sourceField.name} must be applied to field of object type`,
+              `${sourceField} must be applied to field of object type`,
             ));
           } else {
             const typeGrandparentName = typeGrandparent.sourceAST?.name.value;
@@ -403,7 +399,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
               typeGrandparent.appliedDirectivesOf("key").length === 0
             ) {
               errors.push(new GraphQLError(
-                `${sourceField.name} must be applied to root Query or Mutation field or field of entity type`,
+                `${sourceField} must be applied to root Query or Mutation field or field of entity type`,
               ));
             }
           }
@@ -420,6 +416,9 @@ function validateHTTPHeaders(
   errors: GraphQLError[],
   directiveName: string,
 ) {
+  if (!directiveName.startsWith('@')) {
+    directiveName = '@' + directiveName;
+  }
   if (headers) {
     headers.forEach(({ name, as, value }, i) => {
       // Ensure name is a valid HTTP header name.

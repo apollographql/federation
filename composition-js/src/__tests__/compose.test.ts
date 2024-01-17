@@ -5050,11 +5050,11 @@ describe('@source* directives', () => {
       );
 
       expect(messages).toContain(
-        '[bad] sourceType specifies unknown api A'
+        '[bad] @sourceType specifies unknown api A'
       );
 
       expect(messages).toContain(
-        '[bad] sourceField specifies unknown api A'
+        '[bad] @sourceField specifies unknown api A'
       );
     });
 
