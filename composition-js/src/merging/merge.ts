@@ -1274,10 +1274,7 @@ class Merger {
               dest,
               overridingSubgraphASTNode,
             ));
-          } else if (
-            this.metadata(fromIdx).isFieldUsed(fromField)
-            || !!overrideDirective.arguments().label
-          ) {
+          } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
             result.setUsedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
@@ -1594,7 +1591,7 @@ class Merger {
     if (!allTypesEqual) {
       return true;
     }
-    if (mergeContext.some(({ usedOverridden }) => usedOverridden)) {
+    if (mergeContext.some(({ usedOverridden, overrideLabel }) => usedOverridden || !!overrideLabel)) {
       return true;
     }
 
@@ -1647,7 +1644,8 @@ class Merger {
     for (const [idx, source] of sources.entries()) {
       const usedOverridden = mergeContext.isUsedOverridden(idx);
       const unusedOverridden = mergeContext.isUnusedOverridden(idx);
-      if (!source || unusedOverridden) {
+      const overrideLabel = mergeContext.overrideLabel(idx);
+      if (!source || (unusedOverridden && !overrideLabel)) {
         continue;
       }
 

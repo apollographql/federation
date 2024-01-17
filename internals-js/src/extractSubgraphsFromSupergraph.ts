@@ -615,9 +615,7 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().externalDirective());
   }
   const usedOverridden = !!joinFieldArgs?.usedOverridden;
-  // If an overridden field has a _label_ it's assumed to still be in use via
-  // progressive override so in that case we don't want to mark it as external.
-  if (usedOverridden && !joinFieldArgs?.overrideLabel) {
+  if (usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
   }
   if (joinFieldArgs?.override) {
