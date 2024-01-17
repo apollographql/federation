@@ -5057,5 +5057,51 @@ describe('@source* directives', () => {
         '[bad] sourceField specifies unknown api A'
       );
     });
+
+    const renamedSchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+          { name: "@sourceAPI", as: "@api" }
+          { name: "@sourceType", as: "@type" }
+          { name: "@sourceField", as: "@field" }
+        ])
+        @api(
+          name: "not an identifier"
+          http: { baseURL: "https://api.a.com/v1" }
+        )
+      {
+        query: Query
+      }
+
+      type Query {
+        resources: [Resource!]! @field(
+          api: "not an identifier"
+          http: { GET: "/resources" }
+        )
+      }
+
+      type Resource @key(fields: "id") @type(
+        api: "not an identifier"
+        http: { GET: "/resources/{id}" }
+        selection: "id description"
+      ) {
+        id: ID!
+        description: String!
+      }
+    `;
+
+    it('can handle the @source* directives being renamed', () => {
+      const result = composeServices([{
+        name: 'renamed',
+        typeDefs: renamedSchema,
+      }]);
+
+      const messages = result.errors!.map(e => e.message);
+
+      expect(messages).toContain(
+        '[renamed] @api(name: "not an identifier") must be valid GraphQL identifier'
+      );
+    });
   });
 });
