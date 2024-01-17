@@ -907,7 +907,8 @@ export enum UnadvanceableReason {
   UNRESOLVABLE_INTERFACE_OBJECT,
   NO_MATCHING_TRANSITION,
   UNREACHABLE_TYPE,
-  IGNORED_INDIRECT_PATH
+  IGNORED_INDIRECT_PATH,
+  UNSATISFIABLE_OVERRIDE_CONDITION,
 }
 
 export type Unadvanceable = {
@@ -1003,6 +1004,7 @@ export function advancePathWithTransition<V extends Vertex>(
   subgraphPath: TransitionPathWithLazyIndirectPaths<V>,
   transition: Transition,
   targetType: NamedType,
+  overrideConditions: Map<string, boolean>,
 ) : TransitionPathWithLazyIndirectPaths<V>[] | Unadvanceables {
   // The `transition` comes from the supergraph. Now, it is possible that a transition can be expressed on the supergraph, but correspond
   // to an 'unsatisfiable' condition on the subgraph. Let's consider:
@@ -1079,7 +1081,12 @@ export function advancePathWithTransition<V extends Vertex>(
 
   debug.group(() => `Trying to advance ${subgraphPath} for ${transition}`);
   debug.group('Direct options:');
-  const directOptions = advancePathWithDirectTransition(subgraphPath.path, transition, subgraphPath.conditionResolver);
+  const directOptions = advancePathWithDirectTransition(
+    subgraphPath.path,
+    transition,
+    subgraphPath.conditionResolver,
+    overrideConditions,
+  );
   let options: GraphPath<Transition, V>[];
   const deadEnds: Unadvanceable[] = [];
   if (isUnadvanceable(directOptions)) {
@@ -1104,7 +1111,12 @@ export function advancePathWithTransition<V extends Vertex>(
     debug.group('Validating indirect options:');
     for (const nonCollectingPath of pathsWithNonCollecting.paths) {
       debug.group(() => `For indirect path ${nonCollectingPath}:`);
-      const pathsWithTransition = advancePathWithDirectTransition(nonCollectingPath, transition, subgraphPath.conditionResolver);
+      const pathsWithTransition = advancePathWithDirectTransition(
+        nonCollectingPath,
+        transition,
+        subgraphPath.conditionResolver,
+        overrideConditions,
+      );
       if (isUnadvanceable(pathsWithTransition)) {
         debug.groupEnd(() => `Cannot be advanced with ${transition}`);
         deadEnds.push(...pathsWithTransition.reasons);
@@ -1544,7 +1556,8 @@ function hasValidDirectKeyEdge(
 function advancePathWithDirectTransition<V extends Vertex>(
   path: GraphPath<Transition, V>,
   transition: Transition,
-  conditionResolver: ConditionResolver
+  conditionResolver: ConditionResolver,
+  overrideConditions: Map<string, boolean>,
 ) : GraphPath<Transition, V>[] | Unadvanceables {
   assert(transition.collectOperationElements, "Supergraphs shouldn't have transitions that don't collect elements");
 
@@ -1563,6 +1576,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
       path,
       new DownCast(path.tail.type, transition.definition.parent),
       conditionResolver,
+      overrideConditions,
     );
     // The case we described above should be the only case we capture here, and so the current
     // subgraph must have the implementation type (it may not have the field we want, but it
@@ -1581,6 +1595,22 @@ function advancePathWithDirectTransition<V extends Vertex>(
     // The edge must match the transition. If it doesn't, we cannot use it.
     if (!edge.matchesSupergraphTransition(transition)) {
       continue;
+    }
+
+    if (edge.overrideCondition) {
+      assert(
+        overrideConditions.has(edge.overrideCondition.label),
+        `Override condition label "${edge.overrideCondition.label}" not found in existing override conditions for edge ${edge}`
+      );
+      if (overrideConditions.get(edge.overrideCondition.label) !== edge.overrideCondition.condition) {
+        deadEnds.push({
+          destSubgraph: edge.tail.source,
+          sourceSubgraph: edge.head.source,
+          reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
+          details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${overrideConditions.get(edge.overrideCondition.label)}`,
+        });
+        continue;
+      }
     }
 
     // Additionally, we can only take an edge if we can satisfy its conditions.
@@ -1646,11 +1676,12 @@ function advancePathWithDirectTransition<V extends Vertex>(
           : undefined;
 
         if (fieldInSubgraph) {
+          overrideConditions;
           // the subgraph has the field but no corresponding edge. This should only happen if the field is external.
           const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
           assert(
             externalDirective,
-            () => `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])`
+            () => { debugger; overrideConditions; return `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])` }
           );
           // but the field is external in the "subgraph-extracted-from-the-supergraph", but it might have been forced to an external
           // due to being a used-overriden field, in which case we want to amend the message to avoid confusing the user.

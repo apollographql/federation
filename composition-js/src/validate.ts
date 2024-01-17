@@ -414,7 +414,7 @@ export class ValidationState {
     // its value (T/F) as we traverse the graph. This allows us to ignore paths
     // that can never be taken by the query planner (i.e. a path where the
     // condition is T in one case and F in another).
-    public selectedOverrideConditions: Record<string, boolean> = {},
+    public selectedOverrideConditions: Map<string, boolean> = new Map(),
   ) {
   }
 
@@ -457,11 +457,22 @@ export class ValidationState {
     const targetType = supergraphEdge.tail.type;
     const newSubgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[] = [];
     const deadEnds: Unadvanceables[] = [];
+
+    // If the edge has an override condition, we should capture it in the state so
+    // that we can ignore later edges that don't satisfy the condition.
+    const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
+    if (supergraphEdge.overrideCondition) {
+      newOverrideConditions.set(
+        supergraphEdge.overrideCondition.label,
+        supergraphEdge.overrideCondition.condition
+      );
+    }
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
         path,
         transition,
         targetType,
+        newOverrideConditions,
       );
       if (isUnadvanceable(options)) {
         deadEnds.push(options);
@@ -481,13 +492,13 @@ export class ValidationState {
 
     // If the edge has an override condition, we should capture it in the state so
     // that we can ignore later edges that don't satisfy the condition.
-    const newOverrideCondition = supergraphEdge.overrideCondition ? {
-      [supergraphEdge.overrideCondition.label]: supergraphEdge.overrideCondition.condition
-    } : {};
+    // const newOverrideCondition = supergraphEdge.overrideCondition ? {
+    //   [supergraphEdge.overrideCondition.label]: supergraphEdge.overrideCondition.condition
+    // } : {};
     const updatedState = new ValidationState(
       newPath,
       newSubgraphPaths,
-      { ...this.selectedOverrideConditions, ...newOverrideCondition },
+      newOverrideConditions,
     );
 
     // When handling a @shareable field, we also compare the set of runtime types for each subgraphs involved.
@@ -671,7 +682,7 @@ class ValidationTraversal {
       // same label with the opposite condition since they're unreachable during
       // query planning.
       if (edge.overrideCondition && !edge.satisfiesOverrideConditions(state.selectedOverrideConditions)) {
-        debug.groupEnd(`Edge ${edge} doesn't satisfy label condition: ${edge.overrideCondition.label}(${state.selectedOverrideConditions[edge.overrideCondition.label]}), no need to validate further`);
+        debug.groupEnd(`Edge ${edge} doesn't satisfy label condition: ${edge.overrideCondition.label}(${state.selectedOverrideConditions.get(edge.overrideCondition.label)}), no need to validate further`);
         continue;
       }
 

@@ -219,7 +219,8 @@ export class Edge {
       newHead,
       this.tail,
       this.transition,
-      this._conditions
+      this._conditions,
+      this.overrideCondition,
     );
   }
 
@@ -233,11 +234,11 @@ export class Edge {
     return this.head === this.tail && (this.transition.kind === 'KeyResolution' || this.transition.kind === 'RootTypeResolution');
   }
 
-  satisfiesOverrideConditions(conditionsToCheck: Record<string, boolean>) {
+  satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
     return (
       !this.overrideCondition ||
-      !(this.overrideCondition.label in conditionsToCheck) ||
-      conditionsToCheck[this.overrideCondition.label] === this.overrideCondition.condition
+      !(conditionsToCheck.has(this.overrideCondition.label)) ||
+      conditionsToCheck.get(this.overrideCondition.label) === this.overrideCondition.condition
     );
   }
 
@@ -1184,7 +1185,7 @@ class GraphBuilder {
    * @returns the newly created edge that, as of this method returning, replaces `edge`.
    */
   updateEdgeTail(edge: Edge, newTail: Vertex): Edge {
-    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions);
+    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions, edge.overrideCondition);
     this.outEdges[edge.head.index][edge.index] = newEdge;
     // For in-edge, we need to remove the edge from the inputs of the previous tail,
     // and add it to the new tail.
