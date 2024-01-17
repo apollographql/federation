@@ -597,9 +597,20 @@ export class ValidationState {
   }
 }
 
-function isSupersetOrEqual(maybeSuperset: string[], other: string[]): boolean {
-  // `maybeSuperset` is a superset (or equal) if it contains all of `other`
-  return other.every(v => maybeSuperset.includes(v));
+// `maybeSuperset` is a superset (or equal) if it contains all of `other`'s
+// subgraphs and all of `other`'s labels (with matching conditions).
+function isSupersetOrEqual(maybeSuperset: VertexVisit, other: VertexVisit): boolean {
+  const includesAllSubgraphs = other.subgraphs.every((s) => maybeSuperset.subgraphs.includes(s));
+  const includesAllOverrideConditions = [...other.overriddenLabels.entries()].every(([label, value]) =>
+    maybeSuperset.overriddenLabels.get(label) === value
+  );
+
+  return includesAllSubgraphs && includesAllOverrideConditions;
+}
+
+interface VertexVisit {
+  subgraphs: string[];
+  overriddenLabels: Map<string, boolean>;
 }
 
 class ValidationTraversal {
@@ -609,7 +620,7 @@ class ValidationTraversal {
 
   // For each vertex in the supergraph, records if we've already visited that vertex and in which subgraphs we were.
   // For a vertex, we may have multiple "sets of subgraphs", hence the double-array.
-  private readonly previousVisits: QueryGraphState<string[][]>;
+  private readonly previousVisits: QueryGraphState<VertexVisit[]>;
 
   private readonly validationErrors: GraphQLError[] = [];
   private readonly validationHints: CompositionHint[] = [];
@@ -650,11 +661,15 @@ class ValidationTraversal {
   private handleState(state: ValidationState) {
     debug.group(() => `Validation: ${this.stack.length + 1} open states. Validating ${state}`);
     const vertex = state.supergraphPath.tail;
-    const currentSources = state.currentSubgraphNames();
-    const previousSeenSources = this.previousVisits.getVertexState(vertex);
-    if (previousSeenSources) {
-      for (const previousSources of previousSeenSources) {
-        if (isSupersetOrEqual(currentSources, previousSources)) {
+
+    const currentVertexVisit: VertexVisit = {
+      subgraphs: state.currentSubgraphNames(),
+      overriddenLabels: state.selectedOverrideConditions
+    };
+    const previousVisitsForVertex = this.previousVisits.getVertexState(vertex);
+    if (previousVisitsForVertex) {
+      for (const previousVisit of previousVisitsForVertex) {
+        if (isSupersetOrEqual(currentVertexVisit, previousVisit)) {
           // This means that we've already seen the type we're currently on in the supergraph, and when saw it we could be in
           // one of `previousSources`, and we validated that we could reach anything from there. We're now on the same
           // type, and have strictly more options regarding subgraphs. So whatever comes next, we can handle in the exact
@@ -664,10 +679,10 @@ class ValidationTraversal {
         }
       }
       // We're gonna have to validate, but we can save the new set of sources here to hopefully save work later.
-      previousSeenSources.push(currentSources);
+      previousVisitsForVertex.push(currentVertexVisit);
     } else {
       // We save the current sources but do validate.
-      this.previousVisits.setVertexState(vertex, [currentSources]);
+      this.previousVisits.setVertexState(vertex, [currentVertexVisit]);
     }
 
     // Note that if supergraphPath is terminal, this method is a no-op, which is expected/desired as
