@@ -171,6 +171,13 @@ export class Edge {
      * Outside of keys, @requires also rely on conditions.
      */
     conditions?: SelectionSet,
+    /**
+     * Edges can require that an override condition (provided during query
+     * planning) be met in order to be taken. This is used for progressive
+     * @override, where (at least) 2 subgraphs can resolve the same field, but
+     * one of them has an @override with a label. If the override condition
+     * matches the query plan parameters, this edge can be taken.
+     */
     public overrideCondition?: OverrideCondition,
   ) {
     this._conditions = conditions;
@@ -203,14 +210,16 @@ export class Edge {
     if (this.transition instanceof SubgraphEnteringTransition && !this._conditions) {
       return "";
     }
-    const overrideConditionString = this.overrideCondition
-      ? ` ⊢ ${this.overrideCondition.label}(${this.overrideCondition.condition})`
-      : '';
-    return (
-      this._conditions
-        ? `${this._conditions} ⊢ ${this.transition}`
-        : this.transition.toString()
-    ) + overrideConditionString;
+
+    let conditionsString = (this._conditions ?? '').toString();
+    if (this.overrideCondition) {
+      if (conditionsString.length) conditionsString += ', ';
+      conditionsString += `${this.overrideCondition.label} = ${this.overrideCondition.condition}`;
+    }
+    // we had at least some condition, add the turnstile and spacing
+    if (conditionsString.length) conditionsString += ' ⊢ ';
+
+    return conditionsString + this.transition.toString();
   }
 
   withNewHead(newHead: Vertex): Edge {

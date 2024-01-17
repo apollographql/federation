@@ -2900,6 +2900,13 @@ type PlanningParameters<RV extends Vertex> = {
 }
 
 interface BuildQueryPlanOptions {
+  /**
+   * A set of labels which will be used _during query planning_ to
+   * enable/disable edges with a matching label in their override condition.
+   * Edges with override conditions require their label to be present or absent
+   * from this set in order to be traversable. These labels enable the
+   * progressive @override feature.
+   */
   overriddenLabels?: Set<string>,
 }
 
@@ -3443,7 +3450,6 @@ function computeRootParallelBestPlan(
     hasDefers,
     parameters.root.rootKind,
     defaultCostFunction,
-    // TODO: trevor - is the reuse of this emptyContext problematic?
     emptyContext,
   );
   const plan = planningTraversal.findBestPlan();
