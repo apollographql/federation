@@ -1590,6 +1590,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
 
   const options: GraphPath<Transition, V>[] = [];
   const deadEnds: Unadvanceable[] = [];
+  let bypasses = 0;
 
   for (const edge of path.nextEdges()) {
     // The edge must match the transition. If it doesn't, we cannot use it.
@@ -1603,12 +1604,13 @@ function advancePathWithDirectTransition<V extends Vertex>(
         `Override condition label "${edge.overrideCondition.label}" not found in existing override conditions for edge ${edge}`
       );
       if (overrideConditions.get(edge.overrideCondition.label) !== edge.overrideCondition.condition) {
-        deadEnds.push({
-          destSubgraph: edge.tail.source,
-          sourceSubgraph: edge.head.source,
-          reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
-          details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${overrideConditions.get(edge.overrideCondition.label)}`,
-        });
+        // deadEnds.push({
+        //   destSubgraph: edge.tail.source,
+        //   sourceSubgraph: edge.head.source,
+        //   reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
+        //   details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${overrideConditions.get(edge.overrideCondition.label)}`,
+        // });
+        bypasses++;
         continue;
       }
     }
@@ -1659,6 +1661,8 @@ function advancePathWithDirectTransition<V extends Vertex>(
     return options;
   } else if (deadEnds.length > 0) {
     return new Unadvanceables(deadEnds);
+  } else if (bypasses > 0) {
+    return [];
   } else {
     let details: string;
     const subgraph = path.tail.source;
