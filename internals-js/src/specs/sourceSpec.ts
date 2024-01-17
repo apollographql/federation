@@ -284,6 +284,12 @@ export class SourceSpecDefinition extends FeatureDefinition {
             validateHTTPHeaders(headers, errors, sourceType.name);
 
             if (body) {
+              if (GET) {
+                errors.push(new GraphQLError(
+                  `${sourceType} http.GET cannot specify http.body`,
+                ));
+              }
+
               try {
                 parseJSONSelection(body);
                 // TODO Validate body selection matches the available fields.
@@ -351,6 +357,16 @@ export class SourceSpecDefinition extends FeatureDefinition {
             validateHTTPHeaders(headers, errors, sourceField.name);
 
             if (body) {
+              if (GET) {
+                errors.push(new GraphQLError(
+                  `${sourceType} http.GET cannot specify http.body`,
+                ));
+              } else if (DELETE) {
+                errors.push(new GraphQLError(
+                  `${sourceType} http.DELETE cannot specify http.body`,
+                ));
+              }
+
               try {
                 parseJSONSelection(body);
                 // TODO Validate body string matches the available fields of the
