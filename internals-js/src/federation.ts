@@ -727,7 +727,7 @@ export class FederationMetadata {
     return this.getLegacyFederationDirective(FederationDirectiveName.KEY);
   }
 
-  overrideDirective(): DirectiveDefinition<{from: string}> {
+  overrideDirective(): DirectiveDefinition<{from: string, label?: string}> {
     return this.getLegacyFederationDirective(FederationDirectiveName.OVERRIDE);
   }
 

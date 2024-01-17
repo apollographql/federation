@@ -1528,7 +1528,7 @@ function hasValidDirectKeyEdge(
     if (edge.transition.kind !== 'KeyResolution' || edge.tail.source !== to) {
       continue;
     }
-    // TREVOR - shouldn't just pass in an empty Set probably
+    // TODO: trevor - shouldn't just pass in an empty Set probably
     const resolution = conditionResolver(edge, emptyContext, [], [], new Set());
     if (!resolution.satisfied) {
       continue;

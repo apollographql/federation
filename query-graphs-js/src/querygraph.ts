@@ -34,6 +34,8 @@ import {
   selectionSetOfElement,
   SelectionSetUpdates,
   Supergraph,
+  NamedSchemaElement,
+  isDefined,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -171,21 +173,6 @@ export class Edge {
     public overrideCondition?: OverrideCondition,
   ) {
     this._conditions = conditions;
-
-    // If this edge is a field with an @override directive (+ label), we'll
-    // capture the label and assign the boolean condition which represents the
-    // expected presence or absence of the label during query planning to take
-    // this edge).
-    if (!this.overrideCondition && this.transition instanceof FieldCollection) {
-      const [overrideApplication] = this.transition.definition.appliedDirectivesOf('override') ?? [];
-      const label = overrideApplication?.arguments().label;
-      if (label) {
-        this.overrideCondition = {
-          label,
-          condition: this.head.source !== overrideApplication?.arguments().from,
-        };
-      }
-    }
   }
 
   get conditions(): SelectionSet | undefined {
@@ -807,6 +794,85 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       }
     );
   }
+
+  /**
+   * Handling progressive overrides here. For each progressive @override
+   * application (with a label), we want to update all relevant edges to the
+   * overridden field across all subgraphs with their respective override
+   * condition (the label and a T/F value). The "from" subgraph will have an
+   * override condition of `false`, whereas all other occurrences (all
+   * pertaining specifically to the @shareable interaction) will have an
+   * override condition of `true`.
+   */
+  const allOverrideApplications = schemas
+    .flatMap(s => federationMetadata(s)?.overrideDirective().applications())
+    .filter(isDefined);
+
+  for (const application of allOverrideApplications) {
+    const label = application.arguments().label;
+    if (!label) continue;
+
+    const field = application.parent;
+    assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`)
+    const type = field.parent;
+
+    for (const [i, subgraph] of subgraphs.entries()) {
+      const [vertex, ...unexpectedAdditionalVertices] = subgraph.verticesForType(type.name);
+      assert(vertex && unexpectedAdditionalVertices.length === 0, () => `Subgraph ${i} should have exactly one vertex for type ${type.name}`);
+      const edges = subgraph.outEdges(vertex);
+      for (const edge of edges) {
+        if (
+          edge.transition.kind === "FieldCollection"
+          && edge.transition.definition.name === field.name
+        ) {
+          const head = copyPointers[i].copiedVertex(vertex);
+          const copiedEdge = builder.edge(head, edge.index);
+          copiedEdge.overrideCondition = {
+            label,
+            condition: application.arguments().from !== subgraph.name,
+          }
+        }
+      }
+    }
+  }
+
+  // TODO: Sachin - this also works and follows existing patterns a bit more
+  // closely. It didn't seem like the traversal pattern was necessary in this
+  // case so I favored the snippet above. Both of these seem to work as expected.
+
+  // for (const [i, subgraph] of subgraphs.entries()) {
+  // simpleTraversal( subgraph, () => undefined,
+  // (e) => { if (e.transition.kind === 'FieldCollection') { const type =
+  // e.head.type; const field = e.transition.definition;
+
+  //       for (const overrideApplication of field.appliedDirectivesOf(overrideDirective)) {
+  //         const { from, label } = overrideApplication.arguments();
+  //         if (!label) continue;
+
+  //         for (const [j, otherSubgraph] of subgraphs.entries()) {
+  //           const otherVertices = otherSubgraph.verticesForType(type.name);
+  //           const otherEdges = otherSubgraph.outEdges(otherVertices[0]);
+  //           for (const otherEdge of otherEdges) {
+  //             if (
+  //               otherEdge.transition.kind === "FieldCollection"
+  //               && otherEdge.transition.definition.name === field.name
+  //             ) {
+  //               const head = copyPointers[j].copiedVertex(otherVertices[0]);
+  //               const copiedEdge = builder.edge(head, otherEdge.index);
+  //               copiedEdge.overrideCondition = {
+  //                 label,
+  //                 condition: from !== otherSubgraph.name,
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //     return true;
+  //   }
+  // )
+  // }
+
   // Now we handle @provides
   let provideId = 0;
   for (const [i, subgraph] of subgraphs.entries()) {

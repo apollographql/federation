@@ -954,7 +954,7 @@ describe("composition involving @override directive", () => {
           @join__type(graph: SUBGRAPH2, key: \\"k\\")
         {
           k: ID
-          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\")
+          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\") @join__field(graph: SUBGRAPH2, usedOverridden: true, overrideLabel: \\"foo\\")
           b: Int @join__field(graph: SUBGRAPH2)
         }"
       `);
@@ -1027,7 +1027,7 @@ describe("composition involving @override directive", () => {
           @join__type(graph: SUBGRAPH2, key: \\"k\\")
         {
           k: ID
-          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\")
+          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\") @join__field(graph: SUBGRAPH2, usedOverridden: true, overrideLabel: \\"foo\\")
           b: Int @join__field(graph: SUBGRAPH2)
         }"
       `);
@@ -1190,8 +1190,8 @@ describe("composition involving @override directive", () => {
         const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
         assertCompositionSuccess(result);
       });
-      it.todo("can we fail fpf with an override label? not sure...")
-    })
+      it.todo("can we fail fpf with an override label? not sure...");
+    });
 
     describe("validation errors", () => {
       it.skip("TODO", () => {

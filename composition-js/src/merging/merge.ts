@@ -1274,7 +1274,10 @@ class Merger {
               dest,
               overridingSubgraphASTNode,
             ));
-          } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
+          } else if (
+            this.metadata(fromIdx).isFieldUsed(fromField)
+            || !!overrideDirective.arguments().label
+          ) {
             result.setUsedOverridden(fromIdx);
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
@@ -1301,12 +1304,14 @@ class Merger {
             const percentRegex = /^percent\((\d{1,2}(\.\d{1,8})?|100)\)$/;
             if (labelRegex.test(overrideLabel)) {
               result.setOverrideLabel(idx, overrideLabel);
+              result.setOverrideLabel(fromIdx, overrideLabel);
             } else if (percentRegex.test(overrideLabel)) {
               const parts = percentRegex.exec(overrideLabel);
               if (parts) {
                 const percent = parseFloat(parts[1]);
                 if (percent >= 0 && percent <= 100) {
                   result.setOverrideLabel(idx, overrideLabel);
+                  result.setOverrideLabel(fromIdx, overrideLabel);
                 }
               }
             }
