@@ -882,7 +882,6 @@ export type ConditionResolver = (
   context: PathContext,
   excludedDestinations: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
-  overriddenLabels: Set<string>
 ) => ConditionResolution;
 
 
@@ -1390,8 +1389,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         context,
         addDestinationExclusion(excludedDestinations, target.source),
         excludedConditions,
-        // TODO
-        new Set(),
       );
       if (conditionResolution.satisfied) {
         debug.groupEnd('Condition satisfied');
@@ -1540,8 +1537,7 @@ function hasValidDirectKeyEdge(
     if (edge.transition.kind !== 'KeyResolution' || edge.tail.source !== to) {
       continue;
     }
-    // TODO: trevor - shouldn't just pass in an empty Set probably
-    const resolution = conditionResolver(edge, emptyContext, [], [], new Set());
+    const resolution = conditionResolver(edge, emptyContext, [], []);
     if (!resolution.satisfied) {
       continue;
     }
@@ -1616,7 +1612,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
     }
 
     // Additionally, we can only take an edge if we can satisfy its conditions.
-    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], [], new Set());
+    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], []);
     if (conditionResolution.satisfied) {
       options.push(path.add(transition, edge, conditionResolution));
     } else {
@@ -1792,7 +1788,6 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   context: PathContext,
   excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
-  overriddenLabels: Set<string>,
 ): ConditionResolution {
   const conditions = edge.conditions;
   if (!conditions) {
@@ -1804,7 +1799,6 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     context,
     excludedEdges,
     excludedConditions,
-    overriddenLabels,
   );
   if (!resolution.satisfied) {
     debug.groupEnd('Conditions are not satisfied');
@@ -2635,7 +2629,7 @@ function advanceWithOperation<V extends Vertex>(
         if (path.tailIsInterfaceObject()) {
           const fakeDownCastEdge = path.nextEdges().find((e) => e.transition.kind === 'InterfaceObjectFakeDownCast' && e.transition.castedTypeName === typeName);
           if (fakeDownCastEdge) {
-            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], [], new Set());
+            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], []);
             if (!conditionResolution.satisfied) {
               return { options: undefined };
             }
@@ -2664,7 +2658,7 @@ function addFieldEdge<V extends Vertex>(
   context: PathContext
 ): OpGraphPath<V> | undefined {
   // TODO empty Set?
-  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], [], new Set());
+  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
   return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
 }
 

@@ -19,7 +19,6 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
     context: PathContext,
     excludedDestinations: ExcludedDestinations,
     excludedConditions: ExcludedConditions,
-    overriddenLabels: Set<string>,
   ) => {
     assert(edge.conditions, 'Should not have been called for edge without conditions');
 
@@ -32,7 +31,7 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
     // cached value `pathTree` when the context is not empty. That said, the context is about active @include/@skip and it's not use
     // that commonly, so this is probably not an urgent improvement.
     if (!context.isEmpty() || excludedConditions.length > 0) {
-      return resolver(edge, context, excludedDestinations, excludedConditions, overriddenLabels);
+      return resolver(edge, context, excludedDestinations, excludedConditions);
     }
 
     const cachedResolutionAndExcludedEdges = cache.getEdgeState(edge);
@@ -40,9 +39,9 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
       const [cachedResolution, forExcludedEdges] = cachedResolutionAndExcludedEdges;
       return sameExcludedDestinations(forExcludedEdges, excludedDestinations)
         ? cachedResolution
-        : resolver(edge, context, excludedDestinations, excludedConditions, overriddenLabels);
+        : resolver(edge, context, excludedDestinations, excludedConditions);
     } else {
-      const resolution = resolver(edge, context, excludedDestinations, excludedConditions, overriddenLabels);
+      const resolution = resolver(edge, context, excludedDestinations, excludedConditions);
       cache.setEdgeState(edge, [resolution, excludedDestinations]);
       return resolution;
     }

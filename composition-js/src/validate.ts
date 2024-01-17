@@ -315,6 +315,7 @@ export function computeSubgraphPaths(
   supergraphSchema: Schema,
   supergraphPath: RootPath<Transition>,
   federatedQueryGraph: QueryGraph,
+  overriddenLabels: Set<string>,
 ): {
   traversal?: ValidationState,
   isComplete?: boolean,
@@ -322,7 +323,7 @@ export function computeSubgraphPaths(
 } {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true });
+    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true, overriddenLabels });
     const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, federatedQueryGraph, conditionResolver});
     const context = new ValidationContext(supergraphSchema);
     let state = initialState;
@@ -618,12 +619,13 @@ class ValidationTraversal {
   constructor(
     supergraphSchema: Schema,
     supergraphAPI: QueryGraph,
-    federatedQueryGraph: QueryGraph
+    federatedQueryGraph: QueryGraph,
   ) {
     this.conditionResolver = simpleValidationConditionResolver({
       supergraph: supergraphSchema,
       queryGraph: federatedQueryGraph,
       withCaching: true,
+      overriddenLabels: new Set(),
     });
     supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraphAPI,
