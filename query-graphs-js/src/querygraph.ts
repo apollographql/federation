@@ -36,6 +36,7 @@ import {
   Supergraph,
   NamedSchemaElement,
   isDefined,
+  validateSupergraph,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -539,12 +540,14 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
  *
  * @param name - the name to use for the created graph and as "source" name for the schema.
  * @param schema - the schema for which to build the query graph.
- * @param virtualEdges - TODO
+ * @param overrideLabelsByCoordinate - A Map of coordinate -> override label to apply to the query graph.
+ *   Additional "virtual" edges will be created for progressively overridden fields in order to ensure that
+ *   all possibilities are considered during query planning.
  * @returns the query graph corresponding to `schema` "API" (in the sense that no federation
  *   directives are taken into account by this method in the building of the query graph).
  */
-export function buildQueryGraph(name: string, schema: Schema, virtualEdges?: VirtualEdges): QueryGraph {
-  return buildGraphInternal(name, schema, false, undefined, virtualEdges);
+export function buildQueryGraph(name: string, schema: Schema, overrideLabelsByCoordinate?: Map<string, string>): QueryGraph {
+  return buildGraphInternal(name, schema, false, undefined, overrideLabelsByCoordinate);
 }
 
 function buildGraphInternal(
@@ -552,13 +555,13 @@ function buildGraphInternal(
   schema: Schema,
   addAdditionalAbstractTypeEdges: boolean,
   supergraphSchema?: Schema,
-  virtualEdges?: VirtualEdges,
+  overrideLabelsByCoordinate?: Map<string, string>,
 ): QueryGraph {
   const builder = new GraphBuilderFromSchema(
     name,
     schema,
     supergraphSchema ? { apiSchema: supergraphSchema.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
-    virtualEdges,
+    overrideLabelsByCoordinate,
   );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
@@ -569,13 +572,9 @@ function buildGraphInternal(
   if (addAdditionalAbstractTypeEdges) {
     builder.addAdditionalAbstractTypeEdges();
   }
-  if (virtualEdges) {
-    builder.addVirtualEdges();
-  }
   return builder.build();
 }
 
-type VirtualEdges = Record<string, Record<string, { label: string; graph: string; override: string; }>>;
 /**
  * Builds a "supergraph API" query graph based on the provided supergraph schema.
  *
@@ -592,21 +591,19 @@ type VirtualEdges = Record<string, Record<string, { label: string; graph: string
 export function buildSupergraphAPIQueryGraph(supergraph: Supergraph): QueryGraph {
   const apiSchema = supergraph.apiSchema();
 
-  const virtualEdges = supergraph.schema.allTypes().filter(isObjectType).reduce((acc, type) => {
-    for (const field of type.allFields()) {
-      const joinFieldArgs = field.appliedDirectivesOf('join__field')[0]?.arguments();
-      if (joinFieldArgs?.overrideLabel) {
-        acc[type.name] = acc[type.name] ?? {};
-        acc[type.name][field.name] = {
-          label: joinFieldArgs.overrideLabel,
-          graph: joinFieldArgs.graph,
-          override: joinFieldArgs.override
-        };
-      }
+  const overrideLabelsByCoordinate = new Map<string, string>();
+  const joinFieldApplications = validateSupergraph(supergraph.schema)[1]
+    .fieldDirective(supergraph.schema).applications();
+  for (const application of joinFieldApplications) {
+    const overrideLabel = application.arguments().overrideLabel;
+    if (overrideLabel) {
+      overrideLabelsByCoordinate.set(
+        (application.parent as FieldDefinition<any>).coordinate,
+        overrideLabel
+      );
     }
-    return acc;
-  }, {} as VirtualEdges);
-  return buildQueryGraph("supergraph", apiSchema, virtualEdges);
+  }
+  return buildQueryGraph("supergraph", apiSchema, overrideLabelsByCoordinate);
 }
 
 /**
@@ -1053,10 +1050,9 @@ class GraphBuilder {
     return this.rootVertices.get(kind);
   }
 
-  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, label?: string) {
+  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, overrideCondition?: OverrideCondition) {
     const headOutEdges = this.outEdges[head.index];
     const tailInEdges = this.inEdges[tail.index];
-    const overrideCondition = label ? { label, condition: true } : undefined;
     const edge = new Edge(headOutEdges.length, head, tail, transition, conditions, overrideCondition);
     headOutEdges.push(edge);
     tailInEdges.push(edge);
@@ -1229,7 +1225,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     private readonly name: string,
     private readonly schema: Schema,
     private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
-    private readonly virtualEdges?: VirtualEdges,
+    private readonly overrideLabelsByCoordinate?: Map<string, string>,
   ) {
     super();
     this.isFederatedSubgraph = !!supergraph && isFederationSubgraphSchema(schema);
@@ -1322,29 +1318,20 @@ class GraphBuilderFromSchema extends GraphBuilder {
     }
   }
 
-  private addEdgeForField(field: FieldDefinition<any>, head: Vertex, label?: string) {
+  private addEdgeForField(field: FieldDefinition<any>, head: Vertex) {
     const tail = this.addTypeRecursively(field.type!);
-    this.addEdge(head, tail, new FieldCollection(field), undefined, label);
-  }
-
-  addVirtualEdges() {
-    if (!this.virtualEdges) return;
-    for (const [typeName, fields] of Object.entries(this.virtualEdges)) {
-      const head = this.verticesForType(typeName)[0];
-      assert(head, () => `Vertex for type ${typeName} not found in graph`);
-      for (const [fieldName, { label }] of Object.entries(fields)) {
-        const fieldDef = (head.type as ObjectType).field(fieldName);
-        assert(fieldDef, () => `Field ${fieldName} not found in type ${typeName}`);
-        this.addEdgeForField(fieldDef, head, label);
-        const otherEdge = this.edges(head).find(
-          e => {
-            return e.head.type.name === typeName
-              && e.transition.kind === 'FieldCollection'
-              && e.transition.definition.name === fieldName
-          });
-        assert(otherEdge, () => `Edge for field ${fieldName} not found in graph`);
-        otherEdge.overrideCondition = { label, condition: false };
-      }
+    const overrideLabel = this.overrideLabelsByCoordinate?.get(field.coordinate);
+    if (overrideLabel) {
+      this.addEdge(head, tail, new FieldCollection(field), undefined, {
+        label: overrideLabel,
+        condition: true,
+      });
+      this.addEdge(head, tail, new FieldCollection(field), undefined, {
+        label: overrideLabel,
+        condition: false,
+      });
+    } else {
+      this.addEdge(head, tail, new FieldCollection(field));
     }
   }
 
