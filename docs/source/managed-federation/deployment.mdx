@@ -234,10 +234,12 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
     * For an example using the option in a `docker run` command, see [Specifying the supergraph](/router/containerization/docker/#specifying-the-supergraph).
 
 5. If you need to roll back to a previous blue-green deployment, ensure the previous deployment is available and shift traffic back to the previous deployment.
-    * Router image must use an embedded supergraph schema via the `--supergraph` flag
-    * Deployment should include both router and subgraphs to ensure resolver and schemas are compatible.
 
-    * If a previous deployment can't be redeployed, repeat steps 3 and 4 with the `launchID` you want to roll back to, ensure the deployed subgraphs are compatible with the supergraph schema, and then redeploy the router with a newly fetched supergraph schema for your target `launchID`.  See caveats in the rollback section below if only rolling back the supergraph schema and having it potentially diverge from what the underlying subgraphs can execute at runtime.
+    * A router image must use an embedded supergraph schema via the `--supergraph` flag.
+
+    * A deployment should include both router and subgraphs to ensure resolvers and schemas are compatible.
+
+    * If a previous deployment can't be redeployed, repeat steps 3 and 4 with the `launchID` you want to roll back to. Ensure the deployed subgraphs are compatible with the supergraph schema, then redeploy the router with a newly fetched supergraph schema for your target `launchID`. Before considering only rolling back the supergraph schema, see its [caveats](#roll-back-supergraph-schema-only).
 
 ### Example canary deployment
 
@@ -355,18 +357,30 @@ Alternatively, instead of getting its configuration from Apollo Uplink, the rout
 
 When rolling back a deployment, you must ensure the supergraph schema and router version are compatible with the deployed subgraphs and subgraph schemas in the target environment, so all possible GraphQL operations can be successfully executed.
 
-Guidelines for rollback:
+### Roll forward to revert
 
-- Rollbacks are typically implemented by rolling forward to a new version that reverts the changes in the subgraph code repository, and performing the full release process, publishing the subgraph schema and rolling out the new code together, as outlined in the [change management tech note](https://www.apollographql.com/docs/technotes/TN0028-change-management/#rollbacks-1). This ensures the supergraph schema exposed by the router matches the underlying subgraphs, and is the safest approach when  using the standard [schema delivery pipeline](/graphos/delivery) where Apollo Uplink provides the supergraph schema to the router for continuous deployment of new [Launches](https://www.apollographql.com/docs/graphos/delivery/launches).
+Rollbacks are typically implemented by rolling forward to a new version that reverts the changes in the subgraph code repository, then performing the full release process (publishing the subgraph schema and rolling out the new code together) as outlined in the [change management tech note](/technotes/TN0028-change-management/#rollbacks-1). This ensures the supergraph schema exposed by the router matches the underlying subgraphs. It's the safest approach when  using the standard [schema delivery pipeline](/graphos/delivery) where Apollo Uplink provides the supergraph schema to the router for continuous deployment of new [launches](/graphos/delivery/launches).
 
-- For blue-green deployment scenarios, where the router and subgraphs in a deployment have versioned Docker container images, you may be able to roll back the entire deployment (assuming no underlying database schema changes) which will ensure the supergraph schema embedded in the router image is compatible with underlying subgraphs in the target environment. This is typically what happens when a blue-green deployment is aborted if [post promotion analysis](https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/#postpromotionanalysis) fails.
+### Roll back entire deployment
 
-- In rare circumstances, where a backwards compatible subgraph schema-only change is made, like adjusting the progressive `@override` percentage in a subgraph schema, it may be possible to only rollback the supergraph schema by pinning the router fleet to the supergraph schema for a specific `launchID` using the  `--supergraph` flag.  This approach is only suitable for short term fixes, for a limited set of schema-only changes, and requires the router to pin to a specific supergraph `launchID`, as republishing the underlying subgraphs will result in a new supergraph schema being generated. Given the issues with this approach, we recommend implementing rollbacks by rolling forward to a new version that reverts the changes in the subgraph code repository, and performing the full release process, publishing the subgraph schema and rolling out the new code together, as outlined in the [change management tech note](https://www.apollographql.com/docs/technotes/TN0028-change-management/#rollbacks-1).
+For blue-green deployment scenarios, where the router and subgraphs in a deployment have versioned Docker container images, you may be able to roll back the entire deployment (assuming no underlying database schema changes). Doing so ensures that the supergraph schema embedded in the router image is compatible with underlying subgraphs in the target environment. This kind of rollback is typically what happens when a blue-green deployment is aborted if [post-promotion analysis](https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/#postpromotionanalysis) fails.
 
-In summary:
+### Roll back supergraph schema only
+
+In rare circumstances where a backwards compatible subgraph schema-only change is made (for example, setting progressive `@override` percentage), it may be possible to only rollback the supergraph schema by pinning the router fleet to the supergraph schema for a specific `launchID` using the `--supergraph` flag. 
+
+This approach is only suitable for short term fixes for a limited set of schema-only changes. It requires the router to pin to a specific supergraph `launchID`, as republishing the underlying subgraphs will result in a new supergraph schema being generated. 
+
+Given the issues with this approach, in general we recommend implementing rollbacks by [rolling forward to a new version](#roll-forward-to-revert).
+
+### Rollback guidelines
+
+A summary of rollback guidelines:
+
 - Any rollback must ensure the router's supergraph schema is compatible with the underlying subgraphs deployed in the target environment.
-- GraphOS's standard CI/CD [schema delivery pipeline](/graphos/delivery) is the best choice for most environments seeking continuous deployment and empowerment of subgraph teams to ship independently but with the safety of GraphOS checks to prevent breaking changes. See the [change management tech note](https://www.apollographql.com/docs/technotes/TN0028-change-management) for details.
-- In environments with existing blue-green or canary deployments that rely on an immutable infrastructure approach where no in-place updates, patches, or configuration changes can be made on production workloads, the router image may use an embedded supergraph schema via the `--supergraph` flag for a specific GraphOS `launchID` generated by publishing the subgraph schemas for the specific subgraph image versions used in a blue-green or canary deployment. In this way, a blue-green or canary deployment can be made immutable as a whole, so rolling back to a previous deployment ensures the router's supergraph schema is compatible with the underlying subgraphs deployed in the target environment.
-- In general, we do not recommend rolling back only the supergraph schema on the router in isolation as subgraph compatibility must be taken into account, subsequent subgraph publishes will generate a new supergraph schema that may lose the rolled back changes, and in general it's better to fix the problem in the source of truth which is in the subgraph repository.
 
+- GraphOS's standard CI/CD [schema delivery pipeline](/graphos/delivery) is the best choice for most environments seeking continuous deployment and empowerment of subgraph teams to ship both independently and with the safety of GraphOS checks to prevent breaking changes. For details, see the [change management tech note](/technotes/TN0028-change-management).
 
+- In environments with existing blue-green or canary deployments that rely on an immutable infrastructure approach&mdash;where no in-place updates, patches, or configuration changes can be made on production workloads&mdash;the router image can use an embedded supergraph schema. The supergraph schema is set for the router with the `--supergraph` flag for a specific GraphOS `launchID` that's generated by publishing the subgraph schemas for the specific subgraph image versions used in a blue-green or canary deployment. In this way, a blue-green or canary deployment can be made immutable as a whole, so rolling back to a previous deployment ensures the router's supergraph schema is compatible with the underlying subgraphs deployed in the target environment.
+
+- In general, we don't recommend rolling back only the supergraph schema on the router in isolation. Subgraph compatibility must also be taken into account. Subsequent publishing of subgraphs generates a new supergraph schema that may lose rolled back changes, so in general it's better to fix the problem at the source of truth in the subgraph repository.
