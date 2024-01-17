@@ -175,7 +175,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
   </Note>
 
-1. Poll for the completed launch and any downstream launches. 
+2. Poll for the completed launch and any downstream launches. 
 
     ```graphql
     ## Poll for the status of any individual launch by ID
@@ -197,7 +197,7 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     </Note>
 
-1. After the launch and downstream launches have completed, retrieve the supergraph schema of the launch.
+3. After the launch and downstream launches have completed, retrieve the supergraph schema of the launch.
 
     ```graphql
     ## Fetch the supergraph SDL by launch ID.
@@ -227,11 +227,15 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
     </Note>
 
-1. Deploy your routers with the [`-s` or `--supergraph` option](/router/configuration/overview/#-s----supergraph) to specify the supergraph schema.
+4. Deploy your routers with the [`-s` or `--supergraph` option](/router/configuration/overview/#-s----supergraph) to specify the supergraph schema.
 
     * Specifying the `-s` or `--supergraph` option disables polling for the schema from Uplink.
 
     * For an example using the option in a `docker run` command, see [Specifying the supergraph](/router/containerization/docker/#specifying-the-supergraph).
+
+5. If you need to roll back a router deployment to its previous supergraph schema, assuming you have separate Docker or container images per blue or green deployment, you can redeploy the previous deployment's image, because its router has the correct supergraph schema embedded in the image itself.
+
+    * To roll back, get the `launchId` of the launch you want to roll back to, then repeat steps 3 and 4 to redeploy your router. 
 
 ### Example canary deployment
 
@@ -347,10 +351,22 @@ Alternatively, instead of getting its configuration from Apollo Uplink, the rout
 
 ## Rolling back a deployment
 
-If you need to roll back a router deployment, with Kubernetes you can roll back a deployment to its previous revision with the following command:
+When a deployment has an issue, you may need to roll it back to update its subgraph and supergraph schemas and redeploy it.
 
-```bash showLineNumbers=false
-kubectl rollout undo <router-deployment-name>
-```
+Guidelines for rollback:
 
-To learn more, see the [Kubernetes Deployments guide](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-to-a-previous-revision).
+- For typical managed federation, where Apollo Uplink provides the supergraph schema to the router, we recommend rolling forward for rollback: create a new commit that reverts schema changes, then follow the standard [schema delivery pipeline](/graphos/delivery) to recreate the previous deployment in a new one.   
+
+- For blue-green deployment scenarios, where each deployment typically has its own Docker container image, you can roll back by redeploying the previous image, because its router has the correct supergraph schema embedded in the image itself.
+
+- For small subgraph schema changes that contain no resolver changes, it may be effective and fast to rollback only the supergraph schema. This may be applicable for field migrations, such as when using progressive `@override`.
+
+- In general, a rollback for subgraph schema changes likely need to revert both subgraph and supergraph schemas. Implementing such a rollback means first updating and publishing subgraph schemas, then launching and generating a supergraph schema.
+
+- With Kubernetes, you can roll back a router deployment to its previous revision with the following command:
+
+    ```bash showLineNumbers=false
+    kubectl rollout undo <router-deployment-name>
+    ```
+
+    To learn more, see the [Kubernetes Deployments guide](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-to-a-previous-revision).
