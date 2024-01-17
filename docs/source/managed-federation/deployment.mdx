@@ -359,9 +359,9 @@ Guidelines for rollback:
 
 - For blue-green deployment scenarios, where each deployment typically has its own Docker container image, you can roll back by redeploying the previous image, because its router has the correct supergraph schema embedded in the image itself.
 
-- For small subgraph schema changes that contain no resolver changes, it may be effective and fast to rollback only the supergraph schema. This may be applicable for field migrations, such as when using progressive `@override`.
+- For small subgraph-only schema changes not requiring resolvers, it may be fastest and effective to rollback only the supergraph schema. This may be applicable for field migrations, such as when using progressive `@override`.
 
-- In general, a rollback for subgraph schema changes likely need to revert both subgraph and supergraph schemas. Implementing such a rollback means first updating and publishing subgraph schemas, then launching and generating a supergraph schema.
+- In general, a rollback for subgraph schema changes likely need to revert both subgraph and supergraph schemas. Such a rollback relies on versioning deployed routers and subgraphs together, and implementing it means first updating and publishing subgraph schemas, then launching and generating a supergraph schema.
 
 - With Kubernetes, you can roll back a router deployment to its previous revision with the following command:
 
