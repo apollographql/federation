@@ -222,7 +222,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
           apiNameToProtocol.set(name, protocol);
 
           const protocolValue = rest[protocol];
-          if (protocolValue && protocol === "http") {
+          if (protocolValue && protocol === HTTP_PROTOCOL) {
             const { baseURL, headers } = protocolValue as HTTPSourceAPI;
 
             try {
@@ -261,7 +261,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             ));
           }
 
-          if (protocolValue && expectedProtocol === "http") {
+          if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
             const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
 
             if ([GET, POST].filter(Boolean).length !== 1) {
@@ -325,7 +325,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
         } else {
           const expectedProtocol = apiNameToProtocol.get(api);
           const protocolValue = expectedProtocol && rest[expectedProtocol];
-          if (protocolValue && expectedProtocol === "http") {
+          if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
             const {
               GET, POST, PUT, PATCH, DELETE,
               headers,
@@ -438,7 +438,10 @@ function validateHTTPHeaders(
   }
 }
 
-const KNOWN_SOURCE_PROTOCOLS = ["http"] as const;
+const HTTP_PROTOCOL = "http";
+const KNOWN_SOURCE_PROTOCOLS = [
+  HTTP_PROTOCOL,
+] as const;
 type ProtocolName = (typeof KNOWN_SOURCE_PROTOCOLS)[number];
 
 export type SourceAPIDirectiveArgs = {
