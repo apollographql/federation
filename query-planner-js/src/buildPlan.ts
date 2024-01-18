@@ -401,7 +401,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
 
     const overrideConditions = new Map([...parameters.overriddenLabels].map(label => [label, true]));
-
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
@@ -483,7 +482,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.recordClosedBranch(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
+          this.recordClosedBranch(options.map((o) => ({
+            paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p, overrideConditions))
+          })));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
         return;

@@ -1316,10 +1316,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         debug.log(() => `Nothing to try for ${toAdvance}: it only has "trivial" non-collecting outbound edges`);
         for (const edge of outEdges) {
           if (edge.tail.source !== toAdvance.tail.source && edge.tail.source !== originalSource) {
-            if (edge.tail.source === "Subgraph1" && edge.head.type.name === "A" && toAdvance.tail.source === "Subgraph2") {
-              overrideConditions;
-              debugger;
-            }
             deadEnds.push({
               sourceSubgraph: toAdvance.tail.source,
               destSubgraph: edge.tail.source,
@@ -1433,10 +1429,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // loop when calling `hasValidDirectKeyEdge` in that case without additional care and it's not useful because this
         // very method already ensure we don't create unnecessary chains of keys for the "current type"
         if (subgraphEnteringEdge && subgraphEnteringEdge.edge.tail.type.name !== typeName) {
-          if (edge.tail.source === "Subgraph1" && edge.head.type.name === "A" && toAdvance.tail.source === "Subgraph2") {
-            debugger;
-          }
-
           let prevSubgraphEnteringVertex: Vertex | undefined = undefined;
           let backToPreviousSubgraph: boolean;
           if (subgraphEnteringEdge.edge.transition.kind === 'SubgraphEnteringTransition') {
@@ -1451,16 +1443,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           }
           const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge, overrideConditions, prevSubgraphEnteringVertex);
           const maxCost = toAdvance.subgraphEnteringEdge.cost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
-
-          /* const previousOverride = path.lastEdge()?.overrideCondition;
-          if (
-            previousOverride
-            && ((overrideConditions.has(previousOverride.label) && previousOverride.condition === true)
-              || (!overrideConditions.has(previousOverride.label) && previousOverride.condition === false)
-          )) {
-            // jump due to override
-            debugger;
-          } else */ if (prevSubgraphVertex
+          if (prevSubgraphVertex
             && (
               backToPreviousSubgraph
               || hasValidDirectKeyEdge(toAdvance.graph, prevSubgraphVertex, edge.tail.source, conditionResolver, maxCost) != undefined
@@ -1483,10 +1466,6 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
             // recorded no-dead ends would break an assertion in `advancePathWithTransition` that assumes that if
             // we have recorded no-dead end, that's because we have no key edges. But note that this 'dead end'
             // message shouldn't really ever reach users.
-            if (edge.tail.source === "Subgraph1" && edge.head.type.name === "A" && toAdvance.tail.source === "Subgraph2") {
-              debugger;
-            }
-
             deadEnds.push({
               sourceSubgraph: toAdvance.tail.source,
               destSubgraph: edge.tail.source,
@@ -1676,7 +1655,6 @@ function advancePathWithDirectTransition<V extends Vertex>(
       }
     }
   }
-
   if (options.length > 0) {
     return options;
   } else if (deadEnds.length > 0) {
@@ -1693,7 +1671,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
         // it uses @interfaceObject on an interface of that implementation.
         details = `cannot find implementation type "${fieldTypeName}" (supergraph interface "${path.tail.type.name}" is declared with @interfaceObject in "${subgraph}")`;
       } else {
-        // Sachin: this is the place to "pretend" the field doesn't exist
+        // TODO: from sachin - this is the place to "pretend" the field doesn't exist
         const fieldInSubgraph = typeInSubgraph && isCompositeType(typeInSubgraph)
           ? typeInSubgraph.field(transition.definition.name)
           : undefined;
@@ -1703,7 +1681,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
           const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
           assert(
             externalDirective,
-            () => { debugger; overrideConditions; return `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])` }
+            () => `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])`
           );
           // but the field is external in the "subgraph-extracted-from-the-supergraph", but it might have been forced to an external
           // due to being a used-overriden field, in which case we want to amend the message to avoid confusing the user.
@@ -2699,7 +2677,12 @@ function edgeForField(
   field: Field<any>,
   overrideConditions: Map<string, boolean>
 ): Edge | undefined {
-  const candidates = graph.outEdges(vertex).filter(e => e.transition.kind === 'FieldCollection' && field.selects(e.transition.definition, true) && e.satisfiesOverrideConditions(overrideConditions));
+  const candidates = graph.outEdges(vertex)
+    .filter(e =>
+      e.transition.kind === 'FieldCollection'
+      && field.selects(e.transition.definition, true)
+      && e.satisfiesOverrideConditions(overrideConditions)
+  );
   assert(candidates.length <= 1, () => `Vertex ${vertex} has multiple edges matching ${field} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
 }

@@ -245,8 +245,8 @@ export class Edge {
   satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
     return (
       !this.overrideCondition ||
-      !(conditionsToCheck.has(this.overrideCondition.label)) ||
-      conditionsToCheck.get(this.overrideCondition.label) === this.overrideCondition.condition
+      (!conditionsToCheck.has(this.overrideCondition.label) && this.overrideCondition.condition === false) ||
+      (conditionsToCheck.has(this.overrideCondition.label) && this.overrideCondition.condition === true)
     );
   }
 
@@ -833,7 +833,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
           const head = copyPointers[i].copiedVertex(vertex);
           const copiedEdge = builder.edge(head, edge.index);
 
-          // Sachin: should this only be applied in 2 places?
+          // TODO: from sachin - should this only be applied in 2 places?
           copiedEdge.overrideCondition = {
             label,
             condition: application.arguments().from !== subgraph.name,

@@ -1149,8 +1149,8 @@ describe("composition involving @override directive", () => {
       );
     });
 
-    describe("TODO: fpf", () => {
-      it("skips unnecessary paths during validation", () => {
+    describe("composition validation", () => {
+      it("forced jump from S1 -> S2 -> S1 due to @override usages", () => {
         const subgraph1 = {
           name: "Subgraph1",
           url: "https://Subgraph1",
@@ -1188,39 +1188,6 @@ describe("composition involving @override directive", () => {
         };
 
         const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-        assertCompositionSuccess(result);
-      });
-      it.todo("can we fail fpf with an override label? not sure...");
-    });
-
-    describe("validation errors", () => {
-      it.skip("TODO", () => {
-        const s1 = {
-          name: "S1",
-          url: "S1",
-          typeDefs: gql`
-            type Query {
-              t: T
-            }
-
-            type T @key(fields: "i") {
-              i: ID!
-            }
-          `,
-        };
-
-        const s2 = {
-          name: "S2",
-          url: "S2",
-          typeDefs: gql`
-            type T @key(fields: "i") {
-              i: ID!
-              f: Int @override(from: "S1", label: "foo")
-            }
-          `,
-        };
-
-        const result = composeAsFed2Subgraphs([s1, s2]);
         assertCompositionSuccess(result);
       });
     });
