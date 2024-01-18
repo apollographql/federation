@@ -34,7 +34,7 @@ describe('override with label (progressive)', () => {
 
     it('overrides when the label is provided', () => {
       const overriddenPlan = queryPlanner.buildQueryPlan(operation, {
-        overriddenLabels: new Set(['test']),
+        overrideConditions: new Map([['test', true]]),
       });
       expect(overriddenPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -48,7 +48,9 @@ describe('override with label (progressive)', () => {
     });
 
     it('does not override when the label is not provided', () => {
-      const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation);
+      const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation, {
+        overrideConditions: new Map([['test', false]]),
+      });
       expect(nonOverriddenPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Fetch(service: "s1") {
@@ -117,7 +119,7 @@ describe('override with label (progressive)', () => {
 
       it('overrides when the label is provided', () => {
         const overriddenPlan = queryPlanner.buildQueryPlan(operation, {
-          overriddenLabels: new Set(['test']),
+          overrideConditions: new Map([['test', true]]),
         });
         expect(overriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -152,7 +154,9 @@ describe('override with label (progressive)', () => {
       });
 
       it('does not override when the label is omitted', () => {
-        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation);
+        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation, {
+          overrideConditions: new Map([['test', false]]),
+        });
         expect(nonOverriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
@@ -202,7 +206,7 @@ describe('override with label (progressive)', () => {
 
       it('overrides when the label is provided', () => {
         const overriddenPlan = queryPlanner.buildQueryPlan(operation, {
-          overriddenLabels: new Set(['test']),
+          overrideConditions: new Map([['test', true]]),
         });
         expect(overriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -238,8 +242,10 @@ describe('override with label (progressive)', () => {
       });
 
       it(`doesn't override when the label is omitted`, () => {
-        const overriddenPlan = queryPlanner.buildQueryPlan(operation);
-        expect(overriddenPlan).toMatchInlineSnapshot(`
+        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation, {
+          overrideConditions: new Map([['test', false]]),
+        });
+        expect(nonOverriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Fetch(service: "S1") {
               {
@@ -314,7 +320,7 @@ describe('override with label (progressive)', () => {
 
       it('overrides T.f1 resolution to S2 when the label is provided', () => {
         const overriddenPlan = queryPlanner.buildQueryPlan(operation, {
-          overriddenLabels: new Set(['test']),
+          overrideConditions: new Map([['test', true]]),
         });
         expect(overriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -349,7 +355,9 @@ describe('override with label (progressive)', () => {
       });
 
       it('preserves T.f1 resolution in S1 when the label is omitted', () => {
-        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation);
+        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation, {
+          overrideConditions: new Map([['test', false]]),
+        });
         expect(nonOverriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
@@ -406,7 +414,7 @@ describe('override with label (progressive)', () => {
 
       it('overrides T.f1 resolution to S3 when the label is provided', () => {
         const overriddenPlan = queryPlanner.buildQueryPlan(operation, {
-          overriddenLabels: new Set(['test']),
+          overrideConditions: new Map([['test', true]]),
         });
         expect(overriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -441,7 +449,9 @@ describe('override with label (progressive)', () => {
       });
 
       it('preserves T.f1 resolution in S1 when the label is omitted', () => {
-        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation);
+        const nonOverriddenPlan = queryPlanner.buildQueryPlan(operation, {
+          overrideConditions: new Map([['test', false]]),
+        });
         expect(nonOverriddenPlan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {

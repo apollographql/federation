@@ -400,14 +400,13 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
 
-    const overrideConditions = new Map([...parameters.overriddenLabels].map(label => [label, true]));
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
       this.conditionResolver,
       excludedDestinations,
       excludedConditions,
-      overrideConditions,
+      parameters.overrideConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
@@ -443,12 +442,11 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const overrideConditions = new Map([...this.parameters.overriddenLabels].map(label => [label, true]));
       const followupForOption = advanceSimultaneousPathsWithOperation(
         this.parameters.supergraphSchema,
         option,
         operation,
-        overrideConditions,
+        this.parameters.overrideConditions,
       );
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
@@ -483,7 +481,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
           this.recordClosedBranch(options.map((o) => ({
-            paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p, overrideConditions))
+            paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p, this.parameters.overrideConditions))
           })));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
@@ -2901,7 +2899,7 @@ type PlanningParameters<RV extends Vertex> = {
   root: RV,
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 }
 
 interface BuildQueryPlanOptions {
@@ -2912,7 +2910,7 @@ interface BuildQueryPlanOptions {
    * from this set in order to be traversable. These labels enable the
    * progressive @override feature.
    */
-  overriddenLabels?: Set<string>,
+  overrideConditions?: Map<string, boolean>,
 }
 
 export class QueryPlanner {
@@ -3082,7 +3080,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
-      overriddenLabels: options?.overriddenLabels ?? new Set(),
+      overrideConditions: options?.overrideConditions ?? new Map(),
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;

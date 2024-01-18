@@ -245,8 +245,7 @@ export class Edge {
   satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
     return (
       !this.overrideCondition ||
-      (!conditionsToCheck.has(this.overrideCondition.label) && this.overrideCondition.condition === false) ||
-      (conditionsToCheck.has(this.overrideCondition.label) && this.overrideCondition.condition === true)
+      conditionsToCheck.get(this.overrideCondition.label) === this.overrideCondition.condition
     );
   }
 

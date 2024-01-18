@@ -22,7 +22,6 @@ class ConditionValidationState {
     readonly selection: Selection,
     // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
     readonly subgraphOptions: SimultaneousPathsWithLazyIndirectPaths[],
-    readonly overrideConditions: Map<string, boolean>,
   ) {}
 
   advance(supergraph: Schema): ConditionValidationState[] | null {
@@ -32,7 +31,11 @@ class ConditionValidationState {
         supergraph,
         paths,
         this.selection.element,
-        this.overrideConditions,
+        // In this particular case, we're traversing the selections of a
+        // FieldSet. By providing _no_ overrides here, it'll ensure that we
+        // don't incorrectly validate any cases where overridden fields are in
+        // a FieldSet, it's just disallowed completely.
+        new Map(),
       );
       if (!pathsOptions) {
         continue;
@@ -49,7 +52,6 @@ class ConditionValidationState {
       s => new ConditionValidationState(
         s,
         newOptions,
-        this.overrideConditions,
       )
     ) : [];
   }
@@ -104,7 +106,6 @@ export function simpleValidationConditionResolver({
         new ConditionValidationState(
           selection,
           initialOptions,
-          overrideConditions,
         ),
       );
     }

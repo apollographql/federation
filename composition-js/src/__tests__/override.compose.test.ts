@@ -1194,6 +1194,61 @@ describe("composition involving @override directive", () => {
         const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
         assertCompositionSuccess(result);
       });
+
+      it("errors on overridden fields in @requires FieldSet", () => {
+        const subgraph1 = {
+          name: "Subgraph1",
+          url: "https://Subgraph1",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "id") {
+              id: ID
+              a: A @override(from: "Subgraph2", label: "foo")
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int
+              c: Int
+            }
+          `,
+        };
+
+        const subgraph2 = {
+          name: "Subgraph2",
+          url: "https://Subgraph2",
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID
+              a: A
+              b: Int @requires(fields: "a { c }")
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int @override(from: "Subgraph1", label: "foo")
+              c: Int @external
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+        expect(result.errors).toBeDefined();
+        expect(result.errors![0]).toMatchInlineSnapshot(`
+          [GraphQLError: The following supergraph API query:
+          {
+            t {
+              b
+            }
+          }
+          cannot be satisfied by the subgraphs because:
+          - from subgraph "Subgraph1": cannot find field "T.b".
+          - from subgraph "Subgraph2": cannot satisfy @require conditions on field "T.b".]
+        `);
+      });
     });
   });
 });
