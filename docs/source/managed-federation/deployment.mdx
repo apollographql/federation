@@ -243,29 +243,118 @@ As an example, follow these steps to deploy with a supergraph schema of a new re
 
 ### Example canary deployment
 
-A canary deployment applies graph updates to a small subset of your deployment environment before rolling it out for your entire environment.
+A canary deployment applies graph updates in an environment separate from a live production environment and validates its updates starting with a small subset of production traffic. As updates are validated in the canary deployment, more production traffic is routed to it gradually until it handles all traffic. 
 
-To configure a canary deployment, you might maintain two production graph variants in GraphOS Studio, one named `prod` and the other named `prod-canary`. To deploy a change to a subgraph named `launches`, you might perform the following steps:
+To configure your canary deployment, you can fetch the supergraph schema for a launchID for the canary deployment, then have that canary deployment report metrics to a `prod` variant. Similar to the [blue-green deployment example](#example-blue-green-deployment), your canary deployment is pinned to the same graph variant as your other, live deployment, so metrics from both deployments are reported to the same graph variant. As your canary deployment is scaled up, it will eventually become the stable deployment serving all production traffic, so we want that deployment reporting to the live `prod` variant.
 
-1. Check the changes in `launches` against both `prod` and `prod-canary`:
-   ```shell
-   rover subgraph check my-supergraph@prod --name launches --schema ./launches/schema.graphql
-   rover subgraph check my-supergraph@prod-canary --name launches --schema ./launches/schema.graphql
-   ```
-2. Deploy your changes to the `launches` subgraph in your production environment, _without_ running `rover subgraph publish`.
-    * _This ensures that your production router's configuration is not updated yet._
-3. Update your `prod-canary` variant's registered schema, by running:
-    ```
-    rover subgraph publish my-supergraph@prod-canary --name launches --schema ./launches/schema.graphql
-    ```
-    * _If composition fails due to intermediate changes to the canary graph, the canary router's configuration will not be updated._
-4. Wait for health checks to pass against the canary and confirm that operation metrics appear as expected.
-5. After the canary is stable, roll out the changes to your production routers:
-    ```
-    rover subgraph publish my-supergraph@prod --name=launches --schema ./launches/schema.graphql
+To configure a canary deployment for the `prod` graph variant:
+
+1. Publish all the canary deployment's subgraphs at once using the Platform API [`publishSubgraphs` mutation](https://studio.apollographql.com/graph/apollo-platform/variant/main/schema/reference/objects/GraphMutation#publishSubgraphs).
+
+    ```graphql
+    ## Publish multiple subgraphs together in a batch
+    ## and retrieve the associated launch, along with any downstream launches synchronously.
+    mutation PublishSubgraphsMutation(
+      $graphId: ID!
+      $graphVariant: String!
+      $revision: String!
+      $subgraphInputs: [PublishSubgraphsSubgraphInput!]!
+    ) {
+      graph(id: $graphId) {
+        publishSubgraphs( #highlight-line
+          graphVariant: "prod" ## name of production variant
+          revision: $revision
+          subgraphInputs: $subgraphInputs
+          downstreamLaunchInitiation: "SYNC"
+        ) {
+          launch {
+            id
+            downstreamLaunches {
+              id
+              graphVariant
+              status
+            }
+          }
+        }
+      }
+    }
     ```
 
-If your canary variant [reports metrics to GraphOS](/graphos/metrics/), you can use [GraphOS Studio](https://studio.apollographql.com?referrer=docs-content) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
+  This initiates a [launch](/graphos/delivery/launches/), as well as any downstream launches necessary for [contracts](/graphos/delivery/contracts/#automatic-updates). It returns the launch IDs, with downstream launch IDs configured to return synchronously (`downstreamLaunchInitiation: "SYNC"`) with the mutation.
+
+  <Note>
+
+  For contracts, you can also request that any downstream launches return the variant associated with each launch, for example, `downstreamLaunches { graphVariant }`.  When querying for a specific launch, be sure to pass the variant associated with the launch in the following steps.
+
+  </Note>
+
+2. Poll for the completed launch and any downstream launches. 
+
+    ```graphql
+    ## Poll for the status of any individual launch by ID
+    query PollLaunchStatusQuery($graphId: ID!, $graphVariant: String!, $launchId: ID!) {
+      graph(id: $graphId) {
+        variant(name: $graphVariant) {
+          launch(id: $launchId) {
+            status
+          }
+        }
+      }
+    }
+
+    ```
+
+    <Note>
+
+    When polling for a contract, the `$graphVariant` argument of this query must refer to the contract variant rather than the base variant. You can get it from the query in step 1, from `Launch.graphVariant / downstreamLaunches { graphVariant }`.
+
+    </Note>
+
+3. After the launch and downstream launches have completed, retrieve the supergraph schema of the launch.
+
+    ```graphql
+    ## Fetch the supergraph SDL by launch ID.
+    query FetchSupergraphSDLQuery($graphId: ID!, $graphVariant: String!, $launchId: ID!) {
+      graph(id: $graphId) {
+        variant(name: $graphVariant) {
+          launch(id: $launchId) {
+            build {
+              result {
+                ... on BuildSuccess {
+                  coreSchema {
+                    coreDocument
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ```
+
+    <Note>
+
+     When retrieving for a contract, the `$graphVariant` argument of this query must refer to a contract variant. You can get it from the query in step 1, from `Launch.graphVariant / downstreamLaunches { graphVariant }`.
+
+    </Note>
+
+4. Deploy your routers with the [`-s` or `--supergraph` option](/router/configuration/overview/#-s----supergraph) to specify the supergraph schema.
+
+    * Specifying the `-s` or `--supergraph` option disables polling for the schema from Uplink.
+
+    * For an example using the option in a `docker run` command, see [Specifying the supergraph](/router/containerization/docker/#specifying-the-supergraph).
+
+5. If you need to roll back, ensure the previous deployment is available and shift traffic back to the live deployment.
+
+    * A router image must use an embedded supergraph schema via the `--supergraph` flag.
+
+    * A deployment should include both router and subgraphs to ensure resolvers and schemas are compatible.
+
+    * If a previous deployment can't be redeployed, repeat steps 3 and 4 with the `launchID` you want to roll back to. Ensure the deployed subgraphs are compatible with the supergraph schema, then redeploy the router with a newly fetched supergraph schema for your target `launchID`. Before considering only rolling back the supergraph schema, see its [caveats](#roll-back-supergraph-schema-only).
+
+With your canary deployment [reporting metrics to GraphOS](/graphos/metrics/), you can use [GraphOS Studio](https://studio.apollographql.com?referrer=docs-content) to verify a canary's performance before rolling out changes to the rest of the graph.
 
 ## Modifying query-planning logic
 
