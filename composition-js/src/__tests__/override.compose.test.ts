@@ -980,6 +980,8 @@ describe("composition involving @override directive", () => {
           query: Query
         }
 
+        directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
         directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
         directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
@@ -993,6 +995,8 @@ describe("composition involving @override directive", () => {
         directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
         directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        scalar join__DirectiveArguments
 
         scalar join__FieldSet
 
