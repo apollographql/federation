@@ -877,12 +877,8 @@ export function traversePath(
 }
 
 // Note that ConditionResolver are guaranteed to be only called for edge with conditions.
-export type ConditionResolver = (
-  edge: Edge,
-  context: PathContext,
-  excludedDestinations: ExcludedDestinations,
-  excludedConditions: ExcludedConditions,
-) => ConditionResolution;
+export type ConditionResolver =
+  (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => ConditionResolution;
 
 
 export type ConditionResolution = {
@@ -1586,7 +1582,6 @@ function advancePathWithDirectTransition<V extends Vertex>(
 
   const options: GraphPath<Transition, V>[] = [];
   const deadEnds: Unadvanceable[] = [];
-  let bypasses = 0;
 
   for (const edge of path.nextEdges()) {
     // The edge must match the transition. If it doesn't, we cannot use it.
@@ -1595,18 +1590,14 @@ function advancePathWithDirectTransition<V extends Vertex>(
     }
 
     if (edge.overrideCondition) {
-      assert(
-        overrideConditions.has(edge.overrideCondition.label),
-        `Override condition label "${edge.overrideCondition.label}" not found in existing override conditions for edge ${edge}`
-      );
-      if (overrideConditions.get(edge.overrideCondition.label) !== edge.overrideCondition.condition) {
-        // deadEnds.push({
-        //   destSubgraph: edge.tail.source,
-        //   sourceSubgraph: edge.head.source,
-        //   reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
-        //   details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${overrideConditions.get(edge.overrideCondition.label)}`,
-        // });
-        bypasses++;
+      const isOverridden = overrideConditions.get(edge.overrideCondition.label) === true;
+      if (isOverridden !== edge.overrideCondition.condition) {
+        deadEnds.push({
+          destSubgraph: edge.tail.source,
+          sourceSubgraph: edge.head.source,
+          reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
+          details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${!edge.overrideCondition.condition}`,
+        });
         continue;
       }
     }
@@ -1653,12 +1644,11 @@ function advancePathWithDirectTransition<V extends Vertex>(
       }
     }
   }
+
   if (options.length > 0) {
     return options;
   } else if (deadEnds.length > 0) {
     return new Unadvanceables(deadEnds);
-  } else if (bypasses > 0) {
-    return [];
   } else {
     let details: string;
     const subgraph = path.tail.source;
@@ -1676,7 +1666,6 @@ function advancePathWithDirectTransition<V extends Vertex>(
           : undefined;
 
         if (fieldInSubgraph) {
-          overrideConditions;
           // the subgraph has the field but no corresponding edge. This should only happen if the field is external.
           const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
           assert(
@@ -1787,19 +1776,14 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   conditionResolver: ConditionResolver,
   context: PathContext,
   excludedEdges: ExcludedDestinations,
-  excludedConditions: ExcludedConditions,
+  excludedConditions: ExcludedConditions
 ): ConditionResolution {
   const conditions = edge.conditions;
   if (!conditions) {
     return noConditionsResolution;
   }
   debug.group(() => `Checking conditions ${conditions} on edge ${edge}`);
-  const resolution = conditionResolver(
-    edge,
-    context,
-    excludedEdges,
-    excludedConditions,
-  );
+  const resolution = conditionResolver(edge, context, excludedEdges, excludedConditions);
   if (!resolution.satisfied) {
     debug.groupEnd('Conditions are not satisfied');
     return unsatisfiedConditionsResolution;
@@ -2657,7 +2641,6 @@ function addFieldEdge<V extends Vertex>(
   conditionResolver: ConditionResolver,
   context: PathContext
 ): OpGraphPath<V> | undefined {
-  // TODO empty Set?
   const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
   return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
 }

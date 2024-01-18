@@ -14,12 +14,7 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
   // as the algorithm always try keys in the same order (the order of the edges in the query graph), including
   // the excluded edges we see on the first ever call is actually the proper thing to do.
   const cache = new QueryGraphState<undefined, [ConditionResolution, ExcludedDestinations]>(graph);
-  return (
-    edge: Edge,
-    context: PathContext,
-    excludedDestinations: ExcludedDestinations,
-    excludedConditions: ExcludedConditions,
-  ) => {
+  return (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => {
     assert(edge.conditions, 'Should not have been called for edge without conditions');
 
     // We don't cache if there is a context or excluded conditions because those would impact the resolution and
