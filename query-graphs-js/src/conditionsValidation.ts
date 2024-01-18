@@ -72,12 +72,10 @@ export function simpleValidationConditionResolver({
   supergraph,
   queryGraph,
   withCaching,
-  overrideConditions,
 }: {
   supergraph: Schema,
   queryGraph: QueryGraph,
   withCaching?: boolean,
-  overrideConditions: Map<string, boolean>,
 }): ConditionResolver {
   const resolver = (
     edge: Edge,
@@ -93,10 +91,10 @@ export function simpleValidationConditionResolver({
       new SimultaneousPathsWithLazyIndirectPaths(
         [initialPath],
         context,
-        simpleValidationConditionResolver({ supergraph, queryGraph, withCaching, overrideConditions }),
+        simpleValidationConditionResolver({ supergraph, queryGraph, withCaching }),
         excludedDestinations,
         excludedConditions,
-        overrideConditions,
+        new Map(),
       )
     ];
 

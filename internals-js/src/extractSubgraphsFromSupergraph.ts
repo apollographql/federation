@@ -615,7 +615,7 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().externalDirective());
   }
   const usedOverridden = !!joinFieldArgs?.usedOverridden;
-  if (usedOverridden) {
+  if (usedOverridden && !joinFieldArgs?.overrideLabel) {
     subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
   }
   if (joinFieldArgs?.override) {

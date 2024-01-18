@@ -68,7 +68,7 @@ function createOptions(supergraph: Schema, queryGraph: QueryGraph): Simultaneous
   return createInitialOptions(
     initialPath,
     emptyContext,
-    simpleValidationConditionResolver({ supergraph, queryGraph, overrideConditions: new Map() }),
+    simpleValidationConditionResolver({ supergraph, queryGraph }),
     [],
     [],
     new Map(),

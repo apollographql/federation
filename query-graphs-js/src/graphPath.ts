@@ -2376,7 +2376,6 @@ function advanceWithOperation<V extends Vertex>(
         }
         if (edge.overrideCondition) {
           const { label } = edge.overrideCondition;
-          assert(overrideConditions.has(label), () => `Expected to have an override condition set for ${label}`);
           if (!edge.satisfiesOverrideConditions(overrideConditions)) {
             debug.groupEnd(() => `Ignoring edge due to override label "${label}" in subgraph ${edge.head.source} on field ${field} on object type ${currentType}`);
             return { options: undefined };

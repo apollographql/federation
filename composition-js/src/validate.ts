@@ -324,7 +324,7 @@ export function computeSubgraphPaths(
 } {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true, overrideConditions });
+    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true });
     const initialState = ValidationState.initial({ supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, federatedQueryGraph, conditionResolver, overrideConditions });
     const context = new ValidationContext(supergraphSchema);
     let state = initialState;
@@ -640,7 +640,6 @@ class ValidationTraversal {
       supergraph: supergraphSchema,
       queryGraph: federatedQueryGraph,
       withCaching: true,
-      overrideConditions: new Map(),
     });
     supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraphAPI,
@@ -703,10 +702,15 @@ class ValidationTraversal {
       // (i.e. "foo" -> true). There's no need to validate edges that share the
       // same label with the opposite condition since they're unreachable during
       // query planning.
-      if (edge.overrideCondition && !edge.satisfiesOverrideConditions(state.selectedOverrideConditions)) {
-        debug.groupEnd(`Edge ${edge} doesn't satisfy label condition: ${edge.overrideCondition.label}(${state.selectedOverrideConditions.get(edge.overrideCondition.label)}), no need to validate further`);
+      if (
+        edge.overrideCondition
+        && state.selectedOverrideConditions.has(edge.overrideCondition.label)
+        && edge.satisfiesOverrideConditions(state.selectedOverrideConditions)
+      ) {
+        debug.groupEnd(`Edge ${edge} doesn't satisfy label condition: ${edge.overrideCondition?.label}(${state.selectedOverrideConditions.get(edge.overrideCondition?.label ?? "")}), no need to validate further`);
         continue;
       }
+
 
       debug.group(() => `Validating supergraph edge ${edge}`);
       const { state: newState, error, hint } = state.validateTransition(this.context, edge);

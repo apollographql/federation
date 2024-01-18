@@ -243,10 +243,9 @@ export class Edge {
   }
 
   satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
-    return (
-      !this.overrideCondition ||
-      conditionsToCheck.get(this.overrideCondition.label) === this.overrideCondition.condition
-    );
+    if (!this.overrideCondition) return true;
+    const { label, condition } = this.overrideCondition;
+    return conditionsToCheck.has(label) ? conditionsToCheck.get(label) === condition : false;
   }
 
   toString(): string {
