@@ -558,7 +558,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
 
   checkDirectPathFromPreviousSubgraphTo(
     typeName: string,
-    triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined,
+    triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger, overrideConditions: Map<string, boolean>) => Edge | null | undefined,
+    overrideConditions: Map<string, boolean>,
     prevSubgraphStartingVertex?: Vertex,
   ): Vertex | undefined {
     const enteringEdge = this.subgraphEnteringEdge;
@@ -580,7 +581,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     let prevSubgraphVertex = prevSubgraphStartingVertex ?? enteringEdge.edge.head;
     for (let i = enteringEdge.index + 1; i < this.size; i++) {
       const triggerToMatch = this.props.edgeTriggers[i];
-      const prevSubgraphMatchingEdge = triggerToEdge(this.graph, prevSubgraphVertex, triggerToMatch);
+      const prevSubgraphMatchingEdge = triggerToEdge(this.graph, prevSubgraphVertex, triggerToMatch, overrideConditions);
       if (prevSubgraphMatchingEdge === null) {
         // This means the trigger doesn't make us move (it's typically an inline fragment with no conditions, just directive), which we can always match.
         continue;
@@ -833,7 +834,7 @@ export function isRootPath(path: OpGraphPath<any>): path is OpRootPath {
   return isRootVertex(path.root);
 }
 
-export function terminateWithNonRequestedTypenameField<V extends Vertex>(path: OpGraphPath<V>): OpGraphPath<V> {
+export function terminateWithNonRequestedTypenameField<V extends Vertex>(path: OpGraphPath<V>, overrideConditions: Map<string, boolean>): OpGraphPath<V> {
   // If the last step of the path was a fragment/type-condition, we want to remove it before we get __typename.
   // The reason is that this avoid cases where this method would make us build plans like:
   // {
@@ -859,7 +860,7 @@ export function terminateWithNonRequestedTypenameField<V extends Vertex>(path: O
     return path;
   }
   const typenameField = new Field(path.tail.type.typenameField()!);
-  const edge = edgeForField(path.graph, path.tail, typenameField);
+  const edge = edgeForField(path.graph, path.tail, typenameField, overrideConditions);
   assert(edge, () => `We should have an edge from ${path.tail} for ${typenameField}`);
   return path.add(typenameField, edge, noConditionsResolution);
 }
@@ -925,10 +926,14 @@ export function isUnadvanceable(result: any[] | Unadvanceables): result is Unadv
   return result instanceof Unadvanceables;
 }
 
-function pathTransitionToEdge(graph: QueryGraph, vertex: Vertex, transition: Transition): Edge | null | undefined {
+function pathTransitionToEdge(graph: QueryGraph, vertex: Vertex, transition: Transition, overrideConditions: Map<string, boolean>): Edge | null | undefined {
   for (const edge of graph.outEdges(vertex)) {
     // The edge must match the transition.
-    if (edge.matchesSupergraphTransition(transition)) {
+    if (!edge.matchesSupergraphTransition(transition)) {
+      continue;
+    }
+
+    if (edge.satisfiesOverrideConditions(overrideConditions)) {
       return edge;
     }
   }
@@ -1263,7 +1268,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   excludedDestinations: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
-  triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined,
+  triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger, overrideConditions: Map<string, boolean>) => Edge | null | undefined,
   overrideConditions: Map<string, boolean>,
 ): IndirectPaths<TTrigger, V, TNullEdge, TDeadEnds>  {
   // If we're asked for indirect paths after an "@interfaceObject fake down cast" but that down cast comes just after a non-collecting edges, then
@@ -1444,10 +1449,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           } else {
             backToPreviousSubgraph = subgraphEnteringEdge.edge.head.source === edge.tail.source;
           }
-          const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge, prevSubgraphEnteringVertex);
+          const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge, overrideConditions, prevSubgraphEnteringVertex);
           const maxCost = toAdvance.subgraphEnteringEdge.cost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
 
-          const previousOverride = path.lastEdge()?.overrideCondition;
+          /* const previousOverride = path.lastEdge()?.overrideCondition;
           if (
             previousOverride
             && ((overrideConditions.has(previousOverride.label) && previousOverride.condition === true)
@@ -1455,7 +1460,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           )) {
             // jump due to override
             debugger;
-          } else if (prevSubgraphVertex
+          } else */ if (prevSubgraphVertex
             && (
               backToPreviousSubgraph
               || hasValidDirectKeyEdge(toAdvance.graph, prevSubgraphVertex, edge.tail.source, conditionResolver, maxCost) != undefined
@@ -2168,12 +2173,12 @@ function createLazyOptions<V extends Vertex>(
   ));
 }
 
-function opPathTriggerToEdge(graph: QueryGraph, vertex: Vertex, trigger: OpTrigger): Edge | null | undefined {
+function opPathTriggerToEdge(graph: QueryGraph, vertex: Vertex, trigger: OpTrigger, overrideConditions: Map<string, boolean>): Edge | null | undefined {
   if (trigger instanceof PathContext) {
     return undefined;
   }
   if (trigger.kind === 'Field') {
-    return edgeForField(graph, vertex, trigger);
+    return edgeForField(graph, vertex, trigger, overrideConditions);
   } else {
     return trigger.typeCondition ? edgeForTypeCast(graph, vertex, trigger.typeCondition.name) : null;
   }
@@ -2386,7 +2391,7 @@ function advanceWithOperation<V extends Vertex>(
     switch (currentType.kind) {
       case 'ObjectType':
         // Just take the edge corresponding to the field, if it exists and can be used.
-        const edge = nextEdgeForField(path, operation);
+        const edge = nextEdgeForField(path, operation, overrideConditions);
         if (!edge) {
           debug.groupEnd(() => `No edge for field ${field} on object type ${currentType}`);
           return { options: undefined };
@@ -2434,7 +2439,7 @@ function advanceWithOperation<V extends Vertex>(
         // - either type-exploding cannot work unless taking the interface edge also do (the `anImplementationIsEntityWithFieldShareable`)
         // - or that type-exploding cannot be more efficient than the direct path (when no @provides are involved; if a provide is involved
         //   in one of the implementation, then type-exploding may lead to a shorter overall plan thanks to that @provides)
-        const itfEdge = fieldIsOfAnImplementation ? undefined : nextEdgeForField(path, operation);
+        const itfEdge = fieldIsOfAnImplementation ? undefined : nextEdgeForField(path, operation, overrideConditions);
         let itfPath: OpGraphPath<V> | undefined = undefined;
         let directPathOverrideTypeExplosion = false;
         if (itfEdge) {
@@ -2550,7 +2555,7 @@ function advanceWithOperation<V extends Vertex>(
         return { options: allOptions, hasOnlyTypeExplodedResults: !itfPath };
       case 'UnionType':
         assert(field.name === typenameFieldName, () => `Invalid field selection ${operation} for union type ${currentType}`);
-        const typenameEdge = nextEdgeForField(path, operation);
+        const typenameEdge = nextEdgeForField(path, operation, overrideConditions);
         assert(typenameEdge, `Should always have an edge for __typename edge on an union`);
         debug.groupEnd(() => `Trivial collection of __typename for union ${currentType}`);
         return { options: pathAsOptions(addFieldEdge(path, operation, typenameEdge, conditionResolver, context)) };
@@ -2682,17 +2687,19 @@ function pathAsOptions<V extends Vertex>(path: OpGraphPath<V> | undefined): Simu
 
 function nextEdgeForField<V extends Vertex>(
   path: OpGraphPath<V>,
-  field: Field<any>
+  field: Field<any>,
+  overrideConditions: Map<string, boolean>
 ): Edge | undefined {
-  return edgeForField(path.graph, path.tail, field);
+  return edgeForField(path.graph, path.tail, field, overrideConditions);
 }
 
 function edgeForField(
   graph: QueryGraph,
   vertex: Vertex,
-  field: Field<any>
+  field: Field<any>,
+  overrideConditions: Map<string, boolean>
 ): Edge | undefined {
-  const candidates = graph.outEdges(vertex).filter(e => e.transition.kind === 'FieldCollection' && field.selects(e.transition.definition, true));
+  const candidates = graph.outEdges(vertex).filter(e => e.transition.kind === 'FieldCollection' && field.selects(e.transition.definition, true) && e.satisfiesOverrideConditions(overrideConditions));
   assert(candidates.length <= 1, () => `Vertex ${vertex} has multiple edges matching ${field} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
 }
