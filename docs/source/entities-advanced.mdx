@@ -295,7 +295,7 @@ Follow these steps to use the `@override` directive:
 
     ```graphql {3} title="Billing subgraph"
     extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.3",
+      @link(url: "https://specs.apollo.dev/federation/v2.7",
             import: ["@key", "@shareable", "@override"])
     ```
 
@@ -331,16 +331,16 @@ Follow these steps to use the `@override` directive:
 
     * **To migrate gradually with progressive `@override`**, you must use the Apollo Router with an Enterprise license. We recommend using progressive `@override` if it's available.
 
-       To set progressive `@override` in the Billing subgraph, add a `label` argument to the `@override` directive with the percentage of requests that you want to be resolved by the subgraph. For example:
+       To use progressive `@override`, add a `label` argument to the `@override` directive with the percentage of requests that you want to be resolved by the subgraph. For example:
 
         ```graphql title="Billing subgraph"
         type Bill @key(fields: "id") {
           id: ID!
-          amount: Int! @override(from: "Payments", label:"percent(15)") #highlight-line
+          amount: Int! @override(from: "Payments", label: "percent(15)") #highlight-line
         }
         ``` 
 
-        Setting `label:"percent(15)"` means that 15 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 85 percent are resolved by the Payments subgraph. 
+        Setting `label: "percent(15)"` means that 15 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 85 percent are resolved by the Payments subgraph. 
 
     * **To migrate all at once**, if you're using managed federation, you do this by publishing the Billing subgraph's schema to GraphOS with [`rover subgraph publish`](/graphos/delivery/#subgraph-schemas).
 

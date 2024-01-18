@@ -327,7 +327,7 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 
 <ProgressiveOverrideEnterprise/>
 
-Rolling out any change to a production subgraph, including adding `@override` fields, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another _all at once_ could overload the overriding subgraph.
+Rolling out any change to a production subgraph, including field migration, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another _all at once_ could overload the overriding subgraph.
 
 The **progressive `@override`** feature enables the gradual, progressive deployment of a subgraph with an `@override` field. As a subgraph developer, you can customize the percentage of traffic that the overriding and overridden subgraphs each resolve for a field. You apply a label to an `@override` field to set the percentage of traffic for the field that should be resolved by the overriding subgraph, with the remaining percentage resolved by the overridden subgraph. You can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic is resolved by the overriding subgraph.
 
