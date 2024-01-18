@@ -832,6 +832,8 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
         ) {
           const head = copyPointers[i].copiedVertex(vertex);
           const copiedEdge = builder.edge(head, edge.index);
+
+          // Sachin: should this only be applied in 2 places?
           copiedEdge.overrideCondition = {
             label,
             condition: application.arguments().from !== subgraph.name,

@@ -22,7 +22,7 @@ class ConditionValidationState {
     readonly selection: Selection,
     // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
     readonly subgraphOptions: SimultaneousPathsWithLazyIndirectPaths[],
-    readonly overriddenLabels: Set<string>,
+    readonly overrideConditions: Map<string, boolean>,
   ) {}
 
   advance(supergraph: Schema): ConditionValidationState[] | null {
@@ -32,7 +32,7 @@ class ConditionValidationState {
         supergraph,
         paths,
         this.selection.element,
-        this.overriddenLabels,
+        this.overrideConditions,
       );
       if (!pathsOptions) {
         continue;
@@ -49,7 +49,7 @@ class ConditionValidationState {
       s => new ConditionValidationState(
         s,
         newOptions,
-        this.overriddenLabels,
+        this.overrideConditions,
       )
     ) : [];
   }
@@ -70,12 +70,12 @@ export function simpleValidationConditionResolver({
   supergraph,
   queryGraph,
   withCaching,
-  overriddenLabels,
+  overrideConditions,
 }: {
   supergraph: Schema,
   queryGraph: QueryGraph,
   withCaching?: boolean,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 }): ConditionResolver {
   const resolver = (
     edge: Edge,
@@ -91,10 +91,10 @@ export function simpleValidationConditionResolver({
       new SimultaneousPathsWithLazyIndirectPaths(
         [initialPath],
         context,
-        simpleValidationConditionResolver({ supergraph, queryGraph, withCaching, overriddenLabels }),
+        simpleValidationConditionResolver({ supergraph, queryGraph, withCaching, overrideConditions }),
         excludedDestinations,
         excludedConditions,
-        overriddenLabels,
+        overrideConditions,
       )
     ];
 
@@ -104,7 +104,7 @@ export function simpleValidationConditionResolver({
         new ConditionValidationState(
           selection,
           initialOptions,
-          overriddenLabels,
+          overrideConditions,
         ),
       );
     }

@@ -311,11 +311,12 @@ export function validateGraphComposition(
   return errors.length > 0 ? { errors, hints } : { hints };
 }
 
+// TODO: we don't use this anywhere, can we just remove it?
 export function computeSubgraphPaths(
   supergraphSchema: Schema,
   supergraphPath: RootPath<Transition>,
   federatedQueryGraph: QueryGraph,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 ): {
   traversal?: ValidationState,
   isComplete?: boolean,
@@ -323,8 +324,8 @@ export function computeSubgraphPaths(
 } {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true, overriddenLabels });
-    const initialState = ValidationState.initial({supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, federatedQueryGraph, conditionResolver});
+    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true, overrideConditions });
+    const initialState = ValidationState.initial({ supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, federatedQueryGraph, conditionResolver, overrideConditions });
     const context = new ValidationContext(supergraphSchema);
     let state = initialState;
     let isIncomplete = false;
@@ -424,15 +425,23 @@ export class ValidationState {
     kind,
     federatedQueryGraph,
     conditionResolver,
+    overrideConditions,
   }: {
     supergraphAPI: QueryGraph,
     kind: SchemaRootKind,
     federatedQueryGraph: QueryGraph,
     conditionResolver: ConditionResolver,
+    overrideConditions: Map<string, boolean>,
   }) {
     return new ValidationState(
       GraphPath.fromGraphRoot(supergraphAPI, kind)!,
-      initialSubgraphPaths(kind, federatedQueryGraph).map((p) => TransitionPathWithLazyIndirectPaths.initial(p, conditionResolver)),
+      initialSubgraphPaths(kind, federatedQueryGraph).map((p) =>
+        TransitionPathWithLazyIndirectPaths.initial(
+          p,
+          conditionResolver,
+          overrideConditions,
+        ),
+      ),
     );
   }
 
@@ -459,21 +468,12 @@ export class ValidationState {
     const newSubgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[] = [];
     const deadEnds: Unadvanceables[] = [];
 
-    // If the edge has an override condition, we should capture it in the state so
-    // that we can ignore later edges that don't satisfy the condition.
-    const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
-    if (supergraphEdge.overrideCondition) {
-      newOverrideConditions.set(
-        supergraphEdge.overrideCondition.label,
-        supergraphEdge.overrideCondition.condition
-      );
-    }
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
         path,
         transition,
         targetType,
-        newOverrideConditions,
+        this.selectedOverrideConditions,
       );
       if (isUnadvanceable(options)) {
         deadEnds.push(options);
@@ -493,9 +493,13 @@ export class ValidationState {
 
     // If the edge has an override condition, we should capture it in the state so
     // that we can ignore later edges that don't satisfy the condition.
-    // const newOverrideCondition = supergraphEdge.overrideCondition ? {
-    //   [supergraphEdge.overrideCondition.label]: supergraphEdge.overrideCondition.condition
-    // } : {};
+    const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
+    if (supergraphEdge.overrideCondition) {
+      newOverrideConditions.set(
+        supergraphEdge.overrideCondition.label,
+        supergraphEdge.overrideCondition.condition
+      );
+    }
     const updatedState = new ValidationState(
       newPath,
       newSubgraphPaths,
@@ -636,13 +640,14 @@ class ValidationTraversal {
       supergraph: supergraphSchema,
       queryGraph: federatedQueryGraph,
       withCaching: true,
-      overriddenLabels: new Set(),
+      overrideConditions: new Map(),
     });
     supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
       supergraphAPI,
       kind,
       federatedQueryGraph,
-      conditionResolver: this.conditionResolver
+      conditionResolver: this.conditionResolver,
+      overrideConditions: new Map(),
     })));
     this.previousVisits = new QueryGraphState(supergraphAPI);
     this.context = new ValidationContext(supergraphSchema);

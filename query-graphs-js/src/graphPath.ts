@@ -954,14 +954,16 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
   constructor(
     readonly path: GraphPath<Transition, V>,
     readonly conditionResolver: ConditionResolver,
+    readonly overrideConditions: Map<string, boolean>,
   ) {
   }
 
   static initial<V extends Vertex = Vertex>(
     initialPath: GraphPath<Transition, V>,
     conditionResolver: ConditionResolver,
+    overrideConditions: Map<string, boolean>,
   ): TransitionPathWithLazyIndirectPaths<V> {
-    return new TransitionPathWithLazyIndirectPaths(initialPath, conditionResolver);
+    return new TransitionPathWithLazyIndirectPaths(initialPath, conditionResolver, overrideConditions);
   }
 
   indirectOptions(): IndirectPaths<Transition, V> {
@@ -980,6 +982,7 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
       [],
       (t) => t,
       pathTransitionToEdge,
+      this.overrideConditions,
     );
   }
 
@@ -1094,7 +1097,7 @@ export function advancePathWithTransition<V extends Vertex>(
     // no point in computing all the options.
     if (directOptions.length > 0 && isLeafType(targetType)) {
       debug.groupEnd(() => `reached leaf type ${targetType} so not trying indirect paths`);
-      return createLazyTransitionOptions(directOptions, subgraphPath);
+      return createLazyTransitionOptions(directOptions, subgraphPath, overrideConditions);
     }
     options = directOptions;
   }
@@ -1126,7 +1129,7 @@ export function advancePathWithTransition<V extends Vertex>(
   }
   debug.groupEnd(() => options.length > 0 ? advanceOptionsToString(options) : `Cannot advance ${transition} for this path`);
   if (options.length > 0) {
-    return createLazyTransitionOptions(options, subgraphPath);
+    return createLazyTransitionOptions(options, subgraphPath, overrideConditions);
   }
 
   const allDeadEnds = deadEnds.concat(pathsWithNonCollecting.deadEnds.reasons);
@@ -1186,10 +1189,12 @@ export function advancePathWithTransition<V extends Vertex>(
 function createLazyTransitionOptions<V extends Vertex>(
   options: GraphPath<Transition, V>[],
   origin: TransitionPathWithLazyIndirectPaths<V>,
+  overrideConditions: Map<string, boolean>,
 ) : TransitionPathWithLazyIndirectPaths<V>[] {
   return options.map(option => new TransitionPathWithLazyIndirectPaths(
     option,
     origin.conditionResolver,
+    overrideConditions,
   ));
 }
 
@@ -1258,7 +1263,8 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   excludedDestinations: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
-  triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
+  triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined,
+  overrideConditions: Map<string, boolean>,
 ): IndirectPaths<TTrigger, V, TNullEdge, TDeadEnds>  {
   // If we're asked for indirect paths after an "@interfaceObject fake down cast" but that down cast comes just after a non-collecting edges, then
   // we can ignore it (skip indirect paths from there). The reason is that the presence of the non-collecting just before the fake down-cast means
@@ -1305,6 +1311,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         debug.log(() => `Nothing to try for ${toAdvance}: it only has "trivial" non-collecting outbound edges`);
         for (const edge of outEdges) {
           if (edge.tail.source !== toAdvance.tail.source && edge.tail.source !== originalSource) {
+            if (edge.tail.source === "Subgraph1" && edge.head.type.name === "A" && toAdvance.tail.source === "Subgraph2") {
+              overrideConditions;
+              debugger;
+            }
             deadEnds.push({
               sourceSubgraph: toAdvance.tail.source,
               destSubgraph: edge.tail.source,
@@ -1418,6 +1428,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // loop when calling `hasValidDirectKeyEdge` in that case without additional care and it's not useful because this
         // very method already ensure we don't create unnecessary chains of keys for the "current type"
         if (subgraphEnteringEdge && subgraphEnteringEdge.edge.tail.type.name !== typeName) {
+          if (edge.tail.source === "Subgraph1" && edge.head.type.name === "A" && toAdvance.tail.source === "Subgraph2") {
+            debugger;
+          }
+
           let prevSubgraphEnteringVertex: Vertex | undefined = undefined;
           let backToPreviousSubgraph: boolean;
           if (subgraphEnteringEdge.edge.transition.kind === 'SubgraphEnteringTransition') {
@@ -1432,7 +1446,16 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           }
           const prevSubgraphVertex = toAdvance.checkDirectPathFromPreviousSubgraphTo(edge.tail.type.name, triggerToEdge, prevSubgraphEnteringVertex);
           const maxCost = toAdvance.subgraphEnteringEdge.cost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
-          if (prevSubgraphVertex
+
+          const previousOverride = path.lastEdge()?.overrideCondition;
+          if (
+            previousOverride
+            && ((overrideConditions.has(previousOverride.label) && previousOverride.condition === true)
+              || (!overrideConditions.has(previousOverride.label) && previousOverride.condition === false)
+          )) {
+            // jump due to override
+            debugger;
+          } else if (prevSubgraphVertex
             && (
               backToPreviousSubgraph
               || hasValidDirectKeyEdge(toAdvance.graph, prevSubgraphVertex, edge.tail.source, conditionResolver, maxCost) != undefined
@@ -1455,6 +1478,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
             // recorded no-dead ends would break an assertion in `advancePathWithTransition` that assumes that if
             // we have recorded no-dead end, that's because we have no key edges. But note that this 'dead end'
             // message shouldn't really ever reach users.
+            if (edge.tail.source === "Subgraph1" && edge.head.type.name === "A" && toAdvance.tail.source === "Subgraph2") {
+              debugger;
+            }
+
             deadEnds.push({
               sourceSubgraph: toAdvance.tail.source,
               destSubgraph: edge.tail.source,
@@ -1661,6 +1688,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
         // it uses @interfaceObject on an interface of that implementation.
         details = `cannot find implementation type "${fieldTypeName}" (supergraph interface "${path.tail.type.name}" is declared with @interfaceObject in "${subgraph}")`;
       } else {
+        // Sachin: this is the place to "pretend" the field doesn't exist
         const fieldInSubgraph = typeInSubgraph && isCompositeType(typeInSubgraph)
           ? typeInSubgraph.field(transition.definition.name)
           : undefined;
@@ -1841,7 +1869,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
     readonly conditionResolver: ConditionResolver,
     readonly excludedNonCollectingEdges: ExcludedDestinations = [],
     readonly excludedConditionsOnNonCollectingEdges: ExcludedConditions = [],
-    readonly overriddenLabels: Set<string>,
+    readonly overrideConditions: Map<string, boolean>,
   ) {
     this.lazilyComputedIndirectPaths = new Array(paths.length);
   }
@@ -1870,7 +1898,8 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
       // the transitions taken by this function are non collecting transitions, and we ship the context as trigger (a slight hack admittedly,
       // but as we'll need the context handy for keys ...).
       (_t, context) => context,
-      opPathTriggerToEdge
+      opPathTriggerToEdge,
+      this.overrideConditions,
     );
   }
 
@@ -1945,7 +1974,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   subgraphSimultaneousPaths: SimultaneousPathsWithLazyIndirectPaths<V>,
   operation: OperationElement,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 ) : SimultaneousPathsWithLazyIndirectPaths<V>[] | undefined {
   debug.group(() => `Trying to advance ${simultaneousPathsToString(subgraphSimultaneousPaths)} for ${operation}`);
   const updatedContext = subgraphSimultaneousPaths.context.withContextOf(operation);
@@ -1965,7 +1994,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
         operation,
         updatedContext,
         subgraphSimultaneousPaths.conditionResolver,
-        overriddenLabels,
+        overrideConditions,
       );
       options = advanceOptions;
       debug.groupEnd(() => advanceOptionsToString(options));
@@ -2012,7 +2041,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
             operation,
             updatedContext,
             subgraphSimultaneousPaths.conditionResolver,
-            overriddenLabels,
+            overrideConditions,
           );
           // If we can't advance the operation after that path, ignore it, it's just not an option.
           if (!pathWithOperation) {
@@ -2071,7 +2100,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
         operation,
         updatedContext,
         subgraphSimultaneousPaths.conditionResolver,
-        overriddenLabels,
+        overrideConditions,
       );
       options = advanceOptions ?? [];
       debug.groupEnd(() => advanceOptionsToString(options));
@@ -2090,7 +2119,12 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
 
   const allOptions: SimultaneousPaths<V>[] = flatCartesianProduct(optionsForEachPath);
   debug.groupEnd(() => advanceOptionsToString(allOptions));
-  return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext, overriddenLabels);
+  return createLazyOptions(
+    allOptions,
+    subgraphSimultaneousPaths,
+    updatedContext,
+    subgraphSimultaneousPaths.overrideConditions,
+  );
 }
 
 
@@ -2100,7 +2134,7 @@ export function createInitialOptions<V extends Vertex>(
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 ): SimultaneousPathsWithLazyIndirectPaths<V>[] {
   const lazyInitialPath = new SimultaneousPathsWithLazyIndirectPaths(
     [initialPath],
@@ -2108,11 +2142,11 @@ export function createInitialOptions<V extends Vertex>(
     conditionResolver,
     excludedEdges,
     excludedConditions,
-    overriddenLabels,
+    overrideConditions,
   );
   if (isFederatedGraphRootType(initialPath.tail.type)) {
     const initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
-    return createLazyOptions(initialOptions.paths.map(p => [p]), lazyInitialPath, initialContext, overriddenLabels);
+    return createLazyOptions(initialOptions.paths.map(p => [p]), lazyInitialPath, initialContext, overrideConditions);
   } else {
     return [lazyInitialPath];
   }
@@ -2122,7 +2156,7 @@ function createLazyOptions<V extends Vertex>(
   options: SimultaneousPaths<V>[],
   origin: SimultaneousPathsWithLazyIndirectPaths<V>,
   context: PathContext,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 ) : SimultaneousPathsWithLazyIndirectPaths<V>[] {
   return options.map(option => new SimultaneousPathsWithLazyIndirectPaths(
     option,
@@ -2130,7 +2164,7 @@ function createLazyOptions<V extends Vertex>(
     origin.conditionResolver,
     origin.excludedNonCollectingEdges,
     origin.excludedConditionsOnNonCollectingEdges,
-    overriddenLabels,
+    overrideConditions,
   ));
 }
 
@@ -2333,7 +2367,7 @@ function advanceWithOperation<V extends Vertex>(
   operation: OperationElement,
   context: PathContext,
   conditionResolver: ConditionResolver,
-  overriddenLabels: Set<string>,
+  overrideConditions: Map<string, boolean>,
 ) : {
   options: SimultaneousPaths<V>[] | undefined,
   hasOnlyTypeExplodedResults?: boolean,
@@ -2359,10 +2393,7 @@ function advanceWithOperation<V extends Vertex>(
         }
         if (edge.overrideCondition) {
           const { label, condition } = edge.overrideCondition;
-          if (
-            (overriddenLabels.has(label) && !condition) ||
-            (!overriddenLabels.has(label) && condition)
-          ) {
+          if ((condition && !overrideConditions.has(label)) || (!condition && overrideConditions.has(label))) {
             debug.groupEnd(() => `Ignoring edge due to override label "${label}" in subgraph ${edge.head.source} on field ${field} on object type ${currentType}`);
             return { options: undefined };
           }
@@ -2463,9 +2494,9 @@ function advanceWithOperation<V extends Vertex>(
           debug.group(() => `Handling implementation ${implemType}`);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
-            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overriddenLabels),
+            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overrideConditions),
             castOp,
-            overriddenLabels,
+            overrideConditions,
           );
           // If we find no option for that implementation, we bail (as we need to simultaneously advance all implementations).
           if (!implemOptions) {
@@ -2488,7 +2519,7 @@ function advanceWithOperation<V extends Vertex>(
               supergraphSchema,
               optPaths,
               operation,
-              overriddenLabels,
+              overrideConditions,
             );
             if (!withFieldOptions) {
               debug.groupEnd(() => `Cannot collect ${field}`);
@@ -2562,9 +2593,9 @@ function advanceWithOperation<V extends Vertex>(
           const castOp = new FragmentElement(currentType, tName, operation.appliedDirectives);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
-            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overriddenLabels),
+            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overrideConditions),
             castOp,
-            overriddenLabels,
+            overrideConditions,
           );
           if (!implemOptions) {
             debug.groupEnd();

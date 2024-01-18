@@ -399,13 +399,16 @@ class QueryPlanningTraversal<RV extends Vertex> {
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
+
+    const overrideConditions = new Map([...parameters.overriddenLabels].map(label => [label, true]));
+
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
       this.conditionResolver,
       excludedDestinations,
       excludedConditions,
-      parameters.overriddenLabels,
+      overrideConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
@@ -441,11 +444,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
+      const overrideConditions = new Map([...this.parameters.overriddenLabels].map(label => [label, true]));
       const followupForOption = advanceSimultaneousPathsWithOperation(
         this.parameters.supergraphSchema,
         option,
         operation,
-        this.parameters.overriddenLabels,
+        overrideConditions,
       );
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
