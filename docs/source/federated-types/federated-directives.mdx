@@ -376,7 +376,8 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 >
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
-**Optional.** The percentage of traffic for this field (randomly chosen from a uniform distribution) that is resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph.
+**Optional.** A string of arbitrary arguments. Supported in this release:
+- `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override).
 
 </td>
 </tr>
