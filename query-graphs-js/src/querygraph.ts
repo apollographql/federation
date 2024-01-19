@@ -801,41 +801,71 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
 
   /**
    * Handling progressive overrides here. For each progressive @override
-   * application (with a label), we want to update all relevant edges to the
-   * overridden field across all subgraphs with their respective override
+   * application (with a label), we want to update the edges to the overridden
+   * field within the "to" and "from" subgraphs with their respective override
    * condition (the label and a T/F value). The "from" subgraph will have an
-   * override condition of `false`, whereas all other occurrences (all
-   * pertaining specifically to the @shareable interaction) will have an
+   * override condition of `false`, whereas the "to" subgraph will have an
    * override condition of `true`.
    */
-  const allOverrideApplications = schemas
-    .flatMap(s => federationMetadata(s)?.overrideDirective().applications() ?? []);
+  const allOverrideApplicationsWithLabel = [];
+  for (const [i, subgraph] of subgraphs.entries()) {
+    const subgraphSchema = schemas[i];
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const overrideDirectiveApplications = subgraphMetadata.overrideDirective().applications();
+    allOverrideApplicationsWithLabel.push(
+      ...overrideDirectiveApplications.filter(a => a.arguments().label).map(a => [a, subgraph.name] as [Directive, string])
+    );
+  }
 
-  for (const application of allOverrideApplications) {
-    const label = application.arguments().label;
-    if (!label) continue;
+  for (const application of allOverrideApplicationsWithLabel) {
+    const [overrideApplication, toSubgraphName] = application;
+    const label = overrideApplication.arguments().label;
+    const fromSubgraphName = overrideApplication.arguments().from;
 
-    const field = application.parent;
+    const toSubgraphIndex = subgraphs.findIndex(s => s.name === toSubgraphName);
+    const toSubgraph = subgraphs[toSubgraphIndex];
+    const fromSubgraphIndex = subgraphs.findIndex(s => s.name === fromSubgraphName);
+    const fromSubgraph = subgraphs[fromSubgraphIndex];
+    assert(toSubgraph && fromSubgraph, () => `Subgraph ${toSubgraphName} or ${fromSubgraphName} not found`);
+
+    const field = overrideApplication.parent;
     assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`)
     const type = field.parent;
 
-    for (const [i, subgraph] of subgraphs.entries()) {
-      const [vertex, ...unexpectedAdditionalVertices] = subgraph.verticesForType(type.name);
-      assert(vertex && unexpectedAdditionalVertices.length === 0, () => `Subgraph ${i} should have exactly one vertex for type ${type.name}`);
-      const edges = subgraph.outEdges(vertex);
-      for (const edge of edges) {
-        if (
-          edge.transition.kind === "FieldCollection"
-          && edge.transition.definition.name === field.name
-        ) {
-          const head = copyPointers[i].copiedVertex(vertex);
-          const copiedEdge = builder.edge(head, edge.index);
+    const [toSubgraphVertex, ...unexpectedAdditionalToVertices] = toSubgraph.verticesForType(type.name);
+    assert(toSubgraphVertex && unexpectedAdditionalToVertices.length === 0, () => `Subgraph ${toSubgraphName} should have exactly one vertex for type ${type.name}`);
+    const [fromSubgraphVertex, ...unexpectedAdditionalFromVertices] = fromSubgraph.verticesForType(type.name);
+    assert(fromSubgraphVertex && unexpectedAdditionalFromVertices.length === 0, () => `Subgraph ${fromSubgraphName} should have exactly one vertex for type ${type.name}`);
 
-          // TODO: from sachin - should this only be applied in 2 places?
-          copiedEdge.overrideCondition = {
-            label,
-            condition: application.arguments().from !== subgraph.name,
-          }
+    const toSubgraphEdges = toSubgraph.outEdges(toSubgraphVertex);
+    for (const edge of toSubgraphEdges) {
+      if (
+        edge.transition.kind === "FieldCollection"
+        && edge.transition.definition.name === field.name
+      ) {
+        const head = copyPointers[toSubgraphIndex].copiedVertex(toSubgraphVertex);
+        const copiedEdge = builder.edge(head, edge.index);
+
+        copiedEdge.overrideCondition = {
+          label,
+          condition: true,
+        }
+      }
+    }
+
+    const fromSubgraphEdges = fromSubgraph.outEdges(fromSubgraphVertex);
+    for (const edge of fromSubgraphEdges) {
+      if (
+        edge.transition.kind === "FieldCollection"
+        && edge.transition.definition.name === field.name
+      ) {
+        const head = copyPointers[fromSubgraphIndex].copiedVertex(fromSubgraphVertex);
+        const copiedEdge = builder.edge(head, edge.index);
+
+        copiedEdge.overrideCondition = {
+          label,
+          condition: false,
         }
       }
     }
