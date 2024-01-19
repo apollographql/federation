@@ -83,7 +83,7 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
+import { coreFeatureDefinitionIfKnown, validateKnownFeatures } from "./knownCoreFeatures";
 import { joinIdentity } from "./specs/joinSpec";
 import {
   SourceAPIDirectiveArgs,
@@ -583,8 +583,7 @@ export class FederationMetadata {
   private _fieldUsedPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
   private _isFed2Schema?: boolean;
 
-  constructor(readonly schema: Schema) {
-  }
+  constructor(readonly schema: Schema) {}
 
   private onInvalidate() {
     this._externalTester = undefined;
@@ -1080,6 +1079,11 @@ export class FederationBlueprint extends SchemaBlueprint {
     validateAllExternalFieldsUsed(metadata, errorCollector);
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
     validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
+
+    // FeatureDefinition objects passed to registerKnownFeature can register
+    // validation functions for subgraph schemas by overriding the
+    // validateSubgraphSchema method.
+    validateKnownFeatures(schema, errorCollector);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
