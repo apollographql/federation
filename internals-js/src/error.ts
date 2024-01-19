@@ -555,6 +555,95 @@ const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
   { addedIn: '2.3.0' },
 )
 
+const SOURCE_API_NAME_INVALID = makeCodeDefinition(
+  'SOURCE_API_NAME_INVALID',
+  'Each `@sourceAPI` directive must take a unique and valid name as an argument',
+);
+
+const SOURCE_API_PROTOCOL_INVALID = makeCodeDefinition(
+  'SOURCE_API_PROTOCOL_INVALID',
+  'Each `@sourceAPI` directive must specify exactly one of the known protocols',
+);
+
+const SOURCE_API_HTTP_BASE_URL_INVALID = makeCodeDefinition(
+  'SOURCE_API_HTTP_BASE_URL_INVALID',
+  'The `@sourceAPI` directive must specify a valid http.baseURL',
+);
+
+const SOURCE_HTTP_HEADERS_INVALID = makeCodeDefinition(
+  'SOURCE_HTTP_HEADERS_INVALID',
+  'The http.headers argument of `@source*` directives must specify valid HTTP headers',
+);
+
+const SOURCE_TYPE_API_ERROR = makeCodeDefinition(
+  'SOURCE_TYPE_API_ERROR',
+  'The api argument of the @sourceType directive must match a valid @sourceAPI name',
+);
+
+const SOURCE_TYPE_PROTOCOL_INVALID = makeCodeDefinition(
+  'SOURCE_TYPE_PROTOCOL_INVALID',
+  'The @sourceType directive must specify the same protocol as its corresponding @sourceAPI',
+);
+
+const SOURCE_TYPE_HTTP_METHOD_INVALID = makeCodeDefinition(
+  'SOURCE_TYPE_HTTP_METHOD_INVALID',
+  'The @sourceType directive must specify exactly one of http.GET or http.POST',
+);
+
+const SOURCE_TYPE_HTTP_PATH_INVALID = makeCodeDefinition(
+  'SOURCE_TYPE_HTTP_PATH_INVALID',
+  'The @sourceType directive must specify a valid URL template for http.GET or http.POST',
+);
+
+const SOURCE_TYPE_HTTP_BODY_INVALID = makeCodeDefinition(
+  'SOURCE_TYPE_HTTP_BODY_INVALID',
+  'If the @sourceType specifies http.body, it must be a valid JSONSelection',
+);
+
+const SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY = makeCodeDefinition(
+  'SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY',
+  'The @sourceType directive must be applied to an object or interface type that also has @key',
+);
+
+const SOURCE_TYPE_SELECTION_INVALID = makeCodeDefinition(
+  'SOURCE_TYPE_SELECTION_INVALID',
+  'The selection argument of the @sourceType directive must be a valid JSONSelection that outputs fields of the GraphQL type',
+);
+
+const SOURCE_FIELD_API_ERROR = makeCodeDefinition(
+  'SOURCE_FIELD_API_ERROR',
+  'The api argument of the @sourceField directive must match a valid @sourceAPI name',
+);
+
+const SOURCE_FIELD_PROTOCOL_INVALID = makeCodeDefinition(
+  'SOURCE_FIELD_PROTOCOL_INVALID',
+  'If @sourceField specifies a protocol, it must match the corresponding @sourceAPI protocol',
+);
+
+const SOURCE_FIELD_HTTP_METHOD_INVALID = makeCodeDefinition(
+  'SOURCE_FIELD_HTTP_METHOD_INVALID',
+  'The @sourceField directive must specify at most one of http.{GET,POST,PUT,PATCH,DELETE}',
+);
+
+const SOURCE_FIELD_HTTP_PATH_INVALID = makeCodeDefinition(
+  'SOURCE_FIELD_HTTP_PATH_INVALID',
+  'The @sourceField directive must specify a valid URL template for http.{GET,POST,PUT,PATCH,DELETE}',
+);
+
+const SOURCE_FIELD_HTTP_BODY_INVALID = makeCodeDefinition(
+  'SOURCE_FIELD_HTTP_BODY_INVALID',
+  'If @sourceField specifies http.body, it must be a valid JSONSelection matching available arguments and fields',
+);
+
+const SOURCE_FIELD_SELECTION_INVALID = makeCodeDefinition(
+  'SOURCE_FIELD_SELECTION_INVALID',
+  'The selection argument of the @sourceField directive must be a valid JSONSelection that outputs fields of the GraphQL type',
+);
+
+const SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD = makeCodeDefinition(
+  'SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD',
+  'The @sourceField directive must be applied to a field of the Query or Mutation types, or of an entity type'
+);
 
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
@@ -643,6 +732,25 @@ export const ERRORS = {
   INTERFACE_OBJECT_USAGE_ERROR,
   INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
   INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
+  // Errors related to @sourceAPI, @sourceType, and/or @sourceField
+  SOURCE_API_NAME_INVALID,
+  SOURCE_API_PROTOCOL_INVALID,
+  SOURCE_API_HTTP_BASE_URL_INVALID,
+  SOURCE_HTTP_HEADERS_INVALID,
+  SOURCE_TYPE_API_ERROR,
+  SOURCE_TYPE_PROTOCOL_INVALID,
+  SOURCE_TYPE_HTTP_METHOD_INVALID,
+  SOURCE_TYPE_HTTP_PATH_INVALID,
+  SOURCE_TYPE_HTTP_BODY_INVALID,
+  SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY,
+  SOURCE_TYPE_SELECTION_INVALID,
+  SOURCE_FIELD_API_ERROR,
+  SOURCE_FIELD_PROTOCOL_INVALID,
+  SOURCE_FIELD_HTTP_METHOD_INVALID,
+  SOURCE_FIELD_HTTP_PATH_INVALID,
+  SOURCE_FIELD_HTTP_BODY_INVALID,
+  SOURCE_FIELD_SELECTION_INVALID,
+  SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

@@ -5046,7 +5046,7 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[bad] @sourceAPI(name: "A?!") must be valid GraphQL name'
+        '[bad] @sourceAPI(name: "A?!") must specify valid GraphQL name'
       );
 
       expect(messages).toContain(
@@ -5100,7 +5100,7 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[renamed] @api(name: "not an identifier") must be valid GraphQL name'
+        '[renamed] @api(name: "not an identifier") must specify valid GraphQL name'
       );
     });
   });
