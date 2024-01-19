@@ -575,90 +575,90 @@ const SOURCE_API_HTTP_BASE_URL_INVALID = makeCodeDefinition(
 
 const SOURCE_HTTP_HEADERS_INVALID = makeCodeDefinition(
   'SOURCE_HTTP_HEADERS_INVALID',
-  'The http.headers argument of `@source*` directives must specify valid HTTP headers',
+  'The `http.headers` argument of `@source*` directives must specify valid HTTP headers',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_API_ERROR = makeCodeDefinition(
   'SOURCE_TYPE_API_ERROR',
-  'The api argument of the @sourceType directive must match a valid @sourceAPI name',
+  'The `api` argument of the `@sourceType` directive must match a valid `@sourceAPI` name',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_PROTOCOL_INVALID = makeCodeDefinition(
   'SOURCE_TYPE_PROTOCOL_INVALID',
-  'The @sourceType directive must specify the same protocol as its corresponding @sourceAPI',
+  'The `@sourceType` directive must specify the same protocol as its corresponding `@sourceAPI`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_HTTP_METHOD_INVALID = makeCodeDefinition(
   'SOURCE_TYPE_HTTP_METHOD_INVALID',
-  'The @sourceType directive must specify exactly one of http.GET or http.POST',
+  'The `@sourceType` directive must specify exactly one of `http.GET` or `http.POST`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_HTTP_PATH_INVALID = makeCodeDefinition(
   'SOURCE_TYPE_HTTP_PATH_INVALID',
-  'The @sourceType directive must specify a valid URL template for http.GET or http.POST',
+  'The `@sourceType` directive must specify a valid URL template for `http.GET` or `http.POST`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_HTTP_BODY_INVALID = makeCodeDefinition(
   'SOURCE_TYPE_HTTP_BODY_INVALID',
-  'If the @sourceType specifies http.body, it must be a valid JSONSelection',
+  'If the `@sourceType` specifies `http.body`, it must be a valid `JSONSelection`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY = makeCodeDefinition(
   'SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY',
-  'The @sourceType directive must be applied to an object or interface type that also has @key',
+  'The `@sourceType` directive must be applied to an object or interface type that also has `@key`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_TYPE_SELECTION_INVALID = makeCodeDefinition(
   'SOURCE_TYPE_SELECTION_INVALID',
-  'The selection argument of the @sourceType directive must be a valid JSONSelection that outputs fields of the GraphQL type',
+  'The `selection` argument of the `@sourceType` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type',
 );
 
 const SOURCE_FIELD_API_ERROR = makeCodeDefinition(
   'SOURCE_FIELD_API_ERROR',
-  'The api argument of the @sourceField directive must match a valid @sourceAPI name',
+  'The `api` argument of the `@sourceField` directive must match a valid `@sourceAPI` name',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_FIELD_PROTOCOL_INVALID = makeCodeDefinition(
   'SOURCE_FIELD_PROTOCOL_INVALID',
-  'If @sourceField specifies a protocol, it must match the corresponding @sourceAPI protocol',
+  'If `@sourceField` specifies a protocol, it must match the corresponding `@sourceAPI` protocol',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_FIELD_HTTP_METHOD_INVALID = makeCodeDefinition(
   'SOURCE_FIELD_HTTP_METHOD_INVALID',
-  'The @sourceField directive must specify at most one of http.{GET,POST,PUT,PATCH,DELETE}',
+  'The `@sourceField` directive must specify at most one of `http.{GET,POST,PUT,PATCH,DELETE}`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_FIELD_HTTP_PATH_INVALID = makeCodeDefinition(
   'SOURCE_FIELD_HTTP_PATH_INVALID',
-  'The @sourceField directive must specify a valid URL template for http.{GET,POST,PUT,PATCH,DELETE}',
+  'The `@sourceField` directive must specify a valid URL template for `http.{GET,POST,PUT,PATCH,DELETE}`',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_FIELD_HTTP_BODY_INVALID = makeCodeDefinition(
   'SOURCE_FIELD_HTTP_BODY_INVALID',
-  'If @sourceField specifies http.body, it must be a valid JSONSelection matching available arguments and fields',
+  'If `@sourceField` specifies http.body, it must be a valid `JSONSelection` matching available arguments and fields',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_FIELD_SELECTION_INVALID = makeCodeDefinition(
   'SOURCE_FIELD_SELECTION_INVALID',
-  'The selection argument of the @sourceField directive must be a valid JSONSelection that outputs fields of the GraphQL type',
+  'The `selection` argument of the `@sourceField` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type',
   { addedIn: '2.6.0' },
 );
 
 const SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD = makeCodeDefinition(
   'SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD',
-  'The @sourceField directive must be applied to a field of the Query or Mutation types, or of an entity type',
+  'The `@sourceField` directive must be applied to a field of the `Query` or `Mutation` types, or of an entity type',
   { addedIn: '2.6.0' },
 );
 
