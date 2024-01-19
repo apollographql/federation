@@ -696,3 +696,151 @@ it('handles @interfaceObject in nested entity', () => {
     }
   `);
 });
+
+it('handles @interfaceObject input rewrites when cloning dependency graph', () => {
+  const subgraph1 = {
+    name: 'S1',
+    typeDefs: gql`
+      type Query {
+        i: I!
+      }
+
+      interface I @key(fields: "i1") {
+        i1: String!
+        i2: T
+      }
+
+      type T @key(fields: "t1", resolvable: false) {
+        t1: String!
+      }
+
+      type U implements I @key(fields: "i1") {
+        id: ID!
+        i1: String!
+        i2: T @shareable
+      }
+    `,
+  };
+
+  const subgraph2 = {
+    name: 'S2',
+    typeDefs: gql`
+      type I @interfaceObject @key(fields: "i1") {
+        i1: String!
+        i2: T @shareable
+        i3: Int
+      }
+
+      type T @key(fields: "t1", resolvable: false) {
+        t1: String!
+      }
+    `,
+  };
+
+  const subgraph3 = {
+    name: 'S3',
+    typeDefs: gql`
+      type T @key(fields: "t1") {
+        t1: String!
+        t2: String! @shareable
+        t3: Int
+      }
+    `,
+  };
+
+  const subgraph4 = {
+    name: 'S4',
+    typeDefs: gql`
+      type T @key(fields: "t1") {
+        t1: String!
+        t2: String! @shareable
+        t4: Int
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(
+    subgraph1,
+    subgraph2,
+    subgraph3,
+    subgraph4,
+  );
+
+  const operation = operationFromDocument(
+    api,
+    gql`
+      query {
+        i {
+          __typename
+          i2 {
+            __typename
+            t2
+          }
+          i3
+        }
+      }
+    `,
+  );
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "S1") {
+          {
+            i {
+              __typename
+              i1
+              i2 {
+                __typename
+                t1
+              }
+            }
+          }
+        },
+        Parallel {
+          Flatten(path: "i") {
+            Fetch(service: "S2") {
+              {
+                ... on I {
+                  __typename
+                  i1
+                }
+              } =>
+              {
+                ... on I {
+                  i3
+                }
+              }
+            },
+          },
+          Flatten(path: "i.i2") {
+            Fetch(service: "S3") {
+              {
+                ... on T {
+                  __typename
+                  t1
+                }
+              } =>
+              {
+                ... on T {
+                  __typename
+                  t2
+                }
+              }
+            },
+          },
+        },
+      },
+    }
+  `);
+
+  assert(isPlanNode(plan.node), 'buildQueryPlan should return QueryPlan');
+  const rewrites = findFetchNodes('S2', plan.node)[0].inputRewrites;
+  expect(rewrites).toBeDefined();
+  expect(rewrites?.length).toBe(1);
+  const rewrite = rewrites![0];
+  assert(rewrite.kind === 'ValueSetter', JSON.stringify(rewrite));
+  expect(rewrite.path).toEqual(['... on I', '__typename']);
+  expect(rewrite.setValueTo).toBe('I');
+});
