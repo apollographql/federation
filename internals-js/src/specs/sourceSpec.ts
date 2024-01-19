@@ -157,7 +157,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
     schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
       .forEach(linkDirective => {
         const { url, import: imports } = linkDirective.arguments();
-        if (imports && FeatureUrl.parse(url).identity === sourceIdentity) {
+        if (imports && FeatureUrl.maybeParse(url)?.identity === sourceIdentity) {
           imports.forEach(nameOrRename => {
             const originalName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.name;
             const importedName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.as || originalName;
