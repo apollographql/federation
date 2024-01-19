@@ -1301,12 +1301,14 @@ class Merger {
             const percentRegex = /^percent\((\d{1,2}(\.\d{1,8})?|100)\)$/;
             if (labelRegex.test(overrideLabel)) {
               result.setOverrideLabel(idx, overrideLabel);
+              result.setOverrideLabel(fromIdx, overrideLabel);
             } else if (percentRegex.test(overrideLabel)) {
               const parts = percentRegex.exec(overrideLabel);
               if (parts) {
                 const percent = parseFloat(parts[1]);
                 if (percent >= 0 && percent <= 100) {
                   result.setOverrideLabel(idx, overrideLabel);
+                  result.setOverrideLabel(fromIdx, overrideLabel);
                 }
               }
             }
@@ -1589,7 +1591,7 @@ class Merger {
     if (!allTypesEqual) {
       return true;
     }
-    if (mergeContext.some(({ usedOverridden }) => usedOverridden)) {
+    if (mergeContext.some(({ usedOverridden, overrideLabel }) => usedOverridden || !!overrideLabel)) {
       return true;
     }
 
@@ -1642,7 +1644,8 @@ class Merger {
     for (const [idx, source] of sources.entries()) {
       const usedOverridden = mergeContext.isUsedOverridden(idx);
       const unusedOverridden = mergeContext.isUnusedOverridden(idx);
-      if (!source || unusedOverridden) {
+      const overrideLabel = mergeContext.overrideLabel(idx);
+      if (!source || (unusedOverridden && !overrideLabel)) {
         continue;
       }
 
