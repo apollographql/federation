@@ -1,4 +1,4 @@
-import { DirectiveLocation, GraphQLError } from 'graphql';
+import { DirectiveLocation, GraphQLError, assertName } from 'graphql';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./coreSpec";
 import {
   Schema,
@@ -219,11 +219,12 @@ export class SourceSpecDefinition extends FeatureDefinition {
         errors.push(new GraphQLError(`${sourceAPI} must specify unique name`));
       }
 
-      // Ensure name is a valid GraphQL identifier.
-      if (!/^[a-zA-Z_][0-9a-zA-Z_]*$/.test(name)) {
+      try {
+        assertName(name);
+      } catch (e) {
         errors.push(new GraphQLError(`${sourceAPI}(name: ${
           JSON.stringify(name)
-        }) must be valid GraphQL identifier`));
+        }) must be valid GraphQL name: ${e.message}`));
       }
 
       let protocol: ProtocolName | undefined;
@@ -457,6 +458,11 @@ export class SourceSpecDefinition extends FeatureDefinition {
   }
 }
 
+function isValidHTTPHeaderName(name: string): boolean {
+  // https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format/
+  return /^[a-zA-Z0-9-_]+$/.test(name);
+}
+
 function validateHTTPHeaders(
   headers: HTTPHeaderMapping[] | undefined,
   errors: GraphQLError[],
@@ -468,7 +474,7 @@ function validateHTTPHeaders(
   if (headers) {
     headers.forEach(({ name, as, value }, i) => {
       // Ensure name is a valid HTTP header name.
-      if (!/^[a-zA-Z0-9-_]+$/.test(name)) {
+      if (!isValidHTTPHeaderName(name)) {
         errors.push(new GraphQLError(`${directiveName} headers[${i}].name == ${
           JSON.stringify(name)
         } is not valid HTTP header name`));
