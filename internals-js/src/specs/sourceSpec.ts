@@ -102,6 +102,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
     sourceField.repeatable = true;
     sourceField.addArgument('api', new NonNullType(schema.stringType()));
     sourceField.addArgument('selection', JSONSelection);
+    sourceField.addArgument('keyTypeMap', KeyTypeMap);
 
     const HTTPSourceField = schema.addType(new InputObjectType('HTTPSourceField'));
     HTTPSourceField.addField(new InputFieldDefinition('GET')).type = URLPathTemplate;
@@ -540,6 +541,7 @@ export type SourceFieldDirectiveArgs = {
   api: string;
   http?: HTTPSourceField;
   selection?: JSONSelection;
+  keyTypeMap?: KeyTypeMap;
 };
 
 export type HTTPSourceField = {
