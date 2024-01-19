@@ -750,7 +750,14 @@ export class FeatureUrl {
     public readonly element?: string,
   ) { }
 
-  /// Parse a spec URL or throw
+  public static maybeParse(input: string, node?: ASTNode): FeatureUrl | undefined {
+    try {
+      return FeatureUrl.parse(input, node);
+    } catch (err) {
+      return undefined;
+    }
+  }
+    /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
     const url = new URL(input)
     if (!url.pathname || url.pathname === '/') {

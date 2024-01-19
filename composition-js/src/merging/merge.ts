@@ -2612,12 +2612,13 @@ class Merger {
     const map = new Map<string, FeatureUrl>();
     for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
       const { url, import: imports } = linkDirective.arguments();
-      if (imports) {
+      const parsedUrl = FeatureUrl.maybeParse(url);
+      if (parsedUrl && imports) {
         for (const i of imports) {
           if (typeof i === 'string') {
-            map.set(i, FeatureUrl.parse(url));
+            map.set(i, parsedUrl);
           } else {
-            map.set(i.as ?? i.name, FeatureUrl.parse(url));
+            map.set(i.as ?? i.name, parsedUrl);
           }
         }
       }
@@ -2654,9 +2655,10 @@ class Merger {
 
         if (directive.name === 'link') {
           const { url } = directive.arguments();
-          if (typeof url === 'string') {
+          const parsedUrl = FeatureUrl.maybeParse(url);
+          if (typeof url === 'string' && parsedUrl) {
             shouldIncludeAsJoinDirective =
-              this.shouldUseJoinDirectiveForURL(FeatureUrl.parse(url));
+              this.shouldUseJoinDirectiveForURL(parsedUrl);
           }
         } else {
           // To be consistent with other code accessing
