@@ -74,7 +74,6 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
-  isCoreSpecDirectiveApplication,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -2612,15 +2611,14 @@ class Merger {
     // identity url in a Map, reachable from all its imported names.
     const map = new Map<string, FeatureUrl>();
     for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
-      if (isCoreSpecDirectiveApplication(linkDirective)) {
-        const { url, import: imports } = linkDirective.arguments();
-        if (imports) {
-          for (const i of imports) {
-            if (typeof i === 'string') {
-              map.set(i, FeatureUrl.parse(url));
-            } else {
-              map.set(i.as ?? i.name, FeatureUrl.parse(url));
-            }
+      const { url, import: imports } = linkDirective.arguments();
+      const parsedUrl = FeatureUrl.maybeParse(url);
+      if (parsedUrl && imports) {
+        for (const i of imports) {
+          if (typeof i === 'string') {
+            map.set(i, parsedUrl);
+          } else {
+            map.set(i.as ?? i.name, parsedUrl);
           }
         }
       }
@@ -2655,11 +2653,12 @@ class Merger {
       for (const directive of source.appliedDirectives) {
         let shouldIncludeAsJoinDirective = false;
 
-        if (isCoreSpecDirectiveApplication(directive) && directive.name === 'link') {
+        if (directive.name === 'link') {
           const { url } = directive.arguments();
-          if (typeof url === 'string') {
+          const parsedUrl = FeatureUrl.maybeParse(url);
+          if (typeof url === 'string' && parsedUrl) {
             shouldIncludeAsJoinDirective =
-              this.shouldUseJoinDirectiveForURL(FeatureUrl.parse(url));
+              this.shouldUseJoinDirectiveForURL(parsedUrl);
           }
         } else {
           // To be consistent with other code accessing
