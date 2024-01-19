@@ -2917,7 +2917,7 @@ export class QueryPlanner {
   private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
   private _lastGeneratedPlanStatistics: PlanningStatistics | undefined;
-
+  private _defaultOverrideConditions: Map<string, boolean> = new Map();
   // A set of the names of interface types for which at least one subgraph use an @interfaceObject to abstract
   // that interface.
   private readonly interfaceTypesWithInterfaceObjects = new Set<string>();
@@ -2935,6 +2935,7 @@ export class QueryPlanner {
     this.federatedQueryGraph = buildFederatedQueryGraph(supergraph, true);
     this.collectInterfaceTypesWithInterfaceObjects();
     this.collectInconsistentAbstractTypesRuntimes();
+    this.collectAllOverrideLabels();
 
     if (this.config.debug.bypassPlannerForSingleSubgraph && this.config.incrementalDelivery.enableDefer) {
       throw new Error(`Cannot use the "debug.bypassPlannerForSingleSubgraph" query planner option when @defer support is enabled`);
@@ -2990,6 +2991,17 @@ export class QueryPlanner {
         this.inconsistentAbstractTypesRuntimes.add(type.name);
       }
     }
+  }
+
+  private collectAllOverrideLabels() {
+    // inspect every join__field directive application in the supergraph and collect all `overrideLabel` argument values
+    this._defaultOverrideConditions = new Map(
+      this.supergraph.schema.directives()
+        .find((d) => d.name === 'join__field')?.applications()
+        .map((application) => application.arguments().overrideLabel)
+        .filter(Boolean)
+        .map(label => [label, false])
+    );
   }
 
   buildQueryPlan(operation: Operation, options?: BuildQueryPlanOptions): QueryPlan {
@@ -3071,6 +3083,15 @@ export class QueryPlanner {
       assignedDeferLabels,
     });
 
+    // Default all override conditions to false (not overridden) in case any
+    // aren't provided by the caller
+    const overrideConditions = new Map(this._defaultOverrideConditions);
+    if (options?.overrideConditions) {
+      for (const [label, value] of options.overrideConditions) {
+        overrideConditions.set(label, value);
+      }
+    }
+
     const parameters: PlanningParameters<RootVertex> = {
       supergraphSchema: this.supergraph.schema,
       federatedQueryGraph: this.federatedQueryGraph,
@@ -3080,7 +3101,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
-      overrideConditions: options?.overrideConditions ?? new Map(),
+      overrideConditions,
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
