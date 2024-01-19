@@ -11,8 +11,6 @@ import {
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
-import { parseJSONSelection } from '../parsing/JSONSelection';
-import { parseURLPathTemplate } from '../parsing/URLPathTemplate';
 
 export const sourceIdentity = 'https://specs.apollo.dev/source';
 
@@ -83,6 +81,8 @@ export class SourceSpecDefinition extends FeatureDefinition {
     HTTPSourceType.addField(new InputFieldDefinition('POST')).type = URLPathTemplate;
     HTTPSourceType.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
+    // Note that this body selection can only use @key fields of the type,
+    // because there are no field arguments to consume with @sourceType.
     HTTPSourceType.addField(new InputFieldDefinition('body')).type = JSONSelection;
     sourceType.addArgument('http', HTTPSourceType);
 
@@ -188,242 +188,271 @@ export class SourceSpecDefinition extends FeatureDefinition {
       return [];
     }
 
-    const errors: GraphQLError[] = [];
     const apiNameToProtocol = new Map<string, ProtocolName>();
+    const errors: GraphQLError[] = [];
 
     if (sourceAPI) {
-      sourceAPI.applications().forEach(application => {
-        const { name, ...rest } = application.arguments();
-
-        if (apiNameToProtocol.has(name)) {
-          errors.push(new GraphQLError(`${sourceAPI} must specify unique name`));
-        }
-
-        // Ensure name is a valid GraphQL identifier.
-        if (!/^[a-zA-Z_][0-9a-zA-Z_]*$/.test(name)) {
-          errors.push(new GraphQLError(`${sourceAPI}(name: ${
-            JSON.stringify(name)
-          }) must be valid GraphQL identifier`));
-        }
-
-        let protocol: ProtocolName | undefined;
-        KNOWN_SOURCE_PROTOCOLS.forEach(knownProtocol => {
-          if (rest[knownProtocol]) {
-            if (protocol) {
-              errors.push(new GraphQLError(
-                `${sourceAPI} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
-              ));
-            }
-            protocol = knownProtocol;
-          }
-        });
-
-        if (protocol) {
-          apiNameToProtocol.set(name, protocol);
-
-          const protocolValue = rest[protocol];
-          if (protocolValue && protocol === HTTP_PROTOCOL) {
-            const { baseURL, headers } = protocolValue as HTTPSourceAPI;
-
-            try {
-              new URL(baseURL);
-            } catch (e) {
-              errors.push(new GraphQLError(`${sourceAPI} http.baseURL ${
-                JSON.stringify(baseURL)
-              } must be valid URL`));
-            }
-
-            validateHTTPHeaders(headers, errors, sourceAPI.name);
-          }
-        } else {
-          errors.push(new GraphQLError(
-            `${sourceAPI} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
-          ));
-        }
-      });
+      this.validateSourceAPI(sourceAPI, apiNameToProtocol, errors);
     }
 
     if (sourceType) {
-      sourceType.applications().forEach(application => {
-        const { api, ...rest } = application.arguments();
-        if (!api || !apiNameToProtocol.has(api)) {
-          errors.push(new GraphQLError(`${sourceType} specifies unknown api ${api}`));
-        } else {
-          const expectedProtocol = apiNameToProtocol.get(api);
-          const protocolValue = expectedProtocol && rest[expectedProtocol];
-          if (expectedProtocol && !protocolValue) {
-            errors.push(new GraphQLError(
-              `${sourceType} must specify same ${
-                expectedProtocol
-              } argument as corresponding ${
-                sourceAPI
-              } for api ${api}`,
-            ));
-          }
-
-          if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
-            const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
-
-            if ([GET, POST].filter(Boolean).length !== 1) {
-              errors.push(new GraphQLError(
-                `${sourceType} must specify exactly one of http.GET or http.POST`,
-              ));
-            } else {
-              const urlPathTemplate = (GET || POST)!;
-              try {
-                // TODO Validate URL path template uses only available fields of
-                // the type.
-                parseURLPathTemplate(urlPathTemplate);
-              } catch (e) {
-                errors.push(new GraphQLError(
-                  `${sourceType} http.GET or http.POST must be valid URL path template`,
-                ));
-              }
-            }
-
-            validateHTTPHeaders(headers, errors, sourceType.name);
-
-            if (body) {
-              if (GET) {
-                errors.push(new GraphQLError(
-                  `${sourceType} http.GET cannot specify http.body`,
-                ));
-              }
-
-              try {
-                parseJSONSelection(body);
-                // TODO Validate body selection matches the available fields.
-              } catch (e) {
-                errors.push(new GraphQLError(
-                  `${sourceType} http.body not valid JSONSelection: ${e.message}`,
-                ));
-              }
-            }
-          }
-        }
-
-        const ast = application.parent.sourceAST;
-        switch (ast?.kind) {
-          case "ObjectTypeDefinition":
-          case "InterfaceTypeDefinition":
-            if (!ast.directives?.some(directive => directive.name.value === "key")) {
-              errors.push(new GraphQLError(
-                `${sourceType} must be applied to an entity type that also has a @key directive`,
-              ));
-            }
-            // TODO Validate selection is valid JSONSelection for type.
-            break;
-          default:
-            errors.push(new GraphQLError(
-              `${sourceType} must be applied to object or interface type`,
-            ));
-        }
-      });
+      this.validateSourceType(sourceType, apiNameToProtocol, errors);
     }
 
     if (sourceField) {
-      sourceField.applications().forEach(application => {
-        const { api, selection, ...rest } = application.arguments();
-        if (!api || !apiNameToProtocol.has(api)) {
-          errors.push(new GraphQLError(`${sourceField} specifies unknown api ${api}`));
-        } else {
-          const expectedProtocol = apiNameToProtocol.get(api);
-          const protocolValue = expectedProtocol && rest[expectedProtocol];
-          if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
-            const {
-              GET, POST, PUT, PATCH, DELETE,
-              headers,
-              body,
-            } = protocolValue as HTTPSourceField;
+      this.validateSourceField(sourceField, apiNameToProtocol, errors);
+    }
 
-            const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
-            if (usedMethods.length > 1) {
-              errors.push(new GraphQLError(`${
-                sourceField
-              } allows at most one of http.GET, http.POST, http.PUT, http.PATCH, and http.DELETE`));
-            } else if (usedMethods.length === 1) {
-              const urlPathTemplate = usedMethods[0]!;
-              try {
-                // TODO Validate URL path template uses only available fields of
-                // the type and/or argument names of the field.
-                parseURLPathTemplate(urlPathTemplate);
-              } catch (e) {
-                errors.push(new GraphQLError(
-                  `${sourceField} http.GET, http.POST, http.PUT, http.PATCH, or http.DELETE must be valid URL path template`,
-                ));
-              }
-            }
+    return errors;
+  }
 
-            validateHTTPHeaders(headers, errors, sourceField.name);
+  private validateSourceAPI(
+    sourceAPI: DirectiveDefinition<SourceAPIDirectiveArgs>,
+    apiNameToProtocol: Map<string, ProtocolName>,
+    errors: GraphQLError[],
+  ) {
+    sourceAPI.applications().forEach(application => {
+      const { name, ...rest } = application.arguments();
 
-            if (body) {
-              if (GET) {
-                errors.push(new GraphQLError(
-                  `${sourceType} http.GET cannot specify http.body`,
-                ));
-              } else if (DELETE) {
-                errors.push(new GraphQLError(
-                  `${sourceType} http.DELETE cannot specify http.body`,
-                ));
-              }
+      if (apiNameToProtocol.has(name)) {
+        errors.push(new GraphQLError(`${sourceAPI} must specify unique name`));
+      }
 
-              try {
-                parseJSONSelection(body);
-                // TODO Validate body string matches the available fields of the
-                // parent type and/or argument names of the field.
-              } catch (e) {
-                errors.push(new GraphQLError(
-                  `${sourceField} http.body not valid JSONSelection: ${e.message}`,
-                ));
-              }
-            }
-          }
-        }
+      // Ensure name is a valid GraphQL identifier.
+      if (!/^[a-zA-Z_][0-9a-zA-Z_]*$/.test(name)) {
+        errors.push(new GraphQLError(`${sourceAPI}(name: ${
+          JSON.stringify(name)
+        }) must be valid GraphQL identifier`));
+      }
 
-        if (selection) {
-          try {
-            parseJSONSelection(selection);
-            // TODO Validate selection string matches the available fields of
-            // the parent type and/or argument names of the field.
-          } catch (e) {
+      let protocol: ProtocolName | undefined;
+      KNOWN_SOURCE_PROTOCOLS.forEach(knownProtocol => {
+        if (rest[knownProtocol]) {
+          if (protocol) {
             errors.push(new GraphQLError(
-              `${sourceField} selection not valid JSONSelection: ${
-                e.message
-              }`,
+              `${sourceAPI} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
             ));
           }
+          protocol = knownProtocol;
+        }
+      });
+
+      if (protocol) {
+        apiNameToProtocol.set(name, protocol);
+
+        const protocolValue = rest[protocol];
+        if (protocolValue && protocol === HTTP_PROTOCOL) {
+          const { baseURL, headers } = protocolValue as HTTPSourceAPI;
+
+          try {
+            new URL(baseURL);
+          } catch (e) {
+            errors.push(new GraphQLError(`${sourceAPI} http.baseURL ${
+              JSON.stringify(baseURL)
+            } must be valid URL`));
+          }
+
+          validateHTTPHeaders(headers, errors, sourceAPI.name);
+        }
+      } else {
+        errors.push(new GraphQLError(
+          `${sourceAPI} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+        ));
+      }
+    });
+  }
+
+  private validateSourceType(
+    sourceType: DirectiveDefinition<SourceTypeDirectiveArgs>,
+    apiNameToProtocol: Map<string, ProtocolName>,
+    errors: GraphQLError[],
+  ) {
+    sourceType.applications().forEach(application => {
+      const { api, selection, ...rest } = application.arguments();
+      if (!api || !apiNameToProtocol.has(api)) {
+        errors.push(new GraphQLError(`${sourceType} specifies unknown api ${api}`));
+      } else {
+        const expectedProtocol = apiNameToProtocol.get(api);
+        const protocolValue = expectedProtocol && rest[expectedProtocol];
+        if (expectedProtocol && !protocolValue) {
+          errors.push(new GraphQLError(
+            `${sourceType} must specify same ${
+              expectedProtocol
+            } argument as corresponding @sourceAPI for api ${api}`,
+          ));
         }
 
-        // @sourceField is allowed only on root Query and Mutation fields or
-        // fields of entity object types.
-        const fieldParent = application.parent;
-        if (fieldParent.sourceAST?.kind !== "FieldDefinition") {
-          errors.push(new GraphQLError(
-            `${sourceField} must be applied to field`,
-          ));
-        } else {
-          const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
-          if (typeGrandparent.sourceAST?.kind !== "ObjectTypeDefinition") {
+        if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
+          const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
+
+          if ([GET, POST].filter(Boolean).length !== 1) {
             errors.push(new GraphQLError(
-              `${sourceField} must be applied to field of object type`,
+              `${sourceType} must specify exactly one of http.GET or http.POST`,
             ));
           } else {
-            const typeGrandparentName = typeGrandparent.sourceAST?.name.value;
-            if (
-              typeGrandparentName !== "Query" &&
-              typeGrandparentName !== "Mutation" &&
-              typeGrandparent.appliedDirectivesOf("key").length === 0
-            ) {
+            const urlPathTemplate = (GET || POST)!;
+            try {
+              // TODO Validate URL path template uses only available @key fields
+              // of the type.
+              parseURLPathTemplate(urlPathTemplate);
+            } catch (e) {
               errors.push(new GraphQLError(
-                `${sourceField} must be applied to root Query or Mutation field or field of entity type`,
+                `${sourceType} http.GET or http.POST must be valid URL path template`,
+              ));
+            }
+          }
+
+          validateHTTPHeaders(headers, errors, sourceType.name);
+
+          if (body) {
+            if (GET) {
+              errors.push(new GraphQLError(
+                `${sourceType} http.GET cannot specify http.body`,
+              ));
+            }
+
+            try {
+              parseJSONSelection(body);
+              // TODO Validate body selection matches the available fields.
+            } catch (e) {
+              errors.push(new GraphQLError(
+                `${sourceType} http.body not valid JSONSelection: ${e.message}`,
               ));
             }
           }
         }
-      });
-    }
+      }
 
-    return errors;
+      const ast = application.parent.sourceAST;
+      switch (ast?.kind) {
+        case "ObjectTypeDefinition":
+        case "InterfaceTypeDefinition":
+          if (!ast.directives?.some(directive => directive.name.value === "key")) {
+            errors.push(new GraphQLError(
+              `${sourceType} must be applied to an entity type that also has a @key directive`,
+            ));
+          }
+          try {
+            parseJSONSelection(selection);
+            // TODO Validate selection is valid JSONSelection for type.
+          } catch (e) {
+            errors.push(new GraphQLError(
+              `${sourceType} selection not valid JSONSelection: ${e.message}`,
+            ));
+          }
+          break;
+        default:
+          errors.push(new GraphQLError(
+            `${sourceType} must be applied to object or interface type`,
+          ));
+      }
+    });
+  }
+
+  private validateSourceField(
+    sourceField: DirectiveDefinition<SourceFieldDirectiveArgs>,
+    apiNameToProtocol: Map<string, ProtocolName>,
+    errors: GraphQLError[],
+  ) {
+    sourceField.applications().forEach(application => {
+      const { api, selection, ...rest } = application.arguments();
+      if (!api || !apiNameToProtocol.has(api)) {
+        errors.push(new GraphQLError(`${sourceField} specifies unknown api ${api}`));
+      } else {
+        const expectedProtocol = apiNameToProtocol.get(api);
+        const protocolValue = expectedProtocol && rest[expectedProtocol];
+        if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
+          const {
+            GET, POST, PUT, PATCH, DELETE,
+            headers,
+            body,
+          } = protocolValue as HTTPSourceField;
+
+          const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
+          if (usedMethods.length > 1) {
+            errors.push(new GraphQLError(`${
+              sourceField
+            } allows at most one of http.GET, http.POST, http.PUT, http.PATCH, and http.DELETE`));
+          } else if (usedMethods.length === 1) {
+            const urlPathTemplate = usedMethods[0]!;
+            try {
+              // TODO Validate URL path template uses only available fields of
+              // the type and/or argument names of the field.
+              parseURLPathTemplate(urlPathTemplate);
+            } catch (e) {
+              errors.push(new GraphQLError(
+                `${sourceField} http.GET, http.POST, http.PUT, http.PATCH, or http.DELETE must be valid URL path template`,
+              ));
+            }
+          }
+
+          validateHTTPHeaders(headers, errors, sourceField.name);
+
+          if (body) {
+            if (GET) {
+              errors.push(new GraphQLError(
+                `${sourceField} http.GET cannot specify http.body`,
+              ));
+            } else if (DELETE) {
+              errors.push(new GraphQLError(
+                `${sourceField} http.DELETE cannot specify http.body`,
+              ));
+            }
+
+            try {
+              parseJSONSelection(body);
+              // TODO Validate body string matches the available fields of the
+              // parent type and/or argument names of the field.
+            } catch (e) {
+              errors.push(new GraphQLError(
+                `${sourceField} http.body not valid JSONSelection: ${e.message}`,
+              ));
+            }
+          }
+        }
+      }
+
+      if (selection) {
+        try {
+          parseJSONSelection(selection);
+          // TODO Validate selection string matches the available fields of
+          // the parent type and/or argument names of the field.
+        } catch (e) {
+          errors.push(new GraphQLError(
+            `${sourceField} selection not valid JSONSelection: ${
+              e.message
+            }`,
+          ));
+        }
+      }
+
+      // @sourceField is allowed only on root Query and Mutation fields or
+      // fields of entity object types.
+      const fieldParent = application.parent;
+      if (fieldParent.sourceAST?.kind !== "FieldDefinition") {
+        errors.push(new GraphQLError(
+          `${sourceField} must be applied to field`,
+        ));
+      } else {
+        const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
+        if (typeGrandparent.sourceAST?.kind !== "ObjectTypeDefinition") {
+          errors.push(new GraphQLError(
+            `${sourceField} must be applied to field of object type`,
+          ));
+        } else {
+          const typeGrandparentName = typeGrandparent.sourceAST?.name.value;
+          if (
+            typeGrandparentName !== "Query" &&
+            typeGrandparentName !== "Mutation" &&
+            typeGrandparent.appliedDirectivesOf("key").length === 0
+          ) {
+            errors.push(new GraphQLError(
+              `${sourceField} must be applied to root Query or Mutation field or field of entity type`,
+            ));
+          }
+        }
+      }
+    });
   }
 }
 
@@ -451,6 +480,14 @@ function validateHTTPHeaders(
       // TODO Validate value is valid HTTP header value?
     });
   }
+}
+
+function parseJSONSelection(_selection: string): any {
+  // TODO
+}
+
+function parseURLPathTemplate(_template: string): any {
+  // TODO
 }
 
 const HTTP_PROTOCOL = "http";
