@@ -812,19 +812,14 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
     assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
-    const overrideDirectiveApplicationsWithLabel =
-      subgraphMetadata
-        .overrideDirective()
-        .applications()
-        .filter(a => a.arguments().label);
 
-    for (const application of overrideDirectiveApplicationsWithLabel) {
+    for (const application of subgraphMetadata.overrideDirective().applications()) {
       const { from, label } = application.arguments();
+      if (!label) continue;
       const fromSubgraph = subgraphsByName.get(from);
       assert(fromSubgraph, () => `Subgraph ${from} not found`);
 
-      function updateEdgeWithOverrideCondition(subgraph: QueryGraph, condition: boolean) {
-        assert(label, () => `Expected @override application to have a label`);
+      function updateEdgeWithOverrideCondition(subgraph: QueryGraph, label: string, condition: boolean) {
         const field = application.parent;
         assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`);
         const typeName = field.parent.name;
@@ -849,8 +844,8 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
         }
       }
 
-      updateEdgeWithOverrideCondition(toSubgraph, true);
-      updateEdgeWithOverrideCondition(fromSubgraph, false);
+      updateEdgeWithOverrideCondition(toSubgraph, label, true);
+      updateEdgeWithOverrideCondition(fromSubgraph, label, false);
     }
   }
 
