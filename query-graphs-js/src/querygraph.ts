@@ -820,20 +820,17 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
 
     for (const application of overrideDirectiveApplicationsWithLabel) {
       const { from, label } = application.arguments();
-      assert(label, () => `Expected @override application to have a label`);
       const fromSubgraph = subgraphsByName.get(from);
       assert(fromSubgraph, () => `Subgraph ${from} not found`);
 
-      // The `as` type assertion here ensures the type refinement isn't lost
-      // inside the function below, and it's enforced by the instanceof check
-      // immediately following this line.
-      const field = application.parent as NamedSchemaElement<any, any, any>;
-      assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`);
-      const type = field.parent;
+      function updateEdgeWithOverrideCondition(subgraph: QueryGraph, condition: boolean) {
+        assert(label, () => `Expected @override application to have a label`);
+        const field = application.parent;
+        assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`);
+        const typeName = field.parent.name;
 
-      function updateEdgeWithOverrideCondition(subgraph: QueryGraph, label: string, condition: boolean) {
-        const [vertex, ...unexpectedAdditionalVertices] = subgraph.verticesForType(type.name);
-        assert(vertex && unexpectedAdditionalVertices.length === 0, () => `Subgraph ${subgraph.name} should have exactly one vertex for type ${type.name}`);
+        const [vertex, ...unexpectedAdditionalVertices] = subgraph.verticesForType(typeName);
+        assert(vertex && unexpectedAdditionalVertices.length === 0, () => `Subgraph ${subgraph.name} should have exactly one vertex for type ${typeName}`);
 
         const subgraphEdges = subgraph.outEdges(vertex);
         for (const edge of subgraphEdges) {
@@ -847,13 +844,13 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
             copiedEdge.overrideCondition = {
               label,
               condition,
-            }
+            };
           }
         }
       }
 
-      updateEdgeWithOverrideCondition(toSubgraph, label, true);
-      updateEdgeWithOverrideCondition(fromSubgraph, label, false);
+      updateEdgeWithOverrideCondition(toSubgraph, true);
+      updateEdgeWithOverrideCondition(fromSubgraph, false);
     }
   }
 
