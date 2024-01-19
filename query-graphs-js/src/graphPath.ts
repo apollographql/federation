@@ -1600,17 +1600,17 @@ function advancePathWithDirectTransition<V extends Vertex>(
       continue;
     }
 
-    if (edge.overrideCondition) {
-      const isOverridden = overrideConditions.get(edge.overrideCondition.label) === true;
-      if (isOverridden !== edge.overrideCondition.condition) {
-        deadEnds.push({
-          destSubgraph: edge.tail.source,
-          sourceSubgraph: edge.head.source,
-          reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
-          details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${!edge.overrideCondition.condition}`,
-        });
-        continue;
-      }
+    if (
+      edge.overrideCondition
+      && !edge.satisfiesOverrideConditions(overrideConditions)
+    ) {
+      deadEnds.push({
+        destSubgraph: edge.tail.source,
+        sourceSubgraph: edge.head.source,
+        reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
+        details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${overrideConditions.get(edge.overrideCondition.label)}`,
+      });
+      continue;
     }
 
     // Additionally, we can only take an edge if we can satisfy its conditions.
@@ -1671,7 +1671,6 @@ function advancePathWithDirectTransition<V extends Vertex>(
         // it uses @interfaceObject on an interface of that implementation.
         details = `cannot find implementation type "${fieldTypeName}" (supergraph interface "${path.tail.type.name}" is declared with @interfaceObject in "${subgraph}")`;
       } else {
-        // TODO: from sachin - this is the place to "pretend" the field doesn't exist
         const fieldInSubgraph = typeInSubgraph && isCompositeType(typeInSubgraph)
           ? typeInSubgraph.field(transition.definition.name)
           : undefined;
@@ -2373,13 +2372,6 @@ function advanceWithOperation<V extends Vertex>(
         if (!edge) {
           debug.groupEnd(() => `No edge for field ${field} on object type ${currentType}`);
           return { options: undefined };
-        }
-        if (edge.overrideCondition) {
-          const { label } = edge.overrideCondition;
-          if (!edge.satisfiesOverrideConditions(overrideConditions)) {
-            debug.groupEnd(() => `Ignoring edge due to override label "${label}" in subgraph ${edge.head.source} on field ${field} on object type ${currentType}`);
-            return { options: undefined };
-          }
         }
 
         // If the current type is an @interfaceObject, it's possible that the requested field

@@ -467,13 +467,22 @@ export class ValidationState {
     const targetType = supergraphEdge.tail.type;
     const newSubgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[] = [];
     const deadEnds: Unadvanceables[] = [];
+    // If the edge has an override condition, we should capture it in the state so
+    // that we can ignore later edges that don't satisfy the condition.
+    const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
+    if (supergraphEdge.overrideCondition) {
+      newOverrideConditions.set(
+        supergraphEdge.overrideCondition.label,
+        supergraphEdge.overrideCondition.condition
+      );
+    }
 
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
         path,
         transition,
         targetType,
-        this.selectedOverrideConditions,
+        newOverrideConditions,
       );
       if (isUnadvanceable(options)) {
         deadEnds.push(options);
@@ -491,15 +500,6 @@ export class ValidationState {
       return { error: satisfiabilityError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds) };
     }
 
-    // If the edge has an override condition, we should capture it in the state so
-    // that we can ignore later edges that don't satisfy the condition.
-    const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
-    if (supergraphEdge.overrideCondition) {
-      newOverrideConditions.set(
-        supergraphEdge.overrideCondition.label,
-        supergraphEdge.overrideCondition.condition
-      );
-    }
     const updatedState = new ValidationState(
       newPath,
       newSubgraphPaths,
@@ -605,8 +605,8 @@ export class ValidationState {
 // subgraphs and all of `other`'s labels (with matching conditions).
 function isSupersetOrEqual(maybeSuperset: VertexVisit, other: VertexVisit): boolean {
   const includesAllSubgraphs = other.subgraphs.every((s) => maybeSuperset.subgraphs.includes(s));
-  const includesAllOverrideConditions = [...other.overriddenLabels.entries()].every(([label, value]) =>
-    maybeSuperset.overriddenLabels.get(label) === value
+  const includesAllOverrideConditions = [...other.overrideConditions.entries()].every(([label, value]) =>
+    maybeSuperset.overrideConditions.get(label) === value
   );
 
   return includesAllSubgraphs && includesAllOverrideConditions;
@@ -614,7 +614,7 @@ function isSupersetOrEqual(maybeSuperset: VertexVisit, other: VertexVisit): bool
 
 interface VertexVisit {
   subgraphs: string[];
-  overriddenLabels: Map<string, boolean>;
+  overrideConditions: Map<string, boolean>;
 }
 
 class ValidationTraversal {
@@ -668,7 +668,7 @@ class ValidationTraversal {
 
     const currentVertexVisit: VertexVisit = {
       subgraphs: state.currentSubgraphNames(),
-      overriddenLabels: state.selectedOverrideConditions
+      overrideConditions: state.selectedOverrideConditions
     };
     const previousVisitsForVertex = this.previousVisits.getVertexState(vertex);
     if (previousVisitsForVertex) {
@@ -705,7 +705,7 @@ class ValidationTraversal {
       if (
         edge.overrideCondition
         && state.selectedOverrideConditions.has(edge.overrideCondition.label)
-        && edge.satisfiesOverrideConditions(state.selectedOverrideConditions)
+        && !edge.satisfiesOverrideConditions(state.selectedOverrideConditions)
       ) {
         debug.groupEnd(`Edge ${edge} doesn't satisfy label condition: ${edge.overrideCondition?.label}(${state.selectedOverrideConditions.get(edge.overrideCondition?.label ?? "")}), no need to validate further`);
         continue;
