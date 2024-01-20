@@ -1,5 +1,35 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.7.0
+
+### Minor Changes
+
+- Implement progressive `@override` functionality ([#2911](https://github.com/apollographql/federation/pull/2911))
+
+  The progressive `@override` feature brings a new argument to the `@override` directive: `label: String`. When a label is added to an `@override` application, the override becomes conditional, depending on parameters provided to the query planner (a set of which labels should be overridden). Note that this feature will be supported in router for enterprise users only.
+
+  Out-of-the-box, the router will support a percentage-based use case for progressive `@override`. For example:
+
+  ```graphql
+  type Query {
+    hello: String @override(from: "original", label: "percent(5)")
+  }
+  ```
+
+  The above example will override the root `hello` field from the "original" subgraph 5% of the time.
+
+  More complex use cases will be supported by the router via the use of coprocessors/rhai to resolve arbitrary labels to true/false values (i.e. via a feature flag service).
+
+- Support `@join__directive(graphs, name, args)` directives ([#2894](https://github.com/apollographql/federation/pull/2894))
+
+### Patch Changes
+
+- Allow known `FeatureDefinition` subclasses to define custom subgraph schema validation rules ([#2910](https://github.com/apollographql/federation/pull/2910))
+
+- Updated dependencies [[`6ae42942b13dccd246ccc994faa2cb36cd62cb3c`](https://github.com/apollographql/federation/commit/6ae42942b13dccd246ccc994faa2cb36cd62cb3c), [`66833fb8d04c9376f6ed476fed6b1ca237f477b7`](https://github.com/apollographql/federation/commit/66833fb8d04c9376f6ed476fed6b1ca237f477b7), [`931f87c6766c7439936df706727cbdc0cd6bcfd8`](https://github.com/apollographql/federation/commit/931f87c6766c7439936df706727cbdc0cd6bcfd8)]:
+  - @apollo/query-graphs@2.7.0
+  - @apollo/federation-internals@2.7.0
+
 ## 2.6.3
 
 ### Patch Changes
