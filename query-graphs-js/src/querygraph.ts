@@ -34,6 +34,8 @@ import {
   selectionSetOfElement,
   SelectionSetUpdates,
   Supergraph,
+  NamedSchemaElement,
+  validateSupergraph,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -116,6 +118,11 @@ export function isRootVertex(vertex: Vertex): vertex is RootVertex {
   return vertex instanceof RootVertex;
 }
 
+export interface OverrideCondition {
+  label: string;
+  condition: boolean;
+}
+
 /**
  * An edge of a query graph.
  *
@@ -163,6 +170,14 @@ export class Edge {
      * Outside of keys, @requires also rely on conditions.
      */
     conditions?: SelectionSet,
+    /**
+     * Edges can require that an override condition (provided during query
+     * planning) be met in order to be taken. This is used for progressive
+     * @override, where (at least) 2 subgraphs can resolve the same field, but
+     * one of them has an @override with a label. If the override condition
+     * matches the query plan parameters, this edge can be taken.
+     */
+    public overrideCondition?: OverrideCondition,
   ) {
     this._conditions = conditions;
   }
@@ -194,7 +209,16 @@ export class Edge {
     if (this.transition instanceof SubgraphEnteringTransition && !this._conditions) {
       return "";
     }
-    return this._conditions ? `${this._conditions} ⊢ ${this.transition}` : this.transition.toString();
+
+    let conditionsString = (this._conditions ?? '').toString();
+    if (this.overrideCondition) {
+      if (conditionsString.length) conditionsString += ', ';
+      conditionsString += `${this.overrideCondition.label} = ${this.overrideCondition.condition}`;
+    }
+    // we had at least some condition, add the turnstile and spacing
+    if (conditionsString.length) conditionsString += ' ⊢ ';
+
+    return conditionsString + this.transition.toString();
   }
 
   withNewHead(newHead: Vertex): Edge {
@@ -203,7 +227,8 @@ export class Edge {
       newHead,
       this.tail,
       this.transition,
-      this._conditions
+      this._conditions,
+      this.overrideCondition,
     );
   }
 
@@ -215,6 +240,12 @@ export class Edge {
 
   isKeyOrRootTypeEdgeToSelf(): boolean {
     return this.head === this.tail && (this.transition.kind === 'KeyResolution' || this.transition.kind === 'RootTypeResolution');
+  }
+
+  satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
+    if (!this.overrideCondition) return true;
+    const { label, condition } = this.overrideCondition;
+    return conditionsToCheck.has(label) ? conditionsToCheck.get(label) === condition : false;
   }
 
   toString(): string {
@@ -516,23 +547,28 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
  *
  * @param name - the name to use for the created graph and as "source" name for the schema.
  * @param schema - the schema for which to build the query graph.
+ * @param overrideLabelsByCoordinate - A Map of coordinate -> override label to apply to the query graph.
+ *   Additional "virtual" edges will be created for progressively overridden fields in order to ensure that
+ *   all possibilities are considered during query planning.
  * @returns the query graph corresponding to `schema` "API" (in the sense that no federation
  *   directives are taken into account by this method in the building of the query graph).
  */
-export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
-  return buildGraphInternal(name, schema, false);
+export function buildQueryGraph(name: string, schema: Schema, overrideLabelsByCoordinate?: Map<string, string>): QueryGraph {
+  return buildGraphInternal(name, schema, false, undefined, overrideLabelsByCoordinate);
 }
 
 function buildGraphInternal(
   name: string,
   schema: Schema,
   addAdditionalAbstractTypeEdges: boolean,
-  supergraphSchema?: Schema
+  supergraphSchema?: Schema,
+  overrideLabelsByCoordinate?: Map<string, string>,
 ): QueryGraph {
   const builder = new GraphBuilderFromSchema(
     name,
     schema,
     supergraphSchema ? { apiSchema: supergraphSchema.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
+    overrideLabelsByCoordinate,
   );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
@@ -560,7 +596,21 @@ function buildGraphInternal(
  * @returns the built query graph.
  */
 export function buildSupergraphAPIQueryGraph(supergraph: Supergraph): QueryGraph {
-  return buildQueryGraph("supergraph", supergraph.apiSchema());
+  const apiSchema = supergraph.apiSchema();
+
+  const overrideLabelsByCoordinate = new Map<string, string>();
+  const joinFieldApplications = validateSupergraph(supergraph.schema)[1]
+    .fieldDirective(supergraph.schema).applications();
+  for (const application of joinFieldApplications) {
+    const overrideLabel = application.arguments().overrideLabel;
+    if (overrideLabel) {
+      overrideLabelsByCoordinate.set(
+        (application.parent as FieldDefinition<any>).coordinate,
+        overrideLabel
+      );
+    }
+  }
+  return buildQueryGraph("supergraph", apiSchema, overrideLabelsByCoordinate);
 }
 
 /**
@@ -748,6 +798,57 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       }
     );
   }
+
+  /**
+   * Handling progressive overrides here. For each progressive @override
+   * application (with a label), we want to update the edges to the overridden
+   * field within the "to" and "from" subgraphs with their respective override
+   * condition (the label and a T/F value). The "from" subgraph will have an
+   * override condition of `false`, whereas the "to" subgraph will have an
+   * override condition of `true`.
+   */
+  const subgraphsByName = new Map(subgraphs.map((s) => [s.name, s]));
+  for (const [i, toSubgraph] of subgraphs.entries()) {
+    const subgraphSchema = schemas[i];
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+
+    for (const application of subgraphMetadata.overrideDirective().applications()) {
+      const { from, label } = application.arguments();
+      if (!label) continue;
+      const fromSubgraph = subgraphsByName.get(from);
+      assert(fromSubgraph, () => `Subgraph ${from} not found`);
+
+      function updateEdgeWithOverrideCondition(subgraph: QueryGraph, label: string, condition: boolean) {
+        const field = application.parent;
+        assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`);
+        const typeName = field.parent.name;
+
+        const [vertex, ...unexpectedAdditionalVertices] = subgraph.verticesForType(typeName);
+        assert(vertex && unexpectedAdditionalVertices.length === 0, () => `Subgraph ${subgraph.name} should have exactly one vertex for type ${typeName}`);
+
+        const subgraphEdges = subgraph.outEdges(vertex);
+        for (const edge of subgraphEdges) {
+          if (
+            edge.transition.kind === "FieldCollection"
+            && edge.transition.definition.name === field.name
+          ) {
+            const head = copyPointers[subgraphs.indexOf(subgraph)].copiedVertex(vertex);
+            const copiedEdge = builder.edge(head, edge.index);
+
+            copiedEdge.overrideCondition = {
+              label,
+              condition,
+            };
+          }
+        }
+      }
+
+      updateEdgeWithOverrideCondition(toSubgraph, label, true);
+      updateEdgeWithOverrideCondition(fromSubgraph, label, false);
+    }
+  }
+
   // Now we handle @provides
   let provideId = 0;
   for (const [i, subgraph] of subgraphs.entries()) {
@@ -786,7 +887,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
     );
   }
 
-  // We now ned to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
+  // We now need to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
   // of a interface are queried, and that could apply to an interface that is an @interfaceObject in some sugraph. Consider
   // the following example:
   // ```graphql
@@ -820,7 +921,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
   //
   // Long story short, to solve this, we create edges from @interfaceObject types to themselves for every implementation
   // types of the interface: those edges will be taken when we try to take a `... on B` condition, and those edge
-  // have __typename has a condition, forcing to find __typename in another subgraph first.
+  // have __typename as a condition, forcing to find __typename in another subgraph first.
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
@@ -928,10 +1029,10 @@ class GraphBuilder {
     return this.rootVertices.get(kind);
   }
 
-  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet) {
+  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, overrideCondition?: OverrideCondition) {
     const headOutEdges = this.outEdges[head.index];
     const tailInEdges = this.inEdges[tail.index];
-    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions);
+    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions, overrideCondition);
     headOutEdges.push(edge);
     tailInEdges.push(edge);
 
@@ -1062,7 +1163,7 @@ class GraphBuilder {
    * @returns the newly created edge that, as of this method returning, replaces `edge`.
    */
   updateEdgeTail(edge: Edge, newTail: Vertex): Edge {
-    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions);
+    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions, edge.overrideCondition);
     this.outEdges[edge.head.index][edge.index] = newEdge;
     // For in-edge, we need to remove the edge from the inputs of the previous tail,
     // and add it to the new tail.
@@ -1103,6 +1204,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     private readonly name: string,
     private readonly schema: Schema,
     private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
+    private readonly overrideLabelsByCoordinate?: Map<string, string>,
   ) {
     super();
     this.isFederatedSubgraph = !!supergraph && isFederationSubgraphSchema(schema);
@@ -1197,7 +1299,19 @@ class GraphBuilderFromSchema extends GraphBuilder {
 
   private addEdgeForField(field: FieldDefinition<any>, head: Vertex) {
     const tail = this.addTypeRecursively(field.type!);
-    this.addEdge(head, tail, new FieldCollection(field));
+    const overrideLabel = this.overrideLabelsByCoordinate?.get(field.coordinate);
+    if (overrideLabel) {
+      this.addEdge(head, tail, new FieldCollection(field), undefined, {
+        label: overrideLabel,
+        condition: true,
+      });
+      this.addEdge(head, tail, new FieldCollection(field), undefined, {
+        label: overrideLabel,
+        condition: false,
+      });
+    } else {
+      this.addEdge(head, tail, new FieldCollection(field));
+    }
   }
 
   private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {

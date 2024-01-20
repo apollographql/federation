@@ -399,12 +399,14 @@ class QueryPlanningTraversal<RV extends Vertex> {
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
+
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
       this.conditionResolver,
       excludedDestinations,
       excludedConditions,
+      parameters.overrideConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
@@ -440,7 +442,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const followupForOption = advanceSimultaneousPathsWithOperation(this.parameters.supergraphSchema, option, operation);
+      const followupForOption = advanceSimultaneousPathsWithOperation(
+        this.parameters.supergraphSchema,
+        option,
+        operation,
+        this.parameters.overrideConditions,
+      );
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
         // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
@@ -473,7 +480,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.recordClosedBranch(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
+          this.recordClosedBranch(options.map((o) => ({
+            paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p, this.parameters.overrideConditions))
+          })));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
@@ -784,7 +793,7 @@ const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: condit
 
 class GroupInputs {
   private readonly perType = new Map<string, MutableSelectionSet>();
-  onUpdateCallback: () => void = () => {};
+  onUpdateCallback?: () => void | undefined = undefined;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -801,7 +810,7 @@ class GroupInputs {
       this.perType.set(typeName, typeSelection);
     }
     typeSelection.updates().add(selection);
-    this.onUpdateCallback();
+    this.onUpdateCallback?.();
   }
 
   addAll(other: GroupInputs) {
@@ -2890,13 +2899,25 @@ type PlanningParameters<RV extends Vertex> = {
   root: RV,
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
+  overrideConditions: Map<string, boolean>,
+}
+
+interface BuildQueryPlanOptions {
+  /**
+   * A set of labels which will be used _during query planning_ to
+   * enable/disable edges with a matching label in their override condition.
+   * Edges with override conditions require their label to be present or absent
+   * from this set in order to be traversable. These labels enable the
+   * progressive @override feature.
+   */
+  overrideConditions?: Map<string, boolean>,
 }
 
 export class QueryPlanner {
   private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
   private _lastGeneratedPlanStatistics: PlanningStatistics | undefined;
-
+  private _defaultOverrideConditions: Map<string, boolean> = new Map();
   // A set of the names of interface types for which at least one subgraph use an @interfaceObject to abstract
   // that interface.
   private readonly interfaceTypesWithInterfaceObjects = new Set<string>();
@@ -2914,6 +2935,7 @@ export class QueryPlanner {
     this.federatedQueryGraph = buildFederatedQueryGraph(supergraph, true);
     this.collectInterfaceTypesWithInterfaceObjects();
     this.collectInconsistentAbstractTypesRuntimes();
+    this.collectAllOverrideLabels();
 
     if (this.config.debug.bypassPlannerForSingleSubgraph && this.config.incrementalDelivery.enableDefer) {
       throw new Error(`Cannot use the "debug.bypassPlannerForSingleSubgraph" query planner option when @defer support is enabled`);
@@ -2971,7 +2993,18 @@ export class QueryPlanner {
     }
   }
 
-  buildQueryPlan(operation: Operation): QueryPlan {
+  private collectAllOverrideLabels() {
+    // inspect every join__field directive application in the supergraph and collect all `overrideLabel` argument values
+    this._defaultOverrideConditions = new Map(
+      this.supergraph.schema.directives()
+        .find((d) => d.name === 'join__field')?.applications()
+        .map((application) => application.arguments().overrideLabel)
+        .filter(Boolean)
+        .map(label => [label, false])
+    );
+  }
+
+  buildQueryPlan(operation: Operation, options?: BuildQueryPlanOptions): QueryPlan {
     if (operation.selectionSet.isEmpty()) {
       return { kind: 'QueryPlan' };
     }
@@ -3050,6 +3083,15 @@ export class QueryPlanner {
       assignedDeferLabels,
     });
 
+    // Default all override conditions to false (not overridden) in case any
+    // aren't provided by the caller
+    const overrideConditions = new Map(this._defaultOverrideConditions);
+    if (options?.overrideConditions) {
+      for (const [label, value] of options.overrideConditions) {
+        overrideConditions.set(label, value);
+      }
+    }
+
     const parameters: PlanningParameters<RootVertex> = {
       supergraphSchema: this.supergraph.schema,
       federatedQueryGraph: this.federatedQueryGraph,
@@ -3059,6 +3101,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
+      overrideConditions,
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
@@ -4238,7 +4281,7 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
   let type = parentType;
   for (const element of path) {
     if (element.kind === 'Field') {
-      const fieldType = baseType(type.field(element.name)?.type!);
+      const fieldType = baseType(type.field(element.name)!.type!);
       assert(isCompositeType(fieldType), () => `Invalid call fro ${path} starting at ${parentType}: ${element.definition.coordinate} is not composite`);
       type = fieldType;
     } else if (element.typeCondition) {

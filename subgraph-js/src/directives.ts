@@ -135,6 +135,9 @@ export const OverrideDirective = new GraphQLDirective({
     from: {
       type: new GraphQLNonNull(GraphQLString),
     },
+    label: {
+      type: GraphQLString,
+    }
   },
 });
 
