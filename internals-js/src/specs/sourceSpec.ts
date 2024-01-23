@@ -534,15 +534,19 @@ function validateHTTPHeaders(
       // Ensure name is a valid HTTP header name.
       if (!isValidHTTPHeaderName(name)) {
         errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
-          `${directiveName} headers[${i}].name == ${
-            JSON.stringify(name)
-          } is not valid HTTP header name`,
+          `${directiveName} header ${JSON.stringify(headers[i])} specifies invalid name`,
+        ));
+      }
+
+      if (as && !isValidHTTPHeaderName(as)) {
+        errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
+          `${directiveName} header ${JSON.stringify(headers[i])} specifies invalid 'as' name`,
         ));
       }
 
       if (as && value) {
         errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
-          `${directiveName} header ${headers[i]} should specify at most one of 'as' or 'value'`,
+          `${directiveName} header ${JSON.stringify(headers[i])} should specify at most one of 'as' or 'value'`,
         ));
       }
 
