@@ -304,58 +304,58 @@ export class SourceSpecDefinition extends FeatureDefinition {
           `${sourceType} specifies unknown api ${api}`,
           { nodes: application.sourceAST },
         ));
-      } else {
-        const expectedProtocol = apiNameToProtocol.get(api);
-        const protocolValue = expectedProtocol && rest[expectedProtocol];
-        if (expectedProtocol && !protocolValue) {
-          errors.push(ERRORS.SOURCE_TYPE_API_ERROR.err(
-            `${sourceType} must specify same ${
-              expectedProtocol
-            } argument as corresponding @sourceAPI for api ${api}`,
+      }
+
+      const expectedProtocol = apiNameToProtocol.get(api) || HTTP_PROTOCOL;
+      const protocolValue = expectedProtocol && rest[expectedProtocol];
+      if (expectedProtocol && !protocolValue) {
+        errors.push(ERRORS.SOURCE_TYPE_API_ERROR.err(
+          `${sourceType} must specify same ${
+            expectedProtocol
+          } argument as corresponding @sourceAPI for api ${api}`,
+          { nodes: application.sourceAST },
+        ));
+      }
+
+      if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
+        const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
+
+        if ([GET, POST].filter(Boolean).length !== 1) {
+          errors.push(ERRORS.SOURCE_TYPE_HTTP_METHOD_INVALID.err(
+            `${sourceType} must specify exactly one of http.GET or http.POST`,
             { nodes: application.sourceAST },
           ));
+        } else {
+          const urlPathTemplate = (GET || POST)!;
+          try {
+            // TODO Validate URL path template uses only available @key fields
+            // of the type.
+            parseURLPathTemplate(urlPathTemplate);
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
+              `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
+            ));
+          }
         }
 
-        if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
-          const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
+        validateHTTPHeaders(headers, errors, sourceType.name);
 
-          if ([GET, POST].filter(Boolean).length !== 1) {
-            errors.push(ERRORS.SOURCE_TYPE_HTTP_METHOD_INVALID.err(
-              `${sourceType} must specify exactly one of http.GET or http.POST`,
+        if (body) {
+          if (GET) {
+            errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
+              `${sourceType} http.GET cannot specify http.body`,
               { nodes: application.sourceAST },
             ));
-          } else {
-            const urlPathTemplate = (GET || POST)!;
-            try {
-              // TODO Validate URL path template uses only available @key fields
-              // of the type.
-              parseURLPathTemplate(urlPathTemplate);
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
-                `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
-              ));
-            }
           }
 
-          validateHTTPHeaders(headers, errors, sourceType.name);
-
-          if (body) {
-            if (GET) {
-              errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-                `${sourceType} http.GET cannot specify http.body`,
-                { nodes: application.sourceAST },
-              ));
-            }
-
-            try {
-              parseJSONSelection(body);
-              // TODO Validate body selection matches the available fields.
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-                `${sourceType} http.body not valid JSONSelection (error: ${e.message})`,
-                { nodes: application.sourceAST },
-              ));
-            }
+          try {
+            parseJSONSelection(body);
+            // TODO Validate body selection matches the available fields.
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
+              `${sourceType} http.body not valid JSONSelection (error: ${e.message})`,
+              { nodes: application.sourceAST },
+            ));
           }
         }
       }
@@ -401,59 +401,59 @@ export class SourceSpecDefinition extends FeatureDefinition {
           `${sourceField} specifies unknown api ${api}`,
           { nodes: application.sourceAST },
         ));
-      } else {
-        const expectedProtocol = apiNameToProtocol.get(api);
-        const protocolValue = expectedProtocol && rest[expectedProtocol];
-        if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
-          const {
-            GET, POST, PUT, PATCH, DELETE,
-            headers,
-            body,
-          } = protocolValue as HTTPSourceField;
+      }
 
-          const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
-          if (usedMethods.length > 1) {
-            errors.push(ERRORS.SOURCE_FIELD_HTTP_METHOD_INVALID.err(
-              `${sourceField} allows at most one of http.{GET,POST,PUT,PATCH,DELETE}`,
+      const expectedProtocol = apiNameToProtocol.get(api) || HTTP_PROTOCOL;
+      const protocolValue = expectedProtocol && rest[expectedProtocol];
+      if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
+        const {
+          GET, POST, PUT, PATCH, DELETE,
+          headers,
+          body,
+        } = protocolValue as HTTPSourceField;
+
+        const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
+        if (usedMethods.length > 1) {
+          errors.push(ERRORS.SOURCE_FIELD_HTTP_METHOD_INVALID.err(
+            `${sourceField} allows at most one of http.{GET,POST,PUT,PATCH,DELETE}`,
+          ));
+        } else if (usedMethods.length === 1) {
+          const urlPathTemplate = usedMethods[0]!;
+          try {
+            // TODO Validate URL path template uses only available fields of
+            // the type and/or argument names of the field.
+            parseURLPathTemplate(urlPathTemplate);
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
+              `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${e.message})`
             ));
-          } else if (usedMethods.length === 1) {
-            const urlPathTemplate = usedMethods[0]!;
-            try {
-              // TODO Validate URL path template uses only available fields of
-              // the type and/or argument names of the field.
-              parseURLPathTemplate(urlPathTemplate);
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
-                `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${e.message})`
-              ));
-            }
+          }
+        }
+
+        validateHTTPHeaders(headers, errors, sourceField.name);
+
+        if (body) {
+          if (GET) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+              `${sourceField} http.GET cannot specify http.body`,
+              { nodes: application.sourceAST },
+            ));
+          } else if (DELETE) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+              `${sourceField} http.DELETE cannot specify http.body`,
+              { nodes: application.sourceAST },
+            ));
           }
 
-          validateHTTPHeaders(headers, errors, sourceField.name);
-
-          if (body) {
-            if (GET) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.GET cannot specify http.body`,
-                { nodes: application.sourceAST },
-              ));
-            } else if (DELETE) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.DELETE cannot specify http.body`,
-                { nodes: application.sourceAST },
-              ));
-            }
-
-            try {
-              parseJSONSelection(body);
-              // TODO Validate body string matches the available fields of the
-              // parent type and/or argument names of the field.
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.body not valid JSONSelection (error: ${e.message})`,
-                { nodes: application.sourceAST },
-              ));
-            }
+          try {
+            parseJSONSelection(body);
+            // TODO Validate body string matches the available fields of the
+            // parent type and/or argument names of the field.
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+              `${sourceField} http.body not valid JSONSelection (error: ${e.message})`,
+              { nodes: application.sourceAST },
+            ));
           }
         }
       }
