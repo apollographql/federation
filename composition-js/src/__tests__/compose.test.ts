@@ -5102,8 +5102,7 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[bad] @source{API,Type,Field} directives require federation version v2.7 or later, found v2.5'
-
+        '[bad] Schemas that @link to https://specs.apollo.dev/source must also @link to federation version v2.7 or later (found v2.5)'
       );
 
       expect(messages).toContain(
