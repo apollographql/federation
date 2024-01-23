@@ -5121,9 +5121,16 @@ describe('@source* directives', () => {
         '[bad] @sourceField specifies unknown api A'
       );
 
-      expect(messages).toContain(
-        '[bad] @sourceAPI http.baseURL \"not a url\" must be valid URL (error: Invalid URL)'
-      );
+      try {
+        new URL('not a url');
+        throw new Error('should have thrown');
+      } catch (e) {
+        expect(messages).toContain(
+          // Different versions of Node.js stringify the URL error differently,
+          // so we avoid hard-coding that part of the expected error.
+          `[bad] @sourceAPI http.baseURL \"not a url\" must be valid URL (error: ${e.message})`
+        );
+      }
 
       expect(messages).toContain(
         '[bad] @sourceAPI header {\"name\":\"i n v a l i d\",\"value\":\"header value\",\"as\":\"re|named\"} specifies invalid name'
