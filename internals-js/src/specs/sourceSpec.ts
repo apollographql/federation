@@ -255,7 +255,9 @@ export class SourceSpecDefinition extends FeatureDefinition {
         if (rest[knownProtocol]) {
           if (protocol) {
             errors.push(ERRORS.SOURCE_API_PROTOCOL_INVALID.err(
-              `${sourceAPI} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+              `${sourceAPI} must specify only one of ${
+                KNOWN_SOURCE_PROTOCOLS.join(', ')
+              } but specified both ${protocol} and ${knownProtocol}`,
               { nodes: application.sourceAST },
             ));
           }
@@ -274,7 +276,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             new URL(baseURL);
           } catch (e) {
             errors.push(ERRORS.SOURCE_API_HTTP_BASE_URL_INVALID.err(
-              `${sourceAPI} http.baseURL ${JSON.stringify(baseURL)} must be valid URL`,
+              `${sourceAPI} http.baseURL ${JSON.stringify(baseURL)} must be valid URL (error: ${e.message})`,
               { nodes: application.sourceAST },
             ));
           }
@@ -330,7 +332,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
               parseURLPathTemplate(urlPathTemplate);
             } catch (e) {
               errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
-                `${sourceType} http.GET or http.POST must be valid URL path template`
+                `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
               ));
             }
           }
@@ -350,7 +352,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
               // TODO Validate body selection matches the available fields.
             } catch (e) {
               errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-                `${sourceType} http.body not valid JSONSelection: ${e.message}`,
+                `${sourceType} http.body not valid JSONSelection (error: ${e.message})`,
                 { nodes: application.sourceAST },
               ));
             }
@@ -373,7 +375,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             // TODO Validate selection is valid JSONSelection for type.
           } catch (e) {
             errors.push(ERRORS.SOURCE_TYPE_SELECTION_INVALID.err(
-              `${sourceType} selection not valid JSONSelection: ${e.message}`,
+              `${sourceType} selection not valid JSONSelection (error: ${e.message})`,
               { nodes: application.sourceAST },
             ));
           }
@@ -422,7 +424,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
               parseURLPathTemplate(urlPathTemplate);
             } catch (e) {
               errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
-                `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template`
+                `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${e.message})`
               ));
             }
           }
@@ -448,7 +450,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
               // parent type and/or argument names of the field.
             } catch (e) {
               errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.body not valid JSONSelection: ${e.message}`,
+                `${sourceField} http.body not valid JSONSelection (error: ${e.message})`,
                 { nodes: application.sourceAST },
               ));
             }
@@ -463,7 +465,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
           // the parent type and/or argument names of the field.
         } catch (e) {
           errors.push(ERRORS.SOURCE_FIELD_SELECTION_INVALID.err(
-            `${sourceField} selection not valid JSONSelection: ${e.message}`,
+            `${sourceField} selection not valid JSONSelection (error: ${e.message})`,
             { nodes: application.sourceAST },
           ));
         }
@@ -475,14 +477,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
       if (fieldParent.sourceAST?.kind !== "FieldDefinition") {
         errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
           `${sourceField} must be applied to field`,
-          { nodes: application.sourceAST },
+          { nodes: [application.sourceAST!, fieldParent.sourceAST!] },
         ));
       } else {
         const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
         if (typeGrandparent.sourceAST?.kind !== "ObjectTypeDefinition") {
           errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
             `${sourceField} must be applied to field of object type`,
-            { nodes: application.sourceAST },
+            { nodes: [
+              application.sourceAST!,
+              fieldParent.sourceAST,
+              typeGrandparent.sourceAST!,
+            ]},
           ));
         } else {
           const typeGrandparentName = typeGrandparent.sourceAST?.name.value;
@@ -493,7 +499,11 @@ export class SourceSpecDefinition extends FeatureDefinition {
           ) {
             errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
               `${sourceField} must be applied to root Query or Mutation field or field of entity type`,
-              { nodes: application.sourceAST },
+              { nodes: [
+                application.sourceAST!,
+                fieldParent.sourceAST,
+                typeGrandparent.sourceAST!,
+              ]},
             ));
           }
         }
