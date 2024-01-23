@@ -1,4 +1,4 @@
-import { DirectiveLocation, GraphQLError, assertName } from 'graphql';
+import { DirectiveLocation, GraphQLError } from 'graphql';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./coreSpec";
 import {
   Schema,
@@ -234,20 +234,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
     sourceAPI.applications().forEach(application => {
       const { name, ...rest } = application.arguments();
 
-      if (apiNameToProtocol.has(name)) {
+      if (!isValidSourceAPIName(name)) {
         errors.push(ERRORS.SOURCE_API_NAME_INVALID.err(
-          `${sourceAPI} must specify unique name`,
+          `${sourceAPI}(name: ${
+            JSON.stringify(name)
+          }) must specify name using only [a-zA-Z0-9-_] characters`,
           { nodes: application.sourceAST },
         ));
       }
 
-      try {
-        assertName(name);
-      } catch (e) {
+      if (apiNameToProtocol.has(name)) {
         errors.push(ERRORS.SOURCE_API_NAME_INVALID.err(
-          `${sourceAPI}(name: ${
-            JSON.stringify(name)
-          }) must specify valid GraphQL name`,
+          `${sourceAPI} must specify unique name (${JSON.stringify(name)} reused)`,
           { nodes: application.sourceAST },
         ));
       }
@@ -502,6 +500,10 @@ export class SourceSpecDefinition extends FeatureDefinition {
       }
     });
   }
+}
+
+function isValidSourceAPIName(name: string): boolean {
+  return /^[a-z-_][a-z0-9-_]*$/i.test(name);
 }
 
 function isValidHTTPHeaderName(name: string): boolean {

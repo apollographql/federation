@@ -5050,7 +5050,7 @@ describe('@source* directives', () => {
       );
 
       expect(messages).toContain(
-        '[bad] @sourceAPI(name: "A?!") must specify name without spaces or periods'
+        '[bad] @sourceAPI(name: "A?!") must specify name using only [a-zA-Z0-9-_] characters'
       );
 
       expect(messages).toContain(
@@ -5104,7 +5104,7 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[renamed] @api(name: "not an identifier") must specify valid GraphQL name'
+        '[renamed] @api(name: "not an identifier") must specify name using only [a-zA-Z0-9-_] characters'
       );
     });
   });
