@@ -540,9 +540,9 @@ function validateHTTPHeaders(
         ));
       }
 
-      if (!as === !value) {
+      if (as && value) {
         errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
-          `${directiveName} headers[${i}] must specify exactly one of as or value`,
+          `${directiveName} header ${headers[i]} should specify at most one of 'as' or 'value'`,
         ));
       }
 
