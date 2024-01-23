@@ -185,9 +185,9 @@ export class SourceSpecDefinition extends FeatureDefinition {
       // directives, it must also use v2.7 or later of federation.
       if (!federationVersion || federationVersion.lt(this.minimumFederationVersion)) {
         errors.push(ERRORS.SOURCE_FEDERATION_VERSION_REQUIRED.err(
-          `@source{API,Type,Field} directives require @link-importing federation ${
+          `@source{API,Type,Field} directives require federation version ${
             this.minimumFederationVersion
-          } or later`,
+          } or later, found ${federationVersion}`,
         ));
       }
     }

@@ -5102,7 +5102,8 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[bad] @source{API,Type,Field} directives require @link-importing federation v2.7 or later'
+        '[bad] @source{API,Type,Field} directives require federation version v2.7 or later, found v2.5'
+
       );
 
       expect(messages).toContain(
