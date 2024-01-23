@@ -4998,7 +4998,7 @@ describe('@source* directives', () => {
 
     const badSchema = gql`
       extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
         @link(url: "https://specs.apollo.dev/source/v0.1", import: [
           "@sourceAPI"
           "@sourceType"
@@ -5046,7 +5046,11 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[bad] @sourceAPI(name: "A?!") must specify valid GraphQL name'
+        '[bad] @source{API,Type,Field} directives require @link-importing federation v2.7 or later'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI(name: "A?!") must specify name without spaces or periods'
       );
 
       expect(messages).toContain(

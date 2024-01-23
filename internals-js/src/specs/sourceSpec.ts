@@ -16,7 +16,7 @@ import { ERRORS } from '../error';
 export const sourceIdentity = 'https://specs.apollo.dev/source';
 
 export class SourceSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+  constructor(version: FeatureVersion, readonly minimumFederationVersion: FeatureVersion) {
     super(new FeatureUrl(sourceIdentity, 'source', version), minimumFederationVersion);
 
     this.registerDirective(createDirectiveSpecification({
@@ -147,17 +147,20 @@ export class SourceSpecDefinition extends FeatureDefinition {
     return this.directive<SourceFieldDirectiveArgs>(schema, 'sourceField')!;
   }
 
-  private getSourceDirectives(schema: Schema) {
+  private getSourceDirectives(schema: Schema, errors: GraphQLError[]) {
     const result: {
       sourceAPI?: DirectiveDefinition<SourceAPIDirectiveArgs>;
       sourceType?: DirectiveDefinition<SourceTypeDirectiveArgs>;
       sourceField?: DirectiveDefinition<SourceFieldDirectiveArgs>;
     } = {};
 
+    let federationVersion: FeatureVersion | undefined;
+
     schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
       .forEach(linkDirective => {
         const { url, import: imports } = linkDirective.arguments();
-        if (imports && FeatureUrl.maybeParse(url)?.identity === sourceIdentity) {
+        const featureUrl = FeatureUrl.maybeParse(url);
+        if (imports && featureUrl && featureUrl.identity === sourceIdentity) {
           imports.forEach(nameOrRename => {
             const originalName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.name;
             const importedName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.as || originalName;
@@ -172,17 +175,33 @@ export class SourceSpecDefinition extends FeatureDefinition {
             }
           });
         }
+        if (featureUrl && featureUrl.name === 'federation') {
+          federationVersion = featureUrl.version;
+        }
       });
+
+    if (result.sourceAPI || result.sourceType || result.sourceField) {
+      // Since this subgraph uses at least one of the @source{API,Type,Field}
+      // directives, it must also use v2.7 or later of federation.
+      if (!federationVersion || federationVersion.lt(this.minimumFederationVersion)) {
+        errors.push(ERRORS.SOURCE_FEDERATION_VERSION_REQUIRED.err(
+          `@source{API,Type,Field} directives require @link-importing federation ${
+            this.minimumFederationVersion
+          } or later`,
+        ));
+      }
+    }
 
     return result;
   }
 
   override validateSubgraphSchema(schema: Schema): GraphQLError[] {
+    const errors = super.validateSubgraphSchema(schema);
     const {
       sourceAPI,
       sourceType,
       sourceField,
-    } = this.getSourceDirectives(schema);
+    } = this.getSourceDirectives(schema, errors);
 
     if (!(sourceAPI || sourceType || sourceField)) {
       // If none of the @source* directives are present, nothing needs
@@ -191,7 +210,6 @@ export class SourceSpecDefinition extends FeatureDefinition {
     }
 
     const apiNameToProtocol = new Map<string, ProtocolName>();
-    const errors: GraphQLError[] = [];
 
     if (sourceAPI) {
       this.validateSourceAPI(sourceAPI, apiNameToProtocol, errors);
