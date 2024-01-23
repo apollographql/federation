@@ -1,4 +1,4 @@
-import { DirectiveLocation, GraphQLError } from 'graphql';
+import { DirectiveLocation, GraphQLError, Kind } from 'graphql';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./coreSpec";
 import {
   Schema,
@@ -285,7 +285,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
         }
       } else {
         errors.push(ERRORS.SOURCE_API_PROTOCOL_INVALID.err(
-          `${sourceAPI} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+          `${sourceAPI} must specify one protocol from the set {${KNOWN_SOURCE_PROTOCOLS.join(',')}}`,
           { nodes: application.sourceAST },
         ));
       }
@@ -309,7 +309,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       const expectedProtocol = apiNameToProtocol.get(api) || HTTP_PROTOCOL;
       const protocolValue = expectedProtocol && rest[expectedProtocol];
       if (expectedProtocol && !protocolValue) {
-        errors.push(ERRORS.SOURCE_TYPE_API_ERROR.err(
+        errors.push(ERRORS.SOURCE_TYPE_PROTOCOL_INVALID.err(
           `${sourceType} must specify same ${
             expectedProtocol
           } argument as corresponding @sourceAPI for api ${api}`,
@@ -474,14 +474,14 @@ export class SourceSpecDefinition extends FeatureDefinition {
       // @sourceField is allowed only on root Query and Mutation fields or
       // fields of entity object types.
       const fieldParent = application.parent;
-      if (fieldParent.sourceAST?.kind !== "FieldDefinition") {
+      if (fieldParent.sourceAST?.kind !== Kind.FIELD_DEFINITION) {
         errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
           `${sourceField} must be applied to field`,
           { nodes: [application.sourceAST!, fieldParent.sourceAST!] },
         ));
       } else {
         const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
-        if (typeGrandparent.sourceAST?.kind !== "ObjectTypeDefinition") {
+        if (typeGrandparent.sourceAST?.kind !== Kind.OBJECT_TYPE_DEFINITION) {
           errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
             `${sourceField} must be applied to field of object type`,
             { nodes: [
