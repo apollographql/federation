@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.7.1
+
+### Patch Changes
+
+- Additional `SourceSpecDefinition` validations and bug fixes ([#2914](https://github.com/apollographql/federation/pull/2914))
+
 ## 2.7.0
 
 ### Minor Changes
