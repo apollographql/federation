@@ -479,18 +479,14 @@ export class SourceSpecDefinition extends FeatureDefinition {
       if (fieldParent.sourceAST?.kind !== Kind.FIELD_DEFINITION) {
         errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
           `${sourceField} must be applied to field`,
-          { nodes: [application.sourceAST!, fieldParent.sourceAST!] },
+          { nodes: application.sourceAST },
         ));
       } else {
         const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
         if (typeGrandparent.sourceAST?.kind !== Kind.OBJECT_TYPE_DEFINITION) {
           errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
             `${sourceField} must be applied to field of object type`,
-            { nodes: [
-              application.sourceAST!,
-              fieldParent.sourceAST,
-              typeGrandparent.sourceAST!,
-            ]},
+            { nodes: application.sourceAST },
           ));
         } else {
           const typeGrandparentName = typeGrandparent.sourceAST?.name.value;
@@ -501,11 +497,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
           ) {
             errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
               `${sourceField} must be applied to root Query or Mutation field or field of entity type`,
-              { nodes: [
-                application.sourceAST!,
-                fieldParent.sourceAST,
-                typeGrandparent.sourceAST!,
-              ]},
+              { nodes: application.sourceAST },
             ));
           }
         }
