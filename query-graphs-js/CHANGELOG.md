@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.7.1
+
+### Patch Changes
+
+- Updated dependencies [[`493f5acd16ad92adf99c963659cd40dc5eac1219`](https://github.com/apollographql/federation/commit/493f5acd16ad92adf99c963659cd40dc5eac1219)]:
+  - @apollo/federation-internals@2.7.1
+
 ## 2.7.0
 
 ### Minor Changes
