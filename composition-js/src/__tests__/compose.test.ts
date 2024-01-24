@@ -4996,9 +4996,30 @@ describe('@source* directives', () => {
       }
     `;
 
+    // TODO Test the following errors using badSchema:
+    // - [x] SOURCE_FEDERATION_VERSION_REQUIRED,
+    // - [x] SOURCE_API_NAME_INVALID,
+    // - [x] SOURCE_API_PROTOCOL_INVALID,
+    // - [x] SOURCE_API_HTTP_BASE_URL_INVALID,
+    // - [x] SOURCE_HTTP_HEADERS_INVALID,
+    // - [x] SOURCE_TYPE_API_ERROR,
+    // - [x] SOURCE_TYPE_PROTOCOL_INVALID,
+    // - [x] SOURCE_TYPE_HTTP_METHOD_INVALID,
+    // - [ ] SOURCE_TYPE_HTTP_PATH_INVALID,
+    // - [ ] SOURCE_TYPE_HTTP_BODY_INVALID,
+    // - [x] SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY,
+    // - [ ] SOURCE_TYPE_SELECTION_INVALID,
+    // - [x] SOURCE_FIELD_API_ERROR,
+    // - [ ] SOURCE_FIELD_PROTOCOL_INVALID,
+    // - [x] SOURCE_FIELD_HTTP_METHOD_INVALID,
+    // - [ ] SOURCE_FIELD_HTTP_PATH_INVALID,
+    // - [ ] SOURCE_FIELD_HTTP_BODY_INVALID,
+    // - [ ] SOURCE_FIELD_SELECTION_INVALID,
+    // - [x] SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD,
+
     const badSchema = gql`
       extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
         @link(url: "https://specs.apollo.dev/source/v0.1", import: [
           "@sourceAPI"
           "@sourceType"
@@ -5008,6 +5029,18 @@ describe('@source* directives', () => {
           name: "A?!" # Should be valid GraphQL identifier
           http: { baseURL: "https://api.a.com/v1" }
         )
+        @sourceAPI(
+          name: "Bogus"
+          http: {
+            baseURL: "not a url"
+            headers: [
+              { name: "i n v a l i d", value: "header value", as: "re|named" }
+            ]
+          }
+        )
+        @sourceAPI(
+          name: "NoProtocol"
+        )
       {
         query: Query
       }
@@ -5015,7 +5048,10 @@ describe('@source* directives', () => {
       type Query {
         resources: [Resource!]! @sourceField(
           api: "A"
-          http: { GET: "/resources" }
+          http: {
+            GET: "/resources"
+            DELETE: "/resources"
+          }
         )
       }
 
@@ -5023,9 +5059,29 @@ describe('@source* directives', () => {
         api: "A"
         http: { GET: "/resources/{id}" }
         selection: "id description"
+      )
+      @sourceType(
+        api: "Bogus"
+        http: {
+          GET: "/resources/{id}"
+          POST: "/resources"
+        }
+        selection: "id"
       ) {
         id: ID!
         description: String!
+      }
+
+      type NonEntity @sourceType(
+        api: "A"
+        # http: { GET: "/nonentities/{id}" }
+        selection: "id some_field"
+      ) {
+        id: ID!
+        someField: String! @sourceField(
+          api: "A"
+          selection: ".some_field"
+        )
       }
     `;
 
@@ -5046,7 +5102,15 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[bad] @sourceAPI(name: "A?!") must specify valid GraphQL name'
+        '[bad] Schemas that @link to https://specs.apollo.dev/source must also @link to federation version v2.7 or later (found v2.5)'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI(name: "A?!") must specify name using only [a-zA-Z0-9-_] characters'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI must specify one protocol from the set {http}'
       );
 
       expect(messages).toContain(
@@ -5055,6 +5119,45 @@ describe('@source* directives', () => {
 
       expect(messages).toContain(
         '[bad] @sourceField specifies unknown api A'
+      );
+
+      try {
+        new URL('not a url');
+        throw new Error('should have thrown');
+      } catch (e) {
+        expect(messages).toContain(
+          // Different versions of Node.js stringify the URL error differently,
+          // so we avoid hard-coding that part of the expected error.
+          `[bad] @sourceAPI http.baseURL \"not a url\" must be valid URL (error: ${e.message})`
+        );
+      }
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI header {\"name\":\"i n v a l i d\",\"value\":\"header value\",\"as\":\"re|named\"} specifies invalid name'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI header {\"name\":\"i n v a l i d\",\"value\":\"header value\",\"as\":\"re|named\"} specifies invalid \'as\' name'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType must specify exactly one of http.GET or http.POST'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceField allows at most one of http.{GET,POST,PUT,PATCH,DELETE}'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType must be applied to an entity type that also has a @key directive'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType must specify same http argument as corresponding @sourceAPI for api A'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceField must be applied to root Query or Mutation field or field of entity type'
       );
     });
 
@@ -5100,7 +5203,7 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[renamed] @api(name: "not an identifier") must specify valid GraphQL name'
+        '[renamed] @api(name: "not an identifier") must specify name using only [a-zA-Z0-9-_] characters'
       );
     });
   });

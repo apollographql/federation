@@ -561,6 +561,12 @@ const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
   { addedIn: '2.3.0' },
 )
 
+const SOURCE_FEDERATION_VERSION_REQUIRED = makeCodeDefinition(
+  'SOURCE_FEDERATION_VERSION_REQUIRED',
+  'Schemas using `@source{API,Type,Field}` directives must @link-import v2.7 or later of federation',
+  { addedIn: '2.7.1' },
+);
+
 const SOURCE_API_NAME_INVALID = makeCodeDefinition(
   'SOURCE_API_NAME_INVALID',
   'Each `@sourceAPI` directive must take a unique and valid name as an argument',
@@ -757,6 +763,7 @@ export const ERRORS = {
   INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
   INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
   // Errors related to @sourceAPI, @sourceType, and/or @sourceField
+  SOURCE_FEDERATION_VERSION_REQUIRED,
   SOURCE_API_NAME_INVALID,
   SOURCE_API_PROTOCOL_INVALID,
   SOURCE_API_HTTP_BASE_URL_INVALID,

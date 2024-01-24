@@ -1,4 +1,4 @@
-import { DirectiveLocation, GraphQLError, assertName } from 'graphql';
+import { DirectiveLocation, GraphQLError, Kind } from 'graphql';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./coreSpec";
 import {
   Schema,
@@ -16,7 +16,7 @@ import { ERRORS } from '../error';
 export const sourceIdentity = 'https://specs.apollo.dev/source';
 
 export class SourceSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
+  constructor(version: FeatureVersion, readonly minimumFederationVersion: FeatureVersion) {
     super(new FeatureUrl(sourceIdentity, 'source', version), minimumFederationVersion);
 
     this.registerDirective(createDirectiveSpecification({
@@ -147,17 +147,20 @@ export class SourceSpecDefinition extends FeatureDefinition {
     return this.directive<SourceFieldDirectiveArgs>(schema, 'sourceField')!;
   }
 
-  private getSourceDirectives(schema: Schema) {
+  private getSourceDirectives(schema: Schema, errors: GraphQLError[]) {
     const result: {
       sourceAPI?: DirectiveDefinition<SourceAPIDirectiveArgs>;
       sourceType?: DirectiveDefinition<SourceTypeDirectiveArgs>;
       sourceField?: DirectiveDefinition<SourceFieldDirectiveArgs>;
     } = {};
 
+    let federationVersion: FeatureVersion | undefined;
+
     schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
       .forEach(linkDirective => {
         const { url, import: imports } = linkDirective.arguments();
-        if (imports && FeatureUrl.maybeParse(url)?.identity === sourceIdentity) {
+        const featureUrl = FeatureUrl.maybeParse(url);
+        if (imports && featureUrl && featureUrl.identity === sourceIdentity) {
           imports.forEach(nameOrRename => {
             const originalName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.name;
             const importedName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.as || originalName;
@@ -172,17 +175,35 @@ export class SourceSpecDefinition extends FeatureDefinition {
             }
           });
         }
+        if (featureUrl && featureUrl.name === 'federation') {
+          federationVersion = featureUrl.version;
+        }
       });
+
+    if (result.sourceAPI || result.sourceType || result.sourceField) {
+      // Since this subgraph uses at least one of the @source{API,Type,Field}
+      // directives, it must also use v2.7 or later of federation.
+      if (!federationVersion || federationVersion.lt(this.minimumFederationVersion)) {
+        errors.push(ERRORS.SOURCE_FEDERATION_VERSION_REQUIRED.err(
+          `Schemas that @link to ${
+            sourceIdentity
+          } must also @link to federation version ${
+            this.minimumFederationVersion
+          } or later (found ${federationVersion})`,
+        ));
+      }
+    }
 
     return result;
   }
 
   override validateSubgraphSchema(schema: Schema): GraphQLError[] {
+    const errors = super.validateSubgraphSchema(schema);
     const {
       sourceAPI,
       sourceType,
       sourceField,
-    } = this.getSourceDirectives(schema);
+    } = this.getSourceDirectives(schema, errors);
 
     if (!(sourceAPI || sourceType || sourceField)) {
       // If none of the @source* directives are present, nothing needs
@@ -191,7 +212,6 @@ export class SourceSpecDefinition extends FeatureDefinition {
     }
 
     const apiNameToProtocol = new Map<string, ProtocolName>();
-    const errors: GraphQLError[] = [];
 
     if (sourceAPI) {
       this.validateSourceAPI(sourceAPI, apiNameToProtocol, errors);
@@ -216,20 +236,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
     sourceAPI.applications().forEach(application => {
       const { name, ...rest } = application.arguments();
 
-      if (apiNameToProtocol.has(name)) {
+      if (!isValidSourceAPIName(name)) {
         errors.push(ERRORS.SOURCE_API_NAME_INVALID.err(
-          `${sourceAPI} must specify unique name`,
+          `${sourceAPI}(name: ${
+            JSON.stringify(name)
+          }) must specify name using only [a-zA-Z0-9-_] characters`,
           { nodes: application.sourceAST },
         ));
       }
 
-      try {
-        assertName(name);
-      } catch (e) {
+      if (apiNameToProtocol.has(name)) {
         errors.push(ERRORS.SOURCE_API_NAME_INVALID.err(
-          `${sourceAPI}(name: ${
-            JSON.stringify(name)
-          }) must specify valid GraphQL name`,
+          `${sourceAPI} must specify unique name (${JSON.stringify(name)} reused)`,
           { nodes: application.sourceAST },
         ));
       }
@@ -239,7 +257,9 @@ export class SourceSpecDefinition extends FeatureDefinition {
         if (rest[knownProtocol]) {
           if (protocol) {
             errors.push(ERRORS.SOURCE_API_PROTOCOL_INVALID.err(
-              `${sourceAPI} must specify only one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+              `${sourceAPI} must specify only one of ${
+                KNOWN_SOURCE_PROTOCOLS.join(', ')
+              } but specified both ${protocol} and ${knownProtocol}`,
               { nodes: application.sourceAST },
             ));
           }
@@ -258,7 +278,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             new URL(baseURL);
           } catch (e) {
             errors.push(ERRORS.SOURCE_API_HTTP_BASE_URL_INVALID.err(
-              `${sourceAPI} http.baseURL ${JSON.stringify(baseURL)} must be valid URL`,
+              `${sourceAPI} http.baseURL ${JSON.stringify(baseURL)} must be valid URL (error: ${e.message})`,
               { nodes: application.sourceAST },
             ));
           }
@@ -267,7 +287,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
         }
       } else {
         errors.push(ERRORS.SOURCE_API_PROTOCOL_INVALID.err(
-          `${sourceAPI} must specify one of ${KNOWN_SOURCE_PROTOCOLS.join(', ')}`,
+          `${sourceAPI} must specify one protocol from the set {${KNOWN_SOURCE_PROTOCOLS.join(',')}}`,
           { nodes: application.sourceAST },
         ));
       }
@@ -286,58 +306,58 @@ export class SourceSpecDefinition extends FeatureDefinition {
           `${sourceType} specifies unknown api ${api}`,
           { nodes: application.sourceAST },
         ));
-      } else {
-        const expectedProtocol = apiNameToProtocol.get(api);
-        const protocolValue = expectedProtocol && rest[expectedProtocol];
-        if (expectedProtocol && !protocolValue) {
-          errors.push(ERRORS.SOURCE_TYPE_API_ERROR.err(
-            `${sourceType} must specify same ${
-              expectedProtocol
-            } argument as corresponding @sourceAPI for api ${api}`,
+      }
+
+      const expectedProtocol = apiNameToProtocol.get(api) || HTTP_PROTOCOL;
+      const protocolValue = expectedProtocol && rest[expectedProtocol];
+      if (expectedProtocol && !protocolValue) {
+        errors.push(ERRORS.SOURCE_TYPE_PROTOCOL_INVALID.err(
+          `${sourceType} must specify same ${
+            expectedProtocol
+          } argument as corresponding @sourceAPI for api ${api}`,
+          { nodes: application.sourceAST },
+        ));
+      }
+
+      if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
+        const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
+
+        if ([GET, POST].filter(Boolean).length !== 1) {
+          errors.push(ERRORS.SOURCE_TYPE_HTTP_METHOD_INVALID.err(
+            `${sourceType} must specify exactly one of http.GET or http.POST`,
             { nodes: application.sourceAST },
           ));
+        } else {
+          const urlPathTemplate = (GET || POST)!;
+          try {
+            // TODO Validate URL path template uses only available @key fields
+            // of the type.
+            parseURLPathTemplate(urlPathTemplate);
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
+              `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
+            ));
+          }
         }
 
-        if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
-          const { GET, POST, headers, body } = protocolValue as HTTPSourceType;
+        validateHTTPHeaders(headers, errors, sourceType.name);
 
-          if ([GET, POST].filter(Boolean).length !== 1) {
-            errors.push(ERRORS.SOURCE_TYPE_HTTP_METHOD_INVALID.err(
-              `${sourceType} must specify exactly one of http.GET or http.POST`,
+        if (body) {
+          if (GET) {
+            errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
+              `${sourceType} http.GET cannot specify http.body`,
               { nodes: application.sourceAST },
             ));
-          } else {
-            const urlPathTemplate = (GET || POST)!;
-            try {
-              // TODO Validate URL path template uses only available @key fields
-              // of the type.
-              parseURLPathTemplate(urlPathTemplate);
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
-                `${sourceType} http.GET or http.POST must be valid URL path template`
-              ));
-            }
           }
 
-          validateHTTPHeaders(headers, errors, sourceType.name);
-
-          if (body) {
-            if (GET) {
-              errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-                `${sourceType} http.GET cannot specify http.body`,
-                { nodes: application.sourceAST },
-              ));
-            }
-
-            try {
-              parseJSONSelection(body);
-              // TODO Validate body selection matches the available fields.
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-                `${sourceType} http.body not valid JSONSelection: ${e.message}`,
-                { nodes: application.sourceAST },
-              ));
-            }
+          try {
+            parseJSONSelection(body);
+            // TODO Validate body selection matches the available fields.
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
+              `${sourceType} http.body not valid JSONSelection (error: ${e.message})`,
+              { nodes: application.sourceAST },
+            ));
           }
         }
       }
@@ -357,7 +377,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             // TODO Validate selection is valid JSONSelection for type.
           } catch (e) {
             errors.push(ERRORS.SOURCE_TYPE_SELECTION_INVALID.err(
-              `${sourceType} selection not valid JSONSelection: ${e.message}`,
+              `${sourceType} selection not valid JSONSelection (error: ${e.message})`,
               { nodes: application.sourceAST },
             ));
           }
@@ -383,59 +403,59 @@ export class SourceSpecDefinition extends FeatureDefinition {
           `${sourceField} specifies unknown api ${api}`,
           { nodes: application.sourceAST },
         ));
-      } else {
-        const expectedProtocol = apiNameToProtocol.get(api);
-        const protocolValue = expectedProtocol && rest[expectedProtocol];
-        if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
-          const {
-            GET, POST, PUT, PATCH, DELETE,
-            headers,
-            body,
-          } = protocolValue as HTTPSourceField;
+      }
 
-          const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
-          if (usedMethods.length > 1) {
-            errors.push(ERRORS.SOURCE_FIELD_HTTP_METHOD_INVALID.err(
-              `${sourceField} allows at most one of http.{GET,POST,PUT,PATCH,DELETE}`,
+      const expectedProtocol = apiNameToProtocol.get(api) || HTTP_PROTOCOL;
+      const protocolValue = expectedProtocol && rest[expectedProtocol];
+      if (protocolValue && expectedProtocol === HTTP_PROTOCOL) {
+        const {
+          GET, POST, PUT, PATCH, DELETE,
+          headers,
+          body,
+        } = protocolValue as HTTPSourceField;
+
+        const usedMethods = [GET, POST, PUT, PATCH, DELETE].filter(Boolean);
+        if (usedMethods.length > 1) {
+          errors.push(ERRORS.SOURCE_FIELD_HTTP_METHOD_INVALID.err(
+            `${sourceField} allows at most one of http.{GET,POST,PUT,PATCH,DELETE}`,
+          ));
+        } else if (usedMethods.length === 1) {
+          const urlPathTemplate = usedMethods[0]!;
+          try {
+            // TODO Validate URL path template uses only available fields of
+            // the type and/or argument names of the field.
+            parseURLPathTemplate(urlPathTemplate);
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
+              `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${e.message})`
             ));
-          } else if (usedMethods.length === 1) {
-            const urlPathTemplate = usedMethods[0]!;
-            try {
-              // TODO Validate URL path template uses only available fields of
-              // the type and/or argument names of the field.
-              parseURLPathTemplate(urlPathTemplate);
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
-                `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template`
-              ));
-            }
+          }
+        }
+
+        validateHTTPHeaders(headers, errors, sourceField.name);
+
+        if (body) {
+          if (GET) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+              `${sourceField} http.GET cannot specify http.body`,
+              { nodes: application.sourceAST },
+            ));
+          } else if (DELETE) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+              `${sourceField} http.DELETE cannot specify http.body`,
+              { nodes: application.sourceAST },
+            ));
           }
 
-          validateHTTPHeaders(headers, errors, sourceField.name);
-
-          if (body) {
-            if (GET) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.GET cannot specify http.body`,
-                { nodes: application.sourceAST },
-              ));
-            } else if (DELETE) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.DELETE cannot specify http.body`,
-                { nodes: application.sourceAST },
-              ));
-            }
-
-            try {
-              parseJSONSelection(body);
-              // TODO Validate body string matches the available fields of the
-              // parent type and/or argument names of the field.
-            } catch (e) {
-              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-                `${sourceField} http.body not valid JSONSelection: ${e.message}`,
-                { nodes: application.sourceAST },
-              ));
-            }
+          try {
+            parseJSONSelection(body);
+            // TODO Validate body string matches the available fields of the
+            // parent type and/or argument names of the field.
+          } catch (e) {
+            errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+              `${sourceField} http.body not valid JSONSelection (error: ${e.message})`,
+              { nodes: application.sourceAST },
+            ));
           }
         }
       }
@@ -447,7 +467,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
           // the parent type and/or argument names of the field.
         } catch (e) {
           errors.push(ERRORS.SOURCE_FIELD_SELECTION_INVALID.err(
-            `${sourceField} selection not valid JSONSelection: ${e.message}`,
+            `${sourceField} selection not valid JSONSelection (error: ${e.message})`,
             { nodes: application.sourceAST },
           ));
         }
@@ -456,14 +476,14 @@ export class SourceSpecDefinition extends FeatureDefinition {
       // @sourceField is allowed only on root Query and Mutation fields or
       // fields of entity object types.
       const fieldParent = application.parent;
-      if (fieldParent.sourceAST?.kind !== "FieldDefinition") {
+      if (fieldParent.sourceAST?.kind !== Kind.FIELD_DEFINITION) {
         errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
           `${sourceField} must be applied to field`,
           { nodes: application.sourceAST },
         ));
       } else {
         const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
-        if (typeGrandparent.sourceAST?.kind !== "ObjectTypeDefinition") {
+        if (typeGrandparent.sourceAST?.kind !== Kind.OBJECT_TYPE_DEFINITION) {
           errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
             `${sourceField} must be applied to field of object type`,
             { nodes: application.sourceAST },
@@ -486,6 +506,10 @@ export class SourceSpecDefinition extends FeatureDefinition {
   }
 }
 
+function isValidSourceAPIName(name: string): boolean {
+  return /^[a-z-_][a-z0-9-_]*$/i.test(name);
+}
+
 function isValidHTTPHeaderName(name: string): boolean {
   // https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format/
   return /^[a-zA-Z0-9-_]+$/.test(name);
@@ -504,15 +528,19 @@ function validateHTTPHeaders(
       // Ensure name is a valid HTTP header name.
       if (!isValidHTTPHeaderName(name)) {
         errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
-          `${directiveName} headers[${i}].name == ${
-            JSON.stringify(name)
-          } is not valid HTTP header name`,
+          `${directiveName} header ${JSON.stringify(headers[i])} specifies invalid name`,
         ));
       }
 
-      if (!as === !value) {
+      if (as && !isValidHTTPHeaderName(as)) {
         errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
-          `${directiveName} headers[${i}] must specify exactly one of as or value`,
+          `${directiveName} header ${JSON.stringify(headers[i])} specifies invalid 'as' name`,
+        ));
+      }
+
+      if (as && value) {
+        errors.push(ERRORS.SOURCE_HTTP_HEADERS_INVALID.err(
+          `${directiveName} header ${JSON.stringify(headers[i])} should specify at most one of 'as' or 'value'`,
         ));
       }
 

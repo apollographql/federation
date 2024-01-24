@@ -93,6 +93,7 @@ The following errors might be raised during composition:
 | `SOURCE_API_HTTP_BASE_URL_INVALID` | The `@sourceAPI` directive must specify a valid http.baseURL | 2.7.0 |  |
 | `SOURCE_API_NAME_INVALID` | Each `@sourceAPI` directive must take a unique and valid name as an argument | 2.7.0 |  |
 | `SOURCE_API_PROTOCOL_INVALID` | Each `@sourceAPI` directive must specify exactly one of the known protocols | 2.7.0 |  |
+| `SOURCE_FEDERATION_VERSION_REQUIRED` | Schemas using `@source{API,Type,Field}` directives must @link-import v2.7 or later of federation | 2.7.1 |  |
 | `SOURCE_FIELD_API_ERROR` | The `api` argument of the `@sourceField` directive must match a valid `@sourceAPI` name | 2.7.0 |  |
 | `SOURCE_FIELD_HTTP_BODY_INVALID` | If `@sourceField` specifies http.body, it must be a valid `JSONSelection` matching available arguments and fields | 2.7.0 |  |
 | `SOURCE_FIELD_HTTP_METHOD_INVALID` | The `@sourceField` directive must specify at most one of `http.{GET,POST,PUT,PATCH,DELETE}` | 2.7.0 |  |
