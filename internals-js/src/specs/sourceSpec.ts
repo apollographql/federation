@@ -1,4 +1,5 @@
 import { DirectiveLocation, GraphQLError, Kind } from 'graphql';
+import { Grammars, IToken } from 'ebnf';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./index";
 import {
   Schema,
@@ -332,7 +333,9 @@ export class SourceSpecDefinition extends FeatureDefinition {
           try {
             // TODO Validate URL path template uses only available @key fields
             // of the type.
-            parseURLPathTemplate(urlPathTemplate);
+            const ast = parseURLPathTemplate(urlPathTemplate);
+            getURLPathTemplateVars(ast);
+            // TODO
           } catch (e) {
             errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
               `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
@@ -557,8 +560,58 @@ function parseJSONSelection(_selection: string): any {
   // TODO
 }
 
-function parseURLPathTemplate(_template: string): any {
-  // TODO
+const urlParser = new Grammars.W3C.Parser(`
+  URLPathTemplate ::= "/" PathParamList? QueryParamList?
+  PathParamList ::= VarSeparatedText ("/" VarSeparatedText)* "/"?
+  QueryParamList ::= "?" (QueryParam ("&" QueryParam)*)?
+  QueryParam ::= URLSafeText "=" VarSeparatedText | URLSafeText "="?
+  VarSeparatedText ::= OneOrMoreVars | URLSafeText
+  OneOrMoreVars ::= URLSafeText? "{" Var "}" (URLSafeText "{" Var "}")* URLSafeText?
+  Var ::= IdentifierPath Required? Batch?
+  IdentifierPath ::= Identifier ("." Identifier)*
+  Required ::= "!"
+  Batch ::= BatchSeparator "..."
+  BatchSeparator ::= "," | ";" | "|" | "+" | " "
+  URLSafeText ::= [^{}/?&=]+
+  Identifier ::= [a-zA-Z_$][0-9a-zA-Z_$]*
+`);
+
+export function parseURLPathTemplate(template: string): IToken {
+  return urlParser.getAST(template, 'URLPathTemplate');
+}
+
+export function getURLPathTemplateVars(ast: IToken) {
+  const vars: {
+    [varPath: string]: {
+      required?: boolean;
+      batchSep?: string;
+    };
+  } = Object.create(null);
+
+  function walk(node: IToken) {
+    if (node.type === 'Var') {
+      let varPath: string | undefined;
+      const info: (typeof vars)[string] = {};
+      node.children.forEach(child => {
+        if (child.type === 'IdentifierPath') {
+          varPath = child.text;
+        } else if (child.type === 'Required') {
+          info.required = true;
+        } else if (child.type === 'Batch') {
+          info.batchSep = child.children[0].text;
+        }
+      });
+      if (varPath) {
+        vars[varPath] = info;
+      }
+    } else {
+      node.children.forEach(walk);
+    }
+  }
+
+  walk(ast);
+
+  return vars;
 }
 
 const HTTP_PROTOCOL = "http";
