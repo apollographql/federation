@@ -4207,6 +4207,28 @@ describe('composition', () => {
       expect(result2.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
     });
 
+    it('renamed directive', () => {
+      const schema = {
+        typeDefs: gql`
+          schema
+            @link(url: "https://specs.apollo.dev/federation/v2.7")
+            @link(url: "https://specs.apollo.dev/authenticated/v0.1", as: "auth", for: SECURITY)
+          {
+            query: Query
+          }
+
+          type Query {
+            hello: String @auth
+          }
+      `,
+        name: 'A',
+      }
+
+      const result = composeServices([schema]);
+
+      expect(result.schema?.elementByCoordinate('Query.hello')?.hasAppliedDirective('auth')).toBeTruthy()
+    });
+
     it('validation error on incompatible directive definition', () => {
       const invalidDefinition = {
         typeDefs: gql`
