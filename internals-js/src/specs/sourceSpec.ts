@@ -578,8 +578,117 @@ const selectionParser = new Grammars.W3C.Parser(`
   Comment ::= "#" [^\n]*
 `);
 
-export function parseJSONSelection(selection: string): IToken {
+type ebnfASTNode = Pick<IToken, 'type' | 'children' | 'text' | 'errors'>
+type Shape = string | { [key: string]: Shape }
+
+export function parseJSONSelection(selection: string): ebnfASTNode {
   return selectionParser.getAST(selection, 'Selection');
+}
+
+function findChildByType(node: ebnfASTNode | undefined, type: string): ebnfASTNode | undefined {
+  return node?.children.find(child => child.type === type);
+}
+
+export function getSelectionOutputShape(node: ebnfASTNode): Shape {
+  switch (node.type) {
+    case 'Selection': {
+      const pathSelection = findChildByType(node, 'PathSelection');
+      if (pathSelection) {
+        return getSelectionOutputShape(pathSelection);
+      }
+      // Reuse the logic for SubSelection to handle the top-level sequence of
+      // NamedSelection and StarSelection nodes, which are equivalent to the
+      // contents of a SubSelection (minus the curly braces).
+      return getSelectionOutputShape({
+        type: 'SubSelection',
+        children: node.children,
+        text: node.text,
+        errors: node.errors,
+      });
+    }
+    case 'NamedSelection': {
+      const shape: { [key: string]: Shape } = Object.create(null);
+      // Typically node.children.length will be 1 here, but the for loop covers
+      // all conceivable cases.
+      for (const namedChild of node.children) {
+        Object.assign(shape, getSelectionOutputShape(namedChild));
+      }
+      return shape;
+    }
+    case 'NamedFieldSelection':
+    case 'NamedQuotedSelection':
+    case 'NamedPathSelection':
+    case 'NamedGroupSelection': {
+      const outputName = (
+        findChildByType(findChildByType(node, 'Alias'), 'Identifier') ||
+        findChildByType(node, 'Identifier') ||
+        findChildByType(node, 'StringLiteral')
+      )?.text;
+
+      // PathSelection nests its optional SubSelection one level deeper than the
+      // other Named{Field,Quoted,Group}Selection types.
+      const subSelection = findChildByType(
+        findChildByType(node, 'PathSelection') || node,
+        'SubSelection'
+      );
+
+      const shape: { [key: string]: Shape } = Object.create(null);
+      if (!outputName) {
+        // No output name, no contribution to the output shape.
+      } else if (subSelection) {
+        shape[outputName] = getSelectionOutputShape(subSelection);
+      } else {
+        shape[outputName] = 'JSON';
+      }
+      return shape;
+    }
+    case 'PathSelection': {
+      const subSelection = findChildByType(node, 'SubSelection');
+      return subSelection ? getSelectionOutputShape(subSelection) : 'JSON';
+    }
+    case 'SubSelection': {
+      const shape: { [key: string]: Shape } = Object.create(null);
+      for (const child of node.children) {
+        if (child.type === 'NamedSelection') {
+          Object.assign(shape, getSelectionOutputShape(child));
+        } else if (child.type === 'StarSelection') {
+          const starShape = getSelectionOutputShape(child);
+          if (typeof starShape === 'object') {
+            Object.assign(shape, starShape);
+          }
+        }
+      }
+      return shape;
+    }
+    case 'StarSelection': {
+      const shape: { [key: string]: Shape } = Object.create(null);
+      const outputName = findChildByType(
+        findChildByType(node, 'Alias'),
+        'Identifier',
+      )?.text;
+      // From the GraphQL perspective, a star selection can only be typed as
+      // opaque JSON, though that JSON subtree may be given an alias.
+      if (outputName) {
+        shape[outputName] = 'JSON';
+      } else {
+        return 'JSON';
+      }
+      return shape;
+    }
+    // The rest of these cases are involved in the cases above, indirectly, but
+    // should not be reached during recursion.
+    // case 'Alias': break;
+    // case 'Property': break;
+    // case 'Identifier': break;
+    // case 'StringLiteral': break;
+    // case 'SQStrLit': break;
+    // case 'DQStrLit': break;
+    // case 'S': break;
+    // case 'Spaces': break;
+    // case 'Comment': break;
+    default:
+      throw new Error(`Unexpected JSONSelection AST node type: ${node.type}`);
+  }
 }
 
 const urlParser = new Grammars.W3C.Parser(`
@@ -598,11 +707,11 @@ const urlParser = new Grammars.W3C.Parser(`
   Identifier ::= [a-zA-Z_$][0-9a-zA-Z_$]*
 `);
 
-export function parseURLPathTemplate(template: string): IToken {
+export function parseURLPathTemplate(template: string): ebnfASTNode {
   return urlParser.getAST(template, 'URLPathTemplate');
 }
 
-export function getURLPathTemplateVars(ast: IToken) {
+export function getURLPathTemplateVars(ast: ebnfASTNode) {
   const vars: {
     [varPath: string]: {
       required?: boolean;
@@ -610,7 +719,7 @@ export function getURLPathTemplateVars(ast: IToken) {
     };
   } = Object.create(null);
 
-  function walk(node: IToken) {
+  function walk(node: ebnfASTNode) {
     if (node.type === 'Var') {
       let varPath: string | undefined;
       const info: (typeof vars)[string] = {};

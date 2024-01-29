@@ -1,6 +1,7 @@
 import {
   sourceIdentity,
   parseJSONSelection,
+  getSelectionOutputShape,
   parseURLPathTemplate,
   getURLPathTemplateVars,
 } from '../index';
@@ -26,24 +27,132 @@ describe('parseJSONSelection', () => {
     expect(parseSelectionExpectingNoErrors('.a.b.c').type).toBe('Selection');
   });
 
+  const complexSelection = `
+    # Basic field selection.
+    foo
+
+    # Similar to a GraphQL alias with a subselection.
+    barAlias: bar { x y z }
+
+    # Similar to a GraphQL alias without a subselection, but allowing for JSON
+    # properties that are not valid GraphQL Name identifiers.
+    quotedAlias: "string literal" { nested stuff }
+
+    # Apply a subselection to the result of extracting .foo.bar, and alias it.
+    pathAlias: .foo.bar { a b c }
+
+    # Nest various fields under a new key (group).
+    group: { foo baz: bar { x y z } }
+
+    # Get the first event from events and apply a selection and an alias to it.
+    firstEvent: .events.0 { id description }
+
+    # Apply the { nested stuff } selection to any remaining properties and alias
+    # the result as starAlias. Note that any * selection must appear last in the
+    # sequence of named selections, and will be typed as JSON regardless of what
+    # is subselected, because the field names are unknown.
+    starAlias: * { nested stuff }
+  `;
+  // TODO Improve error message when other named selections accidentally follow
+  // a * selection.
+
   it('parses a multiline selection with comments', () => {
-    expect(parseSelectionExpectingNoErrors(`
-      # Basic field selection.
-      foo
+    expect(parseSelectionExpectingNoErrors(complexSelection).type).toBe('Selection');
+  });
 
-      # Similar to a GraphQL alias with a subselection.
-      barAlias: bar { x y z }
+  describe('getSelectionOutputShape', () => {
+    it('returns the correct output shape for a simple selection', () => {
+      const ast = parseSelectionExpectingNoErrors('a');
+      expect(getSelectionOutputShape(ast)).toEqual({
+        a: 'JSON',
+      });
+    });
 
-      # Similar to a GraphQL alias without a subselection, but allowing for JSON
-      # properties that are not valid GraphQL Name identifiers.
-      quotedAlias: "string literal" { nested stuff }
+    it('returns the correct output shape for a complex selection', () => {
+      const ast = parseSelectionExpectingNoErrors(complexSelection);
+      expect(getSelectionOutputShape(ast)).toEqual({
+        foo: 'JSON',
+        barAlias: {
+          x: 'JSON',
+          y: 'JSON',
+          z: 'JSON',
+        },
+        quotedAlias: {
+          nested: 'JSON',
+          stuff: 'JSON',
+        },
+        pathAlias: {
+          a: 'JSON',
+          b: 'JSON',
+          c: 'JSON',
+        },
+        group: {
+          foo: 'JSON',
+          baz: {
+            x: 'JSON',
+            y: 'JSON',
+            z: 'JSON',
+          },
+        },
+        starAlias: 'JSON',
+        firstEvent: {
+          id: 'JSON',
+          description: 'JSON',
+        },
+      });
+    });
 
-      # Apply a subselection to the result of extracting .foo.bar, and alias it.
-      pathAlias: .foo.bar { a b c }
+    it('returns the correct output shape for a selection with nested fields', () => {
+      const ast = parseSelectionExpectingNoErrors(`
+        a
+        b { c d }
+        e { f { g h } }
+        i { j { k l } }
+        m { n o { p q } }
+        r { s t { u v } }
+        w { x { y z } }
+      `);
 
-      # Nest various fields under a new key (group).
-      group: { foo baz: bar { x y z } }
-    `).type).toBe('Selection');
+      expect(getSelectionOutputShape(ast)).toEqual({
+        a: 'JSON',
+        b: {
+          c: 'JSON',
+          d: 'JSON',
+        },
+        e: {
+          f: {
+            g: 'JSON',
+            h: 'JSON',
+          },
+        },
+        i: {
+          j: {
+            k: 'JSON',
+            l: 'JSON',
+          },
+        },
+        m: {
+          n: 'JSON',
+          o: {
+            p: 'JSON',
+            q: 'JSON',
+          },
+        },
+        r: {
+          s: 'JSON',
+          t: {
+            u: 'JSON',
+            v: 'JSON',
+          },
+        },
+        w: {
+          x: {
+            y: 'JSON',
+            z: 'JSON',
+          },
+        },
+      });
+    });
   });
 });
 
