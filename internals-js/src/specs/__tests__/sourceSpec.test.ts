@@ -1,4 +1,4 @@
-import { sourceIdentity } from '../sourceSpec';
+import { sourceIdentity } from '../index';
 
 describe('SourceSpecDefinition', () => {
   it('should export expected identity URL', () => {

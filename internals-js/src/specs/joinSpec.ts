@@ -1,5 +1,5 @@
 import { DirectiveLocation, GraphQLError } from 'graphql';
-import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./index";
 import {
   DirectiveDefinition,
   EnumType,

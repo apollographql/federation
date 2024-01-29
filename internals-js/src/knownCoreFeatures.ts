@@ -1,6 +1,6 @@
 import { GraphQLError } from "graphql";
 import { Schema } from "./definitions";
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl } from "./specs/coreSpec";
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl } from "./specs";
 
 const registeredFeatures = new Map<string, FeatureDefinitions>();
 

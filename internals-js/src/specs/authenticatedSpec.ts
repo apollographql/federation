@@ -5,7 +5,7 @@ import {
   FeatureDefinitions,
   FeatureUrl,
   FeatureVersion,
-} from "./coreSpec";
+} from "./index";
 import { createDirectiveSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 

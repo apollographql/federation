@@ -1,5 +1,5 @@
 import { DirectiveLocation, GraphQLError, Kind } from 'graphql';
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./coreSpec";
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./index";
 import {
   Schema,
   NonNullType,

@@ -1,4 +1,4 @@
-import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./index";
 import {
   ArgumentDefinition,
   CoreFeatures,

@@ -1,7 +1,13 @@
 import { DocumentNode, GraphQLError } from "graphql";
-import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./specs/coreSpec";
+import {
+  ErrCoreCheckFailed,
+  FeatureUrl,
+  FeatureVersion,
+  joinIdentity,
+  JoinSpecDefinition,
+  JOIN_VERSIONS,
+} from "./specs";
 import { CoreFeatures, Schema, sourceASTs } from "./definitions";
-import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./specs/joinSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph, extractSubgraphsFromSupergraph } from "./extractSubgraphsFromSupergraph";
 import { ERRORS } from "./error";

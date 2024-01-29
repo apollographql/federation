@@ -1,5 +1,5 @@
 import { DirectiveLocation, GraphQLError } from "graphql";
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./index";
 import { DirectiveDefinition, NonNullType } from "../definitions";
 import { createDirectiveSpecification, DirectiveSpecification } from "../directiveAndTypeSpecification";
 import { ERRORS } from "../error";

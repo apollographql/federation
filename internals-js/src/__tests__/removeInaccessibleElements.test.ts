@@ -6,7 +6,7 @@ import {
   UnionType,
 } from "../definitions";
 import { buildSchema } from "../buildSchema";
-import { removeInaccessibleElements } from "../specs/inaccessibleSpec";
+import { removeInaccessibleElements } from "../specs";
 import { GraphQLError } from "graphql";
 import { errorCauses } from "../error";
 

@@ -49,7 +49,6 @@ import {
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, SelectionSet } from './operations';
-import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
@@ -63,6 +62,7 @@ import { computeShareables } from "./precompute";
 import {
   CoreSpecDefinition,
   FeatureVersion,
+  TAG_VERSIONS,
   LINK_VERSIONS,
   LinkDirectiveArgs,
   linkDirectiveDefaultName,
@@ -71,25 +71,21 @@ import {
   CoreImport,
   extractCoreFeatureImports,
   CoreOrLinkDirectiveArgs,
-} from "./specs/coreSpec";
-import {
   FEDERATION_VERSIONS,
   federationIdentity,
   FederationDirectiveName,
   FederationTypeName,
   FEDERATION1_TYPES,
   FEDERATION1_DIRECTIVES,
-} from "./specs/federationSpec";
+  joinIdentity,
+  SourceAPIDirectiveArgs,
+  SourceFieldDirectiveArgs,
+  SourceTypeDirectiveArgs,
+} from "./specs";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown, validateKnownFeatures } from "./knownCoreFeatures";
-import { joinIdentity } from "./specs/joinSpec";
-import {
-  SourceAPIDirectiveArgs,
-  SourceFieldDirectiveArgs,
-  SourceTypeDirectiveArgs,
-} from "./specs/sourceSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
