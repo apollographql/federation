@@ -1186,6 +1186,7 @@ export class Schema {
   private readonly _builtInDirectives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private readonly _directives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private _coreFeatures?: CoreFeatures;
+  private _federationMetadata?: import('./federation').FederationMetadata;
   private isConstructed: boolean = false;
   public isValidated: boolean = false;
 

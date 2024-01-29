@@ -22,7 +22,6 @@ import {
 } from "../directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
 import { assert } from "../utils";
-import { federationMetadata } from "../federation";
 import { registerKnownFeature } from "../knownCoreFeatures";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
@@ -106,9 +105,8 @@ const legacyFederationDirectives = [
 export const FEDERATION1_TYPES = legacyFederationTypes;
 export const FEDERATION1_DIRECTIVES = legacyFederationDirectives;
 
-
 function fieldSetType(schema: Schema): InputType {
-  const metadata = federationMetadata(schema);
+  const metadata = schema['_federationMetadata'];
   assert(metadata, `The schema is not a federation subgraph`);
   return new NonNullType(metadata.fieldSetType());
 }

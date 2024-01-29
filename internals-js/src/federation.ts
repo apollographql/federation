@@ -956,9 +956,8 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onConstructed(schema: Schema) {
-    const existing = federationMetadata(schema);
-    if (!existing) {
-      (schema as any)['_federationMetadata'] = new FederationMetadata(schema);
+    if (!schema['_federationMetadata']) {
+      schema['_federationMetadata'] = new FederationMetadata(schema);
     }
   }
 
@@ -1312,7 +1311,7 @@ export function printSubgraphNames(names: string[]): string {
 }
 
 export function federationMetadata(schema: Schema): FederationMetadata | undefined {
-  return (schema as any)['_federationMetadata'];
+  return schema['_federationMetadata'];
 }
 
 export function isFederationSubgraphSchema(schema: Schema): boolean {

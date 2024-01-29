@@ -8,7 +8,7 @@ import {
   NonNullType,
   ListType,
 } from "../definitions";
-import { Subgraph, Subgraphs } from "../federation";
+import type { Subgraph, Subgraphs } from "../federation";
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { MultiMap } from "../utils";
 
