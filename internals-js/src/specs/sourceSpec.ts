@@ -556,8 +556,30 @@ function validateHTTPHeaders(
   }
 }
 
-function parseJSONSelection(_selection: string): any {
-  // TODO
+const selectionParser = new Grammars.W3C.Parser(`
+  Selection ::= NamedSelection* StarSelection? S? | PathSelection
+  NamedSelection ::= NamedFieldSelection | NamedQuotedSelection | NamedPathSelection | NamedGroupSelection
+  NamedFieldSelection ::= Alias? S? Identifier S? SubSelection?
+  NamedQuotedSelection ::= Alias StringLiteral S? SubSelection?
+  NamedPathSelection ::= Alias PathSelection
+  NamedGroupSelection ::= Alias SubSelection
+  PathSelection ::= S? ("." Property)+ S? SubSelection?
+  SubSelection ::= S? "{" S? NamedSelection* StarSelection? S? "}" S?
+  StarSelection ::= Alias? S? "*" S? SubSelection?
+  Alias ::= S? Identifier S? ":" S?
+  Property ::= Identifier | Integer | StringLiteral
+  Identifier ::= [a-zA-Z_][0-9a-zA-Z_]*
+  Integer ::= "0" | [1-9][0-9]*
+  StringLiteral ::= SQStrLit | DQStrLit
+  SQStrLit ::= "'" ("\\'" | [^'])* "'"
+  DQStrLit ::= '"' ('\\"' | [^"])* '"'
+  S ::= (Spaces | Comment)+
+  Spaces ::= [ \t\r\n]+
+  Comment ::= "#" [^\n]*
+`);
+
+export function parseJSONSelection(selection: string): IToken {
+  return selectionParser.getAST(selection, 'Selection');
 }
 
 const urlParser = new Grammars.W3C.Parser(`

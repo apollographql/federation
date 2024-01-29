@@ -1,5 +1,6 @@
 import {
   sourceIdentity,
+  parseJSONSelection,
   parseURLPathTemplate,
   getURLPathTemplateVars,
 } from '../index';
@@ -7,6 +8,42 @@ import {
 describe('SourceSpecDefinition', () => {
   it('should export expected identity URL', () => {
     expect(sourceIdentity).toBe('https://specs.apollo.dev/source');
+  });
+});
+
+function parseSelectionExpectingNoErrors(selection: string) {
+  const ast = parseJSONSelection(selection);
+  expect(ast.errors).toEqual([]);
+  return ast;
+}
+
+describe('parseJSONSelection', () => {
+  it('parses simple selections', () => {
+    expect(parseSelectionExpectingNoErrors('a').type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('a b').type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('a b { c }').type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('.a').type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('.a.b.c').type).toBe('Selection');
+  });
+
+  it('parses a multiline selection with comments', () => {
+    expect(parseSelectionExpectingNoErrors(`
+      # Basic field selection.
+      foo
+
+      # Similar to a GraphQL alias with a subselection.
+      barAlias: bar { x y z }
+
+      # Similar to a GraphQL alias without a subselection, but allowing for JSON
+      # properties that are not valid GraphQL Name identifiers.
+      quotedAlias: "string literal" { nested stuff }
+
+      # Apply a subselection to the result of extracting .foo.bar, and alias it.
+      pathAlias: .foo.bar { a b c }
+
+      # Nest various fields under a new key (group).
+      group: { foo baz: bar { x y z } }
+    `).type).toBe('Selection');
   });
 });
 
