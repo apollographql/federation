@@ -5206,5 +5206,48 @@ describe('@source* directives', () => {
         '[renamed] @api(name: "not an identifier") must specify name using only [a-zA-Z0-9-_] characters'
       );
     });
+
+    const extendTypeQuerySchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(
+          url: "https://specs.apollo.dev/source/v0.1"
+          import: ["@sourceAPI", "@sourceField"]
+          for: EXECUTION
+        )
+        @sourceAPI(
+          name: "json"
+          http: { baseURL: "https://jsonplaceholder.typicode.com/" }
+        )
+
+      type Query {
+        users: [User]
+          @sourceField(api: "json", http: { GET: "/users" }, selection: "id name")
+      }
+
+      # This test is a regression test for a spurious validation error triggered
+      # by using 'extend type ' here instead of just 'type ' (as above).
+      extend type Query {
+        user(id: ID!): User
+          @sourceField(
+            api: "json"
+            http: { GET: "/users/{id}" }
+            selection: "id name"
+          )
+      }
+
+      type User {
+        id: ID!
+        name: String
+      }
+    `;
+
+    it('allows @sourceField on extended Query type', () => {
+      const result = composeServices([{
+        name: 'extendTypeQuery',
+        typeDefs: extendTypeQuerySchema,
+      }]);
+      expect(result.errors ?? []).toEqual([]);
+    });
   });
 });
