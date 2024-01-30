@@ -588,32 +588,33 @@ function validateHTTPHeaders(
   }
 }
 
-const selectionParser = new Grammars.W3C.Parser(`
-  Selection ::= NamedSelection* StarSelection? S? | PathSelection
-  NamedSelection ::= NamedFieldSelection | NamedQuotedSelection | NamedPathSelection | NamedGroupSelection
-  NamedFieldSelection ::= Alias? S? Identifier S? SubSelection?
-  NamedQuotedSelection ::= Alias StringLiteral S? SubSelection?
-  NamedPathSelection ::= Alias PathSelection
-  NamedGroupSelection ::= Alias SubSelection
-  PathSelection ::= S? ("." Property)+ S? SubSelection?
-  SubSelection ::= S? "{" S? NamedSelection* StarSelection? S? "}" S?
-  StarSelection ::= Alias? S? "*" S? SubSelection?
-  Alias ::= S? Identifier S? ":" S?
-  Property ::= Identifier | Integer | StringLiteral
-  Identifier ::= [a-zA-Z_][0-9a-zA-Z_]*
-  Integer ::= "0" | [1-9][0-9]*
-  StringLiteral ::= SQStrLit | DQStrLit
-  SQStrLit ::= "'" ("\\'" | [^'])* "'"
-  DQStrLit ::= '"' ('\\"' | [^"])* '"'
-  S ::= (Spaces | Comment)+
-  Spaces ::= [ \t\r\n]+
-  Comment ::= "#" [^\n]*
-`);
 
 type ebnfASTNode = Pick<IToken, 'type' | 'children' | 'text' | 'errors'>
 type Shape = string | { [key: string]: Shape }
 
+let selectionParser: Grammars.W3C.Parser | undefined;
 export function parseJSONSelection(selection: string): ebnfASTNode | null {
+  selectionParser = selectionParser || new Grammars.W3C.Parser(`
+    Selection ::= NamedSelection* StarSelection? S? | PathSelection
+    NamedSelection ::= NamedFieldSelection | NamedQuotedSelection | NamedPathSelection | NamedGroupSelection
+    NamedFieldSelection ::= Alias? S? Identifier S? SubSelection?
+    NamedQuotedSelection ::= Alias StringLiteral S? SubSelection?
+    NamedPathSelection ::= Alias PathSelection
+    NamedGroupSelection ::= Alias SubSelection
+    PathSelection ::= S? ("." Property)+ S? SubSelection?
+    SubSelection ::= S? "{" S? NamedSelection* StarSelection? S? "}" S?
+    StarSelection ::= Alias? S? "*" S? SubSelection?
+    Alias ::= S? Identifier S? ":" S?
+    Property ::= Identifier | Integer | StringLiteral
+    Identifier ::= [a-zA-Z_][0-9a-zA-Z_]*
+    Integer ::= "0" | [1-9][0-9]*
+    StringLiteral ::= SQStrLit | DQStrLit
+    SQStrLit ::= "'" ("\\'" | [^'])* "'"
+    DQStrLit ::= '"' ('\\"' | [^"])* '"'
+    S ::= (Spaces | Comment)+
+    Spaces ::= [ \t\r\n]+
+    Comment ::= "#" [^\n]*
+  `);
   return selectionParser.getAST(selection, 'Selection');
 }
 
@@ -723,23 +724,23 @@ export function getSelectionOutputShape(node: ebnfASTNode): Shape {
   }
 }
 
-const urlParser = new Grammars.W3C.Parser(`
-  URLPathTemplate ::= "/" PathParamList? QueryParamList?
-  PathParamList ::= VarSeparatedText ("/" VarSeparatedText)* "/"?
-  QueryParamList ::= "?" (QueryParam ("&" QueryParam)*)?
-  QueryParam ::= URLSafeText "=" VarSeparatedText | URLSafeText "="?
-  VarSeparatedText ::= OneOrMoreVars | URLSafeText
-  OneOrMoreVars ::= URLSafeText? "{" Var "}" (URLSafeText "{" Var "}")* URLSafeText?
-  Var ::= IdentifierPath Required? Batch?
-  IdentifierPath ::= Identifier ("." Identifier)*
-  Required ::= "!"
-  Batch ::= BatchSeparator "..."
-  BatchSeparator ::= "," | ";" | "|" | "+" | " "
-  URLSafeText ::= [^{}/?&=]+
-  Identifier ::= [a-zA-Z_$][0-9a-zA-Z_$]*
-`);
-
+let urlParser: Grammars.W3C.Parser | undefined;
 export function parseURLPathTemplate(template: string): ebnfASTNode | null {
+  urlParser = urlParser || new Grammars.W3C.Parser(`
+    URLPathTemplate ::= "/" PathParamList? QueryParamList?
+    PathParamList ::= VarSeparatedText ("/" VarSeparatedText)* "/"?
+    QueryParamList ::= "?" (QueryParam ("&" QueryParam)*)?
+    QueryParam ::= URLSafeText "=" VarSeparatedText | URLSafeText "="?
+    VarSeparatedText ::= OneOrMoreVars | URLSafeText
+    OneOrMoreVars ::= URLSafeText? "{" Var "}" (URLSafeText "{" Var "}")* URLSafeText?
+    Var ::= IdentifierPath Required? Batch?
+    IdentifierPath ::= Identifier ("." Identifier)*
+    Required ::= "!"
+    Batch ::= BatchSeparator "..."
+    BatchSeparator ::= "," | ";" | "|" | "+" | " "
+    URLSafeText ::= [^{}/?&=]+
+    Identifier ::= [a-zA-Z_$][0-9a-zA-Z_$]*
+  `);
   return urlParser.getAST(template, 'URLPathTemplate');
 }
 
