@@ -330,15 +330,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
           ));
         } else {
           const urlPathTemplate = (GET || POST)!;
-          try {
+          const ast = parseURLPathTemplate(urlPathTemplate);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
+                `${sourceType} http.GET or http.POST must be valid URL path template (error: ${error.message})`
+              ));
+            });
             // TODO Validate URL path template uses only available @key fields
             // of the type.
-            const ast = parseURLPathTemplate(urlPathTemplate);
-            getURLPathTemplateVars(ast);
-            // TODO
-          } catch (e) {
+          } else {
             errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
-              `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
+              `${sourceType} http.GET or http.POST must be valid URL path template`
             ));
           }
         }
@@ -353,12 +356,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
             ));
           }
 
-          try {
-            parseJSONSelection(body);
-            // TODO Validate body selection matches the available fields.
-          } catch (e) {
+          const ast = parseJSONSelection(body);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
+                `${sourceType} http.body not valid JSONSelection (error: ${error.message})`,
+                { nodes: application.sourceAST },
+              ));
+            });
+            // TODO Validate body selection matches the available @key fields.
+          } else {
             errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-              `${sourceType} http.body not valid JSONSelection (error: ${e.message})`,
+              `${sourceType} http.body not valid JSONSelection`,
               { nodes: application.sourceAST },
             ));
           }
@@ -375,12 +384,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
               { nodes: application.sourceAST },
             ));
           }
-          try {
-            parseJSONSelection(selection);
+          const sel = parseJSONSelection(selection);
+          if (sel) {
+            sel.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_TYPE_SELECTION_INVALID.err(
+                `${sourceType} selection not valid JSONSelection (error: ${error.message}): ${selection}`,
+                { nodes: application.sourceAST },
+              ));
+            });
             // TODO Validate selection is valid JSONSelection for type.
-          } catch (e) {
+          } else {
             errors.push(ERRORS.SOURCE_TYPE_SELECTION_INVALID.err(
-              `${sourceType} selection not valid JSONSelection (error: ${e.message})`,
+              `${sourceType} selection not valid JSONSelection: ${selection}`,
               { nodes: application.sourceAST },
             ));
           }
@@ -424,13 +439,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
           ));
         } else if (usedMethods.length === 1) {
           const urlPathTemplate = usedMethods[0]!;
-          try {
-            // TODO Validate URL path template uses only available fields of
-            // the type and/or argument names of the field.
-            parseURLPathTemplate(urlPathTemplate);
-          } catch (e) {
+          const ast = parseURLPathTemplate(urlPathTemplate);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
+                `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${error.message})`
+              ));
+            });
+            // TODO Validate URL path template uses only available fields of the
+            // type and/or argument names of the field.
+          } else {
             errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
-              `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${e.message})`
+              `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template`,
             ));
           }
         }
@@ -450,13 +470,19 @@ export class SourceSpecDefinition extends FeatureDefinition {
             ));
           }
 
-          try {
-            parseJSONSelection(body);
+          const ast = parseJSONSelection(body);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+                `${sourceField} http.body not valid JSONSelection (error: ${error.message}): ${body}`,
+                { nodes: application.sourceAST },
+              ));
+            });
             // TODO Validate body string matches the available fields of the
             // parent type and/or argument names of the field.
-          } catch (e) {
+          } else {
             errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-              `${sourceField} http.body not valid JSONSelection (error: ${e.message})`,
+              `${sourceField} http.body not valid JSONSelection: ${body}`,
               { nodes: application.sourceAST },
             ));
           }
@@ -464,13 +490,19 @@ export class SourceSpecDefinition extends FeatureDefinition {
       }
 
       if (selection) {
-        try {
-          parseJSONSelection(selection);
-          // TODO Validate selection string matches the available fields of
-          // the parent type and/or argument names of the field.
-        } catch (e) {
+        const ast = parseJSONSelection(selection);
+        if (ast) {
+          ast.errors.forEach(error => {
+            errors.push(ERRORS.SOURCE_FIELD_SELECTION_INVALID.err(
+              `${sourceField} selection not valid JSONSelection (error: ${error.message}): ${selection}`,
+              { nodes: application.sourceAST },
+            ));
+          });
+          // TODO Validate selection string maps to declared fields of the
+          // result type of the field.
+        } else {
           errors.push(ERRORS.SOURCE_FIELD_SELECTION_INVALID.err(
-            `${sourceField} selection not valid JSONSelection (error: ${e.message})`,
+            `${sourceField} selection not valid JSONSelection: ${selection}`,
             { nodes: application.sourceAST },
           ));
         }
@@ -581,7 +613,7 @@ const selectionParser = new Grammars.W3C.Parser(`
 type ebnfASTNode = Pick<IToken, 'type' | 'children' | 'text' | 'errors'>
 type Shape = string | { [key: string]: Shape }
 
-export function parseJSONSelection(selection: string): ebnfASTNode {
+export function parseJSONSelection(selection: string): ebnfASTNode | null {
   return selectionParser.getAST(selection, 'Selection');
 }
 
@@ -707,7 +739,7 @@ const urlParser = new Grammars.W3C.Parser(`
   Identifier ::= [a-zA-Z_$][0-9a-zA-Z_$]*
 `);
 
-export function parseURLPathTemplate(template: string): ebnfASTNode {
+export function parseURLPathTemplate(template: string): ebnfASTNode | null {
   return urlParser.getAST(template, 'URLPathTemplate');
 }
 

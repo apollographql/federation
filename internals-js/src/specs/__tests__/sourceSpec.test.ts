@@ -13,18 +13,18 @@ describe('SourceSpecDefinition', () => {
 });
 
 function parseSelectionExpectingNoErrors(selection: string) {
-  const ast = parseJSONSelection(selection);
+  const ast = parseJSONSelection(selection)!;
   expect(ast.errors).toEqual([]);
   return ast;
 }
 
 describe('parseJSONSelection', () => {
   it('parses simple selections', () => {
-    expect(parseSelectionExpectingNoErrors('a').type).toBe('Selection');
-    expect(parseSelectionExpectingNoErrors('a b').type).toBe('Selection');
-    expect(parseSelectionExpectingNoErrors('a b { c }').type).toBe('Selection');
-    expect(parseSelectionExpectingNoErrors('.a').type).toBe('Selection');
-    expect(parseSelectionExpectingNoErrors('.a.b.c').type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('a')!.type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('a b')!.type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('a b { c }')!.type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('.a')!.type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors('.a.b.c')!.type).toBe('Selection');
   });
 
   const complexSelection = `
@@ -57,12 +57,15 @@ describe('parseJSONSelection', () => {
   // a * selection.
 
   it('parses a multiline selection with comments', () => {
-    expect(parseSelectionExpectingNoErrors(complexSelection).type).toBe('Selection');
+    expect(parseSelectionExpectingNoErrors(complexSelection)!.type).toBe('Selection');
   });
 
   describe('getSelectionOutputShape', () => {
     it('returns the correct output shape for a simple selection', () => {
       const ast = parseSelectionExpectingNoErrors('a');
+      if (!ast) {
+        throw new Error('Generic parse failure for a');
+      }
       expect(getSelectionOutputShape(ast)).toEqual({
         a: 'JSON',
       });
@@ -70,6 +73,9 @@ describe('parseJSONSelection', () => {
 
     it('returns the correct output shape for a complex selection', () => {
       const ast = parseSelectionExpectingNoErrors(complexSelection);
+      if (!ast) {
+        throw new Error('Generic parse failure for ' + complexSelection);
+      }
       expect(getSelectionOutputShape(ast)).toEqual({
         foo: 'JSON',
         barAlias: {
@@ -109,9 +115,14 @@ describe('parseJSONSelection', () => {
         e { f { g h } }
         i { j { k l } }
         m { n o { p q } }
+        # stray comment
         r { s t { u v } }
         w { x { y z } }
       `);
+
+      if (!ast) {
+        throw new Error('Generic parse failure for alphabet soup');
+      }
 
       expect(getSelectionOutputShape(ast)).toEqual({
         a: 'JSON',
@@ -158,13 +169,21 @@ describe('parseJSONSelection', () => {
 
 describe('parseURLPathTemplate', () => {
   it('allows an empty path', () => {
-    const ast = parseURLPathTemplate('/');
+    const template = '/';
+    const ast = parseURLPathTemplate(template);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + template);
+    }
     expect(ast.errors).toEqual([]);
     expect(getURLPathTemplateVars(ast)).toEqual({});
   });
 
   it('allows query params only', () => {
-    const ast = parseURLPathTemplate('/?param={param}&other={other}');
+    const template = '/?param={param}&other={other}';
+    const ast = parseURLPathTemplate(template);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + template);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(Object.keys(vars).sort()).toEqual([
@@ -174,13 +193,21 @@ describe('parseURLPathTemplate', () => {
   });
 
   it('allows empty query parameters after a /?', () => {
-    const ast = parseURLPathTemplate('/?');
+    const template = '/?';
+    const ast = parseURLPathTemplate(template);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + template);
+    }
     expect(ast.errors).toEqual([]);
     expect(getURLPathTemplateVars(ast)).toEqual({});
   });
 
   it('allows valueless keys in query parameters', () => {
-    const ast = parseURLPathTemplate('/?a&b=&c&d=&e');
+    const template = '/?a&b=&c&d=&e';
+    const ast = parseURLPathTemplate(template);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + template);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(Object.keys(vars).sort()).toEqual([]);
@@ -192,6 +219,9 @@ describe('parseURLPathTemplate', () => {
     '/users/{userId}/posts/{postId}/junk',
   ] as const)('parses path-only templates with variables: %s', pathTemplate => {
     const ast = parseURLPathTemplate(pathTemplate);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + pathTemplate);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(Object.keys(vars).sort()).toEqual([
@@ -206,6 +236,9 @@ describe('parseURLPathTemplate', () => {
     '/users/{user.id}/posts/{post.id}/junk',
   ] as const)('parses path template with nested vars: %s', pathTemplate => {
     const ast = parseURLPathTemplate(pathTemplate);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + pathTemplate);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(Object.keys(vars).sort()).toEqual([
@@ -221,6 +254,9 @@ describe('parseURLPathTemplate', () => {
     '/users/{user.id}/{param}?',
   ] as const)('parses templates with query parameters: %s', pathTemplate => {
     const ast = parseURLPathTemplate(pathTemplate);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + pathTemplate);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(Object.keys(vars).sort()).toEqual([
@@ -241,6 +277,9 @@ describe('parseURLPathTemplate', () => {
     '/?filter={filter}&location={latitude!}-{longitude!}',
   ] as const)('should parse a template with multi-var segments: %s', pathTemplate => {
     const ast = parseURLPathTemplate(pathTemplate);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + pathTemplate);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(Object.keys(vars).sort()).toEqual([
@@ -255,6 +294,9 @@ describe('parseURLPathTemplate', () => {
     '/users_batch/{uid,...}?filter={filter}',
   ] as const)('can parse batch endpoints: %s', pathTemplate => {
     const ast = parseURLPathTemplate(pathTemplate);
+    if (!ast) {
+      throw new Error('Generic parse failure for ' + pathTemplate);
+    }
     expect(ast.errors).toEqual([]);
     const vars = getURLPathTemplateVars(ast);
     expect(vars).toEqual({
