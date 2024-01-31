@@ -477,28 +477,17 @@ Follow these steps to use the `@override` directive:
       ```graphql {3} title="Billing subgraph"
       type Bill @key(fields: "id") {
         id: ID!
-        amount: Int! @override(from: "Payments") #highlight-line
+        amount: Int! @override(from: "Payments", label: "percent(1)") #highlight-line
       }
       ```
 
     </CodeColumns>
 
-      Applying the `@override` directive tells the router to resolve the `amount` field in the Billing subgraph instead of the Payments subgraph.
+      Applying the `@override` directive tells the router to resolve the `amount` field in the Billing subgraph instead of the Payments subgraph. 
 
+      Adding a `label` argument to the `@override` directive sets the percentage of traffic to direct to the Billing subgraph. Start with a small percentage. Setting `label: "percent(1)"` means that 1 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 99 percent are resolved by the Payments subgraph. 
 
 3. Update your router's supergraph schema to migrate to the updated Billing subgraph.
-
-   * Use progressive `@override` by adding a `label` argument to the `@override` directive with the percentage of requests that you want to be resolved by the subgraph. For example:
-
-      ```graphql title="Billing subgraph"
-      type Bill @key(fields: "id") {
-        id: ID!
-        amount: Int! @override(from: "Payments", label: "percent(15)") #highlight-line
-      }
-      ``` 
-
-      Setting `label: "percent(15)"` means that 15 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 85 percent are resolved by the Payments subgraph. 
-
 
 When the router receives its updated supergraph schema, it immediately starts resolving the `Bill.amount` field from the Billing subgraph while continuing to resolve `Bill.payment` from the Payments subgraph.
 
@@ -508,7 +497,7 @@ We can migrate as many entity fields as we want in a single change. To do so, we
 
 </Note>
 
-4. Gradually increase the percent of traffic directed to the Billing subgraph until the migration is completed by setting `label: "percent(100)"`.
+4. Gradually and iteratively increase the percent of traffic directed to the Billing subgraph, update your router's supergraph schema, and validate the performance of the Billing subgraph. Continue until the migration is completed with `label: "percent(100)"` and all traffic is resolved by the Billing subgraph.
 
     ```graphql title="Billing subgraph"
     type Bill @key(fields: "id") {
