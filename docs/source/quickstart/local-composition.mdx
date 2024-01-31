@@ -191,10 +191,10 @@ type SubmitReviewResponse
 
 As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the router uses to route incoming operations.
 
-Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
+Now, append ` --output supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
-rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
+rover supergraph compose --config ./supergraph-config.yaml --output supergraph.graphql
 ```
 
 ## 3. Provide the composed schema to the router
