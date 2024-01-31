@@ -565,11 +565,15 @@ After we deploy the Billing subgraph and publish this final schema change, we're
 
 #### Safe usage of progressive `@override`
 
-An important detail to keep in mind when using progressive `@override` is that a single operation can now result in multiple query plans. Query plans are cached by the router, with the set of _unique_, overridden labels contributing to the cache key. Prior to progressive `@override`, only a single query plan was generated for a given operation. With progressive `@override`, for each unique label in the operation's "path" the number of query plans doubles. A few strategies to mitigate this concern are:
+When using progressive `@override`, a single operation can now result in multiple query plans. Query plans are cached by the router, with the set of _unique_, overridden labels contributing to the cache key. 
 
-1. Do not leave progressive `@override` in place indefinitely. Migrate the field and remove the `label` argument from the `@override` directive as soon as reasonably possible.
+Prior to progressive `@override`, only a single query plan was generated for a given operation. With progressive `@override`, the number of query plans doubles for each unique label in the operation's "path". 
+
+A few strategies to mitigate this concern:
+
+1. Don't leave progressive `@override` in place indefinitely. Migrate the field and remove the `label` argument from the `@override` directive as soon as reasonably possible.
 2. Share labels across fields that are being migrated together. For example, if you are migrating `Bill.amount` and `Bill.payment` together, use the same label for both fields. This will ensure that the number of query plans does not increase as a result of the migration.
-3. Use a small, known set of labels (i.e `percent(5)`, `percent(25)`, `percent(50)`).
+3. Use a small, known set of labels (for example `percent(5)`, `percent(25)`, `percent(50)`).
 
 #### Customizing progressive `@override` behavior with a feature flag service
 
