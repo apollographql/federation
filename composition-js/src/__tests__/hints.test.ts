@@ -930,7 +930,7 @@ describe('hint tests related to the @override directive', () => {
     );
   });
 
-  it('hint when progressive @override migration is in progress 2', () => {
+  it('hint when progressive @override migration is in progress (for a referenced field)', () => {
     const subgraph1 = gql`
       type Query {
         a: Int
