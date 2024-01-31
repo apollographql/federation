@@ -563,6 +563,32 @@ Because the router is already _ignoring_ `Bill.amount` in the Payments subgraph 
 
 After we deploy the Billing subgraph and publish this final schema change, we're done. We've migrated `Bill.amount` to the Billing subgraph with zero downtime.
 
+#### Safe usage of progressive `@override`
+
+When using progressive `@override`, a single operation can now result in multiple query plans. Query plans are cached by the router, with the set of _unique_, overridden labels contributing to the cache key. 
+
+Prior to progressive `@override`, only a single query plan was generated for a given operation. With progressive `@override`, the number of query plans doubles for each unique label in the operation's "path". 
+
+A few strategies to mitigate this concern:
+
+1. Don't leave progressive `@override` in place indefinitely. Migrate the field and remove the `label` argument from the `@override` directive as soon as reasonably possible.
+2. Share labels across fields that are being migrated together. For example, if you are migrating `Bill.amount` and `Bill.payment` together, use the same label for both fields. This will ensure that the number of query plans does not increase as a result of the migration.
+3. Use a small, known set of labels (for example `percent(5)`, `percent(25)`, `percent(50)`).
+
+#### Customizing progressive `@override` behavior with a feature flag service
+
+Out of the box, the router supports the `percent(x)` syntax for resolving labels based on a given percentage. Unfortunately, updating this number requires a subgraph publish and router redeploy. To avoid this, you can use a feature flag service to dynamically update the label value.
+
+The router provides an interface for coprocessors and rhai scripts to resolve arbitrary labels. This allows you to dial up or disable a label's rollout status without requiring a subgraph publish. A coprocessor or rhai script that implements this should take the following steps:
+1. Implement the [`SupergraphService`](/router/customizations/rhai/#supergraphservice)
+2. Inspect the `apollo_override::unresolved_labels` context key to determine which labels exist in the schema that haven't been resolved by the router.
+3. Resolve the labels using your feature flag service (or any other mechanism).
+4. Add the resolved labels to the `apollo_override::labels_to_override` context key.
+
+> Note: The unresolved labels are _all_ labels in the schema that haven't been resolved by the router. They may not all pertain to the incoming operation. As a final step, the router will filter the resolved labels to only those that are relevant to the operation in order to minimize the set of labels contributing to the query plan cache key. It is expected that a coprocessor or rhai script will resolve all labels in the schema, not just those relevant to the operation.
+
+For an example implementation of a coprocessor that resolves labels using LaunchDarkly, see [the example](https://github.com/apollographql/router/tree/main/examples/coprocessor-override-launchdarkly/README.md) in the router repo.
+
 ### Optimizing for fewer deploys with manual composition
 
 > ⚠️ This method requires careful coordination between subgraph and router updates. Without strict control over the order of deployments and schema updates, you might cause an outage. For most use cases, we recommend using the [`@override` method above](#incremental-migration-with-override).
