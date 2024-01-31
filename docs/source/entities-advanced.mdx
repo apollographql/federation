@@ -508,7 +508,16 @@ We can migrate as many entity fields as we want in a single change. To do so, we
 
 </Note>
 
-Now that `Bill.amount` is resolved in the Billing subgraph, we can safely _remove_ that field (and its resolver) from the Payments subgraph:
+4. Gradually increase the percent of traffic directed to the Billing subgraph until the migration is completed by setting `label: "percent(100)"`.
+
+    ```graphql title="Billing subgraph"
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int! @override(from: "Payments", label: "percent(100)") #highlight-line
+    }
+      ``` 
+
+5. Now that `Bill.amount` is resolved in the Billing subgraph, we can safely _remove_ that field (and its resolver) from the Payments subgraph:
 
 <CodeColumns>
 
@@ -540,7 +549,7 @@ Because the router is already _ignoring_ `Bill.amount` in the Payments subgraph 
 
 </Note>
 
-4. Remove the `@override` directive from the Billing subgraph, because it no longer has any effect:
+6. Remove the `@override` directive from the Billing subgraph because it no longer has any effect:
 
     <CodeColumns>
 
