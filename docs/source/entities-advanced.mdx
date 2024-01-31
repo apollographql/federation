@@ -235,11 +235,11 @@ type Query {
 }
 ```
 
-## Migrating entities and fields
+## Migrating entity fields and root fields
 
-As your supergraph grows, you might want to move parts of an entity to a different subgraph. This section describes how to perform these migrations safely.
+As your supergraph grows, you might want to move parts of one subgraph to another subgraph. This section describes how to migrate entity and root fields safely.
 
-### Incremental migration with `@override`
+### Using the `@override` directive
 
 You can migrate between subgraphs all at once with `@override`.
 
