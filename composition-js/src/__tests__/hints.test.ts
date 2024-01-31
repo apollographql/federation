@@ -899,6 +899,64 @@ describe('hint tests related to the @override directive', () => {
       'T.id'
     );
   });
+
+  it('hint when progressive @override migration is in progress', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph2", label: "percent(1)")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+      f: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+
+    // We don't want to see the related hint for non-progressive overrides that
+    // suggest removing the original field.
+    expect(result.hints).toHaveLength(1);
+    expect(result).toRaiseHint(
+      HINTS.OVERRIDE_MIGRATION_IN_PROGRESS,
+      `Field "T.f" is currently being migrated with progressive @override. Once the migration is complete, remove the field from subgraph "Subgraph2".`,
+      'T.f',
+    );
+  });
+
+  it('hint when progressive @override migration is in progress 2', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int @override(from: "Subgraph2", label: "percent(1)")
+      }
+    `;
+
+    const subgraph2 = gql`
+      type T @key(fields: "id"){
+        id: Int
+      }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+
+    // We don't want to see the related hint for non-progressive overrides that
+    // suggest removing the original field.
+    expect(result.hints).toHaveLength(1);
+    expect(result).toRaiseHint(
+      HINTS.OVERRIDE_MIGRATION_IN_PROGRESS,
+      `Field "T.id" on subgraph "Subgraph2" is currently being migrated via progressive @override. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s). Once the migration is complete, consider marking it @external explicitly or removing it along with its references.`,
+      'T.id'
+    );
+  });
 });
 
 describe('on non-repeatable directives used with incompatible arguments', () => {
