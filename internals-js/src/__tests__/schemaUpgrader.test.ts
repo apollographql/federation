@@ -323,6 +323,6 @@ test("fully upgrades a schema with no @link directive", () => {
   @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])
 {
   query: Query
-}
-  `);
+}`
+  );
 });
