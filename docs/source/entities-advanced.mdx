@@ -487,9 +487,9 @@ Follow these steps to use the `@override` directive:
 
       Adding a `label` argument to the `@override` directive sets the percentage of traffic to direct to the Billing subgraph. Start with a small percentage. Setting `label: "percent(1)"` means that 1 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 99 percent are resolved by the Payments subgraph. 
 
-3. Update your router's supergraph schema to migrate to the updated Billing subgraph.
+3. Update your router's supergraph schema to begin the migration to the updated Billing subgraph.
 
-When the router receives its updated supergraph schema, it immediately starts resolving the `Bill.amount` field from the Billing subgraph while continuing to resolve `Bill.payment` from the Payments subgraph.
+When the router receives its updated supergraph schema, it starts resolving the `Bill.amount` field from the Billing subgraph approximately 1% of the time, while continuing to resolve it from the Payments subgraph the other 99%.
 
 <Note>
 
