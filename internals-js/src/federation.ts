@@ -790,6 +790,14 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_FIELD);
   }
 
+  requireDirective(): Post20FederationDirectiveDefinition<SourceFieldDirectiveArgs> {
+    return this.getPost20FederationDirective(FederationDirectiveName.REQUIRE);
+  }
+
+  setContextDirective(): Post20FederationDirectiveDefinition<SourceFieldDirectiveArgs> {
+    return this.getPost20FederationDirective(FederationDirectiveName.SET_CONTEXT);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -841,6 +849,16 @@ export class FederationMetadata {
     const sourceFieldDirective = this.sourceFieldDirective();
     if (isFederationDirectiveDefinedInSchema(sourceFieldDirective)) {
       baseDirectives.push(sourceFieldDirective);
+    }
+
+    const requireDirective = this.requireDirective();
+    if (isFederationDirectiveDefinedInSchema(requireDirective)) {
+      baseDirectives.push(requireDirective);
+    }
+
+    const setContextDirective = this.setContextDirective();
+    if (isFederationDirectiveDefinedInSchema(setContextDirective)) {
+      baseDirectives.push(setContextDirective);
     }
 
     return baseDirectives;
@@ -1225,7 +1243,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField", "@setContext", "@require"])';
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 

@@ -44,6 +44,8 @@ export enum FederationDirectiveName {
   SOURCE_API = 'sourceAPI',
   SOURCE_TYPE = 'sourceType',
   SOURCE_FIELD = 'sourceField',
+  SET_CONTEXT = 'setContext',
+  REQUIRE = 'require',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -86,6 +88,18 @@ const providesDirectiveSpec = createDirectiveSpecification({
 const legacyFederationTypes = [
   fieldSetTypeSpec,
 ];
+
+const setContextSpec = createDirectiveSpecification({
+  name: FederationDirectiveName.SET_CONTEXT,
+  locations: [DirectiveLocation.FIELD_DEFINITION],
+  args: [{ name: 'name', type: (schema) =>new NonNullType(schema.stringType()) }, { name: 'field', type: (schema) => fieldSetType(schema) }],
+});
+
+const requireSpec = createDirectiveSpecification({
+  name: FederationDirectiveName.REQUIRE,
+  locations: [DirectiveLocation.ARGUMENT_DEFINITION],
+  args: [{ name: 'fromContext', type: (schema) =>new NonNullType(schema.stringType()) }, { name: 'field', type: (schema) => fieldSetType(schema) }],
+});
 
 const legacyFederationDirectives = [
   keyDirectiveSpec,
@@ -173,6 +187,8 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version.gte(new FeatureVersion(2, 7))) {
       this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
+      this.registerDirective(setContextSpec);
+      this.registerDirective(requireSpec);
     }
   }
 }

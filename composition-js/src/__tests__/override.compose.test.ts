@@ -984,7 +984,7 @@ describe("composition involving @override directive", () => {
 
         directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, requiredArguments: [join__RequireArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
         directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -1003,6 +1003,14 @@ describe("composition involving @override directive", () => {
         enum join__Graph {
           SUBGRAPH1 @join__graph(name: \\"Subgraph1\\", url: \\"https://Subgraph1\\")
           SUBGRAPH2 @join__graph(name: \\"Subgraph2\\", url: \\"https://Subgraph2\\")
+        }
+
+        input join__RequireArgument {
+          position: Int!
+          fromContext: String!
+          name: String!
+          type: String!
+          selection: join__FieldSet!
         }
 
         scalar link__Import

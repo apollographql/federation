@@ -74,6 +74,7 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
+  isFederationDirectiveDefinedInSchema,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -1649,6 +1650,33 @@ class Merger {
         continue;
       }
 
+      const requiredArguments: {
+        position: number,
+        fromContext: string,
+        name: string,
+        type: string,
+        selection: string,
+      }[] = [];
+      const requireDirective = this.subgraphs.values()[idx].metadata().requiresDirective();
+      if (source.kind === 'FieldDefinition') {
+        const args = source.arguments();
+        args.forEach((arg, i) => {
+          const appliedDirectives = arg.appliedDirectivesOf(requireDirective);
+          assert(appliedDirectives.length <= 1, () => `@require directive should not be repeatable on ${arg.coordinate}`);
+          if (appliedDirectives.length === 1) {
+            const app = appliedDirectives[0];
+            const argType = arg.type?.toString();
+            assert(argType, () => `Argument ${arg.coordinate} should have a type`);
+            requiredArguments.push({
+              position: i,
+              fromContext: app.arguments().fields['fromContext'],
+              name: app.arguments().fields['from'],
+              type: argType,
+              selection: app.arguments().fields['selection'],
+            });
+          }
+        });
+      }
       const external = this.isExternal(idx, source);
       const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
@@ -1661,6 +1689,7 @@ class Merger {
         external: external ? true : undefined,
         usedOverridden: usedOverridden ? true : undefined,
         overrideLabel: mergeContext.overrideLabel(idx),
+        requiredArguments: requiredArguments.length > 0 ? requiredArguments : undefined,
       });
     }
   }
@@ -1787,6 +1816,29 @@ class Merger {
       // some path. Done because this helps reusing our "reportMismatchHint" method
       // in those cases.
       const arg = dest.addArgument(argName);
+
+      const isContextualArg = (index: number, arg: ArgumentDefinition<DirectiveDefinition<any>> | ArgumentDefinition<FieldDefinition<any>>) => {
+        const requireDirective = this.metadata(index).requireDirective();
+        return requireDirective && isFederationDirectiveDefinedInSchema(requireDirective) && arg.appliedDirectivesOf(requireDirective).length >= 1;
+      }
+      const hasContextual = sources.map((s, idx) => {
+        const arg = s?.argument(argName);
+        return arg && isContextualArg(idx, arg);
+      });
+
+      if (hasContextual.some((c) => c === true)) {
+        // If any of the sources has a contextual argument, then we need to remove it from the supergraph
+        // and ensure that all the sources have it.
+        if (hasContextual.some((c) => c === false)) {
+          this.errors.push(ERRORS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS.err(
+            `Argument "${arg.coordinate}" is contextual in some subgraphs but not in all subgraphs: it is contextual in ${printSubgraphNames(hasContextual.map((c, i) => c ? this.names[i] : undefined).filter(isDefined))} but not in ${printSubgraphNames(hasContextual.map((c, i) => c ? undefined : this.names[i]).filter(isDefined))}`,
+            { nodes: sourceASTs(...sources.map((s) => s?.argument(argName))) },
+          ));
+        }
+        arg.remove();
+        continue;
+      }
+
       // If all the sources that have the field have the argument, we do merge it
       // and we're good, but otherwise ...
       if (sources.some((s) => s && !s.argument(argName))) {

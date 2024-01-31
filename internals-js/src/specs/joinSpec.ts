@@ -7,6 +7,7 @@ import {
   Schema,
   NonNullType,
   ListType,
+  InputObjectType,
 } from "../definitions";
 import { Subgraph, Subgraphs } from "../federation";
 import { registerKnownFeature } from '../knownCoreFeatures';
@@ -48,6 +49,13 @@ export type JoinFieldDirectiveArguments = {
   external?: boolean,
   usedOverridden?: boolean,
   overrideLabel?: string,
+  requiredArguments?: {
+    position: number,
+    fromContext: string,
+    name: string,
+    type: string,
+    selection: string,
+  }[],
 }
 
 export type JoinDirectiveArguments = {
@@ -151,8 +159,18 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinDirective.addArgument('name', new NonNullType(schema.stringType()));
       joinDirective.addArgument('args', this.addScalarType(schema, 'DirectiveArguments'));
 
-      //progressive override
+      // progressive override
       joinField.addArgument('overrideLabel', schema.stringType());
+
+      // set context
+      const requireType = schema.addType(new InputObjectType('join__RequireArgument'));
+      requireType.addField('position', new NonNullType(schema.intType()));
+      requireType.addField('fromContext', new NonNullType(schema.stringType()));
+      requireType.addField('name', new NonNullType(schema.stringType()));
+      requireType.addField('type', new NonNullType(schema.stringType()));
+      requireType.addField('selection', new NonNullType(joinFieldSet));
+
+      joinField.addArgument('requiredArguments', new ListType(new NonNullType(requireType)));
     }
 
     if (this.isV01()) {
