@@ -5,18 +5,25 @@ const header = `---
 title: Composition hints
 ---
 
-When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, the composition process might output **hints** that provide additional information about the result. Hints are primarily informative and _do not_ necessarily indicate that a problem needs to be fixed.
+When you successfully [compose](./federated-types/composition) the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, the composition process can flag potential improvements or **hints**. Hints are violations of the [GraphOS schema linter's](/graphos/delivery/schema-linter) [composition rules](/graphos/delivery/linter-rules#composition-rules). You can review them on the [Checks](/graphos/delivery/schema-checks) page in GraphOS Studio or via the [Rover CLI](/rover/).
 
-Hints are categorized under the following levels:
+> Composition hints only appear in GraphOS Studio and via the \`rover subgraph check\` command for graphs on [federation version \`2.4\`](/federation/federation-versions/#v24) or later. You can update a graph's version from its **Settings** page in [GraphOS Studio](https://studio.apollographql.com?referrer=docs-content).
 
-* \`WARN\`: Indicates a situation that might be expected but is usually temporary and should be double-checked. Typically, composition might have needed to ignore some elements from some subgraph when creating the supergraph.
-* \`INFO\`: Suggests a potentially helpful improvement or highlights a noteworthy resolution made by composition. Can otherwise be ignored.
-* \`DEBUG\`: Lower-level information that provides insight into the composition. These hints are of lesser importance/impact.
+The [\`rover subgraph check\`](/rover/commands/subgraphs#subgraph-check) command outputs rule violations with the [severity levels](/graphos/delivery/schema-linter/#setting-severity-levels) you've configured for your graph variant. The [\`rover supergraph compose\`](/rover/commands/supergraphs#supergraph-compose) command outputs rule violations for _all_ local subgraph schemas.
 
-Note that hints are first and foremost informative and don't necessarily correspond to a problem to be fixed.
+See below for a list of composition rules categorized by rule type. The heading for each rule is the code that GraphOS returns for the rule violation. Refer to the [rules reference page](/graphos/delivery/linter-rules) for a comprehensive list of linter rules.
 
-This document lists the hints that can be generated for each level, with a description of why each is generated.
-`;
+### Inconsistent elements
+
+<InconsistentCompositionRules />
+
+### Overridden and unused elements
+
+<OverriddenCompositionRules />
+
+### Directives
+
+<DirectiveCompositionRules />`;
 
 function makeMarkdownArray(
   headers: string[],
