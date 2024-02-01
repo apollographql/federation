@@ -547,7 +547,7 @@ class Merger {
     if (featureCausingUpgrade) {
       this.hints.push(new CompositionHint(
         HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-        `Feature ${featureCausingUpgrade.directive} requires federation version v${this.latestFedVersionUsed} or higher. Upgraded from v${originalFederationVersion}`,
+        `Feature ${featureCausingUpgrade?.directive} requires federation version ${this.latestFedVersionUsed} or higher. Upgraded from ${originalFederationVersion}`,
         undefined,
         undefined, // TODO: See if we can grab the AST node
       ))
