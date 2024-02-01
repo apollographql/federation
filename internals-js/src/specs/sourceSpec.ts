@@ -483,7 +483,11 @@ export class SourceSpecDefinition extends FeatureDefinition {
         ));
       } else {
         const typeGrandparent = fieldParent.parent as SchemaElement<any, any>;
-        if (typeGrandparent.sourceAST?.kind !== Kind.OBJECT_TYPE_DEFINITION) {
+        const typeKind = typeGrandparent.sourceAST?.kind;
+        if (
+          typeKind !== Kind.OBJECT_TYPE_DEFINITION &&
+          typeKind !== Kind.OBJECT_TYPE_EXTENSION
+        ) {
           errors.push(ERRORS.SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD.err(
             `${sourceField} must be applied to field of object type`,
             { nodes: application.sourceAST },
