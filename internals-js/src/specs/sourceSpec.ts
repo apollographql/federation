@@ -1,4 +1,5 @@
 import { DirectiveLocation, GraphQLError, Kind } from 'graphql';
+import { Grammars, IToken } from 'ebnf';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./index";
 import {
   Schema,
@@ -329,13 +330,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
           ));
         } else {
           const urlPathTemplate = (GET || POST)!;
-          try {
+          const ast = parseURLPathTemplate(urlPathTemplate);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
+                `${sourceType} http.GET or http.POST must be valid URL path template (error: ${error.message})`
+              ));
+            });
             // TODO Validate URL path template uses only available @key fields
             // of the type.
-            parseURLPathTemplate(urlPathTemplate);
-          } catch (e) {
+          } else {
             errors.push(ERRORS.SOURCE_TYPE_HTTP_PATH_INVALID.err(
-              `${sourceType} http.GET or http.POST must be valid URL path template (error: ${e.message})`
+              `${sourceType} http.GET or http.POST must be valid URL path template`
             ));
           }
         }
@@ -350,12 +356,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
             ));
           }
 
-          try {
-            parseJSONSelection(body);
-            // TODO Validate body selection matches the available fields.
-          } catch (e) {
+          const ast = parseJSONSelection(body);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
+                `${sourceType} http.body not valid JSONSelection (error: ${error.message})`,
+                { nodes: application.sourceAST },
+              ));
+            });
+            // TODO Validate body selection matches the available @key fields.
+          } else {
             errors.push(ERRORS.SOURCE_TYPE_HTTP_BODY_INVALID.err(
-              `${sourceType} http.body not valid JSONSelection (error: ${e.message})`,
+              `${sourceType} http.body not valid JSONSelection`,
               { nodes: application.sourceAST },
             ));
           }
@@ -372,12 +384,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
               { nodes: application.sourceAST },
             ));
           }
-          try {
-            parseJSONSelection(selection);
+          const sel = parseJSONSelection(selection);
+          if (sel) {
+            sel.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_TYPE_SELECTION_INVALID.err(
+                `${sourceType} selection not valid JSONSelection (error: ${error.message}): ${selection}`,
+                { nodes: application.sourceAST },
+              ));
+            });
             // TODO Validate selection is valid JSONSelection for type.
-          } catch (e) {
+          } else {
             errors.push(ERRORS.SOURCE_TYPE_SELECTION_INVALID.err(
-              `${sourceType} selection not valid JSONSelection (error: ${e.message})`,
+              `${sourceType} selection not valid JSONSelection: ${selection}`,
               { nodes: application.sourceAST },
             ));
           }
@@ -421,13 +439,18 @@ export class SourceSpecDefinition extends FeatureDefinition {
           ));
         } else if (usedMethods.length === 1) {
           const urlPathTemplate = usedMethods[0]!;
-          try {
-            // TODO Validate URL path template uses only available fields of
-            // the type and/or argument names of the field.
-            parseURLPathTemplate(urlPathTemplate);
-          } catch (e) {
+          const ast = parseURLPathTemplate(urlPathTemplate);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
+                `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${error.message})`
+              ));
+            });
+            // TODO Validate URL path template uses only available fields of the
+            // type and/or argument names of the field.
+          } else {
             errors.push(ERRORS.SOURCE_FIELD_HTTP_PATH_INVALID.err(
-              `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template (error: ${e.message})`
+              `${sourceField} http.{GET,POST,PUT,PATCH,DELETE} must be valid URL path template`,
             ));
           }
         }
@@ -447,13 +470,19 @@ export class SourceSpecDefinition extends FeatureDefinition {
             ));
           }
 
-          try {
-            parseJSONSelection(body);
+          const ast = parseJSONSelection(body);
+          if (ast) {
+            ast.errors.forEach(error => {
+              errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
+                `${sourceField} http.body not valid JSONSelection (error: ${error.message}): ${body}`,
+                { nodes: application.sourceAST },
+              ));
+            });
             // TODO Validate body string matches the available fields of the
             // parent type and/or argument names of the field.
-          } catch (e) {
+          } else {
             errors.push(ERRORS.SOURCE_FIELD_HTTP_BODY_INVALID.err(
-              `${sourceField} http.body not valid JSONSelection (error: ${e.message})`,
+              `${sourceField} http.body not valid JSONSelection: ${body}`,
               { nodes: application.sourceAST },
             ));
           }
@@ -461,13 +490,19 @@ export class SourceSpecDefinition extends FeatureDefinition {
       }
 
       if (selection) {
-        try {
-          parseJSONSelection(selection);
-          // TODO Validate selection string matches the available fields of
-          // the parent type and/or argument names of the field.
-        } catch (e) {
+        const ast = parseJSONSelection(selection);
+        if (ast) {
+          ast.errors.forEach(error => {
+            errors.push(ERRORS.SOURCE_FIELD_SELECTION_INVALID.err(
+              `${sourceField} selection not valid JSONSelection (error: ${error.message}): ${selection}`,
+              { nodes: application.sourceAST },
+            ));
+          });
+          // TODO Validate selection string maps to declared fields of the
+          // result type of the field.
+        } else {
           errors.push(ERRORS.SOURCE_FIELD_SELECTION_INVALID.err(
-            `${sourceField} selection not valid JSONSelection (error: ${e.message})`,
+            `${sourceField} selection not valid JSONSelection: ${selection}`,
             { nodes: application.sourceAST },
           ));
         }
@@ -553,12 +588,194 @@ function validateHTTPHeaders(
   }
 }
 
-function parseJSONSelection(_selection: string): any {
-  // TODO
+
+type ebnfASTNode = Pick<IToken, 'type' | 'children' | 'text' | 'errors'>
+type Shape = string | { [key: string]: Shape }
+
+let selectionParser: Grammars.W3C.Parser | undefined;
+export function parseJSONSelection(selection: string): ebnfASTNode | null {
+  selectionParser = selectionParser || new Grammars.W3C.Parser(`
+    Selection ::= NamedSelection* StarSelection? S? | PathSelection
+    NamedSelection ::= NamedFieldSelection | NamedQuotedSelection | NamedPathSelection | NamedGroupSelection
+    NamedFieldSelection ::= Alias? S? Identifier S? SubSelection?
+    NamedQuotedSelection ::= Alias StringLiteral S? SubSelection?
+    NamedPathSelection ::= Alias PathSelection
+    NamedGroupSelection ::= Alias SubSelection
+    PathSelection ::= S? ("." Property)+ S? SubSelection?
+    SubSelection ::= S? "{" S? NamedSelection* StarSelection? S? "}" S?
+    StarSelection ::= Alias? S? "*" S? SubSelection?
+    Alias ::= S? Identifier S? ":" S?
+    Property ::= Identifier | Integer | StringLiteral
+    Identifier ::= [a-zA-Z_][0-9a-zA-Z_]*
+    Integer ::= "0" | [1-9][0-9]*
+    StringLiteral ::= SQStrLit | DQStrLit
+    SQStrLit ::= "'" ("\\'" | [^'])* "'"
+    DQStrLit ::= '"' ('\\"' | [^"])* '"'
+    S ::= (Spaces | Comment)+
+    Spaces ::= [ \t\r\n]+
+    Comment ::= "#" [^\n]*
+  `);
+  return selectionParser.getAST(selection, 'Selection');
 }
 
-function parseURLPathTemplate(_template: string): any {
-  // TODO
+function findChildByType(node: ebnfASTNode | undefined, type: string): ebnfASTNode | undefined {
+  return node?.children.find(child => child.type === type);
+}
+
+export function getSelectionOutputShape(node: ebnfASTNode): Shape {
+  switch (node.type) {
+    case 'Selection': {
+      const pathSelection = findChildByType(node, 'PathSelection');
+      if (pathSelection) {
+        return getSelectionOutputShape(pathSelection);
+      }
+      // Reuse the logic for SubSelection to handle the top-level sequence of
+      // NamedSelection and StarSelection nodes, which are equivalent to the
+      // contents of a SubSelection (minus the curly braces).
+      return getSelectionOutputShape({
+        type: 'SubSelection',
+        children: node.children,
+        text: node.text,
+        errors: node.errors,
+      });
+    }
+    case 'NamedSelection': {
+      const shape: { [key: string]: Shape } = Object.create(null);
+      // Typically node.children.length will be 1 here, but the for loop covers
+      // all conceivable cases.
+      for (const namedChild of node.children) {
+        Object.assign(shape, getSelectionOutputShape(namedChild));
+      }
+      return shape;
+    }
+    case 'NamedFieldSelection':
+    case 'NamedQuotedSelection':
+    case 'NamedPathSelection':
+    case 'NamedGroupSelection': {
+      const outputName = (
+        findChildByType(findChildByType(node, 'Alias'), 'Identifier') ||
+        findChildByType(node, 'Identifier') ||
+        findChildByType(node, 'StringLiteral')
+      )?.text;
+
+      // PathSelection nests its optional SubSelection one level deeper than the
+      // other Named{Field,Quoted,Group}Selection types.
+      const subSelection = findChildByType(
+        findChildByType(node, 'PathSelection') || node,
+        'SubSelection'
+      );
+
+      const shape: { [key: string]: Shape } = Object.create(null);
+      if (!outputName) {
+        // No output name, no contribution to the output shape.
+      } else if (subSelection) {
+        shape[outputName] = getSelectionOutputShape(subSelection);
+      } else {
+        shape[outputName] = 'JSON';
+      }
+      return shape;
+    }
+    case 'PathSelection': {
+      const subSelection = findChildByType(node, 'SubSelection');
+      return subSelection ? getSelectionOutputShape(subSelection) : 'JSON';
+    }
+    case 'SubSelection': {
+      const shape: { [key: string]: Shape } = Object.create(null);
+      for (const child of node.children) {
+        if (child.type === 'NamedSelection') {
+          Object.assign(shape, getSelectionOutputShape(child));
+        } else if (child.type === 'StarSelection') {
+          const starShape = getSelectionOutputShape(child);
+          if (typeof starShape === 'object') {
+            Object.assign(shape, starShape);
+          }
+        }
+      }
+      return shape;
+    }
+    case 'StarSelection': {
+      const shape: { [key: string]: Shape } = Object.create(null);
+      const outputName = findChildByType(
+        findChildByType(node, 'Alias'),
+        'Identifier',
+      )?.text;
+      // From the GraphQL perspective, a star selection can only be typed as
+      // opaque JSON, though that JSON subtree may be given an alias.
+      if (outputName) {
+        shape[outputName] = 'JSON';
+      } else {
+        return 'JSON';
+      }
+      return shape;
+    }
+    // The rest of these cases are involved in the cases above, indirectly, but
+    // should not be reached during recursion.
+    // case 'Alias': break;
+    // case 'Property': break;
+    // case 'Identifier': break;
+    // case 'StringLiteral': break;
+    // case 'SQStrLit': break;
+    // case 'DQStrLit': break;
+    // case 'S': break;
+    // case 'Spaces': break;
+    // case 'Comment': break;
+    default:
+      throw new Error(`Unexpected JSONSelection AST node type: ${node.type}`);
+  }
+}
+
+let urlParser: Grammars.W3C.Parser | undefined;
+export function parseURLPathTemplate(template: string): ebnfASTNode | null {
+  urlParser = urlParser || new Grammars.W3C.Parser(`
+    URLPathTemplate ::= "/" PathParamList? QueryParamList?
+    PathParamList ::= VarSeparatedText ("/" VarSeparatedText)* "/"?
+    QueryParamList ::= "?" (QueryParam ("&" QueryParam)*)?
+    QueryParam ::= URLSafeText "=" VarSeparatedText | URLSafeText "="?
+    VarSeparatedText ::= OneOrMoreVars | URLSafeText
+    OneOrMoreVars ::= URLSafeText? "{" Var "}" (URLSafeText "{" Var "}")* URLSafeText?
+    Var ::= IdentifierPath Required? Batch?
+    IdentifierPath ::= Identifier ("." Identifier)*
+    Required ::= "!"
+    Batch ::= BatchSeparator "..."
+    BatchSeparator ::= "," | ";" | "|" | "+" | " "
+    URLSafeText ::= [^{}/?&=]+
+    Identifier ::= [a-zA-Z_$][0-9a-zA-Z_$]*
+  `);
+  return urlParser.getAST(template, 'URLPathTemplate');
+}
+
+export function getURLPathTemplateVars(ast: ebnfASTNode) {
+  const vars: {
+    [varPath: string]: {
+      required?: boolean;
+      batchSep?: string;
+    };
+  } = Object.create(null);
+
+  function walk(node: ebnfASTNode) {
+    if (node.type === 'Var') {
+      let varPath: string | undefined;
+      const info: (typeof vars)[string] = {};
+      node.children.forEach(child => {
+        if (child.type === 'IdentifierPath') {
+          varPath = child.text;
+        } else if (child.type === 'Required') {
+          info.required = true;
+        } else if (child.type === 'Batch') {
+          info.batchSep = child.children[0].text;
+        }
+      });
+      if (varPath) {
+        vars[varPath] = info;
+      }
+    } else {
+      node.children.forEach(walk);
+    }
+  }
+
+  walk(ast);
+
+  return vars;
 }
 
 const HTTP_PROTOCOL = "http";
