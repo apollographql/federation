@@ -345,26 +345,40 @@ class Merger {
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
-    const latestVersion =  this.subgraphs.values().reduce((latest: FeatureVersion | undefined, subgraph) => {
-      const version = subgraph.metadata()?.federationFeature()?.url?.version;
-      if (!latest) {
-        return version;
-      }
-      if (!version) {
-        return latest;
-      }
-      return latest >= version ? latest : version;
-    }, undefined);
-    return latestVersion ?? FEDERATION_VERSIONS.latest().version;
-  }
+    let latestVersion: FeatureVersion | undefined;
+    let upgradeCause: CoreFeature | undefined;
 
-  private setFederationVersionToAtLeast(version: FeatureVersion): boolean {
-    if (version && version > this.latestFedVersionUsed) {
-      this.latestFedVersionUsed = version;
-      return true;
+    function maybeUpgrade(version: FeatureVersion | undefined, cause: CoreFeature | undefined) {
+      if (!version) {
+        return;
+      } else if (!latestVersion) {
+        latestVersion = version;
+      } else if (version.satisfies(latestVersion) && version > latestVersion) {
+        latestVersion = version;
+        upgradeCause = cause;
+      }
     }
 
-    return false;
+    for (const subgraph of this.subgraphs.values()) {
+      const subgraphFederationVersion = subgraph.metadata()?.federationFeature()?.url?.version;
+      maybeUpgrade(subgraphFederationVersion, subgraph.metadata()?.federationFeature());
+
+      for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
+        const definition = coreFeatureDefinitionIfKnown(feature.url);
+        maybeUpgrade(definition?.minimumFederationVersion, feature);
+      }
+    }
+
+    if (upgradeCause) {
+      this.hints.push(new CompositionHint(
+        HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+        `Feature ${upgradeCause?.directive} requires federation version ${latestVersion} or higher`,
+        undefined,
+        undefined, // TODO: See if we can grab the AST node
+      ));
+    }
+
+    return latestVersion ?? FEDERATION_VERSIONS.latest().version;
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -528,30 +542,6 @@ class Merger {
     // copy things from interface in the merged schema into their implementation in that same schema so
     // we want to make sure everything is ready.
     this.addMissingInterfaceObjectFieldsToImplementations();
-
-    // It is possible that some of the linked features require a higher version of the federation spec than
-    // is explicitly linked. If that requirement can be met by a minor version bump, the overall federation
-    // version is updated similarly to how the greatest federation version across subgraphs is used.
-    const originalFederationVersion = this.latestFedVersionUsed;
-    let featureCausingUpgrade: CoreFeature | undefined;
-    for (const feature of this.merged.coreFeatures?.allFeatures() ?? []) {
-      const definition = coreFeatureDefinitionIfKnown(feature.url);
-      if (definition?.minimumFederationVersion?.satisfies(this.latestFedVersionUsed)) {
-        const wasUpgraded = this.setFederationVersionToAtLeast(definition.minimumFederationVersion);
-        if (wasUpgraded) {
-          featureCausingUpgrade = feature;
-        }
-
-      }
-    }
-    if (featureCausingUpgrade) {
-      this.hints.push(new CompositionHint(
-        HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-        `Feature ${featureCausingUpgrade?.directive} requires federation version ${this.latestFedVersionUsed} or higher. Upgraded from ${originalFederationVersion}`,
-        undefined,
-        undefined, // TODO: See if we can grab the AST node
-      ))
-    }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.

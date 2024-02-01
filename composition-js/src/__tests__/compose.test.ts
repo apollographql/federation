@@ -25,6 +25,7 @@ import {
   composeAsFed2Subgraphs,
   asFed2Service,
 } from "./testHelper";
+import { CompositionHint, HINTS } from '../hints';
 
 describe('composition', () => {
   it('generates a valid supergraph', () => {
@@ -5245,8 +5246,11 @@ describe('Implicit federation version upgrades', () => {
       typeDefs: autoUpgradedSchema,
     }]);
 
-    expect(result.hints).toContain(
-      'Feature @sourceAPI requires federation version v2.7 or higher. Upgraded from v2.5'
-    );
+    expect(result.hints).toContainEqual(new CompositionHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Feature @link(url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]) requires federation version v2.7 or higher',
+      undefined,
+      undefined,
+    ));
   })
 })
