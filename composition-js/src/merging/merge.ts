@@ -346,35 +346,53 @@ class Merger {
 
   private getLatestFederationVersionUsed(): FeatureVersion {
     let latestVersion: FeatureVersion | undefined;
-    let upgradeCause: CoreFeature | undefined;
+    let featuresWithThisVersion: CoreFeature[] = [];
+    const featuresWithLowerVersion: CoreFeature[] = [];
 
-    function maybeUpgrade(version: FeatureVersion | undefined, cause: CoreFeature | undefined) {
-      if (!version) {
-        return;
-      } else if (!latestVersion) {
-        latestVersion = version;
-      } else if (version.satisfies(latestVersion) && version > latestVersion) {
-        latestVersion = version;
-        upgradeCause = cause;
+    function recordFederationVersion(feature: CoreFeature, federationVersion: FeatureVersion) {
+      // Start by recording the first valid federation version as latest
+      if (!latestVersion) {
+        latestVersion = federationVersion;
+        featuresWithThisVersion = [feature];
+      }
+      // If a feature requires a newer (minor) version, bump latestVersion to that new version
+      else if (federationVersion.satisfies(latestVersion) && federationVersion > latestVersion) {
+        latestVersion = federationVersion;
+        featuresWithLowerVersion.push(...featuresWithThisVersion);
+        featuresWithThisVersion = [feature];
+      }
+      // Bucket the implicitly upgraded features for the resulting hint
+      else if (federationVersion < latestVersion) {
+        featuresWithLowerVersion.push(feature);
+      }
+      // Otherwise, this feature matches the current required version
+      else {
+        featuresWithThisVersion.push(feature);
       }
     }
 
     for (const subgraph of this.subgraphs.values()) {
-      const subgraphFederationVersion = subgraph.metadata()?.federationFeature()?.url?.version;
-      maybeUpgrade(subgraphFederationVersion, subgraph.metadata()?.federationFeature());
+      const federationFeature = subgraph.metadata()?.federationFeature();
+      if (federationFeature?.url?.version) {
+        recordFederationVersion(federationFeature, federationFeature.url.version)
+      }
 
       for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
         const definition = coreFeatureDefinitionIfKnown(feature.url);
-        maybeUpgrade(definition?.minimumFederationVersion, feature);
+        if (definition?.minimumFederationVersion) {
+          recordFederationVersion(feature, definition.minimumFederationVersion);
+        }
       }
     }
 
-    if (upgradeCause) {
+    if (featuresWithThisVersion.length && featuresWithLowerVersion.length) {
       this.hints.push(new CompositionHint(
         HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-        `Feature ${upgradeCause?.directive} requires federation version ${latestVersion} or higher`,
+        `Feature ${featuresWithThisVersion[0].directive} requires federation version ${latestVersion} or higher.`
+          + ` The following directives are using a lower version:`
+          + featuresWithLowerVersion.map((f) => '\n- ' + f.directive).join('')
+        ,
         undefined,
-        undefined, // TODO: See if we can grab the AST node
       ));
     }
 

@@ -5240,7 +5240,7 @@ describe('Implicit federation version upgrades', () => {
     }
   `;
 
-  it("should hint that the federation version has been upgraded to satisfy directive requirements", () => {
+  it("should hint that the version was upgraded to satisfy directive requirements", () => {
     const result = composeServices([{
       name: 'upgraded',
       typeDefs: autoUpgradedSchema,
@@ -5248,7 +5248,9 @@ describe('Implicit federation version upgrades', () => {
 
     expect(result.hints).toContainEqual(new CompositionHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Feature @link(url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]) requires federation version v2.7 or higher',
+      'Feature @link(url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]) requires federation version v2.7 or higher. The following directives are using a lower version:'
+        + '\n- @link(url: \"https://specs.apollo.dev/link/v1.0\")'
+        + '\n- @link(url: \"https://specs.apollo.dev/federation/v2.5\", import: [\"@key\"])',
       undefined,
       undefined,
     ));
