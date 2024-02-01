@@ -27,6 +27,7 @@ import {
   SchemaElement,
   sourceASTs,
   UnionType,
+  federationMetadata,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -1310,9 +1311,9 @@ export function printSubgraphNames(names: string[]): string {
   );
 }
 
-export function federationMetadata(schema: Schema): FederationMetadata | undefined {
-  return schema['_federationMetadata'];
-}
+// For backwards compatibility, since this module used to declare and export the
+// federationMetadata function.
+export { federationMetadata }
 
 export function isFederationSubgraphSchema(schema: Schema): boolean {
   return !!federationMetadata(schema);

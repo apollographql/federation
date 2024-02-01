@@ -1179,6 +1179,11 @@ export type SchemaConfig = {
   cacheAST?: boolean,
 }
 
+import type { FederationMetadata } from "./federation";
+export function federationMetadata(schema: Schema): FederationMetadata | undefined {
+  return schema['_federationMetadata'];
+}
+
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
   private readonly _builtInTypes = new MapWithCachedArrays<string, NamedType>();
