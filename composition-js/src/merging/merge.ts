@@ -74,6 +74,8 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
+  coreFeatureDefinitionIfKnown,
+  CoreFeature,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -356,6 +358,15 @@ class Merger {
     return latestVersion ?? FEDERATION_VERSIONS.latest().version;
   }
 
+  private setFederationVersionToAtLeast(version: FeatureVersion): boolean {
+    if (version && version > this.latestFedVersionUsed) {
+      this.latestFedVersionUsed = version;
+      return true;
+    }
+
+    return false;
+  }
+
   private prepareSupergraph(): Map<string, string> {
     // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and
     // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to
@@ -517,6 +528,30 @@ class Merger {
     // copy things from interface in the merged schema into their implementation in that same schema so
     // we want to make sure everything is ready.
     this.addMissingInterfaceObjectFieldsToImplementations();
+
+    // It is possible that some of the linked features require a higher version of the federation spec than
+    // is explicitly linked. If that requirement can be met by a minor version bump, the overall federation
+    // version is updated similarly to how the greatest federation version across subgraphs is used.
+    const originalFederationVersion = this.latestFedVersionUsed;
+    let featureCausingUpgrade: CoreFeature | undefined;
+    for (const feature of this.merged.coreFeatures?.allFeatures() ?? []) {
+      const definition = coreFeatureDefinitionIfKnown(feature.url);
+      if (definition?.minimumFederationVersion?.satisfies(this.latestFedVersionUsed)) {
+        const wasUpgraded = this.setFederationVersionToAtLeast(definition.minimumFederationVersion);
+        if (wasUpgraded) {
+          featureCausingUpgrade = feature;
+        }
+
+      }
+    }
+    if (featureCausingUpgrade) {
+      this.hints.push(new CompositionHint(
+        HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+        `Feature ${featureCausingUpgrade.directive} requires federation version v${this.latestFedVersionUsed} or higher. Upgraded from v${originalFederationVersion}`,
+        undefined,
+        undefined, // TODO: See if we can grab the AST node
+      ))
+    }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
