@@ -3,6 +3,7 @@ title: Federation-specific GraphQL directives
 ---
 
 import ProgressiveOverrideEnterprise from '../../shared/progressive-override-enterprise.mdx';
+import EnterpriseDirective from '../../shared/enterprise-directive.mdx';
 
 Apollo Federation defines a collection of **directives** that you use in your subgraph schemas to enable certain features.
 
@@ -395,13 +396,15 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 ##### `label`
 
 `String`
+
 </td>
 <td>
 
-> ⚠️ **This argument is available in Apollo Federation 2.7 and later.**
-> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
->
-> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+<EnterpriseFeature>
+
+This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+</EnterpriseFeature>
 
 **Optional.** A string of arbitrary arguments. Supported in this release:
 - `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override).
@@ -420,9 +423,8 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 
 </MinVersion>
 
-> **This directive is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
->
-> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+<EnterpriseDirective />
+
 
 ```graphql
 directive @authenticated on
@@ -441,9 +443,7 @@ Indicates to composition that the target element is accessible only to the authe
 
 </MinVersion>
 
-> **This directive is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
->
-> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+<EnterpriseDirective />
 
 ```graphql
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
@@ -492,9 +492,7 @@ Indicates to composition that the target element is accessible only to the authe
 
 </MinVersion>
 
-> **This directive is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
->
-> If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+<EnterpriseDirective />
 
 ```graphql
 directive @policy(policies: [[federation__Policy!]!]!) on
