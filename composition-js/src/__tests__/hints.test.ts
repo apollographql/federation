@@ -1180,6 +1180,24 @@ describe('when shared field has intersecting but non equal runtime types in diff
 });
 
 describe('when a directive causes an implicit federation version upgrade', () => {
+  const olderFederationSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
+
+    type Query {
+      a: String!
+    }
+  `;
+
+  const newerFederationSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+
+    type Query {
+      b: String!
+    }
+  `;
+
   const autoUpgradedSchema = gql`
     extend schema
       @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@shareable"])
@@ -1213,20 +1231,30 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     }
   `;
 
-  it("should hint that the version was upgraded to satisfy directive requirements", () => {
-    const result = composeServices([{
-      name: 'upgraded',
-      typeDefs: autoUpgradedSchema,
-    }]);
+  it('should hint that the version was upgraded to satisfy directive requirements', () => {
+    const result = composeServices([
+      {
+        name: 'already-newest',
+        typeDefs: newerFederationSchema,
+      },
+      {
+        name: 'old-but-not-upgraded',
+        typeDefs: olderFederationSchema,
+      },
+      {
+        name: 'upgraded',
+        typeDefs: autoUpgradedSchema,
+      }
+    ]);
 
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
       'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.7',
-      undefined
+      '@link'
     );
   });
 
-  it("should show separate hints for each upgraded subgraph", () => {
+  it('should show separate hints for each upgraded subgraph', () => {
     const result = composeServices([
       {
         name: 'upgraded-1',
@@ -1241,12 +1269,27 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
       'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.7',
-      undefined
+      '@link'
     );
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
       'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.7',
-      undefined
+      '@link'
     );
+  });
+
+  it('should not raise hints if the only upgrade is caused by a link directly to the federation spec', () => {
+    const result = composeServices([
+      {
+        name: 'already-newest',
+        typeDefs: newerFederationSchema,
+      },
+      {
+        name: 'old-but-not-upgraded',
+        typeDefs: olderFederationSchema,
+      },
+    ]);
+
+    expect(result).toNotRaiseHints();
   });
 })

@@ -358,6 +358,7 @@ class Merger {
       return undefined;
     }
 
+    // Check if any of the directives imply a newer version of federation than is explicitly linked
     const versionsFromFeatures: FeatureVersion[] = [];
     for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
       const version = feature.minimumFederationVersion();
@@ -370,6 +371,7 @@ class Merger {
       return linkedFederationVersion;
     }
 
+    // If some of the directives are causing an implicit upgrade, put one in the hint
     let featureCausingUpgrade: CoreFeature | undefined;
     for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
       if (feature.minimumFederationVersion() == impliedFederationVersion) {
@@ -382,7 +384,7 @@ class Merger {
       this.hints.push(new CompositionHint(
         HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
         `Subgraph ${subgraph.name} has been implicitly upgraded from federation ${linkedFederationVersion} to ${impliedFederationVersion}`,
-        undefined,
+        featureCausingUpgrade.directive.definition,
         featureCausingUpgrade.directive.sourceAST ?
           addSubgraphToASTNode(featureCausingUpgrade.directive.sourceAST, subgraph.name) :
           undefined
