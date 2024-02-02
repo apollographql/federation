@@ -70,8 +70,11 @@ type Book @fed__shareable {
 
 As shown, custom namespace prefixes _also_ end in two underscores.
 
+<MinVersion version="2.0">
 
 ### The `@link` directive
+
+</MinVersion>
 
 ```graphql
 directive @link(
@@ -88,7 +91,11 @@ For more information on `@link`, see the [official spec](https://specs.apollo.de
 
 ## Managing types
 
+<MinVersion version="1.0">
+
 ### `@key`
+
+</MinVersion>
 
 ```graphql
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
@@ -190,7 +197,11 @@ During composition, the fields of every `@interfaceObject` are added both to the
 
 > [Learn more about entity interfaces.](./interfaces/)
 
+<MinVersion version="1.0">
+
 ### `@extends`
+
+</MinVersion>
 
 ```graphql
 directive @extends on OBJECT | INTERFACE
@@ -208,7 +219,11 @@ This directive is for use with GraphQL subgraph libraries that do _not_ support 
 
 ## Managing shared fields
 
+<MinVersion version="2.0">
+
 ### `@shareable`
+
+</MinVersion>
 
 ```graphql
 directive @shareable on FIELD_DEFINITION | OBJECT
@@ -242,7 +257,11 @@ See also [Value types in Apollo Federation](./sharing-types/) and [Resolving ano
 
 > The `@shareable` directive is about indicating when an object field can be resolved by multiple subgraphs. As interface fields are not directly resolved (their implementation is), `@shareable` is not meaningful on an interface field and is not allowed (at least since federation 2.2; earlier versions of federation 2 mistakenly ignored `@shareable` on interface fields).
 
+<MinVersion version="2.0">
+
 ### `@inaccessible`
+
+</MinVersion>
 
 ```graphql
 directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
@@ -287,7 +306,11 @@ An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, 
 
 For more information, see [Using `@inaccessible`](./sharing-types/#using-inaccessible).
 
+<MinVersion version="2.0">
+
 ### `@override`
+
+</MinVersion>
 
 ```graphql
 directive @override(from: String!) on FIELD_DEFINITION
@@ -323,7 +346,11 @@ Only one subgraph can `@override` any given field. If multiple subgraphs attempt
 
 For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
 
+<MinVersion version="2.7">
+
 #### Progressive `@override`
+
+</MinVersion>
 
 <ProgressiveOverrideEnterprise/>
 
@@ -387,10 +414,13 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 
 ## Controlling access
 
+<MinVersion version="2.5">
+
 ### `@authenticated`
 
-> ⚠️ **This directive is available in Apollo Federation 2.5 and later.**
-> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
+</MinVersion>
+
+> **This directive is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
 >
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
@@ -405,10 +435,13 @@ directive @authenticated on
 
 Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [Apollo Router article](/router/configuration/authorization#authenticated) for additional details.
 
+<MinVersion version="2.5">
+
 ### `@requiresScopes`
 
-> ⚠️ **This directive is available in Apollo Federation 2.5 and later.**
-> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
+</MinVersion>
+
+> **This directive is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
 >
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
@@ -453,10 +486,13 @@ Indicates to composition that the target element is accessible only to the authe
 </tbody>
 </table>
 
+<MinVersion version="2.6">
+
 ### `@policy`
 
-> ⚠️ **This directive is available in Apollo Federation 2.6 and later.**
-> **It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
+</MinVersion>
+
+> **This directive is an [Enterprise feature](/router/enterprise-features) of the Apollo Router** and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/).<br/>
 >
 > If your organization _doesn't_ currently have an Enterprise plan, you can test out this functionality by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
@@ -503,7 +539,11 @@ Indicates to composition that the target element is restricted based on authoriz
 
 ## Referencing external fields
 
+<MinVersion version="1.0">
+
 ### `@external`
+
+</MinVersion>
 
 ```graphql
 directive @external on FIELD_DEFINITION | OBJECT
@@ -537,8 +577,11 @@ type Position @external {
 }
 ```
 
+<MinVersion version="1.0">
 
 ### `@provides`
+
+</MinVersion>
 
 ```graphql
 directive @provides(fields: FieldSet!) on FIELD_DEFINITION
@@ -611,7 +654,11 @@ Examples:
 </tbody>
 </table>
 
+<MinVersion version="2.1">
+
 ### `@requires`
+
+</MinVersion>
 
 ```graphql
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION
@@ -672,7 +719,11 @@ Examples:
 
 ## Applying metadata
 
+<MinVersion version="1.1">
+
 ### `@tag`
+
+</MinVersion>
 
 ```graphql
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
