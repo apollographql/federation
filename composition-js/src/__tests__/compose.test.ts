@@ -25,7 +25,6 @@ import {
   composeAsFed2Subgraphs,
   asFed2Service,
 } from "./testHelper";
-import { CompositionHint, HINTS } from '../hints';
 
 describe('composition', () => {
   it('generates a valid supergraph', () => {
@@ -5205,54 +5204,3 @@ describe('@source* directives', () => {
     });
   });
 });
-
-describe('Implicit federation version upgrades', () => {
-  const autoUpgradedSchema = gql`
-    extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
-      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
-        "@sourceAPI"
-        "@sourceType"
-        "@sourceField"
-      ])
-      @sourceAPI(
-        name: "A"
-        http: { baseURL: "https://api.a.com/v1" }
-      )
-    {
-      query: Query
-    }
-
-    type Query {
-      resources: [Resource!]! @sourceField(
-        api: "A"
-        http: { GET: "/resources" }
-      )
-    }
-
-    type Resource @key(fields: "id") @sourceType(
-      api: "A"
-      http: { GET: "/resources/{id}" }
-      selection: "id description"
-    ) {
-      id: ID!
-      description: String!
-    }
-  `;
-
-  it("should hint that the version was upgraded to satisfy directive requirements", () => {
-    const result = composeServices([{
-      name: 'upgraded',
-      typeDefs: autoUpgradedSchema,
-    }]);
-
-    expect(result.hints).toContainEqual(new CompositionHint(
-      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Feature @link(url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]) requires federation version v2.7 or higher. The following directives are using a lower version:'
-        + '\n- @link(url: \"https://specs.apollo.dev/link/v1.0\")'
-        + '\n- @link(url: \"https://specs.apollo.dev/federation/v2.5\", import: [\"@key\"])',
-      undefined,
-      undefined,
-    ));
-  })
-})

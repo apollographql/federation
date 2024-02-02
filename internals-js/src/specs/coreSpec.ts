@@ -641,6 +641,28 @@ export class FeatureVersion {
   }
 
   /**
+   * Find the maximum version in a collection of versions, returning undefined in the case
+   * that the collection is empty.
+   *
+   * # Example
+   * ```
+   * expect(FeatureVersion.max([new FeatureVersion(1, 0), new FeatureVersion(2, 0)])).toBe(new FeatureVersion(2, 0))
+   * expect(FeatureVersion.max([])).toBe(undefined)
+   * ```
+   */
+  public static max(versions: Iterable<FeatureVersion>): FeatureVersion | undefined {
+    let max: FeatureVersion | undefined;
+
+    for (const version of versions) {
+      if (!max || version > max) {
+        max = version;
+      }
+    }
+
+    return max;
+  }
+
+  /**
    * Return true if and only if this FeatureVersion satisfies the `required` version
    *
    * # Example

@@ -8,6 +8,7 @@ import {
 import { MergeResult, mergeSubgraphs } from '../merging';
 import { composeAsFed2Subgraphs } from './testHelper';
 import { formatExpectedToMatchReceived } from './matchers/toMatchString';
+import { composeServices } from '../compose';
 
 function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   const subgraphs = new Subgraphs();
@@ -1177,3 +1178,75 @@ describe('when shared field has intersecting but non equal runtime types in diff
     );
   });
 });
+
+describe('when a directive causes an implicit federation version upgrade', () => {
+  const autoUpgradedSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@shareable"])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+      {
+        query: Query
+      }
+
+    type Query @shareable {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      )
+    }
+
+    type Resource @shareable @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id description"
+    ) {
+      id: ID!
+      description: String!
+    }
+  `;
+
+  it("should hint that the version was upgraded to satisfy directive requirements", () => {
+    const result = composeServices([{
+      name: 'upgraded',
+      typeDefs: autoUpgradedSchema,
+    }]);
+
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.7',
+      undefined
+    );
+  });
+
+  it("should show separate hints for each upgraded subgraph", () => {
+    const result = composeServices([
+      {
+        name: 'upgraded-1',
+        typeDefs: autoUpgradedSchema,
+      },
+      {
+        name: 'upgraded-2',
+        typeDefs: autoUpgradedSchema
+      },
+    ]);
+
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.7',
+      undefined
+    );
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.7',
+      undefined
+    );
+  });
+})

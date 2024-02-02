@@ -202,8 +202,8 @@ const INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN = makeCodeDefinition({
 const IMPLICITLY_UPGRADED_FEDERATION_VERSION = makeCodeDefinition({
   code: 'IMPLICITLY_UPGRADED_FEDERATION_VERSION',
   level: HintLevel.INFO,
-  description: 'Indicates that a directive requires a higher Federation version than is explicitly linked.'
-    + ' In this case, the supergraph uses the Federation version required by the directive.'
+  description: 'Indicates that a directive requires a higher federation version than is explicitly linked.'
+    + ' In this case, the supergraph uses the federation version required by the directive.'
 });
 
 export const HINTS = {
