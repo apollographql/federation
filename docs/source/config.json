@@ -42,7 +42,7 @@
       "Federated schema checks": "/managed-federation/federated-schema-checks",
       "Deployment best practices": "/managed-federation/deployment",
       "Opt-in error reporting": "/managed-federation/error-reporting",
-      "Studio features": "https://www.apollographql.com/docs/studio/federated-graphs/"
+      "Studio features": "https://www.apollographql.com/docs/studio/federated-graphs"
     },
     "Performance": {
       "Caching": "/performance/caching",
