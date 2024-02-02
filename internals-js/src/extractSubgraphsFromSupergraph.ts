@@ -28,8 +28,8 @@ import {
   parseFieldSetArgument,
   removeInactiveProvidesAndRequires,
 } from "./federation";
-import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
-import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./joinSpec";
+import { CoreSpecDefinition, FeatureVersion } from "./specs/coreSpec";
+import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./specs/joinSpec";
 import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
@@ -418,15 +418,15 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
           }).length > 1;
 
         for (const application of fieldApplications) {
-          const args = application.arguments();
+          const joinFieldArgs = application.arguments();
           // We use a @join__field with no graph to indicates when a field in the supergraph does not come
           // directly from any subgraph and there is thus nothing to do to "extract" it.
-          if (!args.graph) {
+          if (!joinFieldArgs.graph) {
             continue;
           }
 
-          const { type: subgraphType, subgraph } = subgraphsInfo.get(args.graph)!;
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs: args});
+          const { type: subgraphType, subgraph } = subgraphsInfo.get(joinFieldArgs.graph)!;
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs });
         }
       }
     }
@@ -615,11 +615,14 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().externalDirective());
   }
   const usedOverridden = !!joinFieldArgs?.usedOverridden;
-  if (usedOverridden) {
+  if (usedOverridden && !joinFieldArgs?.overrideLabel) {
     subgraphField.applyDirective(subgraph.metadata().externalDirective(), {'reason': '[overridden]'});
   }
   if (joinFieldArgs?.override) {
-    subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {'from': joinFieldArgs.override});
+    subgraphField.applyDirective(subgraph.metadata().overrideDirective(), {
+      from: joinFieldArgs.override,
+      ...(joinFieldArgs.overrideLabel ? { label: joinFieldArgs.overrideLabel } : {})
+    });
   }
   if (isShareable && !external && !usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());

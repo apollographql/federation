@@ -1,13 +1,13 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
-import { sameType } from "./types";
-import { assert, findLast, firstOf, MapWithCachedArrays } from './utils';
-import { aggregateError, ERRORS } from "./error";
-import { valueToString } from "./values";
-import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
-import { didYouMean, suggestionList } from "./suggestions";
-import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveCompositionSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "../definitions";
+import { sameType } from "../types";
+import { assert, findLast, firstOf, MapWithCachedArrays } from '../utils';
+import { aggregateError, ERRORS } from "../error";
+import { valueToString } from "../values";
+import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "../knownCoreFeatures";
+import { didYouMean, suggestionList } from "../suggestions";
+import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveCompositionSpecification, DirectiveSpecification, TypeSpecification } from "../directiveAndTypeSpecification";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 export const linkIdentity = 'https://specs.apollo.dev/link';
@@ -115,6 +115,11 @@ export abstract class FeatureDefinition {
   allElementNames(): string[] {
     return this.directiveSpecs().map((spec) => `@${spec.name}`)
       .concat(this.typeSpecs().map((spec) => spec.name));
+  }
+
+  // No-op implementation that can be overridden by subclasses.
+  validateSubgraphSchema(_schema: Schema): GraphQLError[] {
+    return [];
   }
 
   protected nameInSchema(schema: Schema): string | undefined {
@@ -690,6 +695,22 @@ export class FeatureVersion {
     return 0;
   }
 
+  public lt(other: FeatureVersion): boolean {
+    return this.compareTo(other) < 0;
+  }
+
+  public lte(other: FeatureVersion): boolean {
+    return this.compareTo(other) <= 0;
+  }
+
+  public gt(other: FeatureVersion): boolean {
+    return this.compareTo(other) > 0;
+  }
+
+  public gte(other: FeatureVersion): boolean {
+    return this.compareTo(other) >= 0;
+  }
+
   /**
    * Return true if this FeatureVersion is strictly greater than the provided one,
    * where ordering is meant by major and then minor number.
@@ -734,7 +755,14 @@ export class FeatureUrl {
     public readonly element?: string,
   ) { }
 
-  /// Parse a spec URL or throw
+  public static maybeParse(input: string, node?: ASTNode): FeatureUrl | undefined {
+    try {
+      return FeatureUrl.parse(input, node);
+    } catch (err) {
+      return undefined;
+    }
+  }
+    /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
     const url = new URL(input)
     if (!url.pathname || url.pathname === '/') {

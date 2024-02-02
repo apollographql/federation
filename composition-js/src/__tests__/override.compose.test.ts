@@ -502,7 +502,7 @@ describe("composition involving @override directive", () => {
 
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     expect(result.errors).toBeDefined();
-    expect(result.errors?.map(e => e.message)).toMatchStringArray([
+    expect(result.errors?.map((e) => e.message)).toMatchStringArray([
       `
       The following supergraph API query:
       {
@@ -526,7 +526,7 @@ describe("composition involving @override directive", () => {
       - from subgraph "Subgraph2":
         - cannot find field "T.a".
         - cannot move to subgraph "Subgraph1" using @key(fields: "k") of "T", the key field(s) cannot be resolved from subgraph "Subgraph2" (note that some of those key fields are overridden in "Subgraph2").
-      `
+      `,
     ]);
   });
 
@@ -562,9 +562,9 @@ describe("composition involving @override directive", () => {
     expect(result.errors).toBeDefined();
     expect(errors(result)).toStrictEqual([
       [
-        'FIELD_TYPE_MISMATCH',
-        'Type of field "T.a" is incompatible across subgraphs: it has type "Int" in subgraph "Subgraph1" but type "String" in subgraph "Subgraph2"'
-      ]
+        "FIELD_TYPE_MISMATCH",
+        'Type of field "T.a" is incompatible across subgraphs: it has type "Int" in subgraph "Subgraph1" but type "String" in subgraph "Subgraph2"',
+      ],
     ]);
   });
 
@@ -810,7 +810,7 @@ describe("composition involving @override directive", () => {
   // At the moment, we've punted on @override support when interacting with @interfaceObject, so the
   // following tests mainly cover the various possible use and show that it currently correcly raise
   // some validation errors. We may lift some of those limitation in the future.
-  describe('@interfaceObject', () => {
+  describe("@interfaceObject", () => {
     it("does not allow @override on @interfaceObject fields", () => {
       // We currently rejects @override on fields of an @interfaceObject type. We could lift
       // that limitation in the future, and that would mean such override overrides the field
@@ -912,6 +912,343 @@ describe("composition involving @override directive", () => {
         "OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE",
         'Invalid @override on field "A.a" of subgraph "Subgraph2": source subgraph "Subgraph1" does not have field "A.a" but abstract it in type "I" and overriding abstracted fields is not supported.',
       ]);
+    });
+  });
+
+  describe("progressive override", () => {
+    it("captures override labels in supergraph", () => {
+      const subgraph1 = {
+        name: "Subgraph1",
+        url: "https://Subgraph1",
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "k") {
+            k: ID
+            a: Int @override(from: "Subgraph2", label: "foo")
+          }
+        `,
+      };
+
+      const subgraph2 = {
+        name: "Subgraph2",
+        url: "https://Subgraph2",
+        typeDefs: gql`
+          type T @key(fields: "k") {
+            k: ID
+            a: Int
+            b: Int
+          }
+        `,
+      };
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+
+      const typeT = result.schema.type("T");
+      expect(printType(typeT!)).toMatchInlineSnapshot(`
+        "type T
+          @join__type(graph: SUBGRAPH1, key: \\"k\\")
+          @join__type(graph: SUBGRAPH2, key: \\"k\\")
+        {
+          k: ID
+          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\") @join__field(graph: SUBGRAPH2, overrideLabel: \\"foo\\")
+          b: Int @join__field(graph: SUBGRAPH2)
+        }"
+      `);
+
+      const [_, api] = schemas(result);
+      expect(printSchema(api)).toMatchString(`
+        type Query {
+          t: T
+        }
+
+        type T {
+          k: ID
+          a: Int
+          b: Int
+        }
+      `);
+
+      expect(result.supergraphSdl).toMatchInlineSnapshot(`
+        "schema
+          @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
+          @link(url: \\"https://specs.apollo.dev/join/v0.4\\", for: EXECUTION)
+        {
+          query: Query
+        }
+
+        directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
+        directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+        directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+        directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+        directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+        directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+        scalar join__DirectiveArguments
+
+        scalar join__FieldSet
+
+        enum join__Graph {
+          SUBGRAPH1 @join__graph(name: \\"Subgraph1\\", url: \\"https://Subgraph1\\")
+          SUBGRAPH2 @join__graph(name: \\"Subgraph2\\", url: \\"https://Subgraph2\\")
+        }
+
+        scalar link__Import
+
+        enum link__Purpose {
+          \\"\\"\\"
+          \`SECURITY\` features provide metadata necessary to securely resolve fields.
+          \\"\\"\\"
+          SECURITY
+
+          \\"\\"\\"
+          \`EXECUTION\` features provide metadata necessary for operation execution.
+          \\"\\"\\"
+          EXECUTION
+        }
+
+        type Query
+          @join__type(graph: SUBGRAPH1)
+          @join__type(graph: SUBGRAPH2)
+        {
+          t: T @join__field(graph: SUBGRAPH1)
+        }
+
+        type T
+          @join__type(graph: SUBGRAPH1, key: \\"k\\")
+          @join__type(graph: SUBGRAPH2, key: \\"k\\")
+        {
+          k: ID
+          a: Int @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\", overrideLabel: \\"foo\\") @join__field(graph: SUBGRAPH2, overrideLabel: \\"foo\\")
+          b: Int @join__field(graph: SUBGRAPH2)
+        }"
+      `);
+    });
+
+    describe("label validation", () => {
+      const overridden = {
+        name: "overridden",
+        url: "https://overridden",
+        typeDefs: gql`
+          type T @key(fields: "k") {
+            k: ID
+            a: Int
+          }
+        `,
+      };
+
+      it.each(["abc123", "Z_1-2:3/4.5"])(
+        "allows valid labels starting with alpha and including alphanumerics + `_-:./`",
+        (value) => {
+          const withValidLabel = {
+            name: "validLabel",
+            url: "https://validLabel",
+            typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int
+                @override(from: "overridden", label: "${value}")
+            }
+          `,
+          };
+
+          const result = composeAsFed2Subgraphs([withValidLabel, overridden]);
+          assertCompositionSuccess(result);
+        }
+      );
+
+      it.each(["1_starts-with-non-alpha", "includes!@_invalid_chars"])(
+        "disallows invalid labels",
+        (value) => {
+          const withInvalidLabel = {
+            name: "invalidLabel",
+            url: "https://invalidLabel",
+            typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int @override(from: "overridden", label: "${value}")
+            }
+          `,
+          };
+
+          const result = composeAsFed2Subgraphs([withInvalidLabel, overridden]);
+          expect(result.errors).toBeDefined();
+          expect(errors(result)).toContainEqual([
+            "OVERRIDE_LABEL_INVALID",
+            `Invalid @override label "${value}" on field "T.a" on subgraph "invalidLabel": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+          ]);
+        }
+      );
+
+      it.each(["0.5", "1", "1.0", "99.9"])(
+        "allows valid percent-based labels",
+        (value) => {
+          const withPercentLabel = {
+            name: "percentLabel",
+            url: "https://percentLabel",
+            typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int @override(from: "overridden", label: "percent(${value})")
+            }
+          `,
+          };
+
+          const result = composeAsFed2Subgraphs([withPercentLabel, overridden]);
+          assertCompositionSuccess(result);
+        }
+      );
+
+      it.each([".1", "101", "1.1234567879"])(
+        "disallows invalid percent-based labels",
+        (value) => {
+          const withInvalidPercentLabel = {
+            name: "invalidPercentLabel",
+            url: "https://invalidPercentLabel",
+            typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "k") {
+              k: ID
+              a: Int @override(from: "overridden", label: "percent(${value})")
+            }
+          `,
+          };
+
+          const result = composeAsFed2Subgraphs([
+            withInvalidPercentLabel,
+            overridden,
+          ]);
+          expect(errors(result)).toContainEqual([
+            "OVERRIDE_LABEL_INVALID",
+            `Invalid @override label "percent(${value})" on field "T.a" on subgraph "invalidPercentLabel": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+          ]);
+        }
+      );
+    });
+
+    describe("composition validation", () => {
+      it("forced jump from S1 -> S2 -> S1 due to @override usages", () => {
+        const subgraph1 = {
+          name: "Subgraph1",
+          url: "https://Subgraph1",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "id") {
+              id: ID
+              a: A @override(from: "Subgraph2", label: "foo")
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int
+            }
+          `,
+        };
+
+        const subgraph2 = {
+          name: "Subgraph2",
+          url: "https://Subgraph2",
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID
+              a: A
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int @override(from: "Subgraph1", label: "foo")
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+        assertCompositionSuccess(result);
+      });
+
+      it("errors on overridden fields in @requires FieldSet", () => {
+        const subgraph1 = {
+          name: "Subgraph1",
+          url: "https://Subgraph1",
+          typeDefs: gql`
+            type Query {
+              t: T
+            }
+
+            type T @key(fields: "id") {
+              id: ID
+              a: A @override(from: "Subgraph2", label: "foo")
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int
+              c: Int
+            }
+          `,
+        };
+
+        const subgraph2 = {
+          name: "Subgraph2",
+          url: "https://Subgraph2",
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID
+              a: A
+              b: Int @requires(fields: "a { c }")
+            }
+
+            type A @key(fields: "id") {
+              id: ID
+              b: Int @override(from: "Subgraph1", label: "foo")
+              c: Int @external
+            }
+          `,
+        };
+
+        const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+        expect(result.errors).toBeDefined();
+        expect(result.errors![0]).toMatchInlineSnapshot(`
+          [GraphQLError: The following supergraph API query:
+          {
+            t {
+              b
+            }
+          }
+          cannot be satisfied by the subgraphs because:
+          - from subgraph "Subgraph1": cannot find field "T.b".
+          - from subgraph "Subgraph2": cannot satisfy @require conditions on field "T.b".]
+        `);
+      });
     });
   });
 });

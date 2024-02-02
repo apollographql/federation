@@ -1,7 +1,7 @@
 import { DocumentNode, GraphQLError } from "graphql";
-import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./specs/coreSpec";
 import { CoreFeatures, Schema, sourceASTs } from "./definitions";
-import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
+import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./specs/joinSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph, extractSubgraphsFromSupergraph } from "./extractSubgraphsFromSupergraph";
 import { ERRORS } from "./error";
@@ -13,6 +13,7 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/join/v0.1',
   'https://specs.apollo.dev/join/v0.2',
   'https://specs.apollo.dev/join/v0.3',
+  'https://specs.apollo.dev/join/v0.4',
   'https://specs.apollo.dev/tag/v0.1',
   'https://specs.apollo.dev/tag/v0.2',
   'https://specs.apollo.dev/tag/v0.3',
@@ -90,11 +91,11 @@ export class Supergraph {
     private readonly shouldValidate: boolean = true,
   ) {
     const [coreFeatures] = validateSupergraph(schema);
-    
+
     if (supportedFeatures !== null) {
       checkFeatureSupport(coreFeatures, supportedFeatures);
     }
-    
+
     if (shouldValidate) {
       schema.validate();
     } else {

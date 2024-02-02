@@ -6,10 +6,11 @@ import {
   ScalarType,
   Schema,
   NonNullType,
-} from "./definitions";
-import { Subgraph, Subgraphs } from "./federation";
-import { registerKnownFeature } from './knownCoreFeatures';
-import { MultiMap } from "./utils";
+  ListType,
+} from "../definitions";
+import { Subgraph, Subgraphs } from "../federation";
+import { registerKnownFeature } from '../knownCoreFeatures';
+import { MultiMap } from "../utils";
 
 export const joinIdentity = 'https://specs.apollo.dev/join';
 
@@ -46,7 +47,14 @@ export type JoinFieldDirectiveArguments = {
   type?: string,
   external?: boolean,
   usedOverridden?: boolean,
+  overrideLabel?: string,
 }
+
+export type JoinDirectiveArguments = {
+  graphs: string[],
+  name: string,
+  args?: Record<string, any>,
+};
 
 export class JoinSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
@@ -83,7 +91,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinType.addArgument('extension', new NonNullType(schema.booleanType()), false);
       joinType.addArgument('resolvable', new NonNullType(schema.booleanType()), true);
 
-      if (this.version >= (new FeatureVersion(0, 3))) {
+      if (this.version.gte(new FeatureVersion(0, 3))) {
         joinType.addArgument('isInterfaceObject', new NonNullType(schema.booleanType()), false);
       }
     }
@@ -93,7 +101,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     // The `graph` argument used to be non-nullable, but @interfaceObject makes us add some field in
     // the supergraph that don't "directly" come from any subgraph (they indirectly are inherited from
     // an `@interfaceObject` type), and to indicate that, we use a `@join__field(graph: null)` annotation.
-    const graphArgType = this.version >= (new FeatureVersion(0, 3))
+    const graphArgType = this.version.gte(new FeatureVersion(0, 3))
       ? graphEnum
       : new NonNullType(graphEnum);
     joinField.addArgument('graph', graphArgType);
@@ -115,7 +123,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinImplements.addArgument('interface', new NonNullType(schema.stringType()));
     }
 
-    if (this.version >= (new FeatureVersion(0, 3))) {
+    if (this.version.gte(new FeatureVersion(0, 3))) {
       const joinUnionMember = this.addDirective(schema, 'unionMember').addLocations(DirectiveLocation.UNION);
       joinUnionMember.repeatable = true;
       joinUnionMember.addArgument('graph', new NonNullType(graphEnum));
@@ -124,6 +132,27 @@ export class JoinSpecDefinition extends FeatureDefinition {
       const joinEnumValue = this.addDirective(schema, 'enumValue').addLocations(DirectiveLocation.ENUM_VALUE);
       joinEnumValue.repeatable = true;
       joinEnumValue.addArgument('graph', new NonNullType(graphEnum));
+    }
+
+    if (this.version.gte(new FeatureVersion(0, 4))) {
+      const joinDirective = this.addDirective(schema, 'directive').addLocations(
+        DirectiveLocation.SCHEMA,
+        DirectiveLocation.OBJECT,
+        DirectiveLocation.INTERFACE,
+        DirectiveLocation.FIELD_DEFINITION,
+      );
+      joinDirective.repeatable = true;
+      // Note this 'graphs' argument is plural, since the same directive
+      // application can appear on the same schema element in multiple subgraphs.
+      // Repetition of a graph in this 'graphs' list is allowed, and corresponds
+      // to repeated application of the same directive in the same subgraph, which
+      // is allowed.
+      joinDirective.addArgument('graphs', new ListType(new NonNullType(graphEnum)));
+      joinDirective.addArgument('name', new NonNullType(schema.stringType()));
+      joinDirective.addArgument('args', this.addScalarType(schema, 'DirectiveArguments'));
+
+      //progressive override
+      joinField.addArgument('overrideLabel', schema.stringType());
     }
 
     if (this.isV01()) {
@@ -192,6 +221,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'graph')!;
   }
 
+  directiveDirective(schema: Schema): DirectiveDefinition<JoinDirectiveArguments> {
+    return this.directive(schema, 'directive')!;
+  }
+
   typeDirective(schema: Schema): DirectiveDefinition<JoinTypeDirectiveArguments> {
     return this.directive(schema, 'type')!;
   }
@@ -227,9 +260,11 @@ export class JoinSpecDefinition extends FeatureDefinition {
 //    for federation 2 in general.
 //  - 0.2: this is the original version released with federation 2.
 //  - 0.3: adds the `isInterfaceObject` argument to `@join__type`, and make the `graph` in `@join__field` skippable.
+//  - 0.4: adds the optional `overrideLabel` argument to `@join_field` for progressive override.
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)))
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 7)));
 
 registerKnownFeature(JOIN_VERSIONS);

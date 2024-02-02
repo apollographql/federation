@@ -1,10 +1,10 @@
 import { DocumentNode, GraphQLError } from "graphql";
 import gql from "graphql-tag";
-import { buildSubgraph } from "../federation";
-import { assert } from "../utils";
-import { buildSchemaFromAST } from "../buildSchema";
+import { buildSubgraph } from "../../federation";
+import { assert } from "../../utils";
+import { buildSchemaFromAST } from "../../buildSchema";
 import { removeAllCoreFeatures, FeatureDefinitions, FeatureVersion, FeatureDefinition, FeatureUrl } from "../coreSpec";
-import { errorCauses } from "../error";
+import { errorCauses } from "../../error";
 
 function expectErrors(
   subgraphDefs: DocumentNode,
@@ -216,6 +216,51 @@ class TestFeatureDefinition extends FeatureDefinition {
     super(new FeatureUrl('test', 'test', version), fedVersion);
   }
 }
+
+describe('FeatureVersion', () => {
+  it('toString-based comparisons', () => {
+    const v2_3 = new FeatureVersion(2, 3);
+    const v10_0 = new FeatureVersion(10, 0);
+
+    expect(v2_3.toString()).toBe('v2.3');
+    expect(v10_0.toString()).toBe('v10.0');
+
+    // Operators like <, <=, >, and >= use lexicographic comparison on
+    // version.toString() strings, but do not perform numeric lexicographic
+    // comparison of the major and minor numbers, so 'v10...' < 'v2...' and the
+    // following comparisons produce unintuitive results.
+    expect([
+      v2_3 < v10_0,
+      v2_3 <= v10_0,
+      v2_3 > v10_0,
+      v2_3 >= v10_0,
+    ]).toEqual(
+      // This should really be [true, true, false, false], if JavaScript
+      // supported more flexible/general operator overloading.
+      [false, false, true, true],
+    );
+
+    expect(v2_3.compareTo(v10_0)).toBe(-1);
+    expect(v10_0.compareTo(v2_3)).toBe(1);
+
+    expect(v2_3.strictlyGreaterThan(v10_0)).toBe(false);
+    expect(v10_0.strictlyGreaterThan(v2_3)).toBe(true);
+
+    expect(v2_3.lt(v10_0)).toBe(true);
+    expect(v2_3.lte(v10_0)).toBe(true);
+    expect(v2_3.gt(v10_0)).toBe(false);
+    expect(v2_3.gte(v10_0)).toBe(false);
+    expect(v10_0.lt(v2_3)).toBe(false);
+    expect(v10_0.lte(v2_3)).toBe(false);
+    expect(v10_0.gt(v2_3)).toBe(true);
+    expect(v10_0.gte(v2_3)).toBe(true);
+
+    expect(v2_3.equals(v10_0)).toBe(false);
+    expect(v10_0.equals(v2_3)).toBe(false);
+    expect(v2_3.equals(v2_3)).toBe(true);
+    expect(v10_0.equals(v10_0)).toBe(true);
+  });
+});
 
 describe('getMinimumRequiredVersion tests', () => {
   it('various combinations', () => {

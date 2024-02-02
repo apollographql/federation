@@ -377,6 +377,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
+  private readonly optionsLimit: number | null;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -391,18 +392,21 @@ class QueryPlanningTraversal<RV extends Vertex> {
   ) {
     const { root, federatedQueryGraph } = parameters;
     this.isTopLevel = isRootVertex(root);
+    this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
       federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
+
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
       this.conditionResolver,
       excludedDestinations,
       excludedConditions,
+      parameters.overrideConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
@@ -438,7 +442,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const followupForOption = advanceSimultaneousPathsWithOperation(this.parameters.supergraphSchema, option, operation);
+      const followupForOption = advanceSimultaneousPathsWithOperation(
+        this.parameters.supergraphSchema,
+        option,
+        operation,
+        this.parameters.overrideConditions,
+      );
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
         // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
@@ -471,12 +480,18 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.recordClosedBranch(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
+          this.recordClosedBranch(options.map((o) => ({
+            paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p, this.parameters.overrideConditions))
+          })));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
       }
       newOptions = newOptions.concat(followupForOption);
+
+      if (this.optionsLimit && newOptions.length > this.optionsLimit) {
+        throw new Error(`Too many options generated for ${selection}, reached the limit of ${this.optionsLimit}`);
+      }
     }
 
     if (newOptions.length === 0) {
@@ -600,36 +615,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.closedBranches[i - 1] = firstBranch;
   }
 
-  // Remove closed branches that are known to be overridden by others.
-  private pruneClosedBranches() {
-    for (let i = 0; i < this.closedBranches.length; i++) {
-      const branch = this.closedBranches[i];
-      if (branch.length <= 1) {
-        continue;
-      }
-
-      const pruned: ClosedBranch<RV> = [];
-      for (const toCheck of branch) {
-        if (!this.optionIsOverriden(toCheck.paths, branch)) {
-          pruned.push(toCheck);
-        }
-      }
-      this.closedBranches[i] = pruned;
-    }
-  }
-
-  private optionIsOverriden(toCheck: SimultaneousPaths<RV>, allOptions: ClosedBranch<RV>): boolean {
-    for (const { paths } of allOptions) {
-      if (toCheck === paths) {
-        continue;
-      }
-      if (toCheck.every((p) => paths.some((o) => p.isOverriddenBy(o)))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private sortOptionsInClosedBranches() {
     this.closedBranches.forEach((branch) => branch.sort((p1, p2) => {
       const p1Jumps = Math.max(...p1.paths.map((p) => p.subgraphJumps()));
@@ -642,14 +627,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     if (this.closedBranches.length === 0) {
       return;
     }
-
-    // We've computed all branches and need to compare all the possible plans to pick the best.
-    // Note however that "all the possible plans" is essentially a cartesian product of all
-    // the closed branches options, and if a lot of branches have multiple options, this can
-    // exponentially explode.
-    // So first, we check if we can preemptively prune some branches based on those branches having options
-    // that are known to be overriden by other ones.
-    this.pruneClosedBranches();
 
     // We now sort the options within each branch, putting those with the least amount of subgraph jumps first.
     // The idea is that for each branch taken individually, the option with the least jumps is going to be
@@ -787,7 +764,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       this.costFunction,
       context,
       excludedDestinations,
-      addConditionExclusion(excludedConditions, edge.conditions)
+      addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
@@ -816,7 +793,7 @@ const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: condit
 
 class GroupInputs {
   private readonly perType = new Map<string, MutableSelectionSet>();
-  onUpdateCallback: () => void = () => {};
+  onUpdateCallback?: () => void | undefined = undefined;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -833,7 +810,7 @@ class GroupInputs {
       this.perType.set(typeName, typeSelection);
     }
     typeSelection.updates().add(selection);
-    this.onUpdateCallback();
+    this.onUpdateCallback?.();
   }
 
   addAll(other: GroupInputs) {
@@ -915,9 +892,6 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  private readonly inputRewrites: FetchDataRewrite[] = [];
-
-
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -935,6 +909,7 @@ class FetchGroup {
     private cachedCost?: number,
     // Cache used to save unecessary recomputation of the `isUseless` method.
     private isKnownUseful: boolean = false,
+    private readonly inputRewrites: FetchDataRewrite[] = [],
   ) {
     if (this._inputs) {
       this._inputs.onUpdateCallback = () => {
@@ -1002,6 +977,7 @@ class FetchGroup {
       this.subgraphAndMergeAtKey,
       this.cachedCost,
       this.isKnownUseful,
+      [...this.inputRewrites],
     );
   }
 
@@ -2923,13 +2899,25 @@ type PlanningParameters<RV extends Vertex> = {
   root: RV,
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
+  overrideConditions: Map<string, boolean>,
+}
+
+interface BuildQueryPlanOptions {
+  /**
+   * A set of labels which will be used _during query planning_ to
+   * enable/disable edges with a matching label in their override condition.
+   * Edges with override conditions require their label to be present or absent
+   * from this set in order to be traversable. These labels enable the
+   * progressive @override feature.
+   */
+  overrideConditions?: Map<string, boolean>,
 }
 
 export class QueryPlanner {
   private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
   private _lastGeneratedPlanStatistics: PlanningStatistics | undefined;
-
+  private _defaultOverrideConditions: Map<string, boolean> = new Map();
   // A set of the names of interface types for which at least one subgraph use an @interfaceObject to abstract
   // that interface.
   private readonly interfaceTypesWithInterfaceObjects = new Set<string>();
@@ -2947,6 +2935,7 @@ export class QueryPlanner {
     this.federatedQueryGraph = buildFederatedQueryGraph(supergraph, true);
     this.collectInterfaceTypesWithInterfaceObjects();
     this.collectInconsistentAbstractTypesRuntimes();
+    this.collectAllOverrideLabels();
 
     if (this.config.debug.bypassPlannerForSingleSubgraph && this.config.incrementalDelivery.enableDefer) {
       throw new Error(`Cannot use the "debug.bypassPlannerForSingleSubgraph" query planner option when @defer support is enabled`);
@@ -3004,7 +2993,18 @@ export class QueryPlanner {
     }
   }
 
-  buildQueryPlan(operation: Operation): QueryPlan {
+  private collectAllOverrideLabels() {
+    // inspect every join__field directive application in the supergraph and collect all `overrideLabel` argument values
+    this._defaultOverrideConditions = new Map(
+      this.supergraph.schema.directives()
+        .find((d) => d.name === 'join__field')?.applications()
+        .map((application) => application.arguments().overrideLabel)
+        .filter(Boolean)
+        .map(label => [label, false])
+    );
+  }
+
+  buildQueryPlan(operation: Operation, options?: BuildQueryPlanOptions): QueryPlan {
     if (operation.selectionSet.isEmpty()) {
       return { kind: 'QueryPlan' };
     }
@@ -3083,6 +3083,15 @@ export class QueryPlanner {
       assignedDeferLabels,
     });
 
+    // Default all override conditions to false (not overridden) in case any
+    // aren't provided by the caller
+    const overrideConditions = new Map(this._defaultOverrideConditions);
+    if (options?.overrideConditions) {
+      for (const [label, value] of options.overrideConditions) {
+        overrideConditions.set(label, value);
+      }
+    }
+
     const parameters: PlanningParameters<RootVertex> = {
       supergraphSchema: this.supergraph.schema,
       federatedQueryGraph: this.federatedQueryGraph,
@@ -3092,6 +3101,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
+      overrideConditions,
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
@@ -4271,7 +4281,7 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
   let type = parentType;
   for (const element of path) {
     if (element.kind === 'Field') {
-      const fieldType = baseType(type.field(element.name)?.type!);
+      const fieldType = baseType(type.field(element.name)!.type!);
       assert(isCompositeType(fieldType), () => `Invalid call fro ${path} starting at ${parentType}: ${element.definition.coordinate} is not composite`);
       type = fieldType;
     } else if (element.typeCondition) {

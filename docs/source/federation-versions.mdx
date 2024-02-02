@@ -21,6 +21,168 @@ This article describes notable changes and additions introduced in each minor ve
 
 - **If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/),** consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
 
+## v2.7
+
+<hr/>
+
+<CodeColumns cols="3">
+
+<div>
+
+First release
+
+February 2024
+
+</div>
+
+<div>
+
+Available in GraphOS?
+
+**Yes**
+
+</div>
+
+<div>
+
+Minimum router version
+
+**1.39.0**
+
+</div>
+
+</CodeColumns>
+
+<hr/>
+
+#### Directive changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### Progressive `@override`
+
+</td>
+<td>
+
+Added progressive `@override`. [Learn more.](./federated-types/federated-directives/#progressive-override)
+
+```graphql
+directive @override(from: String!, label: String) on FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## v2.6
+
+<hr/>
+
+<CodeColumns cols="3">
+
+<div>
+
+First release
+
+**November 2023**
+
+</div>
+
+<div>
+
+Available in GraphOS?
+
+**Yes**
+
+</div>
+
+<div>
+
+Minimum router version
+
+**1.35.0**
+
+</div>
+
+</CodeColumns>
+
+<hr/>
+
+#### Directive changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+##### `@policy`
+
+</td>
+<td>
+
+
+Introduced. [Learn more.](/router/configuration/authorization)
+
+```graphql
+directive @policy(policies: [[federation__Policy!]!]!) on
+  | FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Policy
+
+</td>
+<td>
+
+- Custom scalar representing an authorization policy. Used by new `@policy` directive.
+
+</td>
+</tr>
+</tbody>
+</table>
+
 ## v2.5
 
 <hr/>
