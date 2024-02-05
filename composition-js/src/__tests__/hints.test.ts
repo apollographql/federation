@@ -6,7 +6,7 @@ import {
   HINTS,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
-import { composeAsFed2Subgraphs } from './testHelper';
+import { assertCompositionSuccess, composeAsFed2Subgraphs } from './testHelper';
 import { formatExpectedToMatchReceived } from './matchers/toMatchString';
 import { composeServices } from '../compose';
 
@@ -1247,6 +1247,7 @@ describe('when a directive causes an implicit federation version upgrade', () =>
       }
     ]);
 
+    assertCompositionSuccess(result);
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
       'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.7',
@@ -1266,6 +1267,7 @@ describe('when a directive causes an implicit federation version upgrade', () =>
       },
     ]);
 
+    assertCompositionSuccess(result);
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
       'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.7',
@@ -1290,6 +1292,7 @@ describe('when a directive causes an implicit federation version upgrade', () =>
       },
     ]);
 
+    assertCompositionSuccess(result);
     expect(result).toNotRaiseHints();
   });
 })
