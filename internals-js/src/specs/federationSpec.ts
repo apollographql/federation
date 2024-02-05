@@ -44,6 +44,7 @@ export enum FederationDirectiveName {
   SOURCE_API = 'sourceAPI',
   SOURCE_TYPE = 'sourceType',
   SOURCE_FIELD = 'sourceField',
+  FINDER = 'finder',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });

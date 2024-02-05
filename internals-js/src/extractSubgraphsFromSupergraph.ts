@@ -589,12 +589,14 @@ function addSubgraphField({
   subgraph,
   isShareable,
   joinFieldArgs,
+  isFinder,
 }: {
   field: FieldDefinition<ObjectType | InterfaceType>,
   type: ObjectType | InterfaceType,
   subgraph: Subgraph,
   isShareable: boolean,
   joinFieldArgs?: JoinFieldDirectiveArguments,
+  isFinder?: boolean,
 }): FieldDefinition<ObjectType | InterfaceType> {
   const copiedFieldType = joinFieldArgs?.type
     ? decodeType(joinFieldArgs.type, subgraph.schema, subgraph.name)
@@ -627,7 +629,7 @@ function addSubgraphField({
   if (isShareable && !external && !usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
-  if (args.isFinder) {
+  if (isFinder) {
     const finderDirective = subgraph.metadata().finderDirective();
     assert(isFederationDirectiveDefinedInSchema(finderDirective), 'Finder directive does not exist');
     subgraphField.applyDirective(finderDirective);

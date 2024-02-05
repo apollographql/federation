@@ -1,5 +1,6 @@
 import { Supergraph, InputObjectType, ObjectType } from "..";
 import { FieldDefinition } from '../definitions';
+import { extractSubgraphsFromSupergraph } from '../extractSubgraphsFromSupergraph';
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
   /*

@@ -48,6 +48,7 @@ export type JoinFieldDirectiveArguments = {
   external?: boolean,
   usedOverridden?: boolean,
   overrideLabel?: string,
+  isFinder?: boolean,
 }
 
 export type JoinDirectiveArguments = {
